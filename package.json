@@ -1,0 +1,64 @@
+{
+  "name": "agent-desk",
+  "productName": "AgentDesk",
+  "version": "0.2.0",
+  "description": "A desk for every Claude and Codex identity — isolate multiple account logins, index their local sessions, and hand off context in one click.",
+  "main": "src/main.js",
+  "author": "hupo",
+  "license": "MIT",
+  "private": true,
+  "homepage": "https://github.com/shuqianglin1997/agent-desk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shuqianglin1997/agent-desk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shuqianglin1997/agent-desk/issues"
+  },
+  "scripts": {
+    "start": "electron .",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:dir": "electron-builder --dir",
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.hupo.agentdesk",
+    "productName": "AgentDesk",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  }
+}

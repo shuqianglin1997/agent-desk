@@ -1,0 +1,801 @@
+/*
+ * AgentDesk — porcelain UI
+ *
+ * Original stylesheet inspired by a "precision porcelain" aesthetic:
+ * cool off-white glass chrome, an electric accent, solid hairline borders,
+ * tight geometry, soft diffuse shadows, and a graphite dark theme.
+ * Self-contained: system fonts only, no external assets.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* surfaces (by elevation) */
+  --surface-canvas: oklch(94% 0.005 250);
+  --surface-glass: oklch(99% 0.002 250 / 0.82);
+  --surface-raised: oklch(99.3% 0.002 250);
+  --surface-float: oklch(99.6% 0.002 250);
+  --surface-sunken: oklch(30% 0.014 250 / 0.05);
+
+  /* ink (by priority) */
+  --ink-primary: oklch(22% 0.014 252);
+  --ink-secondary: oklch(38% 0.013 252);
+  --ink-tertiary: oklch(50% 0.012 252);
+  --ink-disabled: oklch(70% 0.008 252);
+  --ink-on-accent: oklch(99% 0.003 250);
+
+  /* structural lines (solid, three tiers) */
+  --line-soft: oklch(90% 0.006 250);
+  --line-mid: oklch(84.5% 0.008 250);
+  --line-strong: oklch(70% 0.01 250);
+
+  /* accent (electric azure) */
+  --accent: oklch(54% 0.165 250);
+  --accent-700: oklch(46% 0.15 250);
+  --accent-wash: oklch(from var(--accent) l c h / 0.1);
+  --accent-tint: oklch(from var(--accent) l c h / 0.16);
+
+  /* semantic */
+  --success: oklch(52% 0.13 152);
+  --success-wash: oklch(60% 0.135 152 / 0.14);
+  --success-line: oklch(72% 0.09 152);
+  --warn: oklch(52% 0.11 66);
+  --warn-wash: oklch(70% 0.135 78 / 0.16);
+  --warn-line: oklch(74% 0.11 72);
+  --danger: oklch(54% 0.18 26);
+
+  /* interaction wash */
+  --hover-wash: oklch(35% 0.015 250 / 0.05);
+
+  /* radii */
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+
+  /* shadows (diffuse, halved) */
+  --shadow-raised: 0 1px 1px oklch(28% 0.01 250 / 0.05), 0 4px 10px -6px oklch(28% 0.015 250 / 0.12);
+  --shadow-panel: 0 1px 1px oklch(28% 0.01 250 / 0.04), 0 8px 20px -14px oklch(28% 0.02 250 / 0.2);
+  --shadow-overlay: 0 2px 4px oklch(28% 0.01 250 / 0.07), 0 24px 56px -20px oklch(28% 0.02 250 / 0.34);
+  --edge-highlight: inset 0 1px 0 oklch(100% 0 0 / 0.5);
+
+  /* type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --glass-blur: 10px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-canvas: oklch(16.5% 0.012 256);
+  --surface-glass: oklch(23% 0.014 254 / 0.78);
+  --surface-raised: oklch(25.5% 0.014 255);
+  --surface-float: oklch(27% 0.014 255);
+  --surface-sunken: oklch(0% 0 0 / 0.26);
+
+  --ink-primary: oklch(95.5% 0.006 250);
+  --ink-secondary: oklch(81% 0.009 250);
+  --ink-tertiary: oklch(65% 0.011 250);
+  --ink-disabled: oklch(42% 0.008 250);
+  --ink-on-accent: oklch(19% 0.014 254);
+
+  --line-soft: oklch(30% 0.01 254);
+  --line-mid: oklch(36% 0.012 254);
+  --line-strong: oklch(50% 0.014 254);
+
+  --accent: oklch(72% 0.14 252);
+  --accent-700: oklch(79% 0.12 252);
+  --accent-wash: oklch(from var(--accent) l c h / 0.14);
+  --accent-tint: oklch(from var(--accent) l c h / 0.22);
+
+  --success: oklch(78% 0.11 152);
+  --success-wash: oklch(70% 0.125 152 / 0.16);
+  --success-line: oklch(50% 0.09 152);
+  --warn: oklch(82% 0.1 78);
+  --warn-wash: oklch(76% 0.125 78 / 0.18);
+  --warn-line: oklch(52% 0.1 72);
+  --danger: oklch(64% 0.16 26);
+
+  --hover-wash: oklch(92% 0.01 250 / 0.06);
+
+  --shadow-raised: 0 1px 1px oklch(0% 0 0 / 0.3), 0 5px 12px -8px oklch(0% 0 0 / 0.4);
+  --shadow-panel: 0 1px 1px oklch(0% 0 0 / 0.28), 0 10px 24px -16px oklch(0% 0 0 / 0.5);
+  --shadow-overlay: 0 2px 4px oklch(0% 0 0 / 0.4), 0 28px 64px -22px oklch(0% 0 0 / 0.66);
+  --edge-highlight: inset 0 1px 0 oklch(100% 0 0 / 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  color: var(--ink-primary);
+  background: var(--surface-canvas);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent-tint);
+}
+
+/* thin, quiet scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ink-primary) 22%, transparent) content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--ink-primary) 34%, transparent) content-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--ink-primary);
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-sm);
+  padding: 0 12px;
+  color: var(--ink-secondary);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-raised);
+  cursor: default;
+  white-space: nowrap;
+  transition: background 120ms cubic-bezier(0.2, 0, 0, 1), border-color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: color-mix(in oklab, var(--surface-raised) 90%, var(--ink-primary));
+  color: var(--ink-primary);
+}
+
+button:active:not(:disabled) {
+  box-shadow: none;
+}
+
+button:disabled {
+  color: var(--ink-disabled);
+  background: var(--surface-raised);
+  border-color: var(--line-soft);
+  box-shadow: none;
+}
+
+button.primary {
+  color: var(--ink-on-accent);
+  border-color: transparent;
+  background: var(--accent);
+  box-shadow: var(--shadow-raised), var(--edge-highlight);
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-700);
+  color: var(--ink-on-accent);
+}
+
+button.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in oklab, var(--surface-raised) 88%, var(--danger));
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 288px minmax(720px, 1fr);
+  height: 100vh;
+}
+
+/* ── sidebar (glass chrome) ─────────────────────────── */
+.sidebar {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 14px;
+  padding: 20px 12px 14px 16px;
+  background: var(--surface-glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.1);
+  border-right: 1px solid var(--line-mid);
+  min-width: 0;
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.sidebar-head h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sidebar-head p {
+  margin: 3px 0 0;
+  color: var(--ink-tertiary);
+  font-size: 10.5px;
+}
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.account-row {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  box-shadow: none;
+  height: auto;
+}
+
+.account-row:hover:not(.selected) {
+  background: var(--hover-wash);
+  border-color: transparent;
+}
+
+.account-row.selected {
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--line-mid));
+  background: var(--accent-wash);
+  box-shadow: none;
+}
+
+.account-row.selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.account-row .account-app {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-tertiary);
+}
+
+.account-row.selected .account-app {
+  color: var(--accent);
+}
+
+.account-row strong,
+.account-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-row strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-primary);
+}
+
+.account-row small {
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.sidebar-actions,
+.account-actions,
+.inspector-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sidebar-actions button {
+  flex: 1;
+  padding: 0 8px;
+}
+
+/* compact theme toggle */
+.icon-toggle {
+  height: 24px;
+  width: 28px;
+  padding: 0;
+  font-size: 13px;
+  color: var(--ink-tertiary);
+}
+
+/* ── workspace ──────────────────────────────────────── */
+.workspace {
+  display: grid;
+  grid-template-rows: auto 1fr 28px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-canvas);
+}
+
+.account-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 24px 14px 26px;
+  border-bottom: 1px solid var(--line-mid);
+  background: var(--surface-glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.1);
+}
+
+.account-heading {
+  min-width: 0;
+}
+
+.account-heading h2 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-heading p {
+  margin: 4px 0 0;
+  color: var(--ink-tertiary);
+  font-size: 11px;
+}
+
+.account-heading code {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-actions {
+  align-items: center;
+  white-space: nowrap;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: minmax(480px, 1fr) 328px;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── session table ──────────────────────────────────── */
+.session-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px 18px 14px 22px;
+}
+
+.session-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 240px);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.session-toolbar h3 {
+  display: inline;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.session-toolbar span {
+  margin-left: 8px;
+  color: var(--ink-tertiary);
+  font-size: 11px;
+}
+
+input[type="search"],
+input[type="text"],
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--ink-primary);
+}
+
+input[type="search"],
+input[type="text"],
+select {
+  height: 28px;
+  padding: 0 10px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-tertiary);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+textarea {
+  resize: vertical;
+  padding: 8px 10px;
+}
+
+.table-wrap {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: color-mix(in oklab, var(--surface-raised) 82%, var(--surface-canvas));
+  backdrop-filter: blur(6px);
+}
+
+th,
+td {
+  height: 32px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line-soft);
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+th {
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+tbody tr {
+  background: transparent;
+  cursor: default;
+}
+
+tbody tr:hover {
+  background: var(--hover-wash);
+}
+
+tbody tr.selected {
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.col-title {
+  width: 32%;
+}
+
+.col-project {
+  width: 26%;
+}
+
+.title-cell {
+  font-weight: 600;
+  color: var(--ink-primary);
+}
+
+tbody tr.selected .title-cell {
+  color: var(--accent);
+}
+
+.mono,
+.inspector dd.mono {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.path-cell {
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.empty-row td {
+  height: 84px;
+  color: var(--ink-tertiary);
+  text-align: center;
+}
+
+/* ── inspector ──────────────────────────────────────── */
+.inspector {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  min-height: 0;
+  padding: 16px 18px;
+  border-left: 1px solid var(--line-mid);
+  background: color-mix(in oklab, var(--surface-canvas) 60%, var(--surface-raised));
+}
+
+.inspector h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.inspector dl {
+  min-height: 0;
+  margin: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.inspector dt {
+  margin: 0 0 3px;
+  color: var(--ink-tertiary);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inspector dd {
+  margin: 0 0 12px;
+  max-height: 52px;
+  overflow: hidden;
+  color: var(--ink-primary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.inspector-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.inspector-actions .primary {
+  grid-column: span 2;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0 20px;
+  border-top: 1px solid var(--line-mid);
+  background: var(--surface-glass);
+  backdrop-filter: blur(var(--glass-blur));
+  color: var(--ink-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── dialogs (solid porcelain floats) ───────────────── */
+dialog {
+  width: 440px;
+  padding: 0;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-lg);
+  color: var(--ink-primary);
+  background: var(--surface-float);
+  box-shadow: var(--shadow-overlay);
+}
+
+.wide-dialog {
+  width: min(720px, calc(100vw - 64px));
+}
+
+dialog::backdrop {
+  background: oklch(12% 0.01 250 / 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.dialog-body {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+
+.dialog-body h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.dialog-body label {
+  display: grid;
+  gap: 6px;
+  color: var(--ink-secondary);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.dialog-body label input,
+.dialog-body label select,
+.dialog-body label textarea {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.path-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+/* ── diagnostics ────────────────────────────────────── */
+.diagnostics-body {
+  display: grid;
+  gap: 12px;
+  max-height: min(520px, calc(100vh - 180px));
+  overflow-y: auto;
+}
+
+.diagnostics-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diagnostic-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  border: 1px solid var(--line-mid);
+  border-radius: 999px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.diagnostic-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.diagnostic-badge.ok {
+  color: var(--success);
+  border-color: var(--success-line);
+  background: var(--success-wash);
+}
+
+.diagnostic-badge.warn {
+  color: var(--warn);
+  border-color: var(--warn-line);
+  background: var(--warn-wash);
+}
+
+.diagnostics-warnings {
+  margin: 0;
+  padding: 10px 12px 10px 28px;
+  border: 1px solid var(--warn-line);
+  border-radius: var(--radius-md);
+  color: var(--warn);
+  background: var(--warn-wash);
+  font-size: 11.5px;
+}
+
+.diagnostics-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-raised);
+}
+
+.diagnostics-table th,
+.diagnostics-table td {
+  height: auto;
+  padding: 8px 12px;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--line-soft);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.diagnostics-table tr:last-child th,
+.diagnostics-table tr:last-child td {
+  border-bottom: none;
+}
+
+.diagnostics-table th {
+  width: 112px;
+  color: var(--ink-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-sunken);
+}
+
+.diagnostics-table td {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}

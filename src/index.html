@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AgentDesk</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <header class="sidebar-head">
+          <div>
+            <h1>AgentDesk</h1>
+            <p>Claude / Codex 本地槽位</p>
+          </div>
+          <button id="themeToggle" class="icon-toggle" type="button" title="切换深色 / 浅色">◐</button>
+        </header>
+
+        <div id="accountList" class="account-list" aria-label="账号列表"></div>
+
+        <footer class="sidebar-actions">
+          <button id="addProfileBtn">新增</button>
+          <button id="renameProfileBtn">重命名</button>
+          <button id="removeProfileBtn">移除</button>
+        </footer>
+      </aside>
+
+      <main class="workspace">
+        <section class="account-bar">
+          <div class="account-heading">
+            <h2 id="accountTitle">未选择账号</h2>
+            <p id="accountMeta"></p>
+            <code id="accountPath"></code>
+          </div>
+
+          <div class="account-actions">
+            <button id="launchBtn" class="primary">打开账号</button>
+            <button id="pathConfigBtn">路径</button>
+            <button id="diagnosticsBtn">诊断</button>
+            <button id="profileFolderBtn">位置</button>
+            <button id="refreshBtn">刷新</button>
+          </div>
+        </section>
+
+        <div class="main-grid">
+          <section class="session-pane">
+            <div class="session-toolbar">
+              <div>
+                <h3>会话</h3>
+                <span id="sessionCount">0 个</span>
+              </div>
+              <input id="searchInput" type="search" placeholder="搜索标题、项目或 ID" />
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="col-title">标题</th>
+                    <th>活跃</th>
+                    <th>新建</th>
+                    <th class="col-project">项目目录</th>
+                    <th>来源</th>
+                  </tr>
+                </thead>
+                <tbody id="sessionRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <aside class="inspector">
+            <h3>会话详情</h3>
+            <dl>
+              <dt>标题</dt>
+              <dd id="detailTitle">未选择</dd>
+              <dt>线程 ID</dt>
+              <dd id="detailId">-</dd>
+              <dt>新建</dt>
+              <dd id="detailCreated">-</dd>
+              <dt>活跃</dt>
+              <dd id="detailUpdated">-</dd>
+              <dt>来源</dt>
+              <dd id="detailSource">-</dd>
+              <dt>项目</dt>
+              <dd id="detailProject">-</dd>
+              <dt>文件</dt>
+              <dd id="detailFile">-</dd>
+              <dt>地址</dt>
+              <dd id="detailAddress">-</dd>
+            </dl>
+
+            <div class="inspector-actions">
+              <button id="copySummaryBtn" class="primary">复制交接信息</button>
+              <button id="copyAddressBtn">复制地址</button>
+              <button id="copyProjectBtn">复制项目</button>
+              <button id="openSessionFileBtn">打开文件</button>
+            </div>
+          </aside>
+        </div>
+
+        <footer id="statusBar" class="status-bar">就绪</footer>
+      </main>
+    </div>
+
+    <dialog id="profileDialog">
+      <form method="dialog" class="dialog-body">
+        <h3>新增账号槽位</h3>
+        <label>
+          应用
+          <select id="newProfileApp">
+            <option value="claude">Claude</option>
+            <option value="codex">Codex</option>
+          </select>
+        </label>
+        <label>
+          名称
+          <input id="newProfileName" type="text" placeholder="例如：Claude 工作号" />
+        </label>
+        <div class="dialog-actions">
+          <button value="cancel">取消</button>
+          <button id="confirmAddProfileBtn" value="default" class="primary">创建</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="pathDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3>路径设置</h3>
+        <label>
+          账号数据目录
+          <div class="path-input-row">
+            <input id="profilePathInput" type="text" />
+            <button id="pickProfilePathBtn" type="button">选择</button>
+          </div>
+        </label>
+        <label>
+          会话根目录
+          <div class="path-input-row">
+            <input id="sessionRootInput" type="text" />
+            <button id="pickSessionRootBtn" type="button">选择</button>
+          </div>
+        </label>
+        <div class="dialog-actions">
+          <button value="cancel">取消</button>
+          <button id="confirmPathBtn" value="default" class="primary">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="diagnosticsDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3>诊断</h3>
+        <div id="diagnosticsBody" class="diagnostics-body"></div>
+        <div class="dialog-actions">
+          <button id="copyDiagnosticsBtn" type="button">复制诊断</button>
+          <button value="default" class="primary">关闭</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
