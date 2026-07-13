@@ -52,12 +52,12 @@ jobs:
         shell: bash
         run: |
           echo '----- build.log (tail) -----'
-          tail -60 build.log || true
-          # Emit key lines as GitHub error annotations, which are visible on the
+          tail -80 build.log || true
+          # Emit the last log lines as GitHub error annotations, visible on the
           # public run summary without sign-in (so failures can be diagnosed).
-          grep -niE 'error|✗|⨯|fail|hdiutil|dmg|cannot|denied|enoent|no mountable|exit code|npm err|electron' build.log 2>/dev/null | tail -12 | while IFS= read -r line; do
+          tail -10 build.log | while IFS= read -r line; do
             clean=$(printf '%s' "$line" | tr -d '\r' | cut -c1-400)
-            printf '::error::%s\n' "$clean"
+            [ -n "$clean" ] && printf '::error::%s\n' "$clean"
           done || true
 
       - name: Upload artifacts
