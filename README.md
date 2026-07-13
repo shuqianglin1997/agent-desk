@@ -82,6 +82,7 @@ Requires [Node.js](https://nodejs.org/) 20+.
 ```bash
 npm install
 npm start              # run in dev mode
+npm test               # run the session-scanner test suite
 
 npm run build:mac      # → universal .dmg in release/
 npm run build:win      # → portable .exe in release/
@@ -183,6 +184,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 ```bash
 npm install
 npm start              # 开发模式运行
+npm test               # 跑会话扫描测试
 
 npm run build:mac      # → release/ 下生成 universal .dmg
 npm run build:win      # → release/ 下生成便携版 .exe
