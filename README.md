@@ -27,6 +27,7 @@ If you use more than one Claude or Codex account — a work account, a personal 
 Each pain above maps to one thing AgentDesk gives you:
 
 - **Isolated account slots.** Each slot is its own local data directory. AgentDesk launches the official Claude / Codex app pointed at that directory, so **multiple accounts coexist — no collisions, no constant re-login.**
+- **Notes & groups.** Give any slot a free-text note and drop it into a group (Work / Personal / Spare…). The sidebar organizes accounts by group — manage them like a contact list.
 - **Automatic session index.** It scans each account's session files and lists them in one table — title, last active, created, project directory, source — with search across title / project / thread ID. **Find any old session in seconds.**
 - **One-click context handoff.** Select a session, hit *Copy handoff*, and paste into a new chat. It copies **metadata only, never the full transcript** — so nothing private leaks by accident.
 - **Diagnostics.** A panel that explains *why* a session won't show up or an app won't launch: does the path exist, is it readable/writable, was the official app found, which locations were scanned, how many sessions matched, where the config lives.
@@ -139,6 +140,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 上面每一个痛点，都对应它给你的一样东西：
 
 - **独立账号槽位。** 每个槽位是一份独立的本地数据目录，AgentDesk 用该目录启动官方 App —— **多号并存、不串号、不用反复登录。**
+- **备注与分组。** 给任意槽位加自由备注、丢进分组（工作 / 个人 / 备用……），侧栏按分组归拢账号，像通讯录一样管理。
 - **自动会话索引。** 扫描每个账号的会话文件，汇成一张表：标题 / 最后活跃 / 新建 / 项目目录 / 来源，可按标题、项目、线程 ID 搜索。**几秒钟找到任何旧会话。**
 - **一键交接上下文。** 选中会话点「复制交接信息」，粘到新对话即可。**只复制元信息，不含完整对话** —— 隐私不会被误传。
 - **诊断面板。** 解释「为什么读不到会话 / 打不开 App」：路径在不在、可不可读写、官方 App 找没找到、扫了哪些位置、匹配到几条会话、配置文件在哪。

@@ -95,7 +95,9 @@ macOS 当前示例：
       "sessionRoot": "...",
       "isProtected": true,
       "createdAt": "...",
-      "lastLaunchedAt": null
+      "lastLaunchedAt": null,
+      "group": "",
+      "note": ""
     }
   ]
 }

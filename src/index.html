@@ -21,7 +21,7 @@
 
         <footer class="sidebar-actions">
           <button id="addProfileBtn">新增</button>
-          <button id="renameProfileBtn">重命名</button>
+          <button id="editProfileBtn">编辑</button>
           <button id="removeProfileBtn">移除</button>
         </footer>
       </aside>
@@ -32,6 +32,7 @@
             <h2 id="accountTitle">未选择账号</h2>
             <p id="accountMeta"></p>
             <code id="accountPath"></code>
+            <p id="accountNote" class="account-note"></p>
           </div>
 
           <div class="account-actions">
@@ -117,9 +118,39 @@
           名称
           <input id="newProfileName" type="text" placeholder="例如：Claude 工作号" />
         </label>
+        <label>
+          分组
+          <input id="newProfileGroup" type="text" list="groupOptions" placeholder="可选，例如：工作 / 个人 / 备用" />
+        </label>
+        <label>
+          备注
+          <textarea id="newProfileNote" rows="2" placeholder="可选，给这个账号加点说明"></textarea>
+        </label>
         <div class="dialog-actions">
           <button value="cancel">取消</button>
           <button id="confirmAddProfileBtn" value="default" class="primary">创建</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="editDialog">
+      <form method="dialog" class="dialog-body">
+        <h3>编辑账号槽位</h3>
+        <label>
+          名称
+          <input id="editName" type="text" />
+        </label>
+        <label>
+          分组
+          <input id="editGroup" type="text" list="groupOptions" placeholder="留空 = 未分组" />
+        </label>
+        <label>
+          备注
+          <textarea id="editNote" rows="3" placeholder="给这个账号加点备注……"></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button value="cancel">取消</button>
+          <button id="confirmEditBtn" value="default" class="primary">保存</button>
         </div>
       </form>
     </dialog>
@@ -158,6 +189,8 @@
         </div>
       </form>
     </dialog>
+
+    <datalist id="groupOptions"></datalist>
 
     <script src="./renderer.js"></script>
   </body>
