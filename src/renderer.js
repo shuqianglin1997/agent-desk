@@ -10,6 +10,7 @@ const state = {
 const els = {
   accountList: document.querySelector('#accountList'),
   themeToggle: document.querySelector('#themeToggle'),
+  helpBtn: document.querySelector('#helpBtn'),
   addProfileBtn: document.querySelector('#addProfileBtn'),
   editProfileBtn: document.querySelector('#editProfileBtn'),
   removeProfileBtn: document.querySelector('#removeProfileBtn'),
@@ -50,6 +51,7 @@ const els = {
   editNote: document.querySelector('#editNote'),
   confirmEditBtn: document.querySelector('#confirmEditBtn'),
   groupOptions: document.querySelector('#groupOptions'),
+  welcomeDialog: document.querySelector('#welcomeDialog'),
   pathDialog: document.querySelector('#pathDialog'),
   profilePathInput: document.querySelector('#profilePathInput'),
   sessionRootInput: document.querySelector('#sessionRootInput'),
@@ -67,12 +69,19 @@ window.addEventListener('DOMContentLoaded', () => {
   initTheme();
   bindEvents();
   loadProfiles();
+  maybeShowWelcome();
 });
 
 function initTheme() {
   const saved = localStorage.getItem('agentdesk-theme');
   const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = theme;
+}
+
+function maybeShowWelcome() {
+  if (localStorage.getItem('agentdesk-welcomed')) return;
+  localStorage.setItem('agentdesk-welcomed', '1');
+  els.welcomeDialog.showModal();
 }
 
 function bindEvents() {
@@ -162,6 +171,10 @@ function bindEvents() {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     localStorage.setItem('agentdesk-theme', next);
+  });
+
+  els.helpBtn.addEventListener('click', () => {
+    els.welcomeDialog.showModal();
   });
 
   els.pathConfigBtn.addEventListener('click', () => {
@@ -419,8 +432,8 @@ function renderSessions() {
     const cell = document.createElement('td');
     cell.colSpan = 5;
     cell.textContent = state.sessions.length
-      ? '没有匹配的会话。'
-      : '没有读到会话。点“诊断”检查会话根目录。';
+      ? '没有匹配的会话，换个关键词试试。'
+      : '这个账号还没有会话。点「打开账号」登录官方 App，用过之后会话会自动出现在这里；读不到时可点「诊断」。';
     row.append(cell);
     els.sessionRows.append(row);
     return;
