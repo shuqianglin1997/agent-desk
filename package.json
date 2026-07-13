@@ -20,7 +20,8 @@
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
     "build:dir": "electron-builder --dir",
-    "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js"
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/sessions.js",
+    "test": "node --test"
   },
   "devDependencies": {
     "electron": "^31.7.7",

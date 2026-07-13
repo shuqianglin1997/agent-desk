@@ -63,11 +63,13 @@ agent-desk/
   release/             打包产物
   scripts/             维护脚本
   src/
-    main.js            Electron 主进程，本地文件/启动/扫描/诊断
+    main.js            Electron 主进程，本地文件/启动/诊断/IPC
+    sessions.js        会话扫描（纯 Node，可单元测试）
     preload.js         安全桥接 IPC
     renderer.js        UI 状态与交互
     index.html         页面结构
     styles.css         界面样式
+  test/                会话扫描单元测试（node --test）
   package.json         npm 脚本和 electron-builder 配置
 ```
 
@@ -114,7 +116,7 @@ macOS 当前示例：
 - 读写 `profiles.json`
 - 创建新槽位目录
 - 启动 Claude / Codex 官方 App
-- 扫描 Claude / Codex 会话
+- 扫描 Claude / Codex 会话（逻辑在 `sessions.js`，主进程调用）
 - 打开 Finder / Explorer
 - 写入剪贴板
 - 选择目录
@@ -195,13 +197,15 @@ archived_sessions/**/*.jsonl
 
 ```text
 id: payload.id -> payload.session_id -> 文件名 UUID -> 文件名
-title: session_index.thread_name -> payload.title -> Codex 会话 <id前8位>
+title: session_index.thread_name（按 session_id 关联）-> payload.title -> Codex 会话 <id前8位>
 createdAt: 第一行 timestamp -> 文件创建时间
 updatedAt: session_index.updated_at -> 文件修改时间
 projectPath: payload.cwd -> payload.current_dir
 model: payload.model -> payload.model_provider
 status: archived_sessions 内为已归档，否则可用
 ```
+
+注意：`session_index.jsonl` 用 `session_id` 做键，而它和 `payload.id` 在多数 rollout 里并不相同，所以关联标题必须用 `session_id`，否则大部分会话读不到标题。
 
 ## 启动官方 App
 
@@ -277,6 +281,16 @@ Windows 真机需要继续验证 Claude / Codex 官方安装器实际落点。
 
 请基于这些信息判断这个会话在做什么，并继续处理。
 ```
+
+## 测试
+
+会话扫描逻辑抽到 `sessions.js`（纯 Node，不依赖 Electron），可直接单元测试：
+
+```bash
+npm test
+```
+
+覆盖字段解析、Claude / Codex 夹具扫描、容错，以及一条针对真实 `~/.codex` 的冒烟测试（本机数据缺失时自动跳过）。
 
 ## 打包
 
