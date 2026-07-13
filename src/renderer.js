@@ -11,7 +11,7 @@ const els = {
   accountList: document.querySelector('#accountList'),
   themeToggle: document.querySelector('#themeToggle'),
   addProfileBtn: document.querySelector('#addProfileBtn'),
-  renameProfileBtn: document.querySelector('#renameProfileBtn'),
+  editProfileBtn: document.querySelector('#editProfileBtn'),
   removeProfileBtn: document.querySelector('#removeProfileBtn'),
   launchBtn: document.querySelector('#launchBtn'),
   pathConfigBtn: document.querySelector('#pathConfigBtn'),
@@ -21,6 +21,7 @@ const els = {
   accountTitle: document.querySelector('#accountTitle'),
   accountMeta: document.querySelector('#accountMeta'),
   accountPath: document.querySelector('#accountPath'),
+  accountNote: document.querySelector('#accountNote'),
   sessionCount: document.querySelector('#sessionCount'),
   searchInput: document.querySelector('#searchInput'),
   sessionRows: document.querySelector('#sessionRows'),
@@ -40,7 +41,15 @@ const els = {
   profileDialog: document.querySelector('#profileDialog'),
   newProfileApp: document.querySelector('#newProfileApp'),
   newProfileName: document.querySelector('#newProfileName'),
+  newProfileGroup: document.querySelector('#newProfileGroup'),
+  newProfileNote: document.querySelector('#newProfileNote'),
   confirmAddProfileBtn: document.querySelector('#confirmAddProfileBtn'),
+  editDialog: document.querySelector('#editDialog'),
+  editName: document.querySelector('#editName'),
+  editGroup: document.querySelector('#editGroup'),
+  editNote: document.querySelector('#editNote'),
+  confirmEditBtn: document.querySelector('#confirmEditBtn'),
+  groupOptions: document.querySelector('#groupOptions'),
   pathDialog: document.querySelector('#pathDialog'),
   profilePathInput: document.querySelector('#profilePathInput'),
   sessionRootInput: document.querySelector('#sessionRootInput'),
@@ -70,6 +79,8 @@ function bindEvents() {
   els.addProfileBtn.addEventListener('click', () => {
     els.newProfileApp.value = 'claude';
     els.newProfileName.value = '';
+    els.newProfileGroup.value = '';
+    els.newProfileNote.value = '';
     els.profileDialog.showModal();
     els.newProfileName.focus();
   });
@@ -83,21 +94,43 @@ function bindEvents() {
     }
     const profile = await window.manager.addProfile({
       appId: els.newProfileApp.value,
-      name
+      name,
+      group: els.newProfileGroup.value,
+      note: els.newProfileNote.value
     });
     els.profileDialog.close();
     await loadProfiles(profile.id);
     setStatus(`已创建 ${profile.name}。`);
   });
 
-  els.renameProfileBtn.addEventListener('click', async () => {
+  els.editProfileBtn.addEventListener('click', () => {
     const profile = selectedProfile();
     if (!profile) return;
-    const name = window.prompt('重命名账号槽位', profile.name);
-    if (!name || !name.trim()) return;
-    await window.manager.updateProfile({ id: profile.id, name: name.trim() });
+    els.editName.value = profile.name;
+    els.editGroup.value = profile.group || '';
+    els.editNote.value = profile.note || '';
+    els.editDialog.showModal();
+    els.editName.focus();
+  });
+
+  els.confirmEditBtn.addEventListener('click', async (event) => {
+    event.preventDefault();
+    const profile = selectedProfile();
+    if (!profile) return;
+    const name = els.editName.value.trim();
+    if (!name) {
+      setStatus('名称不能为空。');
+      return;
+    }
+    await window.manager.updateProfile({
+      id: profile.id,
+      name,
+      group: els.editGroup.value,
+      note: els.editNote.value
+    });
+    els.editDialog.close();
     await loadProfiles(profile.id);
-    setStatus('已重命名。');
+    setStatus('已保存备注和分组。');
   });
 
   els.removeProfileBtn.addEventListener('click', async () => {
@@ -272,26 +305,78 @@ function applySessionFilter(selectFirst = false) {
 function renderAccounts() {
   els.accountList.replaceChildren();
 
-  for (const profile of state.profiles) {
-    const button = document.createElement('button');
-    button.className = `account-row ${profile.id === state.selectedProfileId ? 'selected' : ''}`;
-    button.type = 'button';
-    button.innerHTML = `
-      <span class="account-app">${profile.appId === 'codex' ? 'Codex' : 'Claude'}</span>
-      <strong></strong>
-      <small></small>
-    `;
-    button.querySelector('strong').textContent = profile.name;
-    button.querySelector('small').textContent = shortPath(profile.profilePath);
-    button.addEventListener('click', async () => {
-      state.selectedProfileId = profile.id;
-      state.query = '';
-      els.searchInput.value = '';
-      renderAccounts();
-      renderAccountHeader();
-      await loadSessions(true);
-    });
-    els.accountList.append(button);
+  if (state.profiles.some((profile) => profile.group)) {
+    for (const [groupName, profiles] of groupProfiles(state.profiles)) {
+      const header = document.createElement('div');
+      header.className = 'group-header';
+      const label = document.createElement('span');
+      label.textContent = groupName || '未分组';
+      const count = document.createElement('span');
+      count.className = 'group-count';
+      count.textContent = String(profiles.length);
+      header.append(label, count);
+      els.accountList.append(header);
+      profiles.forEach(appendAccountRow);
+    }
+  } else {
+    state.profiles.forEach(appendAccountRow);
+  }
+
+  populateGroupDatalist();
+}
+
+function appendAccountRow(profile) {
+  const button = document.createElement('button');
+  button.className = `account-row ${profile.id === state.selectedProfileId ? 'selected' : ''}`;
+  button.type = 'button';
+  button.innerHTML = `
+    <span class="account-app"></span>
+    <strong></strong>
+    <small></small>
+  `;
+  button.querySelector('.account-app').textContent = profile.appId === 'codex' ? 'Codex' : 'Claude';
+  button.querySelector('strong').textContent = profile.name;
+  const small = button.querySelector('small');
+  if (profile.note) {
+    small.textContent = profile.note;
+    small.classList.add('is-note');
+  } else {
+    small.textContent = shortPath(profile.profilePath);
+  }
+  button.addEventListener('click', async () => {
+    state.selectedProfileId = profile.id;
+    state.query = '';
+    els.searchInput.value = '';
+    renderAccounts();
+    renderAccountHeader();
+    await loadSessions(true);
+  });
+  els.accountList.append(button);
+}
+
+function groupProfiles(profiles) {
+  const map = new Map();
+  for (const profile of profiles) {
+    const key = profile.group || '';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(profile);
+  }
+  return [...map.entries()].sort(([a], [b]) => {
+    if (a === b) return 0;
+    if (a === '') return 1;
+    if (b === '') return -1;
+    return a.localeCompare(b, 'zh-CN');
+  });
+}
+
+function populateGroupDatalist() {
+  const groups = [...new Set(state.profiles.map((profile) => profile.group).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  els.groupOptions.replaceChildren();
+  for (const group of groups) {
+    const option = document.createElement('option');
+    option.value = group;
+    els.groupOptions.append(option);
   }
 }
 
@@ -304,19 +389,24 @@ function renderAccountHeader() {
   els.diagnosticsBtn.disabled = disabled;
   els.profileFolderBtn.disabled = disabled;
   els.refreshBtn.disabled = disabled;
-  els.renameProfileBtn.disabled = disabled;
+  els.editProfileBtn.disabled = disabled;
   els.removeProfileBtn.disabled = disabled || profile?.isProtected;
 
   if (!profile) {
     els.accountTitle.textContent = '未选择账号';
     els.accountMeta.textContent = '';
     els.accountPath.textContent = '';
+    els.accountNote.textContent = '';
+    els.accountNote.style.display = 'none';
     return;
   }
 
   els.accountTitle.textContent = profile.name;
-  els.accountMeta.textContent = `${profile.appId === 'codex' ? 'Codex' : 'Claude'} · ${profile.isProtected ? '默认槽位' : '独立槽位'} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
+  const groupLabel = profile.group ? ` · ${profile.group}` : '';
+  els.accountMeta.textContent = `${profile.appId === 'codex' ? 'Codex' : 'Claude'} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
   els.accountPath.textContent = `账号 ${shortPath(profile.profilePath)} · 会话 ${shortPath(profile.sessionRoot)}`;
+  els.accountNote.textContent = profile.note || '';
+  els.accountNote.style.display = profile.note ? '' : 'none';
 }
 
 function renderSessions() {

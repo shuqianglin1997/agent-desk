@@ -58,7 +58,9 @@ function registerIpc() {
       sessionRoot: defaultSessionRoot(appId, profilePath, false),
       isProtected: false,
       createdAt: new Date().toISOString(),
-      lastLaunchedAt: null
+      lastLaunchedAt: null,
+      group: input.group,
+      note: input.note
     });
 
     ensureDir(profile.profilePath);
@@ -77,6 +79,8 @@ function registerIpc() {
     if (typeof input.name === 'string') next.name = input.name.trim() || next.name;
     if (typeof input.profilePath === 'string') next.profilePath = input.profilePath.trim() || next.profilePath;
     if (typeof input.sessionRoot === 'string') next.sessionRoot = input.sessionRoot.trim() || next.sessionRoot;
+    if (typeof input.group === 'string') next.group = input.group.trim();
+    if (typeof input.note === 'string') next.note = input.note;
 
     profiles[index] = normalizeProfile(next);
     saveProfiles(profiles);
@@ -236,7 +240,9 @@ function normalizeProfile(profile) {
     sessionRoot: profile.sessionRoot || defaultSessionRoot(appId, profilePath, Boolean(profile.isProtected)),
     isProtected: Boolean(profile.isProtected),
     createdAt: profile.createdAt || new Date().toISOString(),
-    lastLaunchedAt: profile.lastLaunchedAt || null
+    lastLaunchedAt: profile.lastLaunchedAt || null,
+    group: (profile.group || '').trim(),
+    note: profile.note || ''
   };
 }
 

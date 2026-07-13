@@ -327,6 +327,39 @@ button.danger:hover:not(:disabled) {
   font-size: 10.5px;
 }
 
+.account-row small.is-note {
+  font-family: var(--font-sans);
+  color: var(--ink-secondary);
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 8px 4px;
+  color: var(--ink-tertiary);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.group-header:first-child {
+  padding-top: 2px;
+}
+
+.group-count {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--ink-tertiary);
+  font-size: 9.5px;
+  letter-spacing: 0;
+  text-align: center;
+}
+
 .sidebar-actions,
 .account-actions,
 .inspector-actions {
@@ -396,6 +429,15 @@ button.danger:hover:not(:disabled) {
   color: var(--ink-tertiary);
   font-family: var(--font-mono);
   font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-note {
+  margin: 6px 0 0;
+  overflow: hidden;
+  color: var(--ink-secondary);
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
