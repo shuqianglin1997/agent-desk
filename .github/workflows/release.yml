@@ -17,7 +17,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          # Pinned to macos-15 (Sequoia): macos-latest migrated to macOS 26
+          # (Tahoe), where electron-builder's DMG step fails in hdiutil with
+          # "no mountable file systems". macos-15 builds the universal dmg fine.
+          - os: macos-15
             script: build:mac
           - os: windows-latest
             script: build:win
