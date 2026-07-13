@@ -14,7 +14,10 @@
             <h1>AgentDesk</h1>
             <p>Claude / Codex 本地槽位</p>
           </div>
-          <button id="themeToggle" class="icon-toggle" type="button" title="切换深色 / 浅色">◐</button>
+          <div class="sidebar-head-actions">
+            <button id="helpBtn" class="icon-toggle" type="button" title="使用说明">?</button>
+            <button id="themeToggle" class="icon-toggle" type="button" title="切换深色 / 浅色">◐</button>
+          </div>
         </header>
 
         <div id="accountList" class="account-list" aria-label="账号列表"></div>
@@ -186,6 +189,23 @@
         <div class="dialog-actions">
           <button id="copyDiagnosticsBtn" type="button">复制诊断</button>
           <button value="default" class="primary">关闭</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="welcomeDialog" class="welcome-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3>AgentDesk</h3>
+        <p class="welcome-lead">管理多个 Claude / Codex 账号，不保存任何密码 —— 登录始终发生在官方 App 里。</p>
+        <ol class="welcome-steps">
+          <li><b>新增</b>一个账号槽位（工作号 / 个人号 / 备用号……）。</li>
+          <li>选中它点<b>打开账号</b>，在弹出的官方 App 里登录。</li>
+          <li>用过之后，这个账号的本地会话会<b>自动出现</b>在中间列表。</li>
+          <li>选中会话点<b>复制交接信息</b>，粘给新会话继续上下文。</li>
+        </ol>
+        <p class="welcome-tip">每个槽位是独立登录、互不挤下线，可加备注和分组管理。读不到会话时点<b>诊断</b>，或用<b>路径</b>手动指定会话目录。</p>
+        <div class="dialog-actions">
+          <button value="default" class="primary">开始使用</button>
         </div>
       </form>
     </dialog>
