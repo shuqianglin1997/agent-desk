@@ -42,7 +42,23 @@ jobs:
         run: npm test
 
       - name: Build
-        run: npm run ${{ matrix.script }}
+        shell: bash
+        run: |
+          npm run ${{ matrix.script }} 2>&1 | tee build.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Surface build error
+        if: failure()
+        shell: bash
+        run: |
+          echo '----- build.log (tail) -----'
+          tail -60 build.log || true
+          # Emit key lines as GitHub error annotations, which are visible on the
+          # public run summary without sign-in (so failures can be diagnosed).
+          grep -niE 'error|✗|⨯|fail|hdiutil|dmg|cannot|denied|enoent|no mountable|exit code|npm err|electron' build.log 2>/dev/null | tail -12 | while IFS= read -r line; do
+            clean=$(printf '%s' "$line" | tr -d '\r' | cut -c1-400)
+            printf '::error::%s\n' "$clean"
+          done || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
