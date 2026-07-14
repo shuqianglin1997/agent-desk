@@ -5,6 +5,8 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { scanSessions } = require('./sessions');
+const { probeActivity } = require('./activity');
+const { normalizeCat } = require('./yard/cats');
 
 const APP_NAME = 'AgentDesk';
 const STORE_VERSION = 1;
@@ -113,6 +115,10 @@ function registerIpc() {
   ipcMain.handle('sessions:list', (_event, profile) => {
     if (!profile) return [];
     return scanSessions(normalizeProfile(profile));
+  });
+
+  ipcMain.handle('activity:all', () => {
+    return loadProfiles().map((profile) => probeActivity(profile));
   });
 
   ipcMain.handle('diagnostics:get', (_event, profile) => {
@@ -233,8 +239,9 @@ function normalizeProfileList(profiles) {
 function normalizeProfile(profile) {
   const appId = profile.appId === 'codex' ? 'codex' : 'claude';
   const profilePath = profile.profilePath || defaultProfilePath(appId);
+  const id = profile.id || crypto.randomUUID();
   return {
-    id: profile.id || crypto.randomUUID(),
+    id,
     appId,
     name: profile.name || `默认 ${managedAppName(appId)}`,
     profilePath,
@@ -243,7 +250,8 @@ function normalizeProfile(profile) {
     createdAt: profile.createdAt || new Date().toISOString(),
     lastLaunchedAt: profile.lastLaunchedAt || null,
     group: (profile.group || '').trim(),
-    note: profile.note || ''
+    note: profile.note || '',
+    cat: normalizeCat(profile.cat, id)
   };
 }
 

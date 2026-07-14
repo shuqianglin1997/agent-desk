@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AgentDesk</title>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./yard/yard.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -22,7 +23,7 @@
 
         <div id="accountList" class="account-list" aria-label="账号列表"></div>
 
-        <footer class="sidebar-actions">
+        <footer class="sidebar-actions" id="sidebarActions">
           <button id="addProfileBtn">新增</button>
           <button id="editProfileBtn">编辑</button>
           <button id="removeProfileBtn">移除</button>
@@ -30,6 +31,13 @@
       </aside>
 
       <main class="workspace">
+        <section id="yardStage" class="yard-stage" hidden>
+          <div class="yard-frame">
+            <canvas id="yardCanvas" width="480" height="132" aria-label="猫猫庭院：每只猫是一个账号槽位，点击选中"></canvas>
+            <div id="yardOverlay" class="yard-overlay"></div>
+          </div>
+        </section>
+
         <section class="account-bar">
           <div class="account-heading">
             <h2 id="accountTitle">未选择账号</h2>
@@ -38,12 +46,13 @@
             <p id="accountNote" class="account-note"></p>
           </div>
 
-          <div class="account-actions">
+          <div class="account-actions" id="accountActions">
             <button id="launchBtn" class="primary">打开账号</button>
             <button id="pathConfigBtn">路径</button>
             <button id="diagnosticsBtn">诊断</button>
             <button id="profileFolderBtn">位置</button>
             <button id="refreshBtn">刷新</button>
+            <button id="viewToggle" title="切换 猫猫庭院 / 经典视图">⇄ 经典视图</button>
           </div>
         </section>
 
@@ -212,6 +221,9 @@
 
     <datalist id="groupOptions"></datalist>
 
+    <script src="./yard/sprites.js"></script>
+    <script src="./yard/cats.js"></script>
+    <script src="./yard/scene.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>
