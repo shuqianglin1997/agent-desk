@@ -4,11 +4,19 @@ const state = {
   filteredSessions: [],
   selectedProfileId: null,
   selectedSessionId: null,
-  query: ''
+  query: '',
+  view: localStorage.getItem('agentdesk-view') || 'yard',
+  activity: {}
 };
 
 const els = {
   accountList: document.querySelector('#accountList'),
+  yardStage: document.querySelector('#yardStage'),
+  yardCanvas: document.querySelector('#yardCanvas'),
+  yardOverlay: document.querySelector('#yardOverlay'),
+  viewToggle: document.querySelector('#viewToggle'),
+  accountActions: document.querySelector('#accountActions'),
+  sidebarActions: document.querySelector('#sidebarActions'),
   themeToggle: document.querySelector('#themeToggle'),
   helpBtn: document.querySelector('#helpBtn'),
   addProfileBtn: document.querySelector('#addProfileBtn'),
@@ -64,11 +72,19 @@ const els = {
 };
 
 let lastDiagnostics = null;
+let yardMounted = false;
 
 window.addEventListener('DOMContentLoaded', () => {
   initTheme();
   bindEvents();
+  initYard();
+  applyView();
   loadProfiles();
+  loadActivity();
+  // 只在庭院可见时轮询，避免后台白扫
+  setInterval(() => {
+    if (state.view === 'yard' && !document.hidden) loadActivity();
+  }, 60000);
   maybeShowWelcome();
 });
 
@@ -171,6 +187,13 @@ function bindEvents() {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     localStorage.setItem('agentdesk-theme', next);
+    syncYard();
+  });
+
+  els.viewToggle.addEventListener('click', () => {
+    state.view = state.view === 'yard' ? 'classic' : 'yard';
+    localStorage.setItem('agentdesk-view', state.view);
+    applyView();
   });
 
   els.helpBtn.addEventListener('click', () => {
@@ -239,6 +262,7 @@ function bindEvents() {
 
   els.refreshBtn.addEventListener('click', async () => {
     await loadSessions(true);
+    await loadActivity();
     setStatus('会话列表已刷新。');
   });
 
@@ -315,6 +339,65 @@ function applySessionFilter(selectFirst = false) {
   renderInspector();
 }
 
+// ── 庭院视图 ─────────────────────────────────────────
+function initYard() {
+  if (!window.YardScene || !window.YardCats || !els.yardCanvas) return;
+  window.YardScene.mount({
+    canvas: els.yardCanvas,
+    overlay: els.yardOverlay,
+    onSelect: async (profileId) => {
+      await selectProfile(profileId);
+      const profile = selectedProfile();
+      if (profile) setStatus(`已选中 ${profile.name} —— 下方是它的会话。`);
+    },
+    onPet: (profile) => setStatus(`${profile.name}：呼噜呼噜呼噜……`)
+  });
+  yardMounted = true;
+}
+
+function applyView() {
+  const yard = state.view === 'yard' && yardMounted;
+  document.body.dataset.view = yard ? 'yard' : 'classic';
+  els.yardStage.hidden = !yard;
+  els.viewToggle.textContent = yard ? '⇄ 经典视图' : '⇄ 猫猫庭院';
+  // 新增/编辑/移除按钮在两个视图间移动（同一批节点，事件不变）
+  const host = yard ? els.accountActions : els.sidebarActions;
+  host.append(els.addProfileBtn, els.editProfileBtn, els.removeProfileBtn);
+  if (yardMounted) window.YardScene.setActive(yard);
+  if (yard) loadActivity(); // 切回庭院时立刻刷新猫的状态
+}
+
+let activityLoading = false;
+
+async function loadActivity() {
+  if (activityLoading) return; // 上一轮还没回来就跳过，避免请求堆积
+  activityLoading = true;
+  try {
+    const list = await window.manager.listActivity();
+    state.activity = Object.fromEntries(list.map((item) => [item.profileId, item]));
+  } catch (_error) {
+    state.activity = {};
+  } finally {
+    activityLoading = false;
+  }
+  syncYard();
+}
+
+function syncYard() {
+  if (!yardMounted) return;
+  const now = Date.now();
+  const statesById = {};
+  for (const profile of state.profiles) {
+    statesById[profile.id] = window.YardCats.deriveState(now, profile, state.activity[profile.id]);
+  }
+  window.YardScene.update({
+    profiles: state.profiles,
+    statesById,
+    selectedId: state.selectedProfileId,
+    night: document.documentElement.dataset.theme === 'dark'
+  });
+}
+
 function renderAccounts() {
   els.accountList.replaceChildren();
 
@@ -336,6 +419,7 @@ function renderAccounts() {
   }
 
   populateGroupDatalist();
+  syncYard();
 }
 
 function appendAccountRow(profile) {
@@ -356,15 +440,17 @@ function appendAccountRow(profile) {
   } else {
     small.textContent = shortPath(profile.profilePath);
   }
-  button.addEventListener('click', async () => {
-    state.selectedProfileId = profile.id;
-    state.query = '';
-    els.searchInput.value = '';
-    renderAccounts();
-    renderAccountHeader();
-    await loadSessions(true);
-  });
+  button.addEventListener('click', () => selectProfile(profile.id));
   els.accountList.append(button);
+}
+
+async function selectProfile(profileId) {
+  state.selectedProfileId = profileId;
+  state.query = '';
+  els.searchInput.value = '';
+  renderAccounts();
+  renderAccountHeader();
+  await loadSessions(true);
 }
 
 function groupProfiles(profiles) {

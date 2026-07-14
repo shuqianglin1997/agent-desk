@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('manager', {
   removeProfile: (id) => ipcRenderer.invoke('profiles:remove', id),
   launchProfile: (id) => ipcRenderer.invoke('profiles:launch', id),
   listSessions: (profile) => ipcRenderer.invoke('sessions:list', profile),
+  listActivity: () => ipcRenderer.invoke('activity:all'),
   getDiagnostics: (profile) => ipcRenderer.invoke('diagnostics:get', profile),
   pickDirectory: (options) => ipcRenderer.invoke('system:pickDirectory', options),
   showItem: (path) => ipcRenderer.invoke('system:showItem', path),

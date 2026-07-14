@@ -1,0 +1,268 @@
+/*
+ * AgentDesk — 庭院视图布局与像素皮肤。
+ *
+ * 全部规则限定在 body[data-view="yard"] 作用域内：
+ * 经典视图（porcelain）不受任何影响，随时可切回。
+ */
+
+body[data-view="yard"] {
+  --yd-panel: #f7f1dd;
+  --yd-panel2: #efe6c9;
+  --yd-ink: #33261a;
+  --yd-ink2: #6f5d46;
+  --yd-line: #33261a;
+  --yd-wood: #9a6b3d;
+  --yd-wood-l: #c99a63;
+  --yd-on-wood: #f9edd6;
+  --yd-primary: #d96f33;
+  --yd-select-wash: rgba(217, 111, 51, 0.16);
+  --yd-shadow: rgba(51, 38, 26, 0.25);
+}
+
+:root[data-theme="dark"] body[data-view="yard"] {
+  --yd-panel: #242a44;
+  --yd-panel2: #1e2438;
+  --yd-ink: #ece4cc;
+  --yd-ink2: #a89e85;
+  --yd-line: #0e1122;
+  --yd-wood: #8a5f38;
+  --yd-wood-l: #a87848;
+  --yd-on-wood: #f0e4c8;
+  --yd-primary: #f0955a;
+  --yd-select-wash: rgba(240, 149, 90, 0.18);
+  --yd-shadow: rgba(0, 0, 0, 0.45);
+}
+
+/* ── 布局：隐藏侧栏，上庭院 / 中账号条 / 下日志板 ── */
+body[data-view="yard"] .app-shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body[data-view="yard"] .sidebar {
+  display: none;
+}
+
+body[data-view="yard"] .workspace {
+  grid-template-rows: auto auto minmax(0, 1fr) 28px;
+}
+
+/* ── 庭院画布 ── */
+.yard-stage {
+  padding: 12px 16px 0;
+}
+
+.yard-frame {
+  position: relative;
+  border: 3px solid var(--yd-line, #33261a);
+  box-shadow: 0 4px 0 var(--yd-shadow, rgba(51, 38, 26, 0.25));
+  background: #000;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.yard-frame canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.yard-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* 常驻名牌：名字 = 账号名称，可点击选中 */
+/*
+ * 名牌用 #yardOverlay 提升优先级：它是 <button>，
+ * 必须压过 body[data-view="yard"] .workspace button 的通用木质皮肤，
+ * 尤其 :active 的 transform 不能顶掉定位用的 translate。
+ */
+#yardOverlay .yard-nameplate {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: auto;
+  z-index: 1;
+  pointer-events: auto;
+  cursor: pointer;
+  background: #f7f1dd;
+  border: 2px solid #33261a;
+  border-radius: 0;
+  box-shadow: 0 2px 0 rgba(51, 38, 26, 0.35);
+  padding: 0 6px;
+  color: #33261a;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 名牌到猫头顶的小吊线：高低交错时也能一眼对上号 */
+#yardOverlay .yard-nameplate::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 6px;
+  background: #33261a;
+}
+
+#yardOverlay .yard-nameplate.tier1::after {
+  height: 32px;
+}
+
+#yardOverlay .yard-nameplate:hover,
+#yardOverlay .yard-nameplate.hovered {
+  background: #fff7e0;
+  border-color: #33261a;
+  color: #33261a;
+  z-index: 3;
+}
+
+#yardOverlay .yard-nameplate:active {
+  transform: translate(-50%, calc(-100% + 1px));
+  box-shadow: 0 1px 0 rgba(51, 38, 26, 0.35);
+}
+
+#yardOverlay .yard-nameplate.selected {
+  background: #ffd98a;
+  z-index: 2;
+}
+
+#yardOverlay .yard-nameplate.selected.hovered {
+  background: #ffd98a;
+  z-index: 3;
+}
+
+.yard-nameplate .app-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #33261a;
+  flex: none;
+}
+
+/* 区域木牌上的分组名（画布上的木牌是底，这里是字） */
+.yard-zone {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #f9edd6;
+  text-shadow: 0 1px 0 #33261a;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── 像素皮肤：账号条 / 按钮 / 表格 / 状态栏 ── */
+body[data-view="yard"] .account-bar {
+  background: var(--yd-panel2);
+  border-bottom: 3px solid var(--yd-line);
+  backdrop-filter: none;
+}
+
+body[data-view="yard"] .workspace button {
+  border: 2px solid var(--yd-line);
+  border-radius: 0;
+  background: var(--yd-wood);
+  color: var(--yd-on-wood);
+  box-shadow: 0 3px 0 var(--yd-shadow);
+  font-weight: 700;
+  transition: none;
+}
+
+body[data-view="yard"] .workspace button:hover:not(:disabled) {
+  background: var(--yd-wood-l);
+  border-color: var(--yd-line);
+  color: #33261a;
+}
+
+body[data-view="yard"] .workspace button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--yd-shadow);
+}
+
+body[data-view="yard"] .workspace button:disabled {
+  background: var(--yd-panel);
+  color: var(--yd-ink2);
+  border-color: var(--yd-shadow);
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+body[data-view="yard"] .workspace button.primary {
+  background: var(--yd-primary);
+  color: #fff7e8;
+}
+
+body[data-view="yard"] .workspace button.primary:hover:not(:disabled) {
+  background: var(--yd-wood-l);
+  color: #33261a;
+}
+
+body[data-view="yard"] .table-wrap {
+  border: 3px solid var(--yd-line);
+  border-radius: 0;
+  background: var(--yd-panel);
+  box-shadow: 0 4px 0 var(--yd-shadow);
+}
+
+body[data-view="yard"] thead {
+  background: var(--yd-panel2);
+  backdrop-filter: none;
+}
+
+body[data-view="yard"] th {
+  border-bottom: 2px solid var(--yd-line);
+}
+
+body[data-view="yard"] tbody tr.selected {
+  background: var(--yd-select-wash);
+  box-shadow: inset 3px 0 0 var(--yd-primary);
+}
+
+body[data-view="yard"] tbody tr.selected .title-cell {
+  color: var(--yd-primary);
+}
+
+body[data-view="yard"] input[type="search"],
+body[data-view="yard"] input[type="text"] {
+  border: 2px solid var(--yd-line);
+  border-radius: 0;
+  background: var(--yd-panel);
+}
+
+body[data-view="yard"] input:focus {
+  border-color: var(--yd-primary);
+  box-shadow: 0 0 0 3px var(--yd-select-wash);
+}
+
+body[data-view="yard"] .inspector {
+  border-left: 3px solid var(--yd-line);
+  background: var(--yd-panel2);
+}
+
+body[data-view="yard"] .status-bar {
+  background: var(--yd-panel2);
+  border-top: 3px solid var(--yd-line);
+  backdrop-filter: none;
+  color: var(--yd-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-view="yard"] .workspace button:active:not(:disabled) {
+    transform: none;
+  }
+}
