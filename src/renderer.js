@@ -261,9 +261,10 @@ function bindEvents() {
   });
 
   els.refreshBtn.addEventListener('click', async () => {
+    if (isYardView()) window.YardScene.fx('bell');
     await loadSessions(true);
     await loadActivity();
-    setStatus('会话列表已刷新。');
+    setStatus(isYardView() ? '♪ 摇铃 —— 全体猫竖起耳朵，会话已重新扫描。' : '会话列表已刷新。');
   });
 
   els.searchInput.addEventListener('input', () => {
@@ -276,7 +277,12 @@ function bindEvents() {
     const session = selectedSession();
     if (!profile || !session) return;
     await window.manager.writeClipboard(makeHandoffText(profile, session));
-    setStatus('已复制会话交接信息。');
+    if (isYardView()) {
+      window.YardScene.fx('handoff');
+      setStatus(`${profile.name} 把交接信投进了邮筒 —— 已复制，粘给新会话即可。`);
+    } else {
+      setStatus('已复制会话交接信息。');
+    }
   });
 
   els.copyAddressBtn.addEventListener('click', async () => {
@@ -340,6 +346,10 @@ function applySessionFilter(selectFirst = false) {
 }
 
 // ── 庭院视图 ─────────────────────────────────────────
+function isYardView() {
+  return yardMounted && document.body.dataset.view === 'yard';
+}
+
 function initYard() {
   if (!window.YardScene || !window.YardCats || !els.yardCanvas) return;
   window.YardScene.mount({

@@ -3,9 +3,10 @@
  *
  * 挂到 window.YardScene。职责：
  *  - 在 480×132 的逻辑画布上画庭院（天空/栅栏/工作亭/池塘/树/花圃/邮筒）
- *  - 按分组把猫（账号槽位）排进各自的区域，干活的猫坐进工作亭书桌
- *  - 常驻名牌（DOM 覆盖层，名字 = 账号名称，中文清晰可点）
- *  - 8fps 心跳做环境动画；点击选中、按住撸猫
+ *  - 按分组把猫（账号槽位）排进各自的区域，干活的猫走到工作亭书桌
+ *  - 角色化：每只猫有持续位置，会走路、散步、看锦鲤，状态变化时走去新岗位
+ *  - 常驻名牌（DOM 覆盖层，名字 = 账号名称，中文清晰可点，跟随猫移动）
+ *  - 8fps 心跳做环境动画；点击选中、按住撸猫；邮筒投信、摇铃等反馈
  * 数据从 renderer.js 喂入（update），本文件不碰 IPC、不碰业务状态。
  */
 (function (root) {
@@ -42,6 +43,9 @@
   const SEAT_FOOT_Y = 70;
   const GROUND_X0 = 14;
   const GROUND_X1 = 466;
+  const MAILBOX = { x: 117, y: 48 };
+  const POND = { x0: 196, x1: 284, cx: 240 };
+  const WALK_SPEED = 1.6;
 
   // ── 内部状态 ─────────────────────────────────────────
   let canvas = null;
@@ -51,8 +55,9 @@
   let onPet = null;
 
   let data = { profiles: [], statesById: {}, selectedId: null, night: false };
-  let layout = [];          // [{ profile, state, x, y, seat, topY }]
-  let zones = [];           // [{ label, x, count }]
+  let layout = [];              // [{ profile, state, seat, tier, home, band, actor, topY }]
+  const actors = new Map();     // profileId -> 持续的位置与行为状态
+  let zones = [];
   let particles = [];
   let tick = 0;
   let timer = null;
@@ -60,6 +65,7 @@
   let hoveredId = null;
   let pressTimer = null;
   let pressed = false;
+  let mailboxFlagUntil = 0;
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // 确定性散点（草地噪点/星星/萤火虫）
@@ -85,8 +91,16 @@
     for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
     return h % 97;
   }
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-  // ── 布局：分组 → 区域，猫 → 位置 ─────────────────────
+  // 深夜（23:00〜05:00）且处于夜晚配色时：没在干活的猫都睡了
+  function sleepAllNow() {
+    if (!data.night) return false;
+    const hour = new Date().getHours();
+    return hour >= 23 || hour < 5;
+  }
+
+  // ── 布局：分组 → 区域，猫 → 家的位置 ─────────────────
   function groupOf(profile) {
     return (profile.group || '').trim();
   }
@@ -95,7 +109,8 @@
     const profiles = data.profiles;
     layout = [];
     zones = [];
-    if (!profiles.length) return;
+    const seen = new Set();
+    if (!profiles.length) { actors.clear(); return; }
 
     const groupsMap = new Map();
     for (const profile of profiles) {
@@ -142,23 +157,51 @@
         const state = data.statesById[profile.id] || 'rest';
         const col = i % perRow;
         const row = Math.floor(i / perRow);
-        let x = Math.min(startX + col * spacing, GROUND_X1 - 10);
-        let y = 98 + Math.min(1, row) * 16;
-        if (row > 1) { x = Math.min(x + 12, GROUND_X1 - 10); y = 106; } // 溢出兜底，轻微叠放
+        let hx = Math.min(startX + col * spacing, GROUND_X1 - 10);
+        let hy = 98 + Math.min(1, row) * 16;
+        if (row > 1) { hx = Math.min(hx + 12, GROUND_X1 - 10); hy = 106; } // 溢出兜底，轻微叠放
         let seat = false;
         let tier = col % 2; // 名牌高低交错，避免相邻名牌互相盖住
         if ((state === 'working' || state === 'arriving') && seatIndex < SEATS.length) {
-          x = SEATS[seatIndex];
-          y = SEAT_FOOT_Y;
+          hx = SEATS[seatIndex];
+          hy = SEAT_FOOT_Y;
           seat = true;
           tier = seatIndex % 2;
           seatIndex += 1;
         }
-        const pose = poseFor(state);
-        const topY = y - pose.length - (seat ? 6 : 0);
-        layout.push({ profile, state, x, y, seat, tier, topY });
+
+        seen.add(profile.id);
+        let actor = actors.get(profile.id);
+        if (!actor) {
+          actor = { x: hx, y: hy, tx: hx, ty: hy, flip: false, walking: false, behaveAt: 0, watchUntil: 0 };
+          actors.set(profile.id, actor);
+        }
+
+        const entry = {
+          profile, state, seat, tier,
+          home: { x: hx, y: hy },
+          band: { x0: x0 + 8, x1: x1 - 8 },
+          actor,
+          topY: hy - 16
+        };
+
+        // 目标：坐席优先；非漫步态一律回家；漫步态目标出界也回家
+        const wander = (state === 'play' || state === 'rest') && !seat;
+        if (!wander) {
+          actor.tx = hx; actor.ty = hy;
+          actor.watchUntil = 0;
+        } else if (actor.tx < entry.band.x0 || actor.tx > entry.band.x1) {
+          actor.tx = hx; actor.ty = hy;
+        }
+        if (reduced) { actor.x = actor.tx; actor.y = actor.ty; actor.walking = false; }
+
+        layout.push(entry);
       });
     });
+
+    for (const id of [...actors.keys()]) {
+      if (!seen.has(id)) actors.delete(id);
+    }
   }
 
   function poseFor(state) {
@@ -166,6 +209,53 @@
     if (state === 'working' || state === 'arriving' || state === 'confused') return S.SIT;
     if (state === 'nap' || state === 'hibernate') return S.SLEEP;
     return S.LOAF;
+  }
+
+  function poseOf(entry, sleepAll) {
+    const S = root.YardSprites;
+    if (entry.actor.walking) return S.LOAF;
+    if (entry.actor.watchUntil > tick) return S.SIT; // 坐在池边看锦鲤
+    if (sleepAll && (entry.state === 'play' || entry.state === 'rest')) return S.SLEEP;
+    return poseFor(entry.state);
+  }
+
+  // ── 行为池：散步 / 看锦鲤 / 原地待着 ─────────────────
+  function chooseBehavior(entry) {
+    const a = entry.actor;
+    const r = Math.random();
+    if (r < 0.45) {
+      a.tx = clamp(entry.home.x + (Math.random() * 56 - 28), entry.band.x0, entry.band.x1);
+      a.ty = clamp(entry.home.y + (Math.random() * 16 - 6), 96, 124);
+    } else if (r < 0.62 && Math.abs(entry.home.x - POND.cx) < 190) {
+      a.tx = POND.x0 + 6 + Math.random() * (POND.x1 - POND.x0 - 12);
+      a.ty = 90;
+      a.watchUntil = tick + 70 + Math.floor(Math.random() * 80);
+    }
+    // 其余：原地待着
+    a.behaveAt = tick + 90 + Math.floor(Math.random() * 170); // 11〜32 秒后再想下一件事
+  }
+
+  function stepActors(sleepAll) {
+    for (const entry of layout) {
+      const a = entry.actor;
+      const dx = a.tx - a.x;
+      const dy = a.ty - a.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 1.2) {
+        const step = Math.min(WALK_SPEED, dist);
+        a.x += (dx / dist) * step;
+        a.y += (dy / dist) * step;
+        if (dx > 0.3) a.flip = true;
+        else if (dx < -0.3) a.flip = false;
+        a.walking = true;
+        continue;
+      }
+      if (a.walking) { a.x = a.tx; a.y = a.ty; a.walking = false; }
+      const wander = (entry.state === 'play' || entry.state === 'rest') && !entry.seat;
+      if (wander && !sleepAll && a.watchUntil <= tick && tick >= a.behaveAt) {
+        chooseBehavior(entry);
+      }
+    }
   }
 
   // ── 覆盖层：常驻名牌 + 区域木牌标签 ──────────────────
@@ -183,6 +273,11 @@
         chip.type = 'button';
         chip.className = 'yard-nameplate';
         chip.dataset.id = id;
+        const dot = document.createElement('span');
+        dot.className = 'app-dot';
+        const label = document.createElement('span');
+        label.className = 'plate-name';
+        chip.append(dot, label);
         chip.addEventListener('click', () => { if (onSelect) onSelect(id); });
         // 指名牌 = 指猫：双向联动高亮
         chip.addEventListener('mouseenter', () => setHoverId(id));
@@ -190,18 +285,14 @@
         overlay.appendChild(chip);
       }
       const stateLabel = meta[entry.state] ? meta[entry.state].label : entry.state;
-      chip.textContent = entry.profile.name;
-      const dot = document.createElement('span');
-      dot.className = 'app-dot';
-      dot.style.background = entry.profile.appId === 'codex' ? '#2f9e8f' : '#d96f33';
-      chip.prepend(dot);
+      chip.querySelector('.plate-name').textContent = entry.profile.name;
+      chip.querySelector('.app-dot').style.background = entry.profile.appId === 'codex' ? '#2f9e8f' : '#d96f33';
       chip.title = `${entry.profile.name} · ${stateLabel}${entry.profile.group ? ' · ' + entry.profile.group : ''}`;
       chip.classList.toggle('selected', id === data.selectedId);
       chip.classList.toggle('hovered', id === hoveredId);
       chip.classList.toggle('tier1', entry.tier === 1);
-      const lift = entry.tier === 1 ? 15 : 3;
-      chip.style.left = `${((entry.x) / W * 100).toFixed(2)}%`;
-      chip.style.top = `${((entry.topY - lift) / H * 100).toFixed(2)}%`;
+      entry.actor._chip = chip;
+      entry.actor._chipKey = '';
     }
     overlay.querySelectorAll('.yard-nameplate').forEach((chip) => {
       if (!seen.has(chip.dataset.id)) chip.remove();
@@ -225,6 +316,23 @@
     overlay.querySelectorAll('.yard-zone').forEach((el) => {
       if (!zoneSeen.has(el.dataset.key)) el.remove();
     });
+
+    syncChipPositions();
+  }
+
+  // 名牌跟随猫移动（每帧只写有变化的）
+  function syncChipPositions() {
+    for (const entry of layout) {
+      const a = entry.actor;
+      const chip = a._chip;
+      if (!chip) continue;
+      const lift = entry.tier === 1 ? 15 : 3;
+      const key = `${a.x.toFixed(1)}|${entry.topY}|${lift}`;
+      if (a._chipKey === key) continue;
+      a._chipKey = key;
+      chip.style.left = `${(a.x / W * 100).toFixed(2)}%`;
+      chip.style.top = `${((entry.topY - lift) / H * 100).toFixed(2)}%`;
+    }
   }
 
   // ── 基础画笔 ─────────────────────────────────────────
@@ -237,6 +345,7 @@
   }
   function drawZ(x, y, c) { rect(x, y, 3, 1, c); rect(x + 1, y + 1, 1, 1, c); rect(x, y + 2, 3, 1, c); }
   function drawHeart(x, y, c) { rect(x, y, 1, 1, c); rect(x + 2, y, 1, 1, c); rect(x - 1, y + 1, 5, 1, c); rect(x, y + 2, 3, 1, c); rect(x + 1, y + 3, 1, 1, c); }
+  function drawNote(x, y, c) { rect(x + 2, y, 1, 4, c); rect(x + 2, y, 2, 1, c); rect(x, y + 3, 2, 2, c); }
   function drawQBubble(x, y) {
     frameRect(x, y, 9, 9, '#fdf8ec', LINE);
     rect(x + 3, y + 9, 2, 2, LINE);
@@ -301,7 +410,12 @@
     rect(116, 54, 3, 16, WOODD);
     frameRect(110, 46, 15, 9, '#c05a3a', LINE);
     rect(111, 47, 4, 7, '#d97a52');
-    rect(123, 48, 1, 4, '#e8c04a');
+    if (tick < mailboxFlagUntil) {
+      rect(123, 42, 1, 6, '#e8c04a');
+      rect(122, 42, 3, 2, '#e05a3a'); // 小旗升起：有信！
+    } else {
+      rect(123, 48, 1, 4, '#e8c04a');
+    }
   }
 
   function drawPond(P) {
@@ -365,18 +479,25 @@
   }
 
   // ── 猫 ───────────────────────────────────────────────
-  function drawYardCat(entry, P) {
+  function drawYardCat(entry, sleepAll) {
     const S = root.YardSprites;
-    const pose = poseFor(entry.state);
+    const a = entry.actor;
+    const pose = poseOf(entry, sleepAll);
     const pal = S.BREEDS[entry.profile.cat && entry.profile.cat.breed] || S.BREEDS.orange;
     const pw = pose[0].length;
     const ph = pose.length;
     const seed = seedOf(entry.profile);
-    let dx = Math.round(entry.x - pw / 2);
-    let dy = Math.round(entry.y - ph);
-    if (entry.seat) dy -= 6; // 坐小凳，头露出书桌
-    if (entry.state === 'confused') dx += (tick % 8 < 4) ? 0 : 1;
-    if (entry.state === 'play') dy -= Math.abs(Math.sin((tick + seed) * 0.5)) > 0.7 ? 2 : 0;
+    const seated = entry.seat && !a.walking;
+    let dx = Math.round(a.x - pw / 2);
+    let dy = Math.round(a.y - ph);
+    if (seated) dy -= 6; // 坐小凳，头露出书桌
+    if (a.walking) dy -= (tick + seed) % 2;                          // 小碎步
+    if (seated && entry.state === 'working') dy -= ((tick + seed) >> 3) % 2; // 打字时轻微点头
+    if (!a.walking && entry.state === 'confused') dx += (tick % 8 < 4) ? 0 : 1;
+    if (!a.walking && !sleepAll && entry.state === 'play' && a.watchUntil <= tick) {
+      dy -= Math.abs(Math.sin((tick + seed) * 0.5)) > 0.7 ? 2 : 0;   // 扑线团小跳
+    }
+    entry.topY = dy;
 
     // 选中 / 悬停圈（虚线）
     const isSel = entry.profile.id === data.selectedId;
@@ -384,7 +505,7 @@
       ctx.fillStyle = isSel
         ? (entry.profile.appId === 'codex' ? '#2f9e8f' : '#d96f33')
         : 'rgba(255,255,255,.55)';
-      for (let i = 0; i < pw + 4; i += 3) ctx.fillRect(dx - 2 + i, entry.y + 1, 2, 1);
+      for (let i = 0; i < pw + 4; i += 3) ctx.fillRect(dx - 2 + i, Math.round(a.y) + 1, 2, 1);
     }
 
     const cat = entry.profile.cat || {};
@@ -395,43 +516,55 @@
       bell: entry.profile.isProtected,
       tag: entry.profile.isProtected ? null : entry.profile.appId,
       accessory: cat.accessory === 'none' ? null : cat.accessory,
+      flip: a.flip,
       tail: (tick + seed) % 24 < 12
     });
 
-    if (entry.state === 'working') {
-      if (entry.seat) drawDesk(entry.x);
+    if (entry.state === 'working' && !a.walking) {
+      if (entry.seat) drawDesk(entry.home.x);
       else { // 没抢到书桌的加班猫：草地办公
-        rect(dx + 2, entry.y - 6, 10, 5, '#3a3f4a');
-        rect(dx + 3, entry.y - 5, 8, 3, (tick % 8 < 4) ? '#9fd4e8' : '#b8e4f0');
+        rect(dx + 2, Math.round(a.y) - 6, 10, 5, '#3a3f4a');
+        rect(dx + 3, Math.round(a.y) - 5, 8, 3, (tick % 8 < 4) ? '#9fd4e8' : '#b8e4f0');
       }
     }
     if (entry.state === 'arriving') {
       rect(dx + pw, dy - 6, 2, 5, '#e8c04a');
       rect(dx + pw, dy - 7, 2, 1, LINE);
     }
-    if (entry.state === 'confused' && (tick % 20) < 14) drawQBubble(dx + pw - 2, dy - 11);
-    if (entry.state === 'play') {
+    if (!a.walking && entry.state === 'confused' && (tick % 20) < 14) drawQBubble(dx + pw - 2, dy - 11);
+    if (!a.walking && !sleepAll && entry.state === 'play' && a.watchUntil <= tick) {
       const yx = dx - 7 + (((tick + seed) >> 3) % 2);
-      rect(yx, entry.y - 4, 4, 4, '#d05a7a');
-      rect(yx + 1, entry.y - 3, 2, 1, '#f0a0b8');
+      rect(yx, Math.round(a.y) - 4, 4, 4, '#d05a7a');
+      rect(yx + 1, Math.round(a.y) - 3, 2, 1, '#f0a0b8');
     }
-    if (entry.state === 'hibernate') {
+    if (!a.walking && entry.state === 'hibernate') {
       frameRect(dx - 3, dy + 2, pw + 6, ph + 4, '#c9a25f', LINE);
       rect(dx - 2, dy + 3, pw + 4, 3, '#b8894a');
       rect(dx - 1, dy + 4, pw + 2, 1, cat.collar || '#8a6bb8');
     }
-    if ((entry.state === 'nap' || entry.state === 'hibernate') && !reduced && (tick + seed) % 16 === 0 && particles.length < 48) {
+    if (pose === S.SLEEP && !reduced && (tick + seed) % 16 === 0 && particles.length < 48) {
       particles.push({ kind: 'z', x: dx + pw - 2, y: dy - 2, age: 0 });
     }
   }
 
   function drawParticles() {
-    particles = particles.filter((p) => p.age < 26);
+    particles = particles.filter((p) => p.age < (p.dur || 26));
     particles.forEach((p) => {
       p.age += 1;
+      if (p.age < 0) return; // 错峰出场
+      if (p.kind === 'mail') {
+        const k = p.age / p.dur;
+        const mx = Math.round(p.sx + (MAILBOX.x - p.sx) * k);
+        const my = Math.round(p.sy + (MAILBOX.y - p.sy) * k - Math.sin(Math.PI * k) * 12);
+        ctx.globalAlpha = 1;
+        frameRect(mx, my, 8, 6, '#fdf8ec', LINE);
+        rect(mx + 1, my + 1, 6, 1, '#d9c9a8');
+        return;
+      }
       ctx.globalAlpha = Math.max(0, 1 - p.age / 24);
       if (p.kind === 'z') drawZ(Math.round(p.x + ((p.age >> 2) % 2)), Math.round(p.y - p.age * 0.5), '#faf5e6');
       if (p.kind === 'heart') drawHeart(Math.round(p.x + Math.sin(p.age * 0.4) * 2), Math.round(p.y - p.age * 0.8), '#e06a8a');
+      if (p.kind === 'note') drawNote(Math.round(p.x + Math.sin(p.age * 0.5) * 2), Math.round(p.y - p.age * 0.7), '#f7ecd0');
       ctx.globalAlpha = 1;
     });
   }
@@ -440,6 +573,7 @@
   function render() {
     if (!ctx) return;
     const P = TIMES[data.night ? 'night' : 'day'];
+    const sleepAll = sleepAllNow();
     ctx.clearRect(0, 0, W, H);
     drawSky(P);
     drawGround(P);
@@ -450,7 +584,7 @@
     drawTree(P);
     drawHut(P);
     zones.forEach((zone) => drawSign(zone.x));
-    [...layout].sort((a, b) => a.y - b.y).forEach((entry) => drawYardCat(entry, P));
+    [...layout].sort((a, b) => a.actor.y - b.actor.y).forEach((entry) => drawYardCat(entry, sleepAll));
     drawParticles();
     for (let x = 0; x < W; x += 10) rect(x + (x % 20 ? 3 : 6), H - 4, 2, 4, P.grassD);
 
@@ -459,9 +593,9 @@
       ctx.fillStyle = 'rgba(244,199,106,.9)'; ctx.fillRect(81, 39, 11, 10);
       ctx.fillStyle = 'rgba(244,199,106,.18)'; ctx.fillRect(74, 34, 26, 20);
       layout.forEach((entry) => {
-        if (entry.state === 'working') {
+        if (entry.state === 'working' && !entry.actor.walking) {
           ctx.fillStyle = 'rgba(244,199,106,.14)';
-          ctx.fillRect(entry.x - 16, entry.y - 26, 32, 26);
+          ctx.fillRect(Math.round(entry.actor.x) - 16, Math.round(entry.actor.y) - 26, 32, 26);
         }
       });
       FIREFLIES.forEach(([fx, fy], i) => {
@@ -483,11 +617,12 @@
     let best = null;
     let bd = Infinity;
     for (const entry of layout) {
+      const a = entry.actor;
       // 命中区：猫身 + 向上延伸到名牌吊线，消除猫和高位名牌之间的 hover 死区
       const reach = entry.tier === 1 ? 18 : 6;
-      const inBox = Math.abs(lx - entry.x) <= 13 && ly >= entry.topY - reach && ly <= entry.y + 3;
+      const inBox = Math.abs(lx - a.x) <= 13 && ly >= entry.topY - reach && ly <= a.y + 3;
       if (!inBox) continue;
-      const d = Math.hypot(lx - entry.x, ly - (entry.y - 6));
+      const d = Math.hypot(lx - a.x, ly - (a.y - 6));
       // <=：同距离时取数组靠后者，与绘制层级（后画在上）一致
       if (d <= bd) { bd = d; best = entry; }
     }
@@ -521,7 +656,7 @@
       pressTimer = setTimeout(() => {
         pressed = true;
         for (let i = 0; i < 5; i++) {
-          particles.push({ kind: 'heart', x: hit.x - 6 + i * 4, y: hit.topY - 2 - (i % 2) * 4, age: i * 2 });
+          particles.push({ kind: 'heart', x: hit.actor.x - 6 + i * 4, y: hit.topY - 2 - (i % 2) * 4, age: i * 2 });
         }
         if (onPet) onPet(hit.profile);
         if (reduced || !active) render();
@@ -541,7 +676,9 @@
     timer = setInterval(() => {
       if (!active || document.hidden) return;
       tick += 1;
+      stepActors(sleepAllNow());
       render();
+      syncChipPositions();
     }, 125);
   }
   function stopLoop() {
@@ -564,12 +701,28 @@
     update(next) {
       data = { ...data, ...next };
       computeLayout();
-      syncChips();
       render();
+      syncChips();
     },
     setActive(value) {
       active = Boolean(value);
       if (active) { startLoop(); render(); } else stopLoop();
+    },
+    // 场景反馈：handoff = 选中的猫把交接信投进邮筒；bell = 摇铃，全体猫头上冒音符
+    fx(kind) {
+      if (kind === 'handoff') {
+        const entry = layout.find((e) => e.profile.id === data.selectedId);
+        if (entry) {
+          particles.push({ kind: 'mail', sx: entry.actor.x, sy: entry.topY - 4, age: 0, dur: 22 });
+          mailboxFlagUntil = tick + 44;
+        }
+      }
+      if (kind === 'bell') {
+        layout.forEach((entry, i) => {
+          particles.push({ kind: 'note', x: entry.actor.x + 6, y: entry.topY - 4, age: -i * 2 });
+        });
+      }
+      if (reduced || !active) render();
     }
   };
 })(typeof self !== 'undefined' ? self : this);
