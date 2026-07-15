@@ -722,6 +722,13 @@
           particles.push({ kind: 'note', x: entry.actor.x + 6, y: entry.topY - 4, age: -i * 2 });
         });
       }
+      if (kind === 'stretch') {
+        // 伸懒腰：干活的猫头顶冒音符，提示该起身活动了
+        layout.filter((e) => e.state === 'working').forEach((entry, i) => {
+          particles.push({ kind: 'note', x: entry.actor.x + 5, y: entry.topY - 4, age: -i * 3 });
+          particles.push({ kind: 'note', x: entry.actor.x - 6, y: entry.topY - 2, age: -i * 3 - 6 });
+        });
+      }
       if (reduced || !active) render();
     }
   };

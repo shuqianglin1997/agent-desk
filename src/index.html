@@ -36,6 +36,14 @@
             <canvas id="yardCanvas" width="480" height="132" aria-label="猫猫庭院：每只猫是一个账号槽位，点击选中"></canvas>
             <div id="yardOverlay" class="yard-overlay"></div>
           </div>
+          <div class="yard-ledger" id="yardLedger">
+            <span class="ledger-title">今日小账本</span>
+            <span class="ledger-stat">收工 <b id="ledgerDone">0</b> 次</span>
+            <span class="ledger-sep">·</span>
+            <span class="ledger-stat">陪你干活 <b id="ledgerMin">0</b> 分钟</span>
+            <span class="ledger-spacer"></span>
+            <button id="reminderToggle" class="ledger-toggle" type="button" aria-pressed="true" title="休息提醒（伸懒腰 / 收工播报）总开关">🔔 提醒 开</button>
+          </div>
         </section>
 
         <section class="account-bar">
@@ -243,6 +251,7 @@
 
     <script src="./yard/sprites.js"></script>
     <script src="./yard/cats.js"></script>
+    <script src="./yard/companion.js"></script>
     <script src="./yard/scene.js"></script>
     <script src="./renderer.js"></script>
   </body>

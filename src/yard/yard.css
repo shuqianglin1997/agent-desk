@@ -267,6 +267,71 @@ body[data-view="yard"] .status-bar {
   }
 }
 
+/* ── 今日小账本 + 提醒开关（庭院视图底部木条） ── */
+.yard-ledger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 1280px;
+  margin: 8px auto 0;
+  padding: 6px 12px;
+  border: 3px solid var(--yd-line, #33261a);
+  box-shadow: 0 3px 0 var(--yd-shadow, rgba(51, 38, 26, 0.25));
+  background: var(--yd-panel2, #efe6c9);
+  color: var(--yd-ink2, #6f5d46);
+  font-size: 12px;
+}
+
+.yard-ledger .ledger-title {
+  font-weight: 800;
+  color: var(--yd-ink, #33261a);
+  letter-spacing: 0.04em;
+}
+
+.yard-ledger .ledger-stat b {
+  color: var(--yd-primary, #d96f33);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  padding: 0 1px;
+}
+
+.yard-ledger .ledger-sep {
+  opacity: 0.5;
+}
+
+.yard-ledger .ledger-spacer {
+  flex: 1;
+}
+
+.yard-ledger .ledger-toggle {
+  height: 24px;
+  padding: 0 10px;
+  border: 2px solid var(--yd-line, #33261a);
+  border-radius: 0;
+  background: var(--yd-primary, #d96f33);
+  color: #fff7e8;
+  box-shadow: 0 2px 0 var(--yd-shadow, rgba(51, 38, 26, 0.25));
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.yard-ledger .ledger-toggle[aria-pressed="false"] {
+  background: var(--yd-panel, #f7f1dd);
+  color: var(--yd-ink2, #6f5d46);
+}
+
+.yard-ledger .ledger-toggle:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--yd-shadow, rgba(51, 38, 26, 0.25));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yard-ledger .ledger-toggle:active {
+    transform: none;
+  }
+}
+
 /* ── 猫咪档案卡：编辑对话框里的换装区（两个视图共用） ── */
 .cat-customizer {
   display: grid;
