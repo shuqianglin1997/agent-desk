@@ -64,11 +64,16 @@ function probeActivity(profile, now = Date.now()) {
     }
   }
 
-  // SQLite 型客户端（Cursor）：会话是 db 行不是文件，按文件数失真，改用适配器的聚合计数
+  // SQLite 型客户端（Cursor）：会话是 db 行不是文件，按文件数失真，改用适配器的聚合计数。
+  // 包 try/catch：某个适配器出错也不能连累整轮探测（否则所有账号活跃度会被清空）。
   if (typeof app.sessionCounts === 'function') {
-    const counts = app.sessionCounts(profile, now);
-    result.activeToday = counts.activeToday;
-    result.createdToday = counts.createdToday;
+    try {
+      const counts = app.sessionCounts(profile, now);
+      result.activeToday = counts.activeToday;
+      result.createdToday = counts.createdToday;
+    } catch (_error) {
+      // 退回上面按文件数算的结果
+    }
   }
 
   return result;

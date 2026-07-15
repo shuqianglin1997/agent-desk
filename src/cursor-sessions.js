@@ -24,7 +24,7 @@ function sqlite3Bin() {
 function queryJson(dbPath, sql) {
   try {
     const out = execFileSync(sqlite3Bin(), ['-readonly', '-json', dbPath, sql], {
-      encoding: 'utf8', timeout: 4000, maxBuffer: 64 * 1024 * 1024
+      encoding: 'utf8', timeout: 2000, maxBuffer: 64 * 1024 * 1024
     });
     const trimmed = out.trim();
     return trimmed ? JSON.parse(trimmed) : [];
@@ -43,7 +43,7 @@ function startOfDay(now) {
   return d.getTime();
 }
 
-function toRecord(row) {
+function toRecord(row, db) {
   const id = String(row.id || '');
   const created = Number(row.createdAt) || null;
   const updated = Number(row.lastUpdatedAt) || created;
@@ -59,7 +59,7 @@ function toRecord(row) {
     source: 'Cursor',
     status: row.isArchived ? '已归档' : '可用',
     model: null,
-    filePath: null, // 会话是 db 行、无独立文件；填 db 路径便于「打开文件」定位
+    filePath: db, // 会话是 db 行、无独立文件；填 db 路径便于「打开文件」定位
     address: id
   };
 }
@@ -85,8 +85,7 @@ function scanCursor(profile) {
     ) || [];
   }
 
-  const records = rows.map(toRecord);
-  for (const r of records) r.filePath = db; // 会话在 db 行里；「打开文件」定位到 state.vscdb
+  const records = rows.map((row) => toRecord(row, db));
   return records.sort((a, b) => {
     const left = new Date(b.updatedAt || b.createdAt || 0).getTime();
     const right = new Date(a.updatedAt || a.createdAt || 0).getTime();
