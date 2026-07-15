@@ -382,6 +382,90 @@ body[data-view="yard"] .status-bar {
   }
 }
 
+/* ── 工作量排行榜（对话框，两个视图共用） ── */
+.leaderboard-body {
+  display: grid;
+  gap: 6px;
+  max-height: min(60vh, 460px);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.lb-row {
+  display: grid;
+  grid-template-columns: 28px 40px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.lb-row.lb-top {
+  border-color: color-mix(in oklab, #e8b84a 60%, var(--line-mid));
+  background: color-mix(in oklab, #f4c76a 12%, var(--surface-raised));
+}
+
+.lb-row.lb-working {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.lb-rank {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-avatar {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--accent) 8%, var(--surface-canvas));
+}
+
+.lb-who {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.lb-who b {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-who small {
+  font-size: 11px;
+  color: var(--ink-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-score {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  padding-left: 8px;
+}
+
+.leaderboard-note {
+  margin: 4px 0 0;
+  color: var(--ink-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 /* ── 猫咪档案卡：编辑对话框里的换装区（两个视图共用） ── */
 .cat-customizer {
   display: grid;
