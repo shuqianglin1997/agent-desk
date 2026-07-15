@@ -160,7 +160,7 @@
         if (row > 1) { hx = Math.min(hx + 12, GROUND_X1 - 10); hy = 106; } // 溢出兜底，轻微叠放
         let seat = false;
         let tier = col % 2; // 名牌高低交错，避免相邻名牌互相盖住
-        if ((state === 'working' || state === 'arriving') && seatIndex < SEATS.length) {
+        if (seatEligible(state) && seatIndex < SEATS.length) {
           hx = SEATS[seatIndex];
           hy = SEAT_FOOT_Y;
           seat = true;
@@ -204,10 +204,11 @@
 
   function poseFor(state) {
     const S = root.YardSprites;
-    if (state === 'working' || state === 'arriving' || state === 'confused') return S.SIT;
+    if (state === 'working' || state === 'onduty' || state === 'arriving' || state === 'confused') return S.SIT;
     if (state === 'nap' || state === 'hibernate') return S.SLEEP;
     return S.LOAF;
   }
+  const seatEligible = (state) => state === 'working' || state === 'onduty' || state === 'arriving';
 
   function poseOf(entry, sleepAll) {
     const S = root.YardSprites;
@@ -531,13 +532,14 @@
     rect(18, 30, 4, 44, WOODD); rect(94, 30, 4, 44, WOODD);
   }
 
-  function drawDesk(cx) {
+  function drawDesk(cx, typing) {
     frameRect(cx - 12, 61, 24, 9, WOOD, LINE);
     rect(cx - 11, 62, 22, 2, WOODL);
     rect(cx - 8, 55, 10, 6, '#3a3f4a');
-    rect(cx - 7, 56, 8, 4, (tick % 8 < 4) ? '#9fd4e8' : '#b8e4f0');
+    // 干活中屏幕闪烁；在岗（idle）屏幕常亮
+    rect(cx - 7, 56, 8, 4, typing ? ((tick % 8 < 4) ? '#9fd4e8' : '#b8e4f0') : '#7fb8cc');
     rect(cx + 5, 58, 3, 3, '#c05a3a');
-    if (!reduced && tick % 8 < 4) {
+    if (!reduced && tick % 8 < 4) { // 咖啡热气（两态都有）
       rect(cx + 6, 55, 1, 1, 'rgba(255,255,255,.7)');
       rect(cx + 5, 53, 1, 1, 'rgba(255,255,255,.4)');
     }
@@ -591,11 +593,12 @@
       tail: (tick + seed) % 24 < 12
     });
 
-    if (entry.state === 'working' && !a.walking) {
-      if (entry.seat) drawDesk(entry.home.x);
+    if ((entry.state === 'working' || entry.state === 'onduty') && !a.walking) {
+      const typing = entry.state === 'working';
+      if (entry.seat) drawDesk(entry.home.x, typing);
       else { // 没抢到书桌的加班猫：草地办公
         rect(dx + 2, Math.round(a.y) - 6, 10, 5, '#3a3f4a');
-        rect(dx + 3, Math.round(a.y) - 5, 8, 3, (tick % 8 < 4) ? '#9fd4e8' : '#b8e4f0');
+        rect(dx + 3, Math.round(a.y) - 5, 8, 3, typing ? ((tick % 8 < 4) ? '#9fd4e8' : '#b8e4f0') : '#7fb8cc');
       }
     }
     if (entry.state === 'arriving') {

@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { scanSessions } = require('./sessions');
 const { probeActivity } = require('./activity');
+const { isRunningIn, snapshotProcesses } = require('./process');
 const { normalizeCat } = require('./yard/cats');
 
 const APP_NAME = 'AgentDesk';
@@ -119,7 +120,13 @@ function registerIpc() {
   });
 
   ipcMain.handle('activity:all', () => {
-    return loadProfiles().map((profile) => probeActivity(profile));
+    const profiles = loadProfiles();
+    // 进程快照采一次，供所有账号匹配；null 表示探测不可用（上层退回 mtime）
+    const psText = snapshotProcesses();
+    return profiles.map((profile) => ({
+      ...probeActivity(profile),
+      running: psText === null ? null : isRunningIn(psText, profile.profilePath)
+    }));
   });
 
   ipcMain.handle('diagnostics:get', (_event, profile) => {

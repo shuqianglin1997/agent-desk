@@ -23,14 +23,17 @@
 | 状态 | 触发条件 | 表现 |
 |---|---|---|
 | `confused` 迷路 | 会话根目录不存在 / 不可读 | 头顶 ? 气泡，原地转小圈（问题优先可见） |
-| `working` 干活中 | 最新会话文件 mtime < 5 分钟 | 走进工作亭书桌坐下打字，深夜亮台灯 |
-| `arriving` 开工路上 | `lastLaunchedAt` < 3 分钟且暂无写入 | 举「开工」小木牌 |
-| `play` 玩耍 | 24 小时内活跃过 | 区域内散步、去池边看锦鲤 |
-| `rest` 面包猫 | 1〜3 天没活跃（全新槽位也归此档） | 趴成面包待机 |
-| `nap` 打盹 | 3〜7 天没活跃 | 蜷睡，Zzz 上浮 |
-| `hibernate` 冬眠 | 超过 7 天没活跃 | 睡进纸箱盖毯子 |
+| `working` 干活中 | **官方 App 在运行** 且最新会话 mtime < 5 分钟 | 工作亭书桌前打字（屏幕闪烁），深夜亮台灯 |
+| `onduty` 在岗 | **官方 App 在运行** 但暂时没写会话 | 坐在书桌前，屏幕常亮不闪、不打字 |
+| `arriving` 开工路上 | App 未探测到，但 `lastLaunchedAt` < 3 分钟 | 举「开工」小木牌，走向工作亭 |
+| `play` 玩耍 | App 没运行，24 小时内活跃过 | 区域内散步、去池边看锦鲤 |
+| `rest` 面包猫 | App 没运行，1〜3 天没活跃（全新槽位也归此档） | 趴成面包待机 |
+| `nap` 打盹 | App 没运行，3〜7 天没活跃 | 蜷睡，Zzz 上浮 |
+| `hibernate` 冬眠 | App 没运行，超过 7 天没活跃 | 睡进纸箱盖毯子 |
 
-**活跃度探测**：[src/activity.js](../src/activity.js) 的 `probeActivity` 只做 `stat`（不读文件内容），返回 `{ rootExists, rootReadable, latestMtime, fileCount }`。扫描位置与 [sessions.js](../src/sessions.js) 完全一致，但那边负责解析、这边只探活跃度。主进程 IPC `activity:all` 暴露，renderer **仅在庭院视图可见时** 60 秒轮询一次（带防堆积），后台 / 经典视图不扫。
+**真实运行信号（关键）**：[src/process.js](../src/process.js) 的 `isRunningIn` 按 `--user-data-dir=<profilePath>` 匹配正在运行的进程命令行，判断「这个账号的官方 App 此刻是否开着」——这比会话文件 mtime 更贴近真实。因为 mtime 只是「最近有没有被写过」：App 关掉后残留写入会让猫误判成干活中，App 开着但没写又会让猫去睡觉。有了运行信号，「干活中/在岗」严格要求 App 在跑；进程探测不可用时（`ps`/`wmic` 失败）自动退回旧的 mtime 判据，`running` 记为 `null`。
+
+**活跃度探测**：[src/activity.js](../src/activity.js) 的 `probeActivity` 只做 `stat`（不读文件内容），返回 `{ rootExists, rootReadable, latestMtime, fileCount }`；主进程 IPC `activity:all` 再补上进程探测得到的 `running`（一次 `ps -axww` 供所有账号匹配）。扫描位置与 [sessions.js](../src/sessions.js) 完全一致，但那边负责解析、这边只探活跃度。renderer **仅在庭院视图可见时** 60 秒轮询一次（带防堆积），后台 / 经典视图不扫。
 
 ## 外观与自定义
 
@@ -70,7 +73,7 @@ src/
 
 ## 边界与已知取舍
 
-- 「干活中」目前只靠会话文件 mtime < 5 分钟判定；进程级「在岗」探测尚未接入（可作后续增强）。
+- 运行探测在主进程同步执行一次 `ps -axww`（本机实测约 40ms，60s 一次且仅庭院可见时）；Windows 走 `wmic`，在已移除 `wmic` 的新系统上会静默退回 mtime 判据（Windows 尚未真机验证）。
 - 活跃度扫描在主进程同步执行（有 12000 条上限 + 60s 节流）；会话目录在网络盘上的极端情况可能有短暂卡顿。
 - 账本只在庭院视图可见时推进——这是为省 CPU 刻意把轮询限定在庭院视图的直接结果。
 - 像素资产为程序化绘制，零外部图片；后续可整体替换为手绘 atlas（如 hatch-pet 流水线产物）而不动状态机与布局。
@@ -78,7 +81,7 @@ src/
 ## 测试
 
 ```bash
-npm test        # sessions / activity / cats / companion 单测
+npm test        # sessions / activity / process / cats / companion 单测
 npm run check   # 全部源文件语法检查
 ```
 
