@@ -6,7 +6,9 @@ const state = {
   selectedSessionId: null,
   query: '',
   view: localStorage.getItem('agentdesk-view') || 'yard',
-  activity: {}
+  activity: {},
+  ledger: null,
+  remindersOn: localStorage.getItem('agentdesk-reminders') !== '0'
 };
 
 const els = {
@@ -17,6 +19,9 @@ const els = {
   viewToggle: document.querySelector('#viewToggle'),
   accountActions: document.querySelector('#accountActions'),
   sidebarActions: document.querySelector('#sidebarActions'),
+  ledgerDone: document.querySelector('#ledgerDone'),
+  ledgerMin: document.querySelector('#ledgerMin'),
+  reminderToggle: document.querySelector('#reminderToggle'),
   themeToggle: document.querySelector('#themeToggle'),
   helpBtn: document.querySelector('#helpBtn'),
   addProfileBtn: document.querySelector('#addProfileBtn'),
@@ -83,6 +88,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initTheme();
   bindEvents();
   initYard();
+  initCompanion();
   applyView();
   loadProfiles();
   loadActivity();
@@ -211,6 +217,14 @@ function bindEvents() {
     state.view = state.view === 'yard' ? 'classic' : 'yard';
     localStorage.setItem('agentdesk-view', state.view);
     applyView();
+  });
+
+  els.reminderToggle.addEventListener('click', () => {
+    state.remindersOn = !state.remindersOn;
+    localStorage.setItem('agentdesk-reminders', state.remindersOn ? '1' : '0');
+    els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
+    els.reminderToggle.textContent = state.remindersOn ? '🔔 提醒 开' : '🔕 提醒 关';
+    setStatus(state.remindersOn ? '休息提醒已开启。' : '休息提醒已关闭，猫照常陪你干活。');
   });
 
   els.helpBtn.addEventListener('click', () => {
@@ -497,7 +511,66 @@ async function loadActivity() {
   } finally {
     activityLoading = false;
   }
+  runCompanion();
   syncYard();
+}
+
+// ── 陪伴账本 ─────────────────────────────────────────
+function initCompanion() {
+  els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
+  els.reminderToggle.textContent = state.remindersOn ? '🔔 提醒 开' : '🔕 提醒 关';
+  try {
+    const saved = JSON.parse(localStorage.getItem('agentdesk-ledger') || 'null');
+    if (saved && saved.date) state.ledger = saved;
+  } catch (_error) {
+    state.ledger = null;
+  }
+  if (window.YardCompanion) {
+    state.ledger = state.ledger || window.YardCompanion.emptyLedger(Date.now());
+  }
+  renderLedger();
+}
+
+function runCompanion() {
+  if (!window.YardCompanion || !window.YardCats) return;
+  // 整段包起来：账本出任何岔子都不能连累每次轮询的庭院刷新
+  try {
+    const now = Date.now();
+    const workingIds = state.profiles
+      .filter((profile) => window.YardCats.deriveState(now, profile, state.activity[profile.id]) === 'working')
+      .map((profile) => profile.id);
+
+    const { ledger, events } = window.YardCompanion.tick(state.ledger, {
+      now,
+      workingIds,
+      remindersOn: state.remindersOn
+    });
+    state.ledger = ledger;
+    try {
+      localStorage.setItem('agentdesk-ledger', JSON.stringify(ledger));
+    } catch (_error) {
+      // localStorage 满/不可用：账本仍在内存里工作，忽略
+    }
+    renderLedger();
+
+    for (const event of events) {
+      if (event.type === 'clockoff') {
+        setStatus(`一只猫收工了 —— 今日完成 +1（这轮陪你干了 ${event.minutes} 分钟）。`);
+      } else if (event.type === 'stretch') {
+        setStatus(`已经陪你干了 ${event.minutes} 分钟，要不要一起伸个懒腰？ ☕`);
+        if (isYardView()) window.YardScene.fx('stretch');
+      }
+    }
+  } catch (_error) {
+    // 账本坏了就从零重建，别卡住庭院
+    state.ledger = window.YardCompanion.emptyLedger(Date.now());
+  }
+}
+
+function renderLedger() {
+  if (!state.ledger) return;
+  els.ledgerDone.textContent = String(state.ledger.completed);
+  els.ledgerMin.textContent = String(Math.round(state.ledger.workedMs / 60000));
 }
 
 function syncYard() {
