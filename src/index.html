@@ -160,6 +160,26 @@
           备注
           <textarea id="editNote" rows="3" placeholder="给这个账号加点备注……"></textarea>
         </label>
+        <div class="cat-customizer">
+          <div class="cc-preview">
+            <canvas id="editCatCanvas" width="112" height="112" aria-label="猫咪外观预览"></canvas>
+            <button id="editCatRandom" type="button" class="cc-random">🎲 随机</button>
+          </div>
+          <div class="cc-groups">
+            <div class="cc-group">
+              <span class="cc-title">毛色</span>
+              <div class="cc-swatches" id="editBreedSwatches"></div>
+            </div>
+            <div class="cc-group">
+              <span class="cc-title">项圈</span>
+              <div class="cc-swatches" id="editCollarSwatches"></div>
+            </div>
+            <div class="cc-group">
+              <span class="cc-title">配饰</span>
+              <div class="cc-swatches" id="editAccSwatches"></div>
+            </div>
+          </div>
+        </div>
         <div class="dialog-actions">
           <button value="cancel">取消</button>
           <button id="confirmEditBtn" value="default" class="primary">保存</button>
