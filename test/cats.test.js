@@ -19,8 +19,32 @@ test('迷路：根目录不存在或不可读，压过一切', () => {
   assert.equal(deriveState(NOW, profile(), activity({ rootReadable: false, latestMtime: NOW - MINUTE })), 'confused');
 });
 
-test('干活中：最新会话文件 5 分钟内被写过', () => {
+test('干活中：最新会话文件 5 分钟内被写过（进程探测不可用时退回 mtime）', () => {
   assert.equal(deriveState(NOW, profile(), activity({ latestMtime: NOW - 2 * MINUTE })), 'working');
+});
+
+// ── 真实运行状态（running 信号）─────────────────────
+test('App 在运行 + 正在写会话 → 干活中', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 2 * MINUTE })), 'working');
+});
+
+test('App 在运行 + 暂时没写 → 在岗', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 30 * MINUTE })), 'onduty');
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: null })), 'onduty');
+});
+
+test('App 没运行但文件刚写过 → 不是干活中，按活跃度=玩耍（关键修复：假阳性）', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: false, latestMtime: NOW - 2 * MINUTE })), 'play');
+});
+
+test('App 没运行 + 很久没动 → 按年龄打盹/冬眠', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: false, latestMtime: NOW - 5 * DAY })), 'nap');
+  assert.equal(deriveState(NOW, profile(), activity({ running: false, latestMtime: NOW - 20 * DAY })), 'hibernate');
+});
+
+test('running=null（探测不可用）时退回 mtime 启发', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: null, latestMtime: NOW - 2 * MINUTE })), 'working');
+  assert.equal(deriveState(NOW, profile(), activity({ running: null, latestMtime: NOW - 3 * 60 * MINUTE })), 'play');
 });
 
 test('开工路上：刚打开账号但还没有写入', () => {
