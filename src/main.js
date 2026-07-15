@@ -121,7 +121,7 @@ function registerIpc() {
 
   ipcMain.handle('activity:all', () => {
     const profiles = loadProfiles();
-    // 进程快照采一次，供所有账号匹配；null 表示探测不可用（上层退回 mtime）
+    // 进程快照采一次，供所有账号匹配；null 表示探测不可用（上层退回按活跃度）
     const psText = snapshotProcesses();
     return profiles.map((profile) => ({
       ...probeActivity(profile),
