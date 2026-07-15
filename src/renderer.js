@@ -134,9 +134,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   applyView();
   loadProfiles();
   loadActivity();
-  // 只在庭院可见时轮询，避免后台白扫
+  // 庭院可见、或排行榜开着时轮询（排行榜按钮在经典视图也可点，要保证它也实时刷新）
   setInterval(() => {
-    if (state.view === 'yard' && !document.hidden) loadActivity();
+    if (!document.hidden && (state.view === 'yard' || els.leaderboardDialog.open)) loadActivity();
   }, 60000);
   maybeShowWelcome();
 });
@@ -686,7 +686,6 @@ function renderLeaderboard() {
     };
   });
   const ranked = window.YardWorkload.rankAccounts(rows);
-  const meta = window.YardCats.STATE_META;
   els.leaderboardBody.replaceChildren();
   if (!ranked.length) {
     els.leaderboardBody.textContent = '还没有账号。';
