@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
-const { scanSessions } = require('./sessions');
+const apps = require('./apps');
 const { probeActivity } = require('./activity');
 const { isRunningIn, snapshotProcesses } = require('./process');
 const { normalizeCat } = require('./yard/cats');
@@ -45,14 +45,18 @@ app.on('window-all-closed', () => {
 });
 
 function registerIpc() {
+  ipcMain.handle('apps:list', () => {
+    return apps.listApps();
+  });
+
   ipcMain.handle('profiles:list', () => {
     return loadProfiles();
   });
 
   ipcMain.handle('profiles:add', (_event, input) => {
     const profiles = loadProfiles();
-    const appId = input.appId === 'codex' ? 'codex' : 'claude';
-    const name = String(input.name || '').trim() || `${managedAppName(appId)} 账号`;
+    const appId = apps.isKnownApp(input.appId) ? input.appId : apps.DEFAULT_APP;
+    const name = String(input.name || '').trim() || `${apps.getApp(appId).label} 账号`;
     const profilePath = makeIsolatedProfilePath(appId, name);
     const profile = normalizeProfile({
       id: crypto.randomUUID(),
@@ -116,7 +120,8 @@ function registerIpc() {
 
   ipcMain.handle('sessions:list', (_event, profile) => {
     if (!profile) return [];
-    return scanSessions(normalizeProfile(profile));
+    const normalized = normalizeProfile(profile);
+    return apps.getApp(normalized.appId).scan(normalized);
   });
 
   ipcMain.handle('activity:all', () => {
@@ -245,7 +250,7 @@ function normalizeProfileList(profiles) {
 }
 
 function normalizeProfile(profile) {
-  const appId = profile.appId === 'codex' ? 'codex' : 'claude';
+  const appId = apps.isKnownApp(profile.appId) ? profile.appId : apps.DEFAULT_APP;
   const profilePath = profile.profilePath || defaultProfilePath(appId);
   const id = profile.id || crypto.randomUUID();
   return {
@@ -267,22 +272,14 @@ function profilesFile() {
   return path.join(app.getPath('userData'), 'profiles.json');
 }
 
+// 以下三个曾按 claude/codex 二元写死，现全部委托给 src/apps.js 注册表，
+// 加新工具只改注册表、这里不动。
 function defaultProfilePath(appId) {
-  const home = os.homedir();
-  if (process.platform === 'darwin') {
-    return path.join(home, 'Library', 'Application Support', managedAppName(appId));
-  }
-  if (process.platform === 'win32') {
-    return path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), managedAppName(appId));
-  }
-  return path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), managedAppName(appId));
+  return apps.defaultProfilePath(appId);
 }
 
 function defaultSessionRoot(appId, profilePath, isDefault) {
-  if (appId === 'codex') {
-    return isDefault ? path.join(os.homedir(), '.codex') : path.join(profilePath, 'codex-home');
-  }
-  return profilePath;
+  return apps.getApp(appId).defaultSessionRoot(profilePath, isDefault);
 }
 
 function makeIsolatedProfilePath(appId, name) {
@@ -290,7 +287,7 @@ function makeIsolatedProfilePath(appId, name) {
 }
 
 function managedAppName(appId) {
-  return appId === 'codex' ? 'Codex' : 'Claude';
+  return apps.getApp(appId).appName;
 }
 
 function slug(value) {
@@ -308,10 +305,7 @@ function launchProfile(profile) {
 
   const appName = managedAppName(profile.appId);
   const args = [`--user-data-dir=${profile.profilePath}`];
-  const env = {
-    ...process.env,
-    CODEX_HOME: profile.appId === 'codex' ? profile.sessionRoot : process.env.CODEX_HOME
-  };
+  const env = apps.getApp(profile.appId).launchEnv(profile, { ...process.env });
 
   try {
     if (process.platform === 'darwin') {
@@ -346,11 +340,12 @@ function diagnoseProfile(profile) {
   const executable = findExecutable(profile.appId);
   const profilePath = inspectPath(profile.profilePath, { createable: true });
   const sessionRoot = inspectPath(profile.sessionRoot, { createable: true });
-  const sessionAreas = expectedSessionAreas(profile).map((area) => ({
+  const app_ = apps.getApp(profile.appId);
+  const sessionAreas = app_.diagnosticAreas(profile).map((area) => ({
     ...area,
     ...inspectPath(area.path, { createable: false })
   }));
-  const sessions = scanSessions(profile);
+  const sessions = app_.scan(profile);
   const warnings = [];
 
   if (!executable.found) {
@@ -367,7 +362,7 @@ function diagnoseProfile(profile) {
     warnings.push('会话根目录不可读取。');
   }
   if (sessions.length === 0 && sessionRoot.exists && sessionRoot.readable) {
-    warnings.push('会话根目录可读，但没有匹配到 Claude/Codex 会话文件。');
+    warnings.push(`会话根目录可读，但没有匹配到 ${app_.label} 会话文件。`);
   }
 
   return {
@@ -382,21 +377,6 @@ function diagnoseProfile(profile) {
     userData: app.getPath('userData'),
     warnings
   };
-}
-
-function expectedSessionAreas(profile) {
-  if (profile.appId === 'codex') {
-    return [
-      { label: 'Codex 索引', path: path.join(profile.sessionRoot, 'session_index.jsonl'), kind: 'file' },
-      { label: 'Codex 会话', path: path.join(profile.sessionRoot, 'sessions'), kind: 'directory' },
-      { label: 'Codex 归档', path: path.join(profile.sessionRoot, 'archived_sessions'), kind: 'directory' }
-    ];
-  }
-
-  return [
-    { label: 'Claude Code', path: path.join(profile.sessionRoot, 'claude-code-sessions'), kind: 'directory' },
-    { label: 'Claude 本地', path: path.join(profile.sessionRoot, 'local-agent-mode-sessions'), kind: 'directory' }
-  ];
 }
 
 function inspectPath(itemPath, options = {}) {

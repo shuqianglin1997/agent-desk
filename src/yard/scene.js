@@ -286,7 +286,7 @@
       }
       const stateLabel = meta[entry.state] ? meta[entry.state].label : entry.state;
       chip.querySelector('.plate-name').textContent = entry.profile.name;
-      chip.querySelector('.app-dot').style.background = entry.profile.appId === 'codex' ? '#2f9e8f' : '#d96f33';
+      chip.querySelector('.app-dot').style.background = (root.YardSprites.APP_TAG[entry.profile.appId]) || '#d96f33';
       chip.title = `${entry.profile.name} · ${stateLabel}${entry.profile.group ? ' · ' + entry.profile.group : ''}`;
       chip.classList.toggle('selected', id === data.selectedId);
       chip.classList.toggle('hovered', id === hoveredId);
@@ -577,7 +577,7 @@
     const isSel = entry.profile.id === data.selectedId;
     if (isSel || entry.profile.id === hoveredId) {
       ctx.fillStyle = isSel
-        ? (entry.profile.appId === 'codex' ? '#2f9e8f' : '#d96f33')
+        ? (root.YardSprites.APP_TAG[entry.profile.appId] || '#d96f33')
         : 'rgba(255,255,255,.55)';
       for (let i = 0; i < pw + 4; i += 3) ctx.fillRect(dx - 2 + i, Math.round(a.y) + 1, 2, 1);
     }

@@ -10,8 +10,42 @@ const state = {
   ledger: null,
   remindersOn: localStorage.getItem('agentdesk-reminders') !== '0',
   atmosTime: localStorage.getItem('agentdesk-yard-time') || 'auto',
-  atmosWeather: localStorage.getItem('agentdesk-yard-weather') || 'clear'
+  atmosWeather: localStorage.getItem('agentdesk-yard-weather') || 'clear',
+  appMeta: { claude: { label: 'Claude', tagColor: '#d96f33' }, codex: { label: 'Codex', tagColor: '#2f9e8f' } }
 };
+
+// 受管客户端元数据（label / 配色）由主进程注册表提供，UI 不再写死 claude/codex
+async function loadApps() {
+  try {
+    const list = await window.manager.listApps();
+    if (Array.isArray(list) && list.length) {
+      state.appMeta = Object.fromEntries(list.map((a) => [a.id, { label: a.label, tagColor: a.tagColor }]));
+    }
+  } catch (_error) {
+    // 保留内置默认
+  }
+  // 把配色喂给像素猫（浏览器侧模块无法 require 注册表）
+  if (window.YardSprites) {
+    for (const [id, meta] of Object.entries(state.appMeta)) window.YardSprites.APP_TAG[id] = meta.tagColor;
+  }
+  // 新增对话框的「应用」下拉按注册表填充
+  if (els.newProfileApp) {
+    els.newProfileApp.replaceChildren();
+    for (const [id, meta] of Object.entries(state.appMeta)) {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = meta.label;
+      els.newProfileApp.append(option);
+    }
+  }
+}
+
+function appLabel(appId) {
+  return (state.appMeta[appId] && state.appMeta[appId].label) || appId;
+}
+function appColor(appId) {
+  return (state.appMeta[appId] && state.appMeta[appId].tagColor) || '#d96f33';
+}
 
 const els = {
   accountList: document.querySelector('#accountList'),
@@ -88,9 +122,10 @@ const els = {
 let lastDiagnostics = null;
 let yardMounted = false;
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   initTheme();
   bindEvents();
+  await loadApps();
   initYard();
   initCompanion();
   applyView();
@@ -117,7 +152,7 @@ function maybeShowWelcome() {
 
 function bindEvents() {
   els.addProfileBtn.addEventListener('click', () => {
-    els.newProfileApp.value = 'claude';
+    els.newProfileApp.value = els.newProfileApp.options[0] ? els.newProfileApp.options[0].value : 'claude';
     els.newProfileName.value = '';
     els.newProfileGroup.value = '';
     els.newProfileNote.value = '';
@@ -656,7 +691,7 @@ function appendAccountRow(profile) {
     <strong></strong>
     <small></small>
   `;
-  button.querySelector('.account-app').textContent = profile.appId === 'codex' ? 'Codex' : 'Claude';
+  button.querySelector('.account-app').textContent = appLabel(profile.appId);
   button.querySelector('strong').textContent = profile.name;
   const small = button.querySelector('small');
   if (profile.note) {
@@ -727,7 +762,7 @@ function renderAccountHeader() {
 
   els.accountTitle.textContent = profile.name;
   const groupLabel = profile.group ? ` · ${profile.group}` : '';
-  els.accountMeta.textContent = `${profile.appId === 'codex' ? 'Codex' : 'Claude'} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
+  els.accountMeta.textContent = `${appLabel(profile.appId)} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
   els.accountPath.textContent = `账号 ${shortPath(profile.profilePath)} · 会话 ${shortPath(profile.sessionRoot)}`;
   els.accountNote.textContent = profile.note || '';
   els.accountNote.style.display = profile.note ? '' : 'none';
@@ -905,7 +940,7 @@ function selectedSession() {
 }
 
 function makeHandoffText(profile, session) {
-  const appName = profile.appId === 'codex' ? 'Codex' : 'Claude';
+  const appName = appLabel(profile.appId);
   return [
     '请帮我继续理解这个会话：',
     '',

@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('manager', {
+  listApps: () => ipcRenderer.invoke('apps:list'),
   listProfiles: () => ipcRenderer.invoke('profiles:list'),
   addProfile: (input) => ipcRenderer.invoke('profiles:add', input),
   updateProfile: (input) => ipcRenderer.invoke('profiles:update', input),
