@@ -8,6 +8,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const apps = require('./apps');
 
 const WALK_LIMIT = 12000;
 const SKIP_DIRS = ['Cache', 'GPUCache', 'node_modules'];
@@ -37,7 +38,7 @@ function probeActivity(profile) {
     return result;
   }
 
-  for (const area of sessionAreasFor(profile)) {
+  for (const area of apps.getApp(profile.appId).scanAreas(profile)) {
     for (const filePath of walkFiles(area.dir, area.match)) {
       result.fileCount += 1;
       try {
@@ -50,20 +51,6 @@ function probeActivity(profile) {
   }
 
   return result;
-}
-
-// 与 sessions.js 的扫描位置保持一致（那边负责解析，这边只 stat）
-function sessionAreasFor(profile) {
-  if (profile.appId === 'codex') {
-    return [
-      { dir: path.join(profile.sessionRoot, 'sessions'), match: (name) => name.endsWith('.jsonl') },
-      { dir: path.join(profile.sessionRoot, 'archived_sessions'), match: (name) => name.endsWith('.jsonl') }
-    ];
-  }
-  return [
-    { dir: path.join(profile.sessionRoot, 'claude-code-sessions'), match: (name) => /^local_.*\.json$/i.test(name) },
-    { dir: path.join(profile.sessionRoot, 'local-agent-mode-sessions'), match: (name) => /^local_.*\.json$/i.test(name) }
-  ];
 }
 
 function walkFiles(root, match) {
@@ -94,4 +81,4 @@ function walkFiles(root, match) {
   return output;
 }
 
-module.exports = { probeActivity, sessionAreasFor };
+module.exports = { probeActivity };

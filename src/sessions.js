@@ -212,4 +212,4 @@ function uuidFromFilename(filePath) {
   return match?.[0] || null;
 }
 
-module.exports = { scanSessions, parseDate, cleanTitle, uuidFromFilename, text };
+module.exports = { scanSessions, scanClaude, scanCodex, parseDate, cleanTitle, uuidFromFilename, text };
