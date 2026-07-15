@@ -35,6 +35,20 @@
           <div class="yard-frame">
             <canvas id="yardCanvas" width="480" height="132" aria-label="猫猫庭院：每只猫是一个账号槽位，点击选中"></canvas>
             <div id="yardOverlay" class="yard-overlay"></div>
+            <div class="yard-atmos">
+              <div class="atmos-row" id="atmosTime" role="group" aria-label="时间">
+                <button type="button" data-time="auto">跟随</button>
+                <button type="button" data-time="day">白天</button>
+                <button type="button" data-time="dusk">黄昏</button>
+                <button type="button" data-time="night">夜晚</button>
+              </div>
+              <div class="atmos-row" id="atmosWeather" role="group" aria-label="天气">
+                <button type="button" data-weather="clear">晴</button>
+                <button type="button" data-weather="cloudy">多云</button>
+                <button type="button" data-weather="rain">雨</button>
+                <button type="button" data-weather="snow">雪</button>
+              </div>
+            </div>
           </div>
           <div class="yard-ledger" id="yardLedger">
             <span class="ledger-title">今日小账本</span>
@@ -252,6 +266,7 @@
     <script src="./yard/sprites.js"></script>
     <script src="./yard/cats.js"></script>
     <script src="./yard/companion.js"></script>
+    <script src="./yard/palettes.js"></script>
     <script src="./yard/scene.js"></script>
     <script src="./renderer.js"></script>
   </body>

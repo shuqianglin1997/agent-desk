@@ -8,7 +8,9 @@ const state = {
   view: localStorage.getItem('agentdesk-view') || 'yard',
   activity: {},
   ledger: null,
-  remindersOn: localStorage.getItem('agentdesk-reminders') !== '0'
+  remindersOn: localStorage.getItem('agentdesk-reminders') !== '0',
+  atmosTime: localStorage.getItem('agentdesk-yard-time') || 'auto',
+  atmosWeather: localStorage.getItem('agentdesk-yard-weather') || 'clear'
 };
 
 const els = {
@@ -22,6 +24,8 @@ const els = {
   ledgerDone: document.querySelector('#ledgerDone'),
   ledgerMin: document.querySelector('#ledgerMin'),
   reminderToggle: document.querySelector('#reminderToggle'),
+  atmosTime: document.querySelector('#atmosTime'),
+  atmosWeather: document.querySelector('#atmosWeather'),
   themeToggle: document.querySelector('#themeToggle'),
   helpBtn: document.querySelector('#helpBtn'),
   addProfileBtn: document.querySelector('#addProfileBtn'),
@@ -484,6 +488,37 @@ function initYard() {
     onPet: (profile) => setStatus(`${profile.name}：呼噜呼噜呼噜……`)
   });
   yardMounted = true;
+  initAtmosphere();
+}
+
+// 时间 / 天气控件：从 localStorage 恢复，点击切换并持久化
+function initAtmosphere() {
+  const TIME_LABEL = { auto: '跟随主题', day: '白天', dusk: '黄昏', night: '夜晚' };
+  const WEATHER_LABEL = { clear: '晴天', cloudy: '多云', rain: '下雨', snow: '下雪' };
+  const syncPressed = () => {
+    els.atmosTime.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.time === state.atmosTime)));
+    els.atmosWeather.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.weather === state.atmosWeather)));
+  };
+  els.atmosTime.addEventListener('click', (event) => {
+    const btn = event.target.closest('button');
+    if (!btn) return;
+    state.atmosTime = btn.dataset.time;
+    localStorage.setItem('agentdesk-yard-time', state.atmosTime);
+    window.YardScene.setAtmosphere({ time: state.atmosTime });
+    syncPressed();
+    setStatus(`庭院时间：${TIME_LABEL[state.atmosTime]}。`);
+  });
+  els.atmosWeather.addEventListener('click', (event) => {
+    const btn = event.target.closest('button');
+    if (!btn) return;
+    state.atmosWeather = btn.dataset.weather;
+    localStorage.setItem('agentdesk-yard-weather', state.atmosWeather);
+    window.YardScene.setAtmosphere({ weather: state.atmosWeather });
+    syncPressed();
+    setStatus(`庭院天气：${WEATHER_LABEL[state.atmosWeather]}。`);
+  });
+  window.YardScene.setAtmosphere({ time: state.atmosTime, weather: state.atmosWeather });
+  syncPressed();
 }
 
 function applyView() {
