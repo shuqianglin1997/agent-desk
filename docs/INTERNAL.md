@@ -65,13 +65,22 @@ agent-desk/
   src/
     main.js            Electron 主进程，本地文件/启动/诊断/IPC
     sessions.js        会话扫描（纯 Node，可单元测试）
+    activity.js        活跃度探测（stat-only，纯 Node，驱动庭院状态）
     preload.js         安全桥接 IPC
-    renderer.js        UI 状态与交互
+    renderer.js        UI 状态与交互（经典视图 + 庭院视图）
     index.html         页面结构
-    styles.css         界面样式
-  test/                会话扫描单元测试（node --test）
+    styles.css         界面样式（经典 porcelain 皮肤）
+    yard/              猫猫庭院视图（见 docs/YARD.md）
+      cats.js          状态机 + 外观默认值（纯函数，可单测）
+      companion.js     陪伴账本 reducer（纯函数，可单测）
+      sprites.js       像素猫资产与分层合成
+      scene.js         画布引擎（8fps、移动、命中、昼夜、fx）
+      yard.css         庭院布局与像素皮肤
+  test/                单元测试（sessions / activity / cats / companion）
   package.json         npm 脚本和 electron-builder 配置
 ```
+
+猫猫庭院是账号槽位的像素化替代视图（默认），经典三栏视图完整保留、可一键切换。详见 [YARD.md](YARD.md)。
 
 ## 数据存储
 
