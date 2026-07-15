@@ -8,14 +8,15 @@
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.YardCats = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
+  const SECOND = 1000;
   const MINUTE = 60e3;
   const DAY = 24 * 60 * MINUTE;
 
   // 状态元数据：优先级即 deriveState 的判断顺序
   const STATE_META = {
     confused: { label: '迷路', hint: '路径失效，点「诊断」体检' },
-    working: { label: '干活中', hint: 'App 开着，正在写会话' },
-    onduty: { label: '在岗', hint: 'App 开着，暂时没写会话' },
+    working: { label: '干活中', hint: '会话正在活动（25 秒内有写入）' },
+    onduty: { label: '在岗', hint: 'App 开着，但暂时没有任务在跑' },
     arriving: { label: '开工路上', hint: '刚打开账号，App 还没起来' },
     play: { label: '玩耍', hint: 'App 没开，今天活跃过' },
     rest: { label: '面包猫', hint: 'App 没开，1〜3 天没动静' },
@@ -23,16 +24,16 @@
     hibernate: { label: '冬眠', hint: 'App 没开，超过 7 天没动静' }
   };
 
-  const WORKING_WINDOW = 5 * MINUTE;
+  const WORKING_WINDOW = 25 * SECOND; // 会话 25 秒内还有活动 = 正在干活（原来 5 分钟太松）
   const ARRIVING_WINDOW = 3 * MINUTE;
 
   /*
    * 信号 → 状态。activity 来自主进程：
-   *   { rootExists, rootReadable, latestMtime(ms|null), fileCount, running }
-   * running：该账号官方 App 进程是否在运行。true / false / null（探测不可用）。
+   *   { rootExists, rootReadable, latestMtime, fileCount, running }
+   *   running：该账号官方 App 进程是否在运行。true / false / null（探测不可用）。
    *
-   * 优先用真实运行状态；running 未知时退回「会话文件最后写入时间」启发。
-   * 探测整体缺失（IPC 失败等）时按面包猫待机处理。
+   * 关键：「干活中」= 会话此刻正在活动（25 秒内有写入）且 App 在跑——不是「App 开着」
+   * 也不是「最近 5 分钟写过」。一个开着但空闲的 App，会话文件几分钟才动一次。
    */
   function deriveState(now, profile, activity) {
     if (!activity) return 'rest';
@@ -42,17 +43,15 @@
       ? now - Date.parse(profile.lastLaunchedAt)
       : Infinity;
     const activeAgo = activity.latestMtime ? now - activity.latestMtime : Infinity;
-    const running = activity.running; // true | false | null(未知)
 
-    // App 确实在运行：正在写会话 = 干活中，否则 = 在岗
-    if (running === true) {
-      return activeAgo < WORKING_WINDOW ? 'working' : 'onduty';
-    }
-    // 进程探测不可用时，退回旧的 mtime 启发判「干活中」
-    if (running == null && activeAgo < WORKING_WINDOW) return 'working';
-
-    // App 没在运行（或探测不可用且近期无写入）：按上次活跃多久分档
-    if (launchedAgo >= 0 && launchedAgo < ARRIVING_WINDOW) return 'arriving';
+    // 干活中：会话 25 秒内在活动。App 明确没开(false)时，近期写入只是残留、不算干活；
+    // App 在跑或进程探测不可用(null)则算。
+    if (activeAgo < WORKING_WINDOW && activity.running !== false) return 'working';
+    // 开工路上：刚点了「打开账号」、但 App 进程还没被探测到（已探测到在跑就直接归「在岗」）
+    if (launchedAgo >= 0 && launchedAgo < ARRIVING_WINDOW && activity.running !== true) return 'arriving';
+    // App 开着但 25 秒内没动 = 在岗待命（醒着，不在书桌前）
+    if (activity.running === true) return 'onduty';
+    // App 没开：按上次活跃多久分档
     if (activeAgo < DAY) return 'play';
     if (activeAgo < 3 * DAY) return 'rest';
     if (activeAgo < 7 * DAY) return 'nap';

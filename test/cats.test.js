@@ -5,6 +5,7 @@ const assert = require('node:assert');
 const { deriveState, defaultCatFor, normalizeCat, BREED_KEYS, COLLAR_COLORS } = require('../src/yard/cats');
 
 const NOW = Date.parse('2026-07-14T12:00:00.000Z');
+const SECOND = 1000;
 const MINUTE = 60e3;
 const DAY = 24 * 60 * MINUTE;
 
@@ -19,41 +20,40 @@ test('迷路：根目录不存在或不可读，压过一切', () => {
   assert.equal(deriveState(NOW, profile(), activity({ rootReadable: false, latestMtime: NOW - MINUTE })), 'confused');
 });
 
-test('干活中：最新会话文件 5 分钟内被写过（进程探测不可用时退回 mtime）', () => {
-  assert.equal(deriveState(NOW, profile(), activity({ latestMtime: NOW - 2 * MINUTE })), 'working');
+// ── 干活 = 会话 25 秒内在活动 且 App 在跑，而非「开着」或「最近写过」──
+test('会话 25 秒内在活动 + App 在跑 → 干活中', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 5 * SECOND })), 'working');
+  // 进程探测不可用(null) 时，近期活动也算干活
+  assert.equal(deriveState(NOW, profile(), activity({ running: null, latestMtime: NOW - 5 * SECOND })), 'working');
 });
 
-// ── 真实运行状态（running 信号）─────────────────────
-test('App 在运行 + 正在写会话 → 干活中', () => {
-  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 2 * MINUTE })), 'working');
-});
-
-test('App 在运行 + 暂时没写 → 在岗', () => {
-  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 30 * MINUTE })), 'onduty');
+test('关键修复：App 开着但 25 秒内没动（2 分钟前写过）→ 在岗，不是干活中', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 2 * MINUTE })), 'onduty');
   assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: null })), 'onduty');
 });
 
-test('App 没运行但文件刚写过 → 不是干活中，按活跃度=玩耍（关键修复：假阳性）', () => {
-  assert.equal(deriveState(NOW, profile(), activity({ running: false, latestMtime: NOW - 2 * MINUTE })), 'play');
+test('App 明确没开时，近期写入只是残留 → 不算干活（按活跃度=玩耍）', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: false, latestMtime: NOW - 5 * SECOND })), 'play');
 });
 
-test('App 没运行 + 很久没动 → 按年龄打盹/冬眠', () => {
+test('App 没开、久未活动 → 按年龄玩耍/打盹/冬眠', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: false, latestMtime: NOW - 2 * MINUTE })), 'play');
   assert.equal(deriveState(NOW, profile(), activity({ running: false, latestMtime: NOW - 5 * DAY })), 'nap');
   assert.equal(deriveState(NOW, profile(), activity({ running: false, latestMtime: NOW - 20 * DAY })), 'hibernate');
 });
 
-test('running=null（探测不可用）时退回 mtime 启发', () => {
-  assert.equal(deriveState(NOW, profile(), activity({ running: null, latestMtime: NOW - 2 * MINUTE })), 'working');
-  assert.equal(deriveState(NOW, profile(), activity({ running: null, latestMtime: NOW - 3 * 60 * MINUTE })), 'play');
-});
-
-test('开工路上：刚打开账号但还没有写入', () => {
+test('开工路上：刚打开账号、App 还没探测到、也没在活动', () => {
   assert.equal(deriveState(NOW, profile(new Date(NOW - MINUTE).toISOString()), activity({ latestMtime: NOW - DAY / 2 })), 'arriving');
 });
 
-test('干活中优先于开工路上', () => {
+test('刚打开但 App 已探测到在跑且空闲 → 直接在岗，不再举牌占书桌', () => {
   const p = profile(new Date(NOW - MINUTE).toISOString());
-  assert.equal(deriveState(NOW, p, activity({ latestMtime: NOW - MINUTE })), 'working');
+  assert.equal(deriveState(NOW, p, activity({ running: true, latestMtime: NOW - 10 * MINUTE })), 'onduty');
+});
+
+test('干活中优先于开工路上（正在活动就是干活）', () => {
+  const p = profile(new Date(NOW - MINUTE).toISOString());
+  assert.equal(deriveState(NOW, p, activity({ running: true, latestMtime: NOW - SECOND })), 'working');
 });
 
 test('活跃分档：玩耍 <24h、面包 <3d、打盹 <7d、冬眠 ≥7d', () => {

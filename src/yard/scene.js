@@ -208,7 +208,8 @@
     if (state === 'nap' || state === 'hibernate') return S.SLEEP;
     return S.LOAF;
   }
-  const seatEligible = (state) => state === 'working' || state === 'onduty' || state === 'arriving';
+  // 只有「真在生成」和「刚开工」的猫才坐进工作亭书桌；在岗(空闲)不占书桌
+  const seatEligible = (state) => state === 'working' || state === 'arriving';
 
   function poseOf(entry, sleepAll) {
     const S = root.YardSprites;
@@ -593,13 +594,16 @@
       tail: (tick + seed) % 24 < 12
     });
 
-    if ((entry.state === 'working' || entry.state === 'onduty') && !a.walking) {
-      const typing = entry.state === 'working';
-      if (entry.seat) drawDesk(entry.home.x, typing);
+    if (entry.state === 'working' && !a.walking) {
+      if (entry.seat) drawDesk(entry.home.x, true);
       else { // 没抢到书桌的加班猫：草地办公
         rect(dx + 2, Math.round(a.y) - 6, 10, 5, '#3a3f4a');
-        rect(dx + 3, Math.round(a.y) - 5, 8, 3, typing ? ((tick % 8 < 4) ? '#9fd4e8' : '#b8e4f0') : '#7fb8cc');
+        rect(dx + 3, Math.round(a.y) - 5, 8, 3, (tick % 8 < 4) ? '#9fd4e8' : '#b8e4f0');
       }
+    }
+    // 在岗：App 开着但空闲。醒着端坐在自家区域，头顶偶尔冒个小气泡，明确区别于「干活中」
+    if (entry.state === 'onduty' && !a.walking && (tick + seed) % 40 < 3) {
+      rect(dx + pw, dy - 4, 2, 2, 'rgba(120,140,170,.7)');
     }
     if (entry.state === 'arriving') {
       rect(dx + pw, dy - 6, 2, 5, '#e8c04a');
