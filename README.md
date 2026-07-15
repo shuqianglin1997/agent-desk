@@ -47,9 +47,22 @@ AgentDesk touches your accounts, so its boundaries matter:
 
 It only manages **local data slots** and a **read-only session index**. That's it.
 
+## The cat yard 🐈
+
+By default AgentDesk greets you with a **pixel cat yard** — the same accounts and sessions, in a place you'll actually want to leave open. Every pixel is drawn from real local data; nothing is faked.
+
+![The cat yard](assets/screenshots/yard.png)
+
+- **Every account is a cat.** The name plate *is* the account name — no separate pet name to keep in sync. Its coat, collar and accessory are yours to customize (Edit → dress it up), and groups become fenced-off areas of the yard.
+- **Cats live your accounts' rhythm.** A cat's behavior comes from that account's real session activity: it sits at a desk typing while a session is being written, plays in the grass if the account was active today, curls up to nap after a few quiet days, or hibernates in a box after a week. A broken session path shows a **?** over the cat — click it to open diagnostics.
+- **Sessions are the day's catch.** The full session table lives right below the yard — same search, same one-click handoff, same details. Finding old work never got slower.
+- **A gentle work/life balance.** A *today* ledger tallies how many work sessions wrapped up and how long the cats kept you company. After 90 minutes of unbroken work, a cat stretches and nudges you to do the same — a quiet status-bar note, never a popup, and switchable off entirely.
+- **Time & weather.** A control in the corner sets the yard to day / dusk / night (or *follow* your theme) and clear / cloudy / rain / snow. Purely atmospheric — set the mood you like.
+- **Prefer the plain table?** One click on **⇄** switches back to the classic three-pane view below. It's the same data underneath, so nothing is lost either way.
+
 ## Interface
 
-A three-pane workbench:
+The yard is the default; the **⇄** button flips to a classic three-pane workbench (and back):
 
 - **Left** — your account slots (Claude / Codex). Add, rename, remove, launch.
 - **Middle** — the session table for the selected account, with search and sort by last active.
@@ -113,8 +126,9 @@ AgentDesk is a small [Electron](https://www.electronjs.org/) app:
 - **Main process** (`src/main.js`) — all filesystem access, app launching, session scanning, and diagnostics.
 - **Preload** (`src/preload.js`) — a narrow, `contextIsolation`-safe IPC bridge.
 - **Renderer** (`src/renderer.js`, `src/index.html`, `src/styles.css`) — the UI. It never touches the filesystem directly.
+- **Cat yard** (`src/yard/`) — the default pixel-yard view: a canvas scene engine plus pure-function modules for cat state, the companion ledger, and palettes. See [`docs/YARD.md`](docs/YARD.md).
 
-More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Windows specifics, and internals.
+More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Windows specifics, internals, and the [cat yard](docs/YARD.md).
 
 ## License
 
@@ -148,6 +162,19 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 - **路径可配。** 手动设置每个槽位的数据目录和会话根目录 —— 这点很关键，因为 Codex 把这两者放在不同地方。
 - **macOS + Windows** 同一套能力。
 - **深色 / 浅色** 跟随系统，随时用 ◐ 按钮切换。
+
+## 猫猫庭院 🐈
+
+默认打开时，AgentDesk 迎接你的是一片**像素猫庭院** —— 还是那些账号和会话，只是换到一个你愿意一直开着的地方。每一个像素都由真实本地数据驱动，没有一处是假的。
+
+![猫猫庭院](assets/screenshots/yard-dusk.png)
+
+- **每个账号是一只猫。** 名牌就是账号名，不用另记一个宠物名；毛色、项圈、配饰随你定制（编辑账号即可换装），分组变成庭院里一块块围起来的区域。
+- **猫跟着账号的节奏过日子。** 猫的行为由该账号的真实会话活动决定：有会话正在写入时它伏案打字，账号今天活跃过就在草地玩耍，几天没动静就蜷着打盹，超过一周没碰就钻进纸箱冬眠。会话路径失效的猫头顶挂个 **?**，点它直达诊断。
+- **会话是这一天的渔获。** 完整会话表就在庭院下方 —— 搜索、一键交接、详情一样不少，找旧会话不会因此变慢。
+- **不打扰的劳逸平衡。** 「今日小账本」记下今天有多少次收工、猫陪你干了多久。连续工作 90 分钟，猫会伸个懒腰提醒你也起来动动 —— 只在状态栏轻声提示，绝不弹窗，也能整个关掉。
+- **时间与天气。** 角落的控件把庭院切成 白天 / 黄昏 / 夜晚（或**跟随**主题）与 晴 / 多云 / 雨 / 雪，纯氛围，调成你喜欢的样子。
+- **想要朴素的表格？** 点一下 **⇄** 切回下方的经典三栏视图，底层是同一份数据，两边都不丢东西。
 
 ## 它刻意不做的事
 
