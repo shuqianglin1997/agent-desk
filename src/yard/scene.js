@@ -53,6 +53,9 @@
   let overlay = null;
   let onSelect = null;
   let onPet = null;
+  let terrainCanvas = null;     // 离屏缓存：地面/栅栏/花圃/树/工作亭，只随昼夜变
+  let terrainCtx = null;
+  let terrainKey = null;
 
   let data = { profiles: [], statesById: {}, selectedId: null, night: false };
   let layout = [];              // [{ profile, state, seat, tier, home, band, actor, topY }]
@@ -391,19 +394,21 @@
     rect(0, 44, W, 2, WOODL);
   }
 
-  function drawFlowers(P) {
+  function drawFlowerBed(P) {
     rect(302, 58, 48, 10, mix(P.grass, '#4a7034', 0.5));
     [[306, 60, '#e8a0b8'], [313, 63, '#f0d060'], [320, 59, '#f8f0e0'], [328, 62, '#e8a0b8'], [336, 60, '#f0d060'], [343, 63, '#f8f0e0']].forEach(([x, y, c]) => {
       rect(x, y, 2, 2, c); rect(x, y + 2, 1, 2, '#4a7034');
     });
-    if (!reduced) {
-      const bt = tick * 0.1;
-      const bx = Math.round(326 + Math.cos(bt) * 14);
-      const by = Math.round(52 + Math.sin(bt * 1.7) * 4);
-      const open = tick % 4 < 2;
-      rect(bx, by, 1, 2, '#d97a3a');
-      if (open) { rect(bx - 1, by, 1, 1, '#f0b060'); rect(bx + 1, by, 1, 1, '#f0b060'); } else rect(bx, by - 1, 1, 1, '#f0b060');
-    }
+  }
+
+  function drawButterfly() {
+    if (reduced) return;
+    const bt = tick * 0.1;
+    const bx = Math.round(326 + Math.cos(bt) * 14);
+    const by = Math.round(52 + Math.sin(bt * 1.7) * 4);
+    const open = tick % 4 < 2;
+    rect(bx, by, 1, 2, '#d97a3a');
+    if (open) { rect(bx - 1, by, 1, 1, '#f0b060'); rect(bx + 1, by, 1, 1, '#f0b060'); } else rect(bx, by - 1, 1, 1, '#f0b060');
   }
 
   function drawMailbox() {
@@ -569,6 +574,35 @@
     });
   }
 
+  // 静态地形离屏缓存：只随昼夜重建，其余帧直接 blit
+  function ensureTerrain(P) {
+    if (!terrainCanvas) {
+      terrainCanvas = document.createElement('canvas');
+      terrainCanvas.width = W;
+      terrainCanvas.height = H;
+      terrainCtx = terrainCanvas.getContext('2d');
+      terrainCtx.imageSmoothingEnabled = false;
+    }
+    const key = data.night ? 'night' : 'day';
+    if (key === terrainKey) return terrainCanvas;
+
+    // 临时把画笔指向离屏 ctx，复用现有 draw* 函数，画完复位
+    const mainCtx = ctx;
+    ctx = terrainCtx;
+    try {
+      ctx.clearRect(0, 0, W, H);
+      drawGround(P);
+      drawFence();
+      drawFlowerBed(P);
+      drawTree(P);
+      drawHut(P);
+    } finally {
+      ctx = mainCtx;
+    }
+    terrainKey = key;
+    return terrainCanvas;
+  }
+
   // ── 主渲染 ───────────────────────────────────────────
   function render() {
     if (!ctx) return;
@@ -576,13 +610,12 @@
     const sleepAll = sleepAllNow();
     ctx.clearRect(0, 0, W, H);
     drawSky(P);
-    drawGround(P);
-    drawFence();
-    drawFlowers(P);
+    // 静态地形一次性 blit（先于邮筒/池塘）。不变式：地形层（工作亭/树）与逐帧的
+    // 邮筒/池塘在 x 上不重叠——否则调整坐标会静默改变遮挡关系。改坐标时留意。
+    ctx.drawImage(ensureTerrain(P), 0, 0);
+    drawButterfly();
     drawMailbox();
     drawPond(P);
-    drawTree(P);
-    drawHut(P);
     zones.forEach((zone) => drawSign(zone.x));
     [...layout].sort((a, b) => a.actor.y - b.actor.y).forEach((entry) => drawYardCat(entry, sleepAll));
     drawParticles();
