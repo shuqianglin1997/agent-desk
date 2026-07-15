@@ -60,6 +60,9 @@ const els = {
   reminderToggle: document.querySelector('#reminderToggle'),
   atmosTime: document.querySelector('#atmosTime'),
   atmosWeather: document.querySelector('#atmosWeather'),
+  leaderboardBtn: document.querySelector('#leaderboardBtn'),
+  leaderboardDialog: document.querySelector('#leaderboardDialog'),
+  leaderboardBody: document.querySelector('#leaderboardBody'),
   themeToggle: document.querySelector('#themeToggle'),
   helpBtn: document.querySelector('#helpBtn'),
   addProfileBtn: document.querySelector('#addProfileBtn'),
@@ -335,6 +338,11 @@ function bindEvents() {
     await loadSessions(true);
     await loadActivity();
     setStatus(isYardView() ? '♪ 摇铃 —— 全体猫竖起耳朵，会话已重新扫描。' : '会话列表已刷新。');
+  });
+
+  els.leaderboardBtn.addEventListener('click', () => {
+    renderLeaderboard();
+    els.leaderboardDialog.showModal();
   });
 
   els.searchInput.addEventListener('input', () => {
@@ -644,17 +652,82 @@ function renderLedger() {
 }
 
 function syncYard() {
-  if (!yardMounted) return;
-  const now = Date.now();
-  const statesById = {};
-  for (const profile of state.profiles) {
-    statesById[profile.id] = window.YardCats.deriveState(now, profile, state.activity[profile.id]);
+  if (yardMounted) {
+    const now = Date.now();
+    const statesById = {};
+    for (const profile of state.profiles) {
+      statesById[profile.id] = window.YardCats.deriveState(now, profile, state.activity[profile.id]);
+    }
+    window.YardScene.update({
+      profiles: state.profiles,
+      statesById,
+      selectedId: state.selectedProfileId,
+      night: document.documentElement.dataset.theme === 'dark'
+    });
   }
-  window.YardScene.update({
-    profiles: state.profiles,
-    statesById,
-    selectedId: state.selectedProfileId,
-    night: document.documentElement.dataset.theme === 'dark'
+  // 排行榜打开时随轮询实时刷新
+  if (els.leaderboardDialog.open) renderLeaderboard();
+}
+
+// 工作量排行榜：各账号今日活跃/新建场次 + 实时干活状态，算分排序
+function renderLeaderboard() {
+  if (!window.YardWorkload || !window.YardCats || !window.YardSprites) return;
+  const now = Date.now();
+  const rows = state.profiles.map((profile) => {
+    const act = state.activity[profile.id] || {};
+    return {
+      name: profile.name,
+      appId: profile.appId,
+      cat: profile.cat,
+      isProtected: profile.isProtected,
+      activeToday: act.activeToday || 0,
+      createdToday: act.createdToday || 0,
+      working: window.YardCats.deriveState(now, profile, act) === 'working'
+    };
+  });
+  const ranked = window.YardWorkload.rankAccounts(rows);
+  const meta = window.YardCats.STATE_META;
+  els.leaderboardBody.replaceChildren();
+  if (!ranked.length) {
+    els.leaderboardBody.textContent = '还没有账号。';
+    return;
+  }
+  ranked.forEach((row, i) => {
+    const el = document.createElement('div');
+    el.className = `lb-row${i === 0 && row.score > 0 ? ' lb-top' : ''}${row.working ? ' lb-working' : ''}`;
+
+    const rank = document.createElement('div');
+    rank.className = 'lb-rank';
+    rank.textContent = (i === 0 && row.score > 0) ? '👑' : String(i + 1);
+
+    const avatar = document.createElement('canvas');
+    avatar.width = 36; avatar.height = 36; avatar.className = 'lb-avatar';
+    const c2 = avatar.getContext('2d');
+    c2.imageSmoothingEnabled = false;
+    const S = window.YardSprites;
+    const pal = S.BREEDS[row.cat && row.cat.breed] || S.BREEDS.orange;
+    S.drawCat(c2, S.SIT, pal, {
+      dx: 2, dy: 2, scale: 2, seed: 5,
+      collar: row.cat && row.cat.collar,
+      bell: row.isProtected,
+      tag: row.isProtected ? null : row.appId,
+      accessory: (row.cat && row.cat.accessory !== 'none') ? row.cat.accessory : null
+    });
+
+    const who = document.createElement('div');
+    who.className = 'lb-who';
+    const name = document.createElement('b');
+    name.textContent = row.name + (row.working ? ' 🔥' : '');
+    const sub = document.createElement('small');
+    sub.textContent = `${appLabel(row.appId)} · 今日活跃 ${row.activeToday} · 新建 ${row.createdToday}`;
+    who.append(name, sub);
+
+    const score = document.createElement('div');
+    score.className = 'lb-score';
+    score.textContent = String(row.score);
+
+    el.append(rank, avatar, who, score);
+    els.leaderboardBody.append(el);
   });
 }
 

@@ -74,6 +74,7 @@
             <button id="diagnosticsBtn">诊断</button>
             <button id="profileFolderBtn">位置</button>
             <button id="refreshBtn">刷新</button>
+            <button id="leaderboardBtn" title="各账号今日工作量排行榜">🏆 排行榜</button>
             <button id="viewToggle" title="切换 猫猫庭院 / 经典视图">⇄ 经典视图</button>
           </div>
         </section>
@@ -262,11 +263,23 @@
       </form>
     </dialog>
 
+    <dialog id="leaderboardDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3>🏆 工作量排行榜 <small style="font-weight:400;color:var(--ink-tertiary)">· 今日</small></h3>
+        <div id="leaderboardBody" class="leaderboard-body"></div>
+        <p class="leaderboard-note">分 = 10·√今日活跃会话 + 6·√新建 + 正在干活 ×15。平方根阻尼：不同工具把任务拆成的会话文件数差异很大，避免粒度细的工具刷爆榜。每分钟刷新，状态即时。</p>
+        <div class="dialog-actions">
+          <button value="default" class="primary">关闭</button>
+        </div>
+      </form>
+    </dialog>
+
     <datalist id="groupOptions"></datalist>
 
     <script src="./yard/sprites.js"></script>
     <script src="./yard/cats.js"></script>
     <script src="./yard/companion.js"></script>
+    <script src="./yard/workload.js"></script>
     <script src="./yard/palettes.js"></script>
     <script src="./yard/scene.js"></script>
     <script src="./renderer.js"></script>

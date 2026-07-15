@@ -13,13 +13,21 @@ const apps = require('./apps');
 const WALK_LIMIT = 12000;
 const SKIP_DIRS = ['Cache', 'GPUCache', 'node_modules'];
 
-function probeActivity(profile) {
+function startOfDay(now) {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function probeActivity(profile, now = Date.now()) {
   const result = {
     profileId: profile.id,
     rootExists: false,
     rootReadable: false,
     latestMtime: null,
-    fileCount: 0
+    fileCount: 0,
+    activeToday: 0,   // 今天被写过的会话数（mtime 落在今天）
+    createdToday: 0   // 今天新建的会话数（birthtime 落在今天）
   };
 
   const root = profile.sessionRoot;
@@ -38,12 +46,17 @@ function probeActivity(profile) {
     return result;
   }
 
+  const todayStart = startOfDay(now);
   for (const area of apps.getApp(profile.appId).scanAreas(profile)) {
     for (const filePath of walkFiles(area.dir, area.match)) {
       result.fileCount += 1;
       try {
-        const mtime = fs.statSync(filePath).mtime.getTime();
+        const stat = fs.statSync(filePath); // 只 stat，不读内容
+        const mtime = stat.mtime.getTime();
         if (!result.latestMtime || mtime > result.latestMtime) result.latestMtime = mtime;
+        if (mtime >= todayStart) result.activeToday += 1;
+        const btime = stat.birthtime ? stat.birthtime.getTime() : 0;
+        if (btime >= todayStart && btime <= now + 1000) result.createdToday += 1;
       } catch (_error) {
         // 文件在扫描间隙被删掉了，跳过即可
       }
