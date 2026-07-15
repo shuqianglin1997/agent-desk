@@ -46,8 +46,9 @@ function probeActivity(profile, now = Date.now()) {
     return result;
   }
 
+  const app = apps.getApp(profile.appId);
   const todayStart = startOfDay(now);
-  for (const area of apps.getApp(profile.appId).scanAreas(profile)) {
+  for (const area of app.scanAreas(profile)) {
     for (const filePath of walkFiles(area.dir, area.match)) {
       result.fileCount += 1;
       try {
@@ -61,6 +62,13 @@ function probeActivity(profile, now = Date.now()) {
         // 文件在扫描间隙被删掉了，跳过即可
       }
     }
+  }
+
+  // SQLite 型客户端（Cursor）：会话是 db 行不是文件，按文件数失真，改用适配器的聚合计数
+  if (typeof app.sessionCounts === 'function') {
+    const counts = app.sessionCounts(profile, now);
+    result.activeToday = counts.activeToday;
+    result.createdToday = counts.createdToday;
   }
 
   return result;

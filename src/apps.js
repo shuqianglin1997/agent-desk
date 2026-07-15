@@ -14,6 +14,7 @@
 const os = require('node:os');
 const path = require('node:path');
 const sessions = require('./sessions');
+const cursorSessions = require('./cursor-sessions');
 
 // 各平台官方 App 默认数据目录：<用户配置区>/<AppName>
 function appSupportDir(appName) {
@@ -68,6 +69,25 @@ const APPS = {
       { label: 'Codex 归档', path: path.join(profile.sessionRoot, 'archived_sessions'), kind: 'directory' }
     ],
     scan: (profile) => sessions.scanCodex(profile)
+  },
+  cursor: {
+    id: 'cursor',
+    label: 'Cursor',
+    tagColor: '#6b7cff',
+    appName: 'Cursor', // /Applications/Cursor.app，VSCode 分支，认 --user-data-dir
+    // 会话根目录 = 数据目录；对话库在 <root>/User/globalStorage/state.vscdb
+    defaultSessionRoot: (profilePath) => profilePath,
+    launchEnv: (_profile, baseEnv) => baseEnv,
+    // 活跃度只需盯住 state.vscdb 的 mtime（Cursor 在用就会写它）
+    scanAreas: (profile) => [
+      { dir: path.join(profile.sessionRoot, 'User', 'globalStorage'), match: (name) => name === 'state.vscdb' }
+    ],
+    diagnosticAreas: (profile) => [
+      { label: 'Cursor 会话库', path: path.join(profile.sessionRoot, 'User', 'globalStorage', 'state.vscdb'), kind: 'file' }
+    ],
+    scan: (profile) => cursorSessions.scanCursor(profile),
+    // 排行榜今日计数走 SQLite 聚合（会话是 db 行不是文件，按文件数会失真）
+    sessionCounts: (profile, now) => cursorSessions.sessionCounts(profile, now)
   }
 };
 
