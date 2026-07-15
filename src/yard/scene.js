@@ -20,24 +20,8 @@
   const WOODD = '#6b4526';
   const STONE = '#b8b2a2';
 
-  const TIMES = {
-    day: {
-      skyA: '#8fd0e8', skyB: '#c8ecf2', orb: '#ffd870',
-      grass: '#77b455', grassD: '#639c46', hedge: '#8cc064', hedge2: '#7ab254',
-      wallIn: '#7a5a3a', wallBack: '#6b4e33', window: '#cfe8f0',
-      pondDeep: '#3e7fae', pondLite: '#5aa0c8', pondCore: '#4a90bc',
-      leaf1: '#4f8a3c', leaf2: '#66a44c',
-      overlay: null, stars: false
-    },
-    night: {
-      skyA: '#171d3e', skyB: '#2c3a6a', orb: '#f2eccb',
-      grass: '#41635a', grassD: '#37544c', hedge: '#3c5c50', hedge2: '#345348',
-      wallIn: '#54422f', wallBack: '#4a3a2c', window: '#f4c76a',
-      pondDeep: '#25406a', pondLite: '#31527f', pondCore: '#2b4a75',
-      leaf1: '#2e4a40', leaf2: '#3a5a4c',
-      overlay: 'rgba(16,20,54,.32)', stars: true
-    }
-  };
+  const { TIMES, WEATHERS, TIME_KEYS } = root.YardPalettes;
+  const pmod = (a, m) => ((a % m) + m) % m; // 正数取模，避免粒子开局负数弹入
 
   const SEATS = [34, 60, 86];      // 工作亭三张书桌（猫脚 y=70）
   const SEAT_FOOT_Y = 70;
@@ -58,6 +42,10 @@
   let terrainKey = null;
 
   let data = { profiles: [], statesById: {}, selectedId: null, night: false };
+  let timeOverride = 'auto';     // auto|day|dusk|night；auto 时跟随主题
+  let weather = 'clear';         // clear|cloudy|rain|snow
+  const rainDrops = scatter(60, 41, 0, -20, W, H);   // 雨滴起始点（x,y 基点）
+  const snowFlakes = scatter(50, 61, 0, -20, W, H);  // 雪花起始点
   let layout = [];              // [{ profile, state, seat, tier, home, band, actor, topY }]
   const actors = new Map();     // profileId -> 持续的位置与行为状态
   let zones = [];
@@ -96,9 +84,16 @@
   }
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-  // 深夜（23:00〜05:00）且处于夜晚配色时：没在干活的猫都睡了
+  // 解析当前时段：手动覆盖优先，auto 跟随主题深浅
+  function effectiveTimeKey() {
+    if (timeOverride === 'day' || timeOverride === 'dusk' || timeOverride === 'night') return timeOverride;
+    return data.night ? 'night' : 'day';
+  }
+
+  // 深夜（23:00〜05:00）且处于夜晚时段：没在干活的猫都睡了。
+  // 手动把时段调成 night 但不是真实深夜时，猫不会睡（尊重真实作息）。
   function sleepAllNow() {
-    if (!data.night) return false;
+    if (effectiveTimeKey() !== 'night') return false;
     const hour = new Date().getHours();
     return hour >= 23 || hour < 5;
   }
@@ -362,15 +357,55 @@
     rect(0, 12, W, 10, mix(P.skyA, P.skyB, 0.4));
     rect(0, 22, W, 8, mix(P.skyA, P.skyB, 0.75));
     rect(0, 30, W, 8, P.skyB);
-    if (P.stars) STAR_DOTS.forEach(([x, y], i) => { if ((tick + i) % 16 < 12) rect(x, y, 1, 1, i % 3 ? '#cdd3ee' : '#ffffff'); });
-    const ox = 356, oy = 10;
-    rect(ox - 4, oy - 3, 8, 6, P.orb); rect(ox - 3, oy - 4, 6, 8, P.orb); rect(ox - 5, oy - 1, 10, 2, P.orb);
-    if (P.stars) rect(ox - 2, oy - 2, 3, 3, mix(P.orb, P.skyA, 0.55));
+    if (P.stars && weather === 'clear') {
+      STAR_DOTS.forEach(([x, y], i) => { if ((tick + i) % 16 < 12) rect(x, y, 1, 1, i % 3 ? '#cdd3ee' : '#ffffff'); });
+    }
+    // 多云 / 雨天不见日月
+    if (weather !== 'cloudy' && weather !== 'rain') {
+      const [ox, oy] = P.orbXY;
+      rect(ox - 4, oy - 3, 8, 6, P.orb); rect(ox - 3, oy - 4, 6, 8, P.orb); rect(ox - 5, oy - 1, 10, 2, P.orb);
+      if (P.stars) rect(ox - 2, oy - 2, 3, 3, mix(P.orb, P.skyA, 0.55));
+    }
+    // 云：多云 / 雨天更多更密
+    const cloudColor = P.stars ? 'rgba(190,198,232,.25)' : 'rgba(255,255,255,.85)';
+    const cloudN = (weather === 'cloudy' || weather === 'rain') ? 4 : 2;
     const cx = Math.round((tick * 0.2) % (W + 80)) - 40;
-    [[cx, 5], [(cx + 220) % (W + 80) - 40, 16]].forEach(([x, y]) => {
-      const c = P.stars ? 'rgba(190,198,232,.25)' : 'rgba(255,255,255,.85)';
+    for (let k = 0; k < cloudN; k++) {
+      const x = (cx + k * 130) % (W + 80) - 40;
+      const y = 3 + (k % 2) * 11;
+      const c = (weather === 'rain') ? 'rgba(150,158,178,.8)' : cloudColor;
       rect(x, y + 2, 24, 3, c); rect(x + 4, y, 12, 3, c); rect(x + 15, y + 1, 8, 2, c);
-    });
+    }
+  }
+
+  // 天气特效：逐帧粒子 + 光照 overlay（画在猫和地形之上）
+  function drawWeather(P) {
+    if (weather === 'rain') {
+      ctx.fillStyle = P.stars ? 'rgba(150,170,210,.5)' : 'rgba(180,200,235,.55)';
+      for (let i = 0; i < rainDrops.length; i++) {
+        const base = rainDrops[i];
+        const y = pmod(base[1] + tick * 9 + i * 7, H + 24) - 12;
+        const x = pmod(base[0] - tick * 3, W);
+        ctx.fillRect(Math.round(x), Math.round(y), 1, 4);
+        ctx.fillRect(Math.round(x) + 1, Math.round(y) + 2, 1, 2);
+      }
+    } else if (weather === 'snow') {
+      ctx.fillStyle = '#f4f8ff';
+      for (let i = 0; i < snowFlakes.length; i++) {
+        const base = snowFlakes[i];
+        const y = pmod(base[1] + tick * 2 + i * 5, H + 24) - 12;
+        const x = pmod(base[0] + Math.sin((tick * 0.05) + i) * 6, W);
+        ctx.fillRect(Math.round(x), Math.round(y), i % 4 ? 1 : 2, i % 4 ? 1 : 2);
+      }
+    }
+  }
+
+  // 天气整体光照罩（叠在最上层，和夜幕叠加）
+  function weatherOverlay() {
+    if (weather === 'cloudy') return 'rgba(108,114,132,.16)';
+    if (weather === 'rain') return 'rgba(46,58,86,.24)';
+    if (weather === 'snow') return 'rgba(214,224,240,.10)';
+    return null;
   }
 
   function drawGround(P) {
@@ -444,14 +479,45 @@
     });
   }
 
+  // 远景：地平线后的山丘剪影 + 几棵小树，给宽横带补纵深
+  function drawBackdrop(P) {
+    const hill = mix(P.hedge, P.skyB, 0.35);
+    const hill2 = mix(P.hedge2, P.skyB, 0.25);
+    // 缓丘（阶梯像素弧）
+    [[-10, 30, 90, hill], [110, 27, 120, hill2], [250, 31, 110, hill], [360, 28, 130, hill2]].forEach(([x0, top, w, c]) => {
+      for (let s = 0; s < 4; s++) rect(x0 + s * 4, top + s, w - s * 8, 40 - top - s, c);
+    });
+    // 远处小树（简化圆冠）
+    const far = mix(P.leaf1, P.skyB, 0.4);
+    [[150, 22], [300, 20], [78, 24]].forEach(([tx, ty]) => {
+      rect(tx + 2, ty + 6, 2, 6, mix(WOODD, P.skyB, 0.3));
+      rect(tx - 3, ty, 12, 8, far); rect(tx - 1, ty - 3, 8, 5, far);
+    });
+  }
+
+  function drawBush(P) {
+    // 池塘右侧一丛灌木，填补空旷
+    const b1 = P.leaf1, b2 = P.leaf2;
+    rect(300, 112, 26, 12, b1);
+    rect(304, 108, 18, 8, b2);
+    rect(298, 116, 30, 8, b1);
+    rect(308, 106, 8, 5, b2);
+    ctx.fillStyle = 'rgba(20,30,20,.12)'; ctx.fillRect(298, 122, 30, 3);
+  }
+
   function drawTree(P) {
-    rect(424, 28, 7, 60, WOODD); rect(421, 84, 14, 4, WOODD);
-    rect(402, 8, 52, 22, P.leaf1);
-    rect(410, 2, 36, 12, P.leaf2);
-    rect(394, 16, 16, 14, P.leaf2);
-    rect(446, 14, 14, 14, P.leaf2);
+    // 更大更满的树冠（对齐设计稿的大树感）
+    rect(424, 30, 8, 58, WOODD); rect(420, 84, 16, 4, WOODD);
+    rect(426, 44, 3, 20, mix(WOODD, LINE, 0.3)); // 树皮纹
+    rect(392, 6, 76, 26, P.leaf1);
+    rect(400, 0, 60, 12, P.leaf2);
+    rect(384, 14, 18, 18, P.leaf2);
+    rect(458, 12, 18, 18, P.leaf2);
+    rect(410, 26, 40, 8, P.leaf1);
+    ctx.fillStyle = mix(P.leaf2, '#ffffff', 0.12); // 高光
+    rect(404, 3, 20, 4, ctx.fillStyle); rect(430, 8, 16, 3, ctx.fillStyle);
     ctx.fillStyle = 'rgba(20,30,20,.14)';
-    ctx.fillRect(400, 88, 52, 8);
+    ctx.fillRect(398, 88, 56, 8);
   }
 
   function drawHut(P) {
@@ -583,7 +649,7 @@
       terrainCtx = terrainCanvas.getContext('2d');
       terrainCtx.imageSmoothingEnabled = false;
     }
-    const key = data.night ? 'night' : 'day';
+    const key = effectiveTimeKey();
     if (key === terrainKey) return terrainCanvas;
 
     // 临时把画笔指向离屏 ctx，复用现有 draw* 函数，画完复位
@@ -591,9 +657,11 @@
     ctx = terrainCtx;
     try {
       ctx.clearRect(0, 0, W, H);
+      drawBackdrop(P);
       drawGround(P);
       drawFence();
       drawFlowerBed(P);
+      drawBush(P);
       drawTree(P);
       drawHut(P);
     } finally {
@@ -606,7 +674,7 @@
   // ── 主渲染 ───────────────────────────────────────────
   function render() {
     if (!ctx) return;
-    const P = TIMES[data.night ? 'night' : 'day'];
+    const P = TIMES[effectiveTimeKey()];
     const sleepAll = sleepAllNow();
     ctx.clearRect(0, 0, W, H);
     drawSky(P);
@@ -620,8 +688,11 @@
     [...layout].sort((a, b) => a.actor.y - b.actor.y).forEach((entry) => drawYardCat(entry, sleepAll));
     drawParticles();
     for (let x = 0; x < W; x += 10) rect(x + (x % 20 ? 3 : 6), H - 4, 2, 4, P.grassD);
+    drawWeather(P); // 雨/雪落在前景
 
     if (P.overlay) { ctx.fillStyle = P.overlay; ctx.fillRect(0, 0, W, H); }
+    const wOverlay = weatherOverlay();
+    if (wOverlay) { ctx.fillStyle = wOverlay; ctx.fillRect(0, 0, W, H); }
     if (P.stars) {
       ctx.fillStyle = 'rgba(244,199,106,.9)'; ctx.fillRect(81, 39, 11, 10);
       ctx.fillStyle = 'rgba(244,199,106,.18)'; ctx.fillRect(74, 34, 26, 20);
@@ -631,13 +702,15 @@
           ctx.fillRect(Math.round(entry.actor.x) - 16, Math.round(entry.actor.y) - 26, 32, 26);
         }
       });
-      FIREFLIES.forEach(([fx, fy], i) => {
-        if ((tick + i * 5) % 22 < 14) {
-          const t = tick * 0.08 + i;
-          ctx.fillStyle = 'rgba(220,240,140,.95)';
-          ctx.fillRect(Math.round(fx + Math.cos(t) * 6), Math.round(fy + Math.sin(t * 1.4) * 4), 1, 1);
-        }
-      });
+      if (weather === 'clear') {
+        FIREFLIES.forEach(([fx, fy], i) => {
+          if ((tick + i * 5) % 22 < 14) {
+            const t = tick * 0.08 + i;
+            ctx.fillStyle = 'rgba(220,240,140,.95)';
+            ctx.fillRect(Math.round(fx + Math.cos(t) * 6), Math.round(fy + Math.sin(t * 1.4) * 4), 1, 1);
+          }
+        });
+      }
     }
   }
 
@@ -741,6 +814,12 @@
     setActive(value) {
       active = Boolean(value);
       if (active) { startLoop(); render(); } else stopLoop();
+    },
+    // 设置时段 / 天气。time: auto|day|dusk|night；weather: clear|cloudy|rain|snow
+    setAtmosphere(next) {
+      if (next && TIME_KEYS.includes(next.time)) timeOverride = next.time;
+      if (next && WEATHERS.includes(next.weather)) weather = next.weather;
+      render();
     },
     // 场景反馈：handoff = 选中的猫把交接信投进邮筒；bell = 摇铃，全体猫头上冒音符
     fx(kind) {

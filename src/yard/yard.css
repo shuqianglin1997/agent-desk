@@ -75,6 +75,56 @@ body[data-view="yard"] .workspace {
   overflow: hidden;
 }
 
+/* 时间 / 天气控制：庭院右上角木牌面板（对齐设计稿位置） */
+.yard-atmos {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  gap: 4px;
+  pointer-events: auto;
+  z-index: 4;
+}
+
+.yard-atmos .atmos-row {
+  display: flex;
+  border: 2px solid #33261a;
+  box-shadow: 0 2px 0 rgba(51, 38, 26, 0.35);
+  background: #6b4526;
+  overflow: hidden;
+}
+
+.yard-atmos button {
+  height: 22px;
+  min-width: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 2px solid #33261a;
+  background: transparent;
+  color: #ecd9ba;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.yard-atmos button:last-child {
+  border-right: 0;
+}
+
+.yard-atmos button:hover {
+  background: rgba(255, 247, 224, 0.14);
+}
+
+.yard-atmos button[aria-pressed="true"] {
+  background: #c99a63;
+  color: #33261a;
+}
+
+.yard-atmos button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+
 /* 常驻名牌：名字 = 账号名称，可点击选中 */
 /*
  * 名牌用 #yardOverlay 提升优先级：它是 <button>，
