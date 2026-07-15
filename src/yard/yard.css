@@ -266,3 +266,104 @@ body[data-view="yard"] .status-bar {
     transform: none;
   }
 }
+
+/* ── 猫咪档案卡：编辑对话框里的换装区（两个视图共用） ── */
+.cat-customizer {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.cc-preview {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  justify-items: center;
+}
+
+.cc-preview canvas {
+  width: 112px;
+  height: 112px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--accent) 8%, var(--surface-raised));
+}
+
+.cc-random {
+  height: 24px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.cc-groups {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+
+.cc-group {
+  display: grid;
+  gap: 5px;
+}
+
+.cc-title {
+  color: var(--ink-tertiary);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cc-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.cc-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--ink-secondary);
+  box-shadow: var(--shadow-raised);
+  cursor: default;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cc-swatch:hover {
+  border-color: var(--line-strong);
+  color: var(--ink-primary);
+}
+
+.cc-swatch .cc-dot {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  flex: none;
+}
+
+.cc-swatch[aria-pressed="true"] {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  color: var(--ink-primary);
+}
+
+.cc-swatch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

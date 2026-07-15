@@ -84,6 +84,7 @@ function registerIpc() {
     if (typeof input.sessionRoot === 'string') next.sessionRoot = input.sessionRoot.trim() || next.sessionRoot;
     if (typeof input.group === 'string') next.group = input.group.trim();
     if (typeof input.note === 'string') next.note = input.note;
+    if (input.cat && typeof input.cat === 'object') next.cat = { ...next.cat, ...input.cat };
 
     profiles[index] = normalizeProfile(next);
     saveProfiles(profiles);

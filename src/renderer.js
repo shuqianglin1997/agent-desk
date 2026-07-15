@@ -58,6 +58,11 @@ const els = {
   editGroup: document.querySelector('#editGroup'),
   editNote: document.querySelector('#editNote'),
   confirmEditBtn: document.querySelector('#confirmEditBtn'),
+  editCatCanvas: document.querySelector('#editCatCanvas'),
+  editCatRandom: document.querySelector('#editCatRandom'),
+  editBreedSwatches: document.querySelector('#editBreedSwatches'),
+  editCollarSwatches: document.querySelector('#editCollarSwatches'),
+  editAccSwatches: document.querySelector('#editAccSwatches'),
   groupOptions: document.querySelector('#groupOptions'),
   welcomeDialog: document.querySelector('#welcomeDialog'),
   pathDialog: document.querySelector('#pathDialog'),
@@ -134,6 +139,7 @@ function bindEvents() {
     els.editName.value = profile.name;
     els.editGroup.value = profile.group || '';
     els.editNote.value = profile.note || '';
+    openCatCustomizer(profile);
     els.editDialog.showModal();
     els.editName.focus();
   });
@@ -151,11 +157,22 @@ function bindEvents() {
       id: profile.id,
       name,
       group: els.editGroup.value,
-      note: els.editNote.value
+      note: els.editNote.value,
+      cat: { ...catDraft }
     });
     els.editDialog.close();
     await loadProfiles(profile.id);
-    setStatus('已保存备注和分组。');
+    setStatus('已保存账号资料和猫咪外观。');
+  });
+
+  els.editCatRandom.addEventListener('click', () => {
+    const breeds = window.YardCats.BREED_KEYS;
+    const collars = window.YardCats.COLLAR_COLORS;
+    const accs = window.YardCats.ACCESSORIES;
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    catDraft = { breed: pick(breeds), collar: pick(collars), accessory: pick(accs) };
+    syncCatSwatches();
+    renderCatPreview();
   });
 
   els.removeProfileBtn.addEventListener('click', async () => {
@@ -343,6 +360,96 @@ function applySessionFilter(selectFirst = false) {
 
   renderSessions();
   renderInspector();
+}
+
+// ── 猫咪档案卡（编辑对话框换装） ─────────────────────
+const COLLAR_LABELS = { '#c94f2e': '绯红', '#2f9e8f': '松石', '#d9a53a': '姜黄', '#3d6aa8': '黛蓝', '#8a6bb8': '藤紫', '#6d9440': '茶绿' };
+const ACC_LABELS = { none: '无', scarf: '围巾', glasses: '眼镜', bow: '蝴蝶结', hat: '草帽' };
+let catDraft = { breed: 'orange', collar: '#c94f2e', accessory: 'none' };
+let editingProfile = null;
+let catSwatchesBuilt = false;
+
+function openCatCustomizer(profile) {
+  if (!window.YardCats || !window.YardSprites) return;
+  editingProfile = profile;
+  catDraft = window.YardCats.normalizeCat(profile.cat, profile.id);
+  if (!catSwatchesBuilt) { buildCatSwatches(); catSwatchesBuilt = true; }
+  syncCatSwatches();
+  renderCatPreview();
+}
+
+function buildCatSwatches() {
+  const breeds = window.YardSprites.BREEDS;
+  window.YardCats.BREED_KEYS.forEach((key) => {
+    els.editBreedSwatches.append(makeSwatch({
+      dot: breeds[key].f, label: breeds[key].label,
+      pressed: () => catDraft.breed === key,
+      pick: () => { catDraft = { ...catDraft, breed: key }; }
+    }));
+  });
+  window.YardCats.COLLAR_COLORS.forEach((color) => {
+    els.editCollarSwatches.append(makeSwatch({
+      dot: color, label: COLLAR_LABELS[color] || color,
+      pressed: () => catDraft.collar === color,
+      pick: () => { catDraft = { ...catDraft, collar: color }; }
+    }));
+  });
+  window.YardCats.ACCESSORIES.forEach((id) => {
+    els.editAccSwatches.append(makeSwatch({
+      label: ACC_LABELS[id] || id,
+      pressed: () => catDraft.accessory === id,
+      pick: () => { catDraft = { ...catDraft, accessory: id }; }
+    }));
+  });
+}
+
+function makeSwatch({ dot, label, pressed, pick }) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'cc-swatch';
+  btn._pressed = pressed;
+  if (dot) {
+    const swatchDot = document.createElement('span');
+    swatchDot.className = 'cc-dot';
+    swatchDot.style.background = dot;
+    btn.append(swatchDot);
+  }
+  const text = document.createElement('span');
+  text.textContent = label;
+  btn.append(text);
+  btn.addEventListener('click', () => {
+    pick();
+    syncCatSwatches();
+    renderCatPreview();
+  });
+  return btn;
+}
+
+function syncCatSwatches() {
+  els.editDialog.querySelectorAll('.cc-swatch').forEach((btn) => {
+    btn.setAttribute('aria-pressed', String(Boolean(btn._pressed && btn._pressed())));
+  });
+}
+
+function renderCatPreview() {
+  const canvas = els.editCatCanvas;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // 草地投影
+  ctx.fillStyle = 'rgba(90, 130, 70, 0.28)';
+  ctx.fillRect(24, 98, 64, 6);
+  ctx.fillRect(30, 104, 52, 3);
+  const S = window.YardSprites;
+  const pal = S.BREEDS[catDraft.breed] || S.BREEDS.orange;
+  const protectedSlot = Boolean(editingProfile && editingProfile.isProtected);
+  S.drawCat(ctx, S.SIT, pal, {
+    dx: 8, dy: 14, scale: 6, seed: 5,
+    collar: catDraft.collar,
+    bell: protectedSlot,
+    tag: protectedSlot ? null : (editingProfile ? editingProfile.appId : 'claude'),
+    accessory: catDraft.accessory === 'none' ? null : catDraft.accessory
+  });
 }
 
 // ── 庭院视图 ─────────────────────────────────────────
