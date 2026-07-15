@@ -1,9 +1,15 @@
-# AgentDesk
+<p align="center">
+  <img src="assets/icon.png" width="128" alt="AgentDesk" />
+</p>
 
-**A desk for every Claude / Codex identity.** Run multiple accounts side by side without them clobbering each other's login, find any past session across all of them, and hand a session's context off to a fresh chat in one click.
+<h1 align="center">AgentDesk</h1>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)
+<p align="center"><strong>A desk for every Claude / Codex identity.</strong><br />Run multiple accounts side by side without them clobbering each other's login, find any past session across all of them, and hand a session's context off to a fresh chat in one click.</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue" alt="Platform" />
+</p>
 
 > 中文说明见 [下方](#agentdesk-中文说明).
 
