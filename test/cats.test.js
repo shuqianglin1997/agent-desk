@@ -20,16 +20,36 @@ test('迷路：根目录不存在或不可读，压过一切', () => {
   assert.equal(deriveState(NOW, profile(), activity({ rootReadable: false, latestMtime: NOW - MINUTE })), 'confused');
 });
 
-// ── 干活 = 会话 25 秒内在活动 且 App 在跑，而非「开着」或「最近写过」──
-test('会话 25 秒内在活动 + App 在跑 → 干活中', () => {
+// ── 干活 vs 在岗：App 在跑时由 CPU 区分，mtime 仅作 CPU 不可得时的回退 ──
+test('App 在跑 + CPU 高 → 干活中（真在生成）', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, cpu: 90, latestMtime: NOW - 2 * MINUTE })), 'working');
+  // 关键：即使会话文件几分钟没动（Claude 桌面版写盘懒惰），CPU 高就是在干活
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, cpu: 90, latestMtime: null })), 'working');
+});
+
+test('关键修复：App 在跑 + CPU 空闲 → 在岗，哪怕会话文件刚被写过（Codex 后台狂写不算干活）', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, cpu: 3, latestMtime: NOW - 3 * SECOND })), 'onduty');
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, cpu: 0, latestMtime: null })), 'onduty');
+});
+
+test('CPU 不可得（Windows）时回退到会话 25 秒窗口', () => {
   assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 5 * SECOND })), 'working');
-  // 进程探测不可用(null) 时，近期活动也算干活
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 2 * MINUTE })), 'onduty');
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: null })), 'onduty');
+});
+
+test('进程探测整体不可用(null)：近期写过仍尽力当干活', () => {
   assert.equal(deriveState(NOW, profile(), activity({ running: null, latestMtime: NOW - 5 * SECOND })), 'working');
 });
 
-test('关键修复：App 开着但 25 秒内没动（2 分钟前写过）→ 在岗，不是干活中', () => {
-  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 2 * MINUTE })), 'onduty');
-  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: null })), 'onduty');
+test('回归：探测失败(null) + 刚启动 + 正在写入 → 干活优先于开工路上', () => {
+  const p = profile(new Date(NOW - 30 * SECOND).toISOString());
+  assert.equal(deriveState(NOW, p, activity({ running: null, latestMtime: NOW - 5 * SECOND })), 'working');
+});
+
+test('探测失败(null) + 刚启动 + 无近期写入 → 开工路上', () => {
+  const p = profile(new Date(NOW - 30 * SECOND).toISOString());
+  assert.equal(deriveState(NOW, p, activity({ running: null, latestMtime: NOW - 60 * MINUTE })), 'arriving');
 });
 
 test('App 明确没开时，近期写入只是残留 → 不算干活（按活跃度=玩耍）', () => {
