@@ -381,6 +381,23 @@ button.danger:hover:not(:disabled) {
   color: var(--ink-tertiary);
 }
 
+#updateBtn {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+#updateBtn.update-available {
+  border-color: color-mix(in oklab, var(--accent) 50%, var(--line-mid));
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+
+#updateBtn.update-error {
+  border-color: color-mix(in oklab, var(--danger) 45%, var(--line-mid));
+  color: var(--danger);
+}
+
 .sidebar-head-actions {
   display: flex;
   gap: 4px;
@@ -751,6 +768,16 @@ dialog::backdrop {
   gap: 8px;
 }
 
+.field-hint {
+  display: block;
+  color: var(--ink-tertiary);
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 /* ── welcome / help ─────────────────────────────────── */
 .welcome-dialog {
   width: min(480px, calc(100vw - 48px));
@@ -869,6 +896,22 @@ dialog::backdrop {
   font-size: 11.5px;
 }
 
+.diagnostics-repair {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-md);
+  background: var(--accent-wash);
+  color: var(--ink-secondary);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.diagnostics-repair button {
+  justify-self: start;
+}
+
 .diagnostics-table {
   width: 100%;
   min-width: 0;
@@ -907,4 +950,5 @@ dialog::backdrop {
 .diagnostics-table td {
   font-family: var(--font-mono);
   font-size: 11.5px;
+  white-space: pre-wrap;
 }

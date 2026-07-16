@@ -35,7 +35,7 @@
 - **文件 mtime 是坏信号**：各 App 乱 touch 索引/临时文件（Codex 尤甚），mtime 常常虚高，`probeActivity` 扫「所有文件的最新 mtime」会被带偏。
 - **CPU 也不行**：实测空闲 Claude 都能吃 ~17% CPU、还会瞬间蹦到 50-100%，固定门槛又飘又misfire；而且 Claude 桌面版生成时根本不写它的会话文件，CPU 和文件都抓不到。
 - **会话记录的内容时间戳才对**：直接读「这个账号的会话刚刚在不在动」——Claude 读最新 `local_*.json` 的 `lastActivityAt`；Codex 读最新 rollout `.jsonl` 末行事件的 timestamp（生成时逐事件实时追加）；Cursor 读 SQLite `MAX(lastUpdatedAt)`。每个 app 一个便宜取数器（实测全账号一轮 ~12ms），挂在注册表的 `latestActivityAt` 上。窗口 `WORKING_WINDOW = 90s`（[src/yard/cats.js](../src/yard/cats.js)），可调。
-- App 是否在跑仍由 [src/process.js](../src/process.js) 的 `isRunningIn`（按 `--user-data-dir=<profilePath>` 匹配运行进程命令行，含空格/前缀边界处理）确认。App 明确没跑(`running===false`)时，近期活跃只算「玩耍」不算干活；探测整体失败(`running===null`)时，会话记录窗口内还活跃仍尽力判干活。
+- App 是否在跑由 [src/process.js](../src/process.js) 确认：独立槽位按 `--user-data-dir=<profilePath>` 精确匹配（含空格/前缀边界处理）；Windows 默认 Store/MSIX 槽位改按“不带隔离参数的桌面 App 进程”识别，并排除 CLI shim。App 明确没跑(`running===false`)时，近期活跃只算「玩耍」不算干活；探测整体失败(`running===null`)时，会话记录窗口内还活跃仍尽力判干活。
 
 **活跃度探测**：[src/activity.js](../src/activity.js) 的 `probeActivity` 主体只做 `stat`（返回 `latestMtime / fileCount / activeToday / createdToday`），再调各 app 适配器的 `latestActivityAt` 读**会话记录内容**里的最后活跃时间戳（`contentActiveAt`，拿不到退回 `latestMtime`）；主进程 IPC `activity:all` 补上 `running`（一次 `ps -axww` 供所有账号匹配）。renderer **仅在庭院视图可见时** 8 秒轮询一次（带防堆积），并在从后台/最小化切回时立刻刷新；后台 / 经典视图不扫。
 
@@ -77,7 +77,7 @@ src/
 
 ## 边界与已知取舍
 
-- 运行探测在主进程同步执行一次 `ps -axww`（本机实测约 40ms，8s 一次且仅庭院可见时）；Windows 走 `wmic`（尚未真机验证）。会话记录最后活跃时间由各 app 适配器的 `latestActivityAt` 便宜取数（全账号一轮 ~12ms）。
+- 运行探测在主进程同步执行一次 `ps -axww`（本机实测约 40ms，8s 一次且仅庭院可见时）；Windows 优先走 PowerShell `Get-CimInstance Win32_Process`，旧系统才回退 `wmic`。会话记录最后活跃时间由各 app 适配器的 `latestActivityAt` 便宜取数（全账号一轮 ~12ms）。
 - `WORKING_WINDOW = 90s` 是经验值：会话记录 90 秒内活跃过就算干活。窗口越大越「黏」（活跃后余温更久），越小越灵敏，可按习惯调。
 - 活跃度扫描在主进程同步执行（有 12000 条上限）；会话目录在网络盘上的极端情况可能有短暂卡顿。8s 轮询 + 仅可见时扫，后台不耗。
 - 账本只在庭院视图可见时推进——这是为省 CPU 刻意把轮询限定在庭院视图的直接结果。

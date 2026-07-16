@@ -28,6 +28,7 @@
 - 备注：自由文本，给账号加说明
 - 数据目录：该槽位的本地 profile 路径
 - 会话根目录：用于扫描会话的位置
+- 官方 App 可执行文件：通常自动发现，非标准安装时可手动指定
 - 最近打开时间
 
 ### 会话
@@ -44,7 +45,7 @@
 - 状态
 - 线程 ID
 - 会话文件路径
-- 可复制地址
+- 可复制的稳定会话标识
 
 ## 主要工作流
 
@@ -64,11 +65,11 @@ macOS:
 
 Windows:
 
-- Claude 默认数据：`%APPDATA%/Claude`
-- Codex 默认数据：`%APPDATA%/Codex`
+- Claude / Codex 默认 UI 数据：自动选择传统 `%APPDATA%` 或 Store/MSIX 的 `LocalCache\Roaming`
 - Codex 会话：`%USERPROFILE%/.codex`
+- 独立槽位：`%USERPROFILE%/.agentdesk/profiles`
 
-新增槽位会创建在本工具自己的应用数据目录下，避免污染官方默认目录。
+Windows 独立槽位不能放在 AppData，否则 MSIX 文件系统虚拟化会让官方 App、AgentDesk 和 Explorer 看到不同位置。旧槽位只复制迁移，不自动删除原目录。
 
 ## 界面原则
 
@@ -89,6 +90,7 @@ Windows:
 - 用户能看清账号目录和会话根目录不是同一个概念
 - 用户能手动修改账号目录和会话根目录
 - 用户能诊断为什么会话读不到或 App 打不开
+- Windows 能解释当前使用的 executable / MSIX 数据目录，并修复旧 AppData 槽位
 - 空状态要区分「没有任何会话」和「搜索没有命中」
 - 复制交接信息默认不包含完整聊天内容
 - macOS 和 Windows 都能产出可运行包

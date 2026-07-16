@@ -39,8 +39,10 @@ Windows 用户也需要同样的账号槽位和会话索引能力。
 
 解决方式：
 
-- 默认 Claude 数据目录使用 `%APPDATA%/Claude`
-- 默认 Codex 数据目录使用 `%APPDATA%/Codex`
+- 自动识别传统 `%APPDATA%/<App>` 与 Store/MSIX 的 `LocalCache/Roaming/<App>` 实际目录
 - Codex 会话目录使用 `%USERPROFILE%/.codex`
-- 新增槽位放在本工具自己的应用数据目录下
+- 新增槽位放在 `%USERPROFILE%/.agentdesk/profiles`，避开 AppData 虚拟化
+- 同时识别 Store 执行别名、MSIX 当前包、传统安装与旧版 `app-*` 更新目录
+- 会话文件失效时回退到可访问的上级目录，不让 Explorer 弹“位置不可用”
+- 旧 AppData 独立槽位支持一键复制迁移，旧目录保留
 - Windows 版本提供 portable `.exe`

@@ -16,6 +16,7 @@
             <p>Claude / Codex 本地槽位</p>
           </div>
           <div class="sidebar-head-actions">
+            <button id="updateBtn" class="icon-toggle" type="button" title="检查 GitHub 更新" aria-label="检查 GitHub 更新">↻</button>
             <button id="helpBtn" class="icon-toggle" type="button" title="使用说明">?</button>
             <button id="themeToggle" class="icon-toggle" type="button" title="切换深色 / 浅色">◐</button>
           </div>
@@ -122,15 +123,15 @@
               <dd id="detailProject">-</dd>
               <dt>文件</dt>
               <dd id="detailFile">-</dd>
-              <dt>地址</dt>
+              <dt>会话标识</dt>
               <dd id="detailAddress">-</dd>
             </dl>
 
             <div class="inspector-actions">
               <button id="copySummaryBtn" class="primary">复制交接信息</button>
-              <button id="copyAddressBtn">复制地址</button>
+              <button id="copyAddressBtn">复制标识</button>
               <button id="copyProjectBtn">复制项目</button>
-              <button id="openSessionFileBtn">打开文件</button>
+              <button id="openSessionFileBtn">打开所在位置</button>
             </div>
           </aside>
         </div>
@@ -226,6 +227,14 @@
           <div class="path-input-row">
             <input id="sessionRootInput" type="text" />
             <button id="pickSessionRootBtn" type="button">选择</button>
+          </div>
+        </label>
+        <label>
+          官方 App 可执行文件（可选）
+          <span class="field-hint">默认自动识别 Store/MSIX、执行别名和传统安装；仅在诊断提示未找到时手动选择 Claude.exe / Codex.exe。</span>
+          <div class="path-input-row">
+            <input id="executablePathInput" type="text" placeholder="留空 = 自动查找" />
+            <button id="pickExecutablePathBtn" type="button">选择</button>
           </div>
         </label>
         <div class="dialog-actions">

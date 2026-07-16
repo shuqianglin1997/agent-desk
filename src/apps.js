@@ -15,6 +15,7 @@ const os = require('node:os');
 const path = require('node:path');
 const sessions = require('./sessions');
 const cursorSessions = require('./cursor-sessions');
+const windows = require('./windows');
 
 // 各平台官方 App 默认数据目录：<用户配置区>/<AppName>
 function appSupportDir(appName) {
@@ -37,6 +38,16 @@ const APPS = {
     label: 'Claude',
     tagColor: '#d96f33',
     appName: 'Claude', // /Applications/Claude.app、可执行文件同名
+    windows: {
+      executableNames: ['Claude.exe'],
+      aliases: ['Claude.exe'],
+      legacyInstallDirs: ['AnthropicClaude', 'Claude'],
+      packageNames: ['Claude'],
+      packageFamilyNames: ['Claude_pzs8sxrjxfjjc'],
+      packageFamilyPrefixes: ['Claude_', 'Anthropic.Claude_'],
+      protocol: 'claude://',
+      profileMarkers: ['claude-code-sessions', 'local-agent-mode-sessions', 'Local State', 'logs']
+    },
     defaultSessionRoot: (profilePath) => profilePath,
     launchEnv: (_profile, baseEnv) => baseEnv,
     scanAreas: (profile) => [
@@ -56,6 +67,16 @@ const APPS = {
     label: 'Codex',
     tagColor: '#2f9e8f',
     appName: 'Codex',
+    windows: {
+      executableNames: ['Codex.exe'],
+      aliases: ['Codex.exe'],
+      legacyInstallDirs: ['Codex', 'OpenAI.Codex'],
+      packageNames: ['OpenAI.Codex'],
+      packageFamilyNames: ['OpenAI.Codex_2p2nqsd0c76g0'],
+      packageFamilyPrefixes: ['OpenAI.Codex_', 'Codex_'],
+      protocol: 'codex://',
+      profileMarkers: ['Local State', 'web', 'logs']
+    },
     // Codex 的会话默认在 ~/.codex，与数据目录分开；独立槽位放在 profilePath/codex-home
     defaultSessionRoot: (profilePath, isDefault) => (
       isDefault ? path.join(os.homedir(), '.codex') : path.join(profilePath, 'codex-home')
@@ -78,6 +99,16 @@ const APPS = {
     label: 'Cursor',
     tagColor: '#6b7cff',
     appName: 'Cursor', // /Applications/Cursor.app，VSCode 分支，认 --user-data-dir
+    windows: {
+      executableNames: ['Cursor.exe'],
+      aliases: ['Cursor.exe'],
+      legacyInstallDirs: ['Cursor'],
+      packageNames: [],
+      packageFamilyNames: [],
+      packageFamilyPrefixes: ['Anysphere.Cursor_', 'Cursor_'],
+      protocol: 'cursor://',
+      profileMarkers: ['User', 'Local State']
+    },
     // 会话根目录 = 数据目录；对话库在 <root>/User/globalStorage/state.vscdb
     defaultSessionRoot: (profilePath) => profilePath,
     launchEnv: (_profile, baseEnv) => baseEnv,
@@ -116,7 +147,35 @@ function listApps() {
 }
 
 function defaultProfilePath(appId) {
-  return appSupportDir(getApp(appId).appName);
+  const app_ = getApp(appId);
+  if (process.platform === 'win32') {
+    return windows.chooseWindowsDefaultProfilePath(app_).path;
+  }
+  return appSupportDir(app_.appName);
 }
 
-module.exports = { APPS, DEFAULT_APP, getApp, isKnownApp, appIds, listApps, defaultProfilePath, appSupportDir };
+function defaultProfilePathInfo(appId) {
+  const app_ = getApp(appId);
+  if (process.platform === 'win32') return windows.chooseWindowsDefaultProfilePath(app_);
+  const profilePath = appSupportDir(app_.appName);
+  return { path: profilePath, source: '系统默认目录', candidates: [{ path: profilePath, source: '系统默认目录', score: 1 }] };
+}
+
+function legacyDefaultProfilePath(appId) {
+  const app_ = getApp(appId);
+  if (process.platform === 'win32') return windows.legacyDefaultProfilePath(app_);
+  return appSupportDir(app_.appName);
+}
+
+module.exports = {
+  APPS,
+  DEFAULT_APP,
+  getApp,
+  isKnownApp,
+  appIds,
+  listApps,
+  defaultProfilePath,
+  defaultProfilePathInfo,
+  legacyDefaultProfilePath,
+  appSupportDir
+};

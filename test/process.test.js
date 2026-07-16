@@ -2,7 +2,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { isRunningIn } = require('../src/process');
+const { isDefaultWindowsAppRunning, isRunningIn } = require('../src/process');
 
 const H = '/Users/hupo/Library/Application Support';
 // 模拟 ps 输出：路径含空格、且短路径是长路径的前缀
@@ -40,4 +40,29 @@ test('空输入不炸', () => {
   assert.equal(isRunningIn('', `${H}/Claude`), false);
   assert.equal(isRunningIn(PS, ''), false);
   assert.equal(isRunningIn(null, null), false);
+});
+
+test('Windows：整段参数被引号包裹、大小写不同也能匹配', () => {
+  const profile = 'C:\\Users\\Alice\\.agentdesk\\profiles\\Claude\\Work Account';
+  const command = `"C:\\Program Files\\WindowsApps\\Claude.exe" "--user-data-dir=c:/users/alice/.agentdesk/profiles/claude/work account" --enable-sandbox`;
+  assert.equal(isRunningIn(command, profile), true);
+});
+
+test('Windows：--user-data-dir="路径" 形式能匹配且不误判前缀', () => {
+  const command = 'Claude.exe --user-data-dir="C:\\Users\\alice\\Claude Profiles\\work" --flag';
+  assert.equal(isRunningIn(command, 'C:\\Users\\alice\\Claude Profiles\\work'), true);
+  assert.equal(isRunningIn(command, 'C:\\Users\\alice\\Claude'), false);
+});
+
+test('Windows 默认槽位：识别无隔离参数的桌面 App 进程', () => {
+  const ps = '"C:\\Program Files\\WindowsApps\\Claude_1.0.0_x64__abc\\app\\Claude.exe" --type=renderer';
+  assert.equal(isDefaultWindowsAppRunning(ps, ['Claude.exe']), true);
+});
+
+test('Windows 默认槽位：独立账号进程和 CLI shim 不会冒充默认 App', () => {
+  const ps = [
+    '"C:\\Program Files\\WindowsApps\\Claude_1.0.0_x64__abc\\app\\Claude.exe" --user-data-dir=C:\\Users\\Alice\\.agentdesk\\profiles\\Claude\\work',
+    'C:\\Users\\Alice\\AppData\\Roaming\\npm\\claude.exe --version'
+  ].join('\n');
+  assert.equal(isDefaultWindowsAppRunning(ps, ['Claude.exe']), false);
 });

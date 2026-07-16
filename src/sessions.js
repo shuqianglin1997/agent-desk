@@ -54,7 +54,9 @@ function scanClaude(profile) {
         status: json.isArchived ? '已归档' : '可用',
         model,
         filePath,
-        address: filePath
+        // 会话身份必须独立于磁盘位置。Windows/MSIX 更新、路径迁移或
+        // Claude 清理缓存后 filePath 可能变化，sessionId 仍然稳定。
+        address: id
       });
     }
   }
