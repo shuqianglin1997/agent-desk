@@ -1,7 +1,7 @@
 name: Build & Release
 
 # Build macOS + Windows packages natively on each OS.
-# Push a version tag (e.g. v0.2.1) to build and attach installers to a draft Release.
+# Push a version tag (e.g. v0.2.1) to build, verify, and publish installers.
 on:
   push:
     tags:
@@ -98,10 +98,10 @@ jobs:
             | sed -E 's#  \./[^/]+/#  #' \
             | LC_ALL=C sort > SHA256SUMS.txt
 
-      - name: Create draft release
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          draft: false
           fail_on_unmatched_files: true
           files: |
             artifacts/*/*
