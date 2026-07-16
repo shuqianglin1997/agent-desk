@@ -20,36 +20,36 @@ test('迷路：根目录不存在或不可读，压过一切', () => {
   assert.equal(deriveState(NOW, profile(), activity({ rootReadable: false, latestMtime: NOW - MINUTE })), 'confused');
 });
 
-// ── 干活 vs 在岗：App 在跑时由 CPU 区分，mtime 仅作 CPU 不可得时的回退 ──
-test('App 在跑 + CPU 高 → 干活中（真在生成）', () => {
-  assert.equal(deriveState(NOW, profile(), activity({ running: true, cpu: 90, latestMtime: NOW - 2 * MINUTE })), 'working');
-  // 关键：即使会话文件几分钟没动（Claude 桌面版写盘懒惰），CPU 高就是在干活
-  assert.equal(deriveState(NOW, profile(), activity({ running: true, cpu: 90, latestMtime: null })), 'working');
+// ── 干活 vs 在岗：App 在跑时看「会话记录最后活跃时间」(contentActiveAt)，90 秒窗口 ──
+test('App 在跑 + 会话记录 90 秒内活跃 → 干活中', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, contentActiveAt: NOW - 10 * SECOND })), 'working');
+  // contentActiveAt 优先于 latestMtime（内容时间戳比文件 mtime 干净）：文件几天没动但内容刚活跃 → 干活
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, contentActiveAt: NOW - 10 * SECOND, latestMtime: NOW - 5 * DAY })), 'working');
 });
 
-test('关键修复：App 在跑 + CPU 空闲 → 在岗，哪怕会话文件刚被写过（Codex 后台狂写不算干活）', () => {
-  assert.equal(deriveState(NOW, profile(), activity({ running: true, cpu: 3, latestMtime: NOW - 3 * SECOND })), 'onduty');
-  assert.equal(deriveState(NOW, profile(), activity({ running: true, cpu: 0, latestMtime: null })), 'onduty');
+test('App 在跑 + 会话记录已一阵没动 → 在岗', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, contentActiveAt: NOW - 5 * MINUTE })), 'onduty');
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, contentActiveAt: null, latestMtime: null })), 'onduty');
 });
 
-test('CPU 不可得（Windows）时回退到会话 25 秒窗口', () => {
-  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 5 * SECOND })), 'working');
-  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 2 * MINUTE })), 'onduty');
+test('拿不到内容时间戳时回退 latestMtime', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 10 * SECOND })), 'working');
+  assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: NOW - 5 * MINUTE })), 'onduty');
   assert.equal(deriveState(NOW, profile(), activity({ running: true, latestMtime: null })), 'onduty');
 });
 
-test('进程探测整体不可用(null)：近期写过仍尽力当干活', () => {
-  assert.equal(deriveState(NOW, profile(), activity({ running: null, latestMtime: NOW - 5 * SECOND })), 'working');
+test('进程探测整体不可用(null)：会话记录近期活跃仍尽力当干活', () => {
+  assert.equal(deriveState(NOW, profile(), activity({ running: null, contentActiveAt: NOW - 10 * SECOND })), 'working');
 });
 
-test('回归：探测失败(null) + 刚启动 + 正在写入 → 干活优先于开工路上', () => {
+test('回归：探测失败(null) + 刚启动 + 会话正活跃 → 干活优先于开工路上', () => {
   const p = profile(new Date(NOW - 30 * SECOND).toISOString());
-  assert.equal(deriveState(NOW, p, activity({ running: null, latestMtime: NOW - 5 * SECOND })), 'working');
+  assert.equal(deriveState(NOW, p, activity({ running: null, contentActiveAt: NOW - 10 * SECOND })), 'working');
 });
 
-test('探测失败(null) + 刚启动 + 无近期写入 → 开工路上', () => {
+test('探测失败(null) + 刚启动 + 会话久无动静 → 开工路上', () => {
   const p = profile(new Date(NOW - 30 * SECOND).toISOString());
-  assert.equal(deriveState(NOW, p, activity({ running: null, latestMtime: NOW - 60 * MINUTE })), 'arriving');
+  assert.equal(deriveState(NOW, p, activity({ running: null, contentActiveAt: NOW - 60 * MINUTE })), 'arriving');
 });
 
 test('App 明确没开时，近期写入只是残留 → 不算干活（按活跃度=玩耍）', () => {

@@ -10,13 +10,18 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-function scanSessions(profile) {
-  const records = profile.appId === 'codex' ? scanCodex(profile) : scanClaude(profile);
+// 按「最后活跃」新→旧排序（updatedAt 优先，退回 createdAt）。就地排序返回同一数组。
+function sortByRecency(records) {
   return records.sort((a, b) => {
     const left = new Date(a.updatedAt || a.createdAt || 0).getTime();
     const right = new Date(b.updatedAt || b.createdAt || 0).getTime();
     return right - left;
   });
+}
+
+function scanSessions(profile) {
+  // scanClaude/scanCodex 各自已按最后活跃排序，这里不再重复排
+  return profile.appId === 'codex' ? scanCodex(profile) : scanClaude(profile);
 }
 
 function scanClaude(profile) {
@@ -54,7 +59,7 @@ function scanClaude(profile) {
     }
   }
 
-  return records;
+  return sortByRecency(records);
 }
 
 function scanCodex(profile) {
@@ -102,7 +107,51 @@ function scanCodex(profile) {
     }
   }
 
-  return records;
+  return sortByRecency(records);
+}
+
+// 「会话记录里的最后活跃时间」——比文件 mtime 干净（内容里的时间戳，不受乱 touch 影响）。
+// 供猫状态判定用。filePath 由 activity.probeActivity 那趟 walk 顺带找出的最新会话文件传入，
+// 这里只读这一个文件、不再自己遍历目录。返回毫秒时间戳或 null。
+
+// Claude：读 local_*.json 内容里的 lastActivityAt（App 按轮次写）。用 parseDate 兼容数值/字符串两种格式。
+function claudeActivityFromFile(filePath) {
+  if (!filePath) return null;
+  const json = readJson(filePath);
+  if (!json) return null;
+  const iso = parseDate(json.lastActivityAt);
+  return iso ? new Date(iso).getTime() : null;
+}
+
+// Codex：读 rollout .jsonl 末行事件的 timestamp（生成时逐事件实时追加）。
+function codexActivityFromFile(filePath) {
+  return lastEventTimestamp(filePath);
+}
+
+// 只读文件末尾 64KB，反向找最后一条带 timestamp 的事件（大 rollout 也便宜）。
+function lastEventTimestamp(filePath) {
+  if (!filePath) return null;
+  let fd;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const size = fs.fstatSync(fd).size;
+    const len = Math.min(64 * 1024, size);
+    const buffer = Buffer.alloc(len);
+    if (len > 0) fs.readSync(fd, buffer, 0, len, size - len);
+    const lines = buffer.subarray(0, len).toString('utf8').split(/\r?\n/).filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const obj = JSON.parse(lines[i]);
+        const ts = Date.parse(obj.timestamp || obj.ts || (obj.payload && obj.payload.timestamp));
+        if (ts) return ts;
+      } catch (_error) { /* 半行/非 JSON，继续往上找 */ }
+    }
+    return null;
+  } catch (_error) {
+    return null; // 打不开 / 读失败
+  } finally {
+    if (fd !== undefined) { try { fs.closeSync(fd); } catch (_error) { /* 已关或无效 */ } }
+  }
 }
 
 function readCodexIndex(filePath) {
@@ -212,4 +261,4 @@ function uuidFromFilename(filePath) {
   return match?.[0] || null;
 }
 
-module.exports = { scanSessions, scanClaude, scanCodex, parseDate, cleanTitle, uuidFromFilename, text };
+module.exports = { scanSessions, scanClaude, scanCodex, claudeActivityFromFile, codexActivityFromFile, parseDate, cleanTitle, uuidFromFilename, text };

@@ -134,10 +134,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   applyView();
   loadProfiles();
   loadActivity();
-  // 庭院可见、或排行榜开着时轮询（排行榜按钮在经典视图也可点，要保证它也实时刷新）
+  // 庭院可见、或排行榜开着时轮询（排行榜按钮在经典视图也可点，要保证它也实时刷新）。
+  // 8 秒一轮：干活/在岗要跟得上会话节奏，60 秒太钝会漏掉短生成。仅可见时轮询，后台不扫。
   setInterval(() => {
     if (!document.hidden && (state.view === 'yard' || els.leaderboardDialog.open)) loadActivity();
-  }, 60000);
+  }, 8000);
+  // 从最小化/后台切回前台时立刻刷新一次，别等下一轮
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && (state.view === 'yard' || els.leaderboardDialog.open)) loadActivity();
+  });
   maybeShowWelcome();
 });
 

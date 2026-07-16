@@ -111,4 +111,16 @@ function sessionCounts(profile, now = Date.now()) {
   };
 }
 
-module.exports = { scanCursor, sessionCounts, stateDbPath };
+// 供猫状态判定：会话记录里的最后活跃时间（SQLite 一次 MAX 聚合）。返回毫秒时间戳或 null。
+function latestActivity(profile) {
+  const db = stateDbPath(profile);
+  if (!fs.existsSync(db)) return null;
+  const rows = queryJson(db,
+    "SELECT MAX(lastUpdatedAt) AS m FROM composerHeaders " +
+    "WHERE isSubagent=0 AND composerId<>'empty-state-draft' AND lastUpdatedAt IS NOT NULL;"
+  );
+  const m = rows && rows[0] && Number(rows[0].m);
+  return Number.isFinite(m) && m > 0 ? m : null;
+}
+
+module.exports = { scanCursor, sessionCounts, latestActivity, stateDbPath };

@@ -23,21 +23,21 @@
 | 状态 | 触发条件 | 表现 |
 |---|---|---|
 | `confused` 迷路 | 会话根目录不存在 / 不可读 | 头顶 ? 气泡，原地转小圈（问题优先可见） |
-| `working` 干活中 | App 在跑 **且进程 CPU ≥ 60%**（真在生成/推理） | 工作亭书桌前打字（屏幕闪烁），深夜亮台灯 |
-| `onduty` 在岗 | 官方 App 在运行 但 CPU 空闲（没有任务在跑） | 在自家区域醒着待命，**不占工作亭书桌** |
+| `working` 干活中 | App 在跑 **且会话记录 90 秒内还活跃**（刚刚在动） | 工作亭书桌前打字（屏幕闪烁），深夜亮台灯 |
+| `onduty` 在岗 | 官方 App 在运行 但会话记录已一阵没动静 | 在自家区域醒着待命，**不占工作亭书桌** |
 | `arriving` 开工路上 | App 未探测到，但 `lastLaunchedAt` < 3 分钟 | 举「开工」小木牌，走向工作亭 |
 | `play` 玩耍 | App 没运行，24 小时内活跃过 | 区域内散步、去池边看锦鲤 |
 | `rest` 面包猫 | App 没运行，1〜3 天没活跃（全新槽位也归此档） | 趴成面包待机 |
 | `nap` 打盹 | App 没运行，3〜7 天没活跃 | 蜷睡，Zzz 上浮 |
 | `hibernate` 冬眠 | App 没运行，超过 7 天没活跃 | 睡进纸箱盖毯子 |
 
-**「干活中 vs 在岗」到底怎么判（关键）**：App 在跑时，用**该账号名下所有进程的 CPU 占用之和**区分——不是「App 开着」，也不是「会话文件最近写过」。理由（实测得来）：
-- 会话文件 mtime 是坏信号：各 App 刷盘节奏天差地别。**Codex/ChatGPT 每轮对话疯狂写 rollout 文件**，开着基本一直「25 秒内写过」→ 旧逻辑永远误判干活中；**Claude 桌面版写盘懒惰**，真在生成时文件反而几分钟不动 → 旧逻辑误判在岗。同一个时间窗口对两个 App 含义相反。
-- CPU 是「进程此刻在不在算」的直接信号，**跨 App 一致**：实测空闲 App < 1%、后台同步 ~20%、UI 划屏瞬时 ~40%、真正生成/推理持续 100%+。门槛取 `WORKING_CPU = 60`（[src/yard/cats.js](../src/yard/cats.js)），卡在 UI 噪声之上、生成之下，宁可漏报也不把「开着划屏」误判成干活。可按机器微调。
-- App 是否在跑仍由 [src/process.js](../src/process.js) 的 `isRunningIn`（按 `--user-data-dir=<profilePath>` 匹配运行进程命令行，含空格/前缀边界处理）确认；CPU 由同一份进程快照的 `cpuFor` 按行累加。App 明确没跑时，近期写入只算「玩耍」不算干活。
-- CPU 不可得时回退：Windows 的 `wmic` 命令行快照不含 CPU 列 → `cpu` 为 `null`，退回「会话 25 秒内写过=干活」的旧启发；`ps`/`wmic` 整体失败 → `running` 记为 `null`，同样按 25 秒窗口尽力判定，不因探测缺失就一律不显示。
+**「干活中 vs 在岗」到底怎么判（关键）**：App 在跑时，看**会话记录里的最后活跃时间**（`contentActiveAt`）——90 秒内还活跃 = 干活中，否则在岗。不是「App 开着」，不是文件 mtime，也不是 CPU。这版是踩过两个坑后定的：
+- **文件 mtime 是坏信号**：各 App 乱 touch 索引/临时文件（Codex 尤甚），mtime 常常虚高，`probeActivity` 扫「所有文件的最新 mtime」会被带偏。
+- **CPU 也不行**：实测空闲 Claude 都能吃 ~17% CPU、还会瞬间蹦到 50-100%，固定门槛又飘又misfire；而且 Claude 桌面版生成时根本不写它的会话文件，CPU 和文件都抓不到。
+- **会话记录的内容时间戳才对**：直接读「这个账号的会话刚刚在不在动」——Claude 读最新 `local_*.json` 的 `lastActivityAt`；Codex 读最新 rollout `.jsonl` 末行事件的 timestamp（生成时逐事件实时追加）；Cursor 读 SQLite `MAX(lastUpdatedAt)`。每个 app 一个便宜取数器（实测全账号一轮 ~12ms），挂在注册表的 `latestActivityAt` 上。窗口 `WORKING_WINDOW = 90s`（[src/yard/cats.js](../src/yard/cats.js)），可调。
+- App 是否在跑仍由 [src/process.js](../src/process.js) 的 `isRunningIn`（按 `--user-data-dir=<profilePath>` 匹配运行进程命令行，含空格/前缀边界处理）确认。App 明确没跑(`running===false`)时，近期活跃只算「玩耍」不算干活；探测整体失败(`running===null`)时，会话记录窗口内还活跃仍尽力判干活。
 
-**活跃度探测**：[src/activity.js](../src/activity.js) 的 `probeActivity` 只做 `stat`（不读文件内容），返回 `{ rootExists, rootReadable, latestMtime, fileCount, activeToday, createdToday }`；主进程 IPC `activity:all` 再补上进程探测得到的 `running` 与 `cpu`（一次 `ps -axww -o %cpu=,args=` 供所有账号匹配、累加）。扫描位置与 [sessions.js](../src/sessions.js) 完全一致，但那边负责解析、这边只探活跃度。renderer **仅在庭院视图可见时** 60 秒轮询一次（带防堆积），后台 / 经典视图不扫。
+**活跃度探测**：[src/activity.js](../src/activity.js) 的 `probeActivity` 主体只做 `stat`（返回 `latestMtime / fileCount / activeToday / createdToday`），再调各 app 适配器的 `latestActivityAt` 读**会话记录内容**里的最后活跃时间戳（`contentActiveAt`，拿不到退回 `latestMtime`）；主进程 IPC `activity:all` 补上 `running`（一次 `ps -axww` 供所有账号匹配）。renderer **仅在庭院视图可见时** 8 秒轮询一次（带防堆积），并在从后台/最小化切回时立刻刷新；后台 / 经典视图不扫。
 
 ## 外观与自定义
 
@@ -77,11 +77,11 @@ src/
 
 ## 边界与已知取舍
 
-- 运行 + CPU 探测在主进程同步执行一次 `ps -axww -o %cpu=,args=`（本机实测约 40ms，60s 一次且仅庭院可见时），一份快照同时喂 `isRunningIn` 与 `cpuFor`；Windows 走 `wmic`（无 CPU 列），干活判定静默退回 25 秒 mtime 窗口（Windows 尚未真机验证）。
-- CPU 门槛 60% 是按本机实测定的经验值（空闲 <1% / 后台 ~20% / 生成 100%+）；不同机器、不同 App 的空闲/生成占用会有差异，`WORKING_CPU` 可调。`ps` 的 `%cpu` 是约 1 分钟衰减均值，天然平滑，猫的状态不会逐秒抖动。
-- 活跃度扫描在主进程同步执行（有 12000 条上限 + 60s 节流）；会话目录在网络盘上的极端情况可能有短暂卡顿。
+- 运行探测在主进程同步执行一次 `ps -axww`（本机实测约 40ms，8s 一次且仅庭院可见时）；Windows 走 `wmic`（尚未真机验证）。会话记录最后活跃时间由各 app 适配器的 `latestActivityAt` 便宜取数（全账号一轮 ~12ms）。
+- `WORKING_WINDOW = 90s` 是经验值：会话记录 90 秒内活跃过就算干活。窗口越大越「黏」（活跃后余温更久），越小越灵敏，可按习惯调。
+- 活跃度扫描在主进程同步执行（有 12000 条上限）；会话目录在网络盘上的极端情况可能有短暂卡顿。8s 轮询 + 仅可见时扫，后台不耗。
 - 账本只在庭院视图可见时推进——这是为省 CPU 刻意把轮询限定在庭院视图的直接结果。
-- 「干活中」用 CPU 门槛、轮询 60 秒一次，所以「陪你干活 N 分钟」是估算：若某轮轮询恰好落在生成间隙（CPU 暂时回落），这一分钟可能没被计入；反之极短的一次生成也可能整段落在两次轮询之间没被捕捉到。account 状态本身不受影响，`companion` 的 10 分钟宽限也保证不会因此误判收工。
+- 「干活中」看会话记录最后活跃、轮询 8 秒一次，所以「陪你干活 N 分钟」是估算：会话记录在两次真实活跃之间不刷新时，间隙这几分钟可能没被计入。account 状态本身不受影响，`companion` 的 10 分钟宽限也保证不会因此误判收工。
 - 像素资产为程序化绘制，零外部图片；后续可整体替换为手绘 atlas（如 hatch-pet 流水线产物）而不动状态机与布局。
 
 ## 测试
