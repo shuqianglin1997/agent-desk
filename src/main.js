@@ -6,7 +6,7 @@ const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const apps = require('./apps');
 const { probeActivity } = require('./activity');
-const { isRunningIn, cpuFor, snapshotProcesses } = require('./process');
+const { isRunningIn, snapshotProcesses } = require('./process');
 const { normalizeCat } = require('./yard/cats');
 
 const APP_NAME = 'AgentDesk';
@@ -130,9 +130,7 @@ function registerIpc() {
     const psText = snapshotProcesses();
     return profiles.map((profile) => ({
       ...probeActivity(profile),
-      running: psText === null ? null : isRunningIn(psText, profile.profilePath),
-      // 该账号名下所有进程 %cpu 之和 → 区分「干活中(在生成)」与「在岗(开着空闲)」
-      cpu: psText === null ? null : cpuFor(psText, profile.profilePath)
+      running: psText === null ? null : isRunningIn(psText, profile.profilePath)
     }));
   });
 

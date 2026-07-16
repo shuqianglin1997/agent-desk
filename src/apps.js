@@ -47,7 +47,9 @@ const APPS = {
       { label: 'Claude Code', path: path.join(profile.sessionRoot, 'claude-code-sessions'), kind: 'directory' },
       { label: 'Claude 本地', path: path.join(profile.sessionRoot, 'local-agent-mode-sessions'), kind: 'directory' }
     ],
-    scan: (profile) => sessions.scanClaude(profile)
+    scan: (profile) => sessions.scanClaude(profile),
+    // 会话记录里的最后活跃时间（读 probe 传入的最新文件的 lastActivityAt），驱动干活/在岗判定
+    contentActivityAt: (_profile, filePath) => sessions.claudeActivityFromFile(filePath)
   },
   codex: {
     id: 'codex',
@@ -68,7 +70,8 @@ const APPS = {
       { label: 'Codex 会话', path: path.join(profile.sessionRoot, 'sessions'), kind: 'directory' },
       { label: 'Codex 归档', path: path.join(profile.sessionRoot, 'archived_sessions'), kind: 'directory' }
     ],
-    scan: (profile) => sessions.scanCodex(profile)
+    scan: (profile) => sessions.scanCodex(profile),
+    contentActivityAt: (_profile, filePath) => sessions.codexActivityFromFile(filePath)
   },
   cursor: {
     id: 'cursor',
@@ -87,7 +90,9 @@ const APPS = {
     ],
     scan: (profile) => cursorSessions.scanCursor(profile),
     // 排行榜今日计数走 SQLite 聚合（会话是 db 行不是文件，按文件数会失真）
-    sessionCounts: (profile, now) => cursorSessions.sessionCounts(profile, now)
+    sessionCounts: (profile, now) => cursorSessions.sessionCounts(profile, now),
+    // 会话是 SQLite 行，最新文件就是 state.vscdb 本身；直接 MAX(lastUpdatedAt)，不用 filePath
+    contentActivityAt: (profile) => cursorSessions.latestActivity(profile)
   }
 };
 

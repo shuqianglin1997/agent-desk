@@ -15,8 +15,8 @@
   // 状态元数据：优先级即 deriveState 的判断顺序
   const STATE_META = {
     confused: { label: '迷路', hint: '路径失效，点「诊断」体检' },
-    working: { label: '干活中', hint: 'App 进程正在烧 CPU —— 真在生成/推理' },
-    onduty: { label: '在岗', hint: 'App 开着但 CPU 空闲，没有任务在跑' },
+    working: { label: '干活中', hint: 'App 开着，且会话记录刚刚还在活跃' },
+    onduty: { label: '在岗', hint: 'App 开着，但会话已有一阵没动静' },
     arriving: { label: '开工路上', hint: '刚打开账号，App 还没起来' },
     play: { label: '玩耍', hint: 'App 没开，今天活跃过' },
     rest: { label: '面包猫', hint: 'App 没开，1〜3 天没动静' },
@@ -24,23 +24,20 @@
     hibernate: { label: '冬眠', hint: 'App 没开，超过 7 天没动静' }
   };
 
-  // 「干活中」的 CPU 门槛（该账号名下所有进程 %cpu 之和，可 >100=多核）。
-  // 依据实测：空闲 App <1%、UI 渲染瞬时可冲到 ~40%、真正生成/推理持续 100%+。
-  // 取 60 卡在 UI 噪声之上、生成之下：宁可漏报也不把「开着划屏」误判成干活。可按机器调。
-  const WORKING_CPU = 60;
-  const WORKING_WINDOW = 25 * SECOND; // 仅在 CPU 不可得（如 Windows）时的回退：会话 25 秒内写过 = 干活
+  // 「干活中」= App 在跑，且会话记录在 WORKING_WINDOW 内还有活跃。
+  const WORKING_WINDOW = 90 * SECOND; // 会话记录 90 秒内活跃过 = 还在干活（可调）
   const ARRIVING_WINDOW = 3 * MINUTE;
 
   /*
    * 信号 → 状态。activity 来自主进程：
-   *   { rootExists, rootReadable, latestMtime, fileCount, running, cpu }
+   *   { rootExists, rootReadable, latestMtime, contentActiveAt, fileCount, running }
    *   running：该账号官方 App 进程是否在运行。true / false / null（探测不可用）。
-   *   cpu：该账号名下所有进程 %cpu 之和。数字 / null（无 CPU 列，如 Windows wmic）/ undefined。
+   *   contentActiveAt：会话记录内容里的最后活跃时间戳（毫秒）。拿不到时退回 latestMtime。
    *
-   * 关键：「干活中 vs 在岗」由 CPU 区分，不再靠会话文件 mtime——
-   * 各 App 刷盘节奏天差地别（Codex 每轮狂写 → mtime 永远很新；Claude 桌面版写盘懒惰
-   * → 生成时 mtime 反而不动），同一个时间窗口对不同 App 含义相反。CPU 是「进程此刻在不在
-   * 算」的直接信号，跨 App 一致。mtime 仅作 CPU 不可得时的回退。
+   * 关键：「干活中 vs 在岗」看的是**会话记录里的最后活跃时间**，不是文件 mtime、更不是 CPU。
+   * 试过的都不行：文件 mtime 会被各 App 乱 touch（Codex 尤甚）带偏；CPU 又飘又不准（空闲
+   * Claude 都能蹦到 50-100%）。会话记录的内容时间戳（Claude 的 lastActivityAt / Codex rollout
+   * 末行事件时间 / Cursor 的 lastUpdatedAt）才是「这个账号的会话刚刚在不在动」的直接答案。
    */
   function deriveState(now, profile, activity) {
     if (!activity) return 'rest';
@@ -49,20 +46,18 @@
     const launchedAgo = profile && profile.lastLaunchedAt
       ? now - Date.parse(profile.lastLaunchedAt)
       : Infinity;
-    const activeAgo = activity.latestMtime ? now - activity.latestMtime : Infinity;
+    const activeAt = activity.contentActiveAt || activity.latestMtime;
+    const activeAgo = activeAt ? now - activeAt : Infinity;
     const running = activity.running;
-    const cpu = activity.cpu;
 
-    // App 确认在跑（主路径）：CPU 高=干活中，CPU 空闲=在岗待命。CPU 不可得（Windows）时回退会话窗口。
+    // App 确认在跑（主路径）：会话记录窗口内还活跃=干活中，否则在岗待命。
     // 一旦探测到在跑就不再走「开工路上」——直接判在岗/干活。
     if (running === true) {
-      if (typeof cpu === 'number') return cpu >= WORKING_CPU ? 'working' : 'onduty';
       return activeAgo < WORKING_WINDOW ? 'working' : 'onduty';
     }
 
-    // 以下 running 为 false(明确没开) 或 null/undefined(探测不可用)。
-    // 探测不可用时无法确认开没开：近 25 秒还在写 → 尽力当干活。这条排在「开工路上」之前，
-    // 保持旧判据优先级（正在写入压过「刚点开」）；running===false(明确没开) 不走这条，近期写入只是残留。
+    // 探测不可用(null/undefined)：无法确认开没开——会话记录窗口内还活跃就尽力当干活。
+    // running===false(明确没开) 不走这条：近期写入只是残留、不算干活。
     if (running !== false && activeAgo < WORKING_WINDOW) return 'working';
     // 开工路上：刚点了「打开账号」、但 App 进程还没被探测到
     if (launchedAgo >= 0 && launchedAgo < ARRIVING_WINDOW && running !== true) return 'arriving';

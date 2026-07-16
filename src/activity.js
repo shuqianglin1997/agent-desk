@@ -25,6 +25,7 @@ function probeActivity(profile, now = Date.now()) {
     rootExists: false,
     rootReadable: false,
     latestMtime: null,
+    contentActiveAt: null, // 会话记录内容里的最后活跃时间（比 mtime 干净），驱动干活/在岗
     fileCount: 0,
     activeToday: 0,   // 今天被写过的会话数（mtime 落在今天）
     createdToday: 0   // 今天新建的会话数（birthtime 落在今天）
@@ -48,13 +49,14 @@ function probeActivity(profile, now = Date.now()) {
 
   const app = apps.getApp(profile.appId);
   const todayStart = startOfDay(now);
+  let newestPath = null; // mtime 最新的会话文件，供下面读内容时间戳（复用这一趟 walk，不再二次遍历）
   for (const area of app.scanAreas(profile)) {
     for (const filePath of walkFiles(area.dir, area.match)) {
       result.fileCount += 1;
       try {
         const stat = fs.statSync(filePath); // 只 stat，不读内容
         const mtime = stat.mtime.getTime();
-        if (!result.latestMtime || mtime > result.latestMtime) result.latestMtime = mtime;
+        if (!result.latestMtime || mtime > result.latestMtime) { result.latestMtime = mtime; newestPath = filePath; }
         if (mtime >= todayStart) result.activeToday += 1;
         const btime = stat.birthtime ? stat.birthtime.getTime() : 0;
         if (btime >= todayStart && btime <= now + 1000) result.createdToday += 1;
@@ -75,6 +77,19 @@ function probeActivity(profile, now = Date.now()) {
       // 退回上面按文件数算的结果
     }
   }
+
+  // 会话记录里的最后活跃时间戳（内容，非文件 mtime）——干活/在岗判定用这个。
+  // 复用上面 walk 找到的最新文件路径，适配器只读这一个文件/库，不再二次遍历。
+  // 拿不到（适配器缺失/出错）就退回 latestMtime。
+  if (typeof app.contentActivityAt === 'function') {
+    try {
+      const ts = app.contentActivityAt(profile, newestPath);
+      if (ts) result.contentActiveAt = ts;
+    } catch (_error) {
+      // 退回 latestMtime（下方兜底）
+    }
+  }
+  if (!result.contentActiveAt) result.contentActiveAt = result.latestMtime;
 
   return result;
 }

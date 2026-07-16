@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { scanSessions, parseDate, cleanTitle, uuidFromFilename } = require('../src/sessions');
+const { scanSessions, claudeActivityFromFile, codexActivityFromFile, parseDate, cleanTitle, uuidFromFilename } = require('../src/sessions');
 
 // ── pure helpers ──────────────────────────────────────
 test('parseDate: unix seconds → ISO', () => {
@@ -121,6 +121,62 @@ test('records are sorted most-recently-active first', () => {
   const recs = scanSessions({ appId: 'claude', sessionRoot: root });
   assert.equal(recs[0].title, 'new');
   assert.equal(recs[1].title, 'old');
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+// ── 会话记录最后活跃时间戳（驱动猫的干活/在岗）──
+test('claudeActivityFromFile: 读 lastActivityAt（毫秒 epoch）→ 毫秒', () => {
+  const root = mkTmp();
+  const fp = path.join(root, 'local_x.json');
+  fs.writeFileSync(fp, JSON.stringify({ lastActivityAt: 1784166156219 }));
+  assert.equal(claudeActivityFromFile(fp), 1784166156219);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+test('claudeActivityFromFile: 兼容 ISO 字符串 / 缺字段 / 空路径 → 毫秒或 null', () => {
+  const root = mkTmp();
+  const fp = path.join(root, 'local_y.json');
+  fs.writeFileSync(fp, JSON.stringify({ lastActivityAt: '2026-07-13T10:00:00.000Z' }));
+  assert.equal(claudeActivityFromFile(fp), Date.parse('2026-07-13T10:00:00.000Z'));
+  const fp2 = path.join(root, 'local_z.json');
+  fs.writeFileSync(fp2, JSON.stringify({ title: 'no ts' }));
+  assert.equal(claudeActivityFromFile(fp2), null);
+  assert.equal(claudeActivityFromFile(null), null);
+  assert.equal(claudeActivityFromFile(path.join(root, 'nope.json')), null);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('codexActivityFromFile: 取末行事件 timestamp（毫秒）', () => {
+  const root = mkTmp();
+  const fp = path.join(root, 'r.jsonl');
+  fs.writeFileSync(fp,
+    JSON.stringify({ type: 'event_msg', timestamp: '2026-07-15T16:13:06.000Z' }) + '\n' +
+    JSON.stringify({ type: 'event_msg', timestamp: '2026-07-15T20:55:24.000Z' }) + '\n');
+  assert.equal(codexActivityFromFile(fp), Date.parse('2026-07-15T20:55:24.000Z'));
+  fs.rmSync(root, { recursive: true, force: true });
+});
+test('codexActivityFromFile: 大文件也只读末尾 64KB，仍取到末行事件', () => {
+  const root = mkTmp();
+  const fp = path.join(root, 'big.jsonl');
+  const huge = JSON.stringify({ type: 'pad', blob: 'x'.repeat(100 * 1024), timestamp: '2000-01-01T00:00:00.000Z' });
+  fs.writeFileSync(fp, huge + '\n' + JSON.stringify({ type: 'event_msg', timestamp: '2026-07-16T01:00:00.000Z' }) + '\n');
+  assert.equal(codexActivityFromFile(fp), Date.parse('2026-07-16T01:00:00.000Z'));
+  fs.rmSync(root, { recursive: true, force: true });
+});
+test('codexActivityFromFile: 末行是半截 JSON → 回退到上一条完整事件', () => {
+  const root = mkTmp();
+  const fp = path.join(root, 'partial.jsonl');
+  fs.writeFileSync(fp,
+    JSON.stringify({ type: 'event_msg', timestamp: '2026-07-16T02:00:00.000Z' }) + '\n' +
+    '{"type":"event_msg","timestamp":"2026-07-16T03:00:00'); // 被截断、无换行
+  assert.equal(codexActivityFromFile(fp), Date.parse('2026-07-16T02:00:00.000Z'));
+  fs.rmSync(root, { recursive: true, force: true });
+});
+test('codexActivityFromFile: 空文件 / 空路径 → null，不抛', () => {
+  const root = mkTmp();
+  const fp = path.join(root, 'empty.jsonl');
+  fs.writeFileSync(fp, '');
+  assert.equal(codexActivityFromFile(fp), null);
+  assert.equal(codexActivityFromFile(null), null);
   fs.rmSync(root, { recursive: true, force: true });
 });
 
