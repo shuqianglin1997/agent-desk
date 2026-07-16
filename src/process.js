@@ -9,7 +9,7 @@
  * 失败返回 null（表示探测不可用，上层退回启发）。
  */
 
-const { execSync } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
 
 /*
  * psText 里是否出现「归属于 profilePath 的」 `--user-data-dir=<profilePath>`。
@@ -23,16 +23,35 @@ const { execSync } = require('node:child_process');
  * 都带规范的 `--user-data-dir=X --flag…` 形式，总能命中，故实际不受影响。
  */
 function matchesDataDir(haystack, profilePath) {
-  const needle = '--user-data-dir=' + profilePath;
-  let idx = haystack.indexOf(needle);
-  while (idx !== -1) {
-    const after = haystack.charAt(idx + needle.length);
-    if (after === '' || after === '\n' || after === '\r') return true;
-    if (after === ' ' || after === '\t') {
-      const rest = haystack.slice(idx + needle.length).replace(/^[ \t]+/, '');
-      if (rest === '' || rest.charAt(0) === '-' || rest.charAt(0) === '\n' || rest.charAt(0) === '\r') return true;
+  const windowsPath = /^[a-z]:[\\/]|^\\\\/i.test(profilePath);
+  const normalize = (value) => {
+    let output = String(value || '').replace(/^\\\\\?\\/, '');
+    if (windowsPath) output = output.replace(/\//g, '\\').toLowerCase();
+    return output;
+  };
+  const text = normalize(haystack);
+  const target = normalize(profilePath);
+  const needles = [
+    `--user-data-dir=${target}`,
+    `--user-data-dir="${target}`,
+    `"--user-data-dir=${target}`,
+    `--user-data-dir ${target}`,
+    `--user-data-dir "${target}`
+  ];
+
+  for (const needle of needles) {
+    let idx = text.indexOf(needle);
+    while (idx !== -1) {
+      let end = idx + needle.length;
+      if (text.charAt(end) === '"' || text.charAt(end) === "'") end += 1;
+      const after = text.charAt(end);
+      if (after === '' || after === '\n' || after === '\r') return true;
+      if (after === ' ' || after === '\t') {
+        const rest = text.slice(end).replace(/^[ \t]+/, '');
+        if (rest === '' || rest.charAt(0) === '-' || rest.charAt(0) === '\n' || rest.charAt(0) === '\r') return true;
+      }
+      idx = text.indexOf(needle, idx + needle.length);
     }
-    idx = haystack.indexOf(needle, idx + needle.length);
   }
   return false;
 }
@@ -43,17 +62,57 @@ function isRunningIn(psText, profilePath) {
   return matchesDataDir(psText, profilePath);
 }
 
+// Windows 默认 Store/MSIX 槽位不传 --user-data-dir，无法按账号目录匹配。
+// 只匹配没有隔离参数的桌面 App 进程，并排除常见 CLI shim 路径。
+function isDefaultWindowsAppRunning(psText, executableNames) {
+  if (!psText || !Array.isArray(executableNames) || !executableNames.length) return false;
+  const patterns = executableNames.map((name) => new RegExp(
+    `(^|[\\\\/"'\\s])${escapeRegExp(String(name).toLowerCase())}(?=$|["'\\s])`
+  ));
+  const cliFragments = [
+    '\\appdata\\roaming\\npm\\',
+    '\\microsoft\\winget\\links\\',
+    '\\node_modules\\',
+    '\\.local\\bin\\'
+  ];
+
+  return String(psText).split(/\r?\n/).some((line) => {
+    const normalized = line.replace(/\//g, '\\').toLowerCase();
+    if (!normalized || normalized.includes('--user-data-dir')) return false;
+    if (cliFragments.some((fragment) => normalized.includes(fragment))) return false;
+    return patterns.some((pattern) => pattern.test(normalized));
+  });
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // 采集进程命令行快照。失败（无权限 / 超时 / 平台不支持）返回 null。
 function snapshotProcesses() {
   try {
     if (process.platform === 'win32') {
-      // Windows：wmic 输出各进程 CommandLine，同样含 --user-data-dir=
-      return execSync('wmic process get commandline', {
-        encoding: 'utf8', timeout: 4000, maxBuffer: 8 * 1024 * 1024, windowsHide: true
-      });
+      // WMIC 在新 Windows 11 上已默认移除。优先走 CIM，旧系统再回退 WMIC。
+      const options = {
+        encoding: 'utf8', timeout: 5000, maxBuffer: 8 * 1024 * 1024, windowsHide: true
+      };
+      for (const powershell of ['powershell.exe', 'pwsh.exe']) {
+        try {
+          return execFileSync(powershell, [
+            '-NoLogo',
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            'Get-CimInstance Win32_Process | ForEach-Object { $_.CommandLine }'
+          ], options);
+        } catch (_error) {
+          // Try the next collector.
+        }
+      }
+      return execFileSync('wmic.exe', ['process', 'get', 'commandline'], options);
     }
     // macOS / Linux：-ww 防止命令行被截断
-    return execSync('ps -axww -o args=', {
+    return execFileSync('ps', ['-axww', '-o', 'args='], {
       encoding: 'utf8', timeout: 4000, maxBuffer: 16 * 1024 * 1024
     });
   } catch (_error) {
@@ -61,4 +120,4 @@ function snapshotProcesses() {
   }
 }
 
-module.exports = { isRunningIn, snapshotProcesses };
+module.exports = { isDefaultWindowsAppRunning, isRunningIn, snapshotProcesses };

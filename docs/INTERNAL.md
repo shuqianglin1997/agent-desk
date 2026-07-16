@@ -64,6 +64,9 @@ agent-desk/
   scripts/             维护脚本
   src/
     main.js            Electron 主进程，本地文件/启动/诊断/IPC
+    windows.js         Windows 启动器、MSIX 数据路径与迁移解析（纯 Node）
+    path-utils.js      打开文件前的存在性检查与上级目录回退（纯 Node）
+    updater.js         GitHub Release 解析、资产选择与 portable 替换脚本（纯 Node）
     sessions.js        会话扫描（纯 Node，可单元测试）
     activity.js        活跃度探测（stat-only，纯 Node，驱动庭院状态）
     preload.js         安全桥接 IPC
@@ -96,7 +99,7 @@ macOS 当前示例：
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "profiles": [
     {
       "id": "...",
@@ -104,6 +107,9 @@ macOS 当前示例：
       "name": "默认 Claude",
       "profilePath": "...",
       "sessionRoot": "...",
+      "profilePathMode": "auto",
+      "sessionRootMode": "auto",
+      "executablePath": null,
       "isProtected": true,
       "createdAt": "...",
       "lastLaunchedAt": null,
@@ -114,7 +120,13 @@ macOS 当前示例：
 }
 ```
 
-默认槽位 `isProtected: true`，不能从列表移除。
+默认槽位 `isProtected: true`，不能从列表移除。`profilePathMode` / `sessionRootMode`：
+
+- `auto`：每次启动重新解析当前系统的默认目录，Windows 可在传统目录和 MSIX LocalCache 间切换
+- `managed`：AgentDesk 创建并维护的独立槽位
+- `custom`：用户手动指定，不自动改写
+
+写入配置时先写临时文件，并保留 `profiles.json.bak`。主文件损坏时会从备份恢复，而不是直接清空账号槽位。
 
 ## 主进程职责
 
@@ -130,6 +142,7 @@ macOS 当前示例：
 - 写入剪贴板
 - 选择目录
 - 生成诊断信息
+- 检查 GitHub Release，并在受支持的 Windows portable 环境执行校验更新
 
 渲染进程不直接访问文件系统。
 
@@ -138,14 +151,19 @@ macOS 当前示例：
 暴露在 `window.manager`：
 
 ```js
+checkForUpdates()
+installUpdate()
 listProfiles()
 addProfile(input)
 updateProfile(input)
 removeProfile(id)
+migrateWindowsProfilePath(id)
 launchProfile(id)
 listSessions(profile)
+revealSession(input)
 getDiagnostics(profile)
 pickDirectory(options)
+pickFile(options)
 showItem(path)
 openPath(path)
 writeClipboard(value)
@@ -241,17 +259,39 @@ CODEX_HOME=<sessionRoot>
 
 ### Windows
 
-会检查多个候选路径，包括：
+Windows 适配集中在 [windows.js](../src/windows.js)。启动器依次覆盖：
 
-```text
-%LOCALAPPDATA%/Programs/<App>/<App>.exe
-%APPDATA%/<App>/<App>.exe
-%ProgramFiles%/<App>/<App>.exe
-%ProgramFiles%/OpenAI/<App>/<App>.exe
-%ProgramFiles%/Anthropic/<App>/<App>.exe
-```
+- 用户手动指定路径
+- `%LOCALAPPDATA%\Microsoft\WindowsApps\<App>.exe` Store 执行别名
+- `%LOCALAPPDATA%\Programs` / `Program Files` 等传统目录
+- Claude 旧版 Squirrel `AnthropicClaude\app-*`
+- `App Paths` 注册表
+- `Get-AppxPackage` 返回的当前 MSIX 包
+- 每用户 AppModel 包仓库注册表的 `PackageRootFolder`
+- 自动默认槽位的 `claude://` / `codex://` 协议回退
 
-Windows 真机需要继续验证 Claude / Codex 官方安装器实际落点。
+npm / WinGet Links 中的同名 CLI shim 会被排除。启动是异步确认的：`spawn` 失败或进程立即非零退出时继续尝试下一个候选。
+
+MSIX 发现刻意保留两条互相独立的动态通道。包仓库注册表无需列举受 ACL 保护的 `WindowsApps`，并按 `<Name>_<Version>_<Architecture>_<ResourceId>_<PublisherId>` 解析包身份、数值比较四段版本；`Get-AppxPackage` 是受支持的系统查询，还会读取 manifest 中声明的非标准 executable。任一通道不可用都不会阻断另一条。
+
+处于 `auto` 路径模式的默认槽位不强制传 `--user-data-dir`，让 Store/MSIX 使用官方默认容器；独立槽位使用 `%USERPROFILE%\.agentdesk\profiles\<App>\<profile-id>` 下的稳定 ASCII ID 目录并传入隔离参数。手动修改过路径的默认槽位也按自定义目录启动。Windows 运行探测对自动默认槽位按无隔离参数的桌面进程判断，其余槽位仍按数据目录精确匹配。
+
+Windows 默认数据目录会在传统 `%APPDATA%\<App>` 与包私有 `LocalCache\Roaming\<App>` 中自动选择。旧版本位于 AppData 的独立槽位可通过诊断面板复制迁移到安全目录，旧数据不删除。
+
+打开会话位置前会按会话 ID 重新扫描并验证磁盘路径。失效或过长路径只打开最近可访问的上级目录，不再直接触发 Explorer 的“位置不可用”弹窗。
+
+### GitHub 更新
+
+更新逻辑分成两层：
+
+- [updater.js](../src/updater.js) 是纯 Node 安全边界：固定仓库、语义版本比较、平台/架构资产选择、URL 白名单、GitHub digest 解析和 Windows 替换脚本。
+- [main.js](../src/main.js) 使用 Electron `net.fetch` 查询 Release，再用 `net.request` 手动审核每次下载重定向；同时限制响应大小和超时，校验文件大小及 SHA-256，最后启动独立 PowerShell 进程完成替换。
+
+只有打包后的 Windows portable 进程、可写的 `PORTABLE_EXECUTABLE_FILE` 和带 SHA-256 digest 的匹配 `.exe` 同时成立时，`installSupported` 才为真。其余情况统一退化为打开该版本的 GitHub Release 页面。
+
+替换器先把下载文件复制为目标目录中的 `.update`，等待当前进程退出后把旧文件移动到 `.old`，再将 `.update` 放到原路径。中途失败会恢复 `.old` 并尝试重启原程序。这样 portable 文件即使被用户移动或改名，也更新当前实际启动的那一份。
+
+发布工作流先验证 tag 与 `package.json` 版本一致，再分别构建 macOS / Windows 产物、生成 `SHA256SUMS.txt` 并创建草稿 Release。正式发布后，GitHub `releases/latest` 才会把它暴露给客户端。
 
 ## 诊断面板
 
@@ -260,9 +300,13 @@ Windows 真机需要继续验证 Claude / Codex 官方安装器实际落点。
 检查项：
 
 - 当前平台
-- 官方 App 是否找到
+- 官方 App 是否可启动、使用哪种启动方式
+- 所有 executable / MSIX 数据目录候选
+- App Paths、MSIX 包仓库注册表和 `Get-AppxPackage` 各通道的返回数量
 - 账号目录是否存在、可读、可写
 - 会话根目录是否存在、可读、可写
+- AppData 虚拟化、非 ASCII 和长路径风险
+- 是否需要执行 Windows 路径迁移
 - 会话扫描位置是否存在
 - 当前扫描到的会话数量
 - 配置文件路径
@@ -284,7 +328,7 @@ Windows 真机需要继续验证 Claude / Codex 官方安装器实际落点。
 来源：...
 状态：...
 项目目录：...
-会话地址：...
+会话标识：...
 会话文件：...
 线程 ID：...
 
@@ -299,7 +343,7 @@ Windows 真机需要继续验证 Claude / Codex 官方安装器实际落点。
 npm test
 ```
 
-覆盖字段解析、Claude / Codex 夹具扫描、容错，以及一条针对真实 `~/.codex` 的冒烟测试（本机数据缺失时自动跳过）。
+覆盖字段解析、Claude / Codex 夹具扫描、容错、Windows 启动器候选、MSIX 路径映射、失效路径回退、Windows 进程命令行匹配、Release 版本/资产/URL/摘要/替换脚本，以及一条针对真实 `~/.codex` 的冒烟测试（本机数据缺失时自动跳过）。
 
 ## 打包
 
@@ -325,7 +369,7 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run build:win
 
 ```text
 release/AgentDesk-0.2.0-universal.dmg
-release/AgentDesk 0.2.0.exe
+release/AgentDesk-0.2.0-portable-x64.exe
 ```
 
 ## 已验证
@@ -344,7 +388,7 @@ release/AgentDesk 0.2.0.exe
 
 这些不影响内部使用，但影响正式对外发布：
 
-- Windows 真机验证
+- Windows 真机发布矩阵验证（详见 [WINDOWS.md](WINDOWS.md)）
 - macOS Developer ID 签名与公证
 - Windows 代码签名
 - 对完整聊天内容的可选导出，目前刻意不做默认能力
@@ -356,3 +400,5 @@ release/AgentDesk 0.2.0.exe
 - 改扫描逻辑时优先保持容错，单个坏文件不能中断整个扫描。
 - Codex 的 `profilePath` 和 `sessionRoot` 要继续分开处理。
 - Windows 路径不要写死单一安装位置。
+- Windows 独立槽位不要重新放回 AppData；MSIX 会产生逻辑路径与物理路径分叉。
+- 不要把 npm / WinGet Links 中的 Claude/Codex CLI 当成桌面 App。

@@ -36,8 +36,9 @@ Each pain above maps to one thing AgentDesk gives you:
 - **Notes & groups.** Give any slot a free-text note and drop it into a group (Work / Personal / Spare…). The sidebar organizes accounts by group — manage them like a contact list.
 - **Automatic session index.** It scans each account's session files and lists them in one table — title, last active, created, project directory, source — with search across title / project / thread ID. **Find any old session in seconds.**
 - **One-click context handoff.** Select a session, hit *Copy handoff*, and paste into a new chat. It copies **metadata only, never the full transcript** — so nothing private leaks by accident.
-- **Diagnostics.** A panel that explains *why* a session won't show up or an app won't launch: does the path exist, is it readable/writable, was the official app found, which locations were scanned, how many sessions matched, where the config lives.
-- **Path control.** Set each slot's data directory and session root by hand — important because Codex keeps those two in different places.
+- **Diagnostics.** A panel that explains *why* a session won't show up or an app won't launch: executable/Store candidates, MSIX-vs-legacy data paths, permissions, scanned locations, session count, and config location.
+- **Path control.** Set each slot's data directory, session root, and optional app executable. On Windows, old AppData-based slots can be copied to a stable non-virtualized location in one click.
+- **GitHub updates.** The ↻ button checks the latest published Release. Windows portable builds download, verify GitHub's SHA-256 digest, replace themselves, and restart; other environments open the exact Release page.
 - **macOS + Windows** from the same tool.
 - **Light & dark**, following your system theme — toggle any time with the ◐ button.
 
@@ -72,7 +73,7 @@ The yard is the default; the **⇄** button flips to a classic three-pane workbe
 
 - **Left** — your account slots (Claude / Codex). Add, rename, remove, launch.
 - **Middle** — the session table for the selected account, with search and sort by last active.
-- **Right** — the selected session's details, plus copy actions (handoff / address / project path) and *reveal file*.
+- **Right** — the selected session's details, plus copy actions (handoff / stable ID / project path) and *reveal location*.
 
 ---
 
@@ -83,7 +84,7 @@ The yard is the default; the **⇄** button flips to a classic three-pane workbe
 Grab the latest from **[Releases](https://github.com/shuqianglin1997/agent-desk/releases)**:
 
 - **macOS** — `AgentDesk-<version>-universal.dmg` (runs on both Apple Silicon and Intel)
-- **Windows** — `AgentDesk <version>.exe` (portable — no install, just run)
+- **Windows** — `AgentDesk-<version>-portable-x64.exe` (portable — no install, just run)
 
 > **Heads-up: the packages are not code-signed** (this is a free, open tool). Your OS will warn you the first time. That's expected — here's how to get past it:
 >
@@ -93,6 +94,8 @@ Grab the latest from **[Releases](https://github.com/shuqianglin1997/agent-desk/
 >   ```
 >   Or, after the first blocked launch, open **System Settings → Privacy & Security** and click **Open Anyway**.
 > - **Windows** — SmartScreen shows *"Windows protected your PC"* → click **More info** → **Run anyway**.
+
+On Windows, AgentDesk supports both traditional Win32 installs and current Store/MSIX installs. New isolated slots live under `%USERPROFILE%\.agentdesk\profiles` instead of AppData, avoiding MSIX path virtualization; see [`docs/WINDOWS.md`](docs/WINDOWS.md).
 
 ### Or run / build from source
 
@@ -116,7 +119,7 @@ Cross-compiling Windows on macOS is fragile — prefer building each platform on
 
 ## Releasing (maintainers)
 
-CI ([`.github/workflows/release.yml`](.github/workflows/release.yml)) builds both platforms natively and attaches the installers to a **draft** GitHub Release. Set `version` in `package.json` to match your tag first — electron-builder names the artifacts from `package.json`, not the git tag — then:
+CI ([`.github/workflows/release.yml`](.github/workflows/release.yml)) builds both platforms natively, generates `SHA256SUMS.txt`, and attaches everything to a **draft** GitHub Release. Set `version` in `package.json` to match your tag first — electron-builder names the artifacts from `package.json`, not the git tag — then:
 
 ```bash
 git tag v0.2.0
@@ -164,8 +167,9 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 - **备注与分组。** 给任意槽位加自由备注、丢进分组（工作 / 个人 / 备用……），侧栏按分组归拢账号，像通讯录一样管理。
 - **自动会话索引。** 扫描每个账号的会话文件，汇成一张表：标题 / 最后活跃 / 新建 / 项目目录 / 来源，可按标题、项目、线程 ID 搜索。**几秒钟找到任何旧会话。**
 - **一键交接上下文。** 选中会话点「复制交接信息」，粘到新对话即可。**只复制元信息，不含完整对话** —— 隐私不会被误传。
-- **诊断面板。** 解释「为什么读不到会话 / 打不开 App」：路径在不在、可不可读写、官方 App 找没找到、扫了哪些位置、匹配到几条会话、配置文件在哪。
-- **路径可配。** 手动设置每个槽位的数据目录和会话根目录 —— 这点很关键，因为 Codex 把这两者放在不同地方。
+- **诊断面板。** 解释「为什么读不到会话 / 打不开 App」：传统安装与 Store/MSIX 启动候选、真实数据目录、权限、扫描位置、会话数量和配置文件。
+- **路径可配。** 手动设置数据目录、会话根目录和可选的官方 App 可执行文件；Windows 旧 AppData 槽位可一键复制迁移到稳定目录。
+- **GitHub 一键更新。** 左上角 ↻ 检查正式 Release；Windows portable 会下载、核对 GitHub SHA-256、替换自身并重启，其他环境打开对应 Release 页面。
 - **macOS + Windows** 同一套能力。
 - **深色 / 浅色** 跟随系统，随时用 ◐ 按钮切换。
 
@@ -199,7 +203,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 到 **[Releases](https://github.com/shuqianglin1997/agent-desk/releases)** 下载最新版：
 
 - **macOS** —— `AgentDesk-<版本>-universal.dmg`（Apple Silicon 和 Intel 都能跑）
-- **Windows** —— `AgentDesk <版本>.exe`（便携版，免安装，双击即用）
+- **Windows** —— `AgentDesk-<版本>-portable-x64.exe`（便携版，免安装，双击即用）
 
 > **注意：安装包未做代码签名**（这是免费开源工具）。首次打开系统会拦一下，属正常，绕过方法：
 >
@@ -209,6 +213,8 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 >   ```
 >   或者首次被拦后，打开**系统设置 → 隐私与安全性**，点**仍要打开**。
 > - **Windows** —— SmartScreen 弹「Windows 已保护你的电脑」→ 点**更多信息**→**仍要运行**。
+
+Windows 同时支持传统 Win32 与 Store/MSIX 安装。新独立槽位放在 `%USERPROFILE%\.agentdesk\profiles`，避开 MSIX 的 AppData 路径虚拟化；完整说明见 [`docs/WINDOWS.md`](docs/WINDOWS.md)。
 
 ### 或从源码运行 / 构建
 
@@ -232,7 +238,7 @@ npm run build:win      # → release/ 下生成便携版 .exe
 
 ## 发布（维护者）
 
-CI（[`.github/workflows/release.yml`](.github/workflows/release.yml)）会在各自系统上原生构建两个平台，并把安装包挂到一个**草稿** Release。先把 `package.json` 的 `version` 改成和 tag 一致（构建产物按 `package.json` 命名，不看 tag），再：
+CI（[`.github/workflows/release.yml`](.github/workflows/release.yml)）会在各自系统上原生构建两个平台，生成 `SHA256SUMS.txt`，并把产物挂到一个**草稿** Release。先把 `package.json` 的 `version` 改成和 tag 一致（构建产物按 `package.json` 命名，不看 tag），再：
 
 ```bash
 git tag v0.2.0

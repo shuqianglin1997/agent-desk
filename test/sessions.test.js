@@ -61,6 +61,7 @@ test('scanClaude reads title / cwd / dates from local_*.json', () => {
   assert.equal(recs[0].projectPath, '/Users/x/proj');
   assert.equal(recs[0].updatedAt, '2026-07-02T00:00:00.000Z');
   assert.equal(recs[0].status, '可用');
+  assert.equal(recs[0].address, 'abc123');
   fs.rmSync(root, { recursive: true, force: true });
 });
 
