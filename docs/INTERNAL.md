@@ -66,6 +66,8 @@ agent-desk/
     main.js            Electron 主进程，本地文件/启动/诊断/IPC
     windows.js         Windows 启动器、MSIX 数据路径与迁移解析（纯 Node）
     path-utils.js      打开文件前的存在性检查与上级目录回退（纯 Node）
+    json-store.js      配置原子写入、备份和恢复（纯 Node）
+    settings.js        稳定界面偏好结构与旧版迁移（纯 Node）
     updater.js         GitHub Release 解析、资产选择与 portable 替换脚本（纯 Node）
     sessions.js        会话扫描（纯 Node，可单元测试）
     activity.js        活跃度探测（stat-only，纯 Node，驱动庭院状态）
@@ -93,6 +95,7 @@ macOS 当前示例：
 
 ```text
 ~/Library/Application Support/AgentDesk/profiles.json
+~/Library/Application Support/AgentDesk/settings.json
 ```
 
 配置结构：
@@ -126,7 +129,11 @@ macOS 当前示例：
 - `managed`：AgentDesk 创建并维护的独立槽位
 - `custom`：用户手动指定，不自动改写
 
-写入配置时先写临时文件，并保留 `profiles.json.bak`。主文件损坏时会从备份恢复，而不是直接清空账号槽位。
+账号外观、名称、路径等保存在 `profiles.json`；主题、庭院时间/天气、视图、提醒和今日账本保存在 `settings.json`。旧版仅存在 `localStorage` 的界面偏好会在首次启动时迁移到 `settings.json`。
+
+两个文件写入时都先生成完整临时文件并 `fsync`，再替换主文件，同时保留 `.bak`。主文件损坏时会依次从常规备份和 `.pre-update.bak` 恢复，而不是静默清空或重置。Windows portable 真正替换 exe 前，还会额外保存一份更新前快照。
+
+账号写回采用“重新读取最新配置，只修改目标字段”的方式。尤其 Windows 启动器发现和路径迁移可能耗时数秒，不能把异步操作开始前的整份旧快照写回，否则会覆盖用户同期修改的猫咪毛色、项圈、分组或备注。
 
 ## 主进程职责
 
@@ -135,6 +142,7 @@ macOS 当前示例：
 主进程负责所有本地能力：
 
 - 读写 `profiles.json`
+- 读写 `settings.json`，迁移旧版界面偏好
 - 创建新槽位目录
 - 启动 Claude / Codex 官方 App
 - 扫描 Claude / Codex 会话（逻辑在 `sessions.js`，主进程调用）
@@ -368,8 +376,8 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run build:win
 产物：
 
 ```text
-release/AgentDesk-0.2.0-universal.dmg
-release/AgentDesk-0.2.0-portable-x64.exe
+release/AgentDesk-0.2.1-universal.dmg
+release/AgentDesk-0.2.1-portable-x64.exe
 ```
 
 ## 已验证

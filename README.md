@@ -38,7 +38,7 @@ Each pain above maps to one thing AgentDesk gives you:
 - **One-click context handoff.** Select a session, hit *Copy handoff*, and paste into a new chat. It copies **metadata only, never the full transcript** — so nothing private leaks by accident.
 - **Diagnostics.** A panel that explains *why* a session won't show up or an app won't launch: executable/Store candidates, MSIX-vs-legacy data paths, permissions, scanned locations, session count, and config location.
 - **Path control.** Set each slot's data directory, session root, and optional app executable. On Windows, old AppData-based slots can be copied to a stable non-virtualized location in one click.
-- **GitHub updates.** The ↻ button checks the latest published Release. Windows portable builds download, verify GitHub's SHA-256 digest, replace themselves, and restart; other environments open the exact Release page.
+- **GitHub updates.** The always-visible **↻ Update** button in the account toolbar checks the latest published Release. Windows portable builds download, verify GitHub's SHA-256 digest, replace themselves, and restart; other environments open the exact Release page.
 - **macOS + Windows** from the same tool.
 - **Light & dark**, following your system theme — toggle any time with the ◐ button.
 
@@ -122,8 +122,8 @@ Cross-compiling Windows on macOS is fragile — prefer building each platform on
 CI ([`.github/workflows/release.yml`](.github/workflows/release.yml)) builds both platforms natively, generates `SHA256SUMS.txt`, and attaches everything to a **draft** GitHub Release. Set `version` in `package.json` to match your tag first — electron-builder names the artifacts from `package.json`, not the git tag — then:
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.2.1
+git push origin v0.2.1
 ```
 
 Then review the draft release on GitHub and publish it.
@@ -169,7 +169,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 - **一键交接上下文。** 选中会话点「复制交接信息」，粘到新对话即可。**只复制元信息，不含完整对话** —— 隐私不会被误传。
 - **诊断面板。** 解释「为什么读不到会话 / 打不开 App」：传统安装与 Store/MSIX 启动候选、真实数据目录、权限、扫描位置、会话数量和配置文件。
 - **路径可配。** 手动设置数据目录、会话根目录和可选的官方 App 可执行文件；Windows 旧 AppData 槽位可一键复制迁移到稳定目录。
-- **GitHub 一键更新。** 左上角 ↻ 检查正式 Release；Windows portable 会下载、核对 GitHub SHA-256、替换自身并重启，其他环境打开对应 Release 页面。
+- **GitHub 一键更新。** 账号操作栏中常驻的「↻ 更新」检查正式 Release；Windows portable 会下载、核对 GitHub SHA-256、替换自身并重启，其他环境打开对应 Release 页面。
 - **macOS + Windows** 同一套能力。
 - **深色 / 浅色** 跟随系统，随时用 ◐ 按钮切换。
 
@@ -241,8 +241,8 @@ npm run build:win      # → release/ 下生成便携版 .exe
 CI（[`.github/workflows/release.yml`](.github/workflows/release.yml)）会在各自系统上原生构建两个平台，生成 `SHA256SUMS.txt`，并把产物挂到一个**草稿** Release。先把 `package.json` 的 `version` 改成和 tag 一致（构建产物按 `package.json` 命名，不看 tag），再：
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.2.1
+git push origin v0.2.1
 ```
 
 然后在 GitHub 上审阅草稿 Release 再发布。
