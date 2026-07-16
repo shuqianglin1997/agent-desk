@@ -100,6 +100,9 @@
     const fallback = defaultCatFor(seedText);
     const input = cat && typeof cat === 'object' ? cat : {};
     return {
+      // Preserve future appearance fields so an older normalizer does not
+      // silently delete them during a routine profile read/write.
+      ...input,
       breed: BREED_KEYS.includes(input.breed) ? input.breed : fallback.breed,
       collar: typeof input.collar === 'string' && /^#[0-9a-f]{6}$/i.test(input.collar)
         ? input.collar

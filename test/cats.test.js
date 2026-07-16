@@ -112,3 +112,13 @@ test('normalizeCat：非法/缺失字段回落确定性默认', () => {
   const kept = normalizeCat({ breed: 'cow', collar: '#123ABC', accessory: 'scarf' }, 'seed');
   assert.deepEqual(kept, { breed: 'cow', collar: '#123ABC', accessory: 'scarf' });
 });
+
+test('normalizeCat：未来外观字段不会在升级归一化时丢失', () => {
+  const kept = normalizeCat({
+    breed: 'black',
+    collar: '#123456',
+    accessory: 'hat',
+    futurePattern: 'stars'
+  }, 'seed');
+  assert.equal(kept.futurePattern, 'stars');
+});

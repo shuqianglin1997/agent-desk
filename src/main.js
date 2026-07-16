@@ -9,7 +9,9 @@ const { pipeline } = require('node:stream/promises');
 const apps = require('./apps');
 const { probeActivity } = require('./activity');
 const { isDefaultWindowsAppRunning, isRunningIn, snapshotProcesses } = require('./process');
+const { readJsonStore, writeJsonStore, snapshotFile } = require('./json-store');
 const { nearestExistingDirectory } = require('./path-utils');
+const settings = require('./settings');
 const updater = require('./updater');
 const windows = require('./windows');
 const { normalizeCat } = require('./yard/cats');
@@ -23,6 +25,7 @@ const UPDATE_DOWNLOAD_TIMEOUT = 30 * 60_000;
 const windowsDiscoveryCache = new Map();
 let latestUpdateCache = null;
 let updateInstalling = false;
+let mainWindow = null;
 const PROFILE_COPY_EXCLUDES = new Set([
   'cache',
   'code cache',
@@ -33,11 +36,13 @@ const PROFILE_COPY_EXCLUDES = new Set([
 ]);
 
 function createWindow() {
-  const win = new BrowserWindow({
+  if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
+  mainWindow = new BrowserWindow({
     width: 1220,
     height: 760,
     minWidth: 1080,
     minHeight: 660,
+    show: false,
     title: APP_NAME,
     backgroundColor: '#f5f6f8',
     webPreferences: {
@@ -48,25 +53,64 @@ function createWindow() {
     }
   });
 
-  win.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.once('ready-to-show', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.show();
+    mainWindow.focus();
+  });
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  return mainWindow;
 }
 
-app.whenReady().then(() => {
-  registerIpc();
-  createWindow();
+function showMainWindow() {
+  if (!app.isReady()) return;
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (app.isReady()) showMainWindow();
+    else app.whenReady().then(showMainWindow);
   });
-});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+  app.whenReady().then(() => {
+    registerIpc();
+    createWindow();
+
+    app.on('activate', () => {
+      showMainWindow();
+    });
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+}
 
 function registerIpc() {
   ipcMain.handle('apps:list', () => {
     return apps.listApps();
+  });
+
+  ipcMain.handle('settings:get', (_event, legacySettings = {}) => {
+    return loadSettings(legacySettings);
+  });
+
+  ipcMain.handle('settings:update', (_event, patch = {}) => {
+    return updateSettings(patch);
   });
 
   ipcMain.handle('updates:check', async () => {
@@ -110,34 +154,29 @@ function registerIpc() {
   });
 
   ipcMain.handle('profiles:update', (_event, input) => {
-    const profiles = loadProfiles();
-    const index = profiles.findIndex((profile) => profile.id === input.id);
-    if (index < 0) return null;
-
-    const next = { ...profiles[index] };
-    if (typeof input.name === 'string') next.name = input.name.trim() || next.name;
-    if (typeof input.profilePath === 'string' && input.profilePath.trim()) {
-      const profilePath = normalizeConfiguredPath(input.profilePath);
-      if (!pathsEqual(profilePath, next.profilePath)) next.profilePathMode = 'custom';
-      next.profilePath = profilePath;
-    }
-    if (typeof input.sessionRoot === 'string' && input.sessionRoot.trim()) {
-      const sessionRoot = normalizeConfiguredPath(input.sessionRoot);
-      if (!pathsEqual(sessionRoot, next.sessionRoot)) next.sessionRootMode = 'custom';
-      next.sessionRoot = sessionRoot;
-    }
-    if (typeof input.executablePath === 'string') {
-      next.executablePath = input.executablePath.trim()
-        ? normalizeConfiguredPath(input.executablePath)
-        : null;
-    }
-    if (typeof input.group === 'string') next.group = input.group.trim();
-    if (typeof input.note === 'string') next.note = input.note;
-    if (input.cat && typeof input.cat === 'object') next.cat = { ...next.cat, ...input.cat };
-
-    profiles[index] = normalizeProfile(next);
-    saveProfiles(profiles);
-    return profiles[index];
+    return updateStoredProfile(input.id, (profile) => {
+      const next = { ...profile };
+      if (typeof input.name === 'string') next.name = input.name.trim() || next.name;
+      if (typeof input.profilePath === 'string' && input.profilePath.trim()) {
+        const profilePath = normalizeConfiguredPath(input.profilePath);
+        if (!pathsEqual(profilePath, next.profilePath)) next.profilePathMode = 'custom';
+        next.profilePath = profilePath;
+      }
+      if (typeof input.sessionRoot === 'string' && input.sessionRoot.trim()) {
+        const sessionRoot = normalizeConfiguredPath(input.sessionRoot);
+        if (!pathsEqual(sessionRoot, next.sessionRoot)) next.sessionRootMode = 'custom';
+        next.sessionRoot = sessionRoot;
+      }
+      if (typeof input.executablePath === 'string') {
+        next.executablePath = input.executablePath.trim()
+          ? normalizeConfiguredPath(input.executablePath)
+          : null;
+      }
+      if (typeof input.group === 'string') next.group = input.group.trim();
+      if (typeof input.note === 'string') next.note = input.note;
+      if (input.cat && typeof input.cat === 'object') next.cat = { ...next.cat, ...input.cat };
+      return next;
+    });
   });
 
   ipcMain.handle('profiles:remove', (_event, id) => {
@@ -160,8 +199,13 @@ function registerIpc() {
     const profile = profiles[index];
     const result = await launchProfile(profile);
     if (result.ok) {
-      profiles[index] = { ...profile, lastLaunchedAt: new Date().toISOString() };
-      saveProfiles(profiles);
+      // Launch discovery can take several seconds on Windows. Reload the
+      // latest profile before committing the timestamp so an edit made while
+      // discovery was running cannot be overwritten by this stale snapshot.
+      updateStoredProfile(id, (current) => ({
+        ...current,
+        lastLaunchedAt: new Date().toISOString()
+      }));
     }
     return result;
   });
@@ -423,6 +467,10 @@ async function installLatestUpdate(webContents) {
       percent: 100,
       message: '校验完成，正在准备替换并重启…'
     });
+    // Preserve the exact current user configuration immediately before the
+    // executable is replaced. These snapshots are outside the portable exe
+    // and remain available if a future schema or interrupted write misbehaves.
+    snapshotConfigurationForUpdate();
     await launchWindowsPortableUpdater(downloadedPath, capability.targetPath);
     restarting = true;
     setTimeout(() => app.quit(), 600);
@@ -645,10 +693,14 @@ function loadProfiles() {
   const storeFile = profilesFile();
   ensureDir(path.dirname(storeFile));
 
-  const loaded = readProfileStore(storeFile) || readProfileStore(profilesBackupFile());
+  const loaded = [
+    storeFile,
+    profilesBackupFile(),
+    profilesPreUpdateBackupFile()
+  ].map(readProfileStore).find(Boolean);
   if (!loaded) {
     const initial = bootstrapProfiles();
-    saveProfiles(initial);
+    saveProfiles(initial, { skipBackup: true });
     return initial;
   }
 
@@ -666,44 +718,87 @@ function loadProfiles() {
 }
 
 function saveProfiles(profiles, options = {}) {
-  const storeFile = profilesFile();
-  const backupFile = profilesBackupFile();
-  const tempFile = `${storeFile}.${process.pid}.tmp`;
+  writeJsonStore(
+    profilesFile(),
+    { version: STORE_VERSION, profiles },
+    { ...options, backupFile: profilesBackupFile() }
+  );
+}
+
+function updateStoredProfile(id, mutator) {
+  const profiles = loadProfiles();
+  const index = profiles.findIndex((profile) => profile.id === id);
+  if (index < 0) return null;
+  const next = mutator({ ...profiles[index] });
+  if (!next || typeof next !== 'object') return profiles[index];
+  profiles[index] = normalizeProfile(next);
+  saveProfiles(profiles);
+  return profiles[index];
+}
+
+function loadSettings(legacySettings = {}) {
+  const storeFile = settingsFile();
   ensureDir(path.dirname(storeFile));
-  fs.writeFileSync(tempFile, JSON.stringify({ version: STORE_VERSION, profiles }, null, 2), 'utf8');
+  const loaded = [
+    storeFile,
+    settingsBackupFile(),
+    settingsPreUpdateBackupFile()
+  ].map(readSettingsStore).find(Boolean);
+  const storedSettings = loaded ? settings.settingsFromPayload(loaded.parsed) : null;
+  // localStorage remains a downgrade/crash mirror. If it differs from the
+  // stable file, it represents a UI change made by an older build or a change
+  // made immediately before the renderer exited, so reconcile it on startup.
+  const normalized = loaded
+    ? settings.mergeSettings(storedSettings, legacySettings)
+    : settings.normalizeSettings(legacySettings);
+  const normalizedPayload = {
+    version: settings.SETTINGS_VERSION,
+    settings: normalized
+  };
+  const currentPayload = loaded
+    ? {
+        version: loaded.parsed.version || 0,
+        settings: storedSettings
+      }
+    : null;
 
-  if (!options.skipBackup && fs.existsSync(storeFile)) {
-    try {
-      fs.copyFileSync(storeFile, backupFile);
-    } catch (_error) {
-      // A backup is best-effort; the temp file still protects this write.
-    }
+  if (
+    !loaded ||
+    loaded.filePath !== storeFile ||
+    JSON.stringify(currentPayload) !== JSON.stringify(normalizedPayload)
+  ) {
+    saveSettings(normalized, { skipBackup: !loaded || loaded.filePath !== storeFile });
   }
+  return normalized;
+}
 
-  try {
-    fs.renameSync(tempFile, storeFile);
-  } catch (_error) {
-    // Windows may reject replacing an existing file with renameSync. Copying
-    // the fully-written temp file still leaves profiles.json.bak recoverable.
-    fs.copyFileSync(tempFile, storeFile);
-    try { fs.unlinkSync(tempFile); } catch (_unlinkError) { /* best effort */ }
-  }
+function saveSettings(value, options = {}) {
+  writeJsonStore(
+    settingsFile(),
+    { version: settings.SETTINGS_VERSION, settings: value },
+    { ...options, backupFile: settingsBackupFile() }
+  );
+}
+
+function updateSettings(patch) {
+  const current = loadSettings();
+  const next = settings.mergeSettings(current, patch);
+  if (JSON.stringify(current) !== JSON.stringify(next)) saveSettings(next);
+  return next;
 }
 
 function readProfileStore(filePath) {
-  if (!fs.existsSync(filePath)) return null;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    const valid = Array.isArray(parsed) || (
+  return readJsonStore(filePath, (parsed) => (
+    Array.isArray(parsed) || (
       parsed &&
       typeof parsed === 'object' &&
       Array.isArray(parsed.profiles)
-    );
-    if (!valid) return null;
-    return { filePath, parsed };
-  } catch (_error) {
-    return null;
-  }
+    )
+  ));
+}
+
+function readSettingsStore(filePath) {
+  return readJsonStore(filePath, (parsed) => Boolean(settings.settingsFromPayload(parsed)));
 }
 
 function bootstrapProfiles() {
@@ -780,6 +875,9 @@ function normalizeProfile(profile) {
     ? defaultSessionRoot(appId, profilePath, isProtected)
     : normalizeConfiguredPath(profile.sessionRoot || defaultSessionRoot(appId, profilePath, isProtected));
   return {
+    // Keep fields introduced by newer versions. Normalizing known fields must
+    // never act like a destructive schema migration and erase customizations.
+    ...profile,
     id,
     appId,
     name: profile.name || `默认 ${managedAppName(appId)}`,
@@ -803,6 +901,31 @@ function profilesFile() {
 
 function profilesBackupFile() {
   return `${profilesFile()}.bak`;
+}
+
+function profilesPreUpdateBackupFile() {
+  return `${profilesFile()}.pre-update.bak`;
+}
+
+function settingsFile() {
+  return path.join(app.getPath('userData'), 'settings.json');
+}
+
+function settingsBackupFile() {
+  return `${settingsFile()}.bak`;
+}
+
+function settingsPreUpdateBackupFile() {
+  return `${settingsFile()}.pre-update.bak`;
+}
+
+function snapshotConfigurationForUpdate() {
+  for (const [source, target] of [
+    [profilesFile(), profilesPreUpdateBackupFile()],
+    [settingsFile(), settingsPreUpdateBackupFile()]
+  ]) {
+    snapshotFile(source, target);
+  }
 }
 
 // 以下三个曾按 claude/codex 二元写死，现全部委托给 src/apps.js 注册表，
@@ -1394,27 +1517,35 @@ async function migrateWindowsProfilePath(id) {
       ensureDir(targetPath);
     }
 
-    let sessionRoot = profile.sessionRoot;
-    let sessionRootMode = profile.sessionRootMode;
-    if (pathsEqual(sessionRoot, profile.profilePath)) {
+    const latest = loadProfiles().find((item) => item.id === id);
+    if (!latest) return { ok: false, reason: '迁移完成前账号槽位已被移除；复制的数据仍保留在目标目录。' };
+    if (!pathsEqual(latest.profilePath, profile.profilePath)) {
+      return {
+        ok: false,
+        reason: '迁移期间账号路径被修改，已保留复制的数据但没有覆盖新的路径设置。'
+      };
+    }
+
+    let sessionRoot = latest.sessionRoot;
+    let sessionRootMode = latest.sessionRootMode;
+    if (pathsEqual(sessionRoot, latest.profilePath)) {
       sessionRoot = targetPath;
       sessionRootMode = 'managed';
-    } else if (isSubpath(sessionRoot, profile.profilePath)) {
-      sessionRoot = path.join(targetPath, path.relative(profile.profilePath, sessionRoot));
+    } else if (isSubpath(sessionRoot, latest.profilePath)) {
+      sessionRoot = path.join(targetPath, path.relative(latest.profilePath, sessionRoot));
       sessionRootMode = 'managed';
     }
 
-    profiles[index] = normalizeProfile({
-      ...profile,
+    const updated = updateStoredProfile(id, (current) => ({
+      ...current,
       profilePath: targetPath,
       sessionRoot,
       profilePathMode: 'managed',
       sessionRootMode
-    });
-    saveProfiles(profiles);
+    }));
     return {
       ok: true,
-      profile: profiles[index],
+      profile: updated,
       sourcePath,
       targetPath,
       message: sourcePath

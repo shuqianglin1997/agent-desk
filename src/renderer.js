@@ -5,12 +5,14 @@ const state = {
   selectedProfileId: null,
   selectedSessionId: null,
   query: '',
-  view: localStorage.getItem('agentdesk-view') || 'yard',
+  theme: null,
+  view: 'yard',
   activity: {},
   ledger: null,
-  remindersOn: localStorage.getItem('agentdesk-reminders') !== '0',
-  atmosTime: localStorage.getItem('agentdesk-yard-time') || 'auto',
-  atmosWeather: localStorage.getItem('agentdesk-yard-weather') || 'clear',
+  remindersOn: true,
+  atmosTime: 'auto',
+  atmosWeather: 'clear',
+  welcomed: false,
   updateInfo: null,
   appMeta: { claude: { label: 'Claude', tagColor: '#d96f33' }, codex: { label: 'Codex', tagColor: '#2f9e8f' } }
 };
@@ -132,6 +134,7 @@ let updateBusy = false;
 let updateButtonTimer = null;
 
 window.addEventListener('DOMContentLoaded', async () => {
+  await loadUserSettings();
   initTheme();
   bindEvents();
   await loadApps();
@@ -152,15 +155,130 @@ window.addEventListener('DOMContentLoaded', async () => {
   maybeShowWelcome();
 });
 
+const LEGACY_SETTING_KEYS = {
+  theme: 'agentdesk-theme',
+  view: 'agentdesk-view',
+  remindersOn: 'agentdesk-reminders',
+  atmosTime: 'agentdesk-yard-time',
+  atmosWeather: 'agentdesk-yard-weather',
+  welcomed: 'agentdesk-welcomed',
+  ledger: 'agentdesk-ledger'
+};
+let settingsWriteQueue = Promise.resolve();
+
+function localSetting(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function legacyUserSettings() {
+  const legacy = {};
+  const theme = localSetting(LEGACY_SETTING_KEYS.theme);
+  const view = localSetting(LEGACY_SETTING_KEYS.view);
+  const reminders = localSetting(LEGACY_SETTING_KEYS.remindersOn);
+  const atmosTime = localSetting(LEGACY_SETTING_KEYS.atmosTime);
+  const atmosWeather = localSetting(LEGACY_SETTING_KEYS.atmosWeather);
+  const welcomed = localSetting(LEGACY_SETTING_KEYS.welcomed);
+  const ledger = localSetting(LEGACY_SETTING_KEYS.ledger);
+
+  if (theme !== null) legacy.theme = theme;
+  if (view !== null) legacy.view = view;
+  if (reminders !== null) legacy.remindersOn = reminders !== '0';
+  if (atmosTime !== null) legacy.atmosTime = atmosTime;
+  if (atmosWeather !== null) legacy.atmosWeather = atmosWeather;
+  if (welcomed !== null) legacy.welcomed = welcomed === '1';
+  if (ledger !== null) {
+    try {
+      legacy.ledger = JSON.parse(ledger);
+    } catch (_error) {
+      // Invalid legacy localStorage is ignored; the stable store will repair it.
+    }
+  }
+  return legacy;
+}
+
+function applyUserSettings(value = {}) {
+  state.theme = value.theme === 'light' || value.theme === 'dark' ? value.theme : null;
+  state.view = value.view === 'classic' ? 'classic' : 'yard';
+  state.remindersOn = value.remindersOn !== false;
+  state.atmosTime = ['auto', 'day', 'dusk', 'night'].includes(value.atmosTime)
+    ? value.atmosTime
+    : 'auto';
+  state.atmosWeather = ['clear', 'cloudy', 'rain', 'snow'].includes(value.atmosWeather)
+    ? value.atmosWeather
+    : 'clear';
+  state.welcomed = value.welcomed === true;
+  state.ledger = value.ledger && typeof value.ledger === 'object' ? value.ledger : null;
+}
+
+async function loadUserSettings() {
+  const legacy = legacyUserSettings();
+  try {
+    applyUserSettings(await window.manager.getSettings(legacy));
+  } catch (_error) {
+    applyUserSettings(legacy);
+  }
+}
+
+function mirrorLegacySettings(patch) {
+  try {
+    if (Object.prototype.hasOwnProperty.call(patch, 'theme')) {
+      if (patch.theme) localStorage.setItem(LEGACY_SETTING_KEYS.theme, patch.theme);
+      else localStorage.removeItem(LEGACY_SETTING_KEYS.theme);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'view')) {
+      localStorage.setItem(LEGACY_SETTING_KEYS.view, patch.view);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'remindersOn')) {
+      localStorage.setItem(LEGACY_SETTING_KEYS.remindersOn, patch.remindersOn ? '1' : '0');
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'atmosTime')) {
+      localStorage.setItem(LEGACY_SETTING_KEYS.atmosTime, patch.atmosTime);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'atmosWeather')) {
+      localStorage.setItem(LEGACY_SETTING_KEYS.atmosWeather, patch.atmosWeather);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'welcomed')) {
+      localStorage.setItem(LEGACY_SETTING_KEYS.welcomed, patch.welcomed ? '1' : '0');
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'ledger')) {
+      localStorage.setItem(LEGACY_SETTING_KEYS.ledger, JSON.stringify(patch.ledger));
+    }
+  } catch (_error) {
+    // The stable userData JSON store remains canonical if localStorage fails.
+  }
+}
+
+function persistSettings(patch) {
+  mirrorLegacySettings(patch);
+  let request;
+  try {
+    // Dispatch immediately so a quick window close cannot strand the change
+    // behind a renderer microtask. Main-process handlers merge patches
+    // synchronously, so multiple in-flight calls remain non-destructive.
+    request = Promise.resolve(window.manager.updateSettings(patch)).catch(() => null);
+  } catch (_error) {
+    request = Promise.resolve(null);
+  }
+  settingsWriteQueue = Promise.all([
+    settingsWriteQueue.catch(() => null),
+    request
+  ]).then(([, saved]) => saved);
+  return request;
+}
+
 function initTheme() {
-  const saved = localStorage.getItem('agentdesk-theme');
-  const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const theme = state.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = theme;
 }
 
 function maybeShowWelcome() {
-  if (localStorage.getItem('agentdesk-welcomed')) return;
-  localStorage.setItem('agentdesk-welcomed', '1');
+  if (state.welcomed) return;
+  state.welcomed = true;
+  persistSettings({ welcomed: true });
   els.welcomeDialog.showModal();
 }
 
@@ -269,20 +387,21 @@ function bindEvents() {
 
   els.themeToggle.addEventListener('click', () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    state.theme = next;
     document.documentElement.dataset.theme = next;
-    localStorage.setItem('agentdesk-theme', next);
+    persistSettings({ theme: next });
     syncYard();
   });
 
   els.viewToggle.addEventListener('click', () => {
     state.view = state.view === 'yard' ? 'classic' : 'yard';
-    localStorage.setItem('agentdesk-view', state.view);
+    persistSettings({ view: state.view });
     applyView();
   });
 
   els.reminderToggle.addEventListener('click', () => {
     state.remindersOn = !state.remindersOn;
-    localStorage.setItem('agentdesk-reminders', state.remindersOn ? '1' : '0');
+    persistSettings({ remindersOn: state.remindersOn });
     els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
     els.reminderToggle.textContent = state.remindersOn ? '🔔 提醒 开' : '🔕 提醒 关';
     setStatus(state.remindersOn ? '休息提醒已开启。' : '休息提醒已关闭，猫照常陪你干活。');
@@ -427,26 +546,26 @@ async function handleUpdateClick() {
   clearTimeout(updateButtonTimer);
   els.updateBtn.disabled = true;
   els.updateBtn.classList.remove('update-available', 'update-error');
-  els.updateBtn.textContent = '…';
+  els.updateBtn.textContent = '检查中…';
   els.updateBtn.title = '正在查询 GitHub Releases';
   setStatus('正在检查 GitHub 更新…');
 
   const result = await window.manager.checkForUpdates();
   if (!result.ok) {
     setStatus(result.reason || '检查更新失败。');
-    finishUpdateButton('!', '检查更新失败，点击重试', 'update-error');
+    finishUpdateButton('! 重试', '检查更新失败，点击重试', 'update-error');
     return;
   }
 
   state.updateInfo = result;
   if (!result.updateAvailable) {
     setStatus(`当前已是最新版 v${result.currentVersion}。`);
-    finishUpdateButton('✓', `当前版本 v${result.currentVersion}`, '');
+    finishUpdateButton('✓ 最新', `当前版本 v${result.currentVersion}`, '');
     return;
   }
 
   els.updateBtn.classList.add('update-available');
-  els.updateBtn.textContent = '↑';
+  els.updateBtn.textContent = '↑ 更新';
   els.updateBtn.title = `发现 v${result.latestVersion}，点击更新`;
   const size = result.assetSize ? `（${formatBytes(result.assetSize)}）` : '';
   const action = result.installSupported
@@ -458,30 +577,30 @@ async function handleUpdateClick() {
   if (!confirmed) {
     updateBusy = false;
     els.updateBtn.disabled = false;
-    setStatus(`发现新版本 v${result.latestVersion}，随时点击左上角 ↑ 更新。`);
+    setStatus(`发现新版本 v${result.latestVersion}，随时点击账号操作栏中的“↑ 更新”。`);
     return;
   }
 
   els.updateBtn.disabled = true;
-  els.updateBtn.textContent = result.installSupported ? '0' : '↗';
+  els.updateBtn.textContent = result.installSupported ? '0%' : '↗ 打开';
   const installed = await window.manager.installUpdate();
   if (!installed.ok) {
     setStatus(installed.reason || '更新失败。');
-    finishUpdateButton('!', '更新失败，点击重试', 'update-error');
+    finishUpdateButton('! 重试', '更新失败，点击重试', 'update-error');
     return;
   }
   if (installed.manual) {
     setStatus(installed.message || '已打开 GitHub Release 页面。');
-    finishUpdateButton('↗', '已打开 GitHub Release', '');
+    finishUpdateButton('↗ 已打开', '已打开 GitHub Release', '');
     return;
   }
   if (installed.upToDate) {
     setStatus(installed.message || '当前已是最新版。');
-    finishUpdateButton('✓', '当前已是最新版', '');
+    finishUpdateButton('✓ 最新', '当前已是最新版', '');
     return;
   }
   if (installed.restarting) {
-    els.updateBtn.textContent = '✓';
+    els.updateBtn.textContent = '✓ 重启';
     els.updateBtn.title = '更新完成，正在重启';
     setStatus(installed.message || '更新完成，正在重启…');
   }
@@ -490,13 +609,13 @@ async function handleUpdateClick() {
 function handleUpdateProgress(progress = {}) {
   if (progress.message) setStatus(progress.message);
   if (progress.stage === 'downloading' && Number.isFinite(progress.percent)) {
-    els.updateBtn.textContent = String(progress.percent);
+    els.updateBtn.textContent = `${progress.percent}%`;
     els.updateBtn.title = `正在下载更新：${progress.percent}%`;
   } else if (progress.stage === 'installing') {
-    els.updateBtn.textContent = '✓';
+    els.updateBtn.textContent = '✓ 安装';
     els.updateBtn.title = '校验完成，准备重启';
   } else if (progress.stage === 'error') {
-    els.updateBtn.textContent = '!';
+    els.updateBtn.textContent = '! 重试';
     els.updateBtn.classList.add('update-error');
     els.updateBtn.title = progress.message || '更新失败';
   }
@@ -511,11 +630,11 @@ function finishUpdateButton(label, title, className) {
   if (className) els.updateBtn.classList.add(className);
   updateButtonTimer = setTimeout(() => {
     if (state.updateInfo?.updateAvailable) {
-      els.updateBtn.textContent = '↑';
+      els.updateBtn.textContent = '↑ 更新';
       els.updateBtn.title = `发现 v${state.updateInfo.latestVersion}，点击更新`;
       els.updateBtn.classList.add('update-available');
     } else {
-      els.updateBtn.textContent = '↻';
+      els.updateBtn.textContent = '↻ 更新';
       els.updateBtn.title = '检查 GitHub 更新';
       els.updateBtn.classList.remove('update-available', 'update-error');
     }
@@ -673,7 +792,7 @@ function initYard() {
   initAtmosphere();
 }
 
-// 时间 / 天气控件：从 localStorage 恢复，点击切换并持久化
+// 时间 / 天气控件：从稳定设置恢复，点击切换并持久化
 function initAtmosphere() {
   const TIME_LABEL = { auto: '跟随主题', day: '白天', dusk: '黄昏', night: '夜晚' };
   const WEATHER_LABEL = { clear: '晴天', cloudy: '多云', rain: '下雨', snow: '下雪' };
@@ -685,7 +804,7 @@ function initAtmosphere() {
     const btn = event.target.closest('button');
     if (!btn) return;
     state.atmosTime = btn.dataset.time;
-    localStorage.setItem('agentdesk-yard-time', state.atmosTime);
+    persistSettings({ atmosTime: state.atmosTime });
     window.YardScene.setAtmosphere({ time: state.atmosTime });
     syncPressed();
     setStatus(`庭院时间：${TIME_LABEL[state.atmosTime]}。`);
@@ -694,7 +813,7 @@ function initAtmosphere() {
     const btn = event.target.closest('button');
     if (!btn) return;
     state.atmosWeather = btn.dataset.weather;
-    localStorage.setItem('agentdesk-yard-weather', state.atmosWeather);
+    persistSettings({ atmosWeather: state.atmosWeather });
     window.YardScene.setAtmosphere({ weather: state.atmosWeather });
     syncPressed();
     setStatus(`庭院天气：${WEATHER_LABEL[state.atmosWeather]}。`);
@@ -736,12 +855,6 @@ async function loadActivity() {
 function initCompanion() {
   els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
   els.reminderToggle.textContent = state.remindersOn ? '🔔 提醒 开' : '🔕 提醒 关';
-  try {
-    const saved = JSON.parse(localStorage.getItem('agentdesk-ledger') || 'null');
-    if (saved && saved.date) state.ledger = saved;
-  } catch (_error) {
-    state.ledger = null;
-  }
   if (window.YardCompanion) {
     state.ledger = state.ledger || window.YardCompanion.emptyLedger(Date.now());
   }
@@ -763,11 +876,7 @@ function runCompanion() {
       remindersOn: state.remindersOn
     });
     state.ledger = ledger;
-    try {
-      localStorage.setItem('agentdesk-ledger', JSON.stringify(ledger));
-    } catch (_error) {
-      // localStorage 满/不可用：账本仍在内存里工作，忽略
-    }
+    persistSettings({ ledger });
     renderLedger();
 
     for (const event of events) {

@@ -2,6 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('manager', {
   listApps: () => ipcRenderer.invoke('apps:list'),
+  getSettings: (legacySettings) => ipcRenderer.invoke('settings:get', legacySettings),
+  updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
   checkForUpdates: () => ipcRenderer.invoke('updates:check'),
   installUpdate: () => ipcRenderer.invoke('updates:install'),
   onUpdateProgress: (callback) => {
