@@ -524,7 +524,7 @@ button.danger:hover:not(:disabled) {
 
 .workspace-panel {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }
@@ -768,6 +768,103 @@ button.danger:hover:not(:disabled) {
 .account-actions {
   align-items: center;
   white-space: nowrap;
+}
+
+body[data-view="classic"] .account-manage {
+  display: none;
+}
+
+/* ── unified attention inbox ───────────────────────── */
+.attention-inbox {
+  display: grid;
+  gap: 8px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line-mid);
+  background: color-mix(in oklab, var(--warn-wash) 45%, var(--surface-raised));
+}
+
+.attention-inbox[hidden] {
+  display: none;
+}
+
+.attention-inbox > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.attention-inbox > header div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.attention-inbox > header span {
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.attention-inbox > header b {
+  font-size: 11px;
+}
+
+.attention-inbox > header strong {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--warn-wash);
+  color: var(--warn);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.attention-items {
+  display: grid;
+  gap: 5px;
+}
+
+.attention-item {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  gap: 8px;
+  width: 100%;
+  height: auto;
+  min-height: 30px;
+  padding: 5px 8px;
+  text-align: left;
+  white-space: normal;
+}
+
+.attention-item::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--warn);
+}
+
+.attention-item[data-kind="error"]::before {
+  background: var(--danger);
+}
+
+.attention-item b {
+  overflow: hidden;
+  font-size: 10.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+}
+
+.attention-item small {
+  align-self: center;
+  color: var(--ink-tertiary);
+  font-size: 9px;
 }
 
 .main-grid {

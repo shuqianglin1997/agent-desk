@@ -40,6 +40,7 @@ Each pain above maps to one thing AgentDesk gives you:
 - **Per-account quota (Beta).** Codex slots read their own official rate-limit windows through the local Codex app-server and show remaining percentage, reset time, and plan. Claude / Cursor clearly show unsupported instead of scraping browser cookies or tokens.
 - **Path control.** Set each slot's data directory, session root, and optional app executable. On Windows, old AppData-based slots can be copied to a stable non-virtualized location in one click.
 - **GitHub updates.** The always-visible **↻ Update** button in the account toolbar checks the latest published Release. Windows portable builds download, verify GitHub's SHA-256 digest, replace themselves, and restart; other environments open the exact Release page.
+- **Embedded terminal & agents.** The yard includes a local Shell plus Codex / Claude Code adapters when their CLIs are installed. It follows the selected session's project directory, streams output in place, and lets a confirmed yard drop queue a handoff for the next Agent turn.
 - **macOS + Windows** from the same tool.
 - **Light & dark**, following your system theme — toggle any time with the ◐ button.
 
@@ -52,9 +53,10 @@ AgentDesk touches your accounts, so its boundaries matter:
 - Quota checks **never read browser cookies or expose account e-mail / tokens**; only the sanitized result of Codex's official local RPC reaches the UI.
 - It **does not bypass official login** — authentication still happens inside the official Claude / Codex app.
 - The handoff copy **excludes the full conversation by default.**
+- The embedded runtime is **off until you approve a native warning**. The renderer cannot choose an executable, arguments, environment or arbitrary working directory; Shell commands still execute locally, so only run text you understand and trust.
 - In the account and session lists, your home directory is shortened to `~`. (The diagnostics panel shows full paths on purpose — it's a troubleshooting tool.)
 
-It only manages **local data slots** and a **read-only session index**. That's it.
+Account and session discovery remain local and read-only. The optional embedded runtime is the one explicit execution surface, visibly separated and guarded as described above.
 
 ## The cat yard 🐈
 
@@ -65,14 +67,16 @@ By default AgentDesk greets you with a **pixel cat yard** — the same accounts 
 - **Every account is a cat.** The name plate *is* the account name — no separate pet name to keep in sync. Its coat, collar and accessory are yours to customize (Edit → dress it up), and groups become fenced-off areas of the yard.
 - **Cats live your accounts' rhythm.** A cat's behavior comes from that account's real state: it sits at a desk typing while the account is *actually working* — its session was active in the last minute — waits at its own spot when the app is open but the session's gone quiet, plays in the grass if the account was active earlier today, curls up to nap after a few quiet days, or hibernates in a box after a week. (Detecting "working" reads the last-activity timestamp inside the account's own session record — not just whether the app is open — so a busy account and an idle-but-open one look different.) A broken session path shows a **?** over the cat — click it to open diagnostics.
 - **Quota becomes energy, not activity.** Fresh / steady / tired / exhausted is a separate axis based on the tightest current Codex limit. It changes a tiny energy pip, sweat/spark/battery cue, and typing pace without ever pretending that a tired cat stopped working. Old or failed data never drives fatigue.
-- **Sessions are the day's catch.** The full session table lives right below the yard — same search, same one-click handoff, same details. Finding old work never got slower.
+- **The yard is an actual workspace.** Workshop, mailbox, task path, pond, lookout and meadow map to launch, handoff, Agent queue, session detail, terminal and saved-position actions. Drop targets appear only while dragging, and unsafe actions still require confirmation.
+- **Sessions stay in sight.** The right information rail scrolls independently and keeps account, quota, alerts, sessions and details together. At minimum window height, account controls compact so the session list remains visible.
+- **Talk to an Agent without another desktop window.** The lower-left desk runs a local Shell or an installed Codex / Claude Code CLI. It uses the selected session project, supports follow-up turns, and keeps queued handoffs in memory only.
 - **A gentle work/life balance.** A *today* ledger tallies how many work sessions wrapped up and how long the cats kept you company. After 90 minutes of unbroken work, a cat stretches and nudges you to do the same — a quiet status-bar note, never a popup, and switchable off entirely.
-- **Time & weather.** A control in the corner sets the yard to day / dusk / night (or *follow* your theme) and clear / cloudy / rain / snow. Purely atmospheric — set the mood you like.
+- **Time & weather.** *Follow* uses the system clock; *auto weather* changes on a deterministic 20–45 minute local rhythm. Manual day / dusk / night and clear / cloudy / rain / snow remain available. It is atmosphere, not a claim about real weather.
 - **Prefer the plain table?** One click on **⇄** switches back to the classic three-pane view below. It's the same data underneath, so nothing is lost either way.
 
 ## Interface
 
-The yard is the default; the **⇄** button flips to a classic three-pane workbench (and back):
+The yard is the default: roughly three quarters for the scene and embedded Agent desk, one quarter for a vertically scrollable information rail. The **⇄** button flips to a classic three-pane workbench (and back):
 
 - **Left** — your account slots (Claude / Codex). Add, rename, remove, launch.
 - **Middle** — the session table for the selected account, with search and sort by last active.
@@ -172,6 +176,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 - **每账号额度（Beta）。** Codex 槽位通过本机 Codex 官方 app-server 读取各自真实额度周期，展示剩余百分比、重置时间和套餐；Claude / Cursor 明确显示暂不支持，不抓浏览器 Cookie 或 token。
 - **路径可配。** 手动设置数据目录、会话根目录和可选的官方 App 可执行文件；Windows 旧 AppData 槽位可一键复制迁移到稳定目录。
 - **GitHub 一键更新。** 账号操作栏中常驻的「↻ 更新」检查正式 Release；Windows portable 会下载、核对 GitHub SHA-256、替换自身并重启，其他环境打开对应 Release 页面。
+- **内嵌终端与 Agent。** 庭院下方可直接使用本机 Shell；安装了 Codex / Claude Code CLI 时也能在同一窗口对 Agent 说话。工作目录跟随当前会话项目，输出留在桌面里，确认拖放后还能把交接任务排到下一轮。
 - **macOS + Windows** 同一套能力。
 - **深色 / 浅色** 跟随系统，随时用 ◐ 按钮切换。
 
@@ -184,9 +189,11 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 - **每个账号是一只猫。** 名牌就是账号名，不用另记一个宠物名；毛色、项圈、配饰随你定制（编辑账号即可换装），分组变成庭院里一块块围起来的区域。
 - **猫跟着账号的节奏过日子。** 猫的行为由该账号的真实状态决定：账号*真在干活*时（会话记录一分钟内还在动）它伏案打字，App 开着但会话已安静下来时在自己的地盘待命，今天早些时候活跃过就在草地玩耍，几天没动静就蜷着打盹，超过一周没碰就钻进纸箱冬眠。（判「干活」看的是账号自己会话记录里的最后活跃时间戳，而不只是「App 开着」—— 所以忙碌的账号和开着发呆的账号长相不同。）会话路径失效的猫头顶挂个 **?**，点它直达诊断。
 - **额度是能量，不是活动状态。** 元气 / 稳定 / 疲劳 / 快没电由当前最紧的 Codex 额度周期决定，只改变名牌能量格、汗滴/闪光/低电量提示和打字节奏；「正在干活」仍由真实会话活动决定。旧数据或失败数据不会继续驱动疲劳。
-- **会话是这一天的渔获。** 完整会话表就在庭院下方 —— 搜索、一键交接、详情一样不少，找旧会话不会因此变慢。
+- **场景真的会办事。** 工作亭、邮筒、任务道、池塘、瞭望点、草坪分别对应打开账号、复制交接、Agent 排队、会话详情、内嵌终端和保存位置；拖拽时才出现命中提示，危险动作仍需确认。
+- **会话始终看得见。** 右侧信息轨独立滚动，把账号、额度、提醒、会话和详情串在一起；最小窗口高度下会自动压缩账号操作，给会话列表保留可见空间。
+- **不用再开一排客户端窗口。** 左下内嵌工作台可以运行 Shell、Codex 或 Claude Code，跟随当前项目、支持连续追问；排队交接只放在内存里，不会重启后偷偷执行。
 - **不打扰的劳逸平衡。** 「今日小账本」记下今天有多少次收工、猫陪你干了多久。连续工作 90 分钟，猫会伸个懒腰提醒你也起来动动 —— 只在状态栏轻声提示，绝不弹窗，也能整个关掉。
-- **时间与天气。** 角落的控件把庭院切成 白天 / 黄昏 / 夜晚（或**跟随**主题）与 晴 / 多云 / 雨 / 雪，纯氛围，调成你喜欢的样子。
+- **时间与天气。** 「跟随」按系统时钟自动变换昼夜，「自动天气」每 20–45 分钟按本地可复现节奏变化；也能手动锁定白天 / 黄昏 / 夜晚和晴 / 多云 / 雨 / 雪。它只是氛围，不冒充真实天气。
 - **想要朴素的表格？** 点一下 **⇄** 切回下方的经典三栏视图，底层是同一份数据，两边都不丢东西。
 
 ## 它刻意不做的事
@@ -198,9 +205,10 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 - 额度查询**不读取浏览器 Cookie，也不向界面暴露账号邮箱 / token**；界面只收到 Codex 官方本机 RPC 的脱敏结果。
 - **不绕过官方登录** —— 鉴权始终发生在官方 Claude / Codex App 里。
 - 交接复制**默认不含完整对话**。
+- 内嵌运行环境在你确认原生警告前不会开启；renderer 不能指定任意程序、参数、环境或目录。Shell 命令确实会在本机运行，所以只执行你理解并信任的内容。
 - 账号列表和会话列表里，你的用户主目录会被简写成 `~`。（诊断面板故意显示完整路径——它是排查工具。）
 
-它只管理**本地数据槽位**和一份**只读的会话索引**，仅此而已。
+账号与会话发现仍然完全本地、只读。内嵌终端是唯一明确的执行入口，并与索引功能分开显示和授权。
 
 ## 下载安装
 

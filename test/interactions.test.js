@@ -33,3 +33,21 @@ test('交接和远程区域会按真实能力禁用，不伪造成功', () => {
   assert.equal(interactions.resolveDropIntent('mailbox', { hasSession: true }).action, 'copy-handoff');
   assert.equal(interactions.resolveDropIntent('remote', { terminalSupported: false }).enabled, false);
 });
+
+test('任务道只在已选会话且 Agent 适配器可用时生成需确认的排队意图', () => {
+  assert.equal(interactions.resolveDropIntent('queue', {
+    hasSession: false,
+    taskQueueSupported: true
+  }).enabled, false);
+  assert.equal(interactions.resolveDropIntent('queue', {
+    hasSession: true,
+    taskQueueSupported: false
+  }).enabled, false);
+  const intent = interactions.resolveDropIntent('queue', {
+    hasSession: true,
+    taskQueueSupported: true
+  });
+  assert.equal(intent.enabled, true);
+  assert.equal(intent.action, 'queue-task');
+  assert.equal(intent.requiresConfirmation, true);
+});

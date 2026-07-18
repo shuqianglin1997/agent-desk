@@ -15,6 +15,13 @@ const state = {
   atmosTime: 'auto',
   atmosWeather: 'auto',
   yardPositions: {},
+  runtime: {
+    adapters: [],
+    selectedAdapterId: null,
+    current: null,
+    notice: null,
+    queue: []
+  },
   welcomed: false,
   updateInfo: null,
   appMeta: { claude: { label: 'Claude', tagColor: '#d96f33' }, codex: { label: 'Codex', tagColor: '#2f9e8f' } }
@@ -62,12 +69,28 @@ const els = {
   yardOverlay: document.querySelector('#yardOverlay'),
   viewToggle: document.querySelector('#viewToggle'),
   accountActions: document.querySelector('#accountActions'),
+  accountManage: document.querySelector('#accountManage'),
+  yardManageActions: document.querySelector('#yardManageActions'),
   sidebarActions: document.querySelector('#sidebarActions'),
   ledgerDone: document.querySelector('#ledgerDone'),
   ledgerMin: document.querySelector('#ledgerMin'),
   reminderToggle: document.querySelector('#reminderToggle'),
   atmosTime: document.querySelector('#atmosTime'),
   atmosWeather: document.querySelector('#atmosWeather'),
+  runtimeDock: document.querySelector('#runtimeDock'),
+  runtimeStatus: document.querySelector('#runtimeStatus'),
+  runtimeAdapter: document.querySelector('#runtimeAdapter'),
+  runtimeCwd: document.querySelector('#runtimeCwd'),
+  runtimeStartBtn: document.querySelector('#runtimeStartBtn'),
+  runtimeStopBtn: document.querySelector('#runtimeStopBtn'),
+  runtimeOutput: document.querySelector('#runtimeOutput'),
+  runtimeForm: document.querySelector('#runtimeForm'),
+  runtimeInput: document.querySelector('#runtimeInput'),
+  runtimeSendBtn: document.querySelector('#runtimeSendBtn'),
+  runtimeHint: document.querySelector('#runtimeHint'),
+  attentionInbox: document.querySelector('#attentionInbox'),
+  attentionCount: document.querySelector('#attentionCount'),
+  attentionItems: document.querySelector('#attentionItems'),
   leaderboardBtn: document.querySelector('#leaderboardBtn'),
   leaderboardDialog: document.querySelector('#leaderboardDialog'),
   leaderboardBody: document.querySelector('#leaderboardBody'),
@@ -318,6 +341,7 @@ function maybeShowWelcome() {
 
 function bindEvents() {
   els.addProfileBtn.addEventListener('click', () => {
+    els.accountManage.open = false;
     els.newProfileApp.value = els.newProfileApp.options[0] ? els.newProfileApp.options[0].value : 'claude';
     els.newProfileName.value = '';
     els.newProfileGroup.value = '';
@@ -345,6 +369,7 @@ function bindEvents() {
   });
 
   els.editProfileBtn.addEventListener('click', () => {
+    els.accountManage.open = false;
     const profile = selectedProfile();
     if (!profile) return;
     els.editName.value = profile.name;
@@ -387,6 +412,7 @@ function bindEvents() {
   });
 
   els.removeProfileBtn.addEventListener('click', async () => {
+    els.accountManage.open = false;
     const profile = selectedProfile();
     if (!profile || profile.isProtected) return;
     if (!window.confirm(`移除「${profile.name}」？本地目录不会删除。`)) return;
@@ -444,6 +470,34 @@ function bindEvents() {
   els.helpBtn.addEventListener('click', () => {
     els.welcomeDialog.showModal();
   });
+
+  els.runtimeAdapter.addEventListener('change', () => {
+    state.runtime.selectedAdapterId = els.runtimeAdapter.value || null;
+    renderRuntimeDock();
+  });
+
+  els.runtimeStartBtn.addEventListener('click', async () => {
+    await startRuntimeForSelectedProfile();
+  });
+
+  els.runtimeStopBtn.addEventListener('click', async () => {
+    await stopCurrentRuntime();
+  });
+
+  els.runtimeForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await sendRuntimeInput();
+  });
+
+  els.runtimeInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    els.runtimeForm.requestSubmit();
+  });
+
+  if (window.manager.onTerminalEvent) {
+    window.manager.onTerminalEvent(handleRuntimeEvent);
+  }
 
   els.pathConfigBtn.addEventListener('click', () => {
     const profile = selectedProfile();
@@ -606,6 +660,7 @@ async function handleUpdateClick() {
   }
 
   state.updateInfo = result;
+  renderAttentionInbox();
   if (!result.updateAvailable) {
     setStatus(`当前已是最新版 v${result.currentVersion}。`);
     finishUpdateButton('✓ 最新', `当前版本 v${result.currentVersion}`, '');
@@ -702,6 +757,8 @@ async function loadProfiles(preferredId = null) {
   renderAccounts();
   renderAccountHeader();
   await loadSessions(true);
+  await loadRuntimeAdapters();
+  renderAttentionInbox();
   // Profile edits invalidate the main-process cache. Refresh in the background
   // after the first quota request, without making profile/session UI wait.
   if (quotaHasLoaded) loadQuotas();
@@ -916,6 +973,7 @@ function applySessionFilter(selectFirst = false) {
 
   renderSessions();
   renderInspector();
+  renderRuntimeDock();
 }
 
 // ── 猫咪档案卡（编辑对话框换装） ─────────────────────
@@ -1082,6 +1140,418 @@ function updateAtmosphereReadout() {
   }
 }
 
+// ── 内嵌 Agent / 终端 ────────────────────────────────
+// Pipe-mode MVP: the main process owns executable discovery, argv, env and
+// cwd. The renderer only selects a registered adapter and sends user text.
+const pendingRuntimeEvents = [];
+let runtimeQueueSending = false;
+
+function runtimeIsActive(runtime = state.runtime.current) {
+  return Boolean(runtime && ['starting', 'running', 'ready'].includes(runtime.status));
+}
+
+async function loadRuntimeAdapters() {
+  const profile = selectedProfile();
+  if (!profile || !window.manager.listTerminalAdapters) {
+    state.runtime.adapters = [];
+    state.runtime.selectedAdapterId = null;
+    renderRuntimeDock();
+    return;
+  }
+  try {
+    const list = await window.manager.listTerminalAdapters(profile.id);
+    state.runtime.adapters = Array.isArray(list) ? list : [];
+    const currentSelection = state.runtime.selectedAdapterId;
+    const selectedStillExists = state.runtime.adapters.some((item) => item.id === currentSelection);
+    state.runtime.selectedAdapterId = selectedStillExists
+      ? currentSelection
+      : (state.runtime.adapters.find((item) => item.available)?.id || state.runtime.adapters[0]?.id || null);
+  } catch (error) {
+    state.runtime.adapters = [];
+    state.runtime.selectedAdapterId = null;
+    state.runtime.notice = {
+      kind: 'error',
+      title: '运行环境发现失败',
+      detail: error?.message || '无法读取本机 CLI',
+      action: 'runtime'
+    };
+  }
+  renderRuntimeDock();
+}
+
+function renderRuntimeDock() {
+  if (!els.runtimeDock) return;
+  const profile = selectedProfile();
+  const runtime = state.runtime.current;
+  const active = runtimeIsActive(runtime);
+  const previous = els.runtimeAdapter.value;
+  els.runtimeAdapter.replaceChildren();
+
+  if (!profile) {
+    const option = document.createElement('option');
+    option.textContent = '先选择账号';
+    option.disabled = true;
+    option.selected = true;
+    els.runtimeAdapter.append(option);
+  } else if (!state.runtime.adapters.length) {
+    const option = document.createElement('option');
+    option.textContent = '没有可用运行方式';
+    option.disabled = true;
+    option.selected = true;
+    els.runtimeAdapter.append(option);
+  } else {
+    for (const adapter of state.runtime.adapters) {
+      const option = document.createElement('option');
+      option.value = adapter.id;
+      option.disabled = !adapter.available;
+      option.textContent = `${adapter.label}${adapter.available ? '' : '（未安装）'}`;
+      els.runtimeAdapter.append(option);
+    }
+    const desired = active && runtime.profileId === profile.id
+      ? runtime.adapterId
+      : (state.runtime.selectedAdapterId || previous);
+    if (state.runtime.adapters.some((item) => item.id === desired)) els.runtimeAdapter.value = desired;
+  }
+
+  const selectedAdapter = state.runtime.adapters.find((item) => item.id === els.runtimeAdapter.value)
+    || state.runtime.adapters.find((item) => item.id === state.runtime.selectedAdapterId)
+    || null;
+  if (selectedAdapter) state.runtime.selectedAdapterId = selectedAdapter.id;
+
+  const status = runtime?.status || 'idle';
+  const statusLabels = {
+    idle: '未开启',
+    starting: '启动中',
+    running: runtime?.mode === 'agent' ? '处理中' : '运行中',
+    ready: '可输入',
+    error: '出错',
+    exited: '已退出',
+    stopped: '已停止'
+  };
+  els.runtimeStatus.dataset.status = status;
+  els.runtimeStatus.textContent = statusLabels[status] || status;
+
+  const session = selectedSession();
+  const expectedCwd = session?.projectPath || profile?.sessionRoot || profile?.profilePath || '';
+  els.runtimeCwd.textContent = runtime?.cwd ? shortPath(runtime.cwd) : shortPath(expectedCwd);
+  els.runtimeCwd.title = runtime?.cwd || expectedCwd || '';
+
+  const canSend = Boolean(runtime && (
+    (runtime.mode === 'shell' && runtime.status === 'running') ||
+    (runtime.mode === 'agent' && runtime.status === 'ready')
+  ));
+  els.runtimeAdapter.disabled = active || !profile || !state.runtime.adapters.length;
+  els.runtimeStartBtn.disabled = active || !profile || !selectedAdapter?.available;
+  els.runtimeStartBtn.textContent = runtime && !active ? '重新开启' : '开启';
+  els.runtimeStopBtn.disabled = !active;
+  els.runtimeInput.disabled = !canSend;
+  els.runtimeSendBtn.disabled = !canSend;
+  els.runtimeInput.placeholder = runtime?.mode === 'shell'
+    ? '输入一行本机命令；Enter 执行，Shift+Enter 换行…'
+    : '对 Agent 说话；Enter 发送，Shift+Enter 换行…';
+
+  const activeProfile = runtime ? state.profiles.find((item) => item.id === runtime.profileId) : null;
+  if (active && runtime.profileId !== profile?.id) {
+    els.runtimeHint.textContent = `当前仍属于「${activeProfile?.name || '另一个账号'}」；停止后才能切到此账号。`;
+  } else if (selectedAdapter) {
+    const queueHint = state.runtime.queue.length ? `待办 ${state.runtime.queue.length}` : '';
+    els.runtimeHint.textContent = [selectedAdapter.detail, selectedAdapter.caution, queueHint].filter(Boolean).join(' · ');
+  } else {
+    els.runtimeHint.textContent = '不使用远程网页；运行环境由本机 CLI 提供。';
+  }
+}
+
+async function startRuntimeForSelectedProfile() {
+  const profile = selectedProfile();
+  const adapterId = state.runtime.selectedAdapterId;
+  if (!profile || !adapterId || !window.manager.startTerminal) return;
+  if (runtimeIsActive()) {
+    setStatus('先停止当前内嵌运行环境，再开启新的账号。');
+    return;
+  }
+
+  els.runtimeStartBtn.disabled = true;
+  els.runtimeStatus.dataset.status = 'starting';
+  els.runtimeStatus.textContent = '等待确认';
+  const result = await window.manager.startTerminal({
+    profileId: profile.id,
+    adapterId,
+    sessionId: selectedSession()?.id || null
+  });
+  if (!result?.ok) {
+    renderRuntimeDock();
+    if (!result?.cancelled) {
+      state.runtime.notice = {
+        kind: 'error',
+        title: '内嵌运行环境无法开启',
+        detail: result?.reason || '启动失败',
+        profileId: profile.id,
+        action: 'runtime'
+      };
+      setStatus(result?.reason || '内嵌运行环境启动失败。');
+      renderAttentionInbox();
+    } else {
+      setStatus('已取消开启内嵌终端。');
+    }
+    return;
+  }
+
+  state.runtime.current = result;
+  state.runtime.notice = null;
+  els.runtimeOutput.replaceChildren();
+  for (let index = 0; index < pendingRuntimeEvents.length;) {
+    const event = pendingRuntimeEvents[index];
+    if (event.runtimeId === result.id) {
+      pendingRuntimeEvents.splice(index, 1);
+      applyRuntimeEvent(event);
+    } else {
+      index += 1;
+    }
+  }
+  renderRuntimeDock();
+  renderAttentionInbox();
+  setStatus(`已开启 ${result.adapterLabel}，工作目录：${shortPath(result.cwd)}。`);
+  if (!els.runtimeInput.disabled) els.runtimeInput.focus();
+}
+
+async function sendRuntimeInput() {
+  const runtime = state.runtime.current;
+  const text = els.runtimeInput.value.trim();
+  if (!runtime || !text || !window.manager.sendTerminal) return false;
+  els.runtimeInput.disabled = true;
+  els.runtimeSendBtn.disabled = true;
+  const result = await window.manager.sendTerminal({
+    profileId: runtime.profileId,
+    runtimeId: runtime.id,
+    text
+  });
+  if (!result?.ok) {
+    state.runtime.notice = {
+      kind: 'error',
+      title: '发送失败',
+      detail: result?.reason || '运行环境没有响应',
+      profileId: runtime.profileId,
+      action: 'runtime'
+    };
+    setStatus(result?.reason || '无法发送到内嵌运行环境。');
+    renderAttentionInbox();
+    renderRuntimeDock();
+    return false;
+  } else {
+    state.runtime.current = { ...state.runtime.current, ...result };
+    els.runtimeInput.value = '';
+  }
+  renderRuntimeDock();
+  return true;
+}
+
+async function stopCurrentRuntime() {
+  const runtime = state.runtime.current;
+  if (!runtime || !window.manager.stopTerminal) return;
+  const result = await window.manager.stopTerminal({
+    profileId: runtime.profileId,
+    runtimeId: runtime.id
+  });
+  if (!result?.ok) {
+    setStatus(result?.reason || '无法停止内嵌运行环境。');
+    return;
+  }
+  state.runtime.current = { ...state.runtime.current, ...result };
+  renderRuntimeDock();
+  setStatus('内嵌运行环境已停止。');
+}
+
+function handleRuntimeEvent(event) {
+  if (!event?.runtimeId) return;
+  if (!state.runtime.current || state.runtime.current.id !== event.runtimeId) {
+    pendingRuntimeEvents.push(event);
+    if (pendingRuntimeEvents.length > 40) pendingRuntimeEvents.shift();
+    return;
+  }
+  applyRuntimeEvent(event);
+}
+
+function applyRuntimeEvent(event) {
+  const runtime = state.runtime.current;
+  if (!runtime || runtime.id !== event.runtimeId) return;
+  if (event.type === 'output' && event.text) appendRuntimeOutput(event.text, event.stream);
+  if (event.type === 'state') {
+    state.runtime.current = { ...runtime, status: event.status || runtime.status };
+    if (event.status === 'error' || (Number.isInteger(event.exitCode) && event.exitCode !== 0)) {
+      state.runtime.notice = {
+        kind: 'error',
+        title: `${runtime.adapterLabel || '运行环境'} 已异常退出`,
+        detail: Number.isInteger(event.exitCode) ? `退出码 ${event.exitCode}` : '请查看终端输出',
+        profileId: runtime.profileId,
+        action: 'runtime'
+      };
+      renderAttentionInbox();
+    }
+    renderRuntimeDock();
+    if (!els.runtimeInput.disabled && document.activeElement !== els.runtimeInput) els.runtimeInput.focus();
+    if (event.status === 'ready') void runNextQueuedTask();
+  }
+}
+
+function appendRuntimeOutput(text, stream = 'stdout') {
+  els.runtimeOutput.querySelector('.runtime-placeholder')?.remove();
+  const chunk = document.createElement('span');
+  chunk.dataset.stream = stream || 'stdout';
+  chunk.textContent = text;
+  els.runtimeOutput.append(chunk);
+  while (els.runtimeOutput.childElementCount > 500) els.runtimeOutput.firstElementChild?.remove();
+  els.runtimeOutput.scrollTop = els.runtimeOutput.scrollHeight;
+}
+
+async function openTerminalForProfile(profile) {
+  if (!profile) return;
+  if (profile.id !== state.selectedProfileId) await selectProfile(profile.id);
+  els.runtimeDock.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  const available = state.runtime.adapters.some((item) => item.available);
+  if (!available) {
+    setStatus('本机没有可用的终端或 Agent CLI，请先查看诊断。');
+    return;
+  }
+  setStatus(`已定位到 ${profile.name} 的内嵌 Agent 工作台。`);
+  if (runtimeIsActive()) {
+    if (!els.runtimeInput.disabled) els.runtimeInput.focus();
+  } else {
+    els.runtimeStartBtn.focus();
+  }
+}
+
+async function queueSessionForRuntime(profile, session) {
+  const agent = state.runtime.adapters.find((item) => item.mode === 'agent' && item.available);
+  if (!agent) {
+    window.YardScene?.say(profile.id, { text: '先安装 Agent CLI，喵。', kind: 'warning', duration: 4200 });
+    setStatus('任务道需要 Codex 或 Claude Code CLI；Shell 不会代替 Agent 自动执行任务。');
+    return;
+  }
+  if (state.runtime.queue.length >= 20) {
+    setStatus('Agent 待办已满（最多 20 条），先处理或清理现有任务。');
+    return;
+  }
+
+  state.runtime.selectedAdapterId = agent.id;
+  state.runtime.queue.push({
+    id: `${profile.id}:${session.id}:${Date.now()}`,
+    profileId: profile.id,
+    title: session.title,
+    text: `${makeHandoffText(profile, session)}\n\n这是从猫猫庭院任务道加入的待办。请先确认你理解当前项目，再继续处理尚未完成的工作。`
+  });
+  renderRuntimeDock();
+  renderAttentionInbox();
+  await openTerminalForProfile(profile);
+
+  const runtime = state.runtime.current;
+  if (runtime?.profileId === profile.id && runtime.mode === 'agent' && runtime.status === 'ready') {
+    await runNextQueuedTask();
+  } else if (runtimeIsActive(runtime)) {
+    setStatus(`已把「${session.title}」排队；当前运行环境结束或切回 ${profile.name} 后继续。`);
+  } else {
+    setStatus(`已把「${session.title}」排队；点“开启”启动 ${agent.label} 后会自动发送。`);
+  }
+}
+
+async function runNextQueuedTask() {
+  if (runtimeQueueSending) return;
+  const runtime = state.runtime.current;
+  if (!runtime || runtime.mode !== 'agent' || runtime.status !== 'ready') return;
+  const index = state.runtime.queue.findIndex((item) => item.profileId === runtime.profileId);
+  if (index < 0) return;
+
+  runtimeQueueSending = true;
+  const [task] = state.runtime.queue.splice(index, 1);
+  els.runtimeInput.value = task.text;
+  renderRuntimeDock();
+  renderAttentionInbox();
+  const sent = await sendRuntimeInput();
+  if (!sent) state.runtime.queue.splice(index, 0, task);
+  else setStatus(`Agent 开始处理待办：「${task.title}」。`);
+  runtimeQueueSending = false;
+  renderRuntimeDock();
+  renderAttentionInbox();
+}
+
+// ── 统一提醒入口 ─────────────────────────────────────
+function collectAttentionItems() {
+  const items = [];
+  const now = Date.now();
+  if (window.YardCats) {
+    for (const profile of state.profiles) {
+      const activityState = window.YardCats.deriveState(now, profile, state.activity[profile.id]);
+      if (activityState === 'confused') {
+        items.push({
+          kind: 'error',
+          title: `${profile.name} 的会话路径需要检查`,
+          detail: '打开诊断',
+          profileId: profile.id,
+          action: 'diagnostics'
+        });
+      }
+      const energy = window.YardEnergy
+        ? window.YardEnergy.deriveEnergy(state.quotas[profile.id], now)
+        : 'unknown';
+      if (energy === 'exhausted') {
+        items.push({
+          kind: 'warning',
+          title: `${profile.name} 的可用额度已经很低`,
+          detail: '查看额度',
+          profileId: profile.id,
+          action: 'quota'
+        });
+      }
+    }
+  }
+  if (state.runtime.notice) items.push(state.runtime.notice);
+  if (state.runtime.queue.length) {
+    items.push({
+      kind: 'info',
+      title: `${state.runtime.queue.length} 个任务正在等待 Agent`,
+      detail: '打开工作台',
+      action: 'runtime'
+    });
+  }
+  if (state.updateInfo?.updateAvailable) {
+    items.push({
+      kind: 'info',
+      title: `AgentDesk v${state.updateInfo.latestVersion} 可以更新`,
+      detail: '立即更新',
+      action: 'update'
+    });
+  }
+  return items.slice(0, 8);
+}
+
+function renderAttentionInbox() {
+  if (!els.attentionInbox) return;
+  const items = collectAttentionItems();
+  els.attentionInbox.hidden = items.length === 0;
+  els.attentionCount.textContent = String(items.length);
+  els.attentionItems.replaceChildren();
+  for (const item of items) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'attention-item';
+    button.dataset.kind = item.kind || 'info';
+    const title = document.createElement('b');
+    title.textContent = item.title;
+    const detail = document.createElement('small');
+    detail.textContent = item.detail || '查看';
+    button.append(title, detail);
+    button.addEventListener('click', async () => {
+      if (item.profileId && item.profileId !== state.selectedProfileId) await selectProfile(item.profileId);
+      if (item.action === 'diagnostics') await showDiagnostics();
+      else if (item.action === 'quota') els.quotaSummary.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      else if (item.action === 'runtime') {
+        els.runtimeDock.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (!els.runtimeInput.disabled) els.runtimeInput.focus();
+      } else if (item.action === 'update') await handleUpdateClick();
+    });
+    els.attentionItems.append(button);
+  }
+}
+
 function saveYardPosition(profileId, point, zoneId = 'ground') {
   if (!window.YardInteractions) return false;
   const normalized = window.YardInteractions.normalizePoint(point);
@@ -1101,7 +1571,8 @@ function handleYardDrop({ profile, state: activityState, point, zone }) {
   const intent = window.YardInteractions.resolveDropIntent(zoneId, {
     activityState,
     hasSession: hasSelectedSession,
-    terminalSupported: Boolean(window.manager.listTerminalAdapters)
+    terminalSupported: Boolean(window.manager.listTerminalAdapters),
+    taskQueueSupported: profile.id === state.selectedProfileId && state.runtime.adapters.some((item) => item.mode === 'agent' && item.available)
   });
 
   if (intent.action === 'save-position') {
@@ -1125,7 +1596,8 @@ async function executeYardIntent(profile, initialIntent) {
   const intent = window.YardInteractions.resolveDropIntent(initialIntent.zoneId, {
     activityState,
     hasSession: Boolean(selectedSession()),
-    terminalSupported: Boolean(window.manager.listTerminalAdapters)
+    terminalSupported: Boolean(window.manager.listTerminalAdapters),
+    taskQueueSupported: state.runtime.adapters.some((item) => item.mode === 'agent' && item.available)
   });
 
   if (!intent.enabled) {
@@ -1165,6 +1637,13 @@ async function executeYardIntent(profile, initialIntent) {
   }
   if (intent.action === 'open-terminal' && typeof openTerminalForProfile === 'function') {
     await openTerminalForProfile(profile);
+    return;
+  }
+  if (intent.action === 'queue-task') {
+    const session = selectedSession();
+    if (!session) return;
+    if (!window.confirm(`把「${session.title}」加入 ${profile.name} 的 Agent 待办？`)) return;
+    await queueSessionForRuntime(profile, session);
   }
 }
 
@@ -1174,8 +1653,9 @@ function applyView() {
   els.yardStage.hidden = !yard;
   els.viewToggle.textContent = yard ? '⇄ 经典' : '⇄ 庭院';
   // 新增/编辑/移除按钮在两个视图间移动（同一批节点，事件不变）
-  const host = yard ? els.accountActions : els.sidebarActions;
+  const host = yard ? els.yardManageActions : els.sidebarActions;
   host.append(els.addProfileBtn, els.editProfileBtn, els.removeProfileBtn);
+  if (!yard) els.accountManage.open = false;
   if (yardMounted) window.YardScene.setActive(yard);
   if (yard) loadActivity(); // 切回庭院时立刻刷新猫的状态
   renderTopbarContext();
@@ -1275,6 +1755,7 @@ function syncYard() {
   }
   renderYardAccountStrip();
   renderTopbarContext();
+  renderAttentionInbox();
   // 排行榜打开时随轮询实时刷新
   if (els.leaderboardDialog.open) renderLeaderboard();
 }
@@ -1433,6 +1914,8 @@ async function selectProfile(profileId) {
   renderAccounts();
   renderAccountHeader();
   await loadSessions(true);
+  await loadRuntimeAdapters();
+  renderAttentionInbox();
 }
 
 function groupProfiles(profiles) {
@@ -1530,6 +2013,7 @@ function renderSessions() {
       state.selectedSessionId = session.id;
       renderSessions();
       renderInspector();
+      renderRuntimeDock();
     });
     els.sessionRows.append(row);
   }

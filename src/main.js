@@ -15,6 +15,7 @@ const settings = require('./settings');
 const updater = require('./updater');
 const windows = require('./windows');
 const { QuotaService } = require('./quota-service');
+const { RuntimeService, resolveRuntimeCwd } = require('./runtime');
 const { normalizeCat } = require('./yard/cats');
 
 const APP_NAME = 'AgentDesk';
@@ -27,7 +28,14 @@ const windowsDiscoveryCache = new Map();
 let latestUpdateCache = null;
 let updateInstalling = false;
 let mainWindow = null;
+let runtimeConsentGranted = false;
 const quotaService = new QuotaService();
+const runtimeService = new RuntimeService({
+  onEvent(payload) {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('runtime:event', payload);
+  }
+});
 const PROFILE_COPY_EXCLUDES = new Set([
   'cache',
   'code cache',
@@ -61,6 +69,7 @@ function createWindow() {
     mainWindow.focus();
   });
   mainWindow.on('closed', () => {
+    runtimeService.stopAll();
     mainWindow = null;
   });
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
@@ -99,6 +108,10 @@ if (!hasSingleInstanceLock) {
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
+  });
+
+  app.on('before-quit', () => {
+    runtimeService.stopAll();
   });
 }
 
@@ -187,6 +200,7 @@ function registerIpc() {
     const profiles = loadProfiles();
     const target = profiles.find((profile) => profile.id === id);
     if (!target || target.isProtected) return { ok: false, reason: '默认槽位不能移除' };
+    runtimeService.stopProfile(id);
     saveProfiles(profiles.filter((profile) => profile.id !== id));
     quotaService.invalidate(id);
     return { ok: true };
@@ -247,6 +261,48 @@ function registerIpc() {
     return diagnoseProfile(normalizeProfile(profile));
   });
 
+  ipcMain.handle('runtime:adapters', (_event, input = {}) => {
+    const profile = storedProfile(input.profileId);
+    if (!profile) return [];
+    return runtimeService.listAdapters(profile);
+  });
+
+  ipcMain.handle('runtime:start', async (_event, input = {}) => {
+    const profile = storedProfile(input.profileId);
+    if (!profile) return { ok: false, reason: '找不到账号槽位' };
+    if (!await confirmRuntimeAccess()) return { ok: false, cancelled: true, reason: '已取消开启内嵌终端' };
+    try {
+      const sessions = safeScanSessions(profile);
+      const cwd = resolveRuntimeCwd(profile, sessions, input.sessionId);
+      return runtimeService.start(profile, {
+        adapterId: String(input.adapterId || ''),
+        cwd: cwd.path
+      });
+    } catch (error) {
+      return runtimeErrorResult(error);
+    }
+  });
+
+  ipcMain.handle('runtime:send', (_event, input = {}) => {
+    const profile = storedProfile(input.profileId);
+    if (!profile) return { ok: false, reason: '找不到账号槽位' };
+    try {
+      return runtimeService.send(profile, input.runtimeId, input.text);
+    } catch (error) {
+      return runtimeErrorResult(error);
+    }
+  });
+
+  ipcMain.handle('runtime:stop', (_event, input = {}) => {
+    const profile = storedProfile(input.profileId);
+    if (!profile) return { ok: false, reason: '找不到账号槽位' };
+    try {
+      return runtimeService.stop(profile, input.runtimeId);
+    } catch (error) {
+      return runtimeErrorResult(error);
+    }
+  });
+
   ipcMain.handle('system:pickDirectory', async (_event, options = {}) => {
     const result = await dialog.showOpenDialog({
       title: options.title || '选择目录',
@@ -286,6 +342,43 @@ function registerIpc() {
     clipboard.writeText(String(value || ''));
     return true;
   });
+}
+
+function storedProfile(profileId) {
+  return loadProfiles().find((profile) => profile.id === profileId) || null;
+}
+
+function safeScanSessions(profile) {
+  try {
+    const result = apps.getApp(profile.appId).scan(profile);
+    return Array.isArray(result) ? result : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+async function confirmRuntimeAccess() {
+  if (runtimeConsentGranted) return true;
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    title: '开启内嵌终端',
+    message: '内嵌终端可以执行本机命令',
+    detail: 'Shell 中输入的命令会直接运行；Agent 模式可能在当前项目目录读写文件。请只在你信任当前项目和输入内容时开启。',
+    buttons: ['取消', '我了解，开启'],
+    cancelId: 0,
+    defaultId: 0,
+    noLink: true
+  });
+  runtimeConsentGranted = result.response === 1;
+  return runtimeConsentGranted;
+}
+
+function runtimeErrorResult(error) {
+  return {
+    ok: false,
+    code: error?.code || 'RUNTIME_ERROR',
+    reason: error?.message || '内嵌运行环境发生错误'
+  };
 }
 
 async function checkForUpdates(options = {}) {

@@ -86,7 +86,12 @@
         : { ...base, action: 'open-terminal', enabled: false, requiresConfirmation: false, title: '该账号暂时没有可用的终端适配器' };
     }
     if (zone.id === 'queue') {
-      return { ...base, action: 'queue-task', enabled: false, requiresConfirmation: false, title: '任务队列将在终端任务层启用' };
+      if (!context.hasSession) {
+        return { ...base, action: 'queue-task', enabled: false, requiresConfirmation: false, title: '先选择一个会话' };
+      }
+      return context.taskQueueSupported
+        ? { ...base, action: 'queue-task', enabled: true, requiresConfirmation: true, title: '把当前会话加入 Agent 待办' }
+        : { ...base, action: 'queue-task', enabled: false, requiresConfirmation: false, title: '需要先安装可用的 Agent CLI' };
     }
     return { ...base, action: 'save-position', enabled: true, requiresConfirmation: false, title: '把猫放在这里' };
   }
