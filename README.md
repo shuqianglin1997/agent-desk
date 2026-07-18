@@ -37,6 +37,7 @@ Each pain above maps to one thing AgentDesk gives you:
 - **Automatic session index.** It scans each account's session files and lists them in one table — title, last active, created, project directory, source — with search across title / project / thread ID. **Find any old session in seconds.**
 - **One-click context handoff.** Select a session, hit *Copy handoff*, and paste into a new chat. It copies **metadata only, never the full transcript** — so nothing private leaks by accident.
 - **Diagnostics.** A panel that explains *why* a session won't show up or an app won't launch: executable/Store candidates, MSIX-vs-legacy data paths, permissions, scanned locations, session count, and config location.
+- **Per-account quota (Beta).** Codex slots read their own official rate-limit windows through the local Codex app-server and show remaining percentage, reset time, and plan. Claude / Cursor clearly show unsupported instead of scraping browser cookies or tokens.
 - **Path control.** Set each slot's data directory, session root, and optional app executable. On Windows, old AppData-based slots can be copied to a stable non-virtualized location in one click.
 - **GitHub updates.** The always-visible **↻ Update** button in the account toolbar checks the latest published Release. Windows portable builds download, verify GitHub's SHA-256 digest, replace themselves, and restart; other environments open the exact Release page.
 - **macOS + Windows** from the same tool.
@@ -48,6 +49,7 @@ AgentDesk touches your accounts, so its boundaries matter:
 
 - It **stores no passwords and no tokens.**
 - It **does not read browser passwords** or any saved credentials.
+- Quota checks **never read browser cookies or expose account e-mail / tokens**; only the sanitized result of Codex's official local RPC reaches the UI.
 - It **does not bypass official login** — authentication still happens inside the official Claude / Codex app.
 - The handoff copy **excludes the full conversation by default.**
 - In the account and session lists, your home directory is shortened to `~`. (The diagnostics panel shows full paths on purpose — it's a troubleshooting tool.)
@@ -62,6 +64,7 @@ By default AgentDesk greets you with a **pixel cat yard** — the same accounts 
 
 - **Every account is a cat.** The name plate *is* the account name — no separate pet name to keep in sync. Its coat, collar and accessory are yours to customize (Edit → dress it up), and groups become fenced-off areas of the yard.
 - **Cats live your accounts' rhythm.** A cat's behavior comes from that account's real state: it sits at a desk typing while the account is *actually working* — its session was active in the last minute — waits at its own spot when the app is open but the session's gone quiet, plays in the grass if the account was active earlier today, curls up to nap after a few quiet days, or hibernates in a box after a week. (Detecting "working" reads the last-activity timestamp inside the account's own session record — not just whether the app is open — so a busy account and an idle-but-open one look different.) A broken session path shows a **?** over the cat — click it to open diagnostics.
+- **Quota becomes energy, not activity.** Fresh / steady / tired / exhausted is a separate axis based on the tightest current Codex limit. It changes a tiny energy pip, sweat/spark/battery cue, and typing pace without ever pretending that a tired cat stopped working. Old or failed data never drives fatigue.
 - **Sessions are the day's catch.** The full session table lives right below the yard — same search, same one-click handoff, same details. Finding old work never got slower.
 - **A gentle work/life balance.** A *today* ledger tallies how many work sessions wrapped up and how long the cats kept you company. After 90 minutes of unbroken work, a cat stretches and nudges you to do the same — a quiet status-bar note, never a popup, and switchable off entirely.
 - **Time & weather.** A control in the corner sets the yard to day / dusk / night (or *follow* your theme) and clear / cloudy / rain / snow. Purely atmospheric — set the mood you like.
@@ -119,14 +122,12 @@ Cross-compiling Windows on macOS is fragile — prefer building each platform on
 
 ## Releasing (maintainers)
 
-CI ([`.github/workflows/release.yml`](.github/workflows/release.yml)) builds both platforms natively, generates `SHA256SUMS.txt`, and attaches everything to a **draft** GitHub Release. Set `version` in `package.json` to match your tag first — electron-builder names the artifacts from `package.json`, not the git tag — then:
+CI ([`.github/workflows/release.yml`](.github/workflows/release.yml)) builds both platforms natively, generates `SHA256SUMS.txt`, and publishes the GitHub Release after both builds pass. Set `version` in `package.json` to match your tag first — electron-builder names the artifacts from `package.json`, not the git tag — then:
 
 ```bash
-git tag v0.2.1
-git push origin v0.2.1
+git tag v0.2.2
+git push origin v0.2.2
 ```
-
-Then review the draft release on GitHub and publish it.
 
 ## How it works
 
@@ -168,6 +169,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 - **自动会话索引。** 扫描每个账号的会话文件，汇成一张表：标题 / 最后活跃 / 新建 / 项目目录 / 来源，可按标题、项目、线程 ID 搜索。**几秒钟找到任何旧会话。**
 - **一键交接上下文。** 选中会话点「复制交接信息」，粘到新对话即可。**只复制元信息，不含完整对话** —— 隐私不会被误传。
 - **诊断面板。** 解释「为什么读不到会话 / 打不开 App」：传统安装与 Store/MSIX 启动候选、真实数据目录、权限、扫描位置、会话数量和配置文件。
+- **每账号额度（Beta）。** Codex 槽位通过本机 Codex 官方 app-server 读取各自真实额度周期，展示剩余百分比、重置时间和套餐；Claude / Cursor 明确显示暂不支持，不抓浏览器 Cookie 或 token。
 - **路径可配。** 手动设置数据目录、会话根目录和可选的官方 App 可执行文件；Windows 旧 AppData 槽位可一键复制迁移到稳定目录。
 - **GitHub 一键更新。** 账号操作栏中常驻的「↻ 更新」检查正式 Release；Windows portable 会下载、核对 GitHub SHA-256、替换自身并重启，其他环境打开对应 Release 页面。
 - **macOS + Windows** 同一套能力。
@@ -181,6 +183,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 
 - **每个账号是一只猫。** 名牌就是账号名，不用另记一个宠物名；毛色、项圈、配饰随你定制（编辑账号即可换装），分组变成庭院里一块块围起来的区域。
 - **猫跟着账号的节奏过日子。** 猫的行为由该账号的真实状态决定：账号*真在干活*时（会话记录一分钟内还在动）它伏案打字，App 开着但会话已安静下来时在自己的地盘待命，今天早些时候活跃过就在草地玩耍，几天没动静就蜷着打盹，超过一周没碰就钻进纸箱冬眠。（判「干活」看的是账号自己会话记录里的最后活跃时间戳，而不只是「App 开着」—— 所以忙碌的账号和开着发呆的账号长相不同。）会话路径失效的猫头顶挂个 **?**，点它直达诊断。
+- **额度是能量，不是活动状态。** 元气 / 稳定 / 疲劳 / 快没电由当前最紧的 Codex 额度周期决定，只改变名牌能量格、汗滴/闪光/低电量提示和打字节奏；「正在干活」仍由真实会话活动决定。旧数据或失败数据不会继续驱动疲劳。
 - **会话是这一天的渔获。** 完整会话表就在庭院下方 —— 搜索、一键交接、详情一样不少，找旧会话不会因此变慢。
 - **不打扰的劳逸平衡。** 「今日小账本」记下今天有多少次收工、猫陪你干了多久。连续工作 90 分钟，猫会伸个懒腰提醒你也起来动动 —— 只在状态栏轻声提示，绝不弹窗，也能整个关掉。
 - **时间与天气。** 角落的控件把庭院切成 白天 / 黄昏 / 夜晚（或**跟随**主题）与 晴 / 多云 / 雨 / 雪，纯氛围，调成你喜欢的样子。
@@ -192,6 +195,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, scenarios, Wi
 
 - **不保存任何密码、任何 token。**
 - **不读取浏览器密码**或任何已存凭据。
+- 额度查询**不读取浏览器 Cookie，也不向界面暴露账号邮箱 / token**；界面只收到 Codex 官方本机 RPC 的脱敏结果。
 - **不绕过官方登录** —— 鉴权始终发生在官方 Claude / Codex App 里。
 - 交接复制**默认不含完整对话**。
 - 账号列表和会话列表里，你的用户主目录会被简写成 `~`。（诊断面板故意显示完整路径——它是排查工具。）
@@ -238,14 +242,12 @@ npm run build:win      # → release/ 下生成便携版 .exe
 
 ## 发布（维护者）
 
-CI（[`.github/workflows/release.yml`](.github/workflows/release.yml)）会在各自系统上原生构建两个平台，生成 `SHA256SUMS.txt`，并把产物挂到一个**草稿** Release。先把 `package.json` 的 `version` 改成和 tag 一致（构建产物按 `package.json` 命名，不看 tag），再：
+CI（[`.github/workflows/release.yml`](.github/workflows/release.yml)）会在各自系统上原生构建两个平台，生成 `SHA256SUMS.txt`，并在两个构建都通过后自动发布 GitHub Release。先把 `package.json` 的 `version` 改成和 tag 一致（构建产物按 `package.json` 命名，不看 tag），再：
 
 ```bash
-git tag v0.2.1
-git push origin v0.2.1
+git tag v0.2.2
+git push origin v0.2.2
 ```
-
-然后在 GitHub 上审阅草稿 Release 再发布。
 
 ## 安全边界
 

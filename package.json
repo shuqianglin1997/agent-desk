@@ -1,7 +1,7 @@
 {
   "name": "agent-desk",
   "productName": "AgentDesk",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A desk for every Claude and Codex identity — isolate multiple account logins, index their local sessions, and hand off context in one click.",
   "main": "src/main.js",
   "author": "hupo",
