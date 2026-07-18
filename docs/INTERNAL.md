@@ -69,6 +69,9 @@ agent-desk/
     json-store.js      配置原子写入、备份和恢复（纯 Node）
     settings.js        稳定界面偏好结构与旧版迁移（纯 Node）
     updater.js         GitHub Release 解析、资产选择与 portable 替换脚本（纯 Node）
+    quota.js           额度数据脱敏与统一结构（纯 Node）
+    codex-quota.js     Codex 官方 app-server 额度读取（纯 Node）
+    quota-service.js   分槽位缓存、限流和 provider 降级（纯 Node）
     sessions.js        会话扫描（纯 Node，可单元测试）
     activity.js        活跃度探测（stat-only，纯 Node，驱动庭院状态）
     preload.js         安全桥接 IPC
@@ -77,6 +80,7 @@ agent-desk/
     styles.css         界面样式（经典 porcelain 皮肤）
     yard/              猫猫庭院视图（见 docs/YARD.md）
       cats.js          状态机 + 外观默认值（纯函数，可单测）
+      energy.js        与活动正交的额度能量轴（纯函数，可单测）
       companion.js     陪伴账本 reducer（纯函数，可单测）
       sprites.js       像素猫资产与分层合成
       scene.js         画布引擎（8fps、移动、命中、昼夜、fx）
@@ -135,6 +139,8 @@ macOS 当前示例：
 
 账号写回采用“重新读取最新配置，只修改目标字段”的方式。尤其 Windows 启动器发现和路径迁移可能耗时数秒，不能把异步操作开始前的整份旧快照写回，否则会覆盖用户同期修改的猫咪毛色、项圈、分组或备注。
 
+额度快照只保存在进程内缓存，不写入 `profiles.json` / `settings.json`。Codex 查询以槽位 `sessionRoot` 作为 `CODEX_HOME` 调官方 app-server；发送给 renderer 前会移除账号邮箱、token 和原始 provider 响应。Claude / Cursor 在没有稳定公开接口时返回结构化 `unsupported`，不尝试浏览器 Cookie。
+
 ## 主进程职责
 
 文件：[main.js](../src/main.js)
@@ -151,6 +157,7 @@ macOS 当前示例：
 - 选择目录
 - 生成诊断信息
 - 检查 GitHub Release，并在受支持的 Windows portable 环境执行校验更新
+- 读取、缓存并脱敏 Codex 各槽位官方额度
 
 渲染进程不直接访问文件系统。
 
@@ -161,6 +168,9 @@ macOS 当前示例：
 ```js
 checkForUpdates()
 installUpdate()
+listApps()
+getSettings(legacySettings)
+updateSettings(patch)
 listProfiles()
 addProfile(input)
 updateProfile(input)
@@ -169,6 +179,8 @@ migrateWindowsProfilePath(id)
 launchProfile(id)
 listSessions(profile)
 revealSession(input)
+listActivity()
+listQuotas(options)
 getDiagnostics(profile)
 pickDirectory(options)
 pickFile(options)

@@ -42,3 +42,24 @@ test('应用使用单实例锁，避免两个进程同时写配置', () => {
   assert.match(mainSource, /app\.requestSingleInstanceLock\(\)/);
   assert.match(mainSource, /app\.on\('second-instance'/);
 });
+
+test('账号局部编辑会合并猫外观，归一化不删自定义颜色和未来字段', () => {
+  const handler = sourceBetween(
+    "ipcMain.handle('profiles:update'",
+    "ipcMain.handle('profiles:remove'"
+  );
+  const normalizer = sourceBetween('function normalizeProfile(profile)', 'function profilesFile()');
+
+  assert.match(handler, /next\.cat = \{ \.\.\.next\.cat, \.\.\.input\.cat \}/);
+  assert.match(normalizer, /\.\.\.profile,/);
+  assert.match(normalizer, /cat: normalizeCat\(profile\.cat, id\)/);
+});
+
+test('替换可执行文件前同时快照账号外观和界面设置', () => {
+  const snapshot = sourceBetween('function snapshotConfigurationForUpdate()', '// 以下三个曾按');
+  const installer = sourceBetween('async function installLatestUpdate', 'async function downloadReleaseAsset');
+
+  assert.match(snapshot, /profilesFile\(\), profilesPreUpdateBackupFile\(\)/);
+  assert.match(snapshot, /settingsFile\(\), settingsPreUpdateBackupFile\(\)/);
+  assert.match(installer, /snapshotConfigurationForUpdate\(\)/);
+});

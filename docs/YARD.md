@@ -11,6 +11,7 @@
 | 账号槽位 | 一只猫（头顶常驻名牌 = 账号名称，可点选） |
 | 分组 | 庭院分区（木牌写组名） |
 | 会话最后活跃时间 | 猫的作息状态 |
+| Codex 官方额度周期 | 独立的能量/疲劳状态（不改写作息） |
 | 应用（Claude / Codex） | 猫脖子上的吊牌（橙 / 青）；默认槽位挂金铃铛 |
 | `profiles.json` 的 `cat` 字段 | 猫的外观（毛色 / 项圈 / 配饰） |
 
@@ -39,6 +40,20 @@
 
 **活跃度探测**：[src/activity.js](../src/activity.js) 的 `probeActivity` 主体只做 `stat`（返回 `latestMtime / fileCount / activeToday / createdToday`），再调各 app 适配器的 `latestActivityAt` 读**会话记录内容**里的最后活跃时间戳（`contentActiveAt`，拿不到退回 `latestMtime`）；主进程 IPC `activity:all` 补上 `running`（一次 `ps -axww` 供所有账号匹配）。renderer **仅在庭院视图可见时** 8 秒轮询一次（带防堆积），并在从后台/最小化切回时立刻刷新；后台 / 经典视图不扫。
 
+## 额度能量轴（Beta）
+
+额度与上面的活动状态严格正交：猫可以同时是「干活中 + 有点累」，不能因为额度低就被画成休息或离岗。Codex 槽位以各自 `CODEX_HOME` 启动官方 `codex app-server`，读取 `account/rateLimits/read`；renderer 只接收脱敏后的窗口、套餐和重置时间，不接收邮箱、token 或原始响应。Claude / Cursor 个人订阅暂无稳定公开接口，因此明确显示暂不支持，不抓 Cookie。
+
+| 最紧约束窗口剩余 | 能量 | 庭院提示 |
+|---|---|---|
+| `>= 60%` | `fresh` 元气满满 | 名牌绿格，偶尔小闪光 |
+| `30%〜60%` | `steady` 状态稳定 | 名牌蓝格 |
+| `10%〜30%` | `tired` 有点累 | 名牌黄格、汗滴、打字略慢 |
+| `< 10%` | `exhausted` 快没电 | 名牌红格、低电量提示、打字更慢 |
+| 无可信新鲜数据 | `unknown` 额度未知 | 空能量格，不驱动疲劳 |
+
+多个窗口按**剩余百分比最低**的一个约束能量；周期名称按服务端真实分钟数生成，不假设主窗口固定为 5 小时。额度走独立 5 分钟慢轮询（主进程合并并发、最多同时查两个槽位），成功快照超过 15 分钟、越过重置点、返回 stale 或刷新失败后都不会继续驱动猫咪疲劳。手动「刷新额度」可绕过缓存，但不会混进 8 秒活动轮询。
+
 ## 外观与自定义
 
 - 8 毛色 × 6 项圈 × 5 配饰，分层合成（[src/yard/sprites.js](../src/yard/sprites.js) 的 `drawCat`），一套像素底图靠调色板交换服务所有品种。
@@ -61,8 +76,12 @@
 ```text
 src/
   activity.js          活跃度探测（stat-only，纯 Node，可单测）
+  quota.js             官方额度响应的脱敏归一化（纯 Node）
+  codex-quota.js       Codex app-server RPC + 本地 stale 回退
+  quota-service.js     分槽位缓存、限流、并发合并与 provider 降级
   yard/
     cats.js            状态机 + 外观默认值（纯函数，UMD，可单测）
+    energy.js          额度能量轴（纯函数，UMD，可单测）
     companion.js       陪伴账本 reducer（纯函数，UMD，可单测）
     sprites.js         像素猫资产 + 分层合成
     palettes.js        时段调色板（白天/黄昏/夜晚）+ 天气枚举（渲染无关数据）
@@ -79,6 +98,7 @@ src/
 
 - 运行探测在主进程同步执行一次 `ps -axww`（本机实测约 40ms，8s 一次且仅庭院可见时）；Windows 优先走 PowerShell `Get-CimInstance Win32_Process`，旧系统才回退 `wmic`。会话记录最后活跃时间由各 app 适配器的 `latestActivityAt` 便宜取数（全账号一轮 ~12ms）。
 - `WORKING_WINDOW = 90s` 是经验值：会话记录 90 秒内活跃过就算干活。窗口越大越「黏」（活跃后余温更久），越小越灵敏，可按习惯调。
+- Codex 额度依赖本机可发现的官方 Codex CLI；CLI 不可用时可展示本地 rollout 中最后一条 rate-limit 快照，但会明确标为 stale，且不驱动猫咪疲劳。
 - 活跃度扫描在主进程同步执行（有 12000 条上限）；会话目录在网络盘上的极端情况可能有短暂卡顿。8s 轮询 + 仅可见时扫，后台不耗。
 - 账本只在庭院视图可见时推进——这是为省 CPU 刻意把轮询限定在庭院视图的直接结果。
 - 「干活中」看会话记录最后活跃、轮询 8 秒一次，所以「陪你干活 N 分钟」是估算：会话记录在两次真实活跃之间不刷新时，间隙这几分钟可能没被计入。account 状态本身不受影响，`companion` 的 10 分钟宽限也保证不会因此误判收工。

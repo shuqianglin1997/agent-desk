@@ -1,7 +1,7 @@
 name: Build & Release
 
 # Build macOS + Windows packages natively on each OS.
-# Push a version tag (e.g. v0.2.1) to build, verify, and publish installers.
+# Push a version tag (e.g. v0.2.2) to build, verify, and publish installers.
 on:
   push:
     tags:
