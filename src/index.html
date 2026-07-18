@@ -76,7 +76,10 @@
                 <span class="runtime-kicker">AGENT FLEET</span>
                 <h2>多 Agent 控制台</h2>
               </div>
-              <span id="runtimeCount" class="runtime-count">0 个实例</span>
+              <div class="runtime-head-actions">
+                <span id="runtimeCount" class="runtime-count">0 个实例</span>
+                <button id="runtimeRegistryBtn" type="button">接入 Agent</button>
+              </div>
             </header>
             <div class="runtime-launcher">
               <label>
@@ -336,6 +339,47 @@
         <div class="dialog-actions">
           <button id="copyDiagnosticsBtn" type="button">复制诊断</button>
           <button value="default" class="primary">关闭</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="agentRegistryDialog" class="wide-dialog agent-registry-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3>接入终端 Agent</h3>
+        <p class="agent-registry-lead">AgentDesk 会自动发现常用终端 Agent。支持 <b>ACP stdio</b> 的其他工具可以自定义接入；暂未支持 ACP 的交互式 CLI 仍可在多个独立 Shell 实例中运行。</p>
+        <section class="custom-agent-section" aria-label="本机 Agent 发现状态">
+          <h4>本机发现</h4>
+          <div id="discoveredAgentList" class="discovered-agent-list"></div>
+        </section>
+        <section class="custom-agent-section" aria-label="已接入的自定义 Agent">
+          <h4>自定义 ACP Agent</h4>
+          <div id="customAgentList" class="custom-agent-list">
+            <p>还没有自定义 Agent。</p>
+          </div>
+        </section>
+        <fieldset class="custom-agent-form">
+          <legend>添加 ACP Agent</legend>
+          <label>
+            显示名称
+            <input id="customAgentName" type="text" maxlength="60" placeholder="例如：团队内部 Agent" />
+          </label>
+          <label>
+            可执行文件
+            <span class="field-hint">必须由系统文件选择器授权；界面不能直接提交任意路径。</span>
+            <div class="path-input-row">
+              <input id="customAgentExecutable" type="text" readonly placeholder="尚未选择" />
+              <button id="pickCustomAgentExecutableBtn" type="button">选择</button>
+            </div>
+          </label>
+          <label>
+            ACP 启动参数（可选，每行一个）
+            <textarea id="customAgentArguments" rows="3" placeholder="例如：&#10;acp"></textarea>
+          </label>
+          <p class="field-hint">AgentDesk 使用参数数组直接启动进程，不经过 shell，也不会自动下载注册表里的软件。具体参数以该 Agent 官方 ACP 文档为准。</p>
+          <button id="confirmAddCustomAgentBtn" type="button" class="primary">添加 Agent</button>
+        </fieldset>
+        <div class="dialog-actions">
+          <button value="default" class="primary">完成</button>
         </div>
       </form>
     </dialog>

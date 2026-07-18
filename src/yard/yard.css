@@ -141,6 +141,21 @@ body[data-view="yard"] .topbar-context::before {
   min-width: 0;
 }
 
+.runtime-head .runtime-head-actions {
+  align-items: center;
+  gap: 7px;
+}
+
+body[data-view="yard"] .runtime-head-actions button {
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid #536159;
+  background: #26332e;
+  color: #c8d1cb;
+  box-shadow: none;
+  font-size: 8px;
+}
+
 .runtime-kicker {
   color: #89ad97;
   font-family: var(--font-mono);
@@ -454,6 +469,7 @@ body[data-view="yard"] .runtime-console-head button {
 
 .runtime-output [data-stream="input"] { color: #f0be7b; }
 .runtime-output [data-stream="agent"] { color: #b8dec5; }
+.runtime-output [data-stream="thought"] { color: #819a8a; font-style: italic; }
 .runtime-output [data-stream="tool"] { color: #9ab0c9; }
 .runtime-output [data-stream="stderr"] { color: #f19a87; }
 .runtime-output [data-stream="system"],

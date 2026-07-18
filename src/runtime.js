@@ -24,6 +24,12 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { resolveCodexCli } = require('./codex-quota');
 const { nearestExistingDirectory, safeStat } = require('./path-utils');
+const { connectAcpChild } = require('./acp-client');
+const {
+  ACP_PRESETS,
+  cliCandidates,
+  normalizeCustomAgentList
+} = require('./agent-registry');
 
 const MAX_RUNTIME_SESSIONS = 12;
 const MAX_RUNTIME_INPUT_BYTES = 32 * 1024;
@@ -78,6 +84,8 @@ function claudeCliCandidates(options = {}) {
 
 function resolveExecutableCandidates(candidates, options = {}) {
   const fs_ = options.fs || fs;
+  const platform = options.platform || process.platform;
+  const env = options.env || process.env;
   for (const candidate of candidates) {
     try {
       if (!fs_.statSync(candidate.path).isFile()) continue;
@@ -88,6 +96,15 @@ function resolveExecutableCandidates(candidates, options = {}) {
           command: options.nodeExecutable || process.execPath,
           prefixArgs: [realPath],
           extraEnv: { ELECTRON_RUN_AS_NODE: '1' },
+          path: candidate.path,
+          source: candidate.source
+        };
+      }
+      if (platform === 'win32' && /\.(?:cmd|bat)$/i.test(candidate.path)) {
+        return {
+          command: env.ComSpec || env.COMSPEC || 'cmd.exe',
+          prefixArgs: ['/D', '/S', '/C', candidate.path],
+          extraEnv: {},
           path: candidate.path,
           source: candidate.source
         };
@@ -169,6 +186,8 @@ function publicAdapter(adapter) {
     caution: adapter.caution || '',
     source: adapter.source || '',
     identityAppId: adapter.identityAppId || null,
+    protocol: adapter.transport || adapter.mode,
+    custom: Boolean(adapter.custom),
     supportsMultiple: true
   };
 }
@@ -236,7 +255,13 @@ class RuntimeService {
     this.spawnImpl = options.spawnImpl || spawn;
     this.resolveCodex = options.resolveCodex || resolveCodexCli;
     this.resolveClaude = options.resolveClaude || resolveClaudeCli;
+    this.resolveExecutable = options.resolveExecutable || resolveExecutableCandidates;
     this.shellSpec = options.shellSpec || shellLaunchSpec;
+    this.getCustomAgents = options.getCustomAgents || (() => []);
+    this.connectAcp = options.connectAcp || connectAcpChild;
+    this.loadAcpSdk = options.loadAcpSdk;
+    this.requestPermission = options.requestPermission || (async () => ({ outcome: { outcome: 'cancelled' } }));
+    this.getClientVersion = options.getClientVersion || (() => '0.0.0');
     this.randomUUID = options.randomUUID || crypto.randomUUID;
     this.now = options.now || Date.now;
     this.onEvent = options.onEvent || (() => {});
@@ -256,6 +281,7 @@ class RuntimeService {
       caution: '命令会直接在本机执行，请只粘贴你理解并信任的内容。',
       source: shell.source,
       identityAppId: null,
+      transport: 'shell',
       launcher: shell
     }];
 
@@ -265,6 +291,7 @@ class RuntimeService {
       label: 'Codex',
       mode: 'agent',
       identityAppId: 'codex',
+      transport: 'direct',
       available: Boolean(codexLauncher),
       detail: codexLauncher
         ? (profile?.appId === 'codex'
@@ -282,6 +309,7 @@ class RuntimeService {
       label: 'Claude Code',
       mode: 'agent',
       identityAppId: 'claude',
+      transport: 'direct',
       available: Boolean(claudeLauncher),
       detail: claudeLauncher
         ? (profile?.appId === 'claude'
@@ -292,6 +320,57 @@ class RuntimeService {
       source: claudeLauncher?.source || '',
       launcher: claudeLauncher
     });
+
+    for (const preset of ACP_PRESETS) {
+      const launcher = this.resolveExecutable(cliCandidates(preset.names, {
+        platform: this.platform,
+        env: this.env,
+        envKeys: preset.envKeys
+      }), {
+        platform: this.platform,
+        env: this.env
+      });
+      output.push({
+        id: preset.id,
+        label: preset.label,
+        mode: 'agent',
+        transport: 'acp',
+        identityAppId: null,
+        available: Boolean(launcher),
+        detail: launcher
+          ? `${preset.detail}；支持独立工作区和多个并行实例`
+          : `没有找到 ${preset.label} CLI`,
+        caution: '通过 Agent Client Protocol 连接；文件修改和命令权限会单独询问。',
+        source: launcher?.source || 'ACP 官方注册表',
+        launcher: launcher ? {
+          ...launcher,
+          prefixArgs: [...(launcher.prefixArgs || []), ...preset.args]
+        } : null
+      });
+    }
+
+    for (const definition of normalizeCustomAgentList(this.getCustomAgents())) {
+      const launcher = this.resolveExecutable([{ path: definition.executable, source: '用户接入' }], {
+        platform: this.platform,
+        env: this.env
+      });
+      output.push({
+        id: `custom:${definition.id}`,
+        label: definition.name,
+        mode: 'agent',
+        transport: 'acp',
+        identityAppId: null,
+        custom: true,
+        available: Boolean(launcher),
+        detail: launcher ? '用户接入的 ACP Agent' : '自定义 Agent 可执行文件已失效',
+        caution: '这是用户自行接入的本机程序；请确认来源可信。',
+        source: definition.executable,
+        launcher: launcher ? {
+          ...launcher,
+          prefixArgs: [...(launcher.prefixArgs || []), ...definition.args]
+        } : null
+      });
+    }
     return output;
   }
 
@@ -324,15 +403,17 @@ class RuntimeService {
       adapterId: adapter.id,
       adapterLabel: adapter.label,
       mode: adapter.mode,
+      transport: adapter.transport || adapter.mode,
       launcher: adapter.launcher,
       cwd: input.cwd,
       workspaceProfileId: input.workspaceProfileId || null,
       workspaceName: input.workspaceName || null,
       workspaceSource: input.workspaceSource || null,
       title: String(input.title || '').trim() || `${adapter.label} · ${path.basename(input.cwd || '') || 'Agent'}`,
-      status: adapter.mode === 'shell' ? 'starting' : 'ready',
+      status: adapter.transport === 'acp' || adapter.mode === 'shell' ? 'starting' : 'ready',
       startedAt: this.now(),
       child: null,
+      acp: null,
       conversationId: null,
       stdoutBuffer: '',
       stderrBuffer: '',
@@ -347,7 +428,8 @@ class RuntimeService {
       stream: 'system',
       text: `${adapter.label} · ${runtime.cwd}\n`
     });
-    if (adapter.mode === 'shell') this.startShell(runtime);
+    if (runtime.transport === 'shell') this.startShell(runtime);
+    else if (runtime.transport === 'acp') void this.startAcp(runtime);
     else this.emitState(runtime);
     return this.publicRuntime(runtime);
   }
@@ -360,7 +442,7 @@ class RuntimeService {
       throw codedError('RUNTIME_INPUT_TOO_LARGE', '单次输入不能超过 32 KB');
     }
 
-    if (runtime.mode === 'shell') {
+    if (runtime.transport === 'shell') {
       if (runtime.status !== 'running' || !runtime.child?.stdin?.writable) {
         throw codedError('RUNTIME_NOT_RUNNING', '终端尚未运行或已经退出');
       }
@@ -376,8 +458,12 @@ class RuntimeService {
     if (runtime.status === 'stopped') {
       throw codedError('RUNTIME_STOPPED', '这个运行环境已经停止');
     }
+    if (runtime.status !== 'ready') {
+      throw codedError('RUNTIME_NOT_READY', 'Agent 尚未准备好，请等待连接完成');
+    }
     this.emit(runtime, { type: 'output', stream: 'input', text: `你：${text}\n` });
-    this.startAgentTurn(runtime, text);
+    if (runtime.transport === 'acp') this.startAcpTurn(runtime, text);
+    else this.startAgentTurn(runtime, text);
     return this.publicRuntime(runtime);
   }
 
@@ -432,6 +518,128 @@ class RuntimeService {
     runtime.status = 'running';
     this.bindChild(runtime, child, { structured: false, persistent: true });
     this.emitState(runtime);
+  }
+
+  async startAcp(runtime) {
+    let child;
+    try {
+      child = this.spawnImpl(runtime.launcher.command, runtime.launcher.prefixArgs || [], {
+        cwd: runtime.cwd,
+        env: this.runtimeEnv(runtime),
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+    } catch (error) {
+      this.failStart(runtime, error);
+      return;
+    }
+    runtime.child = child;
+    this.bindAcpChild(runtime, child);
+    this.emitState(runtime);
+    try {
+      const acp = await this.connectAcp(child, {
+        cwd: runtime.cwd,
+        loadSdk: this.loadAcpSdk,
+        clientVersion: this.getClientVersion(),
+        requestPermission: (params) => this.requestPermission(runtime, params)
+      });
+      if (runtime.child !== child || !this.sessions.has(runtime.id)) {
+        try { acp.close(); } catch (_error) { /* runtime was stopped during handshake */ }
+        return;
+      }
+      runtime.acp = acp;
+      runtime.conversationId = acp.session.sessionId;
+      runtime.agentInfo = acp.initializeResult?.agentInfo || null;
+      runtime.status = 'ready';
+      this.emit(runtime, {
+        type: 'output',
+        stream: 'system',
+        text: `[ACP 已连接${runtime.agentInfo?.name ? `：${runtime.agentInfo.name}` : ''}]\n`
+      });
+      this.emitState(runtime);
+    } catch (error) {
+      if (runtime.child === child && this.sessions.has(runtime.id)) this.failStart(runtime, error);
+    }
+  }
+
+  bindAcpChild(runtime, child) {
+    child.stderr?.on('data', (chunk) => {
+      if (runtime.child !== child) return;
+      this.emit(runtime, { type: 'output', stream: 'stderr', text: stripAnsi(chunk) });
+    });
+    child.once('error', (error) => {
+      if (runtime.child === child && this.sessions.has(runtime.id)) this.failStart(runtime, error);
+    });
+    child.once('close', (code, signal) => {
+      if (runtime.child !== child) return;
+      runtime.child = null;
+      try { runtime.acp?.close(); } catch (_error) { /* connection already closed */ }
+      runtime.acp = null;
+      if (runtime.status === 'stopped') return;
+      runtime.status = code === 0 ? 'exited' : 'error';
+      if (code !== 0) {
+        this.emit(runtime, {
+          type: 'output',
+          stream: 'stderr',
+          text: `\n[ACP 进程退出：${code ?? signal ?? '未知'}]\n`
+        });
+      }
+      this.emitState(runtime, { exitCode: code, signal });
+      this.sessions.delete(runtime.id);
+    });
+  }
+
+  startAcpTurn(runtime, prompt) {
+    if (!runtime.acp) throw codedError('RUNTIME_NOT_READY', 'ACP Agent 尚未连接');
+    runtime.status = 'running';
+    runtime.turnAgentMessages = 0;
+    this.emitState(runtime);
+    runtime.acp.prompt(prompt, (event) => this.consumeAcpEvent(runtime, event))
+      .then((response) => {
+        if (!this.sessions.has(runtime.id) || runtime.status === 'stopped') return;
+        if (runtime.turnAgentMessages > 0) {
+          this.emit(runtime, { type: 'output', stream: 'agent', text: '\n' });
+        }
+        if (response?.stopReason && response.stopReason !== 'end_turn') {
+          this.emit(runtime, {
+            type: 'output',
+            stream: 'system',
+            text: `[本轮结束：${response.stopReason}]\n`
+          });
+        }
+        runtime.status = 'ready';
+        this.emitState(runtime, { stopReason: response?.stopReason || null });
+      })
+      .catch((error) => {
+        if (!this.sessions.has(runtime.id) || runtime.status === 'stopped') return;
+        this.emit(runtime, {
+          type: 'output',
+          stream: 'stderr',
+          text: `${error?.message || 'ACP Agent 本轮执行失败'}\n`
+        });
+        // A failed turn does not necessarily invalidate the ACP process. Keep
+        // the instance available so the user can retry or inspect it.
+        runtime.status = runtime.child ? 'ready' : 'error';
+        this.emitState(runtime, { code: error?.code || 'ACP_TURN_FAILED' });
+      });
+  }
+
+  consumeAcpEvent(runtime, event) {
+    if (!event || !this.sessions.has(runtime.id)) return;
+    if (event.type === 'title' && event.title) {
+      runtime.title = event.title;
+      this.emitState(runtime);
+      return;
+    }
+    if (event.type === 'usage') {
+      runtime.usage = event.usage;
+      this.emitState(runtime, { usage: event.usage });
+      return;
+    }
+    if (event.stream && event.text) {
+      if (event.stream === 'agent') runtime.turnAgentMessages += 1;
+      this.emit(runtime, { type: 'output', stream: event.stream, text: event.text });
+    }
   }
 
   startAgentTurn(runtime, prompt) {
@@ -590,6 +798,12 @@ class RuntimeService {
   }
 
   failStart(runtime, error) {
+    const child = runtime.child;
+    runtime.child = null;
+    try { runtime.acp?.close(); } catch (_error) { /* connection may be half-open */ }
+    runtime.acp = null;
+    try { child?.stdin?.end(); } catch (_error) { /* already closed */ }
+    try { child?.kill(); } catch (_error) { /* already exited */ }
     runtime.status = 'error';
     this.emit(runtime, {
       type: 'output',
@@ -604,6 +818,13 @@ class RuntimeService {
     runtime.status = status;
     const child = runtime.child;
     runtime.child = null;
+    if (runtime.acp) {
+      try {
+        Promise.resolve(runtime.acp.cancel()).catch(() => {});
+      } catch (_error) { /* Agent may already have closed synchronously */ }
+      try { runtime.acp.close(); } catch (_error) { /* connection already closed */ }
+      runtime.acp = null;
+    }
     if (child) {
       try { child.stdin?.end(); } catch (_error) { /* already closed */ }
       try { child.kill(); } catch (_error) { /* already exited */ }
@@ -660,6 +881,10 @@ class RuntimeService {
     const child = runtime.child;
     runtime.child = null;
     runtime.status = 'error';
+    if (runtime.acp) {
+      try { runtime.acp.close(); } catch (_error) { /* connection already closed */ }
+      runtime.acp = null;
+    }
     try { child?.stdin?.end(); } catch (_error) { /* already closed */ }
     try { child?.kill(); } catch (_error) { /* already exited */ }
     this.sessions.delete(runtime.id);
@@ -685,6 +910,7 @@ class RuntimeService {
       adapterId: runtime.adapterId,
       adapterLabel: runtime.adapterLabel,
       mode: runtime.mode,
+      protocol: runtime.transport,
       title: runtime.title,
       cwd: runtime.cwd,
       workspaceProfileId: runtime.workspaceProfileId,
@@ -692,6 +918,7 @@ class RuntimeService {
       workspaceSource: runtime.workspaceSource,
       status: runtime.status,
       conversationId: runtime.conversationId,
+      agentInfo: runtime.agentInfo || null,
       startedAt: runtime.startedAt
     };
   }
