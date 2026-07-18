@@ -262,21 +262,25 @@ function registerIpc() {
   });
 
   ipcMain.handle('runtime:adapters', (_event, input = {}) => {
-    const profile = storedProfile(input.profileId);
-    if (!profile) return [];
+    const profile = input.profileId ? storedProfile(input.profileId) : null;
     return runtimeService.listAdapters(profile);
   });
 
+  ipcMain.handle('runtime:list', () => {
+    return runtimeService.list();
+  });
+
   ipcMain.handle('runtime:start', async (_event, input = {}) => {
-    const profile = storedProfile(input.profileId);
-    if (!profile) return { ok: false, reason: '找不到账号槽位' };
-    if (!await confirmRuntimeAccess()) return { ok: false, cancelled: true, reason: '已取消开启内嵌终端' };
+    const profile = input.profileId ? storedProfile(input.profileId) : null;
+    if (input.profileId && !profile) return { ok: false, reason: '找不到要绑定的身份槽位' };
+    if (!await confirmRuntimeAccess()) return { ok: false, cancelled: true, reason: '已取消开启 Agent 运行环境' };
     try {
-      const sessions = safeScanSessions(profile);
+      const sessions = profile ? safeScanSessions(profile) : [];
       const cwd = resolveRuntimeCwd(profile, sessions, input.sessionId);
       return runtimeService.start(profile, {
         adapterId: String(input.adapterId || ''),
-        cwd: cwd.path
+        cwd: cwd.path,
+        title: input.title
       });
     } catch (error) {
       return runtimeErrorResult(error);
@@ -284,20 +288,16 @@ function registerIpc() {
   });
 
   ipcMain.handle('runtime:send', (_event, input = {}) => {
-    const profile = storedProfile(input.profileId);
-    if (!profile) return { ok: false, reason: '找不到账号槽位' };
     try {
-      return runtimeService.send(profile, input.runtimeId, input.text);
+      return runtimeService.send(input.runtimeId, input.text);
     } catch (error) {
       return runtimeErrorResult(error);
     }
   });
 
   ipcMain.handle('runtime:stop', (_event, input = {}) => {
-    const profile = storedProfile(input.profileId);
-    if (!profile) return { ok: false, reason: '找不到账号槽位' };
     try {
-      return runtimeService.stop(profile, input.runtimeId);
+      return runtimeService.stop(input.runtimeId);
     } catch (error) {
       return runtimeErrorResult(error);
     }
@@ -361,10 +361,10 @@ async function confirmRuntimeAccess() {
   if (runtimeConsentGranted) return true;
   const result = await dialog.showMessageBox(mainWindow, {
     type: 'warning',
-    title: '开启内嵌终端',
-    message: '内嵌终端可以执行本机命令',
-    detail: 'Shell 中输入的命令会直接运行；Agent 模式可能在当前项目目录读写文件。请只在你信任当前项目和输入内容时开启。',
-    buttons: ['取消', '我了解，开启'],
+    title: '开启本机 Agent',
+    message: 'Agent 控制台可以同时运行多个本机进程',
+    detail: 'Shell 中输入的命令会直接运行；Codex、Claude Code 等 Agent 可能在各自工作区读写文件。每个实例都会显示身份、目录与状态，请只运行你信任的 Agent 和项目。',
+    buttons: ['取消', '我了解，开启 Agent'],
     cancelId: 0,
     defaultId: 0,
     noLink: true
@@ -377,7 +377,7 @@ function runtimeErrorResult(error) {
   return {
     ok: false,
     code: error?.code || 'RUNTIME_ERROR',
-    reason: error?.message || '内嵌运行环境发生错误'
+    reason: error?.message || 'Agent 运行环境发生错误'
   };
 }
 
