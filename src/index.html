@@ -9,15 +9,26 @@
   </head>
   <body>
     <div class="app-shell">
+      <header class="app-topbar">
+        <div class="topbar-brand" aria-label="AgentDesk">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+          <span><b>AgentDesk</b><small>AGENT WORKSPACE</small></span>
+        </div>
+        <p id="topbarContext" class="topbar-context">猫猫庭院 · 本地账号与会话</p>
+        <nav class="topbar-actions" aria-label="全局操作">
+          <button id="leaderboardBtn" type="button" title="各账号今日工作量排行榜">🏆 <span>排行</span></button>
+          <button id="updateBtn" type="button" title="检查 GitHub 更新">↻ <span>更新</span></button>
+          <button id="viewToggle" type="button" title="切换 猫猫庭院 / 经典视图">⇄ <span>经典</span></button>
+          <button id="helpBtn" class="icon-toggle" type="button" title="使用说明">?</button>
+          <button id="themeToggle" class="icon-toggle" type="button" title="切换深色 / 浅色">◐</button>
+        </nav>
+      </header>
+
       <aside class="sidebar">
         <header class="sidebar-head">
           <div>
-            <h1>AgentDesk</h1>
+            <h1>账号</h1>
             <p>Claude / Codex 本地槽位</p>
-          </div>
-          <div class="sidebar-head-actions">
-            <button id="helpBtn" class="icon-toggle" type="button" title="使用说明">?</button>
-            <button id="themeToggle" class="icon-toggle" type="button" title="切换深色 / 浅色">◐</button>
           </div>
         </header>
 
@@ -43,6 +54,7 @@
                 <button type="button" data-time="night">夜晚</button>
               </div>
               <div class="atmos-row" id="atmosWeather" role="group" aria-label="天气">
+                <button type="button" data-weather="auto">自动</button>
                 <button type="button" data-weather="clear">晴</button>
                 <button type="button" data-weather="cloudy">多云</button>
                 <button type="button" data-weather="rain">雨</button>
@@ -60,7 +72,9 @@
           </div>
         </section>
 
+        <div class="workspace-panel">
         <section class="account-bar">
+          <div id="yardAccountStrip" class="yard-account-strip" aria-label="庭院账号快速切换"></div>
           <div class="account-heading">
             <h2 id="accountTitle">未选择账号</h2>
             <p id="accountMeta"></p>
@@ -84,9 +98,6 @@
             <button id="diagnosticsBtn">诊断</button>
             <button id="profileFolderBtn">位置</button>
             <button id="refreshBtn">刷新</button>
-            <button id="updateBtn" type="button" title="检查 GitHub 更新">↻ 更新</button>
-            <button id="leaderboardBtn" title="各账号今日工作量排行榜">🏆 排行榜</button>
-            <button id="viewToggle" title="切换 猫猫庭院 / 经典视图">⇄ 经典视图</button>
           </div>
         </section>
 
@@ -144,6 +155,7 @@
               <button id="openSessionFileBtn">打开所在位置</button>
             </div>
           </aside>
+        </div>
         </div>
 
         <footer id="statusBar" class="status-bar">就绪</footer>
@@ -301,6 +313,8 @@
     <script src="./yard/companion.js"></script>
     <script src="./yard/workload.js"></script>
     <script src="./yard/palettes.js"></script>
+    <script src="./yard/atmosphere.js"></script>
+    <script src="./yard/interactions.js"></script>
     <script src="./yard/scene.js"></script>
     <script src="./renderer.js"></script>
   </body>

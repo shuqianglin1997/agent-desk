@@ -33,9 +33,10 @@ body[data-view="yard"] {
   --yd-shadow: rgba(0, 0, 0, 0.45);
 }
 
-/* ── 布局：隐藏侧栏，上庭院 / 中账号条 / 下日志板 ── */
+/* ── 布局：左侧完整庭院 + 右侧可滚动信息轨道 ── */
 body[data-view="yard"] .app-shell {
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 48px minmax(0, 1fr);
 }
 
 body[data-view="yard"] .sidebar {
@@ -43,12 +44,60 @@ body[data-view="yard"] .sidebar {
 }
 
 body[data-view="yard"] .workspace {
-  grid-template-rows: auto auto minmax(0, 1fr) 28px;
+  grid-column: 1;
+  grid-row: 2;
+  grid-template-columns: minmax(0, 3fr) minmax(340px, 1fr);
+  grid-template-rows: minmax(0, 1fr) 28px;
+  background: color-mix(in srgb, var(--yd-panel) 72%, #dfe7e1);
+}
+
+body[data-view="yard"] .workspace-panel {
+  grid-column: 2;
+  grid-row: 1;
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: 3px solid var(--yd-line);
+  background: var(--yd-panel);
+}
+
+body[data-view="yard"] .status-bar {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+body[data-view="yard"] .app-topbar {
+  border-bottom: 2px solid var(--yd-line);
+  background: color-mix(in srgb, var(--yd-panel) 92%, white);
+  backdrop-filter: none;
+}
+
+:root[data-theme="dark"] body[data-view="yard"] .app-topbar {
+  background: var(--yd-panel2);
+}
+
+body[data-view="yard"] .topbar-actions button {
+  border-radius: 3px;
+  box-shadow: none;
+}
+
+body[data-view="yard"] .topbar-context::before {
+  border-radius: 0;
 }
 
 /* ── 庭院画布 ── */
 .yard-stage {
-  padding: 12px 16px 0;
+  grid-column: 1;
+  grid-row: 1;
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 18px 20px;
 }
 
 .yard-frame {
@@ -56,7 +105,8 @@ body[data-view="yard"] .workspace {
   border: 3px solid var(--yd-line, #33261a);
   box-shadow: 0 4px 0 var(--yd-shadow, rgba(51, 38, 26, 0.25));
   background: #000;
-  max-width: 1280px;
+  width: 100%;
+  max-width: 1440px;
   margin: 0 auto;
 }
 
@@ -64,8 +114,13 @@ body[data-view="yard"] .workspace {
   display: block;
   width: 100%;
   height: auto;
+  touch-action: none;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+}
+
+.yard-frame canvas.is-dragging {
+  cursor: grabbing !important;
 }
 
 .yard-overlay {
@@ -232,14 +287,203 @@ body[data-view="yard"] .workspace {
   pointer-events: none;
 }
 
+/* Semantic hit areas only appear while a cat is being dragged. They are an
+ * interaction aid, never permanent scenery or an art reference. */
+.yard-drop-zone {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  place-content: center;
+  min-width: 48px;
+  border: 2px dashed rgba(255, 247, 224, 0.88);
+  background: rgba(51, 38, 26, 0.34);
+  color: #fff7e0;
+  text-align: center;
+  text-shadow: 0 1px 1px #33261a;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(51, 38, 26, 0.3);
+}
+
+.yard-drop-zone[hidden] {
+  display: none;
+}
+
+.yard-drop-zone b {
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.yard-drop-zone small {
+  margin-top: 2px;
+  font-size: 8px;
+  line-height: 1.2;
+  opacity: 0.82;
+}
+
+.yard-drop-zone.active {
+  border-style: solid;
+  border-color: #ffd98a;
+  background: rgba(217, 111, 51, 0.72);
+  box-shadow: 0 0 0 2px rgba(51, 38, 26, 0.45), inset 0 0 0 1px rgba(255, 247, 224, 0.45);
+}
+
+#yardOverlay .yard-speech {
+  position: absolute;
+  z-index: 7;
+  transform: translate(-50%, -100%);
+  width: max-content;
+  max-width: min(180px, 36%);
+  height: auto;
+  min-height: 25px;
+  padding: 5px 8px;
+  border: 2px solid #33261a;
+  border-radius: 7px;
+  background: #fffaf0;
+  color: #33261a;
+  box-shadow: 0 3px 0 rgba(51, 38, 26, 0.3);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: normal;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#yardOverlay .yard-speech::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 4px);
+  top: 100%;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #33261a;
+  border-bottom: 2px solid #33261a;
+  background: inherit;
+  transform: translateY(-4px) rotate(45deg);
+}
+
+#yardOverlay .yard-speech[data-kind="ambient"] {
+  opacity: 0.9;
+  font-weight: 600;
+}
+
+#yardOverlay .yard-speech[data-kind="warning"] {
+  border-color: #765019;
+  background: #fff0bd;
+}
+
+#yardOverlay .yard-speech[data-kind="error"] {
+  border-color: #7a2e25;
+  background: #ffd8cf;
+  color: #69271f;
+}
+
 /* ── 像素皮肤：账号条 / 按钮 / 表格 / 状态栏 ── */
 body[data-view="yard"] .account-bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 14px;
+  padding: 16px;
   background: var(--yd-panel2);
   border-bottom: 3px solid var(--yd-line);
   backdrop-filter: none;
 }
 
+body[data-view="yard"] .yard-account-strip {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  margin: -3px -3px 0;
+  padding: 3px 3px 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+body[data-view="yard"] .yard-account-chip {
+  position: relative;
+  flex: 0 0 auto;
+  max-width: 150px;
+  height: 30px;
+  gap: 6px;
+  padding: 0 9px;
+  border-width: 2px;
+  background: var(--yd-panel);
+  color: var(--yd-ink);
+  box-shadow: 0 2px 0 var(--yd-shadow);
+}
+
+body[data-view="yard"] .yard-account-chip b {
+  overflow: hidden;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+}
+
+.yard-account-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border: 1px solid #33261a;
+}
+
+body[data-view="yard"] .yard-account-chip.selected {
+  background: #ffd98a;
+  color: #33261a;
+}
+
+body[data-view="yard"] .yard-account-chip[data-state="working"]::after,
+body[data-view="yard"] .yard-account-chip[data-state="confused"]::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: 3px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid #33261a;
+  background: #6d9440;
+}
+
+body[data-view="yard"] .yard-account-chip[data-state="confused"]::after {
+  background: #c94f2e;
+}
+
+body[data-view="yard"] .account-heading h2 {
+  font-size: 22px;
+  white-space: normal;
+}
+
+body[data-view="yard"] .account-heading code,
+body[data-view="yard"] .account-heading p {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+body[data-view="yard"] .account-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  white-space: normal;
+}
+
+body[data-view="yard"] .account-actions button {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+}
+
+body[data-view="yard"] #launchBtn {
+  grid-column: 1 / -1;
+  height: 38px;
+  font-size: 13px;
+}
+
+body[data-view="yard"] #removeProfileBtn {
+  color: color-mix(in srgb, var(--yd-on-wood) 72%, #f0907a);
+}
+
 body[data-view="yard"] .quota-summary {
+  max-width: none;
   border-top: 2px solid color-mix(in srgb, var(--yd-line) 35%, transparent);
 }
 
@@ -320,6 +564,105 @@ body[data-view="yard"] .table-wrap {
   box-shadow: 0 4px 0 var(--yd-shadow);
 }
 
+body[data-view="yard"] .main-grid {
+  display: block;
+  min-height: auto;
+}
+
+body[data-view="yard"] .session-pane {
+  display: grid;
+  min-height: 0;
+  padding: 16px;
+  border-bottom: 3px solid var(--yd-line);
+}
+
+body[data-view="yard"] .session-toolbar {
+  grid-template-columns: 1fr;
+}
+
+body[data-view="yard"] .session-toolbar input {
+  width: 100%;
+}
+
+body[data-view="yard"] .table-wrap {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+body[data-view="yard"] table {
+  display: block;
+  min-width: 0;
+}
+
+body[data-view="yard"] thead {
+  display: none;
+}
+
+body[data-view="yard"] tbody {
+  display: grid;
+}
+
+body[data-view="yard"] tbody tr {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  min-width: 0;
+  min-height: 62px;
+  padding: 10px 11px;
+  border-bottom: 1px solid color-mix(in srgb, var(--yd-line) 25%, transparent);
+}
+
+body[data-view="yard"] tbody tr:last-child {
+  border-bottom: 0;
+}
+
+body[data-view="yard"] tbody td {
+  display: none;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+body[data-view="yard"] tbody td:nth-child(1),
+body[data-view="yard"] tbody td:nth-child(2),
+body[data-view="yard"] tbody td:nth-child(4) {
+  display: block;
+}
+
+body[data-view="yard"] tbody td:nth-child(1) {
+  grid-column: 1 / -1;
+  padding-right: 4px;
+  font-size: 12px;
+}
+
+body[data-view="yard"] tbody td:nth-child(2) {
+  color: var(--yd-ink2);
+  font-size: 9.5px;
+}
+
+body[data-view="yard"] tbody td:nth-child(4) {
+  max-width: 180px;
+  color: var(--yd-ink2);
+  font-size: 9px;
+  text-align: right;
+}
+
+body[data-view="yard"] tbody tr.empty-row {
+  display: block;
+  min-height: 100px;
+}
+
+body[data-view="yard"] tbody tr.empty-row td {
+  display: grid;
+  height: 100px;
+  place-items: center;
+  padding: 14px;
+  white-space: normal;
+}
+
 body[data-view="yard"] thead {
   background: var(--yd-panel2);
   backdrop-filter: none;
@@ -351,8 +694,14 @@ body[data-view="yard"] input:focus {
 }
 
 body[data-view="yard"] .inspector {
-  border-left: 3px solid var(--yd-line);
+  min-height: 420px;
+  border-left: 0;
+  border-top: 0;
   background: var(--yd-panel2);
+}
+
+body[data-view="yard"] .inspector dl {
+  max-height: 330px;
 }
 
 body[data-view="yard"] .status-bar {
@@ -373,7 +722,8 @@ body[data-view="yard"] .status-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  max-width: 1280px;
+  width: 100%;
+  max-width: 1440px;
   margin: 8px auto 0;
   padding: 6px 12px;
   border: 3px solid var(--yd-line, #33261a);
@@ -616,4 +966,80 @@ body[data-view="yard"] .status-bar {
 .cc-swatch:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+@media (max-width: 1100px) {
+  body[data-view="yard"] .workspace {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .yard-stage {
+    padding: 12px;
+  }
+
+  .yard-atmos {
+    top: 5px;
+    right: 5px;
+  }
+
+  .yard-atmos button {
+    min-width: 30px;
+    padding: 0 6px;
+    font-size: 9.5px;
+  }
+}
+
+@media (max-width: 900px) {
+  body[data-view="yard"] .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) 28px;
+  }
+
+  body[data-view="yard"] .yard-stage {
+    grid-column: 1;
+    grid-row: 1;
+    align-content: start;
+    padding: 9px 10px 11px;
+  }
+
+  body[data-view="yard"] .workspace-panel {
+    grid-column: 1;
+    grid-row: 2;
+    border-top: 3px solid var(--yd-line);
+    border-left: 0;
+  }
+
+  body[data-view="yard"] .status-bar {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .yard-ledger {
+    margin-top: 6px;
+  }
+}
+
+@media (max-width: 620px) {
+  .yard-ledger {
+    flex-wrap: wrap;
+  }
+
+  .yard-ledger .ledger-spacer {
+    display: none;
+  }
+
+  .yard-ledger .ledger-toggle {
+    margin-left: auto;
+  }
+
+  #yardOverlay .yard-nameplate {
+    max-width: 78px;
+    padding: 0 4px;
+    font-size: 8.5px;
+  }
+
+  #yardOverlay .yard-speech {
+    max-width: 45%;
+    font-size: 8.5px;
+  }
 }

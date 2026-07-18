@@ -213,12 +213,120 @@ button.danger:hover:not(:disabled) {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 288px minmax(720px, 1fr);
+  grid-template-columns: 268px minmax(720px, 1fr);
+  grid-template-rows: 48px minmax(0, 1fr);
   height: 100vh;
+}
+
+/* ── global command bar ────────────────────────────── */
+.app-topbar {
+  z-index: 20;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+  padding: 0 14px 0 16px;
+  border-bottom: 1px solid var(--line-mid);
+  background: color-mix(in oklab, var(--surface-glass) 93%, var(--surface-raised));
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.08);
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--surface-raised) 80%, transparent);
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 172px;
+}
+
+.brand-mark {
+  position: relative;
+  width: 29px;
+  height: 29px;
+  flex: none;
+  border: 2px solid #4a2f20;
+  background: #dc6b35;
+  box-shadow: 2px 2px 0 color-mix(in oklab, #4a2f20 28%, transparent);
+}
+
+.brand-mark::before,
+.brand-mark::after,
+.brand-mark i {
+  content: "";
+  position: absolute;
+  background: #fff2d8;
+}
+
+.brand-mark::before { left: 6px; top: 7px; width: 5px; height: 5px; }
+.brand-mark::after { right: 6px; top: 7px; width: 5px; height: 5px; }
+.brand-mark i:first-child { left: 8px; right: 8px; bottom: 6px; height: 3px; }
+.brand-mark i:last-child { display: none; }
+
+.topbar-brand > span:last-child {
+  display: grid;
+  line-height: 1;
+}
+
+.topbar-brand b {
+  font-size: 15px;
+  letter-spacing: -0.015em;
+}
+
+.topbar-brand small {
+  margin-top: 4px;
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.topbar-context {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink-tertiary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-context::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border: 1px solid color-mix(in oklab, var(--success) 75%, var(--ink-primary));
+  background: var(--success);
+  vertical-align: 0;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.topbar-actions button {
+  height: 27px;
+  padding: 0 9px;
+  box-shadow: none;
+  font-size: 10.5px;
+}
+
+.topbar-actions .icon-toggle {
+  width: 28px;
+  padding: 0;
 }
 
 /* ── sidebar (glass chrome) ─────────────────────────── */
 .sidebar {
+  grid-column: 1;
+  grid-row: 2;
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 14px;
@@ -405,11 +513,24 @@ button.danger:hover:not(:disabled) {
 
 /* ── workspace ──────────────────────────────────────── */
 .workspace {
+  grid-column: 2;
+  grid-row: 2;
   display: grid;
-  grid-template-rows: auto 1fr 28px;
+  grid-template-rows: minmax(0, 1fr) 28px;
   min-width: 0;
   min-height: 0;
   background: var(--surface-canvas);
+}
+
+.workspace-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.yard-account-strip {
+  display: none;
 }
 
 .account-bar {
@@ -1131,4 +1252,74 @@ dialog::backdrop {
   font-family: var(--font-mono);
   font-size: 11.5px;
   white-space: pre-wrap;
+}
+
+@media (max-width: 1160px) {
+  .app-shell {
+    grid-template-columns: 232px minmax(680px, 1fr);
+  }
+
+  .account-bar {
+    gap: 12px;
+    padding-right: 16px;
+    padding-left: 18px;
+  }
+
+  .account-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 330px;
+  }
+
+  .account-actions button {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  .main-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 290px);
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+
+  .topbar-context {
+    display: none;
+  }
+
+  .app-topbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .main-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body[data-view="classic"] .inspector {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .app-topbar {
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  .topbar-brand {
+    min-width: 0;
+  }
+
+  .topbar-brand small,
+  .topbar-actions button span {
+    display: none;
+  }
+
+  .topbar-actions button {
+    width: 29px;
+    padding: 0;
+  }
 }

@@ -6,20 +6,23 @@
  * the packaged executable path and safe across portable updates.
  */
 
-const SETTINGS_VERSION = 1;
+const { normalizePositions } = require('./yard/interactions');
+
+const SETTINGS_VERSION = 2;
 const THEMES = new Set(['light', 'dark']);
 const VIEWS = new Set(['yard', 'classic']);
 const YARD_TIMES = new Set(['auto', 'day', 'dusk', 'night']);
-const YARD_WEATHER = new Set(['clear', 'cloudy', 'rain', 'snow']);
+const YARD_WEATHER = new Set(['auto', 'clear', 'cloudy', 'rain', 'snow']);
 
 const DEFAULT_SETTINGS = Object.freeze({
   theme: null,
   view: 'yard',
   remindersOn: true,
   atmosTime: 'auto',
-  atmosWeather: 'clear',
+  atmosWeather: 'auto',
   welcomed: false,
-  ledger: null
+  ledger: null,
+  yardPositions: Object.freeze({})
 });
 
 function isPlainObject(value) {
@@ -80,7 +83,8 @@ function normalizeSettings(value) {
       ? input.atmosWeather
       : DEFAULT_SETTINGS.atmosWeather,
     welcomed: input.welcomed === true,
-    ledger: normalizeLedger(input.ledger)
+    ledger: normalizeLedger(input.ledger),
+    yardPositions: normalizePositions(input.yardPositions)
   };
 }
 
