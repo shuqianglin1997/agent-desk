@@ -18,7 +18,11 @@ const state = {
   runtime: {
     adapters: [],
     selectedAdapterId: null,
-    current: null,
+    selectedIdentityId: null,
+    workspaceGrant: null,
+    runtimes: [],
+    selectedRuntimeId: null,
+    outputs: {},
     notice: null,
     queue: []
   },
@@ -78,9 +82,16 @@ const els = {
   atmosTime: document.querySelector('#atmosTime'),
   atmosWeather: document.querySelector('#atmosWeather'),
   runtimeDock: document.querySelector('#runtimeDock'),
+  runtimeCount: document.querySelector('#runtimeCount'),
+  runtimeList: document.querySelector('#runtimeList'),
   runtimeStatus: document.querySelector('#runtimeStatus'),
   runtimeAdapter: document.querySelector('#runtimeAdapter'),
+  runtimeIdentity: document.querySelector('#runtimeIdentity'),
   runtimeCwd: document.querySelector('#runtimeCwd'),
+  runtimeWorkspaceBtn: document.querySelector('#runtimeWorkspaceBtn'),
+  runtimeWorkspaceResetBtn: document.querySelector('#runtimeWorkspaceResetBtn'),
+  runtimeSelectedTitle: document.querySelector('#runtimeSelectedTitle'),
+  runtimeSelectedMeta: document.querySelector('#runtimeSelectedMeta'),
   runtimeStartBtn: document.querySelector('#runtimeStartBtn'),
   runtimeStopBtn: document.querySelector('#runtimeStopBtn'),
   runtimeOutput: document.querySelector('#runtimeOutput'),
@@ -473,7 +484,41 @@ function bindEvents() {
 
   els.runtimeAdapter.addEventListener('change', () => {
     state.runtime.selectedAdapterId = els.runtimeAdapter.value || null;
+    const adapter = state.runtime.adapters.find((item) => item.id === state.runtime.selectedAdapterId);
+    const profile = selectedProfile();
+    state.runtime.selectedIdentityId = adapter?.identityAppId && profile?.appId === adapter.identityAppId
+      ? profile.id
+      : null;
     renderRuntimeDock();
+  });
+
+  els.runtimeIdentity.addEventListener('change', () => {
+    state.runtime.selectedIdentityId = els.runtimeIdentity.value || null;
+    renderRuntimeDock();
+  });
+
+  els.runtimeWorkspaceBtn.addEventListener('click', async () => {
+    if (!window.manager.pickTerminalWorkspace) return;
+    const profile = selectedProfile();
+    const session = selectedSession();
+    const defaultPath = state.runtime.workspaceGrant?.path
+      || session?.projectPath
+      || profile?.sessionRoot
+      || profile?.profilePath;
+    const result = await window.manager.pickTerminalWorkspace({ defaultPath });
+    if (!result?.ok) {
+      if (!result?.cancelled) setStatus(result?.reason || '无法选择 Agent 工作目录。');
+      return;
+    }
+    state.runtime.workspaceGrant = result;
+    renderRuntimeDock();
+    setStatus(`Agent 新实例将使用 ${result.path}`);
+  });
+
+  els.runtimeWorkspaceResetBtn.addEventListener('click', () => {
+    state.runtime.workspaceGrant = null;
+    renderRuntimeDock();
+    setStatus('Agent 工作目录已恢复为跟随当前会话。');
   });
 
   els.runtimeStartBtn.addEventListener('click', async () => {
@@ -1140,87 +1185,23 @@ function updateAtmosphereReadout() {
   }
 }
 
-// ── 内嵌 Agent / 终端 ────────────────────────────────
-// Pipe-mode MVP: the main process owns executable discovery, argv, env and
-// cwd. The renderer only selects a registered adapter and sends user text.
+// ── 多 Agent Fleet ───────────────────────────────────
+// Agent 类型、登录身份、工作区与运行实例是四个独立维度。Renderer 只能
+// 组合主进程登记过的适配器与账号；可执行文件和 argv 始终由 main 决定。
 const pendingRuntimeEvents = [];
 let runtimeQueueSending = false;
 
-function runtimeIsActive(runtime = state.runtime.current) {
+function selectedRuntime() {
+  return state.runtime.runtimes.find((item) => item.id === state.runtime.selectedRuntimeId) || null;
+}
+
+function runtimeIsActive(runtime = selectedRuntime()) {
   return Boolean(runtime && ['starting', 'running', 'ready'].includes(runtime.status));
 }
 
-async function loadRuntimeAdapters() {
-  const profile = selectedProfile();
-  if (!profile || !window.manager.listTerminalAdapters) {
-    state.runtime.adapters = [];
-    state.runtime.selectedAdapterId = null;
-    renderRuntimeDock();
-    return;
-  }
-  try {
-    const list = await window.manager.listTerminalAdapters(profile.id);
-    state.runtime.adapters = Array.isArray(list) ? list : [];
-    const currentSelection = state.runtime.selectedAdapterId;
-    const selectedStillExists = state.runtime.adapters.some((item) => item.id === currentSelection);
-    state.runtime.selectedAdapterId = selectedStillExists
-      ? currentSelection
-      : (state.runtime.adapters.find((item) => item.available)?.id || state.runtime.adapters[0]?.id || null);
-  } catch (error) {
-    state.runtime.adapters = [];
-    state.runtime.selectedAdapterId = null;
-    state.runtime.notice = {
-      kind: 'error',
-      title: '运行环境发现失败',
-      detail: error?.message || '无法读取本机 CLI',
-      action: 'runtime'
-    };
-  }
-  renderRuntimeDock();
-}
-
-function renderRuntimeDock() {
-  if (!els.runtimeDock) return;
-  const profile = selectedProfile();
-  const runtime = state.runtime.current;
-  const active = runtimeIsActive(runtime);
-  const previous = els.runtimeAdapter.value;
-  els.runtimeAdapter.replaceChildren();
-
-  if (!profile) {
-    const option = document.createElement('option');
-    option.textContent = '先选择账号';
-    option.disabled = true;
-    option.selected = true;
-    els.runtimeAdapter.append(option);
-  } else if (!state.runtime.adapters.length) {
-    const option = document.createElement('option');
-    option.textContent = '没有可用运行方式';
-    option.disabled = true;
-    option.selected = true;
-    els.runtimeAdapter.append(option);
-  } else {
-    for (const adapter of state.runtime.adapters) {
-      const option = document.createElement('option');
-      option.value = adapter.id;
-      option.disabled = !adapter.available;
-      option.textContent = `${adapter.label}${adapter.available ? '' : '（未安装）'}`;
-      els.runtimeAdapter.append(option);
-    }
-    const desired = active && runtime.profileId === profile.id
-      ? runtime.adapterId
-      : (state.runtime.selectedAdapterId || previous);
-    if (state.runtime.adapters.some((item) => item.id === desired)) els.runtimeAdapter.value = desired;
-  }
-
-  const selectedAdapter = state.runtime.adapters.find((item) => item.id === els.runtimeAdapter.value)
-    || state.runtime.adapters.find((item) => item.id === state.runtime.selectedAdapterId)
-    || null;
-  if (selectedAdapter) state.runtime.selectedAdapterId = selectedAdapter.id;
-
-  const status = runtime?.status || 'idle';
-  const statusLabels = {
-    idle: '未开启',
+function runtimeStatusLabel(runtime) {
+  const labels = {
+    idle: '未选择',
     starting: '启动中',
     running: runtime?.mode === 'agent' ? '处理中' : '运行中',
     ready: '可输入',
@@ -1228,77 +1209,260 @@ function renderRuntimeDock() {
     exited: '已退出',
     stopped: '已停止'
   };
-  els.runtimeStatus.dataset.status = status;
-  els.runtimeStatus.textContent = statusLabels[status] || status;
+  return labels[runtime?.status || 'idle'] || runtime?.status || '未选择';
+}
 
+function upsertRuntime(value) {
+  if (!value?.id) return null;
+  const index = state.runtime.runtimes.findIndex((item) => item.id === value.id);
+  if (index < 0) state.runtime.runtimes.push(value);
+  else state.runtime.runtimes[index] = { ...state.runtime.runtimes[index], ...value };
+  return state.runtime.runtimes.find((item) => item.id === value.id) || null;
+}
+
+async function loadRuntimeAdapters() {
+  const profile = selectedProfile();
+  if (!window.manager.listTerminalAdapters) {
+    state.runtime.adapters = [];
+    renderRuntimeDock();
+    return;
+  }
+  try {
+    const [adapters, liveRuntimes] = await Promise.all([
+      window.manager.listTerminalAdapters(profile?.id || null),
+      window.manager.listTerminalRuntimes ? window.manager.listTerminalRuntimes() : []
+    ]);
+    state.runtime.adapters = Array.isArray(adapters) ? adapters : [];
+    for (const runtime of Array.isArray(liveRuntimes) ? liveRuntimes : []) upsertRuntime(runtime);
+    const selectedStillExists = state.runtime.adapters.some((item) => item.id === state.runtime.selectedAdapterId);
+    state.runtime.selectedAdapterId = selectedStillExists
+      ? state.runtime.selectedAdapterId
+      : (state.runtime.adapters.find((item) => item.available && item.mode === 'agent')?.id
+        || state.runtime.adapters.find((item) => item.available)?.id
+        || state.runtime.adapters[0]?.id
+        || null);
+    const adapter = state.runtime.adapters.find((item) => item.id === state.runtime.selectedAdapterId);
+    if (adapter?.identityAppId && profile?.appId === adapter.identityAppId && !state.runtime.selectedIdentityId) {
+      state.runtime.selectedIdentityId = profile.id;
+    }
+    if (!state.runtime.selectedRuntimeId && state.runtime.runtimes.length) {
+      state.runtime.selectedRuntimeId = state.runtime.runtimes.at(-1).id;
+    }
+  } catch (error) {
+    state.runtime.adapters = [];
+    state.runtime.notice = {
+      kind: 'error',
+      title: 'Agent 发现失败',
+      detail: error?.message || '无法读取本机 Agent CLI',
+      action: 'runtime'
+    };
+  }
+  renderRuntimeDock();
+}
+
+function renderRuntimeAdapterPicker() {
+  const previous = state.runtime.selectedAdapterId || els.runtimeAdapter.value;
+  els.runtimeAdapter.replaceChildren();
+  if (!state.runtime.adapters.length) {
+    const option = document.createElement('option');
+    option.textContent = '没有发现 Agent';
+    option.disabled = true;
+    option.selected = true;
+    els.runtimeAdapter.append(option);
+    return null;
+  }
+  for (const adapter of state.runtime.adapters) {
+    const option = document.createElement('option');
+    option.value = adapter.id;
+    option.disabled = !adapter.available;
+    option.textContent = `${adapter.label}${adapter.available ? '' : '（未安装）'}`;
+    els.runtimeAdapter.append(option);
+  }
+  if (state.runtime.adapters.some((item) => item.id === previous)) els.runtimeAdapter.value = previous;
+  const selected = state.runtime.adapters.find((item) => item.id === els.runtimeAdapter.value) || null;
+  if (selected) state.runtime.selectedAdapterId = selected.id;
+  return selected;
+}
+
+function renderRuntimeIdentityPicker(adapter) {
+  els.runtimeIdentity.replaceChildren();
+  if (!adapter?.identityAppId) {
+    const option = document.createElement('option');
+    option.textContent = '不需要身份';
+    option.selected = true;
+    els.runtimeIdentity.append(option);
+    els.runtimeIdentity.disabled = true;
+    state.runtime.selectedIdentityId = null;
+    return;
+  }
+
+  els.runtimeIdentity.disabled = false;
+  const machine = document.createElement('option');
+  machine.value = '';
+  machine.textContent = `本机默认 ${adapter.label} 登录`;
+  els.runtimeIdentity.append(machine);
+  const identities = state.profiles.filter((profile) => profile.appId === adapter.identityAppId);
+  for (const profile of identities) {
+    const option = document.createElement('option');
+    option.value = profile.id;
+    option.textContent = profile.name;
+    els.runtimeIdentity.append(option);
+  }
+  if (identities.some((item) => item.id === state.runtime.selectedIdentityId)) {
+    els.runtimeIdentity.value = state.runtime.selectedIdentityId;
+  } else {
+    state.runtime.selectedIdentityId = null;
+    els.runtimeIdentity.value = '';
+  }
+}
+
+function renderRuntimeList() {
+  els.runtimeList.replaceChildren();
+  if (!state.runtime.runtimes.length) {
+    const empty = document.createElement('p');
+    empty.className = 'runtime-list-empty';
+    empty.textContent = '还没有运行实例';
+    els.runtimeList.append(empty);
+    return;
+  }
+
+  const ordered = [...state.runtime.runtimes].sort((left, right) => right.startedAt - left.startedAt);
+  for (const runtime of ordered) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `runtime-card${runtime.id === state.runtime.selectedRuntimeId ? ' selected' : ''}`;
+    button.dataset.status = runtime.status || 'idle';
+
+    const top = document.createElement('span');
+    top.className = 'runtime-card-top';
+    const adapter = document.createElement('b');
+    adapter.textContent = runtime.adapterLabel || runtime.adapterId;
+    const status = document.createElement('em');
+    status.textContent = runtimeStatusLabel(runtime);
+    top.append(adapter, status);
+
+    const title = document.createElement('strong');
+    title.textContent = runtime.title || runtime.adapterLabel || 'Agent';
+    const meta = document.createElement('small');
+    meta.textContent = [runtime.identityName || '默认身份', shortPath(runtime.cwd)].filter(Boolean).join(' · ');
+    button.append(top, title, meta);
+    button.addEventListener('click', () => {
+      state.runtime.selectedRuntimeId = runtime.id;
+      renderRuntimeDock();
+      if (!els.runtimeInput.disabled) els.runtimeInput.focus();
+    });
+    els.runtimeList.append(button);
+  }
+}
+
+function renderSelectedRuntimeOutput(runtime) {
+  els.runtimeOutput.replaceChildren();
+  const chunks = runtime ? (state.runtime.outputs[runtime.id] || []) : [];
+  if (!runtime || !chunks.length) {
+    const placeholder = document.createElement('span');
+    placeholder.className = 'runtime-placeholder';
+    placeholder.textContent = runtime
+      ? '这个实例还没有输出。发送第一条消息即可开始。'
+      : '左侧是全部运行实例。新建后可随时切换，其他 Agent 会继续在后台工作。';
+    els.runtimeOutput.append(placeholder);
+    return;
+  }
+  for (const item of chunks) {
+    const chunk = document.createElement('span');
+    chunk.dataset.stream = item.stream || 'stdout';
+    chunk.textContent = item.text;
+    els.runtimeOutput.append(chunk);
+  }
+  els.runtimeOutput.scrollTop = els.runtimeOutput.scrollHeight;
+}
+
+function renderRuntimeDock() {
+  if (!els.runtimeDock) return;
+  const profile = selectedProfile();
   const session = selectedSession();
-  const expectedCwd = session?.projectPath || profile?.sessionRoot || profile?.profilePath || '';
-  els.runtimeCwd.textContent = runtime?.cwd ? shortPath(runtime.cwd) : shortPath(expectedCwd);
-  els.runtimeCwd.title = runtime?.cwd || expectedCwd || '';
+  const adapter = renderRuntimeAdapterPicker();
+  renderRuntimeIdentityPicker(adapter);
+  renderRuntimeList();
+
+  const runtime = selectedRuntime();
+  const activeCount = state.runtime.runtimes.filter(runtimeIsActive).length;
+  els.runtimeCount.textContent = `${activeCount} 运行中 · ${state.runtime.runtimes.length} 个实例`;
+
+  const status = runtime?.status || 'idle';
+  els.runtimeStatus.dataset.status = status;
+  els.runtimeStatus.textContent = runtimeStatusLabel(runtime);
+  els.runtimeSelectedTitle.textContent = runtime?.title || '选择或新建一个 Agent';
+  els.runtimeSelectedMeta.textContent = runtime
+    ? [runtime.adapterLabel, runtime.identityName || '默认身份', shortPath(runtime.cwd)].filter(Boolean).join(' · ')
+    : '多个 Agent 可在不同身份与工作区并行运行';
+
+  const expectedCwd = state.runtime.workspaceGrant?.path
+    || session?.projectPath
+    || profile?.sessionRoot
+    || profile?.profilePath
+    || '用户主目录';
+  els.runtimeCwd.textContent = shortPath(expectedCwd);
+  els.runtimeCwd.title = expectedCwd;
+  els.runtimeWorkspaceResetBtn.hidden = !state.runtime.workspaceGrant;
+  els.runtimeWorkspaceBtn.textContent = state.runtime.workspaceGrant ? '更换' : '选择目录';
 
   const canSend = Boolean(runtime && (
     (runtime.mode === 'shell' && runtime.status === 'running') ||
     (runtime.mode === 'agent' && runtime.status === 'ready')
   ));
-  els.runtimeAdapter.disabled = active || !profile || !state.runtime.adapters.length;
-  els.runtimeStartBtn.disabled = active || !profile || !selectedAdapter?.available;
-  els.runtimeStartBtn.textContent = runtime && !active ? '重新开启' : '开启';
-  els.runtimeStopBtn.disabled = !active;
+  els.runtimeAdapter.disabled = !state.runtime.adapters.length;
+  els.runtimeStartBtn.disabled = !adapter?.available || activeCount >= 12;
+  els.runtimeStopBtn.disabled = !runtimeIsActive(runtime);
   els.runtimeInput.disabled = !canSend;
   els.runtimeSendBtn.disabled = !canSend;
-  els.runtimeInput.placeholder = runtime?.mode === 'shell'
-    ? '输入一行本机命令；Enter 执行，Shift+Enter 换行…'
-    : '对 Agent 说话；Enter 发送，Shift+Enter 换行…';
+  els.runtimeInput.placeholder = !runtime
+    ? '选择一个实例后输入…'
+    : runtime.mode === 'shell'
+      ? '输入一行本机命令；Enter 执行，Shift+Enter 换行…'
+      : '对这个 Agent 说话；Enter 发送，Shift+Enter 换行…';
+  renderSelectedRuntimeOutput(runtime);
 
-  const activeProfile = runtime ? state.profiles.find((item) => item.id === runtime.profileId) : null;
-  if (active && runtime.profileId !== profile?.id) {
-    els.runtimeHint.textContent = `当前仍属于「${activeProfile?.name || '另一个账号'}」；停止后才能切到此账号。`;
-  } else if (selectedAdapter) {
-    const queueHint = state.runtime.queue.length ? `待办 ${state.runtime.queue.length}` : '';
-    els.runtimeHint.textContent = [selectedAdapter.detail, selectedAdapter.caution, queueHint].filter(Boolean).join(' · ');
-  } else {
-    els.runtimeHint.textContent = '不使用远程网页；运行环境由本机 CLI 提供。';
-  }
+  const queueHint = state.runtime.queue.length ? `待办 ${state.runtime.queue.length}` : '';
+  els.runtimeHint.textContent = adapter
+    ? [adapter.detail, adapter.caution, queueHint].filter(Boolean).join(' · ')
+    : '客户端账号只是可选身份；Agent 类型、身份、工作区和运行实例彼此独立。';
 }
 
 async function startRuntimeForSelectedProfile() {
-  const profile = selectedProfile();
+  const workspaceProfile = selectedProfile();
   const adapterId = state.runtime.selectedAdapterId;
-  if (!profile || !adapterId || !window.manager.startTerminal) return;
-  if (runtimeIsActive()) {
-    setStatus('先停止当前内嵌运行环境，再开启新的账号。');
-    return;
-  }
+  if (!adapterId || !window.manager.startTerminal) return;
 
   els.runtimeStartBtn.disabled = true;
-  els.runtimeStatus.dataset.status = 'starting';
-  els.runtimeStatus.textContent = '等待确认';
   const result = await window.manager.startTerminal({
-    profileId: profile.id,
     adapterId,
-    sessionId: selectedSession()?.id || null
+    identityProfileId: state.runtime.selectedIdentityId,
+    workspaceGrantId: state.runtime.workspaceGrant?.grantId || null,
+    workspaceProfileId: state.runtime.workspaceGrant ? null : (workspaceProfile?.id || null),
+    sessionId: state.runtime.workspaceGrant ? null : (selectedSession()?.id || null)
   });
   if (!result?.ok) {
     renderRuntimeDock();
     if (!result?.cancelled) {
       state.runtime.notice = {
         kind: 'error',
-        title: '内嵌运行环境无法开启',
+        title: 'Agent 实例无法开启',
         detail: result?.reason || '启动失败',
-        profileId: profile.id,
+        profileId: workspaceProfile?.id || null,
         action: 'runtime'
       };
-      setStatus(result?.reason || '内嵌运行环境启动失败。');
+      setStatus(result?.reason || 'Agent 实例启动失败。');
       renderAttentionInbox();
     } else {
-      setStatus('已取消开启内嵌终端。');
+      setStatus('已取消新建 Agent 实例。');
     }
     return;
   }
 
-  state.runtime.current = result;
+  upsertRuntime(result);
+  state.runtime.selectedRuntimeId = result.id;
+  state.runtime.outputs[result.id] = [];
   state.runtime.notice = null;
-  els.runtimeOutput.replaceChildren();
   for (let index = 0; index < pendingRuntimeEvents.length;) {
     const event = pendingRuntimeEvents[index];
     if (event.runtimeId === result.id) {
@@ -1310,121 +1474,125 @@ async function startRuntimeForSelectedProfile() {
   }
   renderRuntimeDock();
   renderAttentionInbox();
-  setStatus(`已开启 ${result.adapterLabel}，工作目录：${shortPath(result.cwd)}。`);
+  setStatus(`已新建 ${result.adapterLabel} 实例；其他 Agent 会继续运行。`);
   if (!els.runtimeInput.disabled) els.runtimeInput.focus();
 }
 
 async function sendRuntimeInput() {
-  const runtime = state.runtime.current;
+  const runtime = selectedRuntime();
   const text = els.runtimeInput.value.trim();
   if (!runtime || !text || !window.manager.sendTerminal) return false;
   els.runtimeInput.disabled = true;
   els.runtimeSendBtn.disabled = true;
-  const result = await window.manager.sendTerminal({
-    profileId: runtime.profileId,
-    runtimeId: runtime.id,
-    text
-  });
+  const result = await window.manager.sendTerminal({ runtimeId: runtime.id, text });
   if (!result?.ok) {
     state.runtime.notice = {
       kind: 'error',
-      title: '发送失败',
-      detail: result?.reason || '运行环境没有响应',
-      profileId: runtime.profileId,
+      title: `${runtime.title || runtime.adapterLabel} 发送失败`,
+      detail: result?.reason || 'Agent 没有响应',
+      profileId: runtime.workspaceProfileId || runtime.profileId,
+      runtimeId: runtime.id,
       action: 'runtime'
     };
-    setStatus(result?.reason || '无法发送到内嵌运行环境。');
+    setStatus(result?.reason || '无法发送到 Agent。');
     renderAttentionInbox();
     renderRuntimeDock();
     return false;
-  } else {
-    state.runtime.current = { ...state.runtime.current, ...result };
-    els.runtimeInput.value = '';
   }
+  upsertRuntime(result);
+  els.runtimeInput.value = '';
   renderRuntimeDock();
   return true;
 }
 
 async function stopCurrentRuntime() {
-  const runtime = state.runtime.current;
+  const runtime = selectedRuntime();
   if (!runtime || !window.manager.stopTerminal) return;
-  const result = await window.manager.stopTerminal({
-    profileId: runtime.profileId,
-    runtimeId: runtime.id
-  });
+  const result = await window.manager.stopTerminal({ runtimeId: runtime.id });
   if (!result?.ok) {
-    setStatus(result?.reason || '无法停止内嵌运行环境。');
+    setStatus(result?.reason || '无法停止 Agent 实例。');
     return;
   }
-  state.runtime.current = { ...state.runtime.current, ...result };
+  upsertRuntime(result);
   renderRuntimeDock();
-  setStatus('内嵌运行环境已停止。');
+  setStatus(`已停止「${runtime.title || runtime.adapterLabel}」，其他实例不受影响。`);
 }
 
 function handleRuntimeEvent(event) {
   if (!event?.runtimeId) return;
-  if (!state.runtime.current || state.runtime.current.id !== event.runtimeId) {
+  if (!state.runtime.runtimes.some((item) => item.id === event.runtimeId)) {
     pendingRuntimeEvents.push(event);
-    if (pendingRuntimeEvents.length > 40) pendingRuntimeEvents.shift();
+    if (pendingRuntimeEvents.length > 200) pendingRuntimeEvents.shift();
     return;
   }
   applyRuntimeEvent(event);
 }
 
 function applyRuntimeEvent(event) {
-  const runtime = state.runtime.current;
-  if (!runtime || runtime.id !== event.runtimeId) return;
-  if (event.type === 'output' && event.text) appendRuntimeOutput(event.text, event.stream);
+  const runtime = state.runtime.runtimes.find((item) => item.id === event.runtimeId);
+  if (!runtime) return;
+  if (event.type === 'output' && event.text) appendRuntimeOutput(event.runtimeId, event.text, event.stream);
   if (event.type === 'state') {
-    state.runtime.current = { ...runtime, status: event.status || runtime.status };
+    upsertRuntime({ ...runtime, status: event.status || runtime.status });
     if (event.status === 'error' || (Number.isInteger(event.exitCode) && event.exitCode !== 0)) {
       state.runtime.notice = {
         kind: 'error',
-        title: `${runtime.adapterLabel || '运行环境'} 已异常退出`,
-        detail: Number.isInteger(event.exitCode) ? `退出码 ${event.exitCode}` : '请查看终端输出',
-        profileId: runtime.profileId,
+        title: `${runtime.title || runtime.adapterLabel || 'Agent'} 已异常退出`,
+        detail: Number.isInteger(event.exitCode) ? `退出码 ${event.exitCode}` : '请查看该实例输出',
+        profileId: runtime.workspaceProfileId || runtime.profileId,
+        runtimeId: runtime.id,
         action: 'runtime'
       };
       renderAttentionInbox();
     }
     renderRuntimeDock();
-    if (!els.runtimeInput.disabled && document.activeElement !== els.runtimeInput) els.runtimeInput.focus();
-    if (event.status === 'ready') void runNextQueuedTask();
+    if (event.status === 'ready') void runNextQueuedTask(event.runtimeId);
   }
 }
 
-function appendRuntimeOutput(text, stream = 'stdout') {
+function appendRuntimeOutput(runtimeId, text, stream = 'stdout') {
+  const chunks = state.runtime.outputs[runtimeId] || (state.runtime.outputs[runtimeId] = []);
+  chunks.push({ text, stream: stream || 'stdout' });
+  if (chunks.length > 500) chunks.splice(0, chunks.length - 500);
+  if (state.runtime.selectedRuntimeId !== runtimeId) return;
   els.runtimeOutput.querySelector('.runtime-placeholder')?.remove();
   const chunk = document.createElement('span');
   chunk.dataset.stream = stream || 'stdout';
   chunk.textContent = text;
   els.runtimeOutput.append(chunk);
-  while (els.runtimeOutput.childElementCount > 500) els.runtimeOutput.firstElementChild?.remove();
   els.runtimeOutput.scrollTop = els.runtimeOutput.scrollHeight;
 }
 
 async function openTerminalForProfile(profile) {
   if (!profile) return;
   if (profile.id !== state.selectedProfileId) await selectProfile(profile.id);
+  const matchingAdapter = state.runtime.adapters.find((item) => item.identityAppId === profile.appId && item.available);
+  if (matchingAdapter) {
+    state.runtime.selectedAdapterId = matchingAdapter.id;
+    state.runtime.selectedIdentityId = profile.id;
+  }
+  const matchingRuntime = [...state.runtime.runtimes]
+    .reverse()
+    .find((item) => item.workspaceProfileId === profile.id || item.profileId === profile.id);
+  if (matchingRuntime) state.runtime.selectedRuntimeId = matchingRuntime.id;
+  renderRuntimeDock();
   els.runtimeDock.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  const available = state.runtime.adapters.some((item) => item.available);
-  if (!available) {
+  if (!state.runtime.adapters.some((item) => item.available)) {
     setStatus('本机没有可用的终端或 Agent CLI，请先查看诊断。');
     return;
   }
-  setStatus(`已定位到 ${profile.name} 的内嵌 Agent 工作台。`);
-  if (runtimeIsActive()) {
-    if (!els.runtimeInput.disabled) els.runtimeInput.focus();
-  } else {
-    els.runtimeStartBtn.focus();
-  }
+  setStatus(`已定位到 ${profile.name} 的 Agent Fleet；可以新建，也可以切换其他实例。`);
+  if (!els.runtimeInput.disabled) els.runtimeInput.focus();
+  else els.runtimeStartBtn.focus();
 }
 
 async function queueSessionForRuntime(profile, session) {
-  const agent = state.runtime.adapters.find((item) => item.mode === 'agent' && item.available);
+  const preferredId = profile.appId === 'codex' ? 'codex' : profile.appId === 'claude' ? 'claude' : null;
+  const agent = state.runtime.adapters.find((item) => item.id === preferredId && item.available)
+    || state.runtime.adapters.find((item) => item.mode === 'agent' && item.available);
   if (!agent) {
     window.YardScene?.say(profile.id, { text: '先安装 Agent CLI，喵。', kind: 'warning', duration: 4200 });
-    setStatus('任务道需要 Codex 或 Claude Code CLI；Shell 不会代替 Agent 自动执行任务。');
+    setStatus('任务道需要至少一个可用的 Agent CLI；Shell 不会冒充 Agent 自动执行任务。');
     return;
   }
   if (state.runtime.queue.length >= 20) {
@@ -1433,41 +1601,47 @@ async function queueSessionForRuntime(profile, session) {
   }
 
   state.runtime.selectedAdapterId = agent.id;
+  state.runtime.selectedIdentityId = agent.identityAppId === profile.appId ? profile.id : null;
   state.runtime.queue.push({
     id: `${profile.id}:${session.id}:${Date.now()}`,
     profileId: profile.id,
     title: session.title,
     text: `${makeHandoffText(profile, session)}\n\n这是从猫猫庭院任务道加入的待办。请先确认你理解当前项目，再继续处理尚未完成的工作。`
   });
-  renderRuntimeDock();
-  renderAttentionInbox();
   await openTerminalForProfile(profile);
+  renderAttentionInbox();
 
-  const runtime = state.runtime.current;
-  if (runtime?.profileId === profile.id && runtime.mode === 'agent' && runtime.status === 'ready') {
-    await runNextQueuedTask();
-  } else if (runtimeIsActive(runtime)) {
-    setStatus(`已把「${session.title}」排队；当前运行环境结束或切回 ${profile.name} 后继续。`);
+  const ready = [...state.runtime.runtimes]
+    .reverse()
+    .find((item) => item.mode === 'agent'
+      && item.status === 'ready'
+      && (item.workspaceProfileId === profile.id || item.profileId === profile.id));
+  if (ready) {
+    state.runtime.selectedRuntimeId = ready.id;
+    renderRuntimeDock();
+    await runNextQueuedTask(ready.id);
   } else {
-    setStatus(`已把「${session.title}」排队；点“开启”启动 ${agent.label} 后会自动发送。`);
+    setStatus(`已把「${session.title}」排队；新建一个 ${agent.label} 实例后会自动发送。`);
   }
 }
 
-async function runNextQueuedTask() {
+async function runNextQueuedTask(runtimeId = state.runtime.selectedRuntimeId) {
   if (runtimeQueueSending) return;
-  const runtime = state.runtime.current;
+  const runtime = state.runtime.runtimes.find((item) => item.id === runtimeId);
   if (!runtime || runtime.mode !== 'agent' || runtime.status !== 'ready') return;
-  const index = state.runtime.queue.findIndex((item) => item.profileId === runtime.profileId);
+  const index = state.runtime.queue.findIndex((item) =>
+    item.profileId === runtime.workspaceProfileId || item.profileId === runtime.profileId);
   if (index < 0) return;
 
   runtimeQueueSending = true;
+  state.runtime.selectedRuntimeId = runtime.id;
   const [task] = state.runtime.queue.splice(index, 1);
   els.runtimeInput.value = task.text;
   renderRuntimeDock();
   renderAttentionInbox();
   const sent = await sendRuntimeInput();
   if (!sent) state.runtime.queue.splice(index, 0, task);
-  else setStatus(`Agent 开始处理待办：「${task.title}」。`);
+  else setStatus(`「${runtime.title}」开始处理待办：${task.title}。`);
   runtimeQueueSending = false;
   renderRuntimeDock();
   renderAttentionInbox();

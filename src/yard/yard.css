@@ -111,10 +111,10 @@ body[data-view="yard"] .topbar-context::before {
   margin: 0 auto;
 }
 
-/* ── embedded runtime: useful structure, independent from final yard art ── */
+/* ── multi-Agent fleet: useful structure, independent from final yard art ── */
 .runtime-dock {
   display: grid;
-  grid-template-rows: auto auto minmax(64px, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(84px, 1fr) auto;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -186,9 +186,16 @@ body[data-view="yard"] .topbar-context::before {
   background: #e36f57;
 }
 
-.runtime-controls {
+.runtime-count {
+  color: #a7b0aa;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.runtime-launcher {
   display: grid;
-  grid-template-columns: minmax(155px, 210px) minmax(160px, 1fr) auto auto;
+  grid-template-columns: minmax(118px, 0.72fr) minmax(145px, 0.86fr) minmax(250px, 1.7fr) auto;
   align-items: end;
   gap: 7px;
   padding: 7px 9px;
@@ -196,14 +203,14 @@ body[data-view="yard"] .topbar-context::before {
   background: #1e2925;
 }
 
-.runtime-controls label,
+.runtime-launcher label,
 .runtime-context {
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-.runtime-controls label > span,
+.runtime-launcher label > span,
 .runtime-context > span {
   color: #89968f;
   font-size: 8px;
@@ -211,7 +218,7 @@ body[data-view="yard"] .topbar-context::before {
   letter-spacing: 0.05em;
 }
 
-.runtime-controls select {
+.runtime-launcher select {
   width: 100%;
   height: 27px;
   border: 1px solid #536159;
@@ -221,6 +228,13 @@ body[data-view="yard"] .topbar-context::before {
   color: #ece6d7;
   font-family: var(--font-mono);
   font-size: 10px;
+}
+
+.runtime-workspace-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 4px;
+  min-width: 0;
 }
 
 .runtime-context code {
@@ -236,12 +250,188 @@ body[data-view="yard"] .topbar-context::before {
   white-space: nowrap;
 }
 
-body[data-view="yard"] .runtime-controls button {
+body[data-view="yard"] .runtime-launcher button {
   height: 27px;
   padding: 0 10px;
   border-width: 1px;
   box-shadow: none;
   font-size: 9.5px;
+}
+
+body[data-view="yard"] .runtime-workspace-control button {
+  padding-inline: 7px;
+  border-color: #536159;
+  background: #26332e;
+  color: #c8d1cb;
+}
+
+.runtime-fleet-body {
+  display: grid;
+  grid-template-columns: minmax(142px, 192px) minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.runtime-list {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 7px;
+  border-right: 1px solid rgba(233, 227, 211, 0.12);
+  background: #17201d;
+}
+
+.runtime-list-empty {
+  margin: 12px 5px;
+  color: #77837c;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+body[data-view="yard"] .runtime-card {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  height: auto;
+  min-height: 48px;
+  padding: 6px 7px;
+  border: 1px solid #39463f;
+  background: #101714;
+  color: #aeb9b2;
+  box-shadow: none;
+  text-align: left;
+  white-space: normal;
+}
+
+body[data-view="yard"] .runtime-card:hover:not(:disabled) {
+  border-color: #64756b;
+  background: #1b2722;
+  transform: none;
+}
+
+body[data-view="yard"] .runtime-card.selected {
+  border-color: #8db59b;
+  background: #24342d;
+  color: #f5efdf;
+  box-shadow: inset 3px 0 0 #8db59b;
+}
+
+.runtime-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  min-width: 0;
+}
+
+.runtime-card-top b {
+  overflow: hidden;
+  color: #d7ded9;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-card-top em {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  color: #89968f;
+  font-size: 7.5px;
+  font-style: normal;
+}
+
+.runtime-card-top em::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  background: #69756e;
+}
+
+.runtime-card[data-status="running"] .runtime-card-top em::before,
+.runtime-card[data-status="ready"] .runtime-card-top em::before {
+  background: #72b889;
+}
+
+.runtime-card[data-status="error"] .runtime-card-top em::before {
+  background: #e36f57;
+}
+
+.runtime-card > strong,
+.runtime-card > small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-card > strong {
+  color: inherit;
+  font-size: 9.5px;
+}
+
+.runtime-card > small {
+  color: #77837c;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+}
+
+.runtime-console {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #101714;
+}
+
+.runtime-console-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(233, 227, 211, 0.12);
+  background: #1e2925;
+}
+
+.runtime-console-head > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.runtime-console-head strong,
+.runtime-console-head small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-console-head strong {
+  color: #f5efdf;
+  font-size: 10px;
+}
+
+.runtime-console-head small {
+  color: #77837c;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+}
+
+body[data-view="yard"] .runtime-console-head button {
+  height: 24px;
+  padding: 0 8px;
+  border-width: 1px;
+  box-shadow: none;
+  font-size: 8px;
 }
 
 .runtime-output {
@@ -1321,8 +1511,8 @@ body[data-view="yard"] .status-bar {
     padding: 12px;
   }
 
-  .runtime-controls {
-    grid-template-columns: minmax(140px, 190px) minmax(120px, 1fr) auto auto;
+  .runtime-launcher {
+    grid-template-columns: minmax(108px, 0.65fr) minmax(128px, 0.75fr) minmax(210px, 1.35fr) auto;
   }
 
   .yard-atmos {
@@ -1373,14 +1563,17 @@ body[data-view="yard"] .status-bar {
 }
 
 @media (max-width: 620px) {
-  .runtime-controls {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+  .runtime-launcher {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .runtime-context {
     grid-column: 1 / -1;
     grid-row: 2;
   }
+
+  .runtime-launcher > button { grid-column: 2; grid-row: 3; }
+  .runtime-fleet-body { grid-template-columns: 118px minmax(0, 1fr); }
 
   .runtime-form {
     grid-template-columns: minmax(0, 1fr) 58px;

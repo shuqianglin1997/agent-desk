@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('manager', {
   getDiagnostics: (profile) => ipcRenderer.invoke('diagnostics:get', profile),
   listTerminalAdapters: (profileId = null) => ipcRenderer.invoke('runtime:adapters', { profileId }),
   listTerminalRuntimes: () => ipcRenderer.invoke('runtime:list'),
+  pickTerminalWorkspace: (input = {}) => ipcRenderer.invoke('runtime:pickWorkspace', input),
   startTerminal: (input) => ipcRenderer.invoke('runtime:start', input),
   sendTerminal: (input) => ipcRenderer.invoke('runtime:send', input),
   stopTerminal: (input) => ipcRenderer.invoke('runtime:stop', input),
