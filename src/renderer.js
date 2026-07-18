@@ -13,7 +13,8 @@ const state = {
   ledger: null,
   remindersOn: true,
   atmosTime: 'auto',
-  atmosWeather: 'clear',
+  atmosWeather: 'auto',
+  yardPositions: {},
   welcomed: false,
   updateInfo: null,
   appMeta: { claude: { label: 'Claude', tagColor: '#d96f33' }, codex: { label: 'Codex', tagColor: '#2f9e8f' } }
@@ -54,6 +55,8 @@ function appColor(appId) {
 
 const els = {
   accountList: document.querySelector('#accountList'),
+  yardAccountStrip: document.querySelector('#yardAccountStrip'),
+  topbarContext: document.querySelector('#topbarContext'),
   yardStage: document.querySelector('#yardStage'),
   yardCanvas: document.querySelector('#yardCanvas'),
   yardOverlay: document.querySelector('#yardOverlay'),
@@ -165,6 +168,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   setInterval(() => {
     if (!document.hidden) loadQuotas();
   }, QUOTA_REFRESH_INTERVAL);
+  // Auto time follows the clock; auto weather advances on a calm 20–45 minute
+  // deterministic schedule. A one-minute UI tick is enough and avoids work in
+  // the background.
+  setInterval(() => {
+    if (!document.hidden && isYardView()) {
+      window.YardScene.refreshAtmosphere();
+      updateAtmosphereReadout();
+    }
+  }, 60_000);
   // 从最小化/后台切回前台时立刻刷新一次，别等下一轮
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
@@ -226,11 +238,14 @@ function applyUserSettings(value = {}) {
   state.atmosTime = ['auto', 'day', 'dusk', 'night'].includes(value.atmosTime)
     ? value.atmosTime
     : 'auto';
-  state.atmosWeather = ['clear', 'cloudy', 'rain', 'snow'].includes(value.atmosWeather)
+  state.atmosWeather = ['auto', 'clear', 'cloudy', 'rain', 'snow'].includes(value.atmosWeather)
     ? value.atmosWeather
-    : 'clear';
+    : 'auto';
   state.welcomed = value.welcomed === true;
   state.ledger = value.ledger && typeof value.ledger === 'object' ? value.ledger : null;
+  state.yardPositions = window.YardInteractions
+    ? window.YardInteractions.normalizePositions(value.yardPositions)
+    : {};
 }
 
 async function loadUserSettings() {
@@ -1008,7 +1023,11 @@ function initYard() {
       const profile = selectedProfile();
       if (profile) setStatus(`已选中 ${profile.name} —— 下方是它的会话。`);
     },
-    onPet: (profile) => setStatus(`${profile.name}：呼噜呼噜呼噜……`)
+    onPet: (profile) => {
+      window.YardScene.say(profile.id, { text: '喵～ 呼噜呼噜', kind: 'ambient', duration: 2800 });
+      setStatus(`${profile.name}：呼噜呼噜呼噜……`);
+    },
+    onDrop: handleYardDrop
   });
   yardMounted = true;
   initAtmosphere();
@@ -1017,7 +1036,7 @@ function initYard() {
 // 时间 / 天气控件：从稳定设置恢复，点击切换并持久化
 function initAtmosphere() {
   const TIME_LABEL = { auto: '跟随主题', day: '白天', dusk: '黄昏', night: '夜晚' };
-  const WEATHER_LABEL = { clear: '晴天', cloudy: '多云', rain: '下雨', snow: '下雪' };
+  const WEATHER_LABEL = { auto: '自动变化', clear: '晴天', cloudy: '多云', rain: '下雨', snow: '下雪' };
   const syncPressed = () => {
     els.atmosTime.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.time === state.atmosTime)));
     els.atmosWeather.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.weather === state.atmosWeather)));
@@ -1029,6 +1048,7 @@ function initAtmosphere() {
     persistSettings({ atmosTime: state.atmosTime });
     window.YardScene.setAtmosphere({ time: state.atmosTime });
     syncPressed();
+    updateAtmosphereReadout();
     setStatus(`庭院时间：${TIME_LABEL[state.atmosTime]}。`);
   });
   els.atmosWeather.addEventListener('click', (event) => {
@@ -1038,22 +1058,127 @@ function initAtmosphere() {
     persistSettings({ atmosWeather: state.atmosWeather });
     window.YardScene.setAtmosphere({ weather: state.atmosWeather });
     syncPressed();
+    updateAtmosphereReadout();
     setStatus(`庭院天气：${WEATHER_LABEL[state.atmosWeather]}。`);
   });
   window.YardScene.setAtmosphere({ time: state.atmosTime, weather: state.atmosWeather });
   syncPressed();
+  updateAtmosphereReadout();
+}
+
+function updateAtmosphereReadout() {
+  if (!window.YardScene?.getAtmosphere) return;
+  const current = window.YardScene.getAtmosphere();
+  els.yardStage.dataset.time = current.time;
+  els.yardStage.dataset.weather = current.weather;
+  const timeLabels = { day: '白天', dusk: '黄昏', night: '夜晚' };
+  const weatherLabels = { clear: '晴', cloudy: '多云', rain: '雨', snow: '雪' };
+  const autoTime = els.atmosTime.querySelector('[data-time="auto"]');
+  const autoWeather = els.atmosWeather.querySelector('[data-weather="auto"]');
+  if (autoTime) autoTime.title = `系统时间：当前${timeLabels[current.time] || current.time}`;
+  if (autoWeather) {
+    const next = current.nextWeatherAt ? compactDate(current.nextWeatherAt) : '稍后';
+    autoWeather.title = `自动天气：当前${weatherLabels[current.weather] || current.weather}，${next}后更新`;
+  }
+}
+
+function saveYardPosition(profileId, point, zoneId = 'ground') {
+  if (!window.YardInteractions) return false;
+  const normalized = window.YardInteractions.normalizePoint(point);
+  if (!normalized) return false;
+  state.yardPositions = {
+    ...state.yardPositions,
+    [profileId]: { ...normalized, zoneId, updatedAt: Date.now() }
+  };
+  persistSettings({ yardPositions: state.yardPositions });
+  return true;
+}
+
+function handleYardDrop({ profile, state: activityState, point, zone }) {
+  if (!profile || !window.YardInteractions) return false;
+  const zoneId = zone?.id || 'ground';
+  const hasSelectedSession = profile.id === state.selectedProfileId && Boolean(selectedSession());
+  const intent = window.YardInteractions.resolveDropIntent(zoneId, {
+    activityState,
+    hasSession: hasSelectedSession,
+    terminalSupported: Boolean(window.manager.listTerminalAdapters)
+  });
+
+  if (intent.action === 'save-position') {
+    saveYardPosition(profile.id, point, zoneId);
+    window.YardScene.say(profile.id, { text: '这里不错，喵。', kind: 'ambient' });
+    setStatus(`已保存 ${profile.name} 在庭院里的位置。`);
+    return { keepPosition: true };
+  }
+
+  // Semantic drops create an intent. They never execute inside the canvas
+  // pointer handler, so animation completion cannot become an unsafe action.
+  void executeYardIntent(profile, intent);
+  return { keepPosition: false };
+}
+
+async function executeYardIntent(profile, initialIntent) {
+  await selectProfile(profile.id);
+  const activityState = window.YardCats
+    ? window.YardCats.deriveState(Date.now(), profile, state.activity[profile.id])
+    : 'rest';
+  const intent = window.YardInteractions.resolveDropIntent(initialIntent.zoneId, {
+    activityState,
+    hasSession: Boolean(selectedSession()),
+    terminalSupported: Boolean(window.manager.listTerminalAdapters)
+  });
+
+  if (!intent.enabled) {
+    window.YardScene.say(profile.id, { text: intent.title, kind: 'system', duration: 4200 });
+    setStatus(intent.title);
+    return;
+  }
+  if (intent.action === 'focus-running') {
+    setStatus(`${profile.name} 已经在运行，右侧是它的账号和会话。`);
+    return;
+  }
+  if (intent.action === 'focus-session') {
+    document.querySelector('.inspector')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    setStatus(`已打开 ${profile.name} 的当前会话详情。`);
+    return;
+  }
+  if (intent.action === 'launch-profile') {
+    if (!window.confirm(`把「${profile.name}」送到工作亭并打开官方 App？`)) return;
+    const result = await window.manager.launchProfile(profile.id);
+    if (!result.ok) {
+      window.YardScene.say(profile.id, { text: result.reason || '打开失败', kind: 'error', duration: 5000 });
+      setStatus(result.reason || '打开失败。');
+      return;
+    }
+    await loadProfiles(profile.id);
+    setStatus(result.warning || `已打开 ${profile.name}。`);
+    return;
+  }
+  if (intent.action === 'copy-handoff') {
+    const session = selectedSession();
+    if (!session) return;
+    if (!window.confirm(`把「${session.title}」的交接信息投进邮筒并复制？`)) return;
+    await window.manager.writeClipboard(makeHandoffText(profile, session));
+    window.YardScene.fx('handoff');
+    setStatus(`${profile.name} 已把交接信投进邮筒。`);
+    return;
+  }
+  if (intent.action === 'open-terminal' && typeof openTerminalForProfile === 'function') {
+    await openTerminalForProfile(profile);
+  }
 }
 
 function applyView() {
   const yard = state.view === 'yard' && yardMounted;
   document.body.dataset.view = yard ? 'yard' : 'classic';
   els.yardStage.hidden = !yard;
-  els.viewToggle.textContent = yard ? '⇄ 经典视图' : '⇄ 猫猫庭院';
+  els.viewToggle.textContent = yard ? '⇄ 经典' : '⇄ 庭院';
   // 新增/编辑/移除按钮在两个视图间移动（同一批节点，事件不变）
   const host = yard ? els.accountActions : els.sidebarActions;
   host.append(els.addProfileBtn, els.editProfileBtn, els.removeProfileBtn);
   if (yardMounted) window.YardScene.setActive(yard);
   if (yard) loadActivity(); // 切回庭院时立刻刷新猫的状态
+  renderTopbarContext();
 }
 
 let activityLoading = false;
@@ -1126,20 +1251,30 @@ function syncYard() {
     const now = Date.now();
     const statesById = {};
     const energyById = {};
+    const attentionById = {};
     for (const profile of state.profiles) {
       statesById[profile.id] = window.YardCats.deriveState(now, profile, state.activity[profile.id]);
       energyById[profile.id] = window.YardEnergy
         ? window.YardEnergy.deriveEnergy(state.quotaError ? null : state.quotas[profile.id], now)
         : 'unknown';
+      if (statesById[profile.id] === 'confused') {
+        attentionById[profile.id] = { kind: 'error', text: '会话路径需要检查' };
+      } else if (profile.id === state.selectedProfileId && energyById[profile.id] === 'exhausted') {
+        attentionById[profile.id] = { kind: 'warning', text: '额度快用完了' };
+      }
     }
     window.YardScene.update({
       profiles: state.profiles,
       statesById,
       energyById,
+      positionsById: state.yardPositions,
+      attentionById,
       selectedId: state.selectedProfileId,
       night: document.documentElement.dataset.theme === 'dark'
     });
   }
+  renderYardAccountStrip();
+  renderTopbarContext();
   // 排行榜打开时随轮询实时刷新
   if (els.leaderboardDialog.open) renderLeaderboard();
 }
@@ -1226,7 +1361,47 @@ function renderAccounts() {
   }
 
   populateGroupDatalist();
+  renderYardAccountStrip();
   syncYard();
+}
+
+function renderYardAccountStrip() {
+  if (!els.yardAccountStrip) return;
+  els.yardAccountStrip.replaceChildren();
+  const now = Date.now();
+  for (const profile of state.profiles) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'yard-account-chip';
+    button.classList.toggle('selected', profile.id === state.selectedProfileId);
+    const activityState = window.YardCats
+      ? window.YardCats.deriveState(now, profile, state.activity[profile.id])
+      : 'rest';
+    button.dataset.state = activityState;
+    const dot = document.createElement('span');
+    dot.className = 'yard-account-dot';
+    dot.style.background = appColor(profile.appId);
+    const name = document.createElement('b');
+    name.textContent = profile.name;
+    button.append(dot, name);
+    button.title = `${profile.name} · ${window.YardCats?.STATE_META?.[activityState]?.label || activityState}`;
+    button.addEventListener('click', () => selectProfile(profile.id));
+    els.yardAccountStrip.append(button);
+  }
+}
+
+function renderTopbarContext() {
+  if (!els.topbarContext) return;
+  const profile = selectedProfile();
+  if (!profile) {
+    els.topbarContext.textContent = state.view === 'yard' ? '猫猫庭院 · 尚未选择账号' : '经典工作台 · 尚未选择账号';
+    return;
+  }
+  const activityState = window.YardCats
+    ? window.YardCats.deriveState(Date.now(), profile, state.activity[profile.id])
+    : 'rest';
+  const label = window.YardCats?.STATE_META?.[activityState]?.label || activityState;
+  els.topbarContext.textContent = `${state.view === 'yard' ? '猫猫庭院' : '经典工作台'} · ${profile.name} · ${label}`;
 }
 
 function appendAccountRow(profile) {
@@ -1305,6 +1480,7 @@ function renderAccountHeader() {
     els.accountNote.textContent = '';
     els.accountNote.style.display = 'none';
     renderQuotaSummary();
+    renderTopbarContext();
     return;
   }
 
@@ -1315,6 +1491,7 @@ function renderAccountHeader() {
   els.accountNote.textContent = profile.note || '';
   els.accountNote.style.display = profile.note ? '' : 'none';
   renderQuotaSummary();
+  renderTopbarContext();
 }
 
 function renderSessions() {

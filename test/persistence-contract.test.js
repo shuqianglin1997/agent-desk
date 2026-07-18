@@ -43,6 +43,13 @@ test('应用使用单实例锁，避免两个进程同时写配置', () => {
   assert.match(mainSource, /app\.on\('second-instance'/);
 });
 
+test('renderer 使用 contextIsolation 且启用 Chromium sandbox', () => {
+  const windowSetup = sourceBetween('function createWindow()', 'function showMainWindow()');
+  assert.match(windowSetup, /contextIsolation:\s*true/);
+  assert.match(windowSetup, /nodeIntegration:\s*false/);
+  assert.match(windowSetup, /sandbox:\s*true/);
+});
+
 test('账号局部编辑会合并猫外观，归一化不删自定义颜色和未来字段', () => {
   const handler = sourceBetween(
     "ipcMain.handle('profiles:update'",

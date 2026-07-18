@@ -37,13 +37,23 @@
   let overlay = null;
   let onSelect = null;
   let onPet = null;
+  let onDrop = null;
   let terrainCanvas = null;     // 离屏缓存：地面/栅栏/花圃/树/工作亭，只随昼夜变
   let terrainCtx = null;
   let terrainKey = null;
 
-  let data = { profiles: [], statesById: {}, energyById: {}, selectedId: null, night: false };
-  let timeOverride = 'auto';     // auto|day|dusk|night；auto 时跟随主题
-  let weather = 'clear';         // clear|cloudy|rain|snow
+  let data = {
+    profiles: [],
+    statesById: {},
+    energyById: {},
+    positionsById: {},
+    attentionById: {},
+    selectedId: null,
+    night: false
+  };
+  let timeOverride = 'auto';     // auto|day|dusk|night；auto 跟随本地时钟
+  let weatherOverride = 'auto';  // auto|clear|cloudy|rain|snow
+  let weather = 'clear';         // 当前渲染帧的有效天气
   const rainDrops = scatter(60, 41, 0, -20, W, H);   // 雨滴起始点（x,y 基点）
   const snowFlakes = scatter(50, 61, 0, -20, W, H);  // 雪花起始点
   let layout = [];              // [{ profile, state, seat, tier, home, band, actor, topY }]
@@ -56,6 +66,10 @@
   let hoveredId = null;
   let pressTimer = null;
   let pressed = false;
+  let pointerCandidate = null;
+  let suppressClick = false;
+  let activeDropZoneId = null;
+  const speechById = new Map();
   let mailboxFlagUntil = 0;
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -84,10 +98,18 @@
   }
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-  // 解析当前时段：手动覆盖优先，auto 跟随主题深浅
+  // 解析当前时段：手动覆盖优先，auto 跟随本地时钟。
+  // data.night 只作为旧环境/模块缺失时的兼容回退。
   function effectiveTimeKey() {
     if (timeOverride === 'day' || timeOverride === 'dusk' || timeOverride === 'night') return timeOverride;
+    if (root.YardAtmosphere) return root.YardAtmosphere.timeForDate(new Date());
     return data.night ? 'night' : 'day';
+  }
+
+  function effectiveWeatherKey() {
+    if (WEATHERS.includes(weatherOverride)) return weatherOverride;
+    if (root.YardAtmosphere) return root.YardAtmosphere.weatherForDate(new Date()).weather;
+    return 'clear';
   }
 
   // 深夜（23:00〜05:00）且处于夜晚时段：没在干活的猫都睡了。
@@ -156,14 +178,24 @@
         const energy = data.energyById[profile.id] || 'unknown';
         const col = i % perRow;
         const row = Math.floor(i / perRow);
-        let hx = Math.min(startX + col * spacing, GROUND_X1 - 10);
-        let hy = 98 + Math.min(1, row) * 16;
-        if (row > 1) { hx = Math.min(hx + 12, GROUND_X1 - 10); hy = 106; } // 溢出兜底，轻微叠放
+        let homeX = Math.min(startX + col * spacing, GROUND_X1 - 10);
+        let homeY = 98 + Math.min(1, row) * 16;
+        if (row > 1) { homeX = Math.min(homeX + 12, GROUND_X1 - 10); homeY = 106; } // 溢出兜底，轻微叠放
+        const saved = root.YardInteractions
+          ? root.YardInteractions.normalizePoint(data.positionsById[profile.id])
+          : null;
+        if (saved) {
+          homeX = saved.x;
+          homeY = saved.y;
+        }
+
+        let targetX = homeX;
+        let targetY = homeY;
         let seat = false;
         let tier = col % 2; // 名牌高低交错，避免相邻名牌互相盖住
         if (seatEligible(state) && seatIndex < SEATS.length) {
-          hx = SEATS[seatIndex];
-          hy = SEAT_FOOT_Y;
+          targetX = SEATS[seatIndex];
+          targetY = SEAT_FOOT_Y;
           seat = true;
           tier = seatIndex % 2;
           seatIndex += 1;
@@ -172,25 +204,39 @@
         seen.add(profile.id);
         let actor = actors.get(profile.id);
         if (!actor) {
-          actor = { x: hx, y: hy, tx: hx, ty: hy, flip: false, walking: false, behaveAt: 0, watchUntil: 0 };
+          actor = {
+            x: targetX,
+            y: targetY,
+            tx: targetX,
+            ty: targetY,
+            flip: false,
+            walking: false,
+            dragging: false,
+            behaveAt: 0,
+            watchUntil: 0
+          };
           actors.set(profile.id, actor);
         }
 
         const entry = {
           profile, state, energy, seat, tier,
-          home: { x: hx, y: hy },
-          band: { x0: x0 + 8, x1: x1 - 8 },
+          home: { x: homeX, y: homeY },
+          band: saved
+            ? { x0: clamp(homeX - 38, GROUND_X0, GROUND_X1), x1: clamp(homeX + 38, GROUND_X0, GROUND_X1) }
+            : { x0: x0 + 8, x1: x1 - 8 },
           actor,
-          topY: hy - 16
+          topY: targetY - 16
         };
 
         // 目标：坐席优先；非漫步态一律回家；漫步态目标出界也回家
         const wander = (state === 'play' || state === 'rest') && !seat;
-        if (!wander) {
-          actor.tx = hx; actor.ty = hy;
+        if (actor.dragging) {
+          // 指针持有角色时，轮询刷新不能把猫从鼠标下拉走。
+        } else if (!wander) {
+          actor.tx = targetX; actor.ty = targetY;
           actor.watchUntil = 0;
         } else if (actor.tx < entry.band.x0 || actor.tx > entry.band.x1) {
-          actor.tx = hx; actor.ty = hy;
+          actor.tx = homeX; actor.ty = homeY;
         }
         if (reduced) { actor.x = actor.tx; actor.y = actor.ty; actor.walking = false; }
 
@@ -324,7 +370,81 @@
       if (!zoneSeen.has(el.dataset.key)) el.remove();
     });
 
+    syncDropZones(Boolean(pointerCandidate && pointerCandidate.dragging));
+    syncSpeech();
     syncChipPositions();
+  }
+
+  function syncDropZones(visible) {
+    if (!overlay || !root.YardInteractions) return;
+    const seen = new Set();
+    root.YardInteractions.ZONES.forEach((zone) => {
+      seen.add(zone.id);
+      let el = overlay.querySelector(`.yard-drop-zone[data-zone="${zone.id}"]`);
+      if (!el) {
+        el = document.createElement('span');
+        el.className = 'yard-drop-zone';
+        el.dataset.zone = zone.id;
+        const label = document.createElement('b');
+        label.textContent = zone.label;
+        const hint = document.createElement('small');
+        hint.textContent = zone.hint;
+        el.append(label, hint);
+        overlay.appendChild(el);
+      }
+      el.hidden = !visible;
+      el.classList.toggle('active', visible && activeDropZoneId === zone.id);
+      el.style.left = `${(zone.x0 / W * 100).toFixed(2)}%`;
+      el.style.top = `${(zone.y0 / H * 100).toFixed(2)}%`;
+      el.style.width = `${((zone.x1 - zone.x0) / W * 100).toFixed(2)}%`;
+      el.style.height = `${((zone.y1 - zone.y0) / H * 100).toFixed(2)}%`;
+    });
+    overlay.querySelectorAll('.yard-drop-zone').forEach((el) => {
+      if (!seen.has(el.dataset.zone)) el.remove();
+    });
+  }
+
+  function currentSpeech(entry) {
+    const attention = data.attentionById && data.attentionById[entry.profile.id];
+    if (attention && attention.text) {
+      return { text: String(attention.text), kind: attention.kind || 'system', persistent: true };
+    }
+    const ambient = speechById.get(entry.profile.id);
+    if (!ambient) return null;
+    if (ambient.expiresAt <= Date.now()) {
+      speechById.delete(entry.profile.id);
+      return null;
+    }
+    return ambient;
+  }
+
+  function syncSpeech() {
+    if (!overlay) return;
+    const seen = new Set();
+    for (const entry of layout) {
+      const speech = currentSpeech(entry);
+      const id = entry.profile.id;
+      if (!speech) continue;
+      seen.add(id);
+      let bubble = overlay.querySelector(`.yard-speech[data-id="${id}"]`);
+      if (!bubble) {
+        bubble = document.createElement('button');
+        bubble.type = 'button';
+        bubble.className = 'yard-speech';
+        bubble.dataset.id = id;
+        bubble.addEventListener('click', () => { if (onSelect) onSelect(id); });
+        overlay.appendChild(bubble);
+      }
+      bubble.textContent = speech.text.slice(0, 42);
+      bubble.dataset.kind = speech.kind || 'ambient';
+      bubble.title = `${entry.profile.name}：${speech.text}`;
+      entry.actor._speech = bubble;
+      entry.actor._speechKey = '';
+    }
+    overlay.querySelectorAll('.yard-speech').forEach((bubble) => {
+      if (!seen.has(bubble.dataset.id)) bubble.remove();
+    });
+    syncSpeechPositions();
   }
 
   // 名牌跟随猫移动（每帧只写有变化的）
@@ -339,6 +459,21 @@
       a._chipKey = key;
       chip.style.left = `${(a.x / W * 100).toFixed(2)}%`;
       chip.style.top = `${((entry.topY - lift) / H * 100).toFixed(2)}%`;
+    }
+    syncSpeechPositions();
+  }
+
+  function syncSpeechPositions() {
+    for (const entry of layout) {
+      const a = entry.actor;
+      const bubble = a._speech;
+      if (!bubble || !bubble.isConnected) continue;
+      const lift = entry.tier === 1 ? 47 : 30;
+      const key = `${a.x.toFixed(1)}|${entry.topY}|${lift}`;
+      if (a._speechKey === key) continue;
+      a._speechKey = key;
+      bubble.style.left = `${(a.x / W * 100).toFixed(2)}%`;
+      bubble.style.top = `${((entry.topY - lift) / H * 100).toFixed(2)}%`;
     }
   }
 
@@ -724,6 +859,7 @@
   // ── 主渲染 ───────────────────────────────────────────
   function render() {
     if (!ctx) return;
+    weather = effectiveWeatherKey();
     const P = TIMES[effectiveTimeKey()];
     const sleepAll = sleepAllNow();
     ctx.clearRect(0, 0, W, H);
@@ -800,17 +936,56 @@
   function bindPointer() {
     canvas.addEventListener('pointermove', (event) => {
       const [lx, ly] = logicalXY(event);
+      if (pointerCandidate && pointerCandidate.pointerId === event.pointerId) {
+        const dx = lx - pointerCandidate.startX;
+        const dy = ly - pointerCandidate.startY;
+        if (!pointerCandidate.dragging && Math.hypot(dx, dy) >= 3) {
+          clearTimeout(pressTimer);
+          pointerCandidate.dragging = true;
+          pointerCandidate.entry.actor.dragging = true;
+          pointerCandidate.entry.actor.walking = false;
+          canvas.classList.add('is-dragging');
+          syncDropZones(true);
+        }
+        if (pointerCandidate.dragging) {
+          event.preventDefault();
+          const actor = pointerCandidate.entry.actor;
+          actor.x = clamp(lx, 10, W - 10);
+          actor.y = clamp(ly, 68, H - 6);
+          actor.tx = actor.x;
+          actor.ty = actor.y;
+          const zone = root.YardInteractions ? root.YardInteractions.zoneAt(actor.x, actor.y) : null;
+          activeDropZoneId = zone ? zone.id : null;
+          setHoverId(pointerCandidate.entry.profile.id);
+          syncDropZones(true);
+          render();
+          syncChipPositions();
+          return;
+        }
+      }
       const hit = catAt(lx, ly);
       setHoverId(hit ? hit.profile.id : null);
     });
-    canvas.addEventListener('pointerleave', () => setHoverId(null));
+    canvas.addEventListener('pointerleave', () => {
+      if (!pointerCandidate || !pointerCandidate.dragging) setHoverId(null);
+    });
     canvas.addEventListener('pointerdown', (event) => {
       const [lx, ly] = logicalXY(event);
       const hit = catAt(lx, ly);
       pressed = false;
+      suppressClick = false;
       clearTimeout(pressTimer); // 清掉上一次未结束的长按计时，避免幽灵撸猫
       if (!hit) return;
+      pointerCandidate = {
+        pointerId: event.pointerId,
+        entry: hit,
+        startX: lx,
+        startY: ly,
+        dragging: false
+      };
+      try { canvas.setPointerCapture(event.pointerId); } catch (_error) { /* best effort */ }
       pressTimer = setTimeout(() => {
+        if (!pointerCandidate || pointerCandidate.dragging) return;
         pressed = true;
         for (let i = 0; i < 5; i++) {
           particles.push({ kind: 'heart', x: hit.actor.x - 6 + i * 4, y: hit.topY - 2 - (i % 2) * 4, age: i * 2 });
@@ -819,8 +994,55 @@
         if (reduced || !active) render();
       }, 400);
     });
-    window.addEventListener('pointerup', () => clearTimeout(pressTimer));
+    const finishPointer = (event, cancelled = false) => {
+      clearTimeout(pressTimer);
+      if (!pointerCandidate || pointerCandidate.pointerId !== event.pointerId) return;
+      const candidate = pointerCandidate;
+      pointerCandidate = null;
+      try { canvas.releasePointerCapture(event.pointerId); } catch (_error) { /* best effort */ }
+
+      if (candidate.dragging) {
+        suppressClick = true;
+        candidate.entry.actor.dragging = false;
+        canvas.classList.remove('is-dragging');
+        const point = root.YardInteractions
+          ? root.YardInteractions.normalizePoint({ x: candidate.entry.actor.x, y: candidate.entry.actor.y })
+          : { x: candidate.entry.actor.x, y: candidate.entry.actor.y };
+        const zone = !cancelled && root.YardInteractions
+          ? root.YardInteractions.zoneAt(point.x, point.y)
+          : null;
+        let keepPosition = false;
+        if (!cancelled && onDrop) {
+          try {
+            const result = onDrop({
+              profile: candidate.entry.profile,
+              state: candidate.entry.state,
+              point,
+              zone
+            });
+            keepPosition = result === true || Boolean(result && result.keepPosition);
+          } catch (_error) {
+            keepPosition = false;
+          }
+        }
+        if (keepPosition) {
+          candidate.entry.home = { ...point };
+          candidate.entry.actor.tx = point.x;
+          candidate.entry.actor.ty = point.y;
+        } else {
+          candidate.entry.actor.tx = candidate.entry.home.x;
+          candidate.entry.actor.ty = candidate.entry.home.y;
+        }
+        activeDropZoneId = null;
+        syncDropZones(false);
+        render();
+        syncChipPositions();
+      }
+    };
+    canvas.addEventListener('pointerup', (event) => finishPointer(event, false));
+    canvas.addEventListener('pointercancel', (event) => finishPointer(event, true));
     canvas.addEventListener('click', () => {
+      if (suppressClick) { suppressClick = false; return; }
       if (pressed) { pressed = false; return; }
       const hit = hoveredId && layout.find((entry) => entry.profile.id === hoveredId);
       if (hit && onSelect) onSelect(hit.profile.id);
@@ -836,6 +1058,7 @@
       stepActors(sleepAllNow());
       render();
       syncChipPositions();
+      if (tick % 8 === 0) syncSpeech();
     }, 125);
   }
   function stopLoop() {
@@ -849,6 +1072,7 @@
       overlay = options.overlay;
       onSelect = options.onSelect || null;
       onPet = options.onPet || null;
+      onDrop = options.onDrop || null;
       ctx = canvas.getContext('2d');
       ctx.imageSmoothingEnabled = false;
       bindPointer();
@@ -865,11 +1089,45 @@
       active = Boolean(value);
       if (active) { startLoop(); render(); } else stopLoop();
     },
-    // 设置时段 / 天气。time: auto|day|dusk|night；weather: clear|cloudy|rain|snow
+    // 设置时段 / 天气。auto 分别跟随系统时钟与本地慢速氛围调度。
     setAtmosphere(next) {
       if (next && TIME_KEYS.includes(next.time)) timeOverride = next.time;
-      if (next && WEATHERS.includes(next.weather)) weather = next.weather;
+      if (next && (next.weather === 'auto' || WEATHERS.includes(next.weather))) {
+        weatherOverride = next.weather;
+      }
+      terrainKey = null;
       render();
+      return this.getAtmosphere();
+    },
+    refreshAtmosphere() {
+      const before = `${effectiveTimeKey()}:${weather}`;
+      weather = effectiveWeatherKey();
+      const after = `${effectiveTimeKey()}:${weather}`;
+      if (before !== after) terrainKey = null;
+      render();
+      return this.getAtmosphere();
+    },
+    getAtmosphere() {
+      const autoWeather = root.YardAtmosphere
+        ? root.YardAtmosphere.weatherForDate(new Date())
+        : { weather: 'clear', nextChangeAt: null };
+      return {
+        timeMode: timeOverride,
+        time: effectiveTimeKey(),
+        weatherMode: weatherOverride,
+        weather: effectiveWeatherKey(),
+        nextWeatherAt: weatherOverride === 'auto' ? autoWeather.nextChangeAt : null
+      };
+    },
+    say(profileId, message = {}) {
+      if (!profileId || !message.text) return false;
+      speechById.set(profileId, {
+        text: String(message.text),
+        kind: message.kind || 'ambient',
+        expiresAt: Date.now() + clamp(Number(message.duration) || 2600, 800, 10_000)
+      });
+      syncSpeech();
+      return true;
     },
     // 场景反馈：handoff = 选中的猫把交接信投进邮筒；bell = 摇铃，全体猫头上冒音符
     fx(kind) {

@@ -40,8 +40,8 @@ const PROFILE_COPY_EXCLUDES = new Set([
 function createWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
   mainWindow = new BrowserWindow({
-    width: 1220,
-    height: 760,
+    width: 1440,
+    height: 900,
     minWidth: 1080,
     minHeight: 660,
     show: false,
@@ -51,7 +51,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   });
 
