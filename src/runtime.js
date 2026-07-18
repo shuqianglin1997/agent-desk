@@ -1,10 +1,15 @@
 /*
- * AgentDesk — embedded runtime adapters.
+ * AgentDesk — local Agent fleet runtime.
+ *
+ * Adapters, identities, workspaces and running instances are deliberately
+ * separate concepts. A desktop account profile may provide an identity home,
+ * but an Agent runtime never belongs to the currently selected account. This
+ * lets one AgentDesk window supervise several Codex / Claude / Shell instances
+ * at the same time.
  *
  * The renderer can select a known adapter and send text, but it can never
- * provide an executable, argv list, environment or working directory. Those
- * security-sensitive values are resolved in the main process from a stored
- * profile and a trusted session record.
+ * provide an executable or argv list. Those security-sensitive values are
+ * resolved in the main process from the trusted adapter registry.
  *
  * This is intentionally a pipe-based MVP, not a pseudo-terminal emulator.
  * Shell commands run line-by-line and agent adapters use their documented
@@ -20,7 +25,7 @@ const { spawn } = require('node:child_process');
 const { resolveCodexCli } = require('./codex-quota');
 const { nearestExistingDirectory, safeStat } = require('./path-utils');
 
-const MAX_RUNTIME_SESSIONS = 4;
+const MAX_RUNTIME_SESSIONS = 12;
 const MAX_RUNTIME_INPUT_BYTES = 32 * 1024;
 const MAX_RUNTIME_OUTPUT_BYTES = 1024 * 1024;
 
@@ -162,7 +167,9 @@ function publicAdapter(adapter) {
     available: adapter.available,
     detail: adapter.detail,
     caution: adapter.caution || '',
-    source: adapter.source || ''
+    source: adapter.source || '',
+    identityAppId: adapter.identityAppId || null,
+    supportsMultiple: true
   };
 }
 
@@ -238,7 +245,7 @@ class RuntimeService {
     this.sessions = new Map();
   }
 
-  adapters(profile) {
+  adapters(profile = null) {
     const shell = this.shellSpec({ platform: this.platform, env: this.env });
     const output = [{
       id: 'shell',
@@ -248,40 +255,43 @@ class RuntimeService {
       detail: '逐行执行本机命令；适合脚本、Git 与开发工具',
       caution: '命令会直接在本机执行，请只粘贴你理解并信任的内容。',
       source: shell.source,
+      identityAppId: null,
       launcher: shell
     }];
 
-    if (profile?.appId === 'codex') {
-      const launcher = this.resolveCodex();
-      output.push({
-        id: 'codex',
-        label: 'Codex',
-        mode: 'agent',
-        available: Boolean(launcher),
-        detail: launcher
-          ? '使用当前 Codex 槽位的登录与会话目录，可连续追问'
-          : '没有找到 Codex CLI',
-        caution: 'Agent 在 workspace-write 沙箱内工作；高风险操作不会绕过审批。',
-        source: launcher?.source || '',
-        launcher
-      });
-    }
+    const codexLauncher = this.resolveCodex();
+    output.push({
+      id: 'codex',
+      label: 'Codex',
+      mode: 'agent',
+      identityAppId: 'codex',
+      available: Boolean(codexLauncher),
+      detail: codexLauncher
+        ? (profile?.appId === 'codex'
+          ? `使用「${profile.name || 'Codex 槽位'}」的登录身份，可同时开启多个实例`
+          : '使用本机 Codex 登录；也可以绑定任意 Codex 身份槽位')
+        : '没有找到 Codex CLI',
+      caution: 'Agent 在 workspace-write 沙箱内工作；高风险操作不会绕过审批。',
+      source: codexLauncher?.source || '',
+      launcher: codexLauncher
+    });
 
-    if (profile?.appId === 'claude') {
-      const launcher = this.resolveClaude();
-      output.push({
-        id: 'claude',
-        label: 'Claude Code',
-        mode: 'agent',
-        available: Boolean(launcher),
-        detail: launcher
-          ? '使用本机 Claude Code CLI 登录，可连续追问'
-          : '没有找到 Claude Code CLI',
-        caution: 'Claude Code CLI 与 Claude 桌面槽位的登录态彼此独立。',
-        source: launcher?.source || '',
-        launcher
-      });
-    }
+    const claudeLauncher = this.resolveClaude();
+    output.push({
+      id: 'claude',
+      label: 'Claude Code',
+      mode: 'agent',
+      identityAppId: 'claude',
+      available: Boolean(claudeLauncher),
+      detail: claudeLauncher
+        ? (profile?.appId === 'claude'
+          ? `绑定「${profile.name || 'Claude 槽位'}」；可同时开启多个实例`
+          : '使用本机 Claude Code 登录；也可以绑定 Claude 身份槽位')
+        : '没有找到 Claude Code CLI',
+      caution: 'Claude Code CLI 与 Claude 桌面 App 的登录态可能彼此独立。',
+      source: claudeLauncher?.source || '',
+      launcher: claudeLauncher
+    });
     return output;
   }
 
@@ -289,10 +299,9 @@ class RuntimeService {
     return this.adapters(profile).map(publicAdapter);
   }
 
-  start(profile, input = {}) {
-    if (!profile?.id) throw codedError('RUNTIME_PROFILE_REQUIRED', '没有可用的账号槽位');
+  start(profile = null, input = {}) {
     if (this.sessions.size >= MAX_RUNTIME_SESSIONS) {
-      throw codedError('RUNTIME_LIMIT', `最多同时保留 ${MAX_RUNTIME_SESSIONS} 个内嵌运行环境`);
+      throw codedError('RUNTIME_LIMIT', `最多同时保留 ${MAX_RUNTIME_SESSIONS} 个 Agent 实例`);
     }
     const adapter = this.adapters(profile).find((item) => item.id === input.adapterId);
     if (!adapter) throw codedError('RUNTIME_ADAPTER_UNKNOWN', '未知的运行适配器');
@@ -300,19 +309,24 @@ class RuntimeService {
       throw codedError('RUNTIME_ADAPTER_MISSING', adapter.detail || '运行适配器不可用');
     }
 
+    const identity = adapter.identityAppId && profile?.appId === adapter.identityAppId
+      ? profile
+      : null;
     const runtime = {
       id: this.randomUUID(),
-      profileId: profile.id,
-      profile: {
-        id: profile.id,
-        appId: profile.appId,
-        sessionRoot: profile.sessionRoot
-      },
+      profileId: identity?.id || null,
+      identity: identity ? {
+        id: identity.id,
+        name: identity.name || adapter.label,
+        appId: identity.appId,
+        sessionRoot: identity.sessionRoot
+      } : null,
       adapterId: adapter.id,
       adapterLabel: adapter.label,
       mode: adapter.mode,
       launcher: adapter.launcher,
       cwd: input.cwd,
+      title: String(input.title || '').trim() || `${adapter.label} · ${path.basename(input.cwd || '') || 'Agent'}`,
       status: adapter.mode === 'shell' ? 'starting' : 'ready',
       startedAt: this.now(),
       child: null,
@@ -335,8 +349,8 @@ class RuntimeService {
     return this.publicRuntime(runtime);
   }
 
-  send(profile, runtimeId, value) {
-    const runtime = this.ownedRuntime(profile, runtimeId);
+  send(runtimeId, value) {
+    const runtime = this.runtime(runtimeId);
     const text = String(value || '').trim();
     if (!text) throw codedError('RUNTIME_INPUT_EMPTY', '请输入内容');
     if (Buffer.byteLength(text, 'utf8') > MAX_RUNTIME_INPUT_BYTES) {
@@ -364,8 +378,8 @@ class RuntimeService {
     return this.publicRuntime(runtime);
   }
 
-  stop(profile, runtimeId) {
-    const runtime = this.ownedRuntime(profile, runtimeId);
+  stop(runtimeId) {
+    const runtime = this.runtime(runtimeId);
     this.stopRuntime(runtime, 'stopped');
     return this.publicRuntime(runtime);
   }
@@ -380,12 +394,16 @@ class RuntimeService {
     for (const runtime of this.sessions.values()) this.stopRuntime(runtime, 'stopped');
   }
 
-  ownedRuntime(profile, runtimeId) {
+  runtime(runtimeId) {
     const runtime = this.sessions.get(String(runtimeId || ''));
-    if (!runtime || runtime.profileId !== profile?.id) {
-      throw codedError('RUNTIME_NOT_FOUND', '找不到这个内嵌运行环境');
-    }
+    if (!runtime) throw codedError('RUNTIME_NOT_FOUND', '找不到这个 Agent 实例');
     return runtime;
+  }
+
+  list() {
+    return [...this.sessions.values()]
+      .sort((left, right) => left.startedAt - right.startedAt)
+      .map((runtime) => this.publicRuntime(runtime));
   }
 
   startShell(runtime) {
@@ -451,7 +469,7 @@ class RuntimeService {
         ],
         env: {
           ...(runtime.launcher.extraEnv || {}),
-          CODEX_HOME: runtime.profile.sessionRoot
+          ...(runtime.identity?.sessionRoot ? { CODEX_HOME: runtime.identity.sessionRoot } : {})
         }
       };
     }
@@ -464,7 +482,7 @@ class RuntimeService {
       ],
       env: {
         ...(runtime.launcher.extraEnv || {}),
-        CODEX_HOME: runtime.profile.sessionRoot
+        ...(runtime.identity?.sessionRoot ? { CODEX_HOME: runtime.identity.sessionRoot } : {})
       }
     };
   }
@@ -600,6 +618,8 @@ class RuntimeService {
     const payload = {
       runtimeId: runtime.id,
       profileId: runtime.profileId,
+      title: runtime.title,
+      identityName: runtime.identity?.name || null,
       adapterId: runtime.adapterId,
       at: this.now(),
       ...event
@@ -643,6 +663,8 @@ class RuntimeService {
     this.onEvent({
       runtimeId: runtime.id,
       profileId: runtime.profileId,
+      title: runtime.title,
+      identityName: runtime.identity?.name || null,
       adapterId: runtime.adapterId,
       at: this.now(),
       type: 'state',
@@ -656,11 +678,14 @@ class RuntimeService {
       ok: true,
       id: runtime.id,
       profileId: runtime.profileId,
+      identityName: runtime.identity?.name || null,
       adapterId: runtime.adapterId,
       adapterLabel: runtime.adapterLabel,
       mode: runtime.mode,
+      title: runtime.title,
       cwd: runtime.cwd,
       status: runtime.status,
+      conversationId: runtime.conversationId,
       startedAt: runtime.startedAt
     };
   }
