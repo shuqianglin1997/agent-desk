@@ -203,6 +203,22 @@ body[data-view="yard"] .workspace {
   flex: none;
 }
 
+.yard-nameplate .energy-pip {
+  display: inline-block;
+  width: 5px;
+  height: 8px;
+  margin-left: 1px;
+  border: 1px solid #33261a;
+  background: transparent;
+  flex: none;
+}
+
+.yard-nameplate[data-energy="fresh"] .energy-pip { background: #6d9440; }
+.yard-nameplate[data-energy="steady"] .energy-pip { background: #3d6aa8; }
+.yard-nameplate[data-energy="tired"] .energy-pip { background: #d9a53a; }
+.yard-nameplate[data-energy="exhausted"] .energy-pip { background: #c94f2e; }
+.yard-nameplate[data-energy="unknown"] .energy-pip { opacity: 0.35; }
+
 /* 区域木牌上的分组名（画布上的木牌是底，这里是字） */
 .yard-zone {
   position: absolute;
@@ -221,6 +237,41 @@ body[data-view="yard"] .account-bar {
   background: var(--yd-panel2);
   border-bottom: 3px solid var(--yd-line);
   backdrop-filter: none;
+}
+
+body[data-view="yard"] .quota-summary {
+  border-top: 2px solid color-mix(in srgb, var(--yd-line) 35%, transparent);
+}
+
+body[data-view="yard"] .quota-state-badge,
+body[data-view="yard"] .quota-track {
+  border-radius: 0;
+}
+
+body[data-view="yard"] .quota-track {
+  height: 7px;
+  border: 1px solid var(--yd-line);
+  background: var(--yd-panel);
+}
+
+body[data-view="yard"] #quotaRefreshBtn {
+  height: 22px;
+  padding: 0 7px;
+  border-width: 2px;
+  box-shadow: 0 2px 0 var(--yd-shadow);
+  font-size: 9.5px;
+}
+
+body[data-view="yard"] .quota-kicker,
+body[data-view="yard"] .quota-meter-value {
+  color: var(--yd-ink);
+}
+
+body[data-view="yard"] .quota-plan,
+body[data-view="yard"] .quota-meter-head,
+body[data-view="yard"] .quota-meter-foot,
+body[data-view="yard"] .quota-message {
+  color: var(--yd-ink2) !important;
 }
 
 body[data-view="yard"] .workspace button {
