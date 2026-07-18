@@ -44,6 +44,14 @@
     ))[0];
   }
 
+  function energyForRemaining(remaining) {
+    if (!Number.isFinite(remaining)) return 'unknown';
+    if (remaining < 10) return 'exhausted';
+    if (remaining < 30) return 'tired';
+    if (remaining < 60) return 'steady';
+    return 'fresh';
+  }
+
   function deriveEnergy(snapshot, now = Date.now(), maxAgeMs = DEFAULT_MAX_AGE_MS) {
     if (!snapshot || snapshot.status !== 'ok') return 'unknown';
     const observedAt = validTime(snapshot.observedAt);
@@ -52,12 +60,8 @@
 
     const window_ = constrainingWindow(snapshot, now);
     if (!window_) return 'unknown';
-    const remaining = window_.remainingPercent;
-    if (remaining < 10) return 'exhausted';
-    if (remaining < 30) return 'tired';
-    if (remaining < 60) return 'steady';
-    return 'fresh';
+    return energyForRemaining(window_.remainingPercent);
   }
 
-  return { ENERGY_META, DEFAULT_MAX_AGE_MS, activeWindows, constrainingWindow, deriveEnergy };
+  return { ENERGY_META, DEFAULT_MAX_AGE_MS, activeWindows, constrainingWindow, energyForRemaining, deriveEnergy };
 });

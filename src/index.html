@@ -66,6 +66,16 @@
             <p id="accountMeta"></p>
             <code id="accountPath"></code>
             <p id="accountNote" class="account-note"></p>
+            <section id="quotaSummary" class="quota-summary" aria-label="账号额度" aria-live="polite" hidden>
+              <div class="quota-summary-head">
+                <span class="quota-kicker">额度 Beta</span>
+                <span id="quotaPlan" class="quota-plan"></span>
+                <span id="quotaStateBadge" class="quota-state-badge">等待查询</span>
+                <button id="quotaRefreshBtn" class="quota-refresh" type="button" title="从官方服务刷新额度">↻ 刷新额度</button>
+              </div>
+              <div id="quotaMeters" class="quota-meters"></div>
+              <p id="quotaMessage" class="quota-message"></p>
+            </section>
           </div>
 
           <div class="account-actions" id="accountActions">
@@ -287,6 +297,7 @@
 
     <script src="./yard/sprites.js"></script>
     <script src="./yard/cats.js"></script>
+    <script src="./yard/energy.js"></script>
     <script src="./yard/companion.js"></script>
     <script src="./yard/workload.js"></script>
     <script src="./yard/palettes.js"></script>

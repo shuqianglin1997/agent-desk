@@ -464,6 +464,186 @@ button.danger:hover:not(:disabled) {
   white-space: nowrap;
 }
 
+/* ── provider quota / cat energy ─────────────────────── */
+.quota-summary {
+  display: grid;
+  gap: 5px;
+  max-width: 620px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.quota-summary[hidden] {
+  display: none;
+}
+
+.quota-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.quota-kicker {
+  color: var(--ink-primary);
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.quota-plan {
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.quota-state-badge {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  height: 19px;
+  border: 1px solid var(--line-mid);
+  border-radius: 999px;
+  padding: 0 8px;
+  color: var(--ink-tertiary);
+  background: var(--surface-sunken);
+  font-size: 9.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.quota-summary[data-energy="fresh"] .quota-state-badge {
+  border-color: var(--success-line);
+  color: var(--success);
+  background: var(--success-wash);
+}
+
+.quota-summary[data-energy="steady"] .quota-state-badge {
+  border-color: color-mix(in oklab, var(--accent) 38%, var(--line-mid));
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.quota-summary[data-energy="tired"] .quota-state-badge {
+  border-color: var(--warn-line);
+  color: var(--warn);
+  background: var(--warn-wash);
+}
+
+.quota-summary[data-energy="exhausted"] .quota-state-badge {
+  border-color: color-mix(in oklab, var(--danger) 45%, var(--line-mid));
+  color: var(--danger);
+  background: color-mix(in oklab, var(--danger) 10%, var(--surface-raised));
+}
+
+.quota-refresh {
+  height: 21px;
+  margin-left: auto;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+
+.quota-meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+  gap: 5px 9px;
+}
+
+.quota-meter {
+  min-width: 0;
+}
+
+.quota-meter-head,
+.quota-meter-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ink-tertiary);
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.quota-meter-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quota-meter-value {
+  flex: none;
+  color: var(--ink-secondary);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.quota-track {
+  height: 6px;
+  margin: 3px 0 2px;
+  overflow: hidden;
+  border: 1px solid var(--line-mid);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+}
+
+.quota-fill {
+  width: 0;
+  height: 100%;
+  background: var(--ink-tertiary);
+  transition: width 180ms ease-out;
+}
+
+.quota-meter[data-level="fresh"] .quota-fill { background: var(--success); }
+.quota-meter[data-level="steady"] .quota-fill { background: var(--accent); }
+.quota-meter[data-level="tired"] .quota-fill { background: var(--warn); }
+.quota-meter[data-level="exhausted"] .quota-fill { background: var(--danger); }
+
+.quota-meter-foot {
+  justify-content: flex-start;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+}
+
+.quota-summary[data-status="stale"] .quota-fill {
+  background: var(--ink-tertiary);
+}
+
+.quota-message {
+  margin: 0 !important;
+  overflow: hidden;
+  color: var(--ink-tertiary) !important;
+  font-size: 9.5px !important;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quota-summary.is-loading .quota-state-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border: 1px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: quota-spin 700ms linear infinite;
+}
+
+@keyframes quota-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quota-fill { transition: none; }
+  .quota-summary.is-loading .quota-state-badge::before { animation: none; }
+}
+
 .account-actions {
   align-items: center;
   white-space: nowrap;
@@ -471,7 +651,7 @@ button.danger:hover:not(:disabled) {
 
 .main-grid {
   display: grid;
-  grid-template-columns: minmax(480px, 1fr) 328px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 328px);
   min-width: 0;
   min-height: 0;
 }

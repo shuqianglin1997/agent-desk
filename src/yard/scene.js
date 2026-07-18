@@ -41,7 +41,7 @@
   let terrainCtx = null;
   let terrainKey = null;
 
-  let data = { profiles: [], statesById: {}, selectedId: null, night: false };
+  let data = { profiles: [], statesById: {}, energyById: {}, selectedId: null, night: false };
   let timeOverride = 'auto';     // auto|day|dusk|night；auto 时跟随主题
   let weather = 'clear';         // clear|cloudy|rain|snow
   const rainDrops = scatter(60, 41, 0, -20, W, H);   // 雨滴起始点（x,y 基点）
@@ -153,6 +153,7 @@
 
       members.forEach((profile, i) => {
         const state = data.statesById[profile.id] || 'rest';
+        const energy = data.energyById[profile.id] || 'unknown';
         const col = i % perRow;
         const row = Math.floor(i / perRow);
         let hx = Math.min(startX + col * spacing, GROUND_X1 - 10);
@@ -176,7 +177,7 @@
         }
 
         const entry = {
-          profile, state, seat, tier,
+          profile, state, energy, seat, tier,
           home: { x: hx, y: hy },
           band: { x0: x0 + 8, x1: x1 - 8 },
           actor,
@@ -262,6 +263,7 @@
   function syncChips() {
     if (!overlay) return;
     const meta = root.YardCats ? root.YardCats.STATE_META : {};
+    const energyMeta = root.YardEnergy ? root.YardEnergy.ENERGY_META : {};
     const seen = new Set();
 
     for (const entry of layout) {
@@ -275,9 +277,12 @@
         chip.dataset.id = id;
         const dot = document.createElement('span');
         dot.className = 'app-dot';
+        const energy = document.createElement('span');
+        energy.className = 'energy-pip';
+        energy.setAttribute('aria-hidden', 'true');
         const label = document.createElement('span');
         label.className = 'plate-name';
-        chip.append(dot, label);
+        chip.append(dot, label, energy);
         chip.addEventListener('click', () => { if (onSelect) onSelect(id); });
         // 指名牌 = 指猫：双向联动高亮
         chip.addEventListener('mouseenter', () => setHoverId(id));
@@ -285,9 +290,11 @@
         overlay.appendChild(chip);
       }
       const stateLabel = meta[entry.state] ? meta[entry.state].label : entry.state;
+      const energyLabel = energyMeta[entry.energy] ? energyMeta[entry.energy].label : '额度未知';
       chip.querySelector('.plate-name').textContent = entry.profile.name;
       chip.querySelector('.app-dot').style.background = (root.YardSprites.APP_TAG[entry.profile.appId]) || '#d96f33';
-      chip.title = `${entry.profile.name} · ${stateLabel}${entry.profile.group ? ' · ' + entry.profile.group : ''}`;
+      chip.title = `${entry.profile.name} · ${stateLabel} · ${energyLabel}${entry.profile.group ? ' · ' + entry.profile.group : ''}`;
+      chip.dataset.energy = entry.energy;
       chip.classList.toggle('selected', id === data.selectedId);
       chip.classList.toggle('hovered', id === hoveredId);
       chip.classList.toggle('tier1', entry.tier === 1);
@@ -552,6 +559,36 @@
     rect(x + 2, 78, 30, 1, 'rgba(255,255,255,.25)');
   }
 
+  function drawEnergyCue(entry, dx, dy, pw, seed) {
+    if (entry.actor.walking || entry.state === 'confused') return;
+    if (entry.energy === 'fresh') {
+      // A tiny, intermittent four-pixel sparkle: visible without turning the
+      // yard into a dashboard or changing the cat's activity pose.
+      if ((tick + seed) % 32 < 10) {
+        const sx = dx + pw + 2;
+        const sy = dy - 3 - (((tick + seed) >> 2) % 2);
+        rect(sx, sy - 1, 1, 3, '#f4c76a');
+        rect(sx - 1, sy, 3, 1, '#f4c76a');
+      }
+      return;
+    }
+    if (entry.energy === 'tired') {
+      if ((tick + seed) % 24 < 16) {
+        const dropY = dy + 1 + (((tick + seed) >> 3) % 2);
+        rect(dx + pw + 1, dropY, 1, 2, '#78bfd7');
+        rect(dx + pw, dropY + 2, 2, 1, '#78bfd7');
+      }
+      return;
+    }
+    if (entry.energy === 'exhausted') {
+      const bx = dx + pw - 1;
+      const by = dy - 7;
+      frameRect(bx, by, 7, 4, '#f7f1dd', LINE);
+      rect(bx + 7, by + 1, 1, 2, LINE);
+      rect(bx + 1, by + 1, 1, 2, '#c94f2e');
+    }
+  }
+
   // ── 猫 ───────────────────────────────────────────────
   function drawYardCat(entry, sleepAll) {
     const S = root.YardSprites;
@@ -561,12 +598,17 @@
     const pw = pose[0].length;
     const ph = pose.length;
     const seed = seedOf(entry.profile);
+    const energy = entry.energy || 'unknown';
     const seated = entry.seat && !a.walking;
     let dx = Math.round(a.x - pw / 2);
     let dy = Math.round(a.y - ph);
     if (seated) dy -= 6; // 坐小凳，头露出书桌
     if (a.walking) dy -= (tick + seed) % 2;                          // 小碎步
-    if (seated && entry.state === 'working') dy -= ((tick + seed) >> 3) % 2; // 打字时轻微点头
+    if (seated && entry.state === 'working') {
+      // 额度疲劳只调节动作节奏，不改变 working/onduty 等活动状态。
+      const pace = energy === 'tired' || energy === 'exhausted' ? 5 : 3;
+      dy -= ((tick + seed) >> pace) % 2;
+    }
     if (!a.walking && entry.state === 'confused') dx += (tick % 8 < 4) ? 0 : 1;
     if (!a.walking && !sleepAll && entry.state === 'play' && a.watchUntil <= tick) {
       dy -= Math.abs(Math.sin((tick + seed) * 0.5)) > 0.7 ? 2 : 0;   // 扑线团小跳
@@ -593,6 +635,7 @@
       flip: a.flip,
       tail: (tick + seed) % 24 < 12
     });
+    drawEnergyCue(entry, dx, dy, pw, seed);
 
     if (entry.state === 'working' && !a.walking) {
       if (entry.seat) drawDesk(entry.home.x, true);

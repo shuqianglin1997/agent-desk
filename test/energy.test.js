@@ -2,7 +2,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { constrainingWindow, deriveEnergy } = require('../src/yard/energy');
+const { constrainingWindow, energyForRemaining, deriveEnergy } = require('../src/yard/energy');
 
 const NOW = Date.parse('2026-07-18T12:00:00Z');
 const snapshot = (remaining, overrides = {}) => ({
@@ -17,6 +17,16 @@ test('疲劳阈值只看剩余额度，不改写活动状态', () => {
   assert.equal(deriveEnergy(snapshot(50), NOW), 'steady');
   assert.equal(deriveEnergy(snapshot(20), NOW), 'tired');
   assert.equal(deriveEnergy(snapshot(9), NOW), 'exhausted');
+});
+
+test('进度条和猫咪共用同一组阈值边界', () => {
+  assert.equal(energyForRemaining(60), 'fresh');
+  assert.equal(energyForRemaining(59.99), 'steady');
+  assert.equal(energyForRemaining(30), 'steady');
+  assert.equal(energyForRemaining(29.99), 'tired');
+  assert.equal(energyForRemaining(10), 'tired');
+  assert.equal(energyForRemaining(9.99), 'exhausted');
+  assert.equal(energyForRemaining(Number.NaN), 'unknown');
 });
 
 test('多个周期取最紧约束窗口', () => {
