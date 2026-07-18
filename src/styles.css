@@ -1176,6 +1176,150 @@ dialog::backdrop {
   letter-spacing: normal;
 }
 
+.agent-registry-dialog .dialog-body {
+  max-height: min(760px, calc(100vh - 72px));
+  overflow-y: auto;
+}
+
+.agent-registry-lead {
+  margin: 0;
+  color: var(--ink-secondary);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+.custom-agent-section {
+  display: grid;
+  gap: 8px;
+}
+
+.custom-agent-section h4 {
+  margin: 0;
+  font-size: 11px;
+}
+
+.custom-agent-list {
+  display: grid;
+  gap: 7px;
+}
+
+.discovered-agent-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.discovered-agent-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 4px 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-subtle);
+}
+
+.discovered-agent-item strong,
+.discovered-agent-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.discovered-agent-item strong {
+  font-size: 10.5px;
+}
+
+.discovered-agent-item span,
+.discovered-agent-item b {
+  font-size: 8.5px;
+}
+
+.discovered-agent-item span {
+  padding: 1px 4px;
+  border: 1px solid var(--line-soft);
+  color: var(--ink-tertiary);
+}
+
+.discovered-agent-item b {
+  color: #188451;
+}
+
+.discovered-agent-item[data-available="false"] b {
+  color: var(--ink-tertiary);
+}
+
+.discovered-agent-item small {
+  grid-column: 1 / -1;
+  color: var(--ink-tertiary);
+  font-size: 9px;
+}
+
+@media (max-width: 620px) {
+  .discovered-agent-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.custom-agent-list > p {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--line-mid);
+  color: var(--ink-tertiary);
+  font-size: 10.5px;
+}
+
+.custom-agent-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 12px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-subtle);
+}
+
+.custom-agent-item strong,
+.custom-agent-item code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-agent-item strong {
+  font-size: 11px;
+}
+
+.custom-agent-item code {
+  color: var(--ink-tertiary);
+  font-size: 9.5px;
+}
+
+.custom-agent-item button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.custom-agent-form {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line-mid);
+}
+
+.custom-agent-form legend {
+  padding: 0 6px;
+  color: var(--ink-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.custom-agent-form > .primary {
+  justify-self: end;
+}
+
 /* ── welcome / help ─────────────────────────────────── */
 .welcome-dialog {
   width: min(480px, calc(100vw - 48px));

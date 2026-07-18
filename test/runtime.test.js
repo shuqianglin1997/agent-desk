@@ -131,8 +131,80 @@ test('所有内置 Agent 都能在没有客户端槽位时被发现', () => {
   });
   const adapters = service.listAdapters(null);
 
-  assert.deepEqual(adapters.map((item) => item.id), ['shell', 'codex', 'claude']);
+  assert.deepEqual(adapters.slice(0, 3).map((item) => item.id), ['shell', 'codex', 'claude']);
+  assert.ok(adapters.some((item) => item.id === 'opencode' && item.protocol === 'acp'));
   assert.ok(adapters.every((item) => item.supportsMultiple));
+});
+
+test('ACP Agent 使用长驻连接、多实例会话和流式事件', async () => {
+  const child = fakeChild();
+  const events = [];
+  let closed = false;
+  const service = new RuntimeService({
+    platform: 'linux',
+    randomUUID: () => 'runtime-acp',
+    resolveCodex: () => null,
+    resolveClaude: () => null,
+    resolveExecutable: (candidates) => (
+      candidates.some((item) => item.path.endsWith('/opencode'))
+        ? { command: '/tools/opencode', prefixArgs: [], extraEnv: {}, source: '测试' }
+        : null
+    ),
+    shellSpec: () => ({ command: '/bin/sh', prefixArgs: [], extraEnv: {}, source: '测试' }),
+    spawnImpl: () => child,
+    connectAcp: async () => ({
+      session: { sessionId: 'acp-session-1' },
+      initializeResult: { agentInfo: { name: 'OpenCode Test' } },
+      prompt: async (_text, onUpdate) => {
+        onUpdate({ stream: 'agent', text: '已处理' });
+        return { stopReason: 'end_turn' };
+      },
+      cancel: async () => {},
+      close: () => { closed = true; }
+    }),
+    onEvent: (event) => events.push(event)
+  });
+
+  const runtime = service.start(null, { adapterId: 'opencode', cwd: '/workspace' });
+  assert.equal(runtime.status, 'starting');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(service.list()[0].status, 'ready');
+  assert.equal(service.list()[0].conversationId, 'acp-session-1');
+
+  service.send(runtime.id, '检查项目');
+  assert.equal(service.list()[0].status, 'running');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(service.list()[0].status, 'ready');
+  assert.ok(events.some((event) => event.stream === 'agent' && event.text === '已处理'));
+
+  service.stop(runtime.id);
+  assert.equal(closed, true);
+  assert.equal(child.killed, true);
+});
+
+test('ACP 握手完成前拒绝输入，避免消息丢进未建立的会话', () => {
+  const child = fakeChild();
+  const service = new RuntimeService({
+    platform: 'linux',
+    randomUUID: () => 'runtime-starting',
+    resolveCodex: () => null,
+    resolveClaude: () => null,
+    resolveExecutable: (candidates) => (
+      candidates.some((item) => item.path.endsWith('/opencode'))
+        ? { command: '/tools/opencode', prefixArgs: [], extraEnv: {}, source: '测试' }
+        : null
+    ),
+    shellSpec: () => ({ command: '/bin/sh', prefixArgs: [], extraEnv: {}, source: '测试' }),
+    spawnImpl: () => child,
+    connectAcp: () => new Promise(() => {})
+  });
+
+  const runtime = service.start(null, { adapterId: 'opencode', cwd: '/workspace' });
+  assert.throws(
+    () => service.send(runtime.id, '不能提前发送'),
+    (error) => error.code === 'RUNTIME_NOT_READY'
+  );
+  service.stop(runtime.id);
 });
 
 test('工作目录只能由已索引会话选择，失效项目会回退到账号会话目录', () => {

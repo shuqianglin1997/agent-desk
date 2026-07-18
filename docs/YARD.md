@@ -88,15 +88,18 @@
 
 ## 内嵌 Agent 与终端
 
-[src/runtime.js](../src/runtime.js) 是纯 Node 运行层。当前 MVP 是管道模式，不伪装成完整 PTY：Shell 逐行执行命令；Codex 和 Claude Code 使用各自官方 CLI 的非交互流式输出。后续可换成 node-pty 而不改 renderer 的运行会话协议。
+[src/runtime.js](../src/runtime.js) 是纯 Node Fleet 运行层。Agent 类型、可选登录身份、工作区和运行实例彼此独立：没有客户端账号槽位也能运行本机 Agent；同一 Agent / 身份 / 项目允许同时存在多个实例，切换可见输出不会停止其他实例。
 
-- renderer 只能提交 `profileId / adapterId / sessionId / text`，不能提交可执行文件、参数、环境变量或任意工作目录。
-- main 从已保存账号重新读取 profile；项目目录只能由已索引会话 ID 解析，失效时回退账号会话目录。
-- 首次开启使用原生系统警告确认。Shell 命令直接在本机执行；Codex 默认使用 `workspace-write` 沙箱，绝不添加绕过审批和沙箱的危险参数。
-- Codex 适配器使用当前槽位的 `CODEX_HOME`，可连续 resume；Claude Code CLI 登录与 Claude 桌面槽位登录彼此独立，UI 会明确提示。
-- 同时最多 4 个主进程运行环境、单次输入 32KB、单环境输出 1MB。窗口关闭、账号移除或 App 退出都会停止所属子进程。
+- Direct 层以结构化非交互模式连接 Codex / Claude Code；ACP 层以官方 SDK 长驻连接 Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot、goose、Kimi、Qwen Code以及自定义 ACP stdio Agent；Shell 是其他终端工具的通用兜底。
+- renderer 只能组合主进程已登记的 adapter / identity 与选择器授权的 workspace grant，不能直接提交可执行文件、参数、环境变量或 `cwd`。
+- 当前会话项目只是默认工作区建议。用户可通过系统目录选择器授权任何项目，授权与当前 renderer 所有者绑定。
+- 首次开启使用原生系统警告确认。ACP Agent 的文件修改与命令权限由主进程原生对话框逐次呈现，默认取消；Shell 命令直接在本机执行。
+- Codex 身份槽位只通过 main 注入对应 `CODEX_HOME`；Claude Code CLI 与桌面 App 登录可能独立，界面明确提示。ACP Agent 自己负责认证，AgentDesk 不读取 token。
+- 同时最多 12 个主进程实例、单次输入 32 KB、单实例输出 1 MB；ACP 初始化 / session 创建各有 20 秒超时。窗口关闭或 App 退出停止全部进程，停止当前实例不影响其他 Agent。
 - 任务道只把用户明确确认的会话交接加入 renderer 内存队列；上一条 Agent 任务完成后再发送，不持久化、不在重启后偷偷恢复执行。
 - 运行错误、低额度、路径问题和可用更新统一进入右侧「需要留意」，并与猫气泡共享真实状态源。
+
+完整协议、注册表、自定义接入与后续 PTY / 远程 Transport 规划见 [AGENT_FLEET.md](AGENT_FLEET.md)。
 
 ## 模块结构
 
@@ -106,7 +109,9 @@ src/
   quota.js             官方额度响应的脱敏归一化（纯 Node）
   codex-quota.js       Codex app-server RPC + 本地 stale 回退
   quota-service.js     分槽位缓存、限流、并发合并与 provider 降级
-  runtime.js           Shell / Codex / Claude Code 安全适配器与进程生命周期
+  agent-registry.js    ACP Agent 发现清单与自定义接入定义
+  acp-client.js        ACP stdio 长连接、会话与流事件映射
+  runtime.js           Direct / ACP / Shell 适配器与多实例生命周期
   yard/
     cats.js            状态机 + 外观默认值（纯函数，UMD，可单测）
     energy.js          额度能量轴（纯函数，UMD，可单测）

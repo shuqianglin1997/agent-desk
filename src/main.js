@@ -16,10 +16,16 @@ const updater = require('./updater');
 const windows = require('./windows');
 const { QuotaService } = require('./quota-service');
 const { RuntimeService, resolveRuntimeCwd } = require('./runtime');
+const {
+  normalizeCustomAgent,
+  normalizeCustomAgentList,
+  parseArgumentLines
+} = require('./agent-registry');
 const { normalizeCat } = require('./yard/cats');
 
 const APP_NAME = 'AgentDesk';
 const STORE_VERSION = 2;
+const CUSTOM_AGENT_STORE_VERSION = 1;
 const WINDOWS_DISCOVERY_TTL = 30_000;
 const UPDATE_CACHE_TTL = 5 * 60_000;
 const UPDATE_CHECK_TIMEOUT = 15_000;
@@ -30,8 +36,12 @@ let updateInstalling = false;
 let mainWindow = null;
 let runtimeConsentGranted = false;
 const runtimeWorkspaceGrants = new Map();
+const runtimeExecutableGrants = new Map();
 const quotaService = new QuotaService();
 const runtimeService = new RuntimeService({
+  getCustomAgents: () => loadCustomAgents(),
+  requestPermission: requestRuntimePermission,
+  getClientVersion: () => app.getVersion(),
   onEvent(payload) {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     mainWindow.webContents.send('runtime:event', payload);
@@ -271,6 +281,74 @@ function registerIpc() {
     return runtimeService.list();
   });
 
+  ipcMain.handle('runtime:customAdapters', () => {
+    return loadCustomAgents();
+  });
+
+  ipcMain.handle('runtime:pickExecutable', async (event, input = {}) => {
+    const dialogOptions = {
+      title: '选择 ACP Agent 可执行文件',
+      defaultPath: input.defaultPath || app.getPath('home'),
+      properties: ['openFile']
+    };
+    if (process.platform === 'win32') {
+      dialogOptions.filters = [
+        { name: 'Agent 程序', extensions: ['exe', 'cmd', 'bat', 'js', 'mjs', 'cjs'] },
+        { name: '所有文件', extensions: ['*'] }
+      ];
+    }
+    const result = await dialog.showOpenDialog(mainWindow, dialogOptions);
+    if (result.canceled || !result.filePaths.length) return { ok: false, cancelled: true };
+    const executable = path.resolve(result.filePaths[0]);
+    try {
+      if (!fs.statSync(executable).isFile()) return { ok: false, reason: '选择的位置不是文件' };
+    } catch (error) {
+      return { ok: false, reason: `无法访问这个文件：${error.message}` };
+    }
+    const grantId = crypto.randomUUID();
+    runtimeExecutableGrants.set(grantId, {
+      ownerId: event.sender.id,
+      path: executable,
+      createdAt: Date.now()
+    });
+    while (runtimeExecutableGrants.size > 32) {
+      runtimeExecutableGrants.delete(runtimeExecutableGrants.keys().next().value);
+    }
+    return { ok: true, grantId, path: executable };
+  });
+
+  ipcMain.handle('runtime:addCustomAdapter', (event, input = {}) => {
+    const grant = runtimeExecutableGrants.get(String(input.executableGrantId || ''));
+    if (!grant || grant.ownerId !== event.sender.id) {
+      return { ok: false, reason: '可执行文件授权已失效，请重新选择' };
+    }
+    try {
+      const agent = normalizeCustomAgent({
+        id: crypto.randomUUID(),
+        name: input.name,
+        executable: grant.path,
+        args: parseArgumentLines(input.arguments),
+        createdAt: new Date().toISOString()
+      });
+      if (!agent) return { ok: false, reason: '请填写 Agent 名称并选择有效的可执行文件' };
+      const agents = loadCustomAgents();
+      agents.push(agent);
+      saveCustomAgents(agents);
+      runtimeExecutableGrants.delete(String(input.executableGrantId || ''));
+      return { ok: true, agent };
+    } catch (error) {
+      return runtimeErrorResult(error);
+    }
+  });
+
+  ipcMain.handle('runtime:removeCustomAdapter', (_event, id) => {
+    const agents = loadCustomAgents();
+    const next = agents.filter((item) => item.id !== String(id || ''));
+    if (next.length === agents.length) return { ok: false, reason: '找不到这个自定义 Agent' };
+    saveCustomAgents(next);
+    return { ok: true };
+  });
+
   ipcMain.handle('runtime:pickWorkspace', async (event, input = {}) => {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: '选择 Agent 工作目录',
@@ -424,6 +502,47 @@ async function confirmRuntimeAccess() {
   });
   runtimeConsentGranted = result.response === 1;
   return runtimeConsentGranted;
+}
+
+async function requestRuntimePermission(runtime, params = {}) {
+  if (!mainWindow || mainWindow.isDestroyed()) return { outcome: { outcome: 'cancelled' } };
+  const options = Array.isArray(params.options) ? params.options.slice(0, 8) : [];
+  if (!options.length) return { outcome: { outcome: 'cancelled' } };
+  const kindLabels = {
+    allow_once: '仅本次允许',
+    allow_always: '本实例始终允许',
+    reject_once: '本次拒绝',
+    reject_always: '本实例始终拒绝'
+  };
+  let rawInput = '';
+  try {
+    rawInput = params.toolCall?.rawInput == null
+      ? ''
+      : JSON.stringify(params.toolCall.rawInput, null, 2).slice(0, 1200);
+  } catch (_error) {
+    rawInput = '';
+  }
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    title: `${runtime.adapterLabel} 请求权限`,
+    message: params.toolCall?.title || 'Agent 请求执行一项操作',
+    detail: [
+      `实例：${runtime.title}`,
+      `工作目录：${runtime.cwd}`,
+      rawInput ? `\n参数：\n${rawInput}` : ''
+    ].filter(Boolean).join('\n'),
+    buttons: ['取消', ...options.map((option) => (
+      `${option.name} · ${kindLabels[option.kind] || option.kind}`
+    ))],
+    cancelId: 0,
+    defaultId: 0,
+    noLink: true
+  });
+  if (result.response <= 0) return { outcome: { outcome: 'cancelled' } };
+  const selected = options[result.response - 1];
+  return selected
+    ? { outcome: { outcome: 'selected', optionId: selected.optionId } }
+    : { outcome: { outcome: 'cancelled' } };
 }
 
 function runtimeErrorResult(error) {
@@ -1077,10 +1196,51 @@ function settingsPreUpdateBackupFile() {
   return `${settingsFile()}.pre-update.bak`;
 }
 
+function customAgentsFile() {
+  return path.join(app.getPath('userData'), 'agent-adapters.json');
+}
+
+function customAgentsBackupFile() {
+  return `${customAgentsFile()}.bak`;
+}
+
+function customAgentsPreUpdateBackupFile() {
+  return `${customAgentsFile()}.pre-update.bak`;
+}
+
+function loadCustomAgents() {
+  ensureDir(path.dirname(customAgentsFile()));
+  const candidates = [
+    customAgentsFile(),
+    customAgentsBackupFile(),
+    customAgentsPreUpdateBackupFile()
+  ];
+  const loaded = candidates
+    .map((filePath) => readJsonStore(filePath, (value) => (
+      value && typeof value === 'object' && Array.isArray(value.agents)
+    )))
+    .find(Boolean);
+  if (!loaded) return [];
+  const agents = normalizeCustomAgentList(loaded.parsed.agents);
+  if (loaded.filePath !== customAgentsFile() || JSON.stringify(agents) !== JSON.stringify(loaded.parsed.agents)) {
+    saveCustomAgents(agents, { skipBackup: loaded.filePath !== customAgentsFile() });
+  }
+  return agents;
+}
+
+function saveCustomAgents(agents, options = {}) {
+  writeJsonStore(
+    customAgentsFile(),
+    { version: CUSTOM_AGENT_STORE_VERSION, agents: normalizeCustomAgentList(agents) },
+    { ...options, backupFile: customAgentsBackupFile() }
+  );
+}
+
 function snapshotConfigurationForUpdate() {
   for (const [source, target] of [
     [profilesFile(), profilesPreUpdateBackupFile()],
-    [settingsFile(), settingsPreUpdateBackupFile()]
+    [settingsFile(), settingsPreUpdateBackupFile()],
+    [customAgentsFile(), customAgentsPreUpdateBackupFile()]
   ]) {
     snapshotFile(source, target);
   }

@@ -20,6 +20,8 @@ const state = {
     selectedAdapterId: null,
     selectedIdentityId: null,
     workspaceGrant: null,
+    customAgents: [],
+    executableGrant: null,
     runtimes: [],
     selectedRuntimeId: null,
     outputs: {},
@@ -85,6 +87,7 @@ const els = {
   runtimeCount: document.querySelector('#runtimeCount'),
   runtimeList: document.querySelector('#runtimeList'),
   runtimeStatus: document.querySelector('#runtimeStatus'),
+  runtimeRegistryBtn: document.querySelector('#runtimeRegistryBtn'),
   runtimeAdapter: document.querySelector('#runtimeAdapter'),
   runtimeIdentity: document.querySelector('#runtimeIdentity'),
   runtimeCwd: document.querySelector('#runtimeCwd'),
@@ -99,6 +102,14 @@ const els = {
   runtimeInput: document.querySelector('#runtimeInput'),
   runtimeSendBtn: document.querySelector('#runtimeSendBtn'),
   runtimeHint: document.querySelector('#runtimeHint'),
+  agentRegistryDialog: document.querySelector('#agentRegistryDialog'),
+  discoveredAgentList: document.querySelector('#discoveredAgentList'),
+  customAgentList: document.querySelector('#customAgentList'),
+  customAgentName: document.querySelector('#customAgentName'),
+  customAgentExecutable: document.querySelector('#customAgentExecutable'),
+  customAgentArguments: document.querySelector('#customAgentArguments'),
+  pickCustomAgentExecutableBtn: document.querySelector('#pickCustomAgentExecutableBtn'),
+  confirmAddCustomAgentBtn: document.querySelector('#confirmAddCustomAgentBtn'),
   attentionInbox: document.querySelector('#attentionInbox'),
   attentionCount: document.querySelector('#attentionCount'),
   attentionItems: document.querySelector('#attentionItems'),
@@ -495,6 +506,30 @@ function bindEvents() {
   els.runtimeIdentity.addEventListener('change', () => {
     state.runtime.selectedIdentityId = els.runtimeIdentity.value || null;
     renderRuntimeDock();
+  });
+
+  els.runtimeRegistryBtn.addEventListener('click', async () => {
+    await loadRuntimeAdapters();
+    renderDiscoveredAgentList();
+    renderCustomAgentList();
+    els.agentRegistryDialog.showModal();
+  });
+
+  els.pickCustomAgentExecutableBtn.addEventListener('click', async () => {
+    if (!window.manager.pickAgentExecutable) return;
+    const result = await window.manager.pickAgentExecutable({
+      defaultPath: state.runtime.executableGrant?.path
+    });
+    if (!result?.ok) {
+      if (!result?.cancelled) setStatus(result?.reason || '无法选择 Agent 可执行文件。');
+      return;
+    }
+    state.runtime.executableGrant = result;
+    els.customAgentExecutable.value = result.path;
+  });
+
+  els.confirmAddCustomAgentBtn.addEventListener('click', async () => {
+    await addCustomAgent();
   });
 
   els.runtimeWorkspaceBtn.addEventListener('click', async () => {
@@ -1138,7 +1173,7 @@ function initYard() {
 
 // 时间 / 天气控件：从稳定设置恢复，点击切换并持久化
 function initAtmosphere() {
-  const TIME_LABEL = { auto: '跟随主题', day: '白天', dusk: '黄昏', night: '夜晚' };
+  const TIME_LABEL = { auto: '跟随系统', day: '白天', dusk: '黄昏', night: '夜晚' };
   const WEATHER_LABEL = { auto: '自动变化', clear: '晴天', cloudy: '多云', rain: '下雨', snow: '下雪' };
   const syncPressed = () => {
     els.atmosTime.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.time === state.atmosTime)));
@@ -1220,6 +1255,116 @@ function upsertRuntime(value) {
   return state.runtime.runtimes.find((item) => item.id === value.id) || null;
 }
 
+async function loadCustomAgents() {
+  if (!window.manager.listCustomAgents) {
+    state.runtime.customAgents = [];
+    return;
+  }
+  try {
+    const agents = await window.manager.listCustomAgents();
+    state.runtime.customAgents = Array.isArray(agents) ? agents : [];
+  } catch (_error) {
+    state.runtime.customAgents = [];
+  }
+}
+
+function renderDiscoveredAgentList() {
+  if (!els.discoveredAgentList) return;
+  els.discoveredAgentList.replaceChildren();
+  const builtIns = state.runtime.adapters.filter((adapter) => !adapter.custom);
+  for (const adapter of builtIns) {
+    const item = document.createElement('div');
+    item.className = 'discovered-agent-item';
+    item.dataset.available = String(Boolean(adapter.available));
+    const name = document.createElement('strong');
+    name.textContent = adapter.label;
+    const protocol = document.createElement('span');
+    protocol.textContent = adapter.protocol === 'acp'
+      ? 'ACP'
+      : adapter.protocol === 'shell'
+        ? '终端'
+        : '直连';
+    const stateLabel = document.createElement('b');
+    stateLabel.textContent = adapter.available ? '可用' : '未发现';
+    const detail = document.createElement('small');
+    detail.textContent = adapter.detail || adapter.source || '';
+    item.append(name, protocol, stateLabel, detail);
+    els.discoveredAgentList.append(item);
+  }
+}
+
+function renderCustomAgentList() {
+  if (!els.customAgentList) return;
+  els.customAgentList.replaceChildren();
+  if (!state.runtime.customAgents.length) {
+    const empty = document.createElement('p');
+    empty.textContent = '还没有自定义 Agent；上面的常用 Agent 会自动发现，不需要重复添加。';
+    els.customAgentList.append(empty);
+    return;
+  }
+  for (const agent of state.runtime.customAgents) {
+    const row = document.createElement('div');
+    row.className = 'custom-agent-item';
+    const name = document.createElement('strong');
+    name.textContent = agent.name;
+    const executable = document.createElement('code');
+    executable.textContent = [shortPath(agent.executable), ...(agent.args || [])].join(' ');
+    executable.title = [agent.executable, ...(agent.args || [])].join(' ');
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = '移除';
+    remove.addEventListener('click', async () => {
+      if (!window.confirm(`移除自定义 Agent「${agent.name}」？已运行的实例不会被中断。`)) return;
+      const result = await window.manager.removeCustomAgent(agent.id);
+      if (!result?.ok) {
+        setStatus(result?.reason || '无法移除自定义 Agent。');
+        return;
+      }
+      await loadCustomAgents();
+      await loadRuntimeAdapters();
+      renderDiscoveredAgentList();
+      renderCustomAgentList();
+      setStatus(`已移除「${agent.name}」；正在运行的实例不受影响。`);
+    });
+    row.append(name, executable, remove);
+    els.customAgentList.append(row);
+  }
+}
+
+async function addCustomAgent() {
+  if (!window.manager.addCustomAgent) return;
+  const name = els.customAgentName.value.trim();
+  if (!name) {
+    setStatus('请填写自定义 Agent 名称。');
+    els.customAgentName.focus();
+    return;
+  }
+  if (!state.runtime.executableGrant?.grantId) {
+    setStatus('请先通过系统选择器选择 Agent 可执行文件。');
+    return;
+  }
+  els.confirmAddCustomAgentBtn.disabled = true;
+  const result = await window.manager.addCustomAgent({
+    name,
+    executableGrantId: state.runtime.executableGrant.grantId,
+    arguments: els.customAgentArguments.value
+  });
+  els.confirmAddCustomAgentBtn.disabled = false;
+  if (!result?.ok) {
+    setStatus(result?.reason || '无法添加自定义 Agent。');
+    return;
+  }
+  state.runtime.executableGrant = null;
+  els.customAgentName.value = '';
+  els.customAgentExecutable.value = '';
+  els.customAgentArguments.value = '';
+  await loadCustomAgents();
+  await loadRuntimeAdapters();
+  renderDiscoveredAgentList();
+  renderCustomAgentList();
+  setStatus(`已接入 ACP Agent「${result.agent.name}」。`);
+}
+
 async function loadRuntimeAdapters() {
   const profile = selectedProfile();
   if (!window.manager.listTerminalAdapters) {
@@ -1228,11 +1373,13 @@ async function loadRuntimeAdapters() {
     return;
   }
   try {
-    const [adapters, liveRuntimes] = await Promise.all([
+    const [adapters, liveRuntimes, customAgents] = await Promise.all([
       window.manager.listTerminalAdapters(profile?.id || null),
-      window.manager.listTerminalRuntimes ? window.manager.listTerminalRuntimes() : []
+      window.manager.listTerminalRuntimes ? window.manager.listTerminalRuntimes() : [],
+      window.manager.listCustomAgents ? window.manager.listCustomAgents() : []
     ]);
     state.runtime.adapters = Array.isArray(adapters) ? adapters : [];
+    state.runtime.customAgents = Array.isArray(customAgents) ? customAgents : [];
     for (const runtime of Array.isArray(liveRuntimes) ? liveRuntimes : []) upsertRuntime(runtime);
     const selectedStillExists = state.runtime.adapters.some((item) => item.id === state.runtime.selectedAdapterId);
     state.runtime.selectedAdapterId = selectedStillExists

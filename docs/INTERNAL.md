@@ -2,13 +2,15 @@
 
 ## 项目定位
 
-AgentDesk 是一个本地桌面工具，用来管理 Claude / Codex 的本地账号槽位和会话索引。
+AgentDesk 是一个本地优先的多 Agent 工作空间，同时管理终端 Agent 运行实例、Claude / Codex 本地身份槽位和会话索引。
 
-它不是密码管理器，也不是聊天客户端。它只做三件事：
+它不是密码管理器，也不只是一层聊天客户端。核心职责是：
 
+- 发现并管理本机终端 Agent，允许多个实例并行运行
+- 把 Agent、身份、工作区、运行实例和历史会话解耦
 - 管理本地账号槽位
 - 扫描本地会话元信息
-- 复制会话交接信息给新会话
+- 在 Agent 之间复制或排队交接信息
 
 ## 核心概念
 
@@ -72,7 +74,9 @@ agent-desk/
     quota.js           额度数据脱敏与统一结构（纯 Node）
     codex-quota.js     Codex 官方 app-server 额度读取（纯 Node）
     quota-service.js   分槽位缓存、限流和 provider 降级（纯 Node）
-    runtime.js         内嵌 Shell / Agent 适配器、安全边界和进程生命周期（纯 Node）
+    agent-registry.js  ACP 内置发现清单、自定义 Agent 归一化与跨平台 CLI 候选
+    acp-client.js      官方 ACP SDK 的 stdio 长连接、会话和更新映射
+    runtime.js         多 Agent 适配器、安全边界与实例生命周期（纯 Node）
     sessions.js        会话扫描（纯 Node，可单元测试）
     activity.js        活跃度探测（stat-only，纯 Node，驱动庭院状态）
     preload.js         安全桥接 IPC
@@ -103,6 +107,7 @@ macOS 当前示例：
 ```text
 ~/Library/Application Support/AgentDesk/profiles.json
 ~/Library/Application Support/AgentDesk/settings.json
+~/Library/Application Support/AgentDesk/agent-adapters.json
 ```
 
 配置结构：
@@ -136,9 +141,9 @@ macOS 当前示例：
 - `managed`：AgentDesk 创建并维护的独立槽位
 - `custom`：用户手动指定，不自动改写
 
-账号外观、名称、路径等保存在 `profiles.json`；主题、庭院时间/天气、视图、提醒和今日账本保存在 `settings.json`。旧版仅存在 `localStorage` 的界面偏好会在首次启动时迁移到 `settings.json`。
+账号外观、名称、路径等保存在 `profiles.json`；主题、庭院时间/天气、视图、提醒和今日账本保存在 `settings.json`；用户明确接入的 ACP Agent 定义保存在 `agent-adapters.json`。旧版仅存在 `localStorage` 的界面偏好会在首次启动时迁移到 `settings.json`。
 
-两个文件写入时都先生成完整临时文件并 `fsync`，再替换主文件，同时保留 `.bak`。主文件损坏时会依次从常规备份和 `.pre-update.bak` 恢复，而不是静默清空或重置。Windows portable 真正替换 exe 前，还会额外保存一份更新前快照。
+三个文件写入时都先生成完整临时文件并 `fsync`，再替换主文件，同时保留 `.bak`。主文件损坏时会依次从常规备份和 `.pre-update.bak` 恢复，而不是静默清空或重置。Windows portable 真正替换 exe 前，还会为三者额外保存更新前快照。
 
 账号写回采用“重新读取最新配置，只修改目标字段”的方式。尤其 Windows 启动器发现和路径迁移可能耗时数秒，不能把异步操作开始前的整份旧快照写回，否则会覆盖用户同期修改的猫咪毛色、项圈、分组或备注。
 
@@ -161,7 +166,10 @@ macOS 当前示例：
 - 生成诊断信息
 - 检查 GitHub Release，并在受支持的 Windows portable 环境执行校验更新
 - 读取、缓存并脱敏 Codex 各槽位官方额度
-- 从内置适配器启动 Shell / Codex / Claude Code，并约束工作目录和生命周期
+- 发现 Shell、Codex、Claude Code、常用 ACP Agent 和用户接入的 ACP Agent
+- 启动、监管并停止最多 12 个相互独立的运行实例
+- 执行 ACP 握手、session、流更新、取消与原生权限选择
+- 通过一次性 owner grant 约束自定义可执行文件与任意工作目录
 
 渲染进程不直接访问文件系统。
 
@@ -187,9 +195,15 @@ listActivity()
 listQuotas(options)
 getDiagnostics(profile)
 listTerminalAdapters(profileId)
-startTerminal({ profileId, adapterId, sessionId })
-sendTerminal({ profileId, runtimeId, text })
-stopTerminal({ profileId, runtimeId })
+listTerminalRuntimes()
+listCustomAgents()
+pickAgentExecutable(options)
+addCustomAgent({ name, executableGrantId, arguments })
+removeCustomAgent(id)
+pickTerminalWorkspace(options)
+startTerminal({ adapterId, identityProfileId, workspaceProfileId, workspaceGrantId, sessionId })
+sendTerminal({ runtimeId, text })
+stopTerminal({ runtimeId })
 onTerminalEvent(callback)
 pickDirectory(options)
 pickFile(options)
@@ -198,7 +212,7 @@ openPath(path)
 writeClipboard(value)
 ```
 
-终端 IPC 不接受 renderer 提供的 executable、argv、env 或 cwd。main 只从已保存 profile 和重新扫描得到的 session ID 解析工作目录；首次开启还有原生系统确认。详情见 [YARD.md](YARD.md)。
+运行 IPC 不接受 renderer 直接提供的 executable、argv、env 或 cwd。已保存 identity / workspace profile 会在 main 中重新读取；任意工作目录和自定义 ACP 可执行文件必须由原生选择器生成、且与 `webContents.id` 绑定的 grant。首次开启整个运行面还有原生系统确认，ACP 工具权限逐次通过默认取消的原生选择框决定。完整模型见 [AGENT_FLEET.md](AGENT_FLEET.md)。
 
 ## 会话扫描规则
 
