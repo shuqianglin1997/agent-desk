@@ -32,3 +32,28 @@ test('自动氛围和语义拖放模块都在 scene 前加载', () => {
   assert.ok(atmosphere > 0 && atmosphere < scene);
   assert.ok(interactions > 0 && interactions < scene);
 });
+
+test('内嵌 Agent 占用庭院下方工作区，并由主进程约束适配器和工作目录', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
+  const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
+  const yardStart = html.indexOf('id="yardStage"');
+  const yardEnd = html.indexOf('</section>', html.indexOf('id="runtimeDock"'));
+
+  assert.ok(html.indexOf('id="runtimeDock"') > yardStart);
+  assert.ok(html.indexOf('id="runtimeDock"') < yardEnd);
+  assert.match(yardStyles, /grid-template-rows:\s*auto auto minmax\(170px, 1fr\)/);
+  assert.match(preload, /listTerminalAdapters:[\s\S]*?runtime:adapters/);
+  assert.match(preload, /onTerminalEvent:[\s\S]*?runtime:event/);
+  assert.match(main, /confirmRuntimeAccess\(\)/);
+  assert.match(main, /resolveRuntimeCwd\(profile, sessions, input\.sessionId\)/);
+  assert.doesNotMatch(main, /runtimeService\.start\([\s\S]{0,220}cwd:\s*input\.cwd/);
+});
+
+test('账号管理折叠为单一入口，最小高度下仍给会话列表留出可见空间', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
+  const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
+  assert.match(html, /<details id="accountManage"[\s\S]*?<div id="yardManageActions"/);
+  assert.match(yardStyles, /@media \(max-height: 700px\)[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+});

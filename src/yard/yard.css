@@ -92,12 +92,13 @@ body[data-view="yard"] .topbar-context::before {
   grid-column: 1;
   grid-row: 1;
   display: grid;
-  grid-template-rows: auto auto;
-  align-content: center;
+  grid-template-rows: auto auto minmax(170px, 1fr);
+  align-content: stretch;
+  gap: 9px;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding: 18px 20px;
+  padding: 14px 16px;
 }
 
 .yard-frame {
@@ -108,6 +109,209 @@ body[data-view="yard"] .topbar-context::before {
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
+}
+
+/* ── embedded runtime: useful structure, independent from final yard art ── */
+.runtime-dock {
+  display: grid;
+  grid-template-rows: auto auto minmax(64px, 1fr) auto auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 3px solid var(--yd-line);
+  background: #17201d;
+  color: #e9e3d3;
+  box-shadow: 0 4px 0 var(--yd-shadow);
+}
+
+.runtime-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 11px 7px;
+  border-bottom: 1px solid rgba(233, 227, 211, 0.17);
+}
+
+.runtime-head > div {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+}
+
+.runtime-kicker {
+  color: #89ad97;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.runtime-head h2 {
+  margin: 0;
+  color: #f5efdf;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.runtime-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: #a7b0aa;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.runtime-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: #69756e;
+}
+
+.runtime-status[data-status="ready"]::before,
+.runtime-status[data-status="running"]::before {
+  background: #72b889;
+}
+
+.runtime-status[data-status="running"]::before {
+  box-shadow: 0 0 0 3px rgba(114, 184, 137, 0.15);
+}
+
+.runtime-status[data-status="error"]::before {
+  background: #e36f57;
+}
+
+.runtime-controls {
+  display: grid;
+  grid-template-columns: minmax(155px, 210px) minmax(160px, 1fr) auto auto;
+  align-items: end;
+  gap: 7px;
+  padding: 7px 9px;
+  border-bottom: 1px solid rgba(233, 227, 211, 0.12);
+  background: #1e2925;
+}
+
+.runtime-controls label,
+.runtime-context {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.runtime-controls label > span,
+.runtime-context > span {
+  color: #89968f;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.runtime-controls select {
+  width: 100%;
+  height: 27px;
+  border: 1px solid #536159;
+  border-radius: 0;
+  padding: 0 8px;
+  background: #101714;
+  color: #ece6d7;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.runtime-context code {
+  display: block;
+  overflow: hidden;
+  height: 27px;
+  padding: 5px 8px;
+  border: 1px solid #39463f;
+  color: #aeb9b2;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body[data-view="yard"] .runtime-controls button {
+  height: 27px;
+  padding: 0 10px;
+  border-width: 1px;
+  box-shadow: none;
+  font-size: 9.5px;
+}
+
+.runtime-output {
+  min-height: 0;
+  overflow: auto;
+  padding: 9px 11px;
+  color: #d7ded9;
+  background: #101714;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.runtime-output > span {
+  display: inline;
+}
+
+.runtime-output [data-stream="input"] { color: #f0be7b; }
+.runtime-output [data-stream="agent"] { color: #b8dec5; }
+.runtime-output [data-stream="tool"] { color: #9ab0c9; }
+.runtime-output [data-stream="stderr"] { color: #f19a87; }
+.runtime-output [data-stream="system"],
+.runtime-placeholder { color: #77837c; }
+
+.runtime-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 68px;
+  gap: 7px;
+  padding: 7px 9px;
+  border-top: 1px solid rgba(233, 227, 211, 0.12);
+  background: #1e2925;
+}
+
+.runtime-form textarea {
+  min-height: 42px;
+  max-height: 90px;
+  resize: none;
+  border: 1px solid #536159;
+  border-radius: 0;
+  padding: 7px 8px;
+  background: #101714;
+  color: #ece6d7;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.runtime-form textarea:focus {
+  border-color: #89ad97;
+  box-shadow: 0 0 0 2px rgba(137, 173, 151, 0.16);
+}
+
+body[data-view="yard"] .runtime-form button {
+  height: auto;
+  min-height: 42px;
+  border-width: 1px;
+  box-shadow: none;
+}
+
+.runtime-hint {
+  min-height: 22px;
+  margin: 0;
+  padding: 4px 10px;
+  color: #89968f;
+  background: #17201d;
+  font-size: 8.5px;
+  line-height: 1.4;
 }
 
 .yard-frame canvas {
@@ -391,6 +595,40 @@ body[data-view="yard"] .account-bar {
   backdrop-filter: none;
 }
 
+body[data-view="yard"] .attention-inbox {
+  gap: 7px;
+  padding: 10px 13px;
+  border-bottom: 3px solid var(--yd-line);
+  background: #f2dfaa;
+  color: #33261a;
+}
+
+:root[data-theme="dark"] body[data-view="yard"] .attention-inbox {
+  background: #3b3427;
+  color: #f0e4c8;
+}
+
+body[data-view="yard"] .attention-inbox > header strong {
+  border-radius: 0;
+  background: #d9a53a;
+  color: #33261a;
+}
+
+body[data-view="yard"] .attention-item {
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  min-height: 30px;
+  border: 1px solid color-mix(in srgb, var(--yd-line) 45%, transparent);
+  padding: 5px 7px;
+  background: color-mix(in srgb, var(--yd-panel) 84%, transparent);
+  color: var(--yd-ink);
+  box-shadow: none;
+}
+
+body[data-view="yard"] .attention-item:hover:not(:disabled) {
+  background: var(--yd-panel);
+  color: var(--yd-ink);
+}
+
 body[data-view="yard"] .yard-account-strip {
   display: flex;
   gap: 6px;
@@ -470,6 +708,64 @@ body[data-view="yard"] .account-actions button {
   width: 100%;
   min-width: 0;
   height: 32px;
+}
+
+body[data-view="yard"] .account-manage {
+  position: relative;
+  min-width: 0;
+}
+
+body[data-view="yard"] .account-manage summary {
+  display: grid;
+  width: 100%;
+  height: 32px;
+  place-items: center;
+  border: 2px solid var(--yd-line);
+  background: var(--yd-wood);
+  color: var(--yd-on-wood);
+  box-shadow: 0 3px 0 var(--yd-shadow);
+  cursor: default;
+  font-size: 11px;
+  font-weight: 700;
+  list-style: none;
+}
+
+body[data-view="yard"] .account-manage summary::-webkit-details-marker {
+  display: none;
+}
+
+body[data-view="yard"] .account-manage summary::after {
+  content: "⌄";
+  margin-left: 5px;
+  font-size: 9px;
+}
+
+body[data-view="yard"] .account-manage[open] summary,
+body[data-view="yard"] .account-manage summary:hover {
+  background: var(--yd-wood-l);
+  color: #33261a;
+}
+
+body[data-view="yard"] .account-manage-menu {
+  position: absolute;
+  z-index: 12;
+  right: 0;
+  top: calc(100% + 7px);
+  display: grid;
+  gap: 6px;
+  width: 170px;
+  padding: 8px;
+  border: 3px solid var(--yd-line);
+  background: var(--yd-panel2);
+  box-shadow: 0 5px 0 var(--yd-shadow);
+}
+
+body[data-view="yard"] .account-manage:not([open]) .account-manage-menu {
+  display: none;
+}
+
+body[data-view="yard"] .account-manage-menu button {
+  width: 100%;
 }
 
 body[data-view="yard"] #launchBtn {
@@ -714,6 +1010,54 @@ body[data-view="yard"] .status-bar {
 @media (prefers-reduced-motion: reduce) {
   body[data-view="yard"] .workspace button:active:not(:disabled) {
     transform: none;
+  }
+}
+
+@media (max-height: 700px) {
+  body[data-view="yard"] .account-bar {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  body[data-view="yard"] .yard-account-strip {
+    padding-bottom: 3px;
+  }
+
+  body[data-view="yard"] .yard-account-chip {
+    height: 26px;
+  }
+
+  body[data-view="yard"] .account-heading h2 {
+    font-size: 18px;
+  }
+
+  body[data-view="yard"] .account-heading code,
+  body[data-view="yard"] .account-heading p,
+  body[data-view="yard"] .quota-message {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body[data-view="yard"] .quota-summary {
+    gap: 3px;
+    margin-top: 6px;
+    padding-top: 5px;
+  }
+
+  body[data-view="yard"] .account-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  body[data-view="yard"] #launchBtn {
+    grid-column: 1 / -1;
+    height: 34px;
+  }
+
+  body[data-view="yard"] .account-actions button,
+  body[data-view="yard"] .account-manage summary {
+    height: 29px;
   }
 }
 
@@ -977,6 +1321,10 @@ body[data-view="yard"] .status-bar {
     padding: 12px;
   }
 
+  .runtime-controls {
+    grid-template-columns: minmax(140px, 190px) minmax(120px, 1fr) auto auto;
+  }
+
   .yard-atmos {
     top: 5px;
     right: 5px;
@@ -992,7 +1340,8 @@ body[data-view="yard"] .status-bar {
 @media (max-width: 900px) {
   body[data-view="yard"] .workspace {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) 28px;
+    grid-template-rows: auto minmax(360px, 1fr) 28px;
+    overflow-y: auto;
   }
 
   body[data-view="yard"] .yard-stage {
@@ -1000,6 +1349,10 @@ body[data-view="yard"] .status-bar {
     grid-row: 1;
     align-content: start;
     padding: 9px 10px 11px;
+  }
+
+  body[data-view="yard"] .runtime-dock {
+    height: 250px;
   }
 
   body[data-view="yard"] .workspace-panel {
@@ -1020,6 +1373,19 @@ body[data-view="yard"] .status-bar {
 }
 
 @media (max-width: 620px) {
+  .runtime-controls {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .runtime-context {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .runtime-form {
+    grid-template-columns: minmax(0, 1fr) 58px;
+  }
+
   .yard-ledger {
     flex-wrap: wrap;
   }

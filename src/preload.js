@@ -22,6 +22,15 @@ contextBridge.exposeInMainWorld('manager', {
   listActivity: () => ipcRenderer.invoke('activity:all'),
   listQuotas: (options = {}) => ipcRenderer.invoke('quota:all', options),
   getDiagnostics: (profile) => ipcRenderer.invoke('diagnostics:get', profile),
+  listTerminalAdapters: (profileId) => ipcRenderer.invoke('runtime:adapters', { profileId }),
+  startTerminal: (input) => ipcRenderer.invoke('runtime:start', input),
+  sendTerminal: (input) => ipcRenderer.invoke('runtime:send', input),
+  stopTerminal: (input) => ipcRenderer.invoke('runtime:stop', input),
+  onTerminalEvent: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('runtime:event', listener);
+    return () => ipcRenderer.removeListener('runtime:event', listener);
+  },
   pickDirectory: (options) => ipcRenderer.invoke('system:pickDirectory', options),
   pickFile: (options) => ipcRenderer.invoke('system:pickFile', options),
   showItem: (path) => ipcRenderer.invoke('system:showItem', path),

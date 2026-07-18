@@ -1,0 +1,682 @@
+/*
+ * AgentDesk — embedded runtime adapters.
+ *
+ * The renderer can select a known adapter and send text, but it can never
+ * provide an executable, argv list, environment or working directory. Those
+ * security-sensitive values are resolved in the main process from a stored
+ * profile and a trusted session record.
+ *
+ * This is intentionally a pipe-based MVP, not a pseudo-terminal emulator.
+ * Shell commands run line-by-line and agent adapters use their documented
+ * non-interactive streaming modes. A future node-pty adapter can implement the
+ * same public service contract without changing the UI.
+ */
+
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
+const { resolveCodexCli } = require('./codex-quota');
+const { nearestExistingDirectory, safeStat } = require('./path-utils');
+
+const MAX_RUNTIME_SESSIONS = 4;
+const MAX_RUNTIME_INPUT_BYTES = 32 * 1024;
+const MAX_RUNTIME_OUTPUT_BYTES = 1024 * 1024;
+
+function codedError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function platformPath(platform) {
+  return platform === 'win32' ? path.win32 : path.posix;
+}
+
+function claudeCliCandidates(options = {}) {
+  const platform = options.platform || process.platform;
+  const env = options.env || process.env;
+  const home = options.home || os.homedir();
+  const p = platformPath(platform);
+  const separator = platform === 'win32' ? ';' : ':';
+  const executable = platform === 'win32' ? 'claude.exe' : 'claude';
+  const output = [];
+  const seen = new Set();
+
+  function add(candidate, source) {
+    if (!candidate) return;
+    const key = platform === 'win32' ? candidate.toLowerCase() : candidate;
+    if (seen.has(key)) return;
+    seen.add(key);
+    output.push({ path: candidate, source });
+  }
+
+  const explicit = env.AGENTDESK_CLAUDE_CLI || env.CLAUDE_CLI_PATH;
+  if (explicit) add(p.resolve(explicit), '环境变量');
+  for (const dir of String(env.PATH || '').split(separator)) {
+    const clean = dir.trim().replace(/^"(.*)"$/, '$1');
+    if (clean) add(p.join(clean, executable), 'PATH');
+  }
+
+  if (platform === 'win32') {
+    add(p.join(home, '.local', 'bin', 'claude.exe'), '用户工具目录');
+    add(p.join(env.LOCALAPPDATA || p.join(home, 'AppData', 'Local'), 'Programs', 'claude', 'claude.exe'), '用户安装目录');
+  } else {
+    add(p.join(home, '.local', 'bin', 'claude'), '用户工具目录');
+    add(p.join(home, '.npm-global', 'bin', 'claude'), 'npm');
+    add('/opt/homebrew/bin/claude', 'Homebrew');
+    add('/usr/local/bin/claude', '系统工具目录');
+  }
+  return output;
+}
+
+function resolveExecutableCandidates(candidates, options = {}) {
+  const fs_ = options.fs || fs;
+  for (const candidate of candidates) {
+    try {
+      if (!fs_.statSync(candidate.path).isFile()) continue;
+      let realPath = candidate.path;
+      try { realPath = fs_.realpathSync(candidate.path); } catch (_error) { /* use visible path */ }
+      if (/\.m?js$/i.test(realPath)) {
+        return {
+          command: options.nodeExecutable || process.execPath,
+          prefixArgs: [realPath],
+          extraEnv: { ELECTRON_RUN_AS_NODE: '1' },
+          path: candidate.path,
+          source: candidate.source
+        };
+      }
+      return {
+        command: candidate.path,
+        prefixArgs: [],
+        extraEnv: {},
+        path: candidate.path,
+        source: candidate.source
+      };
+    } catch (_error) {
+      // Optional CLI candidates are expected to be missing on many machines.
+    }
+  }
+  return null;
+}
+
+function resolveClaudeCli(options = {}) {
+  return resolveExecutableCandidates(claudeCliCandidates(options), options);
+}
+
+function shellLaunchSpec(options = {}) {
+  const platform = options.platform || process.platform;
+  const env = options.env || process.env;
+  const fs_ = options.fs || fs;
+  if (platform === 'win32') {
+    return {
+      command: env.ComSpec || env.COMSPEC || 'cmd.exe',
+      prefixArgs: ['/Q'],
+      extraEnv: {},
+      source: 'Windows 命令解释器'
+    };
+  }
+
+  const candidates = [env.SHELL, platform === 'darwin' ? '/bin/zsh' : null, '/bin/bash', '/bin/sh']
+    .filter(Boolean);
+  const command = candidates.find((candidate) => {
+    try { return fs_.statSync(candidate).isFile(); } catch (_error) { return false; }
+  }) || '/bin/sh';
+  return {
+    command,
+    prefixArgs: ['-l'],
+    extraEnv: {},
+    source: '系统登录 Shell'
+  };
+}
+
+function resolveRuntimeCwd(profile, sessions, requestedSessionId, options = {}) {
+  const stat = options.stat || fs.statSync;
+  const pathImpl = options.path || path;
+  const home = options.home || os.homedir();
+  const records = Array.isArray(sessions) ? sessions : [];
+  const selected = requestedSessionId
+    ? records.find((item) => item?.id === requestedSessionId)
+    : null;
+  const roots = [profile?.sessionRoot, profile?.profilePath, home].filter(Boolean);
+  const fallback = roots.find((candidate) => safeStat(candidate, { stat })?.isDirectory()) || home;
+  const requested = typeof selected?.projectPath === 'string' && selected.projectPath.trim()
+    ? selected.projectPath
+    : profile?.sessionRoot;
+  const resolved = nearestExistingDirectory(requested, fallback, { stat, path: pathImpl });
+  return {
+    path: resolved.path || fallback,
+    source: selected?.projectPath && resolved.exact ? 'session-project' : 'profile-fallback',
+    sessionId: selected?.id || null,
+    requestedPath: requested || null,
+    exact: resolved.exact
+  };
+}
+
+function publicAdapter(adapter) {
+  return {
+    id: adapter.id,
+    label: adapter.label,
+    mode: adapter.mode,
+    available: adapter.available,
+    detail: adapter.detail,
+    caution: adapter.caution || '',
+    source: adapter.source || ''
+  };
+}
+
+function parseCodexEvent(value) {
+  if (!value || typeof value !== 'object') return null;
+  if (value.type === 'thread.started' && value.thread_id) {
+    return { conversationId: value.thread_id };
+  }
+  if (value.type === 'item.completed' && value.item) {
+    const item = value.item;
+    if (item.type === 'agent_message' && item.text) {
+      return { stream: 'agent', text: `${item.text}\n` };
+    }
+    if (item.type === 'command_execution') {
+      const command = item.command ? `\n$ ${item.command}\n` : '';
+      const output = item.aggregated_output || '';
+      const exit = Number.isInteger(item.exit_code) && item.exit_code !== 0
+        ? `\n[退出码 ${item.exit_code}]\n`
+        : '';
+      return command || output || exit
+        ? { stream: item.exit_code ? 'stderr' : 'tool', text: `${command}${output}${exit}` }
+        : null;
+    }
+  }
+  if (value.type === 'turn.failed' || value.type === 'error') {
+    const message = value.error?.message || value.message || 'Codex 运行失败';
+    return { stream: 'stderr', text: `${message}\n`, failed: true };
+  }
+  return null;
+}
+
+function parseClaudeEvent(value) {
+  if (!value || typeof value !== 'object') return null;
+  const conversationId = value.session_id || value.sessionId || null;
+  if (value.type === 'assistant') {
+    const content = Array.isArray(value.message?.content) ? value.message.content : [];
+    const text = content
+      .filter((item) => item?.type === 'text' && item.text)
+      .map((item) => item.text)
+      .join('\n');
+    if (text) return { conversationId, stream: 'agent', text: `${text}\n` };
+  }
+  if (value.type === 'result') {
+    if (value.is_error || value.subtype === 'error') {
+      return {
+        conversationId,
+        stream: 'stderr',
+        text: `${value.result || value.error || 'Claude Code 运行失败'}\n`,
+        failed: true
+      };
+    }
+    return { conversationId, completed: true, fallbackText: value.result || '' };
+  }
+  return conversationId ? { conversationId } : null;
+}
+
+function stripAnsi(value) {
+  return String(value || '')
+    .replace(/[\u001B\u009B][[\]()#;?]*(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d/#&.:=?%@~_]+)*)?\u0007|(?:(?:\d{1,4}(?:[;:]\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g, '');
+}
+
+class RuntimeService {
+  constructor(options = {}) {
+    this.spawnImpl = options.spawnImpl || spawn;
+    this.resolveCodex = options.resolveCodex || resolveCodexCli;
+    this.resolveClaude = options.resolveClaude || resolveClaudeCli;
+    this.shellSpec = options.shellSpec || shellLaunchSpec;
+    this.randomUUID = options.randomUUID || crypto.randomUUID;
+    this.now = options.now || Date.now;
+    this.onEvent = options.onEvent || (() => {});
+    this.platform = options.platform || process.platform;
+    this.env = options.env || process.env;
+    this.sessions = new Map();
+  }
+
+  adapters(profile) {
+    const shell = this.shellSpec({ platform: this.platform, env: this.env });
+    const output = [{
+      id: 'shell',
+      label: this.platform === 'win32' ? '本机终端' : 'Shell',
+      mode: 'shell',
+      available: true,
+      detail: '逐行执行本机命令；适合脚本、Git 与开发工具',
+      caution: '命令会直接在本机执行，请只粘贴你理解并信任的内容。',
+      source: shell.source,
+      launcher: shell
+    }];
+
+    if (profile?.appId === 'codex') {
+      const launcher = this.resolveCodex();
+      output.push({
+        id: 'codex',
+        label: 'Codex',
+        mode: 'agent',
+        available: Boolean(launcher),
+        detail: launcher
+          ? '使用当前 Codex 槽位的登录与会话目录，可连续追问'
+          : '没有找到 Codex CLI',
+        caution: 'Agent 在 workspace-write 沙箱内工作；高风险操作不会绕过审批。',
+        source: launcher?.source || '',
+        launcher
+      });
+    }
+
+    if (profile?.appId === 'claude') {
+      const launcher = this.resolveClaude();
+      output.push({
+        id: 'claude',
+        label: 'Claude Code',
+        mode: 'agent',
+        available: Boolean(launcher),
+        detail: launcher
+          ? '使用本机 Claude Code CLI 登录，可连续追问'
+          : '没有找到 Claude Code CLI',
+        caution: 'Claude Code CLI 与 Claude 桌面槽位的登录态彼此独立。',
+        source: launcher?.source || '',
+        launcher
+      });
+    }
+    return output;
+  }
+
+  listAdapters(profile) {
+    return this.adapters(profile).map(publicAdapter);
+  }
+
+  start(profile, input = {}) {
+    if (!profile?.id) throw codedError('RUNTIME_PROFILE_REQUIRED', '没有可用的账号槽位');
+    if (this.sessions.size >= MAX_RUNTIME_SESSIONS) {
+      throw codedError('RUNTIME_LIMIT', `最多同时保留 ${MAX_RUNTIME_SESSIONS} 个内嵌运行环境`);
+    }
+    const adapter = this.adapters(profile).find((item) => item.id === input.adapterId);
+    if (!adapter) throw codedError('RUNTIME_ADAPTER_UNKNOWN', '未知的运行适配器');
+    if (!adapter.available || !adapter.launcher) {
+      throw codedError('RUNTIME_ADAPTER_MISSING', adapter.detail || '运行适配器不可用');
+    }
+
+    const runtime = {
+      id: this.randomUUID(),
+      profileId: profile.id,
+      profile: {
+        id: profile.id,
+        appId: profile.appId,
+        sessionRoot: profile.sessionRoot
+      },
+      adapterId: adapter.id,
+      adapterLabel: adapter.label,
+      mode: adapter.mode,
+      launcher: adapter.launcher,
+      cwd: input.cwd,
+      status: adapter.mode === 'shell' ? 'starting' : 'ready',
+      startedAt: this.now(),
+      child: null,
+      conversationId: null,
+      stdoutBuffer: '',
+      stderrBuffer: '',
+      emittedBytes: 0,
+      outputCapped: false,
+      turnAgentMessages: 0
+    };
+    this.sessions.set(runtime.id, runtime);
+
+    this.emit(runtime, {
+      type: 'output',
+      stream: 'system',
+      text: `${adapter.label} · ${runtime.cwd}\n`
+    });
+    if (adapter.mode === 'shell') this.startShell(runtime);
+    else this.emitState(runtime);
+    return this.publicRuntime(runtime);
+  }
+
+  send(profile, runtimeId, value) {
+    const runtime = this.ownedRuntime(profile, runtimeId);
+    const text = String(value || '').trim();
+    if (!text) throw codedError('RUNTIME_INPUT_EMPTY', '请输入内容');
+    if (Buffer.byteLength(text, 'utf8') > MAX_RUNTIME_INPUT_BYTES) {
+      throw codedError('RUNTIME_INPUT_TOO_LARGE', '单次输入不能超过 32 KB');
+    }
+
+    if (runtime.mode === 'shell') {
+      if (runtime.status !== 'running' || !runtime.child?.stdin?.writable) {
+        throw codedError('RUNTIME_NOT_RUNNING', '终端尚未运行或已经退出');
+      }
+      const child = runtime.child;
+      child.stdin.write(`${text}\n`);
+      this.emit(runtime, { type: 'output', stream: 'input', text: `❯ ${text}\n` });
+      return this.publicRuntime(runtime);
+    }
+
+    if (runtime.status === 'running') {
+      throw codedError('RUNTIME_BUSY', 'Agent 正在处理上一条消息');
+    }
+    if (runtime.status === 'stopped') {
+      throw codedError('RUNTIME_STOPPED', '这个运行环境已经停止');
+    }
+    this.emit(runtime, { type: 'output', stream: 'input', text: `你：${text}\n` });
+    this.startAgentTurn(runtime, text);
+    return this.publicRuntime(runtime);
+  }
+
+  stop(profile, runtimeId) {
+    const runtime = this.ownedRuntime(profile, runtimeId);
+    this.stopRuntime(runtime, 'stopped');
+    return this.publicRuntime(runtime);
+  }
+
+  stopProfile(profileId) {
+    for (const runtime of this.sessions.values()) {
+      if (runtime.profileId === profileId) this.stopRuntime(runtime, 'stopped');
+    }
+  }
+
+  stopAll() {
+    for (const runtime of this.sessions.values()) this.stopRuntime(runtime, 'stopped');
+  }
+
+  ownedRuntime(profile, runtimeId) {
+    const runtime = this.sessions.get(String(runtimeId || ''));
+    if (!runtime || runtime.profileId !== profile?.id) {
+      throw codedError('RUNTIME_NOT_FOUND', '找不到这个内嵌运行环境');
+    }
+    return runtime;
+  }
+
+  startShell(runtime) {
+    const env = this.runtimeEnv(runtime, {
+      TERM: 'dumb',
+      NO_COLOR: '1',
+      FORCE_COLOR: '0',
+      CLICOLOR: '0'
+    });
+    let child;
+    try {
+      child = this.spawnImpl(runtime.launcher.command, runtime.launcher.prefixArgs || [], {
+        cwd: runtime.cwd,
+        env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+    } catch (error) {
+      this.failStart(runtime, error);
+      return;
+    }
+    runtime.child = child;
+    runtime.status = 'running';
+    this.bindChild(runtime, child, { structured: false, persistent: true });
+    this.emitState(runtime);
+  }
+
+  startAgentTurn(runtime, prompt) {
+    runtime.status = 'running';
+    runtime.turnAgentMessages = 0;
+    runtime.stdoutBuffer = '';
+    runtime.stderrBuffer = '';
+    const invocation = runtime.adapterId === 'codex'
+      ? this.codexInvocation(runtime)
+      : this.claudeInvocation(runtime);
+    let child;
+    try {
+      child = this.spawnImpl(invocation.command, invocation.args, {
+        cwd: runtime.cwd,
+        env: this.runtimeEnv(runtime, invocation.env),
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+    } catch (error) {
+      this.failStart(runtime, error);
+      return;
+    }
+    runtime.child = child;
+    this.bindChild(runtime, child, { structured: true, persistent: false });
+    this.emitState(runtime);
+    child.stdin.end(prompt);
+  }
+
+  codexInvocation(runtime) {
+    const prefix = runtime.launcher.prefixArgs || [];
+    if (runtime.conversationId) {
+      return {
+        command: runtime.launcher.command,
+        args: [
+          ...prefix,
+          'exec', 'resume', '--json', '--skip-git-repo-check',
+          runtime.conversationId, '-'
+        ],
+        env: {
+          ...(runtime.launcher.extraEnv || {}),
+          CODEX_HOME: runtime.profile.sessionRoot
+        }
+      };
+    }
+    return {
+      command: runtime.launcher.command,
+      args: [
+        ...prefix,
+        'exec', '--json', '--color', 'never', '--sandbox', 'workspace-write',
+        '--skip-git-repo-check', '-C', runtime.cwd, '-'
+      ],
+      env: {
+        ...(runtime.launcher.extraEnv || {}),
+        CODEX_HOME: runtime.profile.sessionRoot
+      }
+    };
+  }
+
+  claudeInvocation(runtime) {
+    const args = [
+      ...(runtime.launcher.prefixArgs || []),
+      '-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'default'
+    ];
+    if (runtime.conversationId) args.push('--resume', runtime.conversationId);
+    else {
+      runtime.conversationId = this.randomUUID();
+      args.push('--session-id', runtime.conversationId);
+    }
+    return {
+      command: runtime.launcher.command,
+      args,
+      env: runtime.launcher.extraEnv || {}
+    };
+  }
+
+  runtimeEnv(runtime, extra = {}) {
+    return {
+      ...this.env,
+      ...(runtime.launcher.extraEnv || {}),
+      ...extra,
+      AGENTDESK_RUNTIME: '1'
+    };
+  }
+
+  bindChild(runtime, child, options) {
+    child.stdout?.on('data', (chunk) => {
+      if (options.structured) this.consumeStructured(runtime, 'stdout', chunk);
+      else this.emit(runtime, { type: 'output', stream: 'stdout', text: stripAnsi(chunk) });
+    });
+    child.stderr?.on('data', (chunk) => {
+      if (options.structured) this.consumeStructured(runtime, 'stderr', chunk);
+      else this.emit(runtime, { type: 'output', stream: 'stderr', text: stripAnsi(chunk) });
+    });
+    child.once('error', (error) => this.failStart(runtime, error));
+    child.once('close', (code, signal) => {
+      if (runtime.child !== child) return;
+      if (options.structured) {
+        this.flushStructured(runtime, 'stdout');
+        this.flushStructured(runtime, 'stderr');
+      }
+      runtime.child = null;
+      if (runtime.status === 'stopped') return;
+      if (options.persistent) runtime.status = code === 0 ? 'exited' : 'error';
+      else runtime.status = code === 0 ? 'ready' : 'error';
+      if (code !== 0) {
+        this.emit(runtime, {
+          type: 'output',
+          stream: 'stderr',
+          text: `\n[进程退出：${code ?? signal ?? '未知'}]\n`
+        });
+      }
+      this.emitState(runtime, { exitCode: code, signal });
+      if (options.persistent || code !== 0) this.sessions.delete(runtime.id);
+    });
+  }
+
+  consumeStructured(runtime, stream, chunk) {
+    const key = stream === 'stdout' ? 'stdoutBuffer' : 'stderrBuffer';
+    runtime[key] += String(chunk || '');
+    const lines = runtime[key].split(/\r?\n/);
+    runtime[key] = lines.pop() || '';
+    for (const line of lines) this.consumeStructuredLine(runtime, stream, line);
+  }
+
+  flushStructured(runtime, stream) {
+    const key = stream === 'stdout' ? 'stdoutBuffer' : 'stderrBuffer';
+    const line = runtime[key];
+    runtime[key] = '';
+    if (line) this.consumeStructuredLine(runtime, stream, line);
+  }
+
+  consumeStructuredLine(runtime, stream, line) {
+    if (!line.trim()) return;
+    if (stream === 'stderr') {
+      this.emit(runtime, { type: 'output', stream: 'stderr', text: `${stripAnsi(line)}\n` });
+      return;
+    }
+    let value;
+    try { value = JSON.parse(line); } catch (_error) {
+      this.emit(runtime, { type: 'output', stream: 'stdout', text: `${stripAnsi(line)}\n` });
+      return;
+    }
+    const parsed = runtime.adapterId === 'codex'
+      ? parseCodexEvent(value)
+      : parseClaudeEvent(value);
+    if (!parsed) return;
+    if (parsed.conversationId) runtime.conversationId = parsed.conversationId;
+    if (parsed.stream && parsed.text) {
+      if (parsed.stream === 'agent') runtime.turnAgentMessages += 1;
+      this.emit(runtime, { type: 'output', stream: parsed.stream, text: parsed.text });
+    }
+    if (parsed.completed && parsed.fallbackText && runtime.turnAgentMessages === 0) {
+      this.emit(runtime, { type: 'output', stream: 'agent', text: `${parsed.fallbackText}\n` });
+      runtime.turnAgentMessages += 1;
+    }
+  }
+
+  failStart(runtime, error) {
+    runtime.status = 'error';
+    this.emit(runtime, {
+      type: 'output',
+      stream: 'stderr',
+      text: `${error?.message || '无法启动运行环境'}\n`
+    });
+    this.emitState(runtime, { code: error?.code || 'RUNTIME_START_FAILED' });
+    this.sessions.delete(runtime.id);
+  }
+
+  stopRuntime(runtime, status) {
+    runtime.status = status;
+    const child = runtime.child;
+    runtime.child = null;
+    if (child) {
+      try { child.stdin?.end(); } catch (_error) { /* already closed */ }
+      try { child.kill(); } catch (_error) { /* already exited */ }
+    }
+    this.emit(runtime, { type: 'output', stream: 'system', text: '\n[已停止]\n' });
+    this.emitState(runtime);
+    this.sessions.delete(runtime.id);
+  }
+
+  emitState(runtime, extra = {}) {
+    this.emit(runtime, { type: 'state', status: runtime.status, ...extra });
+  }
+
+  emit(runtime, event) {
+    const payload = {
+      runtimeId: runtime.id,
+      profileId: runtime.profileId,
+      adapterId: runtime.adapterId,
+      at: this.now(),
+      ...event
+    };
+    if (payload.type === 'output') {
+      let text = String(payload.text || '');
+      const remaining = MAX_RUNTIME_OUTPUT_BYTES - runtime.emittedBytes;
+      if (remaining <= 0) {
+        this.stopForOutputLimit(runtime, payload);
+        return;
+      }
+      const bytes = Buffer.from(text, 'utf8');
+      const exceeded = bytes.length > remaining;
+      if (exceeded) text = bytes.subarray(0, remaining).toString('utf8');
+      runtime.emittedBytes += Buffer.byteLength(text, 'utf8');
+      payload.text = text;
+      if (exceeded) {
+        if (text) this.onEvent(payload);
+        this.stopForOutputLimit(runtime, payload);
+        return;
+      }
+    }
+    this.onEvent(payload);
+  }
+
+  stopForOutputLimit(runtime, payload) {
+    if (runtime.outputCapped) return;
+    runtime.outputCapped = true;
+    this.onEvent({
+      ...payload,
+      type: 'output',
+      stream: 'stderr',
+      text: '\n[输出超过 1 MB，进程已停止。]\n'
+    });
+    const child = runtime.child;
+    runtime.child = null;
+    runtime.status = 'error';
+    try { child?.stdin?.end(); } catch (_error) { /* already closed */ }
+    try { child?.kill(); } catch (_error) { /* already exited */ }
+    this.sessions.delete(runtime.id);
+    this.onEvent({
+      runtimeId: runtime.id,
+      profileId: runtime.profileId,
+      adapterId: runtime.adapterId,
+      at: this.now(),
+      type: 'state',
+      status: 'error',
+      code: 'RUNTIME_OUTPUT_LIMIT'
+    });
+  }
+
+  publicRuntime(runtime) {
+    return {
+      ok: true,
+      id: runtime.id,
+      profileId: runtime.profileId,
+      adapterId: runtime.adapterId,
+      adapterLabel: runtime.adapterLabel,
+      mode: runtime.mode,
+      cwd: runtime.cwd,
+      status: runtime.status,
+      startedAt: runtime.startedAt
+    };
+  }
+}
+
+module.exports = {
+  MAX_RUNTIME_SESSIONS,
+  MAX_RUNTIME_INPUT_BYTES,
+  MAX_RUNTIME_OUTPUT_BYTES,
+  claudeCliCandidates,
+  resolveExecutableCandidates,
+  resolveClaudeCli,
+  shellLaunchSpec,
+  resolveRuntimeCwd,
+  parseCodexEvent,
+  parseClaudeEvent,
+  stripAnsi,
+  RuntimeService
+};

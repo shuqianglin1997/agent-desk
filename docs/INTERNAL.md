@@ -72,6 +72,7 @@ agent-desk/
     quota.js           额度数据脱敏与统一结构（纯 Node）
     codex-quota.js     Codex 官方 app-server 额度读取（纯 Node）
     quota-service.js   分槽位缓存、限流和 provider 降级（纯 Node）
+    runtime.js         内嵌 Shell / Agent 适配器、安全边界和进程生命周期（纯 Node）
     sessions.js        会话扫描（纯 Node，可单元测试）
     activity.js        活跃度探测（stat-only，纯 Node，驱动庭院状态）
     preload.js         安全桥接 IPC
@@ -82,6 +83,8 @@ agent-desk/
       cats.js          状态机 + 外观默认值（纯函数，可单测）
       energy.js        与活动正交的额度能量轴（纯函数，可单测）
       companion.js     陪伴账本 reducer（纯函数，可单测）
+      atmosphere.js    系统时段和自动天气（纯函数，可单测）
+      interactions.js  场景语义区域与拖放意图（纯函数，可单测）
       sprites.js       像素猫资产与分层合成
       scene.js         画布引擎（8fps、移动、命中、昼夜、fx）
       yard.css         庭院布局与像素皮肤
@@ -158,6 +161,7 @@ macOS 当前示例：
 - 生成诊断信息
 - 检查 GitHub Release，并在受支持的 Windows portable 环境执行校验更新
 - 读取、缓存并脱敏 Codex 各槽位官方额度
+- 从内置适配器启动 Shell / Codex / Claude Code，并约束工作目录和生命周期
 
 渲染进程不直接访问文件系统。
 
@@ -182,12 +186,19 @@ revealSession(input)
 listActivity()
 listQuotas(options)
 getDiagnostics(profile)
+listTerminalAdapters(profileId)
+startTerminal({ profileId, adapterId, sessionId })
+sendTerminal({ profileId, runtimeId, text })
+stopTerminal({ profileId, runtimeId })
+onTerminalEvent(callback)
 pickDirectory(options)
 pickFile(options)
 showItem(path)
 openPath(path)
 writeClipboard(value)
 ```
+
+终端 IPC 不接受 renderer 提供的 executable、argv、env 或 cwd。main 只从已保存 profile 和重新扫描得到的 session ID 解析工作目录；首次开启还有原生系统确认。详情见 [YARD.md](YARD.md)。
 
 ## 会话扫描规则
 
