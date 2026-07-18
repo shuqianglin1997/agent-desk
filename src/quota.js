@@ -46,7 +46,7 @@ function durationLabel(minutes) {
 function normalizeCredits(value) {
   if (!value || typeof value !== 'object') return null;
   return {
-    hasCredits: value.hasCredits === true,
+    hasCredits: (value.hasCredits ?? value.has_credits) === true,
     unlimited: value.unlimited === true,
     balance: value.balance === null || value.balance === undefined
       ? null

@@ -14,6 +14,7 @@ const { nearestExistingDirectory } = require('./path-utils');
 const settings = require('./settings');
 const updater = require('./updater');
 const windows = require('./windows');
+const { QuotaService } = require('./quota-service');
 const { normalizeCat } = require('./yard/cats');
 
 const APP_NAME = 'AgentDesk';
@@ -26,6 +27,7 @@ const windowsDiscoveryCache = new Map();
 let latestUpdateCache = null;
 let updateInstalling = false;
 let mainWindow = null;
+const quotaService = new QuotaService();
 const PROFILE_COPY_EXCLUDES = new Set([
   'cache',
   'code cache',
@@ -154,7 +156,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('profiles:update', (_event, input) => {
-    return updateStoredProfile(input.id, (profile) => {
+    const updated = updateStoredProfile(input.id, (profile) => {
       const next = { ...profile };
       if (typeof input.name === 'string') next.name = input.name.trim() || next.name;
       if (typeof input.profilePath === 'string' && input.profilePath.trim()) {
@@ -177,6 +179,8 @@ function registerIpc() {
       if (input.cat && typeof input.cat === 'object') next.cat = { ...next.cat, ...input.cat };
       return next;
     });
+    quotaService.invalidate(input.id);
+    return updated;
   });
 
   ipcMain.handle('profiles:remove', (_event, id) => {
@@ -184,6 +188,7 @@ function registerIpc() {
     const target = profiles.find((profile) => profile.id === id);
     if (!target || target.isProtected) return { ok: false, reason: '默认槽位不能移除' };
     saveProfiles(profiles.filter((profile) => profile.id !== id));
+    quotaService.invalidate(id);
     return { ok: true };
   });
 
@@ -228,6 +233,13 @@ function registerIpc() {
       ...probeActivity(profile),
       running: psText === null ? null : profileIsRunning(psText, profile)
     }));
+  });
+
+  ipcMain.handle('quota:all', async (_event, options = {}) => {
+    return quotaService.getAll(loadProfiles(), {
+      force: options.force === true,
+      clientVersion: app.getVersion()
+    });
   });
 
   ipcMain.handle('diagnostics:get', (_event, profile) => {

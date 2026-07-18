@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('manager', {
   listSessions: (profile) => ipcRenderer.invoke('sessions:list', profile),
   revealSession: (input) => ipcRenderer.invoke('sessions:reveal', input),
   listActivity: () => ipcRenderer.invoke('activity:all'),
+  listQuotas: (options = {}) => ipcRenderer.invoke('quota:all', options),
   getDiagnostics: (profile) => ipcRenderer.invoke('diagnostics:get', profile),
   pickDirectory: (options) => ipcRenderer.invoke('system:pickDirectory', options),
   pickFile: (options) => ipcRenderer.invoke('system:pickFile', options),
