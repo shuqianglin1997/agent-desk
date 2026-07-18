@@ -29,6 +29,7 @@ let latestUpdateCache = null;
 let updateInstalling = false;
 let mainWindow = null;
 let runtimeConsentGranted = false;
+const runtimeWorkspaceGrants = new Map();
 const quotaService = new QuotaService();
 const runtimeService = new RuntimeService({
   onEvent(payload) {
@@ -270,16 +271,68 @@ function registerIpc() {
     return runtimeService.list();
   });
 
-  ipcMain.handle('runtime:start', async (_event, input = {}) => {
-    const profile = input.profileId ? storedProfile(input.profileId) : null;
-    if (input.profileId && !profile) return { ok: false, reason: '找不到要绑定的身份槽位' };
+  ipcMain.handle('runtime:pickWorkspace', async (event, input = {}) => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择 Agent 工作目录',
+      defaultPath: input.defaultPath || app.getPath('home'),
+      properties: ['openDirectory', 'createDirectory']
+    });
+    if (result.canceled || !result.filePaths.length) return { ok: false, cancelled: true };
+    const workspacePath = path.resolve(result.filePaths[0]);
+    try {
+      if (!fs.statSync(workspacePath).isDirectory()) {
+        return { ok: false, reason: '选择的位置不是目录' };
+      }
+    } catch (error) {
+      return { ok: false, reason: `无法访问这个目录：${error.message}` };
+    }
+
+    const grantId = crypto.randomUUID();
+    runtimeWorkspaceGrants.set(grantId, {
+      ownerId: event.sender.id,
+      path: workspacePath,
+      createdAt: Date.now()
+    });
+    while (runtimeWorkspaceGrants.size > 32) {
+      runtimeWorkspaceGrants.delete(runtimeWorkspaceGrants.keys().next().value);
+    }
+    return {
+      ok: true,
+      grantId,
+      path: workspacePath,
+      name: path.basename(workspacePath) || workspacePath
+    };
+  });
+
+  ipcMain.handle('runtime:start', async (event, input = {}) => {
+    const requestedGrantId = String(input.workspaceGrantId || '');
+    const workspaceGrant = requestedGrantId ? runtimeWorkspaceGrants.get(requestedGrantId) : null;
+    if (requestedGrantId && (!workspaceGrant || workspaceGrant.ownerId !== event.sender.id)) {
+      return { ok: false, reason: '工作目录授权已失效，请重新选择目录' };
+    }
+    const identityId = input.identityProfileId || input.profileId || null;
+    const workspaceId = workspaceGrant ? null : (input.workspaceProfileId || input.profileId || null);
+    const identityProfile = identityId ? storedProfile(identityId) : null;
+    const workspaceProfile = workspaceId ? storedProfile(workspaceId) : null;
+    if (identityId && !identityProfile) return { ok: false, reason: '找不到要绑定的身份槽位' };
+    if (workspaceId && !workspaceProfile) return { ok: false, reason: '找不到要使用的工作区槽位' };
     if (!await confirmRuntimeAccess()) return { ok: false, cancelled: true, reason: '已取消开启 Agent 运行环境' };
     try {
-      const sessions = profile ? safeScanSessions(profile) : [];
-      const cwd = resolveRuntimeCwd(profile, sessions, input.sessionId);
-      return runtimeService.start(profile, {
+      const cwd = workspaceGrant
+        ? { path: workspaceGrant.path, source: 'explicit-grant', sessionId: null, exact: true }
+        : resolveRuntimeCwd(
+            workspaceProfile,
+            workspaceProfile ? safeScanSessions(workspaceProfile) : [],
+            input.sessionId
+          );
+      return runtimeService.start(identityProfile, {
         adapterId: String(input.adapterId || ''),
         cwd: cwd.path,
+        workspaceProfileId: workspaceProfile?.id || null,
+        workspaceName: workspaceGrant
+          ? (path.basename(workspaceGrant.path) || workspaceGrant.path)
+          : (workspaceProfile?.name || null),
+        workspaceSource: cwd.source,
         title: input.title
       });
     } catch (error) {
