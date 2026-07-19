@@ -221,6 +221,8 @@
         const entry = {
           profile, state, energy, seat, tier,
           home: { x: homeX, y: homeY },
+          // 书桌、电脑和坐姿猫必须共用座位锚点；home 是草坪/分组位置，二者不能混用。
+          seatAnchor: seat ? { x: targetX, y: targetY } : null,
           band: saved
             ? { x0: clamp(homeX - 38, GROUND_X0, GROUND_X1), x1: clamp(homeX + 38, GROUND_X0, GROUND_X1) }
             : { x0: x0 + 8, x1: x1 - 8 },
@@ -734,7 +736,7 @@
     const ph = pose.length;
     const seed = seedOf(entry.profile);
     const energy = entry.energy || 'unknown';
-    const seated = entry.seat && !a.walking;
+    const seated = entry.seat && !a.walking && !a.dragging;
     let dx = Math.round(a.x - pw / 2);
     let dy = Math.round(a.y - ph);
     if (seated) dy -= 6; // 坐小凳，头露出书桌
@@ -773,7 +775,7 @@
     drawEnergyCue(entry, dx, dy, pw, seed);
 
     if (entry.state === 'working' && !a.walking) {
-      if (entry.seat) drawDesk(entry.home.x, true);
+      if (entry.seatAnchor) drawDesk(entry.seatAnchor.x, true);
       else { // 没抢到书桌的加班猫：草地办公
         rect(dx + 2, Math.round(a.y) - 6, 10, 5, '#3a3f4a');
         rect(dx + 3, Math.round(a.y) - 5, 8, 3, (tick % 8 < 4) ? '#9fd4e8' : '#b8e4f0');
@@ -1030,8 +1032,9 @@
           candidate.entry.actor.tx = point.x;
           candidate.entry.actor.ty = point.y;
         } else {
-          candidate.entry.actor.tx = candidate.entry.home.x;
-          candidate.entry.actor.ty = candidate.entry.home.y;
+          const returnPoint = candidate.entry.seatAnchor || candidate.entry.home;
+          candidate.entry.actor.tx = returnPoint.x;
+          candidate.entry.actor.ty = returnPoint.y;
         }
         activeDropZoneId = null;
         syncDropZones(false);
