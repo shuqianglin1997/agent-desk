@@ -33,6 +33,14 @@ test('自动氛围和语义拖放模块都在 scene 前加载', () => {
   assert.ok(interactions > 0 && interactions < scene);
 });
 
+test('工作亭的猫、电脑和拖拽回位共用同一个座位锚点', () => {
+  const scene = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'scene.js'), 'utf8');
+  assert.match(scene, /seatAnchor: seat \? \{ x: targetX, y: targetY \} : null/);
+  assert.match(scene, /drawDesk\(entry\.seatAnchor\.x, true\)/);
+  assert.match(scene, /const returnPoint = candidate\.entry\.seatAnchor \|\| candidate\.entry\.home/);
+  assert.doesNotMatch(scene, /drawDesk\(entry\.home\.x/);
+});
+
 test('多 Agent Fleet 占用庭院下方工作区，身份和工作区解耦且由主进程约束', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
