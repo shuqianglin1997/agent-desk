@@ -79,8 +79,8 @@
 
 ---
 
-## 醒来先看这里 — 需要你决定的
-- [ ] Feature B 的默认映射存 `settings.json` 还是 `profiles.json`？
-- [ ] 额度总览入口位置：经典视图信息轨 / 庭院面板 / 两者都要？
-- [ ] 一期是否严格只做 Codex 额度（Claude 继续 unsupported）？
-- [ ] 一期做完是否单独发一个预览版，你自己上手看后再进二期？（契合「每期用户自己上手」）
+## 决策（2026-07-20 已定）
+- [x] Feature B 默认映射存 **`settings.json`**（偏好类，不放进 `profiles.json`）。
+- [x] 额度总览入口：**经典视图信息轨 + 庭院面板都做**。
+- [x] 总览纳入**所有账号**：Codex 显示真实额度，Claude / Cursor 显式 `unsupported`（无官方 API，不抓 cookie/token）。
+- [x] **直接连做 A + B**，TDD 自测通过即提交，不停下等预览；UI 效果留待人工上手验证。
