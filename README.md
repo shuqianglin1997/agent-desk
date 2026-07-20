@@ -4,7 +4,7 @@
 
 <h1 align="center">AgentDesk</h1>
 
-<p align="center"><strong>One local control room for every Agent.</strong><br />Run Codex, Claude Code, ACP agents and terminal tools side by side, combine each instance with the identity and workspace it needs, and hand indexed local sessions between them.</p>
+<p align="center"><strong>Many accounts. Many agents. One local window.</strong><br />Keep every Claude / Codex account signed in at once — no collisions, no re-login — run Codex, Claude Code and ACP agents side by side, and hand any account's indexed session to whichever agent picks it up.</p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
@@ -21,9 +21,7 @@
 
 ## The problem it solves
 
-Using several coding Agents usually means several terminals, desktop apps and incompatible histories. The Agent process, login identity, project directory and old session get treated as one tangled object, so switching context is slow and supervising parallel work is harder than it should be.
-
-Multiple Claude or Codex accounts add a second set of problems because the official desktop apps assume **one identity per machine**:
+AgentDesk is for the point where your setup outgrows *one account, one agent*. Add a few logins and a few agents, and the Agent process, the login identity, the project directory and the old session tangle into a single object — scattered across terminals and desktop apps that each assume **one identity per machine**:
 
 - **Accounts collide.** Log into account B and it kicks account A offline. You can't keep a work login and a personal login open at the same time — you end up logging out and back in all day.
 - **Old sessions get lost.** Every account quietly piles up local sessions (Claude Code, Codex), scattered across different data folders and file formats. *"I did that a week ago — but in which account? which session?"* There's no single place to look.
@@ -34,9 +32,9 @@ Multiple Claude or Codex accounts add a second set of problems because the offic
 
 Each pain above maps to one thing AgentDesk gives you:
 
+- **Isolated account slots.** Each slot is its own local data directory. AgentDesk launches the official Claude / Codex app pointed at that directory, so **multiple accounts coexist — no collisions, no constant re-login.** This is the axis most tools skip — they assume you're already logged into one.
 - **A real multi-Agent Fleet.** Agent type, login identity, workspace and running instance are separate. Start several instances of the same Agent or mix different Agents; switching the visible instance never stops the others.
 - **Broad terminal-Agent support.** Built-in direct adapters cover Codex and Claude Code. Long-lived [Agent Client Protocol](https://agentclientprotocol.com/) sessions cover Gemini CLI, OpenCode, Cursor Agent, GitHub Copilot CLI, goose, Kimi and Qwen Code when installed. Any local ACP stdio Agent can be added through a native file picker, while independent Shell instances remain the fallback for other CLIs.
-- **Isolated account slots.** Each slot is its own local data directory. AgentDesk launches the official Claude / Codex app pointed at that directory, so **multiple accounts coexist — no collisions, no constant re-login.**
 - **Notes & groups.** Give any slot a free-text note and drop it into a group (Work / Personal / Spare…). The sidebar organizes accounts by group — manage them like a contact list.
 - **Automatic session index.** It scans each account's session files and lists them in one table — title, last active, created, project directory, source — with search across title / project / thread ID. **Find any old session in seconds.**
 - **One-click context handoff.** Select a session, hit *Copy handoff*, and paste into a new chat. It copies **metadata only, never the full transcript** — so nothing private leaks by accident.
@@ -157,11 +155,11 @@ More detail (in Chinese) lives in [`docs/`](docs/): the [Agent Fleet architectur
 
 # AgentDesk（中文说明）
 
-**把本机所有 Agent 放进同一个真正的多 Agent 工作空间。** Codex、Claude Code、ACP Agent 和终端工具可并行运行；Agent、登录身份、项目目录和运行实例彼此独立；本地旧会话可以直接交给另一个 Agent 继续。
+**多个账号，多个 Agent，一个本地窗口全看住。** 所有 Claude / Codex 账号同时在线、各自隔离、互不挤号；Codex、Claude Code 和 ACP Agent 并排运行；任何账号的本地旧会话都能找回，交给下一个 Agent 接着干。
 
 ## 它解决什么痛点
 
-只要你同时用多个编码 Agent，桌面上就会堆满终端和客户端，而 Agent、身份、项目与历史上下文往往绑成一团。再加上多个 Claude / Codex 账号（工作号、个人号、备用号或团队席位），官方桌面 App 默认**一台机器一个身份**：
+AgentDesk 是给「你的用法已经不止一个账号、一个 Agent」的那一刻用的。账号和 Agent 一多，进程、身份、项目目录和旧会话就绑成一团，散落在一堆终端和客户端里 —— 而官方桌面 App 还默认**一台机器一个身份**，让情况雪上加霜：
 
 - **串号 —— 登录态互相覆盖。** 登进 B 号就把 A 号挤下线，工作号和个人号没法同时开着，只能一整天反复登出登入。
 - **旧会话找不回。** 每个账号本地悄悄攒下一堆会话（Claude Code、Codex），散在不同数据目录、不同文件格式里。「那个活儿上周做过——在哪个号？哪个会话？」没有统一入口。
@@ -172,9 +170,9 @@ More detail (in Chinese) lives in [`docs/`](docs/): the [Agent Fleet architectur
 
 上面每一个痛点，都对应它给你的一样东西：
 
+- **独立账号槽位。** 每个槽位是一份独立的本地数据目录，AgentDesk 用该目录启动官方 App —— **多号并存、不串号、不用反复登录。** 这正是大多数工具跳过的一条轴：它们默认你已经登好了那一个号。
 - **真正的多 Agent Fleet。** Agent 类型、登录身份、工作区和运行实例是四个独立维度。同一种 Agent 可开多个实例，不同 Agent 也能并行；切换当前输出不会停止后台任务。
 - **覆盖终端 Agent。** Codex / Claude Code 有本机直连适配器；Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi、Qwen Code 通过长驻 ACP 会话接入。任何支持 ACP stdio 的本机或团队 Agent 都能由系统文件选择器添加；其他 CLI 仍可在多个独立 Shell 实例中运行。
-- **独立账号槽位。** 每个槽位是一份独立的本地数据目录，AgentDesk 用该目录启动官方 App —— **多号并存、不串号、不用反复登录。**
 - **备注与分组。** 给任意槽位加自由备注、丢进分组（工作 / 个人 / 备用……），侧栏按分组归拢账号，像通讯录一样管理。
 - **自动会话索引。** 扫描每个账号的会话文件，汇成一张表：标题 / 最后活跃 / 新建 / 项目目录 / 来源，可按标题、项目、线程 ID 搜索。**几秒钟找到任何旧会话。**
 - **一键交接上下文。** 选中会话点「复制交接信息」，粘到新对话即可。**只复制元信息，不含完整对话** —— 隐私不会被误传。
