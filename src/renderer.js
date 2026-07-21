@@ -131,6 +131,9 @@ const els = {
   accountMeta: document.querySelector('#accountMeta'),
   accountPath: document.querySelector('#accountPath'),
   accountNote: document.querySelector('#accountNote'),
+  quotaOverview: document.querySelector('#quotaOverview'),
+  quotaOverviewList: document.querySelector('#quotaOverviewList'),
+  quotaOverviewMeta: document.querySelector('#quotaOverviewMeta'),
   quotaSummary: document.querySelector('#quotaSummary'),
   quotaPlan: document.querySelector('#quotaPlan'),
   quotaStateBadge: document.querySelector('#quotaStateBadge'),
@@ -976,6 +979,8 @@ function renderQuotaMeters(snapshot) {
 }
 
 function renderQuotaSummary() {
+  // 总览与单账号额度共用同一批刷新时机（loadQuotas / selectProfile / refreshAll）。
+  renderQuotaOverview();
   const profile = selectedProfile();
   els.quotaSummary.hidden = !profile;
   els.quotaRefreshBtn.disabled = !profile || Boolean(quotaRequest);
@@ -1030,6 +1035,52 @@ function renderQuotaSummary() {
     els.quotaMessage.textContent = snapshot.reason || '当前没有可展示的额度数据。';
   }
   els.quotaSummary.title = snapshot.reason || `${quotaPlanLabel(snapshot.planType)} ${quotaHeadline(snapshot)}`.trim();
+}
+
+function renderQuotaOverview() {
+  if (!els.quotaOverview || !window.QuotaOverview) return;
+  const profiles = Array.isArray(state.profiles) ? state.profiles : [];
+  // A single account has no "cross-account" story to tell.
+  els.quotaOverview.hidden = profiles.length < 2;
+  if (els.quotaOverview.hidden) return;
+
+  const rows = window.QuotaOverview.buildQuotaOverview(profiles, state.quotas, Date.now());
+  const withQuota = rows.filter((row) => row.hasQuota).length;
+  if (els.quotaOverviewMeta) {
+    els.quotaOverviewMeta.textContent = withQuota
+      ? `${withQuota}/${rows.length} 个账号有实时额度`
+      : `${rows.length} 个账号`;
+  }
+
+  els.quotaOverviewList.replaceChildren();
+  for (const row of rows) {
+    const item = document.createElement('li');
+    item.className = 'quota-overview-item';
+    item.dataset.status = row.status;
+
+    const name = document.createElement('span');
+    name.className = 'quota-overview-name';
+    name.textContent = row.name;
+
+    const value = document.createElement('span');
+    value.className = 'quota-overview-value';
+    if (row.hasQuota) {
+      const level = window.YardEnergy?.energyForRemaining(row.tightest.remainingPercent) || 'unknown';
+      item.dataset.level = level;
+      value.textContent = `${row.tightest.label} 剩 ${Math.round(row.tightest.remainingPercent)}%`;
+      item.title = `${row.name} · ${formatQuotaReset(row.tightest.resetsAt)}`;
+    } else {
+      value.textContent = row.status === 'loading'
+        ? '查询中…'
+        : row.status === 'unsupported'
+          ? '暂不支持'
+          : (row.reason || '无额度数据');
+      item.title = row.reason || value.textContent;
+    }
+
+    item.append(name, value);
+    els.quotaOverviewList.append(item);
+  }
 }
 
 function applySessionFilter(selectFirst = false) {
