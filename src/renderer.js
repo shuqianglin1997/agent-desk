@@ -40,7 +40,12 @@ async function loadApps() {
     if (Array.isArray(list) && list.length) {
       state.appMeta = Object.fromEntries(list.map((a) => [
         a.id,
-        { label: a.label, tagColor: a.tagColor, canExportTranscript: Boolean(a.canExportTranscript) }
+        {
+          label: a.label,
+          tagColor: a.tagColor,
+          canExportTranscript: Boolean(a.canExportTranscript),
+          canLaunch: a.canLaunch !== false
+        }
       ]));
     }
   } catch (_error) {
@@ -84,6 +89,7 @@ const els = {
   ledgerDone: document.querySelector('#ledgerDone'),
   ledgerMin: document.querySelector('#ledgerMin'),
   reminderToggle: document.querySelector('#reminderToggle'),
+  consoleToggle: document.querySelector('#consoleToggle'),
   atmosTime: document.querySelector('#atmosTime'),
   atmosWeather: document.querySelector('#atmosWeather'),
   runtimeDock: document.querySelector('#runtimeDock'),
@@ -168,6 +174,7 @@ const els = {
   confirmAddProfileBtn: document.querySelector('#confirmAddProfileBtn'),
   editDialog: document.querySelector('#editDialog'),
   editName: document.querySelector('#editName'),
+  editIdentity: document.querySelector('#editIdentity'),
   editGroup: document.querySelector('#editGroup'),
   editNote: document.querySelector('#editNote'),
   confirmEditBtn: document.querySelector('#confirmEditBtn'),
@@ -287,6 +294,7 @@ function applyUserSettings(value = {}) {
   state.theme = value.theme === 'light' || value.theme === 'dark' ? value.theme : null;
   state.view = value.view === 'classic' ? 'classic' : 'yard';
   state.remindersOn = value.remindersOn !== false;
+  state.agentConsoleOn = value.agentConsoleOn === true;
   state.atmosTime = ['auto', 'day', 'dusk', 'night'].includes(value.atmosTime)
     ? value.atmosTime
     : 'auto';
@@ -403,7 +411,9 @@ function bindEvents() {
     if (!profile) return;
     els.editName.value = profile.name;
     els.editGroup.value = profile.group || '';
+    els.editIdentity.value = profile.identityKey || '';
     els.editNote.value = profile.note || '';
+    populateIdentityDatalist();
     openCatCustomizer(profile);
     els.editDialog.showModal();
     els.editName.focus();
@@ -422,6 +432,7 @@ function bindEvents() {
       id: profile.id,
       name,
       group: els.editGroup.value,
+      identityKey: els.editIdentity.value,
       note: els.editNote.value,
       cat: { ...catDraft }
     });
@@ -494,6 +505,15 @@ function bindEvents() {
     els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
     els.reminderToggle.textContent = state.remindersOn ? '🔔 提醒 开' : '🔕 提醒 关';
     setStatus(state.remindersOn ? '休息提醒已开启。' : '休息提醒已关闭，猫照常陪你干活。');
+  });
+
+  els.consoleToggle.addEventListener('click', () => {
+    state.agentConsoleOn = !state.agentConsoleOn;
+    persistSettings({ agentConsoleOn: state.agentConsoleOn });
+    applyAgentConsole();
+    setStatus(state.agentConsoleOn
+      ? '内嵌控制台已展开。'
+      : '内嵌控制台已收起 —— 你自己终端里的会话照常被识别。');
   });
 
   els.helpBtn.addEventListener('click', () => {
@@ -2050,6 +2070,7 @@ function applyView() {
 }
 
 let activityLoading = false;
+let busySignature = '';
 
 async function loadActivity() {
   if (activityLoading) return; // 上一轮还没回来就跳过，避免请求堆积
@@ -2062,14 +2083,32 @@ async function loadActivity() {
   } finally {
     activityLoading = false;
   }
+  // 并行会话数变化时刷新账号列表徽章（签名不变就不重建 DOM，避免 8 秒一闪）
+  const signature = Object.values(state.activity)
+    .map((item) => `${item.profileId}:${item.activeNow || 0}`)
+    .join('|');
+  if (signature !== busySignature) {
+    busySignature = signature;
+    renderAccounts();
+    renderAccountHeader();
+  }
   runCompanion();
   syncYard();
+}
+
+// 内嵌控制台显隐（默认收起：识别用户自己终端里的会话即可，不必在这里跑）
+function applyAgentConsole() {
+  if (!els.runtimeDock || !els.consoleToggle) return;
+  els.runtimeDock.hidden = !state.agentConsoleOn;
+  els.consoleToggle.setAttribute('aria-pressed', String(state.agentConsoleOn));
+  els.consoleToggle.textContent = state.agentConsoleOn ? '🖥 控制台 开' : '🖥 控制台 关';
 }
 
 // ── 陪伴账本 ─────────────────────────────────────────
 function initCompanion() {
   els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
   els.reminderToggle.textContent = state.remindersOn ? '🔔 提醒 开' : '🔕 提醒 关';
+  applyAgentConsole();
   if (window.YardCompanion) {
     state.ledger = state.ledger || window.YardCompanion.emptyLedger(Date.now());
   }
@@ -2283,7 +2322,25 @@ function appendAccountRow(profile) {
     <small></small>
   `;
   button.querySelector('.account-app').textContent = appLabel(profile.appId);
-  button.querySelector('strong').textContent = profile.name;
+  const name = button.querySelector('strong');
+  name.textContent = profile.name;
+  // 此刻并行会话数：多个终端窗口同时在跑时一眼可见
+  const activeNow = state.activity[profile.id]?.activeNow || 0;
+  if (activeNow > 0) {
+    const busy = document.createElement('span');
+    busy.className = 'account-busy';
+    busy.textContent = `⌨${activeNow}`;
+    busy.title = `${activeNow} 个会话正在进行`;
+    name.append(busy);
+  }
+  // 同账号标识：同一登录身份的多个客户端槽位（如 Kimi Code + Kimi Work）
+  if (identityPeersOf(profile).length) {
+    const link = document.createElement('span');
+    link.className = 'account-identity';
+    link.textContent = '⛓';
+    link.title = `同账号：${profile.identityKey} · 与「${identityPeersOf(profile).map((peer) => peer.name).join('、')}」是同一登录身份`;
+    name.append(link);
+  }
   const small = button.querySelector('small');
   if (profile.note) {
     small.textContent = profile.note;
@@ -2293,6 +2350,26 @@ function appendAccountRow(profile) {
   }
   button.addEventListener('click', () => selectProfile(profile.id));
   els.accountList.append(button);
+}
+
+// 与该槽位同 identityKey 的其他槽位（identityKey 为空则不算关联）
+function identityPeersOf(profile) {
+  if (!profile?.identityKey) return [];
+  return state.profiles.filter(
+    (item) => item.id !== profile.id && item.identityKey === profile.identityKey
+  );
+}
+
+function populateIdentityDatalist() {
+  const datalist = document.querySelector('#identityOptions');
+  if (!datalist) return;
+  datalist.replaceChildren();
+  const keys = [...new Set(state.profiles.map((item) => item.identityKey).filter(Boolean))];
+  for (const key of keys) {
+    const option = document.createElement('option');
+    option.value = key;
+    datalist.append(option);
+  }
 }
 
 async function selectProfile(profileId) {
@@ -2336,7 +2413,11 @@ function renderAccountHeader() {
   const profile = selectedProfile();
   const disabled = !profile;
 
-  els.launchBtn.disabled = disabled;
+  const canLaunch = !profile || state.appMeta[profile.appId]?.canLaunch !== false;
+  els.launchBtn.disabled = disabled || !canLaunch;
+  els.launchBtn.title = canLaunch
+    ? ''
+    : '这个客户端在你自己的终端里运行；AgentDesk 负责识别和索引它的会话。';
   els.pathConfigBtn.disabled = disabled;
   els.diagnosticsBtn.disabled = disabled;
   els.profileFolderBtn.disabled = disabled;
@@ -2357,7 +2438,11 @@ function renderAccountHeader() {
 
   els.accountTitle.textContent = profile.name;
   const groupLabel = profile.group ? ` · ${profile.group}` : '';
-  els.accountMeta.textContent = `${appLabel(profile.appId)} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
+  const activeNow = state.activity[profile.id]?.activeNow || 0;
+  const busyLabel = activeNow > 0 ? ` · ⌨ ${activeNow} 个会话进行中` : '';
+  const peers = identityPeersOf(profile);
+  const identityLabel = peers.length ? ` · ⛓ 与 ${peers.map((peer) => peer.name).join('、')} 同账号` : '';
+  els.accountMeta.textContent = `${appLabel(profile.appId)} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel}${busyLabel}${identityLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
   els.accountPath.textContent = `账号 ${shortPath(profile.profilePath)} · 会话 ${shortPath(profile.sessionRoot)}`;
   els.accountNote.textContent = profile.note || '';
   els.accountNote.style.display = profile.note ? '' : 'none';

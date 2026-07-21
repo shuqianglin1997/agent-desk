@@ -18,6 +18,9 @@ const DEFAULT_SETTINGS = Object.freeze({
   theme: null,
   view: 'yard',
   remindersOn: true,
+  // 内嵌多 Agent 控制台默认收起：多数人用自己的终端跑 agent，
+  // AgentDesk 负责识别与索引；控制台按需在庭院账本行打开。
+  agentConsoleOn: false,
   atmosTime: 'auto',
   atmosWeather: 'auto',
   welcomed: false,
@@ -78,6 +81,9 @@ function normalizeSettings(value) {
     remindersOn: typeof input.remindersOn === 'boolean'
       ? input.remindersOn
       : DEFAULT_SETTINGS.remindersOn,
+    agentConsoleOn: typeof input.agentConsoleOn === 'boolean'
+      ? input.agentConsoleOn
+      : DEFAULT_SETTINGS.agentConsoleOn,
     atmosTime: YARD_TIMES.has(input.atmosTime) ? input.atmosTime : DEFAULT_SETTINGS.atmosTime,
     atmosWeather: YARD_WEATHER.has(input.atmosWeather)
       ? input.atmosWeather

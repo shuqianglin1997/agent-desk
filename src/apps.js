@@ -64,6 +64,44 @@ const APPS = {
     // 会话记录里的最后活跃时间（读 probe 传入的最新文件的 lastActivityAt），驱动干活/在岗判定
     contentActivityAt: (_profile, filePath) => sessions.claudeActivityFromFile(filePath)
   },
+  'claude-cli': {
+    id: 'claude-cli',
+    label: 'Claude CLI',
+    tagColor: '#b0713f',
+    appName: 'Claude',
+    // 没有可启动的桌面 App —— 用户在自己的终端里跑 claude，
+    // 这个槽位负责识别、索引与导出它的会话。
+    noLaunch: true,
+    windows: {
+      executableNames: [],
+      aliases: [],
+      legacyInstallDirs: ['claude'],
+      packageNames: [],
+      packageFamilyNames: [],
+      packageFamilyPrefixes: [],
+      protocol: null,
+      profileMarkers: ['projects', 'history.jsonl']
+    },
+    // CLI 数据目录按 CLAUDE_CONFIG_DIR 解析，缺省 ~/.claude
+    defaultSessionRoot: (profilePath, isDefault) => (
+      isDefault ? path.join(os.homedir(), '.claude') : path.join(profilePath, 'claude-cli-home')
+    ),
+    launchEnv: (profile, baseEnv) => ({ ...baseEnv, CLAUDE_CONFIG_DIR: profile.sessionRoot }),
+    // 会话事件逐行追加；只盯 projects 两层（memory/<uuid> 等子目录不算会话）
+    scanAreas: (profile) => [
+      { dir: path.join(profile.sessionRoot, 'projects'), match: (name) => name.endsWith('.jsonl'), maxDepth: 2 }
+    ],
+    diagnosticAreas: (profile) => [
+      { label: 'CLI 会话', path: path.join(profile.sessionRoot, 'projects'), kind: 'directory' },
+      { label: 'CLI 历史', path: path.join(profile.sessionRoot, 'history.jsonl'), kind: 'file' }
+    ],
+    scan: (profile) => sessions.scanClaudeCli(profile),
+    contentActivityAt: (_profile, filePath) => sessions.lastEventTimestamp(filePath),
+    exportTranscript: (session) => ({
+      markdown: transcripts.claudeCliTranscriptMarkdown(session.filePath, { title: session.title }),
+      suggestedName: transcripts.suggestedTranscriptName(session.title)
+    })
+  },
   codex: {
     id: 'codex',
     label: 'Codex',
@@ -131,6 +169,12 @@ const APPS = {
     ],
     scan: (profile) => sessions.scanKimi(profile),
     contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
+    // 一个会话目录含 state.json + agents/*/wire.jsonl，活跃计数按会话目录去重
+    sessionKeyOf: (filePath) => (
+      filePath.endsWith('state.json')
+        ? path.dirname(filePath)
+        : path.dirname(path.dirname(path.dirname(filePath)))
+    ),
     // 会话可导出为 Markdown（session.filePath 即 state.json）
     exportTranscript: (session) => ({
       markdown: transcripts.kimiTranscriptMarkdown(session.filePath),
@@ -172,6 +216,11 @@ const APPS = {
     scan: (profile) => kimiWorkSessions.scanKimiWork(profile),
     // 正文与 Kimi Code 同构，活跃判定直接复用
     contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
+    sessionKeyOf: (filePath) => (
+      filePath.endsWith('state.json')
+        ? path.dirname(filePath)
+        : path.dirname(path.dirname(path.dirname(filePath)))
+    ),
     // filePath 是 kernel state.json（缺失时是 db，解析层会给出明确报错）；
     // 标题用索引层的 generated 标题，比 state.json 的首条消息干净
     exportTranscript: (session) => ({
@@ -232,7 +281,8 @@ function listApps() {
     id,
     label: APPS[id].label,
     tagColor: APPS[id].tagColor,
-    canExportTranscript: typeof APPS[id].exportTranscript === 'function'
+    canExportTranscript: typeof APPS[id].exportTranscript === 'function',
+    canLaunch: APPS[id].noLaunch !== true
   }));
 }
 

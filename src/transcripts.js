@@ -80,13 +80,13 @@ function collectKimiTurns(wirePath) {
 }
 
 // 连续的 assistant/tool 片段合并成一个「助手」块，用户消息单独成块。
-function renderTurns(turns) {
+function renderTurns(turns, assistantLabel = 'Kimi') {
   const blocks = [];
   let assistantBuffer = [];
 
   const flushAssistant = () => {
     if (!assistantBuffer.length) return;
-    blocks.push(`## 🤖 Kimi\n\n${assistantBuffer.join('\n\n')}`);
+    blocks.push(`## 🤖 ${assistantLabel}\n\n${assistantBuffer.join('\n\n')}`);
     assistantBuffer = [];
   };
 
@@ -137,6 +137,79 @@ function kimiTranscriptMarkdown(stateJsonPath, opts = {}) {
   return `${headLines.join('\n')}\n${body}\n`;
 }
 
+// Claude Code CLI 会话（~/.claude/projects/<slug>/<uuid>.jsonl）→ Markdown。
+// 同样只导出人看的对话：真实用户输入、助手正文与工具调用摘要；
+// 思考、命令注入（<command-*/<system-reminder…）、tool_result、子 agent 事件不落盘。
+function claudeCliTranscriptMarkdown(jsonlPath, opts = {}) {
+  if (!jsonlPath || typeof jsonlPath !== 'string') {
+    throw new Error('没有可导出的会话文件路径。');
+  }
+  let raw;
+  try {
+    raw = fs.readFileSync(jsonlPath, 'utf8');
+  } catch (_error) {
+    throw new Error(`读不到会话文件：${jsonlPath}`);
+  }
+
+  const turns = [];
+  let cwd = null;
+  let firstTs = null;
+  let lastTs = null;
+
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch (_error) {
+      continue;
+    }
+    if (event.isSidechain === true) continue;
+    if (event.timestamp) {
+      if (!firstTs) firstTs = event.timestamp;
+      lastTs = event.timestamp;
+    }
+    if (!cwd && event.cwd) cwd = String(event.cwd);
+
+    if (event.type === 'user' && !event.isMeta) {
+      const content = event.message?.content;
+      const textContent = (typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? content.filter((part) => part?.type === 'text' && typeof part.text === 'string').map((part) => part.text).join('\n')
+          : ''
+      ).trim();
+      if (textContent && !textContent.startsWith('<')) turns.push({ kind: 'user', text: textContent });
+    } else if (event.type === 'assistant') {
+      const parts = Array.isArray(event.message?.content) ? event.message.content : [];
+      for (const part of parts) {
+        if (part?.type === 'text' && String(part.text || '').trim()) {
+          turns.push({ kind: 'assistant', text: String(part.text).trim() });
+        } else if (part?.type === 'tool_use' && part.name) {
+          turns.push({ kind: 'tool', text: String(part.name) });
+        }
+      }
+    }
+  }
+
+  const sessionId = path.basename(jsonlPath, '.jsonl');
+  const title = String(opts.title || '').trim()
+    || (turns.find((turn) => turn.kind === 'user')?.text || '').slice(0, 60)
+    || `Claude 会话 ${sessionId.slice(0, 8)}`;
+
+  const headLines = [`# ${title}`, ''];
+  if (cwd) headLines.push(`- 项目：\`${cwd}\``);
+  const created = formatWhen(firstTs);
+  const updated = formatWhen(lastTs);
+  if (created) headLines.push(`- 创建：${created}`);
+  if (updated) headLines.push(`- 最后活跃：${updated}`);
+  headLines.push(`- 会话标识：\`${sessionId}\``, '', '---', '');
+
+  const blocks = renderTurns(turns, 'Claude');
+  const body = blocks.length ? blocks.join('\n\n') : '（对话记录为空。）';
+  return `${headLines.join('\n')}\n${body}\n`;
+}
+
 // 文件名建议：去掉路径分隔与 Windows 非法字符，限长，避免空名。
 function suggestedTranscriptName(title) {
   const cleaned = String(title || '')
@@ -149,4 +222,4 @@ function suggestedTranscriptName(title) {
   return `${cleaned || 'kimi-session'}.md`;
 }
 
-module.exports = { kimiTranscriptMarkdown, suggestedTranscriptName };
+module.exports = { kimiTranscriptMarkdown, claudeCliTranscriptMarkdown, suggestedTranscriptName };

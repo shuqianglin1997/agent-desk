@@ -200,6 +200,8 @@ function registerIpc() {
       }
       if (typeof input.group === 'string') next.group = input.group.trim();
       if (typeof input.note === 'string') next.note = input.note;
+      // 同账号标识：同一登录身份的多个客户端槽位共用一个 key（空 = 不关联）
+      if (typeof input.identityKey === 'string') next.identityKey = input.identityKey.trim() || null;
       if (input.cat && typeof input.cat === 'object') next.cat = { ...next.cat, ...input.cat };
       return next;
     });
@@ -1128,6 +1130,15 @@ function hasLocalKimiWorkData() {
   }
 }
 
+// Claude Code CLI（用户自己终端里的 claude）同理：有 ~/.claude/projects 才补。
+function hasLocalClaudeCliData() {
+  try {
+    return fs.existsSync(path.join(os.homedir(), '.claude', 'projects'));
+  } catch (_error) {
+    return false;
+  }
+}
+
 function normalizeProfileList(profiles) {
   const normalized = (Array.isArray(profiles) ? profiles : [])
     .filter((profile) => profile && typeof profile === 'object' && !Array.isArray(profile))
@@ -1168,6 +1179,7 @@ function normalizeProfileList(profiles) {
       profilePathMode: 'auto',
       sessionRootMode: 'auto',
       isProtected: true,
+      identityKey: 'Kimi',
       createdAt: new Date().toISOString()
     }));
   }
@@ -1181,10 +1193,33 @@ function normalizeProfileList(profiles) {
       profilePathMode: 'auto',
       sessionRootMode: 'auto',
       isProtected: true,
+      identityKey: 'Kimi',
       createdAt: new Date().toISOString()
     }));
   }
-  return normalized;
+  if (hasLocalClaudeCliData() && !normalized.some((profile) => profile.appId === 'claude-cli' && profile.isProtected)) {
+    normalized.push(normalizeProfile({
+      id: crypto.randomUUID(),
+      appId: 'claude-cli',
+      name: '默认 Claude CLI',
+      profilePath: defaultProfilePath('claude-cli'),
+      sessionRoot: defaultSessionRoot('claude-cli', defaultProfilePath('claude-cli'), true),
+      profilePathMode: 'auto',
+      sessionRootMode: 'auto',
+      isProtected: true,
+      createdAt: new Date().toISOString()
+    }));
+  }
+  // Kimi Code 与 Kimi Work 是同一桌面 App 生态的两个形态，同机必然同登录身份。
+  // 只给「从未有过 identityKey 字段」的旧默认槽位补关联（一次性迁移）；
+  // 用户显式清空后字段为 null（存在），不再回填 —— 清空必须能生效。
+  return normalized.map((profile) => (
+    (profile.appId === 'kimi' || profile.appId === 'kimi-work')
+      && profile.isProtected
+      && profile.identityKey === undefined
+      ? { ...profile, identityKey: 'Kimi' }
+      : profile
+  ));
 }
 
 function normalizeProfile(profile) {
@@ -1204,6 +1239,15 @@ function normalizeProfile(profile) {
     // Keep fields introduced by newer versions. Normalizing known fields must
     // never act like a destructive schema migration and erase customizations.
     ...profile,
+    // identityKey 的「字段不存在」有语义（从未迁移过，见 normalizeProfileList），
+    // 只在字段存在时规范化，不无中生有地写入 null。
+    ...(Object.prototype.hasOwnProperty.call(profile, 'identityKey')
+      ? {
+        identityKey: typeof profile.identityKey === 'string' && profile.identityKey.trim()
+          ? profile.identityKey.trim()
+          : null
+      }
+      : {}),
     id,
     appId,
     name: profile.name || `默认 ${managedAppName(appId)}`,
@@ -1404,6 +1448,12 @@ function usesWindowsOfficialDefault(profile) {
 
 async function launchProfile(profile) {
   const app_ = apps.getApp(profile.appId);
+  if (app_.noLaunch) {
+    return {
+      ok: false,
+      reason: `${app_.label} 在你自己的终端里运行；这个槽位负责识别和索引它的会话。`
+    };
+  }
   const appName = app_.appName;
   const windowsDefault = usesWindowsOfficialDefault(profile);
 
