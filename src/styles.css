@@ -867,6 +867,110 @@ body[data-view="classic"] .account-manage {
   font-size: 9px;
 }
 
+/* ── 跨账号额度总览（全院额度）───────────────────── */
+.quota-overview {
+  display: grid;
+  gap: 7px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line-mid);
+  background: var(--surface-raised);
+}
+
+.quota-overview[hidden] {
+  display: none;
+}
+
+.quota-overview > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quota-overview > header div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.quota-overview > header span {
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.quota-overview > header b {
+  font-size: 11px;
+}
+
+.quota-overview > header small {
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.quota-overview-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 5px 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quota-overview-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.quota-overview-item::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ink-disabled);
+}
+
+.quota-overview-item[data-level="fresh"]::before { background: var(--success); }
+.quota-overview-item[data-level="steady"]::before { background: var(--accent); }
+.quota-overview-item[data-level="tired"]::before { background: var(--warn); }
+.quota-overview-item[data-level="exhausted"]::before { background: var(--danger); }
+.quota-overview-item[data-status="error"]::before { background: var(--danger); }
+
+.quota-overview-name {
+  overflow: hidden;
+  color: var(--ink-secondary);
+  font-size: 10px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quota-overview-value {
+  flex: none;
+  margin-left: auto;
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.quota-overview-item[data-status="ok"] .quota-overview-value {
+  color: var(--ink-secondary);
+  font-weight: 700;
+}
+
 .main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 328px);
