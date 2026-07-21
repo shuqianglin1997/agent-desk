@@ -20,8 +20,10 @@ function sortByRecency(records) {
 }
 
 function scanSessions(profile) {
-  // scanClaude/scanCodex 各自已按最后活跃排序，这里不再重复排
-  return profile.appId === 'codex' ? scanCodex(profile) : scanClaude(profile);
+  // 各扫描器已按最后活跃排序，这里不再重复排
+  if (profile.appId === 'codex') return scanCodex(profile);
+  if (profile.appId === 'kimi') return scanKimi(profile);
+  return scanClaude(profile);
 }
 
 function scanClaude(profile) {
@@ -112,6 +114,43 @@ function scanCodex(profile) {
   return sortByRecency(records);
 }
 
+// Kimi Code（CLI / VS Code 插件）：<root>/sessions/<workspaceId>/session_<uuid>/state.json，
+// 对话记录在同级 agents/<agentId>/wire.jsonl。state.json 直接给出标题与起止时间。
+function scanKimi(profile) {
+  const root = profile.sessionRoot || path.join(os.homedir(), '.kimi-code');
+  const records = [];
+
+  for (const filePath of walkFiles(
+    path.join(root, 'sessions'),
+    (entry, itemPath) => entry.isFile() && entry.name === 'state.json' && /session_[^/\\]+[/\\]state\.json$/.test(itemPath)
+  )) {
+    const json = readJson(filePath);
+    if (!json) continue;
+    const stat = safeStat(filePath);
+    const id = path.basename(path.dirname(filePath));
+    const shortId = id.replace(/^session_/, '').slice(0, 8);
+    const title = cleanTitle(json.title) || `Kimi 会话 ${shortId}`;
+    const createdAt = parseDate(json.createdAt) || stat?.birthtime?.toISOString() || null;
+    const updatedAt = parseDate(json.updatedAt) || stat?.mtime?.toISOString() || createdAt;
+
+    records.push({
+      id,
+      appId: 'kimi',
+      title,
+      createdAt,
+      updatedAt,
+      projectPath: text(json.workDir) || null,
+      source: 'Kimi Code',
+      status: '可用',
+      model: null,
+      filePath,
+      address: id
+    });
+  }
+
+  return sortByRecency(records);
+}
+
 // 「会话记录里的最后活跃时间」——比文件 mtime 干净（内容里的时间戳，不受乱 touch 影响）。
 // 供猫状态判定用。filePath 由 activity.probeActivity 那趟 walk 顺带找出的最新会话文件传入，
 // 这里只读这一个文件、不再自己遍历目录。返回毫秒时间戳或 null。
@@ -130,6 +169,17 @@ function codexActivityFromFile(filePath) {
   return lastEventTimestamp(filePath);
 }
 
+// Kimi：probe 盯 state.json（每轮写 updatedAt）和 wire.jsonl（逐事件追加，字段是毫秒 time）。
+// 传入哪个最新文件就读哪个，保证「正在干活」判定的实时性。
+function kimiActivityFromFile(filePath) {
+  if (!filePath) return null;
+  if (filePath.endsWith('.jsonl')) return lastEventTimestamp(filePath);
+  const json = readJson(filePath);
+  if (!json) return null;
+  const iso = parseDate(json.updatedAt);
+  return iso ? new Date(iso).getTime() : null;
+}
+
 // 只读文件末尾 64KB，反向找最后一条带 timestamp 的事件（大 rollout 也便宜）。
 function lastEventTimestamp(filePath) {
   if (!filePath) return null;
@@ -144,8 +194,10 @@ function lastEventTimestamp(filePath) {
     for (let i = lines.length - 1; i >= 0; i--) {
       try {
         const obj = JSON.parse(lines[i]);
-        const ts = Date.parse(obj.timestamp || obj.ts || (obj.payload && obj.payload.timestamp));
-        if (ts) return ts;
+        // Codex 事件是 ISO 字符串 timestamp；Kimi wire 事件是数字毫秒 time
+        const raw = obj.timestamp ?? obj.ts ?? obj.time ?? (obj.payload && obj.payload.timestamp);
+        const ts = typeof raw === 'number' ? (raw > 10_000_000_000 ? raw : raw * 1000) : Date.parse(raw);
+        if (Number.isFinite(ts) && ts > 0) return ts;
       } catch (_error) { /* 半行/非 JSON，继续往上找 */ }
     }
     return null;
@@ -263,4 +315,4 @@ function uuidFromFilename(filePath) {
   return match?.[0] || null;
 }
 
-module.exports = { scanSessions, scanClaude, scanCodex, claudeActivityFromFile, codexActivityFromFile, parseDate, cleanTitle, uuidFromFilename, text };
+module.exports = { scanSessions, scanClaude, scanCodex, scanKimi, claudeActivityFromFile, codexActivityFromFile, kimiActivityFromFile, parseDate, cleanTitle, uuidFromFilename, text };

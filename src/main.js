@@ -250,6 +250,10 @@ function registerIpc() {
     return revealSessionFile(input);
   });
 
+  ipcMain.handle('sessions:export', async (_event, input = {}) => {
+    return exportSessionTranscript(input);
+  });
+
   ipcMain.handle('activity:all', () => {
     const profiles = loadProfiles();
     // 进程快照采一次，供所有账号匹配；null 表示探测不可用（上层退回按活跃度）
@@ -1105,6 +1109,16 @@ function bootstrapProfiles() {
   ]);
 }
 
+// Kimi 与 Claude/Codex 不同：不是人人都装。只有本机已有 Kimi Code 数据
+// （KIMI_CODE_HOME 缺省位置 ~/.kimi-code）时才补默认槽位，避免多数人看到空槽。
+function hasLocalKimiCodeData() {
+  try {
+    return fs.existsSync(path.join(os.homedir(), '.kimi-code', 'sessions'));
+  } catch (_error) {
+    return false;
+  }
+}
+
 function normalizeProfileList(profiles) {
   const normalized = (Array.isArray(profiles) ? profiles : [])
     .filter((profile) => profile && typeof profile === 'object' && !Array.isArray(profile))
@@ -1129,6 +1143,19 @@ function normalizeProfileList(profiles) {
       name: '默认 Codex',
       profilePath: defaultProfilePath('codex'),
       sessionRoot: defaultSessionRoot('codex', defaultProfilePath('codex'), true),
+      profilePathMode: 'auto',
+      sessionRootMode: 'auto',
+      isProtected: true,
+      createdAt: new Date().toISOString()
+    }));
+  }
+  if (hasLocalKimiCodeData() && !normalized.some((profile) => profile.appId === 'kimi' && profile.isProtected)) {
+    normalized.push(normalizeProfile({
+      id: crypto.randomUUID(),
+      appId: 'kimi',
+      name: '默认 Kimi',
+      profilePath: defaultProfilePath('kimi'),
+      sessionRoot: defaultSessionRoot('kimi', defaultProfilePath('kimi'), true),
       profilePathMode: 'auto',
       sessionRootMode: 'auto',
       isProtected: true,
@@ -1878,6 +1905,44 @@ async function migrateWindowsProfilePath(id) {
 function shouldCopyProfileItem(sourcePath) {
   const name = path.basename(sourcePath).toLowerCase();
   return !PROFILE_COPY_EXCLUDES.has(name);
+}
+
+// 导出会话为 Markdown。与 reveal 相同的口径：先重扫拿最新 filePath，防止
+// 过期路径；写盘位置由系统保存对话框决定，渲染进程不提交任意路径。
+async function exportSessionTranscript(input) {
+  const profiles = loadProfiles();
+  const profile = profiles.find((item) => item.id === input.profileId);
+  if (!profile) return { ok: false, reason: '找不到账号槽位。' };
+
+  const app_ = apps.getApp(profile.appId);
+  if (typeof app_.exportTranscript !== 'function') {
+    return { ok: false, reason: `${app_.label} 的会话暂不支持导出 Markdown。` };
+  }
+
+  const records = app_.scan(profile);
+  const session = records.find((item) => item.id === input.sessionId);
+  if (!session) return { ok: false, reason: '找不到这个会话，刷新列表后再试。' };
+
+  let exported;
+  try {
+    exported = app_.exportTranscript(session);
+  } catch (error) {
+    return { ok: false, reason: `导出失败：${error.message}` };
+  }
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: '导出会话 Markdown',
+    defaultPath: path.join(app.getPath('desktop'), exported.suggestedName || 'session.md'),
+    filters: [{ name: 'Markdown', extensions: ['md'] }]
+  });
+  if (result.canceled || !result.filePath) return { ok: false, canceled: true, reason: '已取消导出。' };
+
+  try {
+    fs.writeFileSync(result.filePath, exported.markdown, 'utf8');
+  } catch (error) {
+    return { ok: false, reason: `写入失败：${error.message}` };
+  }
+  return { ok: true, savedPath: result.filePath, message: `已导出 Markdown：${result.filePath}` };
 }
 
 async function revealSessionFile(input) {

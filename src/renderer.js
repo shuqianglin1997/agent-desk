@@ -38,7 +38,10 @@ async function loadApps() {
   try {
     const list = await window.manager.listApps();
     if (Array.isArray(list) && list.length) {
-      state.appMeta = Object.fromEntries(list.map((a) => [a.id, { label: a.label, tagColor: a.tagColor }]));
+      state.appMeta = Object.fromEntries(list.map((a) => [
+        a.id,
+        { label: a.label, tagColor: a.tagColor, canExportTranscript: Boolean(a.canExportTranscript) }
+      ]));
     }
   } catch (_error) {
     // 保留内置默认
@@ -156,6 +159,7 @@ const els = {
   copyAddressBtn: document.querySelector('#copyAddressBtn'),
   copyProjectBtn: document.querySelector('#copyProjectBtn'),
   openSessionFileBtn: document.querySelector('#openSessionFileBtn'),
+  exportSessionBtn: document.querySelector('#exportSessionBtn'),
   profileDialog: document.querySelector('#profileDialog'),
   newProfileApp: document.querySelector('#newProfileApp'),
   newProfileName: document.querySelector('#newProfileName'),
@@ -722,6 +726,18 @@ function bindEvents() {
       filePath: session.filePath
     });
     setStatus(result.message || result.reason || (result.ok ? '已打开会话位置。' : '无法打开会话位置。'));
+  });
+
+  els.exportSessionBtn.addEventListener('click', async () => {
+    const profile = selectedProfile();
+    const session = selectedSession();
+    if (!profile || !session || !window.manager.exportSession) return;
+    const result = await window.manager.exportSession({
+      profileId: profile.id,
+      sessionId: session.id
+    });
+    if (result?.canceled) return;
+    setStatus(result?.message || result?.reason || (result?.ok ? '已导出会话。' : '导出失败。'));
   });
 }
 
@@ -2398,6 +2414,12 @@ function renderInspector() {
   els.copyAddressBtn.disabled = disabled;
   els.copyProjectBtn.disabled = disabled || !session?.projectPath;
   els.openSessionFileBtn.disabled = disabled;
+  // 导出能力按客户端注册表声明（目前 Kimi Code 支持）
+  const canExport = Boolean(session && state.appMeta[session.appId]?.canExportTranscript);
+  els.exportSessionBtn.disabled = !canExport;
+  els.exportSessionBtn.title = canExport
+    ? '把这段对话导出成 Markdown 文件'
+    : (session ? '这个客户端的会话暂不支持导出 Markdown' : '');
 
   if (!session) {
     els.detailTitle.textContent = '未选择';
