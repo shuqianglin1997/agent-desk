@@ -1119,6 +1119,15 @@ function hasLocalKimiCodeData() {
   }
 }
 
+// Kimi Work 同理：桌面 App 的 daimon 数据根初始化过才补默认槽位。
+function hasLocalKimiWorkData() {
+  try {
+    return fs.existsSync(path.join(apps.defaultProfilePath('kimi-work'), 'daimon-share', 'daimon', 'agents'));
+  } catch (_error) {
+    return false;
+  }
+}
+
 function normalizeProfileList(profiles) {
   const normalized = (Array.isArray(profiles) ? profiles : [])
     .filter((profile) => profile && typeof profile === 'object' && !Array.isArray(profile))
@@ -1153,9 +1162,22 @@ function normalizeProfileList(profiles) {
     normalized.push(normalizeProfile({
       id: crypto.randomUUID(),
       appId: 'kimi',
-      name: '默认 Kimi',
+      name: '默认 Kimi Code',
       profilePath: defaultProfilePath('kimi'),
       sessionRoot: defaultSessionRoot('kimi', defaultProfilePath('kimi'), true),
+      profilePathMode: 'auto',
+      sessionRootMode: 'auto',
+      isProtected: true,
+      createdAt: new Date().toISOString()
+    }));
+  }
+  if (hasLocalKimiWorkData() && !normalized.some((profile) => profile.appId === 'kimi-work' && profile.isProtected)) {
+    normalized.push(normalizeProfile({
+      id: crypto.randomUUID(),
+      appId: 'kimi-work',
+      name: '默认 Kimi Work',
+      profilePath: defaultProfilePath('kimi-work'),
+      sessionRoot: defaultSessionRoot('kimi-work', defaultProfilePath('kimi-work'), true),
       profilePathMode: 'auto',
       sessionRootMode: 'auto',
       isProtected: true,
