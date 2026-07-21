@@ -15,6 +15,7 @@ const os = require('node:os');
 const path = require('node:path');
 const sessions = require('./sessions');
 const cursorSessions = require('./cursor-sessions');
+const transcripts = require('./transcripts');
 const windows = require('./windows');
 
 // 各平台官方 App 默认数据目录：<用户配置区>/<AppName>
@@ -94,6 +95,47 @@ const APPS = {
     scan: (profile) => sessions.scanCodex(profile),
     contentActivityAt: (_profile, filePath) => sessions.codexActivityFromFile(filePath)
   },
+  kimi: {
+    id: 'kimi',
+    label: 'Kimi',
+    tagColor: '#2f6bff',
+    appName: 'Kimi', // /Applications/Kimi.app（桌面客户端）；会话数据来自 Kimi Code CLI / VS Code 插件
+    windows: {
+      executableNames: ['Kimi.exe'],
+      aliases: ['Kimi.exe'],
+      legacyInstallDirs: ['Kimi', 'kimi-desktop'],
+      packageNames: ['Kimi'],
+      packageFamilyNames: [],
+      packageFamilyPrefixes: ['Kimi_', 'Moonshot.Kimi_'],
+      protocol: 'kimi://',
+      profileMarkers: ['Local State', 'Cache']
+    },
+    // Kimi Code 的数据目录按 KIMI_CODE_HOME 解析，缺省 ~/.kimi-code（官方文档口径）。
+    // 默认槽位直接读本机现成会话；独立槽位放在 profilePath/kimi-code-home。
+    defaultSessionRoot: (profilePath, isDefault) => (
+      isDefault ? path.join(os.homedir(), '.kimi-code') : path.join(profilePath, 'kimi-code-home')
+    ),
+    launchEnv: (profile, baseEnv) => ({ ...baseEnv, KIMI_CODE_HOME: profile.sessionRoot }),
+    // state.json 每轮更新 updatedAt；wire.jsonl 生成时逐事件追加（毫秒 time）
+    scanAreas: (profile) => [
+      {
+        dir: path.join(profile.sessionRoot, 'sessions'),
+        match: (name) => name === 'state.json' || name === 'wire.jsonl'
+      }
+    ],
+    diagnosticAreas: (profile) => [
+      { label: 'Kimi 索引', path: path.join(profile.sessionRoot, 'session_index.jsonl'), kind: 'file' },
+      { label: 'Kimi 会话', path: path.join(profile.sessionRoot, 'sessions'), kind: 'directory' },
+      { label: 'Kimi 工作区', path: path.join(profile.sessionRoot, 'workspaces.json'), kind: 'file' }
+    ],
+    scan: (profile) => sessions.scanKimi(profile),
+    contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
+    // 会话可导出为 Markdown（session.filePath 即 state.json）
+    exportTranscript: (session) => ({
+      markdown: transcripts.kimiTranscriptMarkdown(session.filePath),
+      suggestedName: transcripts.suggestedTranscriptName(session.title)
+    })
+  },
   cursor: {
     id: 'cursor',
     label: 'Cursor',
@@ -143,7 +185,12 @@ function appIds() {
 
 // 给渲染进程用的精简元数据（不含函数/路径逻辑）
 function listApps() {
-  return appIds().map((id) => ({ id, label: APPS[id].label, tagColor: APPS[id].tagColor }));
+  return appIds().map((id) => ({
+    id,
+    label: APPS[id].label,
+    tagColor: APPS[id].tagColor,
+    canExportTranscript: typeof APPS[id].exportTranscript === 'function'
+  }));
 }
 
 function defaultProfilePath(appId) {
