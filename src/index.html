@@ -68,6 +68,7 @@
             <span class="ledger-sep">·</span>
             <span class="ledger-stat">陪你干活 <b id="ledgerMin">0</b> 分钟</span>
             <span class="ledger-spacer"></span>
+            <button id="consoleToggle" class="ledger-toggle" type="button" aria-pressed="false" title="内嵌多 Agent 控制台。平时用自己的终端即可，AgentDesk 会识别各账号的会话">🖥 控制台 关</button>
             <button id="reminderToggle" class="ledger-toggle" type="button" aria-pressed="true" title="休息提醒（伸懒腰 / 收工播报）总开关">🔔 提醒 开</button>
           </div>
           <section id="runtimeDock" class="runtime-dock" aria-label="多 Agent 控制台">
@@ -279,6 +280,11 @@
           <input id="editGroup" type="text" list="groupOptions" placeholder="留空 = 未分组" />
         </label>
         <label>
+          同账号标识
+          <span class="field-hint">同一个登录身份的多个客户端槽位填同一个词（如 Kimi Code 与 Kimi Work 同填「Kimi」），列表会用 ⛓ 标出关联。</span>
+          <input id="editIdentity" type="text" list="identityOptions" placeholder="留空 = 不关联" />
+        </label>
+        <label>
           备注
           <textarea id="editNote" rows="3" placeholder="给这个账号加点备注……"></textarea>
         </label>
@@ -422,6 +428,7 @@
     </dialog>
 
     <datalist id="groupOptions"></datalist>
+    <datalist id="identityOptions"></datalist>
 
     <script src="./yard/sprites.js"></script>
     <script src="./yard/cats.js"></script>

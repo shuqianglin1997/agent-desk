@@ -23,6 +23,7 @@ function scanSessions(profile) {
   // 各扫描器已按最后活跃排序，这里不再重复排
   if (profile.appId === 'codex') return scanCodex(profile);
   if (profile.appId === 'kimi') return scanKimi(profile);
+  if (profile.appId === 'claude-cli') return scanClaudeCli(profile);
   return scanClaude(profile);
 }
 
@@ -112,6 +113,144 @@ function scanCodex(profile) {
   }
 
   return sortByRecency(records);
+}
+
+// Claude Code CLI（用户自己终端里跑的 claude）：<root>/projects/<路径slug>/<uuid>.jsonl，
+// 与桌面 App 的 claude-code-sessions 是两套。事件逐行追加，头部有 cwd/timestamp，
+// 标题事件（ai-title / custom-title）在生成时追加于文件中后部。
+// 会话量可达数千，故每文件只定点读头尾各 64KB，且只遍历两层目录（不进 memory/ 等子目录）。
+function scanClaudeCli(profile) {
+  const root = profile.sessionRoot || path.join(os.homedir(), '.claude');
+  const projectsDir = path.join(root, 'projects');
+  const records = [];
+  let projectEntries = [];
+  try {
+    projectEntries = fs.readdirSync(projectsDir, { withFileTypes: true });
+  } catch (_error) {
+    return records;
+  }
+
+  for (const projectEntry of projectEntries) {
+    if (!projectEntry.isDirectory()) continue;
+    const dir = path.join(projectsDir, projectEntry.name);
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (_error) {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.jsonl')) continue;
+      const record = claudeCliRecord(path.join(dir, entry.name));
+      if (record) records.push(record);
+    }
+  }
+
+  return sortByRecency(records);
+}
+
+function claudeCliRecord(filePath) {
+  // 头部窗口给大一些（256KB）：首条消息可能内嵌大 payload（粘贴的图片/长文），
+  // 64KB 会把后面几行的 cwd / 首条真实输入截掉。尾部 64KB 足够（标题事件会周期性重发）。
+  const headLines = readChunkLines(filePath, false, 256 * 1024);
+  if (!headLines) return null;
+  const stat = safeStat(filePath);
+
+  let cwd = null;
+  let firstTimestamp = null;
+  let firstUserText = null;
+  let summaryTitle = null;
+  let parsedAny = false;
+
+  for (const line of headLines) {
+    if (!line.trim()) continue;
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch (_error) {
+      continue;
+    }
+    parsedAny = true;
+    // 子 agent 会话是独立文件但事件带 isSidechain 标记，不进列表
+    if (event.isSidechain === true) return null;
+    if (event.type === 'summary' && !summaryTitle) summaryTitle = cleanTitle(event.summary);
+    if (!firstTimestamp && event.timestamp) firstTimestamp = parseDate(event.timestamp);
+    if (!cwd && event.cwd) cwd = text(event.cwd);
+    if (event.type === 'user' && !firstUserText && !event.isMeta) {
+      const content = messageTextOf(event.message?.content).trim();
+      if (content && !content.startsWith('<')) firstUserText = content.slice(0, 80);
+    }
+    // 头部信息集齐即可停（标题事件在尾部另读）
+    if (cwd && firstTimestamp && (firstUserText || summaryTitle)) break;
+  }
+  // 头部一条事件都解析不出来的不是会话文件（残片/异物），不进列表
+  if (!parsedAny) return null;
+
+  let aiTitle = null;
+  let customTitle = null;
+  let lastTimestamp = null;
+  const tailLines = readChunkLines(filePath, true);
+  for (const line of tailLines || []) {
+    if (!line.trim()) continue;
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch (_error) {
+      continue; // 首行可能是被截断的半行
+    }
+    if (event.type === 'ai-title') aiTitle = cleanTitle(event.aiTitle);
+    else if (event.type === 'custom-title') customTitle = cleanTitle(event.customTitle);
+    if (event.timestamp) {
+      const ts = parseDate(event.timestamp);
+      if (ts) lastTimestamp = ts;
+    }
+  }
+
+  const id = path.basename(filePath, '.jsonl');
+  const createdAt = firstTimestamp || stat?.birthtime?.toISOString() || null;
+  const updatedAt = lastTimestamp || stat?.mtime?.toISOString() || createdAt;
+
+  return {
+    id,
+    appId: 'claude-cli',
+    title: customTitle || aiTitle || summaryTitle || firstUserText || `Claude 会话 ${id.slice(0, 8)}`,
+    createdAt,
+    updatedAt,
+    projectPath: cwd,
+    source: 'Claude CLI',
+    status: '可用',
+    model: null,
+    filePath,
+    address: id
+  };
+}
+
+function messageTextOf(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
+      .map((part) => part.text)
+      .join('\n');
+  }
+  return '';
+}
+
+// 定点读文件头或尾一段，按行返回。尾部首行可能是半行，调用方逐行 try-parse 兼容。
+function readChunkLines(filePath, fromEnd, maxBytes = 64 * 1024) {
+  let fd;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const size = fs.fstatSync(fd).size;
+    const len = Math.min(maxBytes, size);
+    const buffer = Buffer.alloc(len);
+    if (len > 0) fs.readSync(fd, buffer, 0, len, fromEnd ? size - len : 0);
+    return buffer.toString('utf8').split(/\r?\n/);
+  } catch (_error) {
+    return null;
+  } finally {
+    if (fd !== undefined) { try { fs.closeSync(fd); } catch (_error) { /* 已关或无效 */ } }
+  }
 }
 
 // Kimi Code（CLI / VS Code 插件）：<root>/sessions/<workspaceId>/session_<uuid>/state.json，
@@ -315,4 +454,4 @@ function uuidFromFilename(filePath) {
   return match?.[0] || null;
 }
 
-module.exports = { scanSessions, scanClaude, scanCodex, scanKimi, claudeActivityFromFile, codexActivityFromFile, kimiActivityFromFile, parseDate, cleanTitle, uuidFromFilename, text };
+module.exports = { scanSessions, scanClaude, scanCodex, scanKimi, scanClaudeCli, claudeActivityFromFile, codexActivityFromFile, kimiActivityFromFile, lastEventTimestamp, parseDate, cleanTitle, uuidFromFilename, text };

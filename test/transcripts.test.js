@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { kimiTranscriptMarkdown, suggestedTranscriptName } = require('../src/transcripts');
+const { kimiTranscriptMarkdown, claudeCliTranscriptMarkdown, suggestedTranscriptName } = require('../src/transcripts');
 
 function makeSession(state, wireEvents) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-transcript-'));
@@ -106,6 +106,35 @@ test('kimiTranscriptMarkdown 支持标题覆盖（Kimi Work 的 generated 标题
   const markdown = kimiTranscriptMarkdown(statePath, { title: '权限配置会话' });
   assert.match(markdown, /^# 权限配置会话/);
   assert.doesNotMatch(markdown, /^# 配置一下权限/m);
+});
+
+test('claudeCliTranscriptMarkdown：导出用户/助手/工具，过滤命令注入与子 agent', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-ccli-md-'));
+  const file = path.join(dir, 'dddddddd-1111-2222-3333-444444444444.jsonl');
+  const events = [
+    { type: 'user', message: { role: 'user', content: '<command-name>/clear</command-name>' }, timestamp: '2026-07-20T02:00:00.000Z', cwd: '/Users/demo/proj' },
+    { type: 'user', message: { role: 'user', content: '帮我修登录 bug' }, timestamp: '2026-07-20T02:01:00.000Z', cwd: '/Users/demo/proj' },
+    { type: 'assistant', message: { role: 'assistant', content: [
+      { type: 'thinking', thinking: '思考不导出' },
+      { type: 'text', text: '我先看看代码。' },
+      { type: 'tool_use', name: 'Read', input: {} }
+    ] }, timestamp: '2026-07-20T02:02:00.000Z' },
+    { type: 'user', isSidechain: true, message: { role: 'user', content: '子 agent 的输入不导出' }, timestamp: '2026-07-20T02:03:00.000Z' },
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: '修好了。' }] }, timestamp: '2026-07-20T02:04:00.000Z' }
+  ];
+  fs.writeFileSync(file, events.map((event) => JSON.stringify(event)).join('\n') + '\n');
+
+  const markdown = claudeCliTranscriptMarkdown(file, { title: '修复登录 bug' });
+  assert.match(markdown, /^# 修复登录 bug/);
+  assert.match(markdown, /\/Users\/demo\/proj/);
+  assert.match(markdown, /## 🧑 用户[\s\S]*帮我修登录 bug/);
+  assert.match(markdown, /## 🤖 Claude[\s\S]*我先看看代码。/);
+  assert.match(markdown, /🔧 Read/);
+  assert.match(markdown, /修好了。/);
+  assert.doesNotMatch(markdown, /command-name/);
+  assert.doesNotMatch(markdown, /思考不导出/);
+  assert.doesNotMatch(markdown, /子 agent 的输入不导出/);
+  assert.throws(() => claudeCliTranscriptMarkdown(path.join(dir, 'nope.jsonl')), /会话文件/);
 });
 
 test('suggestedTranscriptName 清洗非法字符并限长', () => {

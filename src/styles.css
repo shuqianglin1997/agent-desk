@@ -867,6 +867,24 @@ body[data-view="classic"] .account-manage {
   font-size: 9px;
 }
 
+/* 账号行内联徽章：⌨ 并行会话数 / ⛓ 同账号关联 */
+.account-busy,
+.account-identity {
+  margin-left: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+.account-busy {
+  color: var(--success);
+  font-family: var(--font-mono);
+}
+
+.account-identity {
+  color: var(--ink-tertiary);
+}
+
 /* ── 跨账号额度总览（全院额度）───────────────────── */
 .quota-overview {
   display: grid;

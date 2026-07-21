@@ -39,6 +39,9 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
   assert.equal(normalized.theme, 'dark');
   assert.equal(normalized.view, 'classic');
   assert.equal(normalized.remindersOn, false);
+  // 未出现在旧设置里的新字段落默认：内嵌控制台默认收起
+  assert.equal(normalized.agentConsoleOn, false);
+  assert.equal(normalizeSettings({ agentConsoleOn: true }).agentConsoleOn, true);
   assert.equal(normalized.atmosTime, 'dusk');
   assert.equal(normalized.atmosWeather, 'rain');
   assert.equal(normalized.welcomed, true);
