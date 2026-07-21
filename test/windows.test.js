@@ -327,3 +327,32 @@ test('扩展长度 UNC 前缀会恢复成普通 UNC 路径', () => {
     '\\\\server\\share\\Claude'
   );
 });
+
+test('profileDirName 覆盖数据目录名（Kimi Work → kimi-desktop），可执行文件仍按 appName', () => {
+  const KIMI_WORK = {
+    id: 'kimi-work',
+    appName: 'Kimi',
+    profileDirName: 'kimi-desktop',
+    windows: {
+      executableNames: ['Kimi.exe'],
+      aliases: ['Kimi.exe'],
+      legacyInstallDirs: ['kimi-desktop', 'Kimi'],
+      packageNames: ['Kimi'],
+      packageFamilyNames: [],
+      packageFamilyPrefixes: ['Kimi_'],
+      protocol: 'kimi://',
+      profileMarkers: ['daimon-share', 'Local State']
+    }
+  };
+  assert.equal(
+    windows.legacyDefaultProfilePath(KIMI_WORK, BASE),
+    path.join(ENV.APPDATA, 'kimi-desktop')
+  );
+  const chosen = windows.chooseWindowsDefaultProfilePath(KIMI_WORK, { ...BASE, exists: () => false });
+  assert.ok(chosen.candidates.every((item) => !/[/\\]Kimi$/.test(item.path)));
+  // 未声明 profileDirName 的 App 行为不变
+  assert.equal(
+    windows.legacyDefaultProfilePath(CLAUDE, BASE),
+    path.join(ENV.APPDATA, 'Claude')
+  );
+});

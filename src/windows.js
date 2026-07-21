@@ -50,6 +50,12 @@ function pathExists(itemPath, options = {}) {
   }
 }
 
+// 数据目录名默认与 App 显示名一致；Electron userData 可能不同（如 Kimi → kimi-desktop）。
+// 只影响数据目录定位，可执行文件查找仍按 appName。
+function profileDirName(app_) {
+  return app_.profileDirName || app_.appName;
+}
+
 function metadata(app_) {
   return {
     executableNames: app_.windows?.executableNames || [`${app_.appName}.exe`],
@@ -353,24 +359,25 @@ function packageFamilyDirectories(app_, options = {}) {
 
 function legacyDefaultProfilePath(app_, options = {}) {
   const ctx = context(options);
-  return path.join(ctx.roaming, app_.appName);
+  return path.join(ctx.roaming, profileDirName(app_));
 }
 
 function windowsDefaultProfileCandidates(app_, options = {}) {
   const ctx = context(options);
+  const dirName = profileDirName(app_);
   const output = [
     { path: legacyDefaultProfilePath(app_, options), source: '传统 Roaming 目录' },
-    { path: path.join(ctx.local, app_.appName), source: '传统 Local 目录' }
+    { path: path.join(ctx.local, dirName), source: '传统 Local 目录' }
   ];
 
   for (const packageDir of packageFamilyDirectories(app_, options)) {
     output.push(
       {
-        path: path.join(packageDir, 'LocalCache', 'Roaming', app_.appName),
+        path: path.join(packageDir, 'LocalCache', 'Roaming', dirName),
         source: 'MSIX 虚拟化 Roaming 目录'
       },
       {
-        path: path.join(packageDir, 'LocalCache', 'Local', app_.appName),
+        path: path.join(packageDir, 'LocalCache', 'Local', dirName),
         source: 'MSIX 虚拟化 Local 目录'
       }
     );

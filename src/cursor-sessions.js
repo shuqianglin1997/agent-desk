@@ -123,4 +123,5 @@ function latestActivity(profile) {
   return Number.isFinite(m) && m > 0 ? m : null;
 }
 
-module.exports = { scanCursor, sessionCounts, latestActivity, stateDbPath };
+// queryJson 供其他 SQLite 型扫描器复用（kimi-work-sessions）
+module.exports = { scanCursor, sessionCounts, latestActivity, stateDbPath, queryJson };

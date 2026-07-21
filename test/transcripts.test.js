@@ -101,6 +101,13 @@ test('kimiTranscriptMarkdown 对坏输入抛出带说明的错误', () => {
   );
 });
 
+test('kimiTranscriptMarkdown 支持标题覆盖（Kimi Work 的 generated 标题更干净）', () => {
+  const statePath = makeSession(STATE, WIRE);
+  const markdown = kimiTranscriptMarkdown(statePath, { title: '权限配置会话' });
+  assert.match(markdown, /^# 权限配置会话/);
+  assert.doesNotMatch(markdown, /^# 配置一下权限/m);
+});
+
 test('suggestedTranscriptName 清洗非法字符并限长', () => {
   assert.equal(suggestedTranscriptName('配置一下权限'), '配置一下权限.md');
   const cleaned = suggestedTranscriptName('a/b\\c:d*e?f"g<h>i|j');

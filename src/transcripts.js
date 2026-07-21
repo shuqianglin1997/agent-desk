@@ -104,7 +104,7 @@ function renderTurns(turns) {
   return blocks;
 }
 
-function kimiTranscriptMarkdown(stateJsonPath) {
+function kimiTranscriptMarkdown(stateJsonPath, opts = {}) {
   if (!stateJsonPath || typeof stateJsonPath !== 'string') {
     throw new Error('没有可导出的会话文件路径。');
   }
@@ -115,7 +115,9 @@ function kimiTranscriptMarkdown(stateJsonPath) {
 
   const sessionDir = path.dirname(stateJsonPath);
   const sessionId = path.basename(sessionDir);
-  const title = String(state.title || '').trim() || `Kimi 会话 ${sessionId.replace(/^session_/, '').slice(0, 8)}`;
+  // Kimi Work 的索引层有更干净的 generated 标题，允许覆盖 state.json 的首条消息标题
+  const title = String(opts.title || state.title || '').trim()
+    || `Kimi 会话 ${sessionId.replace(/^session_/, '').slice(0, 8)}`;
 
   const headLines = [`# ${title}`, ''];
   if (state.workDir) headLines.push(`- 项目：\`${state.workDir}\``);

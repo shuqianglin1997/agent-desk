@@ -15,6 +15,7 @@ const os = require('node:os');
 const path = require('node:path');
 const sessions = require('./sessions');
 const cursorSessions = require('./cursor-sessions');
+const kimiWorkSessions = require('./kimi-work-sessions');
 const transcripts = require('./transcripts');
 const windows = require('./windows');
 
@@ -97,7 +98,7 @@ const APPS = {
   },
   kimi: {
     id: 'kimi',
-    label: 'Kimi',
+    label: 'Kimi Code',
     tagColor: '#2f6bff',
     appName: 'Kimi', // /Applications/Kimi.app（桌面客户端）；会话数据来自 Kimi Code CLI / VS Code 插件
     windows: {
@@ -133,6 +134,48 @@ const APPS = {
     // 会话可导出为 Markdown（session.filePath 即 state.json）
     exportTranscript: (session) => ({
       markdown: transcripts.kimiTranscriptMarkdown(session.filePath),
+      suggestedName: transcripts.suggestedTranscriptName(session.title)
+    })
+  },
+  'kimi-work': {
+    id: 'kimi-work',
+    label: 'Kimi Work',
+    tagColor: '#8a63d2',
+    appName: 'Kimi', // 与 Kimi Code 同一个桌面 App（com.moonshot.kimichat），open -a Kimi
+    // Electron userData 目录叫 kimi-desktop，与 App 显示名不同
+    profileDirName: 'kimi-desktop',
+    windows: {
+      executableNames: ['Kimi.exe'],
+      aliases: ['Kimi.exe'],
+      legacyInstallDirs: ['kimi-desktop', 'Kimi'],
+      packageNames: ['Kimi'],
+      packageFamilyNames: [],
+      packageFamilyPrefixes: ['Kimi_', 'Moonshot.Kimi_'],
+      protocol: 'kimi://',
+      profileMarkers: ['daimon-share', 'kimi-agent', 'Local State']
+    },
+    // 会话数据在桌面 App 的 daimon 数据根；App 不认自定义数据目录参数，
+    // 独立槽位仅作占位（用户可手动把会话根指到任何 daimon 目录）。
+    defaultSessionRoot: (profilePath) => path.join(profilePath, 'daimon-share', 'daimon'),
+    launchEnv: (_profile, baseEnv) => baseEnv,
+    // 内嵌 kimi-code 内核逐事件写 wire.jsonl，state.json 每轮更新 updatedAt
+    scanAreas: (profile) => [
+      {
+        dir: path.join(profile.sessionRoot, 'runtime', 'kimi-code', 'home', 'sessions'),
+        match: (name) => name === 'state.json' || name === 'wire.jsonl'
+      }
+    ],
+    diagnosticAreas: (profile) => [
+      { label: 'Kimi Work 索引', path: kimiWorkSessions.kimiWorkDbPath(profile), kind: 'file' },
+      { label: 'Kimi Work 记录', path: path.join(profile.sessionRoot, 'runtime', 'kimi-code', 'home', 'sessions'), kind: 'directory' }
+    ],
+    scan: (profile) => kimiWorkSessions.scanKimiWork(profile),
+    // 正文与 Kimi Code 同构，活跃判定直接复用
+    contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
+    // filePath 是 kernel state.json（缺失时是 db，解析层会给出明确报错）；
+    // 标题用索引层的 generated 标题，比 state.json 的首条消息干净
+    exportTranscript: (session) => ({
+      markdown: transcripts.kimiTranscriptMarkdown(session.filePath, { title: session.title }),
       suggestedName: transcripts.suggestedTranscriptName(session.title)
     })
   },
@@ -193,25 +236,30 @@ function listApps() {
   }));
 }
 
+// 数据目录名默认与 App 显示名一致；Electron App 的 userData 可能不同（如 Kimi → kimi-desktop）
+function profileDirName(app_) {
+  return app_.profileDirName || app_.appName;
+}
+
 function defaultProfilePath(appId) {
   const app_ = getApp(appId);
   if (process.platform === 'win32') {
     return windows.chooseWindowsDefaultProfilePath(app_).path;
   }
-  return appSupportDir(app_.appName);
+  return appSupportDir(profileDirName(app_));
 }
 
 function defaultProfilePathInfo(appId) {
   const app_ = getApp(appId);
   if (process.platform === 'win32') return windows.chooseWindowsDefaultProfilePath(app_);
-  const profilePath = appSupportDir(app_.appName);
+  const profilePath = appSupportDir(profileDirName(app_));
   return { path: profilePath, source: '系统默认目录', candidates: [{ path: profilePath, source: '系统默认目录', score: 1 }] };
 }
 
 function legacyDefaultProfilePath(appId) {
   const app_ = getApp(appId);
   if (process.platform === 'win32') return windows.legacyDefaultProfilePath(app_);
-  return appSupportDir(app_.appName);
+  return appSupportDir(profileDirName(app_));
 }
 
 module.exports = {
