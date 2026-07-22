@@ -7,6 +7,7 @@ const { spawn, execFileSync } = require('node:child_process');
 const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const apps = require('./apps');
+const { identityFingerprint } = require('./identity');
 const { probeActivity } = require('./activity');
 const { isDefaultWindowsAppRunning, isRunningIn, snapshotProcesses } = require('./process');
 const { readJsonStore, writeJsonStore, snapshotFile } = require('./json-store');
@@ -148,7 +149,12 @@ function registerIpc() {
   });
 
   ipcMain.handle('profiles:list', () => {
-    return loadProfiles();
+    // identityFingerprint 是运行时算的登录身份哈希（同指纹 = 同账号），
+    // 不落盘：换号登录后自然更新，也不会把陈旧关联固化进 profiles.json。
+    return loadProfiles().map((profile) => ({
+      ...profile,
+      identityFingerprint: identityFingerprint(profile)
+    }));
   });
 
   ipcMain.handle('profiles:add', (_event, input) => {
