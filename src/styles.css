@@ -1830,3 +1830,34 @@ dialog::backdrop {
 
 /* 固定窗口 1040×840 · 不自适应：经典 sidebar 时代的响应式断点（max-width 1160/900/620）
  * 已随统一重设计移除 —— 它们会把单列骨架打回 2 列侧栏网格。 */
+
+/* ═══ v2 组件三级权重制（美术统筹收编·porcelain）：主操作填充 > 次操作色块 > 工具幽灵 ═══
+ * 形式即逻辑——按钮视觉重量 = 逻辑重要度。日系 primary-filled / tonal / text-button 三层。 */
+:root { --ctl-lg: 32px; --ctl-md: 28px; --ctl-sm: 24px; }
+
+/* 顶栏：全局动作幽灵化（房檐不与工作台抢权重），模式切换胶囊 */
+.topbar-actions button { height: 26px; border: 0; background: transparent; box-shadow: none; color: var(--ink-secondary); font-size: 12px; }
+.topbar-actions button:hover { background: var(--hover-wash); }
+.topbar-actions #viewToggle { border-radius: 999px; padding: 0 12px; background: var(--accent-wash); color: var(--accent); font-weight: 600; }
+
+/* 账号控制条：打开账号=填充主操作；新增=色块次操作；路径/诊断/刷新=幽灵工具(分隔线成组)；管理=幽灵 */
+.account-id h2 { font-size: 15px; font-weight: 650; }
+.account-actions { gap: 6px; }
+.account-actions button { height: var(--ctl-md); border: 0; box-shadow: none; background: var(--surface-sunken); color: var(--ink-primary); font-size: 12px; border-radius: var(--radius-sm, 6px); }
+.account-actions button:hover:not(:disabled) { background: var(--hover-wash); }
+.account-actions button.primary { height: var(--ctl-lg); padding: 0 14px; background: var(--accent); color: var(--ink-on-accent, #fff); font-weight: 650; font-size: 13px; }
+.account-actions button.primary:hover:not(:disabled) { background: var(--accent-700); }
+.account-actions #pathConfigBtn, .account-actions #diagnosticsBtn, .account-actions #refreshBtn { height: var(--ctl-sm); background: transparent; color: var(--ink-tertiary); font-size: 11px; padding: 0 8px; }
+.account-actions #pathConfigBtn { margin-left: 8px; position: relative; }
+.account-actions #pathConfigBtn::before { content: ""; position: absolute; left: -7px; top: 4px; bottom: 4px; width: 1px; background: var(--line-soft); }
+.account-actions #pathConfigBtn:hover, .account-actions #diagnosticsBtn:hover, .account-actions #refreshBtn:hover { color: var(--ink-primary); background: var(--hover-wash); }
+.account-manage summary { height: var(--ctl-sm); display: inline-flex; align-items: center; border: 0; background: transparent; box-shadow: none; color: var(--ink-tertiary); font-size: 11px; }
+
+/* 会话详情：复制交接=唯一填充主操作，其余色块次操作 */
+.inspector-actions button { height: var(--ctl-md); border: 0; box-shadow: none; background: var(--surface-sunken); font-size: 12px; border-radius: var(--radius-sm, 6px); }
+.inspector-actions button.primary { height: var(--ctl-lg); background: var(--accent); color: var(--ink-on-accent, #fff); font-weight: 650; }
+.inspector-actions button:hover:not(:disabled) { background: var(--hover-wash); }
+.inspector-actions button.primary:hover:not(:disabled) { background: var(--accent-700); }
+
+/* 键盘焦点环全站一致 */
+button:focus-visible, .quota-chip:focus-visible, input:focus-visible, .account-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

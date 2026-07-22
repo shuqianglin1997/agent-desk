@@ -1508,3 +1508,16 @@ body[data-view="yard"] .status-bar {
 /* 固定窗口 1040×840 · 不自适应：yard 的响应式断点（max-width 1100 / 900 / 620）已随统一
  * 重设计移除。其中 900 块曾用 .workspace / .workspace-panel 重排分屏 —— 那些容器已删、
  * 作用域失效，且规则会盖过统一骨架的定位（code-review MEDIUM）。 */
+
+/* ═══ v2 组件权重制（庭院木质表达）：主操作饱和橙 / 次操作木牌 / 工具面板色小片 ═══ */
+body[data-view="yard"] .topbar-actions button { border: 2px solid transparent; background: transparent; box-shadow: none; color: var(--yd-ink2); }
+body[data-view="yard"] .topbar-actions button:hover { background: rgba(51, 38, 26, 0.08); color: var(--yd-ink); }
+body[data-view="yard"] .topbar-actions #viewToggle { border-radius: 999px; background: rgba(217, 111, 51, 0.16); color: var(--yd-primary); font-weight: 700; }
+body[data-view="yard"] .account-actions button { height: var(--ctl-md); border: 2px solid var(--yd-line); background: var(--yd-wood); color: var(--yd-on-wood); box-shadow: 0 2px 0 var(--yd-shadow); border-radius: 0; font-size: 12px; }
+body[data-view="yard"] .account-actions button.primary { height: var(--ctl-lg); background: var(--yd-primary); color: #fff7e8; font-size: 13px; }
+body[data-view="yard"] .account-actions #pathConfigBtn, body[data-view="yard"] .account-actions #diagnosticsBtn, body[data-view="yard"] .account-actions #refreshBtn { height: var(--ctl-sm); background: var(--yd-panel); color: var(--yd-ink2); box-shadow: none; font-size: 11px; }
+body[data-view="yard"] .account-actions #pathConfigBtn::before { background: color-mix(in srgb, var(--yd-line) 40%, transparent); }
+body[data-view="yard"] .account-manage summary { height: var(--ctl-sm); background: transparent; border: 0; box-shadow: none; color: var(--yd-ink2); font-size: 11px; }
+body[data-view="yard"] .inspector-actions button { border: 2px solid var(--yd-line); background: var(--yd-wood); color: var(--yd-on-wood); box-shadow: 0 2px 0 var(--yd-shadow); border-radius: 0; }
+body[data-view="yard"] .inspector-actions button.primary { background: var(--yd-primary); color: #fff7e8; }
+body[data-view="yard"] button:focus-visible, body[data-view="yard"] input:focus-visible { outline-color: var(--yd-primary); }
