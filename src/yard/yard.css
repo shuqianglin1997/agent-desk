@@ -877,11 +877,23 @@ body[data-view="yard"] .account-bar .quota-chip .mtr {
 
 body[data-view="yard"] .attention-inbox {
   gap: 6px;
-  padding: 7px 13px;
-  border-bottom: 3px solid var(--yd-line);
+  padding: 10px 13px;
+  border: 3px solid var(--yd-line);
+  border-radius: 0;
   background: #f2dfaa;
   color: #33261a;
+  box-shadow: 4px 4px 0 var(--yd-shadow);
 }
+
+/* 碎块归一：今日陪伴进状态栏后，场景左下「今日小账本」缩成只剩提醒铃铛 */
+#yardLedger .ledger-title,
+#yardLedger .ledger-stat,
+#yardLedger .ledger-sep,
+#yardLedger .ledger-spacer { display: none; }
+
+body[data-view="yard"] .status-meta { color: var(--yd-ink2); }
+body[data-view="yard"] .status-meta b { color: var(--yd-ink); }
+body[data-view="yard"] .status-warn { color: var(--yd-primary); }
 
 :root[data-theme="dark"] body[data-view="yard"] .attention-inbox {
   background: #3b3427;

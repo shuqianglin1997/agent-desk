@@ -931,12 +931,21 @@ body[data-view="classic"] .account-manage {
 }
 
 /* ── unified attention inbox ───────────────────────── */
+/* 「需要留意」不再常驻一条 banner：改成状态栏 ⚠ 点开的浮层 popover（右下角、状态栏之上） */
 .attention-inbox {
+  position: fixed;
+  right: 16px;
+  bottom: 34px;
+  z-index: 60;
+  width: 340px;
+  max-width: calc(100vw - 32px);
   display: grid;
   gap: 8px;
-  padding: 10px 18px;
-  border-bottom: 1px solid var(--line-mid);
-  background: color-mix(in oklab, var(--warn-wash) 45%, var(--surface-raised));
+  padding: 12px 14px;
+  border: 1px solid var(--line-mid);
+  border-radius: 10px;
+  background: var(--surface-float);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
 }
 
 .attention-inbox[hidden] {
@@ -1384,9 +1393,11 @@ tbody tr.selected .title-cell {
   grid-column: span 2;
 }
 
+/* 状态栏 = 集中信息条：左=系统状态（省略号），右=今日陪伴 + ⚠需留意（碎块归一的落点） */
 .status-bar {
   display: flex;
   align-items: center;
+  gap: 16px;
   margin: 0;
   padding: 0 20px;
   border-top: 1px solid var(--line-mid);
@@ -1394,10 +1405,37 @@ tbody tr.selected .title-cell {
   backdrop-filter: blur(var(--glass-blur));
   color: var(--ink-secondary);
   font-size: 11px;
-  white-space: nowrap;
+}
+
+#statusText {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+.status-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+  white-space: nowrap;
+  color: var(--ink-tertiary);
+}
+
+.status-meta b { font-weight: 650; font-variant-numeric: tabular-nums; color: var(--ink-secondary); }
+
+.status-warn {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+}
+
+.status-warn:hover { text-decoration: underline; }
 
 /* ── dialogs (solid porcelain floats) ───────────────── */
 dialog {

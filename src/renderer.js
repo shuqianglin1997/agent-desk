@@ -159,6 +159,8 @@ const els = {
   searchInput: document.querySelector('#searchInput'),
   sessionRows: document.querySelector('#sessionRows'),
   statusBar: document.querySelector('#statusBar'),
+  statusText: document.querySelector('#statusText'),
+  statusMeta: document.querySelector('#statusMeta'),
   detailTitle: document.querySelector('#detailTitle'),
   detailId: document.querySelector('#detailId'),
   detailCreated: document.querySelector('#detailCreated'),
@@ -1999,7 +2001,7 @@ function collectAttentionItems() {
 function renderAttentionInbox() {
   if (!els.attentionInbox) return;
   const items = collectAttentionItems();
-  els.attentionInbox.hidden = items.length === 0;
+  if (items.length === 0) els.attentionInbox.hidden = true; // 常驻 banner 改由状态栏 ⚠ 展开的 popover
   els.attentionCount.textContent = String(items.length);
   els.attentionItems.replaceChildren();
   for (const item of items) {
@@ -2021,6 +2023,39 @@ function renderAttentionInbox() {
       } else if (item.action === 'update') await handleUpdateClick();
     });
     els.attentionItems.append(button);
+  }
+  renderStatusMeta();
+}
+
+// 碎块归一：今日陪伴（原小账本）+ 需要留意 收进底部状态栏一条集中显示；⚠ 点开 attention popover
+function renderStatusMeta() {
+  if (!els.statusMeta) return;
+  els.statusMeta.replaceChildren();
+
+  const life = document.createElement('span');
+  life.className = 'status-life';
+  const bDone = document.createElement('b');
+  bDone.textContent = els.ledgerDone?.textContent || '0';
+  const bMin = document.createElement('b');
+  bMin.textContent = els.ledgerMin?.textContent || '0';
+  life.append('今日 · 收工 ', bDone, ' · 陪伴 ', bMin, ' 分');
+  els.statusMeta.append(life);
+
+  const items = collectAttentionItems();
+  if (items.length) {
+    const warn = document.createElement('button');
+    warn.type = 'button';
+    warn.className = 'status-warn';
+    warn.setAttribute('aria-expanded', String(els.attentionInbox && !els.attentionInbox.hidden));
+    warn.textContent = `⚠ ${items.length} 个需留意`;
+    warn.addEventListener('click', () => {
+      if (!els.attentionInbox) return;
+      els.attentionInbox.hidden = !els.attentionInbox.hidden;
+      warn.setAttribute('aria-expanded', String(!els.attentionInbox.hidden));
+    });
+    els.statusMeta.append(warn);
+  } else if (els.attentionInbox) {
+    els.attentionInbox.hidden = true;
   }
 }
 
@@ -2214,6 +2249,7 @@ function renderLedger() {
   if (!state.ledger) return;
   els.ledgerDone.textContent = String(state.ledger.completed);
   els.ledgerMin.textContent = String(Math.round(state.ledger.workedMs / 60000));
+  renderStatusMeta(); // 今日陪伴同步到底部状态栏集中条
 }
 
 function syncYard() {
@@ -2901,5 +2937,5 @@ function formatBytes(value) {
 }
 
 function setStatus(message) {
-  els.statusBar.textContent = message;
+  els.statusText.textContent = message;
 }
