@@ -1,83 +1,11 @@
-<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0.15" y2="1">
-      <stop offset="0" stop-color="#4a3b6b"/>
-      <stop offset="0.5" stop-color="#342a4f"/>
-      <stop offset="1" stop-color="#211a36"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0.72" r="0.6">
-      <stop offset="0" stop-color="#ffbe72" stop-opacity="0.62"/>
-      <stop offset="0.55" stop-color="#ff9c4f" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#ff9c4f" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="coat" x1="0.3" y1="0" x2="0.7" y2="1">
-      <stop offset="0" stop-color="#f4ac6d"/>
-      <stop offset="1" stop-color="#d9772f"/>
-    </linearGradient>
-    <linearGradient id="belly" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffe9cf"/>
-      <stop offset="1" stop-color="#ffd09c"/>
-    </linearGradient>
-    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
-      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-  </defs>
-
-  <!-- squircle background (Big Sur grid: 824x824 inset, r=185) -->
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#glow)"/>
-
-  <!-- ground shadow -->
-  <ellipse cx="512" cy="812" rx="238" ry="44" fill="#150e24" opacity="0.5"/>
-
-  <g stroke-linejoin="round">
-    <!-- tail: graceful curl on the right -->
-    <path d="M628 726 C 742 748 792 660 742 592 C 726 570 700 578 708 606 C 726 664 664 690 612 690 Z"
-          fill="url(#coat)" stroke="url(#coat)" stroke-width="14" stroke-linecap="round"/>
-
-    <!-- front paws -->
-    <ellipse cx="452" cy="792" rx="58" ry="42" fill="url(#coat)"/>
-    <ellipse cx="572" cy="792" rx="58" ry="42" fill="url(#coat)"/>
-
-    <!-- body -->
-    <path d="M512 446 C 360 446 306 610 318 716 C 326 780 420 806 512 806 C 604 806 698 780 706 716 C 718 610 664 446 512 446 Z"
-          fill="url(#coat)"/>
-    <!-- chest / belly patch -->
-    <path d="M512 552 C 448 552 430 664 448 736 C 464 776 560 776 576 736 C 594 664 576 552 512 552 Z"
-          fill="url(#belly)"/>
-
-    <!-- ears -->
-    <path d="M398 224 L489 326 L372 352 Z" fill="url(#coat)" stroke="url(#coat)" stroke-width="28"/>
-    <path d="M626 224 L535 326 L652 352 Z" fill="url(#coat)" stroke="url(#coat)" stroke-width="28"/>
-    <path d="M410 262 L468 330 L398 344 Z" fill="#8a5a70" opacity="0.55"/>
-    <path d="M614 262 L556 330 L626 344 Z" fill="#8a5a70" opacity="0.55"/>
-
-    <!-- head -->
-    <circle cx="512" cy="430" r="164" fill="url(#coat)"/>
-
-    <!-- soft tabby marks on forehead -->
-    <g fill="#c86a28" opacity="0.4">
-      <path d="M512 286 q -12 40 0 74 q 12 -34 0 -74 Z"/>
-      <path d="M470 296 q -6 34 6 60 q 4 -30 -6 -60 Z"/>
-      <path d="M554 296 q 6 34 -6 60 q -4 -30 6 -60 Z"/>
-    </g>
-
-    <!-- content closed eyes -->
-    <path d="M424 432 q 36 36 72 0" fill="none" stroke="#3a2416" stroke-width="16" stroke-linecap="round"/>
-    <path d="M528 432 q 36 36 72 0" fill="none" stroke="#3a2416" stroke-width="16" stroke-linecap="round"/>
-    <!-- nose -->
-    <path d="M494 474 q 18 16 36 0 q -18 24 -18 24 q 0 0 -18 -24 Z" fill="#b85e44"/>
-
-    <!-- whiskers -->
-    <g stroke="#ffe9cf" stroke-width="6" stroke-linecap="round" opacity="0.82">
-      <path d="M466 488 L384 476"/>
-      <path d="M466 504 L390 514"/>
-      <path d="M558 488 L640 476"/>
-      <path d="M558 504 L634 514"/>
-    </g>
+<svg width="1024" height="1024" viewBox="0 0 36.571 36.571" xmlns="http://www.w3.org/2000/svg">
+  <!-- AgentDesk 品牌像素脸：与 src/styles.css .brand-mark 同一几何（29u 图形 + 2u 硬投影），全站统一 -->
+  <g transform="translate(2.786,2.786)">
+    <rect x="2" y="2" width="29" height="29" fill="#4a2f20" fill-opacity="0.28"/>
+    <rect x="0" y="0" width="29" height="29" fill="#4a2f20"/>
+    <rect x="2" y="2" width="25" height="25" fill="#dc6b35"/>
+    <rect x="8" y="9" width="5" height="5" fill="#fff2d8"/>
+    <rect x="16" y="9" width="5" height="5" fill="#fff2d8"/>
+    <rect x="10" y="18" width="9" height="3" fill="#fff2d8"/>
   </g>
-
-  <!-- top rim highlight -->
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#rim)"/>
 </svg>
