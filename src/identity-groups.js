@@ -95,10 +95,17 @@
     }, null);
     const sumOf = (field) => list.reduce((acc, item) => acc + (Number(item[field]) || 0), 0);
 
+    // running 驱动「在岗 onduty」（App 开着但会话安静）：任一形态开着 → true；
+    // 全部确定关着 → false；有探测不可用的 → null（上层退回按活跃度判断）。
+    const running = list.some((item) => item.running === true)
+      ? true
+      : (list.every((item) => item.running === false) ? false : null);
+
     return {
       profileId: list[0].profileId,
       rootExists: list.some((item) => item.rootExists === true),
       rootReadable: list.some((item) => item.rootReadable === true),
+      running,
       latestMtime: maxOf('latestMtime'),
       contentActiveAt: maxOf('contentActiveAt'),
       fileCount: sumOf('fileCount'),

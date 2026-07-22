@@ -81,3 +81,33 @@ test('mergeActivity：空 / 缺项安全', () => {
   assert.equal(merged.activeNow, 1);
   assert.equal(merged.latestMtime, null);
 });
+
+test('mergeActivity：running 三态聚合（任一开着=true / 全关=false / 有未知=null）', () => {
+  assert.equal(mergeActivity([{ profileId: 'a', running: true }, { profileId: 'b', running: false }]).running, true);
+  assert.equal(mergeActivity([{ profileId: 'a', running: false }, { profileId: 'b', running: false }]).running, false);
+  assert.equal(mergeActivity([{ profileId: 'a', running: false }, { profileId: 'b', running: null }]).running, null);
+});
+
+test('回归：merged activity 穿透 deriveState 后「在岗 onduty」不丢失', () => {
+  // 0.7.0 前的 bug：mergeActivity 丢 running 字段，App 开着但闲置的账号
+  // 从 onduty 退化成 play。这里把聚合结果直接喂给真实的 deriveState 验证。
+  const { deriveState } = require('../src/yard/cats');
+  const now = Date.now();
+  const profile = { id: 'a', appId: 'claude' };
+  const idle = {
+    profileId: 'a',
+    rootExists: true,
+    rootReadable: true,
+    running: true,
+    latestMtime: now - 5 * 60_000,
+    contentActiveAt: now - 5 * 60_000,
+    fileCount: 2,
+    activeToday: 1,
+    createdToday: 0,
+    activeNow: 0
+  };
+  const direct = deriveState(now, profile, idle);
+  const merged = deriveState(now, profile, mergeActivity([idle]));
+  assert.equal(merged, direct);
+  assert.equal(merged, 'onduty');
+});
