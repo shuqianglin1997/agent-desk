@@ -24,24 +24,7 @@
         </nav>
       </header>
 
-      <aside class="sidebar">
-        <header class="sidebar-head">
-          <div>
-            <h1>账号</h1>
-            <p>Claude / Codex 本地槽位</p>
-          </div>
-        </header>
-
-        <div id="accountList" class="account-list" aria-label="账号列表"></div>
-
-        <footer class="sidebar-actions" id="sidebarActions">
-          <button id="addProfileBtn">新增</button>
-          <button id="editProfileBtn">编辑</button>
-          <button id="removeProfileBtn">移除</button>
-        </footer>
-      </aside>
-
-      <main class="workspace">
+      <section class="presenter">
         <section id="yardStage" class="yard-stage" hidden>
           <div class="yard-frame">
             <div class="yard-scene">
@@ -128,10 +111,10 @@
             <p id="runtimeHint" class="runtime-hint">客户端账号只是可选身份；Agent 类型、身份、工作区和运行实例彼此独立。</p>
           </section>
         </section>
+        <div id="accountRoster" class="account-roster" aria-label="账号名册（经典视图）"></div>
+      </section>
 
-        <div class="workspace-panel">
-        <section class="account-bar">
-          <div id="yardAccountStrip" class="yard-account-strip" aria-label="庭院账号快速切换"></div>
+      <section class="account-bar">
           <div class="account-heading">
             <h2 id="accountTitle">未选择账号</h2>
             <p id="accountMeta"></p>
@@ -151,13 +134,17 @@
 
           <div class="account-actions" id="accountActions">
             <button id="launchBtn" class="primary">打开账号</button>
+            <button id="addProfileBtn">新增</button>
             <button id="pathConfigBtn">路径</button>
             <button id="diagnosticsBtn">诊断</button>
             <button id="profileFolderBtn">位置</button>
             <button id="refreshBtn">刷新</button>
             <details id="accountManage" class="account-manage">
               <summary>管理</summary>
-              <div id="yardManageActions" class="account-manage-menu"></div>
+              <div id="yardManageActions" class="account-manage-menu">
+                <button id="editProfileBtn">编辑</button>
+                <button id="removeProfileBtn">移除</button>
+              </div>
             </details>
           </div>
         </section>
@@ -234,10 +221,8 @@
             </div>
           </aside>
         </div>
-        </div>
 
-        <footer id="statusBar" class="status-bar">就绪</footer>
-      </main>
+      <footer id="statusBar" class="status-bar">就绪</footer>
     </div>
 
     <dialog id="profileDialog">

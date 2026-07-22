@@ -87,6 +87,16 @@ function createWindow() {
     runtimeService.stopAll();
     mainWindow = null;
   });
+  // 开发期把渲染层的错误/警告转发到主进程 stdout，便于无 devtools 时自检渲染层健康。
+  if (!app.isPackaged) {
+    mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+      if (level >= 2) console.error(`[renderer] ${message} (${String(sourceId).split('/').pop()}:${line})`);
+    });
+    mainWindow.webContents.on('render-process-gone', (_event, details) => {
+      console.error('[renderer-gone]', details && details.reason);
+    });
+  }
+
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
   return mainWindow;
 }
