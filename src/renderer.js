@@ -2100,10 +2100,16 @@ function applyView() {
   document.body.dataset.view = yard ? 'yard' : 'classic';
   els.yardStage.hidden = !yard;
   els.viewToggle.textContent = yard ? '⇄ 经典' : '⇄ 庭院';
-  // 新增/编辑/移除按钮在两个视图间移动（同一批节点，事件不变）
-  const host = yard ? els.yardManageActions : els.sidebarActions;
-  host.append(els.addProfileBtn, els.editProfileBtn, els.removeProfileBtn);
-  if (!yard) els.accountManage.open = false;
+  // 新增/编辑/移除按钮在两个视图间移动（同一批节点，事件不变）。
+  // 庭院里没有侧栏，账号列表是 chips 条：把「新增」抬成紧跟「打开账号」的可见按钮，
+  // 别再埋在「管理」下拉里；「编辑/移除」是针对选中账号的低频操作，留在管理菜单。
+  if (yard) {
+    els.accountActions.insertBefore(els.addProfileBtn, els.pathConfigBtn);
+    els.yardManageActions.append(els.editProfileBtn, els.removeProfileBtn);
+  } else {
+    els.sidebarActions.append(els.addProfileBtn, els.editProfileBtn, els.removeProfileBtn);
+    els.accountManage.open = false;
+  }
   if (yardMounted) window.YardScene.setActive(yard);
   if (yard) loadActivity(); // 切回庭院时立刻刷新猫的状态
   renderTopbarContext();
@@ -2591,25 +2597,30 @@ function renderInspector() {
     : (session ? '这个客户端的会话暂不支持导出 Markdown' : '');
 
   if (!session) {
-    els.detailTitle.textContent = '未选择';
-    els.detailId.textContent = '-';
-    els.detailCreated.textContent = '-';
-    els.detailUpdated.textContent = '-';
-    els.detailSource.textContent = '-';
-    els.detailProject.textContent = '-';
-    els.detailFile.textContent = '-';
-    els.detailAddress.textContent = '-';
+    setDetail(els.detailTitle, '未选择', { keep: true });
+    for (const dd of [els.detailId, els.detailCreated, els.detailUpdated, els.detailSource, els.detailProject, els.detailFile, els.detailAddress]) {
+      setDetail(dd, '');
+    }
     return;
   }
 
-  els.detailTitle.textContent = session.title;
-  els.detailId.textContent = session.id;
-  els.detailCreated.textContent = fullDate(session.createdAt);
-  els.detailUpdated.textContent = fullDate(session.updatedAt);
-  els.detailSource.textContent = [session.source, session.status, session.model].filter(Boolean).join(' · ');
-  els.detailProject.textContent = session.projectPath ? shortPath(session.projectPath) : '未记录';
-  els.detailFile.textContent = shortPath(session.filePath);
-  els.detailAddress.textContent = shortPath(session.address || session.id);
+  setDetail(els.detailTitle, session.title, { keep: true });
+  setDetail(els.detailId, session.id);
+  setDetail(els.detailCreated, fullDate(session.createdAt));
+  setDetail(els.detailUpdated, fullDate(session.updatedAt));
+  setDetail(els.detailSource, [session.source, session.status, session.model].filter(Boolean).join(' · '));
+  setDetail(els.detailProject, session.projectPath ? shortPath(session.projectPath) : '');
+  setDetail(els.detailFile, shortPath(session.filePath));
+  setDetail(els.detailAddress, shortPath(session.address || session.id));
+}
+
+// 会话详情：空字段连同标签一起折叠，详情栏更紧凑（keep=true 的字段始终保留）
+function setDetail(dd, value, { keep = false } = {}) {
+  const empty = !keep && (!value || value === '-' || value === '未记录');
+  dd.textContent = value || '-';
+  dd.hidden = empty;
+  const dt = dd.previousElementSibling;
+  if (dt && dt.tagName === 'DT') dt.hidden = empty;
 }
 
 async function showDiagnostics() {
