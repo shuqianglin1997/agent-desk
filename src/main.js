@@ -60,13 +60,16 @@ const PROFILE_COPY_EXCLUDES = new Set([
 function createWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1080,
-    minHeight: 660,
+    // 固定窗口比例（统一设计）：不自适应，布局按此尺寸设计。外框 1040×840，
+    // 内容区 ≈ 1040×812（macOS 原生标题栏 ~28px）。
+    width: 1040,
+    height: 840,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     show: false,
     title: APP_NAME,
-    backgroundColor: '#f5f6f8',
+    backgroundColor: '#efe6cd',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
