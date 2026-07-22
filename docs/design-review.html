@@ -81,20 +81,20 @@
 <div class="wrap">
 
 <div class="hero">
-  <div class="kicker">ART DIRECTION REVIEW · PROPOSAL</div>
-  <h1>一个 glyph，一部宪法，两张皮<br/>——统一之后，怎么把细节做到位</h1>
-  <p class="thesis">骨架统一、控制条照原型落地之后，剩下的差距不在「哪块放哪」，而在<em>节奏与秩序</em>：留白取值游离、字号层级过多、同一行控件基线不齐、数字不等宽。本评审给出一部<strong>设计宪法</strong>（令牌化的取值纪律）+ 各分区的<strong>前后数值规范</strong>，并用<strong>真渲染</strong>（真 index.html + renderer + 场景引擎 + 提案 CSS 层）展示修改前后。方案未动产品代码。</p>
+  <div class="kicker">ART DIRECTION REVIEW · PROPOSAL V2</div>
+  <h1>一个 glyph，一部宪法，两张皮<br/>——把每个 UI 的结构逻辑钉死</h1>
+  <p class="thesis">v1 只调了「节奏」（间距/字阶/基线），前后差异过小——被打回是对的。v2 落到<em>结构逻辑</em>：先裁决<strong>每个区块显示什么、不显示什么、被裁的信息去哪</strong>（§3 信息架构表），再用<strong>组件三级权重制</strong>让形式与逻辑统一——主操作填充、次操作色块、工具幽灵，一眼分层；列表回归日系「细线+留白」标准。全部用<strong>真渲染</strong>（真 index.html + renderer + 场景引擎 + 提案层）展示前后。方案未动产品代码；品牌图标（§1）为已实施项。</p>
 </div>
 
 <!-- §1 品牌 -->
 <section class="chap" id="s1">
   <div class="chead"><span class="no">壱</span><h2>品牌：全站只有一个 glyph（已落地）</h2><span class="en">Brand</span></div>
-  <p class="lead">品牌识别的第一纪律是「同一个形象出现在所有触点」。顶栏的像素脸 <span class="glyph-inline" aria-hidden="true"></span> 是产品里唯一每天被看见的品牌物，App 图标却是另一套渐变插画——两套语系互相稀释。已按 <code>.brand-mark</code> 的 29 单位几何精确重绘全套图标（本项已实施并提交）。</p>
+  <p class="lead">品牌识别的第一纪律是「同一个形象出现在所有触点」，第二纪律是「每个触点遵守所在平台的规范」。glyph（极简猫脸 <span class="glyph-inline" aria-hidden="true"></span>）全站唯一；但 App 图标不能是"贴纸"——按当代 App 图标标准（日系主流审美：LINE / Mercari / PayPay 一路的<strong>满铺圆角方、纯扁平、无描边无投影</strong>）重制：Big Sur 网格 824/1024、r185 圆角（SDF 抗锯齿边缘），品牌橙满铺，glyph 定比居中（占版面 52%）。顶栏内的像素小方牌保持原样——界面内的 chrome 与桌面图标各守各的规范，glyph 一致即统一。</p>
   <div class="logo-duo">
     <div class="logo-card"><img src="design/icon-before.png" alt="旧图标：渐变紫底圆角方与渐变猫"/><div class="cap">旧 · 渐变插画语系（与界面像素风脱节）</div></div>
-    <div class="logo-card after"><img src="design/icon-after.png" alt="新图标：品牌像素脸"/><div class="cap">新 · 顶栏 brand-mark 同一几何（#dc6b35 / #4a2f20 / #fff2d8 + 硬投影）</div></div>
+    <div class="logo-card after"><img src="design/icon-after.png" alt="新图标：满铺圆角方上的极简猫脸"/><div class="cap">新 · 当代规范版：满铺 squircle + 扁平品牌橙 + glyph 52% 定比居中</div></div>
   </div>
-  <p class="logo-points">触点清单：macOS Dock（icns 全档原生重绘，16px 仍锐利）· Windows（ico，PNG 载荷多档）· 开发态 Dock（main.js 同步）· 顶栏（原生源头）。小尺寸不做缩放采样而是逐档重绘——像素风图形被插值采样会糊边，这是像素品牌的常见死因。</p>
+  <p class="logo-points">触点清单：macOS Dock（icns，圆角边缘逐档 SDF 抗锯齿、glyph 硬边保像素味，16px 仍可辨）· Windows（ico，PNG 载荷多档）· 开发态 Dock（main.js 同步）· 顶栏（glyph 原生源头，保持像素小方牌形态）。</p>
 </section>
 
 <!-- §2 宪法 -->
@@ -121,13 +121,13 @@
     <tr><td colspan="3" style="color:var(--sumi2)">时间、日期、百分比一律 <code>tabular-nums</code>：等宽数字让「活跃/新建」两列真正成为可扫读的列，而不是长短抖动的碎片。字重只留 400/600 两档。</td></tr>
   </table>
 
-  <h3 class="sub">§3 控件三档高：一行之内基线对齐</h3>
+  <h3 class="sub">§3 组件三级权重制：形式即逻辑</h3>
   <table>
-    <tr><th>档</th><th>高</th><th>成员</th></tr>
-    <tr><td>lg</td><td>30px</td><td>主操作（打开账号 / 复制交接信息）——每屏只允许一个主操作色</td></tr>
-    <tr><td>md</td><td>28px</td><td>次级按钮 / 搜索框 / 管理下拉</td></tr>
-    <tr><td>sm</td><td>24px</td><td>额度 chips / 微件</td></tr>
-    <tr><td colspan="3" style="color:var(--sumi2)">规则：同一条横排里的控件必须取自相邻档，垂直居中共线。「说不出哪里不对」的错位感，多数来自行内控件高度私自为政。</td></tr>
+    <tr><th>级</th><th>形式</th><th>高</th><th>语义</th></tr>
+    <tr><td>主操作</td><td><b>填充</b>（porcelain=强调蓝填充白字 / yard=饱和橙木牌）</td><td>32px</td><td>此屏此刻最该按的那一个——<strong>每屏唯一</strong>（打开账号 / 复制交接信息）</td></tr>
+    <tr><td>次操作</td><td><b>色块</b>（浅灰 tonal，无边框 / 木牌）</td><td>28px</td><td>常用但非默认路径（新增 / 复制标识…）</td></tr>
+    <tr><td>工具</td><td><b>幽灵</b>（透明底，hover 才显形）</td><td>24px</td><td>维护与低频（路径 / 诊断 / 刷新 / 管理 / 顶栏动作）</td></tr>
+    <tr><td colspan="4" style="color:var(--sumi2)">规则：按钮的视觉重量必须等于它的逻辑重要度——「形式与逻辑统一」的落点。同排控件取相邻档、垂直共线。日系参照：LINE/瑞穂系 App 的 primary-filled / tonal / text-button 三层制。</td></tr>
   </table>
 
   <h3 class="sub">§4 边界所有权 · 动效 · 焦点</h3>
@@ -136,40 +136,51 @@
 
 <!-- §3 分区规范 -->
 <section class="chap" id="s3">
-  <div class="chead"><span class="no">参</span><h2>分区规范：前 → 后的每一处数值</h2><span class="en">Specs</span></div>
-  <p class="lead">宪法落到每个区块的具体数字。改的全部是「节奏」，不动结构、不动像素木质/瓷白的皮肤语言。</p>
+  <div class="chead"><span class="no">参</span><h2>信息架构裁决 + 分区规范</h2><span class="en">IA & Specs</span></div>
+  <p class="lead">先裁决<strong>每个区块显示什么、不显示什么、被裁的信息去哪</strong>——这是「哪个地方显示什么」的答案；再落每处数值。原则：一个区块只回答一个问题，回答不了的信息搬去它该在的家。</p>
 
-  <h3 class="sub">会话表（主工作面）</h3>
+  <h3 class="sub">§0 每区显示什么（裁决表）</h3>
   <table>
-    <tr><th>项</th><th>现状</th><th>提案</th><th>为什么</th></tr>
-    <tr><td>表头</td><td class="old">12px 灰 与表体同重</td><td class="new">11px + 0.02em 字距</td><td>表头是导航不是内容，退成注脚层</td></tr>
-    <tr><td>行节奏</td><td class="old">7~8px 上下不一</td><td class="new">10px/12px，行高 ≈38px</td><td>上 4px 网格；扫读节奏稳定</td></tr>
-    <tr><td>标题列</td><td class="old">550 与他列同色</td><td class="new">600 + 主色；他列退灰</td><td>视线先扫标题，元数据是背景</td></tr>
-    <tr><td>数字列</td><td class="old">比例数字</td><td class="new">tabular-nums</td><td>时间列上下对齐成真正的列</td></tr>
+    <tr><th>区块</th><th>回答的问题</th><th>显示</th><th>不显示（去哪了）</th></tr>
+    <tr><td>顶栏</td><td>这是什么软件、现在什么模式</td><td>品牌 · 模式胶囊 · 全局动作（幽灵级）</td><td>任何账号/会话信息（→下方各区）</td></tr>
+    <tr><td>呈现层</td><td>我有哪些账号、谁在干活</td><td>庭院=猫+名牌；经典=卡片（名/组/状态/额度条）</td><td>路径、备注、时间戳（→名牌 tooltip / 弹窗）</td></tr>
+    <tr><td>控制条</td><td>选中的账号是谁、能对它做什么</td><td>名牌+徽章 · 主操作 · 次操作 · 工具组 · 额度 chips</td><td>额度明细（→本号 chip 展开）· 全院列表（→全院 chip 展开）· meta/路径（→tooltip）</td></tr>
+    <tr><td>会话表</td><td>这个账号最近在干什么</td><td>标题(主导) · 活跃 · 项目 · 来源</td><td><b>新建时间——裁列</b>（低价值于「活跃」，→详情字段簿）</td></tr>
+    <tr><td>会话详情</td><td>选中这条的全部事实 + 带走它</td><td>字段簿（含新建/文件/标识）· 复制交接(主) · 次操作</td><td>—（这里就是"全部事实"的家）</td></tr>
+    <tr><td>状态栏</td><td>系统刚发生了什么</td><td>一行注脚级反馈</td><td>持久信息（不许驻留）</td></tr>
   </table>
 
-  <h3 class="sub">账号控制条</h3>
+  <h3 class="sub">顶栏：房檐不与工作台抢权重</h3>
   <table>
     <tr><th>项</th><th>现状</th><th>提案</th><th>为什么</th></tr>
-    <tr><td>行内基线</td><td class="old">按钮30 / chips26 / 徽章自然高</td><td class="new">30(主) / 28(次) / 24(chips) / 20(徽章) 共线</td><td>三档制，垂直中线对齐</td></tr>
-    <tr><td>内距</td><td class="old">9px 16px</td><td class="new">10px 16px（--sp 网格）</td><td>吸附网格，与表区同左缘</td></tr>
-    <tr><td>名牌</td><td class="old">14px/650</td><td class="new">不变（已合宪）</td><td>—</td></tr>
+    <tr><td>动作按钮</td><td class="old">带边框排排坐，与工作区按钮同重</td><td class="new">幽灵级（透明底 hover 显形）</td><td>顶栏是 chrome，不是操作面</td></tr>
+    <tr><td>模式切换</td><td class="old">普通按钮「⇄经典」</td><td class="new">胶囊高亮（终局=双段控件，需 DOM）</td><td>模式是状态不是动作</td></tr>
   </table>
 
-  <h3 class="sub">经典名册卡</h3>
+  <h3 class="sub">账号控制条：四级一眼可辨</h3>
   <table>
     <tr><th>项</th><th>现状</th><th>提案</th><th>为什么</th></tr>
-    <tr><td>额度条</td><td class="old">6px 高、贴状态行</td><td class="new">4px 高、上距 12px</td><td>状态糖不抢底部视觉；留白归网格</td></tr>
-    <tr><td>状态行</td><td class="old">12px 次级色</td><td class="new">11.5px 三级色</td><td>卡片内三层：名(14) &gt; 组(11) ≈ 状态(11.5)</td></tr>
-    <tr><td>头像</td><td class="old">9px 圆角</td><td class="new">8px（=卡片 12px−内距 4px 的光学补偿）</td><td>嵌套圆角的视觉同心</td></tr>
+    <tr><td>操作分层</td><td class="old">7 个同重量边框按钮堆一排</td><td class="new">打开账号=填充32 · 新增=色块28 · <b>|</b> · 路径/诊断/刷新=幽灵24 · 管理=幽灵</td><td>视觉重量 = 逻辑重要度；分隔线成组</td></tr>
+    <tr><td>名牌</td><td class="old">14px</td><td class="new">15px/650（此区第一视觉）</td><td>控制条回答"这是谁"</td></tr>
+    <tr><td>终局项</td><td class="old">刷新/路径/诊断驻留条上</td><td class="new">刷新→列表工具条；路径/诊断→管理菜单（需 DOM，§5）</td><td>刷新作用于列表，就该住在列表旁——形式与逻辑统一</td></tr>
   </table>
 
-  <h3 class="sub">会话详情 / 状态栏</h3>
+  <h3 class="sub">会话表：日系细线表</h3>
   <table>
     <tr><th>项</th><th>现状</th><th>提案</th><th>为什么</th></tr>
-    <tr><td>字段节奏</td><td class="old">dt 上距 9 / dd 贴行</td><td class="new">10 / 2 的标签-值节奏</td><td>字段组读作卡片式条目</td></tr>
-    <tr><td>操作钮</td><td class="old">高度自然</td><td class="new">主 30 / 次 28，2×2 网格</td><td>与控制条同档；主操作唯一</td></tr>
-    <tr><td>状态栏</td><td class="old">11px</td><td class="new">11px 注脚层 + 16px 左缘</td><td>全站左缘线闭环</td></tr>
+    <tr><td>列</td><td class="old">标题/活跃/新建/项目/来源 五列</td><td class="new"><b>裁掉「新建」列</b>，四列</td><td>与「活跃」信息重复度高、决策价值低；事实仍在详情字段簿</td></tr>
+    <tr><td>行</td><td class="old">行高不足、密挤</td><td class="new">40px 行高 · 发丝线 · 悬停轻染</td><td>扫读密度让位于可读性（日系表格标准）</td></tr>
+    <tr><td>层级</td><td class="old">五列同色同重</td><td class="new">标题 13/600 主色；其余 12 退灰 tabular</td><td>一行只有一个主角</td></tr>
+    <tr><td>搜索框</td><td class="old">边框输入框</td><td class="new">tonal 沉底、28px</td><td>工具静默，内容发声</td></tr>
+  </table>
+
+  <h3 class="sub">名册卡 / 详情 / 状态栏</h3>
+  <table>
+    <tr><th>项</th><th>现状</th><th>提案</th><th>为什么</th></tr>
+    <tr><td>名册卡内层级</td><td class="old">名/组/状态趋同</td><td class="new">名 13.5/650 &gt; 组 11 &gt; 状态 11.5 三级灰 &gt; 额度条 4px</td><td>卡片 3 秒判断：谁、哪组、什么状态</td></tr>
+    <tr><td>详情字段簿</td><td class="old">标签值粘连</td><td class="new">标签 10.5 灰 / 值 12.5，10-2 节奏</td><td>字段簿是"档案"，要能逐条落目</td></tr>
+    <tr><td>详情动作</td><td class="old">五钮同重</td><td class="new">复制交接=填充32 唯一主操作；其余色块28</td><td>本区的"带走"动线只有一条</td></tr>
+    <tr><td>状态栏</td><td class="old">与正文同灰度</td><td class="new">11px 三级灰注脚</td><td>反馈不抢工作面</td></tr>
   </table>
 </section>
 
@@ -184,14 +195,14 @@
     <div class="cell"><div class="lbl after">提案后 · 经典</div><div class="vp"><iframe src="design/after.html?v=classic&t=light"></iframe></div></div>
   </div>
   <p class="darklinks">暗色核对（新开页）：<a href="design/before.html?v=classic&t=dark" target="_blank">现状·经典·暗</a> · <a href="design/after.html?v=classic&t=dark" target="_blank">提案后·经典·暗</a> · <a href="design/before.html?v=yard&t=dark" target="_blank">现状·庭院·暗</a> · <a href="design/after.html?v=yard&t=dark" target="_blank">提案后·庭院·暗</a></p>
-  <div class="note"><div class="h">看哪几处最明显</div><p style="margin:6px 0 0">① 会话表：标题变主导、时间列数字对齐、行节奏一致；② 控制条：按钮/chips/徽章一条中线；③ 名册卡：额度条细一档、卡内层级清晰；④ 用键盘 Tab 走一遍：焦点环全站一致。</p></div>
+  <div class="note"><div class="h">这次前后应当一眼可辨——逐处对照</div><p style="margin:6px 0 0">① 控制条：右边一排同重量边框按钮 → <b>填充主钮 + 色块次钮 + 幽灵工具组</b>四级分层；② 会话表：五列密表 → <b>四列细线表</b>（「新建」列被裁进详情），行高 40、标题主导、悬停轻染；③ 顶栏：边框按钮 → 幽灵化 + 模式胶囊；④ 详情：五个同重按钮 → 唯一填充主操作；⑤ 搜索框沉底 tonal。若右列与左列看不出区别，即为本方案不合格。</p></div>
 </section>
 
 <!-- §5 落地 -->
 <section class="chap" id="s5">
   <div class="chead"><span class="no">伍</span><h2>落地路线与风险</h2><span class="en">Rollout</span></div>
-  <p class="lead">本方案零结构改动、零皮肤语言改动——全部是取值与令牌。拍板后一次提交即可收编：</p>
-  <p><strong>①</strong> 把 <code>proposal.css</code> 的 <code>:root</code> 令牌并入 <code>styles.css</code> 顶部（porcelain 层）；<strong>②</strong> 各分区数值按 §3 表逐条替换原值（都是等价选择器，直接覆写原声明处，不留 override 层）；<strong>③</strong> yard 皮肤内四条同档对齐并入 <code>yard.css</code>；<strong>④</strong> <code>node --test</code> 里把新令牌写成断言（宪法机验化），浏览器 harness 双视图×双主题四张截图验收。</p>
+  <p class="lead">CSS 可收编部分（权重制/裁列/字阶/幽灵化）拍板后一次提交并入 styles.css/yard.css；另有两处「终局项」需要小幅 DOM 改动，单独一小提交：</p>
+  <p><strong>①</strong> 令牌与分区数值按 §2/§3 并入原声明处（不留 override 层）；<strong>②</strong> yard 皮肤权重块并入 <code>yard.css</code>；<strong>③</strong> 「新建」列裁除在模板删列（而非 CSS 隐藏），详情字段簿保留新建时间；<strong>④</strong> <b>DOM 终局项 A</b>：刷新按钮迁入会话工具条（作用于列表就住在列表旁）；<b>DOM 终局项 B</b>：路径/诊断并入「管理」菜单、顶栏模式切换换成真正的双段控件；<strong>⑤</strong> 宪法机验化进 <code>node --test</code>，harness 双视图×双主题截图验收。</p>
   <table>
     <tr><th>风险</th><th>评估</th></tr>
     <tr><td>布局回归</td><td>低——不动 grid/结构，只动 padding/height/font；固定窗口下无断点交互</td></tr>
