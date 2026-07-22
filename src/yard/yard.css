@@ -55,18 +55,30 @@ body[data-view="yard"] .workspace {
   background: color-mix(in srgb, var(--yd-panel) 72%, #dfe7e1);
 }
 
-/* 业务区回落到经典网格引擎：不再自造 yard 专属网格，改用 workspace-panel 基础规则
- * repeat(3,auto) minmax(0,1fr) + `.workspace-panel > .main-grid { grid-row: 4 }`，
- * attention/quota 收起时会话主区仍拿弹性行。只覆盖皮肤色与边框，布局全交回基础层。 */
+/* 业务区左右分屏（改动②）：左列 = 账号控制台面板（账号条 / 需要留意 / 全院额度 /
+ * 会话详情，纵向依次），右列 = 会话表吃满整高。沿用基础层的 4 行轨道
+ * repeat(3,auto) minmax(0,1fr)：account-bar/attention/quota 占前三 auto 行、inspector 落
+ * 弹性行，session-pane 跨全部四行 —— 账号信息不再压在会话表上方，会话表拿满右列高度。 */
 body[data-view="yard"] .workspace-panel {
   grid-column: 1;
   grid-row: 2;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  column-gap: 3px;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   border-left: 0;
   background: var(--yd-panel);
 }
+
+/* main-grid 解包成透明容器（display:contents）：让原本嵌在里面的 session-pane 与
+ * inspector 直接成为 workspace-panel 的网格项，才能把 inspector 拨到左列、session-pane 占右列。
+ * main-grid 本身无皮肤/边框，解包无副作用；经典视图不受影响（本规则限定 yard 作用域）。 */
+body[data-view="yard"] .account-bar     { grid-column: 1; grid-row: 1; }
+body[data-view="yard"] .attention-inbox { grid-column: 1; grid-row: 2; }
+body[data-view="yard"] .quota-overview  { grid-column: 1; grid-row: 3; }
+body[data-view="yard"] .inspector       { grid-column: 1; grid-row: 4; }
+body[data-view="yard"] .session-pane    { grid-column: 2; grid-row: 1 / -1; }
 
 body[data-view="yard"] .status-bar {
   grid-column: 1 / -1;
@@ -833,14 +845,15 @@ body[data-view="yard"] .runtime-form button {
 }
 
 /* ── 像素皮肤：账号条 / 按钮 / 表格 / 状态栏 ──
- * 全宽后账号条改双列：快速切换条铺满第 1 行；标题块（左）与操作行（右上）在第 2 行
- * 分列，操作不再单独占一整行 —— 把纵向空间还给下方会话表。 */
+ * 分屏后账号条落在左列窄面板（~330px），内部改单列纵向堆叠：快速切换条 → 标题块 →
+ * 操作行，依次往下。（旧的「标题左 / 操作右」双列是为全宽设计的，塞进窄列会把标题
+ * 挤成一字一行、行高暴涨顶掉下面的详情，故这里收回单列。） */
 body[data-view="yard"] .account-bar {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 8px 18px;
+  gap: 8px;
   padding: 10px 16px;
   background: var(--yd-panel2);
   border-bottom: 3px solid var(--yd-line);
@@ -856,9 +869,9 @@ body[data-view="yard"] .account-heading {
 }
 
 body[data-view="yard"] .account-actions {
-  grid-column: 2;
+  grid-column: 1;
   align-self: start;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 body[data-view="yard"] .attention-inbox {
@@ -1157,14 +1170,16 @@ body[data-view="yard"] .table-wrap {
 
 /* 会话主区回落到经典真表格（5 列含来源），不再是卡片堆叠：删掉全部
  * card-mode 覆盖，让基础层的真表格（table-layout:fixed、sticky thead、
- * 5 列宽）生效，这里只补庭院皮肤色。main-grid 恢复两列（表格 | 详情）。 */
+ * 5 列宽）生效，这里只补庭院皮肤色。main-grid 在 yard 下解包（display:contents），
+ * 见上方分屏规则块。 */
 body[data-view="yard"] .main-grid {
-  display: grid;
-  min-height: 0;
+  display: contents;
 }
 
 body[data-view="yard"] .session-pane {
+  min-height: 0;
   padding: 16px;
+  border-left: 3px solid var(--yd-line);
 }
 
 /* 木牌表头常驻（sticky 由基础层提供），套庭院配色 */
@@ -1202,12 +1217,13 @@ body[data-view="yard"] input:focus {
   box-shadow: 0 0 0 3px var(--yd-select-wash);
 }
 
-/* 详情栏用基础层网格 auto/minmax(0,1fr)/auto：详情字段占中间弹性行、可滚，
- * 复制交接信息（inspector-actions）固定在底部 auto 行 —— 常驻可见、不再沉到折叠线下。 */
+/* 详情栏搬到左列账号面板底部（改动②）：用基础层网格 auto/minmax(0,1fr)/auto，
+ * 详情字段占中间弹性行可滚、复制交接信息（inspector-actions）固定在底部 auto 行常驻可见。
+ * 分屏后分隔线改到上沿（与上方全院额度/账号条分开），左侧分隔交给 session-pane 的 border-left。 */
 body[data-view="yard"] .inspector {
   min-height: 0;
-  border-left: 3px solid var(--yd-line);
-  border-top: 0;
+  border-left: 0;
+  border-top: 3px solid var(--yd-line);
   background: var(--yd-panel2);
 }
 
@@ -1575,8 +1591,34 @@ body[data-view="yard"] .status-bar {
     height: 250px;
   }
 
+  /* 窄屏收回单列堆叠：分屏（改动②）在 <900 折回经典竖排 —— 账号条 / 需要留意 /
+   * 全院额度 / [会话表 | 详情]，避免 2 列硬塞进窄窗。session-pane 与 inspector 回到
+   * main-grid 内自排，网格定位与皮肤边框一并复位。 */
   body[data-view="yard"] .workspace-panel {
+    grid-template-columns: minmax(0, 1fr);
     border-top: 3px solid var(--yd-line);
+  }
+
+  body[data-view="yard"] .main-grid {
+    display: grid;
+  }
+
+  body[data-view="yard"] .account-bar,
+  body[data-view="yard"] .attention-inbox,
+  body[data-view="yard"] .quota-overview,
+  body[data-view="yard"] .inspector,
+  body[data-view="yard"] .session-pane {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  body[data-view="yard"] .session-pane {
+    border-left: 0;
+  }
+
+  body[data-view="yard"] .inspector {
+    border-top: 0;
+    border-left: 3px solid var(--yd-line);
   }
 }
 
