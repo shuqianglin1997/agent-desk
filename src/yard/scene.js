@@ -204,9 +204,13 @@
         let homeX = Math.min(startX + col * spacing, GROUND_X1 - 10);
         // 前景草坪带打开后按行往下排（行距 42 给名牌留高度），底部封顶
         let homeY = Math.min(98 + row * 42, H - 26);
-        const saved = root.YardInteractions
+        let saved = root.YardInteractions
           ? root.YardInteractions.normalizePoint(data.positionsById[profile.id])
           : null;
+        // 越界兜底：统一重设计裁掉了前景草坪带（庭院本体 y<132，下部被木框裁掉）。
+        // 落在被裁区的旧拖拽位置会把猫画在可见区外 —— 实机复现：Kimi 猫被拖到 y≈177，
+        // 裁场景后整只看不见。此处作废越界位置、回退默认布局，让猫始终留在可见庭院里。
+        if (saved && saved.y >= 124) saved = null;
         if (saved) {
           homeX = saved.x;
           homeY = saved.y;
