@@ -95,6 +95,7 @@ const els = {
   ledgerMin: document.querySelector('#ledgerMin'),
   reminderToggle: document.querySelector('#reminderToggle'),
   consoleToggle: document.querySelector('#consoleToggle'),
+  runtimeCloseBtn: document.querySelector('#runtimeCloseBtn'),
   atmosTime: document.querySelector('#atmosTime'),
   atmosWeather: document.querySelector('#atmosWeather'),
   runtimeDock: document.querySelector('#runtimeDock'),
@@ -520,6 +521,11 @@ function bindEvents() {
       ? '内嵌控制台已展开。'
       : '内嵌控制台已收起 —— 你自己终端里的会话照常被识别。');
   });
+  // 控制台浮层展开后会盖住小账本里的开关（唯一入口被自己遮住 = 关不掉），
+  // 所以浮层必须自带关闭出口：头部 ✕ 收起（复用 toggle 保持持久化与账本文案同步）。
+  els.runtimeCloseBtn?.addEventListener('click', () => {
+    if (state.agentConsoleOn) els.consoleToggle.click();
+  });
 
   els.helpBtn.addEventListener('click', () => {
     els.welcomeDialog.showModal();
@@ -707,7 +713,13 @@ function bindEvents() {
     }
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && els.accountManage.open) els.accountManage.open = false;
+    if (event.key !== 'Escape') return;
+    // Esc 先关最上层的控制台浮层，其次才是管理下拉
+    if (state.agentConsoleOn) {
+      els.consoleToggle.click();
+      return;
+    }
+    if (els.accountManage.open) els.accountManage.open = false;
   });
 
   els.quotaRefreshBtn.addEventListener('click', async () => {
