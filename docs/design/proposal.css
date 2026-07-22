@@ -188,5 +188,30 @@ body[data-view="yard"] .inspector-actions button {
 }
 body[data-view="yard"] .inspector-actions button.primary { background: var(--yd-primary); color: #fff7e8; }
 body[data-view="yard"] .account-bar .quota-chip { height: var(--ctl-sm); border: 1px solid var(--yd-line); background: var(--yd-panel); }
-body[data-view="yard"] .yard-ledger { font-size: var(--fs-caption); }
 body[data-view="yard"] button:focus-visible, body[data-view="yard"] input:focus-visible { outline-color: var(--yd-primary); }
+
+/* ═══ ⑦ 碎块归一：别再每个功能各切一块，次要信息集中到底部一条 ═══
+ * 回应「需要留意/今日陪伴/控制台 各占一块」——
+ *   删：内嵌「多 Agent 控制台」浮层 + 小账本里的控制台开关（非本工具职责）；
+ *   并：需要留意 + 今日陪伴 → 收进底部状态栏，与「N 会话 · M 账号」同一条集中显示。
+ * DOM 内容搬运由 after harness 的 proposal.js 完成（不改产品）。 */
+#runtimeDock,
+#consoleToggle,
+#attentionInbox,
+#yardLedger { display: none !important; }
+
+/* 状态栏升级为「集中信息条」：左=系统状态，右=今日陪伴 + 需留意 */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  justify-content: space-between;
+}
+.status-meta { display: flex; align-items: center; gap: 14px; margin-left: auto; font-size: var(--fs-caption); color: var(--ink-tertiary); white-space: nowrap; }
+.status-meta .dot { opacity: 0.4; }
+.status-meta b { font-weight: 650; font-variant-numeric: tabular-nums; color: var(--ink-secondary); }
+.status-meta .warn { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); cursor: pointer; }
+.status-meta .warn::before { content: "⚠"; }
+body[data-view="yard"] .status-meta { color: var(--yd-ink2); }
+body[data-view="yard"] .status-meta b { color: var(--yd-ink); }
+body[data-view="yard"] .status-meta .warn { color: var(--yd-primary); }
