@@ -2429,15 +2429,6 @@ function groupOfProfile(profileId) {
   return identityGroups().find((group) => group.members.some((member) => member.id === profileId)) || null;
 }
 
-// 同一登录身份的其他槽位：手动 identityKey 相同，或自动指纹
-// （main 侧按账号 UUID 哈希出的 identityFingerprint）相同。
-function identityPeersOf(profile) {
-  if (!profile) return [];
-  const group = groupOfProfile(profile.id);
-  if (!group) return [];
-  return group.members.filter((member) => member.id !== profile.id);
-}
-
 function populateIdentityDatalist() {
   const datalist = document.querySelector('#identityOptions');
   if (!datalist) return;
@@ -2459,21 +2450,6 @@ async function selectProfile(profileId) {
   await loadSessions(true);
   await loadRuntimeAdapters();
   renderAttentionInbox();
-}
-
-function groupProfiles(profiles) {
-  const map = new Map();
-  for (const profile of profiles) {
-    const key = profile.group || '';
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(profile);
-  }
-  return [...map.entries()].sort(([a], [b]) => {
-    if (a === b) return 0;
-    if (a === '') return 1;
-    if (b === '') return -1;
-    return a.localeCompare(b, 'zh-CN');
-  });
 }
 
 function populateGroupDatalist() {
