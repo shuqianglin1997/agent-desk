@@ -44,10 +44,21 @@ test('庭院会话表恢复真表格（5 列含来源），删掉卡片式覆盖
   assert.match(yardStyles, /body\[data-view="yard"\] \.table-wrap \{[^}]*max-height:\s*none/);
 });
 
-test('横带场景高度封顶为陪伴带，不再撑满整列', () => {
+test('横带场景左右定满：画布 width:100% + 封顶高，逻辑宽由 renderer 响应式重算', () => {
   const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
-  // 画布高度封顶（宽由比例自适应），取代旧的 width:100% 撑满
-  assert.match(yardStyles, /\.yard-frame canvas \{[\s\S]*?height:\s*min\(184px/);
+  const scene = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'scene.js'), 'utf8');
+  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  // 场景独占单列、木框与画布左右定满，高度封顶为横带高（不再是 width:auto 的窄块）
+  assert.match(yardStyles, /\.yard-stage \{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
+  assert.match(yardStyles, /\.yard-frame \{[\s\S]*?width:\s*100%/);
+  assert.match(yardStyles, /\.yard-frame canvas \{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*min\(168px/);
+  // 今日小账本叠成场景内左下角 HUD（不再占旁边一列）
+  assert.match(yardStyles, /\.yard-ledger \{[\s\S]*?position:\s*absolute/);
+  // scene.js：逻辑宽 W 可变 + resize()；renderer 用 ResizeObserver 按显示尺寸重算逻辑宽
+  assert.match(scene, /let W = BASE_W/);
+  assert.match(scene, /resize\(nextW\)/);
+  assert.match(renderer, /new ResizeObserver\(fitYardWidth\)/);
+  assert.match(renderer, /YardScene\.resize\(Math\.round\(els\.yardCanvas\.height \* cw \/ ch\)\)/);
 });
 
 test('经典视图切换后庭院画布必须隐藏：[hidden] 要压过 display:grid', () => {

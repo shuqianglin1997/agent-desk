@@ -1295,6 +1295,22 @@ function initYard() {
     onDrop: handleYardDrop
   });
   yardMounted = true;
+
+  // 横带左右定满：画布随木框宽度重算逻辑宽（保持像素方正），交给 YardScene.resize。
+  // canvas CSS = width:100% + 封顶高，故 clientWidth=木框内宽、clientHeight=横带高；
+  // 方正像素要求 逻辑宽 = 逻辑高(canvas.height) × clientWidth / clientHeight。
+  // 切到经典视图时 stage 收起、clientWidth=0 直接跳过；切回或改窗口时 ResizeObserver 重算。
+  if (typeof window.YardScene.resize === 'function' && typeof ResizeObserver === 'function') {
+    const fitYardWidth = () => {
+      const cw = els.yardCanvas.clientWidth;
+      const ch = els.yardCanvas.clientHeight;
+      if (!cw || !ch) return;
+      window.YardScene.resize(Math.round(els.yardCanvas.height * cw / ch));
+    };
+    new ResizeObserver(fitYardWidth).observe(els.yardStage);
+    fitYardWidth();
+  }
+
   initAtmosphere();
 }
 
