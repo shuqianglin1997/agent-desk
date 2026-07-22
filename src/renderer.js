@@ -10,6 +10,8 @@ const state = {
   activity: {},
   quotas: {},
   quotaError: null,
+  quotaSelfOpen: false,     // 「本号」chip 展开额度 Beta 详情块
+  quotaOverviewOpen: false, // 「全院」chip 展开跨账号额度总览带
   ledger: null,
   remindersOn: true,
   atmosTime: 'auto',
@@ -76,6 +78,11 @@ function appColor(appId) {
 
 const els = {
   accountRoster: document.querySelector('#accountRoster'),
+  accountId: document.querySelector('#accountId'),
+  accountBadge: document.querySelector('#accountBadge'),
+  quotaChipSelf: document.querySelector('#quotaChipSelf'),
+  quotaChipAll: document.querySelector('#quotaChipAll'),
+  atmosWeatherToggle: document.querySelector('#atmosWeatherToggle'),
   topbarContext: document.querySelector('#topbarContext'),
   yardStage: document.querySelector('#yardStage'),
   yardCanvas: document.querySelector('#yardCanvas'),
@@ -683,6 +690,16 @@ function bindEvents() {
     setStatus(isYardView() ? '♪ 摇铃 —— 全体猫竖起耳朵，会话已重新扫描。' : '会话列表已刷新。');
   });
 
+  // 额度 chips：本号 chip 开合额度 Beta 详情；全院 chip 开合跨账号总览带（原型交互）
+  els.quotaChipSelf?.addEventListener('click', () => {
+    state.quotaSelfOpen = !state.quotaSelfOpen;
+    renderQuotaSummary();
+  });
+  els.quotaChipAll?.addEventListener('click', () => {
+    state.quotaOverviewOpen = !state.quotaOverviewOpen;
+    renderQuotaOverview();
+  });
+
   els.quotaRefreshBtn.addEventListener('click', async () => {
     if (!selectedProfile()) return;
     setStatus('正在从官方服务刷新额度…');
@@ -934,7 +951,8 @@ async function loadQuotas(force = false) {
     } finally {
       quotaHasLoaded = true;
       quotaRequest = null;
-      renderQuotaSummary();
+      // 刷整个控制条（含 ⚡ 能量徽章），renderAccountHeader 内部会级联 renderQuotaSummary → chips
+      renderAccountHeader();
       syncYard();
     }
   })();
@@ -1045,6 +1063,8 @@ function renderQuotaSummary() {
   els.quotaRefreshBtn.disabled = !profile || Boolean(quotaRequest);
   if (!profile) return;
 
+  // 额度 Beta 详情块默认收起（原型）：控制条上只留「本号」chip，点击 chip 展开本块
+  els.quotaSummary.hidden = !state.quotaSelfOpen;
   const snapshot = selectedQuota();
   const loading = Boolean(quotaRequest);
   els.quotaSummary.classList.toggle('is-loading', loading);
@@ -1101,15 +1121,16 @@ function renderQuotaOverview() {
   // 总览按「账号」而不是槽位：同一登录身份的多个槽位只出一行，
   // 行代表取组内有真实额度快照的那个（额度只在部分客户端有官方 API）。
   const groups = identityGroups();
-  els.quotaOverview.hidden = groups.length < 2;
-  if (els.quotaOverview.hidden) return;
-
   const representatives = groups.map((group) => {
     const holder = group.members.find((member) => state.quotas[member.id]?.status === 'ok') || group.primary;
     return { ...holder, name: group.primary.name };
   });
-
   const rows = window.QuotaOverview.buildQuotaOverview(representatives, state.quotas, Date.now());
+
+  // 控制条 chips（本号/全院）永远刷新；总览带默认收起，点「全院」chip 展开（原型）
+  renderQuotaChips(groups, rows);
+  els.quotaOverview.hidden = !state.quotaOverviewOpen || groups.length < 2;
+  if (els.quotaOverview.hidden) return;
   const withQuota = rows.filter((row) => row.hasQuota).length;
   if (els.quotaOverviewMeta) {
     els.quotaOverviewMeta.textContent = withQuota
@@ -1154,6 +1175,46 @@ function renderQuotaOverview() {
     rest.textContent = `其余 ${unsupported.length} 个账号暂无官方额度接口`;
     rest.title = unsupported.map((row) => row.name).join('、');
     els.quotaOverviewList.append(rest);
+  }
+}
+
+// ── 控制条额度 chips（原型：本号 / 全院 各一枚，条形量表 + 百分比）────────
+// 本号 = 选中账号（组）的最紧窗口剩余；全院 = 全部账号里最紧的那个（一眼看底线）。
+function renderQuotaChips(groups, rows) {
+  if (!els.quotaChipSelf || !els.quotaChipAll) return;
+  const rowById = new Map(rows.map((row) => [String(row.profileId), row]));
+  const selectedGroup = groupOfProfile(state.selectedProfileId);
+  let selfRow = null;
+  if (selectedGroup) {
+    for (const member of selectedGroup.members) {
+      const row = rowById.get(String(member.id));
+      if (row && (!selfRow || (row.hasQuota && !selfRow.hasQuota))) selfRow = row;
+    }
+  }
+  setQuotaChip(els.quotaChipSelf, selfRow, '点击展开本号额度详情');
+
+  const known = rows.filter((row) => row.hasQuota);
+  const allRow = known.length
+    ? known.reduce((a, b) => (a.tightest.remainingPercent <= b.tightest.remainingPercent ? a : b))
+    : null;
+  setQuotaChip(els.quotaChipAll, allRow, '点击展开全院额度总览', allRow ? `全院最紧 ${allRow.name}` : null);
+}
+
+function setQuotaChip(chip, row, hint, prefix = null) {
+  const fill = chip.querySelector('.mtr i');
+  const value = chip.querySelector('b');
+  const loading = Boolean(quotaRequest);
+  if (row && row.hasQuota) {
+    const percent = Math.max(0, Math.min(100, Math.round(row.tightest.remainingPercent)));
+    chip.dataset.level = window.YardEnergy?.energyForRemaining?.(percent) || 'unknown';
+    fill.style.width = `${percent}%`;
+    value.textContent = `${percent}%`;
+    chip.title = `${prefix || row.name} · ${row.tightest.label} 剩 ${percent}% · ${hint}`;
+  } else {
+    chip.dataset.level = 'unknown';
+    fill.style.width = '0%';
+    value.textContent = loading ? '…' : '—';
+    chip.title = `${row?.reason || (loading ? '额度查询中…' : '暂无额度数据')} · ${hint}`;
   }
 }
 
@@ -1326,6 +1387,19 @@ function initAtmosphere() {
     updateAtmosphereReadout();
     setStatus(`庭院天气：${WEATHER_LABEL[state.atmosWeather]}。`);
   });
+  // 天气行默认收起（原型只显时间行）；⛅ 展开，或用户存过非自动天气时自动展开
+  const syncWeatherToggle = () => {
+    if (els.atmosWeatherToggle) {
+      els.atmosWeatherToggle.setAttribute('aria-expanded', String(!els.atmosWeather.hidden));
+    }
+  };
+  els.atmosWeatherToggle?.addEventListener('click', () => {
+    els.atmosWeather.hidden = !els.atmosWeather.hidden;
+    syncWeatherToggle();
+  });
+  if (state.atmosWeather !== 'auto') els.atmosWeather.hidden = false;
+  syncWeatherToggle();
+
   window.YardScene.setAtmosphere({ time: state.atmosTime, weather: state.atmosWeather });
   syncPressed();
   updateAtmosphereReadout();
@@ -2379,7 +2453,27 @@ function buildAccountCard(group, now) {
   dot.style.background = CARD_STATE_DOT[activityState] || '#9a9a9a';
   st.append(dot, document.createTextNode(`${stateLabel} · ${appLabel(primary.appId)}`));
 
-  card.append(top, st);
+  // 原型 qbar：卡片底部额度条（组内取有官方额度快照的成员；未知则空条）
+  const quotaTrack = document.createElement('div');
+  quotaTrack.className = 'account-card-quota';
+  const quotaFill = document.createElement('i');
+  quotaTrack.append(quotaFill);
+  const holder = group.members.find((member) => state.quotas[member.id]?.status === 'ok');
+  const tightest = holder && window.QuotaOverview
+    ? window.QuotaOverview.tightestWindow(state.quotas[holder.id], now)
+    : null;
+  if (tightest) {
+    const percent = Math.max(0, Math.min(100, Math.round(tightest.remainingPercent)));
+    quotaTrack.dataset.level = window.YardEnergy?.energyForRemaining?.(percent) || 'unknown';
+    quotaFill.style.width = `${percent}%`;
+    quotaTrack.title = `${tightest.label} 剩 ${percent}%`;
+  } else {
+    quotaTrack.dataset.level = 'unknown';
+    quotaFill.style.width = '0%';
+    quotaTrack.title = '暂无额度数据';
+  }
+
+  card.append(top, st, quotaTrack);
   card.addEventListener('click', () => selectProfile(primary.id));
   return card;
 }
@@ -2481,6 +2575,8 @@ function renderAccountHeader() {
 
   if (!profile) {
     els.accountTitle.textContent = '未选择账号';
+    if (els.accountBadge) els.accountBadge.hidden = true;
+    if (els.accountId) els.accountId.title = '';
     els.accountMeta.textContent = '';
     els.accountPath.textContent = '';
     els.accountNote.textContent = '';
@@ -2490,19 +2586,35 @@ function renderAccountHeader() {
     return;
   }
 
-  els.accountTitle.textContent = profile.name;
-  // 分组名与客户端名相同就不重复念一遍（例如 group=Claude 的 Claude 槽位）
+  // 名牌（原型）：`名字 · App`；徽章 = ⌨并行 / ⛓形态 / ⚡能量；
+  // 长信息（槽位/分组/上次打开/路径/备注）收进名牌 tooltip，不再占控制条版面。
+  els.accountTitle.textContent = `${profile.name} · ${appLabel(profile.appId)}`;
   const groupLabel = profile.group && profile.group !== appLabel(profile.appId) ? ` · ${profile.group}` : '';
   const identityGroup = groupOfProfile(profile.id);
   const members = identityGroup ? identityGroup.members : [profile];
   // 并行会话数按整个账号（组）聚合：桌面在跑 + 终端在跑 = 一起数
   const activeNow = members.reduce((acc, member) => acc + (state.activity[member.id]?.activeNow || 0), 0);
-  const busyLabel = activeNow > 0 ? ` · ⌨ ${activeNow} 个会话进行中` : '';
-  const formLabel = members.length > 1
-    ? ` · ⛓ 一个账号 ${members.length} 个形态（${members.map((member) => appLabel(member.appId)).join(' + ')}）`
-    : '';
-  els.accountMeta.textContent = `${appLabel(profile.appId)} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel}${busyLabel}${formLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
-  els.accountPath.textContent = `账号 ${shortPath(profile.profilePath)} · 会话 ${shortPath(profile.sessionRoot)}`;
+  const badgeParts = [];
+  if (activeNow > 0) badgeParts.push(`⌨ ${activeNow} 并行`);
+  if (members.length > 1) badgeParts.push(`⛓ ${members.length} 形态`);
+  const quotaSnapshot = selectedQuota();
+  if (quotaSnapshot?.status === 'ok' && window.YardEnergy) {
+    const energyMeta = window.YardEnergy.ENERGY_META?.[window.YardEnergy.deriveEnergy(quotaSnapshot, Date.now())];
+    if (energyMeta) badgeParts.push(`⚡ ${energyMeta.label}`);
+  }
+  if (els.accountBadge) {
+    els.accountBadge.textContent = badgeParts.join(' · ');
+    els.accountBadge.hidden = badgeParts.length === 0;
+  }
+
+  const metaLine = `${appLabel(profile.appId)} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
+  const pathLine = `账号 ${shortPath(profile.profilePath)} · 会话 ${shortPath(profile.sessionRoot)}`;
+  if (els.accountId) {
+    els.accountId.title = [metaLine, pathLine, profile.note ? `备注 ${profile.note}` : ''].filter(Boolean).join('\n');
+  }
+  // 隐藏源（.account-legacy）：保留旧字段写入，作为 tooltip 之外的读取兜底
+  els.accountMeta.textContent = metaLine;
+  els.accountPath.textContent = pathLine;
   els.accountNote.textContent = profile.note || '';
   els.accountNote.style.display = profile.note ? '' : 'none';
   renderQuotaSummary();

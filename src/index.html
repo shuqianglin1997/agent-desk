@@ -31,14 +31,18 @@
               <canvas id="yardCanvas" width="480" height="236" aria-label="猫猫庭院：每只猫是一个账号，点击选中"></canvas>
               <div id="yardOverlay" class="yard-overlay"></div>
             </div>
+            <!-- 时间行常驻（原型单行）；天气行默认收起，⛅ 展开 -->
             <div class="yard-atmos">
-              <div class="atmos-row" id="atmosTime" role="group" aria-label="时间">
-                <button type="button" data-time="auto">跟随</button>
-                <button type="button" data-time="day">白天</button>
-                <button type="button" data-time="dusk">黄昏</button>
-                <button type="button" data-time="night">夜晚</button>
+              <div class="atmos-line">
+                <div class="atmos-row" id="atmosTime" role="group" aria-label="时间">
+                  <button type="button" data-time="auto">跟随</button>
+                  <button type="button" data-time="day">白天</button>
+                  <button type="button" data-time="dusk">黄昏</button>
+                  <button type="button" data-time="night">夜晚</button>
+                </div>
+                <button type="button" id="atmosWeatherToggle" class="atmos-more" aria-expanded="false" title="天气设置">⛅</button>
               </div>
-              <div class="atmos-row" id="atmosWeather" role="group" aria-label="天气">
+              <div class="atmos-row" id="atmosWeather" role="group" aria-label="天气" hidden>
                 <button type="button" data-weather="auto">自动</button>
                 <button type="button" data-weather="clear">晴</button>
                 <button type="button" data-weather="cloudy">多云</button>
@@ -114,12 +118,37 @@
         <div id="accountRoster" class="account-roster" aria-label="账号名册（经典视图）"></div>
       </section>
 
+      <!-- 账号控制条（统一设计）：单行 = 名牌+徽章 ｜ 操作 ｜ 额度 chips。
+           长路径 / 备注 / 上次打开收进名牌 tooltip 与「路径/诊断」弹窗；
+           额度 Beta 详情块与全院总览默认收起，点击对应 chip 展开。 -->
       <section class="account-bar">
-          <div class="account-heading">
+          <div class="account-id" id="accountId">
             <h2 id="accountTitle">未选择账号</h2>
-            <p id="accountMeta"></p>
-            <code id="accountPath"></code>
-            <p id="accountNote" class="account-note"></p>
+            <span id="accountBadge" class="account-badge" hidden></span>
+          </div>
+
+          <div class="account-actions" id="accountActions">
+            <button id="launchBtn" class="primary">打开账号</button>
+            <button id="addProfileBtn">新增</button>
+            <button id="pathConfigBtn">路径</button>
+            <button id="diagnosticsBtn">诊断</button>
+            <button id="refreshBtn">刷新</button>
+            <details id="accountManage" class="account-manage">
+              <summary>管理</summary>
+              <div id="yardManageActions" class="account-manage-menu">
+                <button id="editProfileBtn">编辑</button>
+                <button id="removeProfileBtn">移除</button>
+                <button id="profileFolderBtn">位置</button>
+              </div>
+            </details>
+          </div>
+
+          <div class="quota-chips">
+            <button id="quotaChipSelf" class="quota-chip" type="button" title="本号额度 · 点击展开详情">本号 <span class="mtr"><i></i></span><b>—</b></button>
+            <button id="quotaChipAll" class="quota-chip" type="button" title="全院额度 · 点击展开总览">全院 <span class="mtr"><i></i></span><b>—</b></button>
+          </div>
+
+          <div class="account-quota-detail">
             <section id="quotaSummary" class="quota-summary" aria-label="账号额度" aria-live="polite" hidden>
               <div class="quota-summary-head">
                 <span class="quota-kicker">额度 Beta</span>
@@ -132,20 +161,10 @@
             </section>
           </div>
 
-          <div class="account-actions" id="accountActions">
-            <button id="launchBtn" class="primary">打开账号</button>
-            <button id="addProfileBtn">新增</button>
-            <button id="pathConfigBtn">路径</button>
-            <button id="diagnosticsBtn">诊断</button>
-            <button id="profileFolderBtn">位置</button>
-            <button id="refreshBtn">刷新</button>
-            <details id="accountManage" class="account-manage">
-              <summary>管理</summary>
-              <div id="yardManageActions" class="account-manage-menu">
-                <button id="editProfileBtn">编辑</button>
-                <button id="removeProfileBtn">移除</button>
-              </div>
-            </details>
+          <div class="account-legacy" hidden aria-hidden="true">
+            <p id="accountMeta"></p>
+            <code id="accountPath"></code>
+            <p id="accountNote" class="account-note"></p>
           </div>
         </section>
 

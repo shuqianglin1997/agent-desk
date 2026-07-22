@@ -564,9 +564,40 @@ body[data-view="yard"] .runtime-form button {
   top: 8px;
   right: 8px;
   display: grid;
+  justify-items: end;
   gap: 4px;
   pointer-events: auto;
   z-index: 4;
+}
+
+/* 时间行 + ⛅ 天气展开钮同一行（原型默认单行）；天气行 hidden 必须压过 .atmos-row 的 display:flex */
+.yard-atmos .atmos-line {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.yard-atmos .atmos-row[hidden] {
+  display: none;
+}
+
+/* 特指度要压过 body[data-view="yard"] .app-shell button 的通用木质皮肤 */
+body[data-view="yard"] .yard-atmos .atmos-more {
+  height: 26px;
+  border: 2px solid #33261a;
+  border-radius: 3px;
+  padding: 0 6px;
+  background: rgba(247, 241, 221, 0.92);
+  color: #33261a;
+  box-shadow: none;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+body[data-view="yard"] .yard-atmos .atmos-more[aria-expanded="true"] {
+  background: #d96f33;
+  color: #fff7e8;
 }
 
 .yard-atmos .atmos-row {
@@ -812,28 +843,36 @@ body[data-view="yard"] .runtime-form button {
 }
 
 /* ── 像素皮肤：账号控制条 / 按钮 / 表格 / 状态栏 ──
- * 账号控制条是一条横条：标题块（左，账号名 / 摘要 / 额度）+ 操作行（右）。 */
+ * 控制条 = 单行（布局在基础层）：名牌+徽章 ｜ 操作 ｜ 额度 chips。这里只上木质皮。 */
 body[data-view="yard"] .account-bar {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px 18px;
-  padding: 9px 16px;
   background: var(--yd-panel2);
   border-bottom: 3px solid var(--yd-line);
   backdrop-filter: none;
 }
 
-body[data-view="yard"] .account-heading {
-  grid-column: 1;
-  min-width: 0;
+body[data-view="yard"] .account-id h2 {
+  color: var(--yd-ink);
 }
 
-body[data-view="yard"] .account-actions {
-  grid-column: 2;
-  align-self: center;
-  justify-content: flex-end;
+body[data-view="yard"] .account-badge {
+  border: 1px solid var(--yd-line);
+  background: #f4ecd4;
+  color: var(--yd-ink2);
+}
+
+body[data-view="yard"] .account-bar .quota-chip {
+  border: 1px solid var(--yd-line);
+  border-radius: 20px;
+  background: #f4ecd4;
+  color: var(--yd-ink2);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+body[data-view="yard"] .account-bar .quota-chip .mtr {
+  border: 1px solid var(--yd-line);
+  background: #e3d8bb;
 }
 
 body[data-view="yard"] .attention-inbox {
@@ -927,16 +966,7 @@ body[data-view="yard"] .yard-account-chip[data-state="confused"]::after {
   background: #c94f2e;
 }
 
-body[data-view="yard"] .account-heading h2 {
-  font-size: 18px;
-  white-space: normal;
-}
-
-body[data-view="yard"] .account-heading code,
-body[data-view="yard"] .account-heading p {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
+/* （account-heading 已随控制条单行化移除；名牌样式见上方 .account-id / .account-badge 皮肤） */
 
 /* 全宽后账号操作改为紧凑一行（wrap）：打开账号主操作醒目，配置按钮降级为安静木牌小片，
  * 管理下拉收在行尾。之前的双列全宽按钮堆叠会把会话表挤到折叠线下。 */
