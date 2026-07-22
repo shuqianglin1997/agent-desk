@@ -15,18 +15,22 @@ test('更新按钮位于两种视图都可见的全局命令栏', () => {
   assert.match(html.slice(toolbarStart, toolbarEnd), /id="updateBtn"[^>]*>↻ <span>更新<\/span><\/button>/);
 });
 
-test('庭院改为顶部横带 + 下方全宽业务区（单列），业务区回落到经典网格引擎', () => {
+test('庭院顶部横带 + 下方左右分屏：左=账号控制台面板，右=会话表吃满整高', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
   assert.match(html, /<div class="workspace-panel">[\s\S]*?<section class="account-bar">/);
   // 单列三行：横带 / 业务 / 状态栏（不再是「主场景 3fr + 右侧 340px 信息轨」）
   assert.match(yardStyles, /body\[data-view="yard"\] \.workspace \{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*auto minmax\(0, 1fr\) 28px/);
-  // 业务区不再自造 yard 网格 / 单栏长条滚动：交回经典引擎（display 由基础层给，overflow:hidden）
-  assert.match(yardStyles, /body\[data-view="yard"\] \.workspace-panel \{[^}]*grid-row:\s*2;[^}]*overflow:\s*hidden/);
+  // 业务区分屏：workspace-panel 变 2 列（左账号面板 | 右会话表），overflow:hidden 唯一滚动区仍是表格
+  assert.match(yardStyles, /body\[data-view="yard"\] \.workspace-panel \{[^}]*grid-row:\s*2;[^}]*grid-template-columns:\s*minmax\(300px, 360px\) minmax\(0, 1fr\);[^}]*overflow:\s*hidden/);
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.workspace-panel \{[^}]*overflow-y:\s*auto/);
-  // main-grid 恢复两列（会话表 | 详情）
-  assert.match(yardStyles, /body\[data-view="yard"\] \.main-grid \{\s*display: grid/);
-  // 窄屏纵向回流：横带内场景改回撑满宽度、竖排在账本上方
+  // main-grid 解包成透明容器，session-pane 与 inspector 直接参与 workspace-panel 网格
+  assert.match(yardStyles, /body\[data-view="yard"\] \.main-grid \{\s*display: contents/);
+  // 会话表占右列、跨全部四行整高；会话详情落左列弹性行底部
+  assert.match(yardStyles, /body\[data-view="yard"\] \.session-pane\s+\{ grid-column: 2; grid-row: 1 \/ -1; \}/);
+  assert.match(yardStyles, /body\[data-view="yard"\] \.inspector\s+\{ grid-column: 1; grid-row: 4; \}/);
+  // 窄屏（<900）折回单列堆叠：分屏收回 minmax(0,1fr) 单列，场景改回撑满宽度
+  assert.match(yardStyles, /@media \(max-width: 900px\)[\s\S]*?body\[data-view="yard"\] \.workspace-panel \{\s*grid-template-columns:\s*minmax\(0, 1fr\)/);
   assert.match(yardStyles, /@media \(max-width: 900px\)[\s\S]*?body\[data-view="yard"\] \.yard-stage \{\s*grid-template-columns:\s*minmax\(0, 1fr\)/);
 });
 
