@@ -112,17 +112,10 @@ body[data-view="yard"] .topbar-context::before {
 .yard-stage {
   grid-column: 1;
   grid-row: 1;
-  position: relative;                    /* 今日小账本叠在场景内，以此为定位框 */
-  display: grid;
-  grid-template-columns: minmax(0, 1fr); /* 场景木框独占一列、左右定满 */
-  grid-template-rows: auto auto;         /* 场景 / 控制台(展开时) */
-  align-items: center;
-  gap: 8px 16px;
+  position: relative;
+  display: block;        /* 满铺横带：木框即横带本身，无内边距、无左右留白 */
   min-width: 0;
   overflow: visible;
-  padding: 10px 16px;
-  border-bottom: 3px solid var(--yd-line);
-  background: color-mix(in srgb, var(--yd-panel) 72%, #dfe7e1);
 }
 
 :root[data-theme="dark"] .yard-stage {
@@ -138,21 +131,37 @@ body[data-view="yard"] .topbar-context::before {
 
 /* 控制台展开时整条铺在横带第 2 行（收起时 [hidden] 塌 0）。它把业务区往下压，
  * 但横带本身仍不滚动 —— 展开是显式操作。 */
+/* 多 Agent 终端展开：浮层覆盖内容区（顶栏下 / 状态栏上），不打乱满铺横带布局 */
 .runtime-dock:not([hidden]) {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  height: 300px;
-  margin-top: 8px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 48px;
+  bottom: 28px;
+  z-index: 40;
+  height: auto;
+  margin: 0;
 }
 
 /* 木框撑满整条横带（左右定满）；画布逻辑宽由 renderer 按木框宽度重算（像素方正）。 */
+/* 满铺横带 + 裁掉底部空草坪：木框是定高横带、溢出裁剪，只显示密实的庭院本体
+ * （原 H236 = 132 庭院 + 前景空草坪，裁掉后半段空草坪）。左右满铺、无卡纸空白。 */
 .yard-frame {
   position: relative;
-  border: 3px solid var(--yd-line, #33261a);
-  box-shadow: 0 4px 0 var(--yd-shadow, rgba(51, 38, 26, 0.25));
-  background: #000;
+  height: 300px;
   width: 100%;
   margin: 0;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 3px solid var(--yd-line, #33261a);
+  background: #000;
+}
+/* 裁剪台：画布按自然宽高比铺满整宽（比横带更高），底部空草坪被木框裁掉 */
+.yard-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
 }
 
 /* ── multi-Agent fleet: useful structure, independent from final yard art ── */
@@ -575,7 +584,7 @@ body[data-view="yard"] .runtime-form button {
 .yard-frame canvas {
   display: block;
   width: 100%;
-  height: min(168px, 22vh);
+  height: auto;          /* 自然宽高比（480:236）；底部由 .yard-frame 裁剪 */
   touch-action: none;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -1548,11 +1557,6 @@ body[data-view="yard"] .status-bar {
 }
 
 @media (max-width: 1100px) {
-  /* 布局已是单列（横带 / 业务 / 状态）；这里只收一点横带内边距 */
-  .yard-stage {
-    padding: 10px 12px;
-  }
-
   .runtime-launcher {
     grid-template-columns: minmax(108px, 0.65fr) minmax(128px, 0.75fr) minmax(210px, 1.35fr) auto;
   }
