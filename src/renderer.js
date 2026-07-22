@@ -895,13 +895,17 @@ async function loadSessions(selectFirst = false) {
   // 每条记录带上归属槽位 id，定位 / 导出仍指向正确的槽位；「来源」列区分形态。
   const group = groupOfProfile(profile.id);
   const members = group ? group.members : [profile];
-  const lists = await Promise.all(members.map(async (member) => {
+  // allSettled：某个槽位扫描失败只丢它自己的会话，不清空整组的合并列表
+  const settled = await Promise.allSettled(members.map(async (member) => {
     const records = await window.manager.listSessions(member);
     return (Array.isArray(records) ? records : []).map((record) => ({ ...record, _profileId: member.id }));
   }));
-  state.sessions = lists.flat().sort((a, b) => (
-    new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime()
-  ));
+  state.sessions = settled
+    .filter((entry) => entry.status === 'fulfilled')
+    .flatMap((entry) => entry.value)
+    .sort((a, b) => (
+      new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime()
+    ));
   applySessionFilter(selectFirst);
 }
 
