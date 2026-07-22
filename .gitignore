@@ -24,3 +24,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Local Claude Code harness config (not part of the app)
+.claude/
