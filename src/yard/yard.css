@@ -92,13 +92,19 @@ body[data-view="yard"] .topbar-context::before {
   grid-column: 1;
   grid-row: 1;
   display: grid;
-  grid-template-rows: auto auto minmax(170px, 1fr);
-  align-content: stretch;
+  /* 三行全 auto：控制台默认收起后不再有空转的 1fr 行，场景吃满左列 */
+  grid-template-rows: auto auto auto;
+  align-content: start;
   gap: 9px;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: hidden auto;
   padding: 14px 16px;
+}
+
+/* 控制台展开时按固定高度出现在场景下方（收起时 [hidden] 塌 0） */
+.runtime-dock:not([hidden]) {
+  height: 320px;
 }
 
 .yard-frame {
