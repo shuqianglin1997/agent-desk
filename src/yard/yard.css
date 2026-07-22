@@ -102,6 +102,13 @@ body[data-view="yard"] .topbar-context::before {
   padding: 14px 16px;
 }
 
+/* hidden 属性必须压过上面的 display:grid（作者样式会盖过 UA 的 [hidden]）。
+   否则切到经典视图后画布仍占满第一行，把工作台挤出屏幕 —— 与 .runtime-dock
+   的 [hidden] 兜底同因。选择器特指度 (0,2,0) 高于 .yard-stage (0,1,0)，无需 !important。 */
+.yard-stage[hidden] {
+  display: none;
+}
+
 /* 控制台展开时按固定高度出现在场景下方（收起时 [hidden] 塌 0） */
 .runtime-dock:not([hidden]) {
   height: 320px;

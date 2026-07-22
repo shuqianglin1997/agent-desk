@@ -524,9 +524,17 @@ button.danger:hover:not(:disabled) {
 
 .workspace-panel {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  /* 四个子块：账号条 / 需要留意 / 全院额度 / 会话主区。前三行 auto，
+     会话主区独占弹性行。main-grid pin 到第 4 行，这样 attention/quota
+     任一收起（display:none）时会话主区仍拿到弹性行，不会掉进 auto 行导致
+     与全院额度叠在同一格。 */
+  grid-template-rows: repeat(3, auto) minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
+}
+
+.workspace-panel > .main-grid {
+  grid-row: 4;
 }
 
 .yard-account-strip {
