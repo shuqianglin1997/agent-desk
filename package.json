@@ -1,7 +1,7 @@
 {
   "name": "agent-desk",
   "productName": "AgentDesk",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "A local multi-Agent workspace — run terminal agents side by side, isolate identities, and hand off indexed sessions between them.",
   "main": "src/main.js",
   "author": "hupo",
