@@ -300,7 +300,7 @@ function applyUserSettings(value = {}) {
   state.theme = value.theme === 'light' || value.theme === 'dark' ? value.theme : null;
   state.view = value.view === 'classic' ? 'classic' : 'yard';
   state.remindersOn = value.remindersOn !== false;
-  state.agentConsoleOn = value.agentConsoleOn === true;
+  state.agentConsoleOn = false; // 内嵌控制台 UI 已移除，恒关
   state.atmosTime = ['auto', 'day', 'dusk', 'night'].includes(value.atmosTime)
     ? value.atmosTime
     : 'auto';
@@ -513,44 +513,8 @@ function bindEvents() {
     setStatus(state.remindersOn ? '休息提醒已开启。' : '休息提醒已关闭，猫照常陪你干活。');
   });
 
-  els.consoleToggle.addEventListener('click', () => {
-    state.agentConsoleOn = !state.agentConsoleOn;
-    persistSettings({ agentConsoleOn: state.agentConsoleOn });
-    applyAgentConsole();
-    setStatus(state.agentConsoleOn
-      ? '内嵌控制台已展开。'
-      : '内嵌控制台已收起 —— 你自己终端里的会话照常被识别。');
-  });
-  // 控制台浮层展开后会盖住小账本里的开关（唯一入口被自己遮住 = 关不掉），
-  // 所以浮层必须自带关闭出口：头部 ✕ 收起（复用 toggle 保持持久化与账本文案同步）。
-  els.runtimeCloseBtn?.addEventListener('click', () => {
-    if (state.agentConsoleOn) els.consoleToggle.click();
-  });
-
   els.helpBtn.addEventListener('click', () => {
     els.welcomeDialog.showModal();
-  });
-
-  els.runtimeAdapter.addEventListener('change', () => {
-    state.runtime.selectedAdapterId = els.runtimeAdapter.value || null;
-    const adapter = state.runtime.adapters.find((item) => item.id === state.runtime.selectedAdapterId);
-    const profile = selectedProfile();
-    state.runtime.selectedIdentityId = adapter?.identityAppId && profile?.appId === adapter.identityAppId
-      ? profile.id
-      : null;
-    renderRuntimeDock();
-  });
-
-  els.runtimeIdentity.addEventListener('change', () => {
-    state.runtime.selectedIdentityId = els.runtimeIdentity.value || null;
-    renderRuntimeDock();
-  });
-
-  els.runtimeRegistryBtn.addEventListener('click', async () => {
-    await loadRuntimeAdapters();
-    renderDiscoveredAgentList();
-    renderCustomAgentList();
-    els.agentRegistryDialog.showModal();
   });
 
   els.pickCustomAgentExecutableBtn.addEventListener('click', async () => {
@@ -568,49 +532,6 @@ function bindEvents() {
 
   els.confirmAddCustomAgentBtn.addEventListener('click', async () => {
     await addCustomAgent();
-  });
-
-  els.runtimeWorkspaceBtn.addEventListener('click', async () => {
-    if (!window.manager.pickTerminalWorkspace) return;
-    const profile = selectedProfile();
-    const session = selectedSession();
-    const defaultPath = state.runtime.workspaceGrant?.path
-      || session?.projectPath
-      || profile?.sessionRoot
-      || profile?.profilePath;
-    const result = await window.manager.pickTerminalWorkspace({ defaultPath });
-    if (!result?.ok) {
-      if (!result?.cancelled) setStatus(result?.reason || '无法选择 Agent 工作目录。');
-      return;
-    }
-    state.runtime.workspaceGrant = result;
-    renderRuntimeDock();
-    setStatus(`Agent 新实例将使用 ${result.path}`);
-  });
-
-  els.runtimeWorkspaceResetBtn.addEventListener('click', () => {
-    state.runtime.workspaceGrant = null;
-    renderRuntimeDock();
-    setStatus('Agent 工作目录已恢复为跟随当前会话。');
-  });
-
-  els.runtimeStartBtn.addEventListener('click', async () => {
-    await startRuntimeForSelectedProfile();
-  });
-
-  els.runtimeStopBtn.addEventListener('click', async () => {
-    await stopCurrentRuntime();
-  });
-
-  els.runtimeForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    await sendRuntimeInput();
-  });
-
-  els.runtimeInput.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
-    event.preventDefault();
-    els.runtimeForm.requestSubmit();
   });
 
   if (window.manager.onTerminalEvent) {
@@ -714,11 +635,6 @@ function bindEvents() {
   });
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
-    // Esc 先关最上层的控制台浮层，其次才是管理下拉
-    if (state.agentConsoleOn) {
-      els.consoleToggle.click();
-      return;
-    }
     if (els.accountManage.open) els.accountManage.open = false;
   });
 
@@ -1899,6 +1815,7 @@ async function stopCurrentRuntime() {
 }
 
 function handleRuntimeEvent(event) {
+  if (!els.runtimeDock) return; // 控制台 UI 已移除，不再处理终端事件
   if (!event?.runtimeId) return;
   if (!state.runtime.runtimes.some((item) => item.id === event.runtimeId)) {
     pendingRuntimeEvents.push(event);
@@ -1944,6 +1861,7 @@ function appendRuntimeOutput(runtimeId, text, stream = 'stdout') {
 }
 
 async function openTerminalForProfile(profile) {
+  if (!els.runtimeDock) return; // 控制台 UI 已移除
   if (!profile) return;
   if (profile.id !== state.selectedProfileId) await selectProfile(profile.id);
   const matchingAdapter = state.runtime.adapters.find((item) => item.identityAppId === profile.appId && item.available);
@@ -1967,6 +1885,7 @@ async function openTerminalForProfile(profile) {
 }
 
 async function queueSessionForRuntime(profile, session) {
+  if (!els.runtimeDock) return; // 控制台 UI 已移除
   const preferredId = profile.appId === 'codex' ? 'codex' : profile.appId === 'claude' ? 'claude' : null;
   const agent = state.runtime.adapters.find((item) => item.id === preferredId && item.available)
     || state.runtime.adapters.find((item) => item.mode === 'agent' && item.available);
@@ -2098,8 +2017,7 @@ function renderAttentionInbox() {
       if (item.action === 'diagnostics') await showDiagnostics();
       else if (item.action === 'quota') els.quotaSummary.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       else if (item.action === 'runtime') {
-        els.runtimeDock.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        if (!els.runtimeInput.disabled) els.runtimeInput.focus();
+        els.runtimeDock?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       } else if (item.action === 'update') await handleUpdateClick();
     });
     els.attentionItems.append(button);

@@ -56,65 +56,11 @@
               <span class="ledger-sep">·</span>
               <span class="ledger-stat">陪你干活 <b id="ledgerMin">0</b> 分钟</span>
               <span class="ledger-spacer"></span>
-              <button id="consoleToggle" class="ledger-toggle" type="button" aria-pressed="false" title="内嵌多 Agent 控制台。平时用自己的终端即可，AgentDesk 会识别各账号的会话">🖥 控制台 关</button>
               <button id="reminderToggle" class="ledger-toggle" type="button" aria-pressed="true" title="休息提醒（伸懒腰 / 收工播报）总开关">🔔 提醒 开</button>
             </div>
           </div>
-          <section id="runtimeDock" class="runtime-dock" aria-label="多 Agent 控制台">
-            <header class="runtime-head">
-              <div>
-                <span class="runtime-kicker">AGENT FLEET</span>
-                <h2>多 Agent 控制台</h2>
-              </div>
-              <div class="runtime-head-actions">
-                <span id="runtimeCount" class="runtime-count">0 个实例</span>
-                <button id="runtimeRegistryBtn" type="button">接入 Agent</button>
-                <button id="runtimeCloseBtn" type="button" title="收起控制台（Esc）">✕ 收起</button>
-              </div>
-            </header>
-            <div class="runtime-launcher">
-              <label>
-                <span>Agent</span>
-                <select id="runtimeAdapter" aria-label="Agent 类型"></select>
-              </label>
-              <label>
-                <span>身份</span>
-                <select id="runtimeIdentity" aria-label="登录身份"></select>
-              </label>
-              <div class="runtime-context">
-                <span>工作目录</span>
-                <div class="runtime-workspace-control">
-                  <code id="runtimeCwd">选择会话后使用其项目目录</code>
-                  <button id="runtimeWorkspaceBtn" type="button">选择目录</button>
-                  <button id="runtimeWorkspaceResetBtn" type="button" hidden>跟随会话</button>
-                </div>
-              </div>
-              <button id="runtimeStartBtn" class="primary" type="button">＋ 新建实例</button>
-            </div>
-            <div class="runtime-fleet-body">
-              <nav id="runtimeList" class="runtime-list" aria-label="运行实例">
-                <p class="runtime-list-empty">还没有运行实例</p>
-              </nav>
-              <section class="runtime-console" aria-label="当前 Agent 实例">
-                <header class="runtime-console-head">
-                  <div>
-                    <strong id="runtimeSelectedTitle">选择或新建一个 Agent</strong>
-                    <small id="runtimeSelectedMeta">可同时运行多个不同身份与工作区</small>
-                  </div>
-                  <span id="runtimeStatus" class="runtime-status" data-status="idle">未选择</span>
-                  <button id="runtimeStopBtn" type="button" disabled>停止</button>
-                </header>
-                <div id="runtimeOutput" class="runtime-output" role="log" aria-live="polite" aria-label="Agent 输出">
-                  <span class="runtime-placeholder">左侧是全部运行实例。新建后可随时切换，其他 Agent 会继续在后台工作。</span>
-                </div>
-                <form id="runtimeForm" class="runtime-form">
-                  <textarea id="runtimeInput" rows="2" maxlength="32768" placeholder="选择一个实例后输入…" disabled></textarea>
-                  <button id="runtimeSendBtn" class="primary" type="submit" disabled>发送</button>
-                </form>
-              </section>
-            </div>
-            <p id="runtimeHint" class="runtime-hint">客户端账号只是可选身份；Agent 类型、身份、工作区和运行实例彼此独立。</p>
-          </section>
+          <!-- 内嵌「多 Agent 控制台」浮层已移除：AgentDesk 专注「账号 + 会话管理」，不内嵌终端工作台 -->
+
         </section>
         <div id="accountRoster" class="account-roster" aria-label="账号名册（经典视图）"></div>
       </section>
