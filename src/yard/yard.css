@@ -124,6 +124,12 @@ body[data-view="yard"] .topbar-context::before {
   box-shadow: 0 4px 0 var(--yd-shadow);
 }
 
+/* hidden 属性必须压过上面的 display:grid（作者样式会盖过 UA 的 [hidden]）。
+   内嵌控制台默认收起就靠这条生效。 */
+.runtime-dock[hidden] {
+  display: none;
+}
+
 .runtime-head {
   display: flex;
   align-items: center;

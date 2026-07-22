@@ -81,6 +81,10 @@ test('内嵌控制台默认收起，账本行提供显隐开关', () => {
   assert.match(html, /id="consoleToggle"[^>]*aria-pressed="false"/);
   assert.match(renderer, /state\.agentConsoleOn = value\.agentConsoleOn === true/);
   assert.match(renderer, /els\.runtimeDock\.hidden = !state\.agentConsoleOn/);
+  // hidden 属性要真的隐藏 dock，必须有一条压过 .runtime-dock{display:grid} 的覆盖规则，
+  // 否则 JS 设了 hidden 也不生效（浏览器 UA 的 [hidden] 优先级最低）。
+  const yardCss = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
+  assert.match(yardCss, /\.runtime-dock\[hidden\]\s*\{\s*display:\s*none/);
 });
 
 test('不可 launch 的 CLI 槽位禁用打开按钮，账号行展示并行会话与同账号徽章', () => {
