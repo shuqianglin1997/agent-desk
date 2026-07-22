@@ -1,112 +1,192 @@
 /*
- * AgentDesk 美术统筹提案层（design proposal overlay）
- * ─────────────────────────────────────────────────
- * 状态：提案，未并入产品。只被 docs/design/after.html 引用，用于「修改后」真效果演示。
- * 原则：只动「节奏与秩序」（间距/字阶/控件高/数字排印/焦点/动效），不动结构、不动皮肤语言。
- * 采纳路径见 docs/design-review.html §5：把本文件的 token 并进 styles.css/yard.css 即可。
+ * AgentDesk 美术统筹提案层 v2（design proposal overlay）
+ * ──────────────────────────────────────────────────────
+ * 状态：提案，未并入产品。只被 docs/design/after.html 引用。
+ * v1 只调「节奏」（间距/字阶/控件高），前后差异过小。v2 落到「结构逻辑」：
+ *   ① 每个区块只显示属于它的信息（信息架构裁决，见 design-review.html §3 表）
+ *   ② 组件三级权重制：主操作(填充) > 次操作(色块) > 工具(幽灵)，形式即逻辑
+ *   ③ 列表回归日系「细线+留白」标准：藏低价值列、拉开行距、元数据退灰
+ * 两处需要 DOM 的终局项（刷新迁列表工具条、双段模式切换）以权重降级近似，见 §5。
  */
 
-/* ── 宪法 §1 设计令牌 ─────────────────────────────
- * 4px 基线网格：所有留白只允许取 --sp-*，杜绝 9/11/13 这类游离值。
- * 字阶 5 级封顶：UI 每多一个字号，层级就贬值一次。
- * 控件三档高：同一条横排里的控件必须同档，基线才对得齐。 */
+/* ═══ 宪法令牌（v1 保留） ═══ */
 :root {
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px;
-  --fs-caption: 11px;   /* 表头 / 状态栏 / 字段标签 */
-  --fs-body: 12.5px;    /* 表体 / 详情值 / 辅文 */
-  --fs-ui: 13px;        /* 按钮 / 区块标题 */
-  --fs-title: 14px;     /* 名牌 / 卡片名 */
-  --ctl-lg: 30px;       /* 主操作（打开账号） */
-  --ctl-md: 28px;       /* 次级操作按钮 / 搜索框 */
-  --ctl-sm: 24px;       /* chips / 微件 */
+  --fs-caption: 11px; --fs-body: 12.5px; --fs-ui: 13px; --fs-title: 15px;
+  --ctl-lg: 32px; --ctl-md: 28px; --ctl-sm: 24px;
   --motion: 120ms cubic-bezier(0.2, 0, 0, 1);
 }
+.table-wrap table, .quota-chip b, .inspector dd, .ledger-stat b { font-variant-numeric: tabular-nums; }
 
-/* ── 宪法 §2 数字排印 ─────────────────────────────
- * 时间/日期/百分比全部等宽数字：列里的数字才会像列，扫读不抖动。 */
-.table-wrap table,
-.quota-chip b,
-.u-detail dd, .inspector dd,
-.ledger-stat b {
-  font-variant-numeric: tabular-nums;
+/* ═══ ① 顶栏：全局身份与全局动作，动作一律幽灵级 ═══
+ * why：顶栏是"房檐"，不与工作区抢权重。带边框按钮让房檐比工作台还响。
+ * 模式切换是"状态"不是"动作"→ 胶囊高亮当前模式（终局=双段控件，需 DOM）。 */
+.topbar-actions button {
+  height: 26px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-secondary);
+  font-size: 12px;
 }
+.topbar-actions button:hover { background: var(--hover-wash); }
+.topbar-actions #viewToggle {
+  border-radius: 999px;
+  padding: 0 12px;
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: 600;
+}
+.topbar-context { font-size: 12px; color: var(--ink-tertiary); }
 
-/* ── 会话表：行高上 4px 网格，标题列主导，其余列退后 ──
- * why：表格是主工作面。标题加重 + 元数据降灰后，视线自然先扫标题；
- * 行高 38px（10+18+10）比现在的松紧不一更稳，密度不降。 */
+/* ═══ ② 账号控制条：名牌 > 主操作 > 次操作 > 工具，四级一眼可辨 ═══
+ * why：现状 7 个同权重边框按钮排排坐 = "全堆在一起"。裁决：
+ *   打开账号 = 唯一填充主操作；新增 = 色块次操作；
+ *   路径/诊断/刷新 = 幽灵工具（终局迁入管理菜单/列表工具条，见 §5）；管理 = 幽灵下拉。 */
+.account-bar { padding: 10px var(--sp-4); gap: var(--sp-2) var(--sp-3); }
+.account-id h2 { font-size: var(--fs-title); font-weight: 650; }
+.account-badge { height: 20px; display: inline-flex; align-items: center; }
+
+.account-actions { gap: 6px; }
+.account-actions button {
+  height: var(--ctl-md);
+  border: 0;
+  box-shadow: none;
+  background: var(--surface-sunken);
+  color: var(--ink-primary);
+  font-size: 12px;
+  border-radius: var(--radius-sm, 6px);
+}
+.account-actions button:hover:not(:disabled) { background: var(--hover-wash); }
+.account-actions button.primary {
+  height: var(--ctl-lg);
+  padding: 0 14px;
+  background: var(--accent);
+  color: var(--ink-on-accent, #fff);
+  font-weight: 650;
+  font-size: var(--fs-ui);
+}
+.account-actions button.primary:hover:not(:disabled) { background: var(--accent-700); }
+/* 工具级（维护类）：幽灵 + 小一档，与次操作拉开层差；用分隔线成组 */
+.account-actions #pathConfigBtn,
+.account-actions #diagnosticsBtn,
+.account-actions #refreshBtn {
+  height: var(--ctl-sm);
+  background: transparent;
+  color: var(--ink-tertiary);
+  font-size: var(--fs-caption);
+  padding: 0 8px;
+}
+.account-actions #pathConfigBtn { margin-left: var(--sp-2); position: relative; }
+.account-actions #pathConfigBtn::before {
+  content: ""; position: absolute; left: -7px; top: 4px; bottom: 4px;
+  width: 1px; background: var(--line-soft);
+}
+.account-actions #pathConfigBtn:hover,
+.account-actions #diagnosticsBtn:hover,
+.account-actions #refreshBtn:hover { color: var(--ink-primary); background: var(--hover-wash); }
+.account-manage summary {
+  height: var(--ctl-sm); display: inline-flex; align-items: center;
+  border: 0; background: transparent; box-shadow: none;
+  color: var(--ink-tertiary); font-size: var(--fs-caption);
+}
+.quota-chip { height: var(--ctl-sm); padding: 0 10px; border: 0; background: var(--surface-sunken); }
+
+/* ═══ ③ 会话列表：日系细线表——标题主导，元数据退场，低价值列裁掉 ═══
+ * 裁决：「新建」时间价值低于「活跃」，逐行占一列不值得 → 收进右侧详情（本层直接裁列）。
+ * 行高 40px、发丝线、悬停轻染：密度让位于扫读。 */
+.table-wrap th:nth-child(3), .table-wrap td:nth-child(3) { display: none; }
 .session-toolbar { padding: var(--sp-3) var(--sp-4) 10px; }
-.session-toolbar h3 { font-size: var(--fs-ui); }
-.session-toolbar input { height: var(--ctl-md); font-size: 12px; }
+.session-toolbar h3 { font-size: 12px; font-weight: 650; letter-spacing: 0.04em; }
+.session-toolbar .cnt, .session-toolbar span { font-size: var(--fs-caption); }
+.session-toolbar input {
+  height: var(--ctl-md); border: 0; background: var(--surface-sunken);
+  border-radius: var(--radius-sm, 6px); font-size: 12px;
+}
 thead th {
   padding: var(--sp-2) var(--sp-3);
-  font-size: var(--fs-caption);
-  letter-spacing: 0.02em;
+  font-size: var(--fs-caption); font-weight: 500;
+  letter-spacing: 0.04em; color: var(--ink-tertiary);
 }
-tbody td {
-  padding: 10px var(--sp-3);
-  font-size: var(--fs-body);
-  line-height: 1.35;
-}
-tbody td.title-cell { font-weight: 600; }
-/* 活跃/新建/项目/来源 = 元数据，颜色退一级；选中行标题色仍由皮肤层给 */
-tbody td:not(.title-cell) { color: var(--ink-tertiary, #6b7280); }
-body[data-view="yard"] tbody td:not(.title-cell) { color: var(--yd-ink2); }
+tbody td { padding: 11px var(--sp-3); font-size: var(--fs-body); line-height: 1.35; }
+tbody td.title-cell { font-weight: 600; font-size: var(--fs-ui); }
+tbody td:not(.title-cell) { color: var(--ink-tertiary); }
+tbody tr:hover:not(.selected) { background: var(--hover-wash); }
 
-/* ── 控制条：一行之内三档控件基线对齐 ──
- * why：现在 打开账号(30) / 次级(28~30) / chips(自然高) / 徽章(自然高) 各自为政，
- * 行内基线错位是「说不出哪里不对」的主要来源。统一三档后一眼安定。 */
-.account-bar { padding: 10px var(--sp-4); gap: var(--sp-2) var(--sp-3); }
-.account-id h2 { font-size: var(--fs-title); }
-.account-badge { height: 20px; display: inline-flex; align-items: center; }
-.account-actions { gap: 6px; }
-.account-actions button { height: var(--ctl-md); font-size: 12px; }
-.account-actions button.primary { height: var(--ctl-lg); font-weight: 650; }
-.account-manage summary { height: var(--ctl-md); display: inline-flex; align-items: center; }
-.quota-chip { height: var(--ctl-sm); padding: 0 10px; }
-
-/* ── 名册卡片：内距统一 12px，额度条细到 4px 贴文本栅格 ──
- * why：额度条是「状态糖」不是数据图表；6px 时它抢卡片视觉底部，4px 刚好读得到又不喧宾。 */
+/* ═══ ④ 经典名册卡：名(重) > 组(轻) > 状态(点示意) > 额度(细条) ═══ */
 .account-card { padding: var(--sp-3); }
 .account-card-top { gap: 10px; }
-.account-card-name { font-size: var(--fs-title); }
-.account-card-state { margin-top: 10px; font-size: 11.5px; }
+.account-card-name { font-size: 13.5px; font-weight: 650; }
+.account-card-group { font-size: var(--fs-caption); }
+.account-card-state { margin-top: 10px; font-size: 11.5px; color: var(--ink-tertiary); }
 .account-card-quota { height: 4px; margin-top: var(--sp-3); }
 .account-card-avatar { border-radius: 8px; }
 
-/* ── 会话详情：标签-值节奏 10/2，值用正文档字号 ── */
-.inspector h3 { font-size: var(--fs-ui); }
-.inspector dt { margin-top: 10px; font-size: 10.5px; letter-spacing: 0.03em; }
+/* ═══ ⑤ 会话详情：字段簿——标签 10.5 / 值 12.5，动作两级 ═══ */
+.inspector h3 { font-size: 12px; font-weight: 650; letter-spacing: 0.04em; }
+.inspector dt { margin-top: 10px; font-size: 10.5px; letter-spacing: 0.03em; color: var(--ink-tertiary); }
 .inspector dd { margin-top: 2px; font-size: var(--fs-body); }
 .inspector-actions { gap: var(--sp-2); }
-.inspector-actions button { height: var(--ctl-lg); }
-
-/* ── 状态栏 / 顶栏文案 ── */
-.status-bar { font-size: var(--fs-caption); padding: 0 var(--sp-4); }
-.topbar-context { font-size: 12px; }
-
-/* ── 宪法 §3 焦点与动效 ─────────────────────────────
- * 键盘焦点环全站一致（porcelain 蓝 / yard 橙）；hover 反馈统一 120ms 一档缓动。 */
-button:focus-visible,
-.quota-chip:focus-visible,
-input:focus-visible,
-.account-card:focus-visible {
-  outline: 2px solid var(--accent, #3b82f6);
-  outline-offset: 2px;
+.inspector-actions button {
+  height: var(--ctl-md); border: 0; box-shadow: none;
+  background: var(--surface-sunken); font-size: 12px; border-radius: var(--radius-sm, 6px);
 }
-body[data-view="yard"] button:focus-visible,
-body[data-view="yard"] .quota-chip:focus-visible,
-body[data-view="yard"] input:focus-visible {
-  outline-color: var(--yd-primary);
+.inspector-actions button.primary {
+  height: var(--ctl-lg); background: var(--accent);
+  color: var(--ink-on-accent, #fff); font-weight: 650;
+}
+.inspector-actions button:hover:not(:disabled) { background: var(--hover-wash); }
+.inspector-actions button.primary:hover:not(:disabled) { background: var(--accent-700); }
+
+/* ═══ ⑥ 信息带 / 状态栏：注脚层 ═══ */
+.attention-inbox { font-size: 11.5px; }
+.status-bar { font-size: var(--fs-caption); padding: 0 var(--sp-4); color: var(--ink-tertiary); }
+
+/* ═══ 焦点与动效（v1 保留） ═══ */
+button:focus-visible, .quota-chip:focus-visible, input:focus-visible, .account-card:focus-visible {
+  outline: 2px solid var(--accent, #3b82f6); outline-offset: 2px;
 }
 button, .quota-chip, .account-card, tbody tr {
-  transition: background-color var(--motion), border-color var(--motion), transform var(--motion), box-shadow var(--motion);
+  transition: background-color var(--motion), border-color var(--motion), color var(--motion);
 }
-@media (prefers-reduced-motion: reduce) {
-  button, .quota-chip, .account-card, tbody tr { transition: none; }
-}
+@media (prefers-reduced-motion: reduce) { button, .quota-chip, .account-card, tbody tr { transition: none; } }
 
-/* ── 庭院皮肤内的同档对齐（只调数值，不动木质语言） ── */
-body[data-view="yard"] .account-actions button { height: var(--ctl-md); }
-body[data-view="yard"] .account-actions button.primary { height: var(--ctl-lg); }
-body[data-view="yard"] .account-bar .quota-chip { height: var(--ctl-sm); }
+/* ═══ 庭院皮肤：同一套权重逻辑，木质语言表达 ═══
+ * 主操作=饱和橙大牌；次操作=木牌；工具=面板色安静小片；层级同 porcelain，只换材质。 */
+body[data-view="yard"] .topbar-actions button {
+  border: 2px solid transparent; background: transparent; box-shadow: none; color: var(--yd-ink2);
+}
+body[data-view="yard"] .topbar-actions button:hover { background: rgba(51, 38, 26, 0.08); color: var(--yd-ink); }
+body[data-view="yard"] .topbar-actions #viewToggle {
+  border-radius: 999px; background: rgba(217, 111, 51, 0.16); color: var(--yd-primary); font-weight: 700;
+}
+body[data-view="yard"] .account-actions button {
+  height: var(--ctl-md); border: 2px solid var(--yd-line);
+  background: var(--yd-wood); color: var(--yd-on-wood);
+  box-shadow: 0 2px 0 var(--yd-shadow); border-radius: 0; font-size: 12px;
+}
+body[data-view="yard"] .account-actions button.primary {
+  height: var(--ctl-lg); background: var(--yd-primary); color: #fff7e8; font-size: var(--fs-ui);
+}
+body[data-view="yard"] .account-actions #pathConfigBtn,
+body[data-view="yard"] .account-actions #diagnosticsBtn,
+body[data-view="yard"] .account-actions #refreshBtn {
+  height: var(--ctl-sm); background: var(--yd-panel); color: var(--yd-ink2);
+  box-shadow: none; font-size: var(--fs-caption);
+}
+body[data-view="yard"] .account-actions #pathConfigBtn::before { background: color-mix(in srgb, var(--yd-line) 40%, transparent); }
+body[data-view="yard"] .account-manage summary {
+  height: var(--ctl-sm); background: transparent; border: 0; box-shadow: none;
+  color: var(--yd-ink2); font-size: var(--fs-caption);
+}
+body[data-view="yard"] .session-toolbar input { border: 2px solid var(--yd-line); background: #fffdf5; border-radius: 0; }
+body[data-view="yard"] tbody td:not(.title-cell) { color: var(--yd-ink2); }
+body[data-view="yard"] tbody tr:hover:not(.selected) { background: rgba(51, 38, 26, 0.05); }
+body[data-view="yard"] .inspector-actions button {
+  border: 2px solid var(--yd-line); background: var(--yd-wood);
+  color: var(--yd-on-wood); box-shadow: 0 2px 0 var(--yd-shadow); border-radius: 0;
+}
+body[data-view="yard"] .inspector-actions button.primary { background: var(--yd-primary); color: #fff7e8; }
+body[data-view="yard"] .account-bar .quota-chip { height: var(--ctl-sm); border: 1px solid var(--yd-line); background: var(--yd-panel); }
 body[data-view="yard"] .yard-ledger { font-size: var(--fs-caption); }
+body[data-view="yard"] button:focus-visible, body[data-view="yard"] input:focus-visible { outline-color: var(--yd-primary); }
