@@ -14,7 +14,7 @@
   'use strict';
 
   const WIDTH = 480;
-  const HEIGHT = 132;
+  const HEIGHT = 236; // 与 scene.js 的逻辑画布同步（前景草坪带）
   const ZONES = Object.freeze([
     Object.freeze({ id: 'workshop', label: '工作亭', hint: '打开账号', x0: 10, y0: 16, x1: 108, y1: 78, priority: 6 }),
     Object.freeze({ id: 'mailbox', label: '邮筒', hint: '复制交接', x0: 104, y0: 40, x1: 132, y1: 76, priority: 8 }),

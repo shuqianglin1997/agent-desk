@@ -13,7 +13,9 @@
   'use strict';
 
   const W = 480;
-  const H = 132;
+  // 236 = 原 132 横带 + 前景草坪带；既有元素坐标全部不动，新增高度都给草地，
+  // 让庭院在宽屏下占满左列而不是留一条空白。
+  const H = 236;
   const LINE = '#33261a';
   const WOOD = '#8a5c34';
   const WOODL = '#b9854e';
@@ -86,7 +88,7 @@
     }
     return out;
   }
-  const GRASS_DOTS = scatter(190, 7, 2, 52, W - 2, H - 4);
+  const GRASS_DOTS = scatter(430, 7, 2, 52, W - 2, H - 4); // 草地变深，噪点按面积等比补足
   const STAR_DOTS = scatter(30, 12, 4, 2, W - 4, 32);
   const FIREFLIES = scatter(6, 23, 60, 60, W - 40, H - 16);
 
@@ -179,8 +181,8 @@
         const col = i % perRow;
         const row = Math.floor(i / perRow);
         let homeX = Math.min(startX + col * spacing, GROUND_X1 - 10);
-        let homeY = 98 + Math.min(1, row) * 16;
-        if (row > 1) { homeX = Math.min(homeX + 12, GROUND_X1 - 10); homeY = 106; } // 溢出兜底，轻微叠放
+        // 前景草坪带打开后按行往下排（行距 42 给名牌留高度），底部封顶
+        let homeY = Math.min(98 + row * 42, H - 26);
         const saved = root.YardInteractions
           ? root.YardInteractions.normalizePoint(data.positionsById[profile.id])
           : null;
@@ -274,7 +276,7 @@
     const r = Math.random();
     if (r < 0.45) {
       a.tx = clamp(entry.home.x + (Math.random() * 56 - 28), entry.band.x0, entry.band.x1);
-      a.ty = clamp(entry.home.y + (Math.random() * 16 - 6), 96, 124);
+      a.ty = clamp(entry.home.y + (Math.random() * 24 - 9), 96, H - 26);
     } else if (r < 0.62 && Math.abs(entry.home.x - POND.cx) < 190) {
       a.tx = POND.x0 + 6 + Math.random() * (POND.x1 - POND.x0 - 12);
       a.ty = 90;
@@ -641,6 +643,42 @@
     });
   }
 
+  // 前景草坪带（y≥132）：小径延伸、踏石、灌木、花圃、石块与草簇。
+  // 与上半场同一像素语言：同调色、2px 网格、硬阴影。
+  function drawForeground(P) {
+    const path = mix(P.grass, '#d8c49a', P.stars ? 0.35 : 0.6);
+    // 主径向下延伸，再向右岔到前景中部
+    rect(52, 104, 12, 96, path);
+    rect(52, 188, 96, 12, path);
+    for (let i = 0; i < 11; i++) rect(55 + (i % 2) * 5, 108 + i * 8, 3, 2, mix(path, LINE, 0.18));
+    for (let i = 0; i < 6; i++) rect(66 + i * 14, 192 + (i % 2) * 3, 3, 2, mix(path, LINE, 0.18));
+    // 踏石：池塘下方一串
+    [[210, 150], [232, 162], [254, 152], [276, 164]].forEach(([x, y]) => {
+      rect(x, y, 8, 4, STONE);
+      rect(x + 1, y + 4, 6, 1, mix(STONE, LINE, 0.35));
+    });
+    // 左下灌木丛
+    rect(24, 196, 26, 12, P.leaf1);
+    rect(28, 192, 18, 8, P.leaf2);
+    rect(20, 200, 32, 8, P.leaf1);
+    ctx.fillStyle = 'rgba(20,30,20,.12)'; ctx.fillRect(22, 206, 30, 3);
+    // 右下花圃（与上半场花圃同款）
+    rect(376, 178, 48, 10, mix(P.grass, '#4a7034', 0.5));
+    [[380, 180, '#e8a0b8'], [387, 183, '#f0d060'], [394, 179, '#f8f0e0'], [402, 182, '#e8a0b8'], [410, 180, '#f0d060'], [417, 183, '#f8f0e0']].forEach(([x, y, c]) => {
+      rect(x, y, 2, 2, c); rect(x, y + 2, 1, 2, '#4a7034');
+    });
+    // 零星石块
+    [[150, 170], [330, 146], [430, 214], [96, 158]].forEach(([x, y]) => {
+      rect(x, y, 5, 3, STONE);
+      rect(x + 1, y - 1, 3, 1, mix(STONE, '#ffffff', 0.25));
+    });
+    // 草簇（比噪点大一号的三叶草叶）
+    [[120, 200], [200, 216], [300, 190], [360, 210], [70, 146], [250, 176]].forEach(([x, y], i) => {
+      const g = i % 2 ? P.grassD : mix(P.grassD, '#ffffff', 0.1);
+      rect(x, y, 1, 3, g); rect(x + 2, y + 1, 1, 2, g); rect(x - 2, y + 1, 1, 2, g);
+    });
+  }
+
   function drawBush(P) {
     // 池塘右侧一丛灌木，填补空旷
     const b1 = P.leaf1, b2 = P.leaf2;
@@ -846,6 +884,7 @@
       ctx.clearRect(0, 0, W, H);
       drawBackdrop(P);
       drawGround(P);
+      drawForeground(P);
       drawFence();
       drawFlowerBed(P);
       drawBush(P);

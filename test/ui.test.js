@@ -54,7 +54,9 @@ test('多 Agent Fleet 占用庭院下方工作区，身份和工作区解耦且�
   assert.match(html, /id="runtimeList"[\s\S]*?id="runtimeOutput"/);
   assert.match(html, /id="runtimeAdapter"[\s\S]*?id="runtimeIdentity"/);
   assert.match(html, /id="runtimeRegistryBtn"[\s\S]*?id="agentRegistryDialog"[\s\S]*?id="discoveredAgentList"/);
-  assert.match(yardStyles, /grid-template-rows:\s*auto auto minmax\(170px, 1fr\)/);
+  // 控制台收起后 stage 三行全 auto（无空转 1fr）；展开时按固定高度出现
+  assert.match(yardStyles, /\.yard-stage\s*\{[\s\S]*?grid-template-rows:\s*auto auto auto/);
+  assert.match(yardStyles, /\.runtime-dock:not\(\[hidden\]\)\s*\{\s*height:/);
   assert.match(preload, /listTerminalAdapters:[\s\S]*?runtime:adapters/);
   assert.match(preload, /listTerminalRuntimes:[\s\S]*?runtime:list/);
   assert.match(preload, /pickTerminalWorkspace:[\s\S]*?runtime:pickWorkspace/);
@@ -127,4 +129,15 @@ test('账号为轴：庭院一只猫=一个账号组，会话合流并记录归�
   // 排行榜与账号条也按组聚合
   assert.match(renderer, /const rows = identityGroups\(\)\.map/);
   assert.match(renderer, /for \(const group of identityGroups\(\)\) \{/);
+});
+
+test('庭院画布纵向扩展：前景草坪带同步到画布/交互/HTML 三处', () => {
+  const scene = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'scene.js'), 'utf8');
+  const interactions = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'interactions.js'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
+  assert.match(scene, /const H = 236/);
+  assert.match(interactions, /const HEIGHT = 236/);
+  assert.match(html, /id="yardCanvas" width="480" height="236"/);
+  // 前景带画在地面之后、栅栏之前（被猫和亭子盖住的层序）
+  assert.match(scene, /drawGround\(P\);\s*drawForeground\(P\);/);
 });
