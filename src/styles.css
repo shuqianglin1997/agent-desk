@@ -989,6 +989,15 @@ body[data-view="classic"] .account-manage {
   font-weight: 700;
 }
 
+/* 无官方额度接口的账号折叠为一行说明，不逐行刷灰 */
+.quota-overview-rest {
+  grid-column: 1 / -1;
+  padding: 2px 8px;
+  color: var(--ink-tertiary);
+  font-size: 9px;
+  list-style: none;
+}
+
 .main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 328px);

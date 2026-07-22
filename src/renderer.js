@@ -713,7 +713,7 @@ function bindEvents() {
     const profile = selectedProfile();
     const session = selectedSession();
     if (!profile || !session) return;
-    await window.manager.writeClipboard(makeHandoffText(profile, session));
+    await window.manager.writeClipboard(makeHandoffText(sessionOwnerProfile(session), session));
     if (isYardView()) {
       window.YardScene.fx('handoff');
       setStatus(`${profile.name} 把交接信投进了邮筒 —— 已复制，粘给新会话即可。`);
@@ -740,8 +740,9 @@ function bindEvents() {
     const profile = selectedProfile();
     const session = selectedSession();
     if (!profile || !session?.filePath) return;
+    // 合流列表中会话可能属于组内另一个槽位，操作按归属槽位走
     const result = await window.manager.revealSession({
-      profileId: profile.id,
+      profileId: sessionOwnerProfile(session).id,
       sessionId: session.id,
       filePath: session.filePath
     });
@@ -753,7 +754,7 @@ function bindEvents() {
     const session = selectedSession();
     if (!profile || !session || !window.manager.exportSession) return;
     const result = await window.manager.exportSession({
-      profileId: profile.id,
+      profileId: sessionOwnerProfile(session).id,
       sessionId: session.id
     });
     if (result?.canceled) return;
@@ -885,8 +886,28 @@ async function loadProfiles(preferredId = null) {
 
 async function loadSessions(selectFirst = false) {
   const profile = selectedProfile();
-  state.sessions = profile ? await window.manager.listSessions(profile) : [];
+  if (!profile) {
+    state.sessions = [];
+    applySessionFilter(selectFirst);
+    return;
+  }
+  // 会话按「账号」合流：同一登录身份的所有槽位（桌面 / CLI / Work…）一起列。
+  // 每条记录带上归属槽位 id，定位 / 导出仍指向正确的槽位；「来源」列区分形态。
+  const group = groupOfProfile(profile.id);
+  const members = group ? group.members : [profile];
+  const lists = await Promise.all(members.map(async (member) => {
+    const records = await window.manager.listSessions(member);
+    return (Array.isArray(records) ? records : []).map((record) => ({ ...record, _profileId: member.id }));
+  }));
+  state.sessions = lists.flat().sort((a, b) => (
+    new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime()
+  ));
   applySessionFilter(selectFirst);
+}
+
+// 合流列表里每条会话真正归属的槽位（操作要用它，不能用当前选中槽位）
+function sessionOwnerProfile(session) {
+  return state.profiles.find((item) => item.id === session?._profileId) || selectedProfile();
 }
 
 // ── 账号额度（Beta）────────────────────────────────────
@@ -1075,12 +1096,18 @@ function renderQuotaSummary() {
 
 function renderQuotaOverview() {
   if (!els.quotaOverview || !window.QuotaOverview) return;
-  const profiles = Array.isArray(state.profiles) ? state.profiles : [];
-  // A single account has no "cross-account" story to tell.
-  els.quotaOverview.hidden = profiles.length < 2;
+  // 总览按「账号」而不是槽位：同一登录身份的多个槽位只出一行，
+  // 行代表取组内有真实额度快照的那个（额度只在部分客户端有官方 API）。
+  const groups = identityGroups();
+  els.quotaOverview.hidden = groups.length < 2;
   if (els.quotaOverview.hidden) return;
 
-  const rows = window.QuotaOverview.buildQuotaOverview(profiles, state.quotas, Date.now());
+  const representatives = groups.map((group) => {
+    const holder = group.members.find((member) => state.quotas[member.id]?.status === 'ok') || group.primary;
+    return { ...holder, name: group.primary.name };
+  });
+
+  const rows = window.QuotaOverview.buildQuotaOverview(representatives, state.quotas, Date.now());
   const withQuota = rows.filter((row) => row.hasQuota).length;
   if (els.quotaOverviewMeta) {
     els.quotaOverviewMeta.textContent = withQuota
@@ -1089,7 +1116,12 @@ function renderQuotaOverview() {
   }
 
   els.quotaOverviewList.replaceChildren();
+  const unsupported = [];
   for (const row of rows) {
+    if (row.status === 'unsupported') {
+      unsupported.push(row);
+      continue; // 折叠到尾部一行，不再一账号一行灰字刷屏
+    }
     const item = document.createElement('li');
     item.className = 'quota-overview-item';
     item.dataset.status = row.status;
@@ -1106,16 +1138,20 @@ function renderQuotaOverview() {
       value.textContent = `${row.tightest.label} 剩 ${Math.round(row.tightest.remainingPercent)}%`;
       item.title = `${row.name} · ${formatQuotaReset(row.tightest.resetsAt)}`;
     } else {
-      value.textContent = row.status === 'loading'
-        ? '查询中…'
-        : row.status === 'unsupported'
-          ? '暂不支持'
-          : (row.reason || '无额度数据');
+      value.textContent = row.status === 'loading' ? '查询中…' : (row.reason || '无额度数据');
       item.title = row.reason || value.textContent;
     }
 
     item.append(name, value);
     els.quotaOverviewList.append(item);
+  }
+
+  if (unsupported.length) {
+    const rest = document.createElement('li');
+    rest.className = 'quota-overview-rest';
+    rest.textContent = `其余 ${unsupported.length} 个账号暂无官方额度接口`;
+    rest.title = unsupported.map((row) => row.name).join('、');
+    els.quotaOverviewList.append(rest);
   }
 }
 
@@ -2156,27 +2192,41 @@ function renderLedger() {
 function syncYard() {
   if (yardMounted) {
     const now = Date.now();
+    const groups = identityGroups();
     const statesById = {};
     const energyById = {};
     const attentionById = {};
-    for (const profile of state.profiles) {
-      statesById[profile.id] = window.YardCats.deriveState(now, profile, state.activity[profile.id]);
-      energyById[profile.id] = window.YardEnergy
-        ? window.YardEnergy.deriveEnergy(state.quotaError ? null : state.quotas[profile.id], now)
+    // 一只猫 = 一个账号（组）：状态吃组内所有形态的聚合活跃，
+    // 任一形态在干活猫就在打字；额度取组内有真实快照的那个槽位。
+    for (const group of groups) {
+      const primary = group.primary;
+      const merged = window.IdentityGroups
+        ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
+        : state.activity[primary.id];
+      statesById[primary.id] = window.YardCats.deriveState(now, primary, merged);
+      const snapshot = group.members
+        .map((member) => state.quotas[member.id])
+        .find((quota) => quota && quota.status === 'ok') || state.quotas[primary.id];
+      energyById[primary.id] = window.YardEnergy
+        ? window.YardEnergy.deriveEnergy(state.quotaError ? null : snapshot, now)
         : 'unknown';
-      if (statesById[profile.id] === 'confused') {
-        attentionById[profile.id] = { kind: 'error', text: '会话路径需要检查' };
-      } else if (profile.id === state.selectedProfileId && energyById[profile.id] === 'exhausted') {
-        attentionById[profile.id] = { kind: 'warning', text: '额度快用完了' };
+      const broken = group.members.find(
+        (member) => window.YardCats.deriveState(now, member, state.activity[member.id]) === 'confused'
+      );
+      if (broken) {
+        attentionById[primary.id] = { kind: 'error', text: `${broken.name} 的会话路径需要检查` };
+      } else if (group.members.some((member) => member.id === state.selectedProfileId) && energyById[primary.id] === 'exhausted') {
+        attentionById[primary.id] = { kind: 'warning', text: '额度快用完了' };
       }
     }
+    const selectedGroup = groupOfProfile(state.selectedProfileId);
     window.YardScene.update({
-      profiles: state.profiles,
+      profiles: groups.map((group) => group.primary),
       statesById,
       energyById,
       positionsById: state.yardPositions,
       attentionById,
-      selectedId: state.selectedProfileId,
+      selectedId: selectedGroup ? selectedGroup.primary.id : state.selectedProfileId,
       night: document.documentElement.dataset.theme === 'dark'
     });
   }
@@ -2187,20 +2237,23 @@ function syncYard() {
   if (els.leaderboardDialog.open) renderLeaderboard();
 }
 
-// 工作量排行榜：各账号今日活跃/新建场次 + 实时干活状态，算分排序
+// 工作量排行榜：各账号（组）今日活跃/新建场次 + 实时干活状态，算分排序
 function renderLeaderboard() {
   if (!window.YardWorkload || !window.YardCats || !window.YardSprites) return;
   const now = Date.now();
-  const rows = state.profiles.map((profile) => {
-    const act = state.activity[profile.id] || {};
+  const rows = identityGroups().map((group) => {
+    const primary = group.primary;
+    const act = (window.IdentityGroups
+      ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
+      : state.activity[primary.id]) || {};
     return {
-      name: profile.name,
-      appId: profile.appId,
-      cat: profile.cat,
-      isProtected: profile.isProtected,
+      name: primary.name,
+      appId: primary.appId,
+      cat: primary.cat,
+      isProtected: primary.isProtected,
       activeToday: act.activeToday || 0,
       createdToday: act.createdToday || 0,
-      working: window.YardCats.deriveState(now, profile, act) === 'working'
+      working: window.YardCats.deriveState(now, primary, act) === 'working'
     };
   });
   const ranked = window.YardWorkload.rankAccounts(rows);
@@ -2277,23 +2330,29 @@ function renderYardAccountStrip() {
   if (!els.yardAccountStrip) return;
   els.yardAccountStrip.replaceChildren();
   const now = Date.now();
-  for (const profile of state.profiles) {
+  // 快速切换条与庭院同轴：一个 chip = 一个账号（组）
+  for (const group of identityGroups()) {
+    const primary = group.primary;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'yard-account-chip';
-    button.classList.toggle('selected', profile.id === state.selectedProfileId);
+    button.classList.toggle('selected', group.members.some((member) => member.id === state.selectedProfileId));
+    const merged = window.IdentityGroups
+      ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
+      : state.activity[primary.id];
     const activityState = window.YardCats
-      ? window.YardCats.deriveState(now, profile, state.activity[profile.id])
+      ? window.YardCats.deriveState(now, primary, merged)
       : 'rest';
     button.dataset.state = activityState;
     const dot = document.createElement('span');
     dot.className = 'yard-account-dot';
-    dot.style.background = appColor(profile.appId);
+    dot.style.background = appColor(primary.appId);
     const name = document.createElement('b');
-    name.textContent = profile.name;
+    name.textContent = primary.name;
     button.append(dot, name);
-    button.title = `${profile.name} · ${window.YardCats?.STATE_META?.[activityState]?.label || activityState}`;
-    button.addEventListener('click', () => selectProfile(profile.id));
+    const forms = group.members.length > 1 ? ` · ${group.members.length} 个形态` : '';
+    button.title = `${primary.name}${forms} · ${window.YardCats?.STATE_META?.[activityState]?.label || activityState}`;
+    button.addEventListener('click', () => selectProfile(primary.id));
     els.yardAccountStrip.append(button);
   }
 }
@@ -2355,16 +2414,25 @@ function appendAccountRow(profile) {
   els.accountList.append(button);
 }
 
+// 账号身份分组：同一登录账号的多个槽位归为一组（identityKey 或指纹关联）。
+// 庭院一只猫 = 一个账号组；会话与额度也按组聚合。
+function identityGroups() {
+  if (!window.IdentityGroups) return state.profiles.map((profile) => ({ key: profile.id, primary: profile, members: [profile] }));
+  return window.IdentityGroups.groupProfilesByIdentity(state.profiles);
+}
+
+function groupOfProfile(profileId) {
+  if (!profileId) return null;
+  return identityGroups().find((group) => group.members.some((member) => member.id === profileId)) || null;
+}
+
 // 同一登录身份的其他槽位：手动 identityKey 相同，或自动指纹
 // （main 侧按账号 UUID 哈希出的 identityFingerprint）相同。
 function identityPeersOf(profile) {
   if (!profile) return [];
-  return state.profiles.filter((item) => {
-    if (item.id === profile.id) return false;
-    if (profile.identityKey && item.identityKey === profile.identityKey) return true;
-    if (profile.identityFingerprint && item.identityFingerprint === profile.identityFingerprint) return true;
-    return false;
-  });
+  const group = groupOfProfile(profile.id);
+  if (!group) return [];
+  return group.members.filter((member) => member.id !== profile.id);
 }
 
 function populateIdentityDatalist() {
@@ -2444,12 +2512,17 @@ function renderAccountHeader() {
   }
 
   els.accountTitle.textContent = profile.name;
-  const groupLabel = profile.group ? ` · ${profile.group}` : '';
-  const activeNow = state.activity[profile.id]?.activeNow || 0;
+  // 分组名与客户端名相同就不重复念一遍（例如 group=Claude 的 Claude 槽位）
+  const groupLabel = profile.group && profile.group !== appLabel(profile.appId) ? ` · ${profile.group}` : '';
+  const identityGroup = groupOfProfile(profile.id);
+  const members = identityGroup ? identityGroup.members : [profile];
+  // 并行会话数按整个账号（组）聚合：桌面在跑 + 终端在跑 = 一起数
+  const activeNow = members.reduce((acc, member) => acc + (state.activity[member.id]?.activeNow || 0), 0);
   const busyLabel = activeNow > 0 ? ` · ⌨ ${activeNow} 个会话进行中` : '';
-  const headerPeers = identityPeersOf(profile);
-  const identityLabel = headerPeers.length ? ` · ⛓ 与 ${headerPeers.map((peer) => peer.name).join('、')} 同账号` : '';
-  els.accountMeta.textContent = `${appLabel(profile.appId)} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel}${busyLabel}${identityLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
+  const formLabel = members.length > 1
+    ? ` · ⛓ 一个账号 ${members.length} 个形态（${members.map((member) => appLabel(member.appId)).join(' + ')}）`
+    : '';
+  els.accountMeta.textContent = `${appLabel(profile.appId)} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel}${busyLabel}${formLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
   els.accountPath.textContent = `账号 ${shortPath(profile.profilePath)} · 会话 ${shortPath(profile.sessionRoot)}`;
   els.accountNote.textContent = profile.note || '';
   els.accountNote.style.display = profile.note ? '' : 'none';
