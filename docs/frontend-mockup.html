@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AgentDesk · 统一设计 · 定窗真实效果</title>
+<style>
+:root{--font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC",sans-serif;--mono:ui-monospace,"SF Mono","PingFang SC",monospace}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--font);min-height:100vh;display:grid;place-items:center;padding:26px;
+  background:radial-gradient(120% 120% at 50% 0%,#e9e9ee,#d5d6dd 70%,#c9cad2)}
+
+/* ====== 固定窗口 1200×800（3:2）· 不自适应 ====== */
+.window{width:1040px;height:840px;border-radius:13px;overflow:hidden;position:relative;
+  box-shadow:0 30px 80px -24px rgba(20,20,30,.5),0 8px 24px -12px rgba(20,20,30,.35);
+  display:grid;grid-template-rows:38px 1fr}
+.titlebar{display:flex;align-items:center;gap:10px;padding:0 14px;height:38px;-webkit-user-select:none;position:relative}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;border-radius:50%;display:block}
+.lights .r{background:#ff5f57}.lights .y{background:#febc2e}.lights .g{background:#28c840}
+.wtitle{position:absolute;left:0;right:0;text-align:center;font-size:12.5px;font-weight:600;pointer-events:none}
+.wswitch{margin-left:auto;display:flex;border-radius:8px;overflow:hidden;border:1px solid rgba(0,0,0,.14);font-size:12px;z-index:2}
+.wswitch button{font:inherit;font-weight:600;padding:4px 12px;border:0;cursor:pointer}
+
+/* ====== 统一骨架（固定行高，无媒体查询）====== */
+.u-shell{display:grid;grid-template-rows:44px auto auto 1fr 24px;min-height:0}
+.u-topbar{display:flex;align-items:center;gap:12px;padding:0 16px}
+.u-topbar b{font-weight:650;font-size:14px}
+.u-topbar .ctx{font-size:12px;opacity:.6}
+.u-topbar .sp{margin-left:auto}
+.u-topbar button{font:inherit;font-size:12px;cursor:pointer;padding:4px 9px}
+.presenter{position:relative;overflow:hidden}
+.u-console{display:flex;align-items:center;gap:10px;padding:8px 16px;flex-wrap:wrap}
+.u-work{display:grid;grid-template-columns:1fr 312px;min-height:0}
+.u-list{min-width:0;min-height:0;display:grid;grid-template-rows:auto 1fr}
+.u-detail{min-height:0;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+.u-status{display:flex;align-items:center;padding:0 16px;font-size:11px}
+
+.u-toolbar{display:flex;align-items:center;gap:12px;padding:10px 16px 9px}
+.u-toolbar h3{margin:0;font-size:14px;font-weight:650}
+.u-toolbar .cnt{font-size:12px;opacity:.6}
+.u-toolbar input{margin-left:auto;font:inherit;font-size:12px;padding:6px 11px;width:min(300px,42%)}
+.twrap{overflow:auto;margin:0 16px 14px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{position:sticky;top:0;text-align:left;font-weight:600;font-size:11px;padding:8px 12px}
+tbody td{padding:7px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}
+tbody td.title{font-weight:550}
+tbody tr{cursor:pointer}
+.col-t{width:36%}.col-p{width:24%}
+
+.acct-id{display:flex;align-items:center;gap:9px;min-width:0}
+.acct-id .nm{font-weight:650;font-size:14px;white-space:nowrap}
+.acct-id .badge{font-size:11px;padding:1px 7px;border-radius:20px}
+.acct-ops{display:flex;gap:6px;flex-wrap:wrap}
+.acct-ops button{font:inherit;font-size:12px;padding:5px 11px;cursor:pointer}
+.quota-chips{display:flex;gap:6px;margin-left:auto;align-items:center}
+.qc{display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 9px;border-radius:20px}
+.qc .mtr{width:38px;height:5px;border-radius:3px;overflow:hidden}
+.qc .mtr i{display:block;height:100%}
+
+.u-detail h4{margin:0;padding:12px 16px 8px;font-size:13px;font-weight:650}
+.u-detail dl{margin:0;padding:0 16px;overflow:auto;font-size:12.5px}
+.u-detail dt{opacity:.55;font-size:11px;margin-top:9px}
+.u-detail dd{margin:1px 0 0}
+.u-detail .acts{display:grid;gap:7px;padding:12px 16px}
+.u-detail .acts button{font:inherit;font-size:12.5px;padding:8px;cursor:pointer;width:100%}
+
+/* 猫猫庭院场景：全宽满铺（无卡纸、无左右空白），高度固定 */
+/* 满铺 + 裁掉底部空草坪：只显示密实的庭院本体（原 ~132 高构图），无左右空白、无大片空绿 */
+.scene-band{height:300px;position:relative;overflow:hidden;background:#000}
+.scene-stage{position:absolute;top:0;left:0;width:100%}
+.scene-stage canvas{display:block;width:100%;height:auto;image-rendering:pixelated}
+.scene-band .atmos{position:absolute;top:8px;right:8px;display:flex;gap:5px;z-index:3}
+.scene-band .atmos button{font:inherit;font-size:10px;padding:3px 8px;border:2px solid #33261a;background:rgba(247,241,221,.9);color:#33261a;cursor:pointer}
+.scene-band .atmos button[aria-pressed="true"]{background:#d96f33;color:#fff7e8}
+.scene-band .ledger{position:absolute;left:10px;bottom:10px;z-index:3;display:flex;align-items:center;gap:8px;
+  padding:5px 11px;border:2px solid #33261a;background:rgba(239,230,201,.94);color:#6f5d46;font-size:11px;box-shadow:0 2px 0 rgba(51,38,26,.25)}
+.scene-band .ledger b{color:#d96f33}.scene-band .ledger .title{font-weight:750;color:#33261a}
+.scene-band .ledger .tog{border:1px solid #33261a;background:#f7f1dd;padding:1px 7px;cursor:pointer;font-size:10px}
+
+/* 经典名册带：卡片满铺（无空白），同占呈现槽 */
+.roster-band{display:none;padding:14px 16px}
+.roster{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:12px}
+.acct-card{border-radius:12px;padding:13px 14px;cursor:pointer;transition:.15s;min-width:0}
+.acct-card .top{display:flex;align-items:center;gap:10px}
+.acct-card canvas{width:44px;height:42px;image-rendering:pixelated;border-radius:9px;flex:none}
+.acct-card .nm{font-weight:600;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acct-card .gp{font-size:11px}
+.acct-card .st{display:flex;align-items:center;gap:6px;margin-top:11px;font-size:12px}
+.acct-card .st .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.acct-card .qbar{height:6px;border-radius:3px;margin-top:11px;overflow:hidden}
+.acct-card .qbar i{display:block;height:100%}
+
+/* ===== 皮肤 · 猫猫庭院（像素木质）===== */
+body[data-view="yard"] .window{background:#e7ddc4}
+body[data-view="yard"] .titlebar{background:#e6dcc2;border-bottom:2px solid #33261a}
+body[data-view="yard"] .wtitle{color:#33261a}
+body[data-view="yard"] .wswitch button{background:#f7f1dd;color:#6f5d46}
+body[data-view="yard"] .wswitch button.on{background:#33261a;color:#f7f1dd}
+body[data-view="yard"] .u-topbar{background:#efe6cd;border-bottom:2px solid #33261a;color:#33261a}
+body[data-view="yard"] .u-topbar .ctx{color:#6f5d46;opacity:1}
+body[data-view="yard"] .u-topbar button{border:2px solid #33261a;border-radius:0;background:#f7f1dd;color:#33261a;box-shadow:0 2px 0 rgba(51,38,26,.22)}
+body[data-view="yard"] .scene-band{border-bottom:3px solid #33261a}
+body[data-view="yard"] .u-console{background:#efe6cd;border-bottom:3px solid #33261a}
+body[data-view="yard"] .acct-id .nm{color:#33261a}
+body[data-view="yard"] .acct-id .badge{background:#f4ecd4;border:1px solid #33261a;color:#6f5d46}
+body[data-view="yard"] .acct-ops button{border:2px solid #33261a;border-radius:0;background:#9a6b3d;color:#f9edd6;font-weight:650;box-shadow:0 3px 0 rgba(51,38,26,.25)}
+body[data-view="yard"] .acct-ops button.primary{background:#d96f33;color:#fff7e8}
+body[data-view="yard"] .acct-ops button.quiet{background:#f7f1dd;color:#5f4a33;box-shadow:0 2px 0 rgba(51,38,26,.2)}
+body[data-view="yard"] .qc{background:#f4ecd4;border:1px solid #33261a;color:#6f5d46}
+body[data-view="yard"] .qc .mtr{background:#e3d8bb;border:1px solid #33261a}
+body[data-view="yard"] .u-list{background:#f7f1dd}
+body[data-view="yard"] .u-toolbar h3{color:#33261a}
+body[data-view="yard"] .u-toolbar input{border:2px solid #33261a;border-radius:0;background:#fffdf5}
+body[data-view="yard"] .twrap{border:3px solid #33261a;background:#faf5e6;box-shadow:0 4px 0 rgba(51,38,26,.2)}
+body[data-view="yard"] thead th{background:#efe6cd;border-bottom:2px solid #33261a;color:#33261a}
+body[data-view="yard"] tbody td{border-bottom:1px solid rgba(51,38,26,.14);color:#4a3c2c}
+body[data-view="yard"] tbody tr.sel{background:rgba(217,111,51,.16);box-shadow:inset 3px 0 0 #d96f33}
+body[data-view="yard"] tbody tr.sel td.title{color:#c05a25}
+body[data-view="yard"] .u-detail{background:#efe6cd;border-left:3px solid #33261a}
+body[data-view="yard"] .u-detail h4{color:#33261a}
+body[data-view="yard"] .u-detail dt{color:#8a765a}body[data-view="yard"] .u-detail dd{color:#3f3223}
+body[data-view="yard"] .u-detail .acts button{border:2px solid #33261a;border-radius:0;background:#9a6b3d;color:#f9edd6;font-weight:650;box-shadow:0 3px 0 rgba(51,38,26,.2)}
+body[data-view="yard"] .u-detail .acts button.primary{background:#d96f33;color:#fff7e8}
+body[data-view="yard"] .u-status{background:#efe6cd;border-top:3px solid #33261a;color:#5f4a33}
+
+/* ===== 皮肤 · 经典（素纸瓷白）===== */
+body[data-view="classic"]{--surface:oklch(94% 0.005 250);--raised:oklch(99.3% 0.002 250);--ink:oklch(22% 0.014 252);
+  --ink2:oklch(40% 0.013 252);--ink3:oklch(52% 0.012 252);--line:oklch(89% 0.006 250);--line2:oklch(84% 0.008 250);
+  --acc:oklch(54% 0.165 250);--acc-wash:oklch(54% 0.165 250 / .1)}
+body[data-view="classic"] .window{background:var(--surface)}
+body[data-view="classic"] .titlebar{background:oklch(97% .003 250);border-bottom:1px solid var(--line)}
+body[data-view="classic"] .wtitle{color:var(--ink2)}
+body[data-view="classic"] .wswitch button{background:#fff;color:var(--ink2)}
+body[data-view="classic"] .wswitch button.on{background:var(--acc);color:#fff}
+body[data-view="classic"] .u-topbar{background:oklch(99% .002 250 / .8);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);color:var(--ink)}
+body[data-view="classic"] .u-topbar button{border:1px solid var(--line2);border-radius:7px;background:var(--raised);color:var(--ink2)}
+body[data-view="classic"] .presenter{background:linear-gradient(180deg,oklch(96% .004 250),oklch(93.5% .005 250));border-bottom:1px solid var(--line2)}
+body[data-view="classic"] .scene-band{display:none}
+body[data-view="classic"] .roster-band{display:block}
+body[data-view="classic"] .acct-card{background:var(--raised);border:1px solid var(--line);
+  box-shadow:0 1px 1px oklch(28% .01 250/.04),0 6px 16px -12px oklch(28% .02 250/.2)}
+body[data-view="classic"] .acct-card:hover{border-color:var(--line2);transform:translateY(-1px)}
+body[data-view="classic"] .acct-card.sel{border:2px solid var(--acc);box-shadow:0 0 0 3px var(--acc-wash)}
+body[data-view="classic"] .acct-card canvas{background:oklch(96% .01 140);border:1px solid var(--line)}
+body[data-view="classic"] .acct-card .nm{color:var(--ink)}
+body[data-view="classic"] .acct-card .gp{color:var(--ink3)}
+body[data-view="classic"] .acct-card .st{color:var(--ink2)}
+body[data-view="classic"] .acct-card .qbar{background:oklch(88% .01 250)}
+body[data-view="classic"] .u-console{background:var(--raised);border-bottom:1px solid var(--line)}
+body[data-view="classic"] .acct-id .nm{color:var(--ink)}
+body[data-view="classic"] .acct-id .badge{background:var(--acc-wash);color:var(--acc)}
+body[data-view="classic"] .acct-ops button{border:1px solid var(--line2);border-radius:7px;background:var(--raised);color:var(--ink)}
+body[data-view="classic"] .acct-ops button.primary{background:var(--acc);color:#fff;border-color:transparent}
+body[data-view="classic"] .acct-ops button.quiet{color:var(--ink2)}
+body[data-view="classic"] .qc{background:var(--surface);border:1px solid var(--line);color:var(--ink2)}
+body[data-view="classic"] .qc .mtr{background:oklch(88% .01 250)}
+body[data-view="classic"] .u-list{background:var(--surface)}
+body[data-view="classic"] .u-toolbar h3{color:var(--ink)}
+body[data-view="classic"] .u-toolbar input{border:1px solid var(--line2);border-radius:7px;background:var(--raised);color:var(--ink)}
+body[data-view="classic"] .twrap{background:var(--raised);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 1px oklch(28% .01 250/.04),0 8px 20px -16px oklch(28% .02 250/.2)}
+body[data-view="classic"] thead th{background:var(--raised);border-bottom:1px solid var(--line);color:var(--ink3)}
+body[data-view="classic"] tbody td{border-bottom:1px solid var(--line);color:var(--ink2)}
+body[data-view="classic"] tbody tr.sel{background:var(--acc-wash);box-shadow:inset 2px 0 0 var(--acc)}
+body[data-view="classic"] tbody tr.sel td.title{color:var(--acc)}
+body[data-view="classic"] .u-detail{background:var(--raised);border-left:1px solid var(--line)}
+body[data-view="classic"] .u-detail h4{color:var(--ink)}
+body[data-view="classic"] .u-detail dt{color:var(--ink3)}body[data-view="classic"] .u-detail dd{color:var(--ink)}
+body[data-view="classic"] .u-detail .acts button{border:1px solid var(--line2);border-radius:8px;background:var(--raised);color:var(--ink)}
+body[data-view="classic"] .u-detail .acts button.primary{background:var(--acc);color:#fff;border-color:transparent}
+body[data-view="classic"] .u-status{background:var(--raised);border-top:1px solid var(--line);color:var(--ink3)}
+</style>
+</head>
+<body data-view="yard">
+<div class="window">
+  <div class="titlebar">
+    <span class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></span>
+    <span class="wtitle">AgentDesk — 1040 × 840</span>
+    <span class="wswitch"><button id="mYard" class="on">🐈 猫猫庭院</button><button id="mClassic">▦ 经典</button></span>
+  </div>
+
+  <div class="u-shell">
+    <header class="u-topbar">
+      <b>AgentDesk</b><span class="ctx" id="ctx">猫猫庭院 · 本地账号与会话</span>
+      <span class="sp"></span>
+      <button>🏆 排行</button><button>↻ 更新</button><button>?</button><button>◐</button>
+    </header>
+
+    <section class="presenter">
+      <!-- 庭院：全宽满铺场景（无左右空白） -->
+      <div class="scene-band" id="sceneBand">
+        <div class="scene-stage">
+          <canvas id="yardCanvas" width="480" height="236"></canvas>
+          <div id="yardOverlay" style="position:absolute;inset:0;overflow:hidden;pointer-events:none"></div>
+        </div>
+        <div class="atmos"><button aria-pressed="true">白天</button><button>黄昏</button><button>夜晚</button></div>
+        <div class="ledger"><span class="title">今日小账本</span>收工 <b>3</b> 次 · 陪你干活 <b>128</b> 分钟 <button class="tog">🖥 控制台</button></div>
+      </div>
+      <!-- 经典：顶部横向名册带（满铺无空白） -->
+      <div class="roster-band"><div class="roster" id="roster"></div></div>
+    </section>
+
+    <div class="u-console">
+      <div class="acct-id"><span class="nm" id="cNm">个人号 · Claude</span><span class="badge">⌨ 并行 · ⚡ 元气</span></div>
+      <div class="acct-ops">
+        <button class="primary">打开账号</button><button>新增</button>
+        <button class="quiet">路径</button><button class="quiet">诊断</button><button class="quiet">刷新</button><button class="quiet">管理 ⌄</button>
+      </div>
+      <div class="quota-chips">
+        <span class="qc">本号 <span class="mtr"><i style="width:72%;background:#6d9440"></i></span> 72%</span>
+        <span class="qc">全院 <span class="mtr"><i style="width:48%;background:#d9a53a"></i></span> 48%</span>
+      </div>
+    </div>
+
+    <div class="u-work">
+      <section class="u-list">
+        <div class="u-toolbar"><h3>会话</h3><span class="cnt">14 个</span><input placeholder="搜索标题、项目或 ID"/></div>
+        <div class="twrap"><table>
+          <thead><tr><th class="col-t">标题</th><th>活跃</th><th>新建</th><th class="col-p">项目目录</th><th>来源</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table></div>
+      </section>
+      <aside class="u-detail">
+        <h4>会话详情</h4>
+        <dl><dt>标题</dt><dd>前端逻辑梳理和布局优化</dd><dt>线程 ID</dt><dd>local_b986a01a…f7</dd>
+          <dt>新建</dt><dd>2026-07-22 10:53</dd><dt>活跃</dt><dd>2026-07-22 13:29</dd>
+          <dt>来源</dt><dd>Claude Code</dd><dt>项目</dt><dd>AI-Account-Session-Manager</dd></dl>
+        <div class="acts"><button class="primary">复制交接信息</button><button>打开所在位置 · 导出 Markdown</button></div>
+      </aside>
+    </div>
+
+    <footer class="u-status" id="status">就绪 · 14 个会话 · 6 个账号在庭院里</footer>
+  </div>
+</div>
+
+<script src="/src/yard/sprites.js"></script>
+<script src="/src/yard/cats.js"></script>
+<script src="/src/yard/energy.js"></script>
+<script src="/src/yard/palettes.js"></script>
+<script src="/src/yard/atmosphere.js"></script>
+<script src="/src/yard/interactions.js"></script>
+<script src="/src/yard/scene.js"></script>
+<script>
+const breeds=['orange','calico','black','white','tabby','siamese'];
+const states=['working','onduty','working','arriving','play','rest'];
+const energies=['fresh','steady','tired','exhausted','fresh','steady'];
+const names=['工作号','个人号','备用号','研究号','客服号','夜班号'];
+const groups=['工作','工作','个人','个人','备用','备用'];
+const profiles=names.map((name,i)=>({id:'p'+i,name,group:groups[i],appId:i%2?'codex':'claude',
+  cat:{breed:breeds[i],collar:'#8a6bb8',accessory:'none'},isProtected:i===0}));
+const statesById={},energyById={};profiles.forEach((p,i)=>{statesById[p.id]=states[i];energyById[p.id]=energies[i]});
+
+const canvas=document.getElementById('yardCanvas');
+YardScene.mount({canvas,overlay:document.getElementById('yardOverlay'),onSelect(){},onPet(){},onDrop(){}});
+YardScene.update({profiles,statesById,energyById,positionsById:{},attentionById:{},selectedId:'p1',night:false});
+YardScene.setActive(true);
+if(YardScene.resize) YardScene.resize(480);
+
+const ENERGY_DOT={fresh:'#6d9440',steady:'#3d6aa8',tired:'#d9a53a',exhausted:'#c94f2e',unknown:'#9a9a9a'};
+const roster=document.getElementById('roster');
+profiles.forEach((p,i)=>{
+  const card=document.createElement('div');card.className='acct-card'+(i===1?' sel':'');
+  const cv=document.createElement('canvas');cv.width=52;cv.height=48;const cx=cv.getContext('2d');cx.imageSmoothingEnabled=false;
+  try{const S=window.YardSprites;S.drawCat(cx,S.SIT,S.BREEDS[p.cat.breed]||S.BREEDS.orange,{dx:11,dy:9,scale:2,seed:i,collar:p.cat.collar,tag:p.appId,flip:i%2===0});}catch(e){}
+  const q=[72,48,90,30,64,55][i];
+  card.innerHTML=`<div class="top"></div>
+    <div class="st"><span class="dot" style="background:${ENERGY_DOT[energies[i]]}"></span>${window.YardCats?.STATE_META?.[states[i]]?.label||states[i]} · ${p.appId==='codex'?'Codex':'Claude'}</div>
+    <div class="qbar"><i style="width:${q}%;background:${q>60?'#6d9440':q>30?'#d9a53a':'#c94f2e'}"></i></div>`;
+  const top=card.querySelector('.top');top.appendChild(cv);
+  const meta=document.createElement('div');meta.style.minWidth=0;meta.innerHTML=`<div class="nm">${p.name}</div><div class="gp">分组 · ${p.group}</div>`;top.appendChild(meta);
+  card.onclick=()=>{document.querySelectorAll('.acct-card').forEach(c=>c.classList.remove('sel'));card.classList.add('sel');document.getElementById('cNm').textContent=p.name+' · '+(p.appId==='codex'?'Codex':'Claude');};
+  roster.appendChild(card);
+});
+
+const rows=[['前端逻辑梳理和布局优化','13:29','10:53','AI-Account-Session-Manager','Claude Code'],['商业化最终执行规划复盘','12:10','09:47','ZE-commerce-console','Claude Code'],['视频四件套交接包整理','昨天','07-21','Books(HupoGitlab)','Claude Code'],['foundry C 端上线验收','07-22','07-22','vps-c1-cend-deploy','Codex'],['模型对照实验台规划 v1','07-21','07-21','ze-model-bench','Claude Code'],['五标准 Web 整备规划','07-21','07-20','ze-five-standard','Claude Code'],['批量生图升级收官','07-20','07-20','batch-image-foundry','Codex'],['去物 8037 keyless 切换','07-20','07-19','scene-object-eraser','Claude Code'],['隐物生成六特性验收','07-19','07-18','objgen-v3','Codex'],['前贴 8109 部署','07-18','07-18','preroll-overlay','Claude Code'],['数据审查 8108 验收','07-18','07-17','data-audit-studio','Claude Code'],['精灵变形体上线','07-17','07-17','sprite-shapeshifter','Codex']];
+const tb=document.getElementById('rows');
+rows.forEach((r,i)=>{const tr=document.createElement('tr');if(i===0)tr.className='sel';
+  tr.innerHTML=`<td class="title col-t">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="col-p">${r[3]}</td><td>${r[4]}</td>`;
+  tr.onclick=()=>{document.querySelectorAll('#rows tr').forEach(x=>x.classList.remove('sel'));tr.classList.add('sel')};tb.appendChild(tr);});
+
+const mY=document.getElementById('mYard'),mC=document.getElementById('mClassic');
+function setView(v){document.body.dataset.view=v;mY.classList.toggle('on',v==='yard');mC.classList.toggle('on',v==='classic');
+  document.getElementById('ctx').textContent=(v==='yard'?'猫猫庭院':'经典视图')+' · 本地账号与会话';
+  document.getElementById('status').textContent='就绪 · 14 个会话 · 6 个账号'+(v==='yard'?'在庭院里':'槽位');
+  if(YardScene.setActive)YardScene.setActive(v==='yard');}
+mY.onclick=()=>setView('yard');mC.onclick=()=>setView('classic');
+</script>
+</body>
+</html>
