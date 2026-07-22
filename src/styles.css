@@ -234,13 +234,19 @@ button.danger:hover:not(:disabled) {
 body[data-view="classic"] .account-roster {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(186px, 1fr); /* 卡片够宽显全状态；账号多时横向滚 */
+  grid-auto-columns: minmax(0, 1fr); /* 原型：卡片均分铺满一行（固定窗口），不留右侧空白 */
   gap: 12px;
   padding: 14px 16px;
   overflow-x: auto;
 }
 .account-card {
+  /* 卡片是 <button>（可点选账号）：重置基础层通用按钮的 height/nowrap/字体约束 */
+  display: block;
+  height: auto;
   min-width: 0;
+  white-space: normal;
+  line-height: 1.35;
+  font: inherit;
   text-align: left;
   background: var(--surface-raised);
   border: 1px solid var(--line-soft);
@@ -260,6 +266,8 @@ body[data-view="classic"] .account-roster {
 .account-card-group { font-size: 11px; color: var(--ink-tertiary); margin-top: 1px; }
 .account-card-state { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .account-card-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+/* 原型 qbar：卡片底部额度条（颜色随 data-level，同 quota-chip 色阶） */
+.account-card-quota { height: 6px; border-radius: 3px; margin-top: 10px; background: oklch(88% 0.01 250); overflow: hidden; }
 
 /* ── global command bar ────────────────────────────── */
 .app-topbar {
@@ -584,15 +592,103 @@ body[data-view="classic"] .account-roster {
   display: none;
 }
 
+/* 账号控制条（统一设计·照原型）：单行 flex = 名牌+徽章 ｜ 操作 ｜ 额度 chips（右贴边）。
+ * 额度详情（quota-summary）收在 .account-quota-detail，占满整行、点击「本号」chip 展开。 */
 .account-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
-  padding: 16px 24px 14px 26px;
+  gap: 8px 10px;
+  padding: 8px 16px;
   border-bottom: 1px solid var(--line-mid);
   background: var(--surface-glass);
   backdrop-filter: blur(var(--glass-blur)) saturate(1.1);
+}
+
+.account-id {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.account-id h2 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-badge {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 20px;
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.quota-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.quota-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: 20px;
+  background: var(--surface-canvas);
+  color: var(--ink-secondary);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.quota-chip b {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.quota-chip .mtr {
+  width: 38px;
+  height: 5px;
+  border-radius: 3px;
+  background: oklch(88% 0.01 250);
+  overflow: hidden;
+}
+
+.quota-chip .mtr i,
+.account-card-quota i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--line-strong);
+}
+
+.quota-chip[data-level="fresh"] .mtr i,
+.account-card-quota[data-level="fresh"] i { background: #6d9440; }
+.quota-chip[data-level="steady"] .mtr i,
+.account-card-quota[data-level="steady"] i { background: #3d6aa8; }
+.quota-chip[data-level="tired"] .mtr i,
+.account-card-quota[data-level="tired"] i { background: #d9a53a; }
+.quota-chip[data-level="exhausted"] .mtr i,
+.account-card-quota[data-level="exhausted"] i { background: #c94f2e; }
+
+.account-quota-detail {
+  flex-basis: 100%;
+  min-width: 0;
+}
+
+.account-quota-detail:has(> [hidden]) {
+  display: none; /* 额度详情收起时不占一行的 gap */
 }
 
 .account-heading {
