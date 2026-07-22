@@ -259,15 +259,15 @@ body[data-view="classic"] .account-roster {
 .account-card:hover { border-color: var(--line-mid); transform: translateY(-1px); }
 .account-card.selected { border: 2px solid var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); padding: 11px 12px; }
 .account-card-top { display: flex; align-items: center; gap: 10px; }
-.account-card-avatar { width: 44px; height: 40px; flex: none; image-rendering: pixelated; border-radius: 9px; border: 1px solid var(--line-soft); background: oklch(96% 0.012 140); }
+.account-card-avatar { width: 44px; height: 40px; flex: none; image-rendering: pixelated; border-radius: 9px; border: 1px solid var(--line-soft); background: var(--surface-sunken); }
 .account-card-meta { min-width: 0; }
 .account-card-name { font-weight: 600; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-primary); }
 .account-card-busy, .account-card-link { color: var(--ink-tertiary); font-size: 12px; }
 .account-card-group { font-size: 11px; color: var(--ink-tertiary); margin-top: 1px; }
 .account-card-state { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .account-card-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-/* 原型 qbar：卡片底部额度条（颜色随 data-level，同 quota-chip 色阶） */
-.account-card-quota { height: 6px; border-radius: 3px; margin-top: 10px; background: oklch(88% 0.01 250); overflow: hidden; }
+/* 原型 qbar：卡片底部额度条（颜色随 data-level，同 quota-chip 色阶）；轨道用主题变量 */
+.account-card-quota { height: 6px; border-radius: 3px; margin-top: 10px; background: var(--line-soft); overflow: hidden; }
 
 /* ── global command bar ────────────────────────────── */
 .app-topbar {
@@ -652,6 +652,15 @@ body[data-view="classic"] .account-roster {
   cursor: pointer;
 }
 
+.quota-chip:hover:not(:disabled) {
+  border-color: var(--line-mid);
+}
+
+.quota-chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .quota-chip b {
   font-weight: 650;
   font-variant-numeric: tabular-nums;
@@ -661,7 +670,7 @@ body[data-view="classic"] .account-roster {
   width: 38px;
   height: 5px;
   border-radius: 3px;
-  background: oklch(88% 0.01 250);
+  background: var(--line-soft); /* 主题变量：暗色下自动跟随，不再硬编码浅灰 */
   overflow: hidden;
 }
 
