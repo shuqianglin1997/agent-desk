@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AgentDesk · 现状</title>
+    <link rel="stylesheet" href="../../src/styles.css" />
+    <link rel="stylesheet" href="../../src/yard/yard.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-topbar">
+        <div class="topbar-brand" aria-label="AgentDesk">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+          <span><b>AgentDesk</b><small>AGENT WORKSPACE</small></span>
+        </div>
+        <p id="topbarContext" class="topbar-context">猫猫庭院 · 本地账号与会话</p>
+        <nav class="topbar-actions" aria-label="全局操作">
+          <button id="leaderboardBtn" type="button" title="各账号今日工作量排行榜">🏆 <span>排行</span></button>
+          <button id="updateBtn" type="button" title="检查 GitHub 更新">↻ <span>更新</span></button>
+          <button id="viewToggle" type="button" title="切换 猫猫庭院 / 经典视图">⇄ <span>经典</span></button>
+          <button id="helpBtn" class="icon-toggle" type="button" title="使用说明">?</button>
+          <button id="themeToggle" class="icon-toggle" type="button" title="切换深色 / 浅色">◐</button>
+        </nav>
+      </header>
+
+      <section class="presenter">
+        <section id="yardStage" class="yard-stage" hidden>
+          <div class="yard-frame">
+            <div class="yard-scene">
+              <canvas id="yardCanvas" width="480" height="236" aria-label="猫猫庭院：每只猫是一个账号，点击选中"></canvas>
+              <div id="yardOverlay" class="yard-overlay"></div>
+            </div>
+            <!-- 时间行常驻（原型单行）；天气行默认收起，⛅ 展开 -->
+            <div class="yard-atmos">
+              <div class="atmos-line">
+                <div class="atmos-row" id="atmosTime" role="group" aria-label="时间">
+                  <button type="button" data-time="auto">跟随</button>
+                  <button type="button" data-time="day">白天</button>
+                  <button type="button" data-time="dusk">黄昏</button>
+                  <button type="button" data-time="night">夜晚</button>
+                </div>
+                <button type="button" id="atmosWeatherToggle" class="atmos-more" aria-expanded="false" title="天气设置">⛅</button>
+              </div>
+              <div class="atmos-row" id="atmosWeather" role="group" aria-label="天气" hidden>
+                <button type="button" data-weather="auto">自动</button>
+                <button type="button" data-weather="clear">晴</button>
+                <button type="button" data-weather="cloudy">多云</button>
+                <button type="button" data-weather="rain">雨</button>
+                <button type="button" data-weather="snow">雪</button>
+              </div>
+            </div>
+            <div class="yard-ledger" id="yardLedger">
+              <span class="ledger-title">今日小账本</span>
+              <span class="ledger-stat">收工 <b id="ledgerDone">0</b> 次</span>
+              <span class="ledger-sep">·</span>
+              <span class="ledger-stat">陪你干活 <b id="ledgerMin">0</b> 分钟</span>
+              <span class="ledger-spacer"></span>
+              <button id="consoleToggle" class="ledger-toggle" type="button" aria-pressed="false" title="内嵌多 Agent 控制台。平时用自己的终端即可，AgentDesk 会识别各账号的会话">🖥 控制台 关</button>
+              <button id="reminderToggle" class="ledger-toggle" type="button" aria-pressed="true" title="休息提醒（伸懒腰 / 收工播报）总开关">🔔 提醒 开</button>
+            </div>
+          </div>
+          <section id="runtimeDock" class="runtime-dock" aria-label="多 Agent 控制台">
+            <header class="runtime-head">
+              <div>
+                <span class="runtime-kicker">AGENT FLEET</span>
+                <h2>多 Agent 控制台</h2>
+              </div>
+              <div class="runtime-head-actions">
+                <span id="runtimeCount" class="runtime-count">0 个实例</span>
+                <button id="runtimeRegistryBtn" type="button">接入 Agent</button>
+              </div>
+            </header>
+            <div class="runtime-launcher">
+              <label>
+                <span>Agent</span>
+                <select id="runtimeAdapter" aria-label="Agent 类型"></select>
+              </label>
+              <label>
+                <span>身份</span>
+                <select id="runtimeIdentity" aria-label="登录身份"></select>
+              </label>
+              <div class="runtime-context">
+                <span>工作目录</span>
+                <div class="runtime-workspace-control">
+                  <code id="runtimeCwd">选择会话后使用其项目目录</code>
+                  <button id="runtimeWorkspaceBtn" type="button">选择目录</button>
+                  <button id="runtimeWorkspaceResetBtn" type="button" hidden>跟随会话</button>
+                </div>
+              </div>
+              <button id="runtimeStartBtn" class="primary" type="button">＋ 新建实例</button>
+            </div>
+            <div class="runtime-fleet-body">
+              <nav id="runtimeList" class="runtime-list" aria-label="运行实例">
+                <p class="runtime-list-empty">还没有运行实例</p>
+              </nav>
+              <section class="runtime-console" aria-label="当前 Agent 实例">
+                <header class="runtime-console-head">
+                  <div>
+                    <strong id="runtimeSelectedTitle">选择或新建一个 Agent</strong>
+                    <small id="runtimeSelectedMeta">可同时运行多个不同身份与工作区</small>
+                  </div>
+                  <span id="runtimeStatus" class="runtime-status" data-status="idle">未选择</span>
+                  <button id="runtimeStopBtn" type="button" disabled>停止</button>
+                </header>
+                <div id="runtimeOutput" class="runtime-output" role="log" aria-live="polite" aria-label="Agent 输出">
+                  <span class="runtime-placeholder">左侧是全部运行实例。新建后可随时切换，其他 Agent 会继续在后台工作。</span>
+                </div>
+                <form id="runtimeForm" class="runtime-form">
+                  <textarea id="runtimeInput" rows="2" maxlength="32768" placeholder="选择一个实例后输入…" disabled></textarea>
+                  <button id="runtimeSendBtn" class="primary" type="submit" disabled>发送</button>
+                </form>
+              </section>
+            </div>
+            <p id="runtimeHint" class="runtime-hint">客户端账号只是可选身份；Agent 类型、身份、工作区和运行实例彼此独立。</p>
+          </section>
+        </section>
+        <div id="accountRoster" class="account-roster" aria-label="账号名册（经典视图）"></div>
+      </section>
+
+      <!-- 账号控制条（统一设计）：单行 = 名牌+徽章 ｜ 操作 ｜ 额度 chips。
+           长路径 / 备注 / 上次打开收进名牌 tooltip 与「路径/诊断」弹窗；
+           额度 Beta 详情块与全院总览默认收起，点击对应 chip 展开。 -->
+      <section class="account-bar">
+          <div class="account-id" id="accountId">
+            <h2 id="accountTitle">未选择账号</h2>
+            <span id="accountBadge" class="account-badge" hidden></span>
+          </div>
+
+          <div class="account-actions" id="accountActions">
+            <button id="launchBtn" class="primary">打开账号</button>
+            <button id="addProfileBtn">新增</button>
+            <button id="pathConfigBtn">路径</button>
+            <button id="diagnosticsBtn">诊断</button>
+            <button id="refreshBtn">刷新</button>
+            <details id="accountManage" class="account-manage">
+              <summary>管理</summary>
+              <div id="yardManageActions" class="account-manage-menu">
+                <button id="editProfileBtn">编辑</button>
+                <button id="removeProfileBtn">移除</button>
+                <button id="profileFolderBtn">位置</button>
+              </div>
+            </details>
+          </div>
+
+          <div class="quota-chips">
+            <button id="quotaChipSelf" class="quota-chip" type="button" aria-controls="quotaSummary" aria-expanded="false" title="本号额度 · 点击展开详情">本号 <span class="mtr"><i></i></span><b>—</b></button>
+            <button id="quotaChipAll" class="quota-chip" type="button" aria-controls="quotaOverview" aria-expanded="false" title="全院额度 · 点击展开总览">全院 <span class="mtr"><i></i></span><b>—</b></button>
+          </div>
+
+          <div class="account-quota-detail">
+            <section id="quotaSummary" class="quota-summary" aria-label="账号额度" aria-live="polite" hidden>
+              <div class="quota-summary-head">
+                <span class="quota-kicker">额度 Beta</span>
+                <span id="quotaPlan" class="quota-plan"></span>
+                <span id="quotaStateBadge" class="quota-state-badge">等待查询</span>
+                <button id="quotaRefreshBtn" class="quota-refresh" type="button" title="从官方服务刷新额度">↻ 刷新额度</button>
+              </div>
+              <div id="quotaMeters" class="quota-meters"></div>
+              <p id="quotaMessage" class="quota-message"></p>
+            </section>
+          </div>
+
+          <div class="account-legacy" hidden aria-hidden="true">
+            <p id="accountMeta"></p>
+            <code id="accountPath"></code>
+            <p id="accountNote" class="account-note"></p>
+          </div>
+        </section>
+
+        <section id="attentionInbox" class="attention-inbox" aria-live="polite" hidden>
+          <header>
+            <div><span>ATTENTION</span><b>需要留意</b></div>
+            <strong id="attentionCount">0</strong>
+          </header>
+          <div id="attentionItems" class="attention-items"></div>
+        </section>
+
+        <section id="quotaOverview" class="quota-overview" aria-label="跨账号额度总览" hidden>
+          <header>
+            <div><span>QUOTA MAP</span><b>全院额度</b></div>
+            <small id="quotaOverviewMeta"></small>
+          </header>
+          <ul id="quotaOverviewList" class="quota-overview-list"></ul>
+        </section>
+
+        <div class="main-grid">
+          <section class="session-pane">
+            <div class="session-toolbar">
+              <div>
+                <h3>会话</h3>
+                <span id="sessionCount">0 个</span>
+              </div>
+              <input id="searchInput" type="search" placeholder="搜索标题、项目或 ID" />
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="col-title">标题</th>
+                    <th>活跃</th>
+                    <th>新建</th>
+                    <th class="col-project">项目目录</th>
+                    <th>来源</th>
+                  </tr>
+                </thead>
+                <tbody id="sessionRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <aside class="inspector">
+            <h3>会话详情</h3>
+            <dl>
+              <dt>标题</dt>
+              <dd id="detailTitle">未选择</dd>
+              <dt>线程 ID</dt>
+              <dd id="detailId">-</dd>
+              <dt>新建</dt>
+              <dd id="detailCreated">-</dd>
+              <dt>活跃</dt>
+              <dd id="detailUpdated">-</dd>
+              <dt>来源</dt>
+              <dd id="detailSource">-</dd>
+              <dt>项目</dt>
+              <dd id="detailProject">-</dd>
+              <dt>文件</dt>
+              <dd id="detailFile">-</dd>
+              <dt>会话标识</dt>
+              <dd id="detailAddress">-</dd>
+            </dl>
+
+            <div class="inspector-actions">
+              <button id="copySummaryBtn" class="primary">复制交接信息</button>
+              <button id="copyAddressBtn">复制标识</button>
+              <button id="copyProjectBtn">复制项目</button>
+              <button id="openSessionFileBtn">打开所在位置</button>
+              <button id="exportSessionBtn">导出 Markdown</button>
+            </div>
+          </aside>
+        </div>
+
+      <footer id="statusBar" class="status-bar">就绪</footer>
+    </div>
+
+    <dialog id="profileDialog">
+      <form method="dialog" class="dialog-body">
+        <h3>新增账号槽位</h3>
+        <label>
+          应用
+          <!-- 选项由注册表动态填充（src/apps.js → loadApps）；这里放兜底默认 -->
+          <select id="newProfileApp">
+            <option value="claude">Claude</option>
+            <option value="codex">Codex</option>
+          </select>
+        </label>
+        <label>
+          名称
+          <input id="newProfileName" type="text" placeholder="例如：Claude 工作号" />
+        </label>
+        <label>
+          分组
+          <input id="newProfileGroup" type="text" list="groupOptions" placeholder="可选，例如：工作 / 个人 / 备用" />
+        </label>
+        <label>
+          备注
+          <textarea id="newProfileNote" rows="2" placeholder="可选，给这个账号加点说明"></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button value="cancel">取消</button>
+          <button id="confirmAddProfileBtn" value="default" class="primary">创建</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="editDialog">
+      <form method="dialog" class="dialog-body">
+        <h3>编辑账号槽位</h3>
+        <label>
+          名称
+          <input id="editName" type="text" />
+        </label>
+        <label>
+          分组
+          <input id="editGroup" type="text" list="groupOptions" placeholder="留空 = 未分组" />
+        </label>
+        <label>
+          同账号标识
+          <span class="field-hint">同一个登录身份的多个客户端槽位填同一个词（如 Kimi Code 与 Kimi Work 同填「Kimi」），列表会用 ⛓ 标出关联。</span>
+          <input id="editIdentity" type="text" list="identityOptions" placeholder="留空 = 不关联" />
+        </label>
+        <label>
+          备注
+          <textarea id="editNote" rows="3" placeholder="给这个账号加点备注……"></textarea>
+        </label>
+        <div class="cat-customizer">
+          <div class="cc-preview">
+            <canvas id="editCatCanvas" width="112" height="112" aria-label="猫咪外观预览"></canvas>
+            <button id="editCatRandom" type="button" class="cc-random">🎲 随机</button>
+          </div>
+          <div class="cc-groups">
+            <div class="cc-group">
+              <span class="cc-title">毛色</span>
+              <div class="cc-swatches" id="editBreedSwatches"></div>
+            </div>
+            <div class="cc-group">
+              <span class="cc-title">项圈</span>
+              <div class="cc-swatches" id="editCollarSwatches"></div>
+            </div>
+            <div class="cc-group">
+              <span class="cc-title">配饰</span>
+              <div class="cc-swatches" id="editAccSwatches"></div>
+            </div>
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button value="cancel">取消</button>
+          <button id="confirmEditBtn" value="default" class="primary">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="pathDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3>路径设置</h3>
+        <label>
+          账号数据目录
+          <div class="path-input-row">
+            <input id="profilePathInput" type="text" />
+            <button id="pickProfilePathBtn" type="button">选择</button>
+          </div>
+        </label>
+        <label>
+          会话根目录
+          <div class="path-input-row">
+            <input id="sessionRootInput" type="text" />
+            <button id="pickSessionRootBtn" type="button">选择</button>
+          </div>
+        </label>
+        <label>
+          官方 App 可执行文件（可选）
+          <span class="field-hint">默认自动识别 Store/MSIX、执行别名和传统安装；仅在诊断提示未找到时手动选择 Claude.exe / Codex.exe。</span>
+          <div class="path-input-row">
+            <input id="executablePathInput" type="text" placeholder="留空 = 自动查找" />
+            <button id="pickExecutablePathBtn" type="button">选择</button>
+          </div>
+        </label>
+        <div class="dialog-actions">
+          <button value="cancel">取消</button>
+          <button id="confirmPathBtn" value="default" class="primary">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="diagnosticsDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3>诊断</h3>
+        <div id="diagnosticsBody" class="diagnostics-body"></div>
+        <div class="dialog-actions">
+          <button id="copyDiagnosticsBtn" type="button">复制诊断</button>
+          <button value="default" class="primary">关闭</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="agentRegistryDialog" class="wide-dialog agent-registry-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3>接入终端 Agent</h3>
+        <p class="agent-registry-lead">AgentDesk 会自动发现常用终端 Agent。支持 <b>ACP stdio</b> 的其他工具可以自定义接入；暂未支持 ACP 的交互式 CLI 仍可在多个独立 Shell 实例中运行。</p>
+        <section class="custom-agent-section" aria-label="本机 Agent 发现状态">
+          <h4>本机发现</h4>
+          <div id="discoveredAgentList" class="discovered-agent-list"></div>
+        </section>
+        <section class="custom-agent-section" aria-label="已接入的自定义 Agent">
+          <h4>自定义 ACP Agent</h4>
+          <div id="customAgentList" class="custom-agent-list">
+            <p>还没有自定义 Agent。</p>
+          </div>
+        </section>
+        <fieldset class="custom-agent-form">
+          <legend>添加 ACP Agent</legend>
+          <label>
+            显示名称
+            <input id="customAgentName" type="text" maxlength="60" placeholder="例如：团队内部 Agent" />
+          </label>
+          <label>
+            可执行文件
+            <span class="field-hint">必须由系统文件选择器授权；界面不能直接提交任意路径。</span>
+            <div class="path-input-row">
+              <input id="customAgentExecutable" type="text" readonly placeholder="尚未选择" />
+              <button id="pickCustomAgentExecutableBtn" type="button">选择</button>
+            </div>
+          </label>
+          <label>
+            ACP 启动参数（可选，每行一个）
+            <textarea id="customAgentArguments" rows="3" placeholder="例如：&#10;acp"></textarea>
+          </label>
+          <p class="field-hint">AgentDesk 使用参数数组直接启动进程，不经过 shell，也不会自动下载注册表里的软件。具体参数以该 Agent 官方 ACP 文档为准。</p>
+          <button id="confirmAddCustomAgentBtn" type="button" class="primary">添加 Agent</button>
+        </fieldset>
+        <div class="dialog-actions">
+          <button value="default" class="primary">完成</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="welcomeDialog" class="welcome-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3>AgentDesk</h3>
+        <p class="welcome-lead">管理多个 Claude / Codex 账号，不保存任何密码 —— 登录始终发生在官方 App 里。</p>
+        <ol class="welcome-steps">
+          <li><b>新增</b>一个账号槽位（工作号 / 个人号 / 备用号……）。</li>
+          <li>选中它点<b>打开账号</b>，在弹出的官方 App 里登录。</li>
+          <li>用过之后，这个账号的本地会话会<b>自动出现</b>在中间列表。</li>
+          <li>选中会话点<b>复制交接信息</b>，粘给新会话继续上下文。</li>
+        </ol>
+        <p class="welcome-tip">每个槽位是独立登录、互不挤下线，可加备注和分组管理。读不到会话时点<b>诊断</b>，或用<b>路径</b>手动指定会话目录。</p>
+        <div class="dialog-actions">
+          <button value="default" class="primary">开始使用</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="leaderboardDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3>🏆 工作量排行榜 <small style="font-weight:400;color:var(--ink-tertiary)">· 今日</small></h3>
+        <div id="leaderboardBody" class="leaderboard-body"></div>
+        <p class="leaderboard-note">分 = 10·√今日活跃会话 + 6·√新建 + 正在干活 ×15。平方根阻尼：不同工具把任务拆成的会话文件数差异很大，避免粒度细的工具刷爆榜。每分钟刷新，状态即时。</p>
+        <div class="dialog-actions">
+          <button value="default" class="primary">关闭</button>
+        </div>
+      </form>
+    </dialog>
+
+    <datalist id="groupOptions"></datalist>
+    <datalist id="identityOptions"></datalist>
+
+    <script src="../../src/yard/sprites.js"></script>
+    <script src="../../src/yard/cats.js"></script>
+    <script src="../../src/yard/energy.js"></script>
+    <script src="../../src/quota-overview.js"></script>
+    <script src="../../src/identity-groups.js"></script>
+    <script src="../../src/yard/companion.js"></script>
+    <script src="../../src/yard/workload.js"></script>
+    <script src="../../src/yard/palettes.js"></script>
+    <script src="../../src/yard/atmosphere.js"></script>
+    <script src="../../src/yard/interactions.js"></script>
+    <script src="../../src/yard/scene.js"></script>
+    <script src="./mock-manager.js"></script>
+    <script src="../../src/renderer.js"></script>
+  </body>
+</html>

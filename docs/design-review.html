@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AgentDesk 美术统筹评审 · 一个 glyph · 一部宪法 · 两张皮</title>
+<style>
+  :root{
+    --washi:#f4f1e7; --sumi:#282420; --sumi2:#5d564b; --sumi3:#928a78;
+    --line:rgba(40,36,32,.16); --line2:rgba(40,36,32,.30);
+    --shu:#bb4327; --moss:#6d7a4c; --hinoki:#a9743f;
+    --serif:"Songti SC","STSong","Yu Mincho",serif;
+    --sans:"PingFang SC","Hiragino Sans",system-ui,sans-serif;
+    --mono:"SF Mono","PingFang SC",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--washi);color:var(--sumi);font-family:var(--sans);font-size:15px;line-height:1.75;
+    background-image:radial-gradient(rgba(40,36,32,.022) 1px,transparent 1px);background-size:22px 22px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 30px}
+  header.top{position:sticky;top:0;z-index:9;background:rgba(244,241,231,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  header.top .wrap{display:flex;align-items:center;gap:14px;height:50px}
+  .brand{font-family:var(--serif);font-weight:600;font-size:15.5px}
+  .brand b{color:var(--shu)}
+  header.top nav{margin-left:auto;display:flex;gap:16px;font-size:12.5px;color:var(--sumi2)}
+  header.top nav a{color:inherit;text-decoration:none;border-bottom:1px solid transparent}
+  header.top nav a:hover{color:var(--sumi);border-color:var(--shu)}
+  .hero{padding:58px 0 40px;border-bottom:1px solid var(--line)}
+  .hero .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.3em;color:var(--sumi3)}
+  .hero h1{font-family:var(--serif);font-weight:600;font-size:38px;line-height:1.28;margin:16px 0 0}
+  .hero p.thesis{margin-top:22px;max-width:640px;font-size:16px}
+  .hero em{font-style:normal;color:var(--shu);border-bottom:2px solid rgba(187,67,39,.28)}
+  section.chap{padding:52px 0;border-bottom:1px solid var(--line)}
+  .chead{display:flex;align-items:baseline;gap:16px;margin-bottom:6px}
+  .chead .no{font-family:var(--serif);font-size:14px;color:#fff;background:var(--shu);width:2em;height:2em;display:inline-flex;align-items:center;justify-content:center;border-radius:2px;box-shadow:0 2px 0 rgba(120,40,20,.3)}
+  .chead h2{font-family:var(--serif);font-weight:600;font-size:26px;margin:0}
+  .chead .en{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;color:var(--sumi3);text-transform:uppercase;margin-left:auto}
+  .lead{color:var(--sumi2);max-width:660px;margin:12px 0 26px}
+  h3.sub{font-family:var(--serif);font-size:18px;font-weight:600;margin:34px 0 8px}
+  p{margin:10px 0}
+  code{font-family:var(--mono);font-size:.85em;background:rgba(40,36,32,.07);padding:1px 5px;border-radius:3px}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--sumi3);font-weight:400;border-bottom:1px solid var(--line2)}
+  td.old{color:var(--sumi3);text-decoration:line-through rgba(40,36,32,.35)}
+  td.new{color:var(--shu);font-weight:600}
+  .note{border-left:3px solid var(--moss);background:rgba(109,122,76,.07);padding:11px 15px;margin:18px 0;font-size:13.5px;border-radius:0 4px 4px 0}
+  .note.shu{border-color:var(--shu);background:rgba(187,67,39,.06)}
+  .note .h{font-weight:600;font-family:var(--serif)}
+
+  /* logo 对比 */
+  .logo-duo{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+  .logo-card{border:1px solid var(--line2);border-radius:8px;background:#fff;padding:18px;text-align:center}
+  .logo-card img{width:160px;height:160px;image-rendering:auto}
+  .logo-card.after img{image-rendering:pixelated}
+  .logo-card .cap{margin-top:10px;font-size:12.5px;color:var(--sumi2)}
+  .logo-card.after{border-color:var(--hinoki);background:#fffdf7}
+  .logo-points{font-size:13.5px;color:var(--sumi2)}
+  .glyph-inline{display:inline-block;width:18px;height:18px;background:#dc6b35;border:1.5px solid #4a2f20;vertical-align:-3px;position:relative}
+  .glyph-inline::before,.glyph-inline::after{content:"";position:absolute;background:#fff2d8;width:3px;height:3px;top:4px}
+  .glyph-inline::before{left:3px}.glyph-inline::after{right:3px}
+
+  /* 真效果对比 */
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:18px 0}
+  .cell .lbl{padding:5px 10px;border-radius:6px 6px 0 0;font-size:12.5px;font-weight:600;color:#fff}
+  .lbl.before{background:#5b6472}
+  .lbl.after{background:var(--shu)}
+  .vp{width:100%;aspect-ratio:1100/860;overflow:hidden;border:1px solid var(--line2);border-top:0;border-radius:0 0 6px 6px;background:#fff;position:relative}
+  .vp iframe{width:1100px;height:860px;border:0;transform-origin:top left;position:absolute;top:0;left:0}
+  .darklinks{font-size:12.5px;color:var(--sumi2);margin-top:6px}
+  .darklinks a{color:var(--shu)}
+  footer{padding:40px 0 64px;color:var(--sumi3);font-size:12.5px}
+  @media(max-width:760px){.duo,.logo-duo{grid-template-columns:1fr}.hero h1{font-size:29px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <span class="brand">AgentDesk · <b>美术统筹</b>评审</span>
+  <nav><a href="#s1">品牌</a><a href="#s2">宪法</a><a href="#s3">分区规范</a><a href="#s4">真效果</a><a href="#s5">落地</a></nav>
+</div></header>
+
+<div class="wrap">
+
+<div class="hero">
+  <div class="kicker">ART DIRECTION REVIEW · PROPOSAL</div>
+  <h1>一个 glyph，一部宪法，两张皮<br/>——统一之后，怎么把细节做到位</h1>
+  <p class="thesis">骨架统一、控制条照原型落地之后，剩下的差距不在「哪块放哪」，而在<em>节奏与秩序</em>：留白取值游离、字号层级过多、同一行控件基线不齐、数字不等宽。本评审给出一部<strong>设计宪法</strong>（令牌化的取值纪律）+ 各分区的<strong>前后数值规范</strong>，并用<strong>真渲染</strong>（真 index.html + renderer + 场景引擎 + 提案 CSS 层）展示修改前后。方案未动产品代码。</p>
+</div>
+
+<!-- §1 品牌 -->
+<section class="chap" id="s1">
+  <div class="chead"><span class="no">壱</span><h2>品牌：全站只有一个 glyph（已落地）</h2><span class="en">Brand</span></div>
+  <p class="lead">品牌识别的第一纪律是「同一个形象出现在所有触点」。顶栏的像素脸 <span class="glyph-inline" aria-hidden="true"></span> 是产品里唯一每天被看见的品牌物，App 图标却是另一套渐变插画——两套语系互相稀释。已按 <code>.brand-mark</code> 的 29 单位几何精确重绘全套图标（本项已实施并提交）。</p>
+  <div class="logo-duo">
+    <div class="logo-card"><img src="design/icon-before.png" alt="旧图标：渐变紫底圆角方与渐变猫"/><div class="cap">旧 · 渐变插画语系（与界面像素风脱节）</div></div>
+    <div class="logo-card after"><img src="design/icon-after.png" alt="新图标：品牌像素脸"/><div class="cap">新 · 顶栏 brand-mark 同一几何（#dc6b35 / #4a2f20 / #fff2d8 + 硬投影）</div></div>
+  </div>
+  <p class="logo-points">触点清单：macOS Dock（icns 全档原生重绘，16px 仍锐利）· Windows（ico，PNG 载荷多档）· 开发态 Dock（main.js 同步）· 顶栏（原生源头）。小尺寸不做缩放采样而是逐档重绘——像素风图形被插值采样会糊边，这是像素品牌的常见死因。</p>
+</section>
+
+<!-- §2 宪法 -->
+<section class="chap" id="s2">
+  <div class="chead"><span class="no">弐</span><h2>设计宪法：令牌化的取值纪律</h2><span class="en">Constitution</span></div>
+  <p class="lead">现状的问题不是「难看」，是「没有法」：留白出现 8/9/10/11/12/14/16 七种取值，字号 10.5～20 共九档，同一行里按钮 30px、chips 26px、徽章自然高。宪法把「允许的取值」收成短清单——一致性来自<strong>减少可选项</strong>，不来自逐处校对。</p>
+
+  <h3 class="sub">§1 间距：4px 基线网格</h3>
+  <table>
+    <tr><th>令牌</th><th>值</th><th>用途</th></tr>
+    <tr><td><code>--sp-2</code></td><td>8px</td><td>行内元素间隙（按钮之间、chip 之间）</td></tr>
+    <tr><td><code>--sp-3</code></td><td>12px</td><td>组件内边距（卡片、工具条、单元格横向）</td></tr>
+    <tr><td><code>--sp-4</code></td><td>16px</td><td>区块左右呼吸（控制条 / 表区 / 状态栏统一左缘）</td></tr>
+    <tr><td colspan="3" style="color:var(--sumi2)">规则：任何 CSS 里的留白必须取自 --sp-*；9/11/13 这类游离值一律吸附到最近令牌。<strong>全部区块共享同一条 16px 左缘线</strong>——左缘不齐是「散」感的第一来源。</td></tr>
+  </table>
+
+  <h3 class="sub">§2 字阶：五级封顶 + 数字等宽</h3>
+  <table>
+    <tr><th>令牌</th><th>值</th><th>角色</th></tr>
+    <tr><td><code>--fs-caption</code></td><td>11px</td><td>表头 / 状态栏 / 字段标签（信息的"注脚层"）</td></tr>
+    <tr><td><code>--fs-body</code></td><td>12.5px</td><td>表体 / 详情值（阅读主体）</td></tr>
+    <tr><td><code>--fs-ui</code></td><td>13px</td><td>按钮 / 区块标题（操作层）</td></tr>
+    <tr><td><code>--fs-title</code></td><td>14px</td><td>名牌 / 卡片名（身份层）</td></tr>
+    <tr><td colspan="3" style="color:var(--sumi2)">时间、日期、百分比一律 <code>tabular-nums</code>：等宽数字让「活跃/新建」两列真正成为可扫读的列，而不是长短抖动的碎片。字重只留 400/600 两档。</td></tr>
+  </table>
+
+  <h3 class="sub">§3 控件三档高：一行之内基线对齐</h3>
+  <table>
+    <tr><th>档</th><th>高</th><th>成员</th></tr>
+    <tr><td>lg</td><td>30px</td><td>主操作（打开账号 / 复制交接信息）——每屏只允许一个主操作色</td></tr>
+    <tr><td>md</td><td>28px</td><td>次级按钮 / 搜索框 / 管理下拉</td></tr>
+    <tr><td>sm</td><td>24px</td><td>额度 chips / 微件</td></tr>
+    <tr><td colspan="3" style="color:var(--sumi2)">规则：同一条横排里的控件必须取自相邻档，垂直居中共线。「说不出哪里不对」的错位感，多数来自行内控件高度私自为政。</td></tr>
+  </table>
+
+  <h3 class="sub">§4 边界所有权 · 动效 · 焦点</h3>
+  <p>每条接缝只归<strong>一个</strong>元素画（上块的 border-bottom 即接缝，下块不再画 top）——现状已合规，写进宪法防回潮。动效只留一档 <code>120ms cubic-bezier(0.2,0,0,1)</code>，hover/选中反馈全站同节奏，<code>prefers-reduced-motion</code> 全部退光。键盘焦点环全站一致：porcelain 蓝 / yard 橙，2px 外扩——现状焦点态覆盖不全，这是可访问性欠账。</p>
+</section>
+
+<!-- §3 分区规范 -->
+<section class="chap" id="s3">
+  <div class="chead"><span class="no">参</span><h2>分区规范：前 → 后的每一处数值</h2><span class="en">Specs</span></div>
+  <p class="lead">宪法落到每个区块的具体数字。改的全部是「节奏」，不动结构、不动像素木质/瓷白的皮肤语言。</p>
+
+  <h3 class="sub">会话表（主工作面）</h3>
+  <table>
+    <tr><th>项</th><th>现状</th><th>提案</th><th>为什么</th></tr>
+    <tr><td>表头</td><td class="old">12px 灰 与表体同重</td><td class="new">11px + 0.02em 字距</td><td>表头是导航不是内容，退成注脚层</td></tr>
+    <tr><td>行节奏</td><td class="old">7~8px 上下不一</td><td class="new">10px/12px，行高 ≈38px</td><td>上 4px 网格；扫读节奏稳定</td></tr>
+    <tr><td>标题列</td><td class="old">550 与他列同色</td><td class="new">600 + 主色；他列退灰</td><td>视线先扫标题，元数据是背景</td></tr>
+    <tr><td>数字列</td><td class="old">比例数字</td><td class="new">tabular-nums</td><td>时间列上下对齐成真正的列</td></tr>
+  </table>
+
+  <h3 class="sub">账号控制条</h3>
+  <table>
+    <tr><th>项</th><th>现状</th><th>提案</th><th>为什么</th></tr>
+    <tr><td>行内基线</td><td class="old">按钮30 / chips26 / 徽章自然高</td><td class="new">30(主) / 28(次) / 24(chips) / 20(徽章) 共线</td><td>三档制，垂直中线对齐</td></tr>
+    <tr><td>内距</td><td class="old">9px 16px</td><td class="new">10px 16px（--sp 网格）</td><td>吸附网格，与表区同左缘</td></tr>
+    <tr><td>名牌</td><td class="old">14px/650</td><td class="new">不变（已合宪）</td><td>—</td></tr>
+  </table>
+
+  <h3 class="sub">经典名册卡</h3>
+  <table>
+    <tr><th>项</th><th>现状</th><th>提案</th><th>为什么</th></tr>
+    <tr><td>额度条</td><td class="old">6px 高、贴状态行</td><td class="new">4px 高、上距 12px</td><td>状态糖不抢底部视觉；留白归网格</td></tr>
+    <tr><td>状态行</td><td class="old">12px 次级色</td><td class="new">11.5px 三级色</td><td>卡片内三层：名(14) &gt; 组(11) ≈ 状态(11.5)</td></tr>
+    <tr><td>头像</td><td class="old">9px 圆角</td><td class="new">8px（=卡片 12px−内距 4px 的光学补偿）</td><td>嵌套圆角的视觉同心</td></tr>
+  </table>
+
+  <h3 class="sub">会话详情 / 状态栏</h3>
+  <table>
+    <tr><th>项</th><th>现状</th><th>提案</th><th>为什么</th></tr>
+    <tr><td>字段节奏</td><td class="old">dt 上距 9 / dd 贴行</td><td class="new">10 / 2 的标签-值节奏</td><td>字段组读作卡片式条目</td></tr>
+    <tr><td>操作钮</td><td class="old">高度自然</td><td class="new">主 30 / 次 28，2×2 网格</td><td>与控制条同档；主操作唯一</td></tr>
+    <tr><td>状态栏</td><td class="old">11px</td><td class="new">11px 注脚层 + 16px 左缘</td><td>全站左缘线闭环</td></tr>
+  </table>
+</section>
+
+<!-- §4 真效果 -->
+<section class="chap" id="s4">
+  <div class="chead"><span class="no">肆</span><h2>真效果对比：真渲染，非示意</h2><span class="en">Live Proof</span></div>
+  <p class="lead">下面四格都是<strong>真渲染</strong>：真 <code>index.html</code> + 真 <code>renderer.js</code> + 真场景引擎（样例数据驱动）。右列多挂一层 <code>proposal.css</code>（即 §2/§3 的全部数值），这就是采纳后的实际长相。可滚动、可点击。</p>
+  <div class="duo">
+    <div class="cell"><div class="lbl before">现状 · 猫猫庭院</div><div class="vp"><iframe src="design/before.html?v=yard&t=light"></iframe></div></div>
+    <div class="cell"><div class="lbl after">提案后 · 猫猫庭院</div><div class="vp"><iframe src="design/after.html?v=yard&t=light"></iframe></div></div>
+    <div class="cell"><div class="lbl before">现状 · 经典</div><div class="vp"><iframe src="design/before.html?v=classic&t=light"></iframe></div></div>
+    <div class="cell"><div class="lbl after">提案后 · 经典</div><div class="vp"><iframe src="design/after.html?v=classic&t=light"></iframe></div></div>
+  </div>
+  <p class="darklinks">暗色核对（新开页）：<a href="design/before.html?v=classic&t=dark" target="_blank">现状·经典·暗</a> · <a href="design/after.html?v=classic&t=dark" target="_blank">提案后·经典·暗</a> · <a href="design/before.html?v=yard&t=dark" target="_blank">现状·庭院·暗</a> · <a href="design/after.html?v=yard&t=dark" target="_blank">提案后·庭院·暗</a></p>
+  <div class="note"><div class="h">看哪几处最明显</div><p style="margin:6px 0 0">① 会话表：标题变主导、时间列数字对齐、行节奏一致；② 控制条：按钮/chips/徽章一条中线；③ 名册卡：额度条细一档、卡内层级清晰；④ 用键盘 Tab 走一遍：焦点环全站一致。</p></div>
+</section>
+
+<!-- §5 落地 -->
+<section class="chap" id="s5">
+  <div class="chead"><span class="no">伍</span><h2>落地路线与风险</h2><span class="en">Rollout</span></div>
+  <p class="lead">本方案零结构改动、零皮肤语言改动——全部是取值与令牌。拍板后一次提交即可收编：</p>
+  <p><strong>①</strong> 把 <code>proposal.css</code> 的 <code>:root</code> 令牌并入 <code>styles.css</code> 顶部（porcelain 层）；<strong>②</strong> 各分区数值按 §3 表逐条替换原值（都是等价选择器，直接覆写原声明处，不留 override 层）；<strong>③</strong> yard 皮肤内四条同档对齐并入 <code>yard.css</code>；<strong>④</strong> <code>node --test</code> 里把新令牌写成断言（宪法机验化），浏览器 harness 双视图×双主题四张截图验收。</p>
+  <table>
+    <tr><th>风险</th><th>评估</th></tr>
+    <tr><td>布局回归</td><td>低——不动 grid/结构，只动 padding/height/font；固定窗口下无断点交互</td></tr>
+    <tr><td>皮肤冲突</td><td>低——porcelain/yard 分层覆写各自令牌，已在真渲染双皮肤验证</td></tr>
+    <tr><td>可读性</td><td>元数据降灰一级需在暗色下复核对比度（提案链接里给了暗色四页）</td></tr>
+  </table>
+  <div class="note shu"><div class="h">声明</div><p style="margin:6px 0 0">产品代码未改动。<code>proposal.css</code> 只被 <code>docs/design/after.html</code> 引用；品牌图标（§1）是本轮唯一已实施项。</p></div>
+</section>
+
+<footer>AgentDesk 美术统筹评审 · 提案 v1 · 真渲染对比由 docs/design/{before,after}.html 提供（file:// 或任意静态服务均可打开）</footer>
+</div>
+<script>
+  function fit(){document.querySelectorAll('.vp').forEach(vp=>{const s=vp.clientWidth/1100;vp.querySelector('iframe').style.transform='scale('+s+')';});}
+  addEventListener('load',fit);addEventListener('resize',fit);setTimeout(fit,120);setTimeout(fit,900);
+</script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+/*
+ * AgentDesk 美术统筹提案层（design proposal overlay）
+ * ─────────────────────────────────────────────────
+ * 状态：提案，未并入产品。只被 docs/design/after.html 引用，用于「修改后」真效果演示。
+ * 原则：只动「节奏与秩序」（间距/字阶/控件高/数字排印/焦点/动效），不动结构、不动皮肤语言。
+ * 采纳路径见 docs/design-review.html §5：把本文件的 token 并进 styles.css/yard.css 即可。
+ */
+
+/* ── 宪法 §1 设计令牌 ─────────────────────────────
+ * 4px 基线网格：所有留白只允许取 --sp-*，杜绝 9/11/13 这类游离值。
+ * 字阶 5 级封顶：UI 每多一个字号，层级就贬值一次。
+ * 控件三档高：同一条横排里的控件必须同档，基线才对得齐。 */
+:root {
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px;
+  --fs-caption: 11px;   /* 表头 / 状态栏 / 字段标签 */
+  --fs-body: 12.5px;    /* 表体 / 详情值 / 辅文 */
+  --fs-ui: 13px;        /* 按钮 / 区块标题 */
+  --fs-title: 14px;     /* 名牌 / 卡片名 */
+  --ctl-lg: 30px;       /* 主操作（打开账号） */
+  --ctl-md: 28px;       /* 次级操作按钮 / 搜索框 */
+  --ctl-sm: 24px;       /* chips / 微件 */
+  --motion: 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ── 宪法 §2 数字排印 ─────────────────────────────
+ * 时间/日期/百分比全部等宽数字：列里的数字才会像列，扫读不抖动。 */
+.table-wrap table,
+.quota-chip b,
+.u-detail dd, .inspector dd,
+.ledger-stat b {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 会话表：行高上 4px 网格，标题列主导，其余列退后 ──
+ * why：表格是主工作面。标题加重 + 元数据降灰后，视线自然先扫标题；
+ * 行高 38px（10+18+10）比现在的松紧不一更稳，密度不降。 */
+.session-toolbar { padding: var(--sp-3) var(--sp-4) 10px; }
+.session-toolbar h3 { font-size: var(--fs-ui); }
+.session-toolbar input { height: var(--ctl-md); font-size: 12px; }
+thead th {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-caption);
+  letter-spacing: 0.02em;
+}
+tbody td {
+  padding: 10px var(--sp-3);
+  font-size: var(--fs-body);
+  line-height: 1.35;
+}
+tbody td.title-cell { font-weight: 600; }
+/* 活跃/新建/项目/来源 = 元数据，颜色退一级；选中行标题色仍由皮肤层给 */
+tbody td:not(.title-cell) { color: var(--ink-tertiary, #6b7280); }
+body[data-view="yard"] tbody td:not(.title-cell) { color: var(--yd-ink2); }
+
+/* ── 控制条：一行之内三档控件基线对齐 ──
+ * why：现在 打开账号(30) / 次级(28~30) / chips(自然高) / 徽章(自然高) 各自为政，
+ * 行内基线错位是「说不出哪里不对」的主要来源。统一三档后一眼安定。 */
+.account-bar { padding: 10px var(--sp-4); gap: var(--sp-2) var(--sp-3); }
+.account-id h2 { font-size: var(--fs-title); }
+.account-badge { height: 20px; display: inline-flex; align-items: center; }
+.account-actions { gap: 6px; }
+.account-actions button { height: var(--ctl-md); font-size: 12px; }
+.account-actions button.primary { height: var(--ctl-lg); font-weight: 650; }
+.account-manage summary { height: var(--ctl-md); display: inline-flex; align-items: center; }
+.quota-chip { height: var(--ctl-sm); padding: 0 10px; }
+
+/* ── 名册卡片：内距统一 12px，额度条细到 4px 贴文本栅格 ──
+ * why：额度条是「状态糖」不是数据图表；6px 时它抢卡片视觉底部，4px 刚好读得到又不喧宾。 */
+.account-card { padding: var(--sp-3); }
+.account-card-top { gap: 10px; }
+.account-card-name { font-size: var(--fs-title); }
+.account-card-state { margin-top: 10px; font-size: 11.5px; }
+.account-card-quota { height: 4px; margin-top: var(--sp-3); }
+.account-card-avatar { border-radius: 8px; }
+
+/* ── 会话详情：标签-值节奏 10/2，值用正文档字号 ── */
+.inspector h3 { font-size: var(--fs-ui); }
+.inspector dt { margin-top: 10px; font-size: 10.5px; letter-spacing: 0.03em; }
+.inspector dd { margin-top: 2px; font-size: var(--fs-body); }
+.inspector-actions { gap: var(--sp-2); }
+.inspector-actions button { height: var(--ctl-lg); }
+
+/* ── 状态栏 / 顶栏文案 ── */
+.status-bar { font-size: var(--fs-caption); padding: 0 var(--sp-4); }
+.topbar-context { font-size: 12px; }
+
+/* ── 宪法 §3 焦点与动效 ─────────────────────────────
+ * 键盘焦点环全站一致（porcelain 蓝 / yard 橙）；hover 反馈统一 120ms 一档缓动。 */
+button:focus-visible,
+.quota-chip:focus-visible,
+input:focus-visible,
+.account-card:focus-visible {
+  outline: 2px solid var(--accent, #3b82f6);
+  outline-offset: 2px;
+}
+body[data-view="yard"] button:focus-visible,
+body[data-view="yard"] .quota-chip:focus-visible,
+body[data-view="yard"] input:focus-visible {
+  outline-color: var(--yd-primary);
+}
+button, .quota-chip, .account-card, tbody tr {
+  transition: background-color var(--motion), border-color var(--motion), transform var(--motion), box-shadow var(--motion);
+}
+@media (prefers-reduced-motion: reduce) {
+  button, .quota-chip, .account-card, tbody tr { transition: none; }
+}
+
+/* ── 庭院皮肤内的同档对齐（只调数值，不动木质语言） ── */
+body[data-view="yard"] .account-actions button { height: var(--ctl-md); }
+body[data-view="yard"] .account-actions button.primary { height: var(--ctl-lg); }
+body[data-view="yard"] .account-bar .quota-chip { height: var(--ctl-sm); }
+body[data-view="yard"] .yard-ledger { font-size: var(--fs-caption); }
