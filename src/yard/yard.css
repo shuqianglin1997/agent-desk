@@ -1175,11 +1175,16 @@ body[data-view="yard"] thead {
 
 body[data-view="yard"] th {
   border-bottom: 2px solid var(--yd-line);
+  color: var(--yd-ink2);
 }
 
 body[data-view="yard"] td {
   border-bottom-color: color-mix(in srgb, var(--yd-line) 22%, transparent);
 }
+
+/* 木质细线表：元数据列退灰、标题列主色（与 porcelain 同结构） */
+body[data-view="yard"] tbody td { color: var(--yd-ink2); }
+body[data-view="yard"] .title-cell { color: var(--yd-ink); }
 
 body[data-view="yard"] tbody tr.selected {
   background: var(--yd-select-wash);

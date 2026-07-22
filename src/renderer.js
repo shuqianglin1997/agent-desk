@@ -2661,7 +2661,7 @@ function renderSessions() {
     const row = document.createElement('tr');
     row.className = 'empty-row';
     const cell = document.createElement('td');
-    cell.colSpan = 5;
+    cell.colSpan = 4;
     cell.textContent = state.sessions.length
       ? '没有匹配的会话，换个关键词试试。'
       : '这个账号还没有会话。点「打开账号」登录官方 App，用过之后会话会自动出现在这里；读不到时可点「诊断」。';
@@ -2676,15 +2676,13 @@ function renderSessions() {
     row.innerHTML = `
       <td class="title-cell"></td>
       <td></td>
-      <td></td>
       <td class="mono path-cell"></td>
       <td></td>
     `;
     row.children[0].textContent = session.title;
     row.children[1].textContent = compactDate(session.updatedAt);
-    row.children[2].textContent = compactDate(session.createdAt);
-    row.children[3].textContent = session.projectPath ? shortPath(session.projectPath) : '-';
-    row.children[4].textContent = session.source;
+    row.children[2].textContent = session.projectPath ? shortPath(session.projectPath) : '-';
+    row.children[3].textContent = session.source;
     row.addEventListener('click', () => {
       state.selectedSessionId = session.id;
       renderSessions();
