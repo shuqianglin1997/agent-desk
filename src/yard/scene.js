@@ -12,7 +12,8 @@
 (function (root) {
   'use strict';
 
-  const W = 480;
+  const BASE_W = 480;   // 原始构图逻辑宽（道具按此基准布局）
+  let W = BASE_W;       // 当前逻辑宽：跟容器宽度走（YardScene.resize）——横带左右定满
   // 236 = 原 132 横带 + 前景草坪带；既有元素坐标全部不动，新增高度都给草地，
   // 让庭院在宽屏下占满左列而不是留一条空白。
   const H = 236;
@@ -28,10 +29,12 @@
   const SEATS = [34, 60, 86];      // 工作亭三张书桌（猫脚 y=70）
   const SEAT_FOOT_Y = 70;
   const GROUND_X0 = 14;
-  const GROUND_X1 = 466;
+  let GROUND_X1 = W - GROUND_X0;   // 右缘跟随 W：猫横向摊满整条横带
   const MAILBOX = { x: 117, y: 48 };
-  const POND = { x0: 196, x1: 284, cx: 240 };
+  let POND = { x0: 196, x1: 284, cx: 240 };   // 随 W 居中，见 recomputeDims
   const WALK_SPEED = 1.6;
+  // 道具水平分布偏移（随 W）：工作亭/邮筒守左，池塘居中，大树/花圃靠右，让宽横带左右都有内容。
+  let pondDX = 0, treeDX = 0, bedDX = 0;
 
   // ── 内部状态 ─────────────────────────────────────────
   let canvas = null;
@@ -56,8 +59,8 @@
   let timeOverride = 'auto';     // auto|day|dusk|night；auto 跟随本地时钟
   let weatherOverride = 'auto';  // auto|clear|cloudy|rain|snow
   let weather = 'clear';         // 当前渲染帧的有效天气
-  const rainDrops = scatter(60, 41, 0, -20, W, H);   // 雨滴起始点（x,y 基点）
-  const snowFlakes = scatter(50, 61, 0, -20, W, H);  // 雪花起始点
+  let rainDrops = [];   // 雨滴起始点（x,y 基点）——随 W 在 recomputeDims 重算
+  let snowFlakes = [];  // 雪花起始点
   let layout = [];              // [{ profile, state, seat, tier, home, band, actor, topY }]
   const actors = new Map();     // profileId -> 持续的位置与行为状态
   let zones = [];
@@ -88,9 +91,26 @@
     }
     return out;
   }
-  const GRASS_DOTS = scatter(430, 7, 2, 52, W - 2, H - 4); // 草地变深，噪点按面积等比补足
-  const STAR_DOTS = scatter(30, 12, 4, 2, W - 4, 32);
-  const FIREFLIES = scatter(6, 23, 60, 60, W - 40, H - 16);
+  let GRASS_DOTS = [];  // 草地噪点/星星/萤火虫——按 W 等比补足，见 recomputeDims
+  let STAR_DOTS = [];
+  let FIREFLIES = [];
+
+  // 逻辑宽 W 变化时（横带左右定满）重算所有随 W 的量：右缘 + 散点密度按面积等比补足。
+  function recomputeDims() {
+    GROUND_X1 = W - GROUND_X0;
+    const r = W / BASE_W;
+    // 道具分布：池塘居中(cx=W/2)，大树推到右缘，花圃落右中；偏移量给各 draw* 平移用。
+    pondDX = Math.round(W / 2 - 240);   // 0 at native → 池塘随 W 居中
+    treeDX = W - BASE_W;                 // 0 at native → 大树随 W 贴右缘
+    bedDX = Math.round(0.63 * (W - BASE_W)); // 0 at native → 花圃随 W 落右中
+    POND = { x0: 196 + pondDX, x1: 284 + pondDX, cx: 240 + pondDX };
+    GRASS_DOTS = scatter(Math.round(430 * r), 7, 2, 52, W - 2, H - 4);
+    STAR_DOTS = scatter(Math.round(30 * r), 12, 4, 2, W - 4, 32);
+    FIREFLIES = scatter(Math.max(6, Math.round(6 * r)), 23, 60, 60, W - 40, H - 16);
+    rainDrops = scatter(Math.round(60 * r), 41, 0, -20, W, H);
+    snowFlakes = scatter(Math.round(50 * r), 61, 0, -20, W, H);
+  }
+  recomputeDims();
 
   function seedOf(profile) {
     let h = 0;
@@ -169,10 +189,11 @@
         zones.push({ label: groupName || '草坪', x: x0 + 6, count: members.length });
       }
 
-      // 猫尽量摊开（34〜64px 间距），给名牌留出并排展示的空间
+      // 猫按各组分到的整段宽度摊开（间距 = 段宽/人数，下限 40px 防名牌重叠）。
+      // 去掉旧的 64px 上限：宽横带下各组整段铺开，右半场不再空旷。
       const startX = Math.min(x0 + (hasSign ? 44 : 20), x1 - 12);
       const usable = Math.max(20, x1 - 12 - startX);
-      const spacing = Math.max(34, Math.min(64, Math.floor(usable / Math.max(1, members.length))));
+      const spacing = Math.max(40, Math.floor(usable / Math.max(1, members.length)));
       const perRow = Math.max(1, Math.floor(usable / spacing) + 1);
 
       members.forEach((profile, i) => {
@@ -579,20 +600,24 @@
   }
 
   function drawFlowerBed(P) {
+    ctx.save(); ctx.translate(bedDX, 0);   // 花圃移到右中（随 W）
     rect(302, 58, 48, 10, mix(P.grass, '#4a7034', 0.5));
     [[306, 60, '#e8a0b8'], [313, 63, '#f0d060'], [320, 59, '#f8f0e0'], [328, 62, '#e8a0b8'], [336, 60, '#f0d060'], [343, 63, '#f8f0e0']].forEach(([x, y, c]) => {
       rect(x, y, 2, 2, c); rect(x, y + 2, 1, 2, '#4a7034');
     });
+    ctx.restore();
   }
 
   function drawButterfly() {
     if (reduced) return;
+    ctx.save(); ctx.translate(bedDX, 0);   // 蝴蝶随花圃（随 W）
     const bt = tick * 0.1;
     const bx = Math.round(326 + Math.cos(bt) * 14);
     const by = Math.round(52 + Math.sin(bt * 1.7) * 4);
     const open = tick % 4 < 2;
     rect(bx, by, 1, 2, '#d97a3a');
     if (open) { rect(bx - 1, by, 1, 1, '#f0b060'); rect(bx + 1, by, 1, 1, '#f0b060'); } else rect(bx, by - 1, 1, 1, '#f0b060');
+    ctx.restore();
   }
 
   function drawMailbox() {
@@ -608,6 +633,7 @@
   }
 
   function drawPond(P) {
+    ctx.save(); ctx.translate(pondDX, 0);   // 池塘居中（随 W）
     rect(198, 92, 84, 32, LINE); rect(196, 94, 88, 28, LINE);
     rect(200, 94, 80, 28, P.pondDeep); rect(198, 96, 84, 24, P.pondDeep);
     rect(202, 96, 76, 24, P.pondLite); rect(200, 98, 80, 20, P.pondLite);
@@ -626,21 +652,25 @@
         ctx.fillRect(sx + (((tick >> 3) + i) % 3), sy, 4, 1);
       }
     });
+    ctx.restore();
   }
 
   // 远景：地平线后的山丘剪影 + 几棵小树，给宽横带补纵深
   function drawBackdrop(P) {
+    const r = W / BASE_W;   // 缓丘/远树按 W 横向铺满整条地平线
     const hill = mix(P.hedge, P.skyB, 0.35);
     const hill2 = mix(P.hedge2, P.skyB, 0.25);
     // 缓丘（阶梯像素弧）
     [[-10, 30, 90, hill], [110, 27, 120, hill2], [250, 31, 110, hill], [360, 28, 130, hill2]].forEach(([x0, top, w, c]) => {
-      for (let s = 0; s < 4; s++) rect(x0 + s * 4, top + s, w - s * 8, 40 - top - s, c);
+      const X = Math.round(x0 * r), Wd = Math.round(w * r);
+      for (let s = 0; s < 4; s++) rect(X + s * 4, top + s, Wd - s * 8, 40 - top - s, c);
     });
-    // 远处小树（简化圆冠）
+    // 远处小树（简化圆冠），横向等比铺开
     const far = mix(P.leaf1, P.skyB, 0.4);
-    [[150, 22], [300, 20], [78, 24]].forEach(([tx, ty]) => {
-      rect(tx + 2, ty + 6, 2, 6, mix(WOODD, P.skyB, 0.3));
-      rect(tx - 3, ty, 12, 8, far); rect(tx - 1, ty - 3, 8, 5, far);
+    [[150, 22], [300, 20], [78, 24], [430, 23]].forEach(([tx, ty]) => {
+      const X = Math.round(tx * r);
+      rect(X + 2, ty + 6, 2, 6, mix(WOODD, P.skyB, 0.3));
+      rect(X - 3, ty, 12, 8, far); rect(X - 1, ty - 3, 8, 5, far);
     });
   }
 
@@ -681,6 +711,7 @@
   }
 
   function drawBush(P) {
+    ctx.save(); ctx.translate(pondDX, 0);   // 灌木随池塘（随 W）
     // 池塘右侧一丛灌木，填补空旷
     const b1 = P.leaf1, b2 = P.leaf2;
     rect(300, 112, 26, 12, b1);
@@ -688,9 +719,11 @@
     rect(298, 116, 30, 8, b1);
     rect(308, 106, 8, 5, b2);
     ctx.fillStyle = 'rgba(20,30,20,.12)'; ctx.fillRect(298, 122, 30, 3);
+    ctx.restore();
   }
 
   function drawTree(P) {
+    ctx.save(); ctx.translate(treeDX, 0);   // 大树推到右缘（随 W）
     // 更大更满的树冠（对齐设计稿的大树感）
     rect(424, 30, 8, 58, WOODD); rect(420, 84, 16, 4, WOODD);
     rect(426, 44, 3, 20, mix(WOODD, LINE, 0.3)); // 树皮纹
@@ -703,6 +736,7 @@
     rect(404, 3, 20, 4, ctx.fillStyle); rect(430, 8, 16, 3, ctx.fillStyle);
     ctx.fillStyle = 'rgba(20,30,20,.14)';
     ctx.fillRect(398, 88, 56, 8);
+    ctx.restore();
   }
 
   function drawHut(P) {
@@ -1131,6 +1165,22 @@
     setActive(value) {
       active = Boolean(value);
       if (active) { startLoop(); render(); } else stopLoop();
+    },
+    // 横带左右定满：把逻辑宽 W 调成容器宽（同一像素比例、扁平横带），地形/栅栏/草地
+    // 自动铺满，猫横向摊开。道具按 W 分布见各 draw* 函数。renderer 用 ResizeObserver 调用。
+    resize(nextW) {
+      const w = Math.max(BASE_W, Math.round(nextW || 0));
+      if (w === W || !canvas) return this;
+      W = w;
+      recomputeDims();
+      terrainCanvas = null; terrainKey = null;   // 地形离屏缓存按新宽重建
+      canvas.width = W;                            // 重设画布会清空并复位 ctx 状态
+      ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      computeLayout();
+      render();
+      syncChips();
+      return this;
     },
     // 设置时段 / 天气。auto 分别跟随系统时钟与本地慢速氛围调度。
     setAtmosphere(next) {
