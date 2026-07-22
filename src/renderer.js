@@ -75,8 +75,7 @@ function appColor(appId) {
 }
 
 const els = {
-  accountList: document.querySelector('#accountList'),
-  yardAccountStrip: document.querySelector('#yardAccountStrip'),
+  accountRoster: document.querySelector('#accountRoster'),
   topbarContext: document.querySelector('#topbarContext'),
   yardStage: document.querySelector('#yardStage'),
   yardCanvas: document.querySelector('#yardCanvas'),
@@ -85,7 +84,6 @@ const els = {
   accountActions: document.querySelector('#accountActions'),
   accountManage: document.querySelector('#accountManage'),
   yardManageActions: document.querySelector('#yardManageActions'),
-  sidebarActions: document.querySelector('#sidebarActions'),
   ledgerDone: document.querySelector('#ledgerDone'),
   ledgerMin: document.querySelector('#ledgerMin'),
   reminderToggle: document.querySelector('#reminderToggle'),
@@ -2100,18 +2098,11 @@ async function executeYardIntent(profile, initialIntent) {
 function applyView() {
   const yard = state.view === 'yard' && yardMounted;
   document.body.dataset.view = yard ? 'yard' : 'classic';
+  // 统一骨架：账号呈现层随视图切换 —— 庭院视图显示场景，经典视图显示账号名册（CSS 控制显隐）。
+  // 新增/编辑/移除按钮固定在控制条（新增紧跟打开账号，编辑/移除在「管理」菜单），两视图共用、不再搬家。
   els.yardStage.hidden = !yard;
   els.viewToggle.textContent = yard ? '⇄ 经典' : '⇄ 庭院';
-  // 新增/编辑/移除按钮在两个视图间移动（同一批节点，事件不变）。
-  // 庭院里没有侧栏，账号列表是 chips 条：把「新增」抬成紧跟「打开账号」的可见按钮，
-  // 别再埋在「管理」下拉里；「编辑/移除」是针对选中账号的低频操作，留在管理菜单。
-  if (yard) {
-    els.accountActions.insertBefore(els.addProfileBtn, els.pathConfigBtn);
-    els.yardManageActions.append(els.editProfileBtn, els.removeProfileBtn);
-  } else {
-    els.sidebarActions.append(els.addProfileBtn, els.editProfileBtn, els.removeProfileBtn);
-    els.accountManage.open = false;
-  }
+  els.accountManage.open = false;
   if (yardMounted) window.YardScene.setActive(yard);
   if (yard) loadActivity(); // 切回庭院时立刻刷新猫的状态
   renderTopbarContext();
@@ -2242,7 +2233,7 @@ function syncYard() {
       night: document.documentElement.dataset.theme === 'dark'
     });
   }
-  renderYardAccountStrip();
+  renderAccountRoster();
   renderTopbarContext();
   renderAttentionInbox();
   // 排行榜打开时随轮询实时刷新
@@ -2313,60 +2304,101 @@ function renderLeaderboard() {
   });
 }
 
+// 账号名册（经典视图的账号呈现层）：一个卡片 = 一个账号（身份组），带真像素猫头像、
+// 名称、分组、活跃状态。与庭院的猫是同一批账号的两种呈现（庭院靠 syncYard 喂场景）。
+const CARD_STATE_DOT = {
+  working: '#6d9440', onduty: '#3d6aa8', arriving: '#e0a63a', confused: '#c94f2e',
+  play: '#d05a7a', rest: '#9a8b6a', nap: '#8a7fa8', hibernate: '#6a6a8a'
+};
+
 function renderAccounts() {
-  els.accountList.replaceChildren();
-
-  if (state.profiles.some((profile) => profile.group)) {
-    for (const [groupName, profiles] of groupProfiles(state.profiles)) {
-      const header = document.createElement('div');
-      header.className = 'group-header';
-      const label = document.createElement('span');
-      label.textContent = groupName || '未分组';
-      const count = document.createElement('span');
-      count.className = 'group-count';
-      count.textContent = String(profiles.length);
-      header.append(label, count);
-      els.accountList.append(header);
-      profiles.forEach(appendAccountRow);
-    }
-  } else {
-    state.profiles.forEach(appendAccountRow);
-  }
-
+  renderAccountRoster();
   populateGroupDatalist();
-  renderYardAccountStrip();
   syncYard();
 }
 
-function renderYardAccountStrip() {
-  if (!els.yardAccountStrip) return;
-  els.yardAccountStrip.replaceChildren();
+function renderAccountRoster() {
+  if (!els.accountRoster) return;
+  els.accountRoster.replaceChildren();
   const now = Date.now();
-  // 快速切换条与庭院同轴：一个 chip = 一个账号（组）
   for (const group of identityGroups()) {
-    const primary = group.primary;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'yard-account-chip';
-    button.classList.toggle('selected', group.members.some((member) => member.id === state.selectedProfileId));
-    const merged = window.IdentityGroups
-      ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
-      : state.activity[primary.id];
-    const activityState = window.YardCats
-      ? window.YardCats.deriveState(now, primary, merged)
-      : 'rest';
-    button.dataset.state = activityState;
-    const dot = document.createElement('span');
-    dot.className = 'yard-account-dot';
-    dot.style.background = appColor(primary.appId);
-    const name = document.createElement('b');
-    name.textContent = primary.name;
-    button.append(dot, name);
-    const forms = group.members.length > 1 ? ` · ${group.members.length} 个形态` : '';
-    button.title = `${primary.name}${forms} · ${window.YardCats?.STATE_META?.[activityState]?.label || activityState}`;
-    button.addEventListener('click', () => selectProfile(primary.id));
-    els.yardAccountStrip.append(button);
+    els.accountRoster.append(buildAccountCard(group, now));
   }
+}
+
+function buildAccountCard(group, now) {
+  const primary = group.primary;
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'account-card';
+  card.classList.toggle('selected', group.members.some((member) => member.id === state.selectedProfileId));
+
+  const merged = window.IdentityGroups
+    ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
+    : state.activity[primary.id];
+  const activityState = window.YardCats ? window.YardCats.deriveState(now, primary, merged) : 'rest';
+  const stateLabel = window.YardCats?.STATE_META?.[activityState]?.label || activityState;
+
+  const top = document.createElement('div');
+  top.className = 'account-card-top';
+  const avatar = document.createElement('canvas');
+  avatar.className = 'account-card-avatar';
+  avatar.width = 52;
+  avatar.height = 48;
+  drawAccountAvatar(avatar, primary);
+  const meta = document.createElement('div');
+  meta.className = 'account-card-meta';
+  const name = document.createElement('div');
+  name.className = 'account-card-name';
+  name.textContent = primary.name;
+  const activeNow = group.members.reduce((acc, member) => acc + (state.activity[member.id]?.activeNow || 0), 0);
+  if (activeNow > 0) {
+    const busy = document.createElement('span');
+    busy.className = 'account-card-busy';
+    busy.textContent = ` ⌨${activeNow}`;
+    busy.title = `${activeNow} 个会话正在进行`;
+    name.append(busy);
+  }
+  if (group.members.length > 1) {
+    const link = document.createElement('span');
+    link.className = 'account-card-link';
+    link.textContent = ' ⛓';
+    link.title = `一个账号 ${group.members.length} 个形态`;
+    name.append(link);
+  }
+  const gp = document.createElement('div');
+  gp.className = 'account-card-group';
+  gp.textContent = primary.group ? `分组 · ${primary.group}` : appLabel(primary.appId);
+  meta.append(name, gp);
+  top.append(avatar, meta);
+
+  const st = document.createElement('div');
+  st.className = 'account-card-state';
+  const dot = document.createElement('span');
+  dot.className = 'account-card-dot';
+  dot.style.background = CARD_STATE_DOT[activityState] || '#9a9a9a';
+  st.append(dot, document.createTextNode(`${stateLabel} · ${appLabel(primary.appId)}`));
+
+  card.append(top, st);
+  card.addEventListener('click', () => selectProfile(primary.id));
+  return card;
+}
+
+function drawAccountAvatar(canvas, profile) {
+  const S = window.YardSprites;
+  if (!S) return;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  try {
+    const pal = S.BREEDS[profile.cat && profile.cat.breed] || S.BREEDS.orange;
+    S.drawCat(ctx, S.SIT, pal, {
+      dx: 11, dy: 9, scale: 2, seed: 0,
+      collar: profile.cat && profile.cat.collar,
+      bell: profile.isProtected,
+      tag: profile.isProtected ? null : profile.appId,
+      flip: false
+    });
+  } catch (_error) { /* best effort：头像画不出不影响卡片 */ }
 }
 
 function renderTopbarContext() {
@@ -2383,48 +2415,7 @@ function renderTopbarContext() {
   els.topbarContext.textContent = `${state.view === 'yard' ? '猫猫庭院' : '经典工作台'} · ${profile.name} · ${label}`;
 }
 
-function appendAccountRow(profile) {
-  const button = document.createElement('button');
-  button.className = `account-row ${profile.id === state.selectedProfileId ? 'selected' : ''}`;
-  button.type = 'button';
-  button.innerHTML = `
-    <span class="account-app"></span>
-    <strong></strong>
-    <small></small>
-  `;
-  button.querySelector('.account-app').textContent = appLabel(profile.appId);
-  const name = button.querySelector('strong');
-  name.textContent = profile.name;
-  // 此刻并行会话数：多个终端窗口同时在跑时一眼可见
-  const activeNow = state.activity[profile.id]?.activeNow || 0;
-  if (activeNow > 0) {
-    const busy = document.createElement('span');
-    busy.className = 'account-busy';
-    busy.textContent = `⌨${activeNow}`;
-    busy.title = `${activeNow} 个会话正在进行`;
-    name.append(busy);
-  }
-  // 同账号标识：同一登录身份的多个客户端槽位（如 Kimi Code + Kimi Work、
-  // 桌面 Claude 与终端 Claude CLI —— 后者按账号指纹自动识别）
-  const peers = identityPeersOf(profile);
-  if (peers.length) {
-    const link = document.createElement('span');
-    link.className = 'account-identity';
-    link.textContent = '⛓';
-    const how = profile.identityKey ? `同账号「${profile.identityKey}」` : '检测到同一登录账号';
-    link.title = `${how} · 与「${peers.map((peer) => peer.name).join('、')}」是同一身份`;
-    name.append(link);
-  }
-  const small = button.querySelector('small');
-  if (profile.note) {
-    small.textContent = profile.note;
-    small.classList.add('is-note');
-  } else {
-    small.textContent = shortPath(profile.profilePath);
-  }
-  button.addEventListener('click', () => selectProfile(profile.id));
-  els.accountList.append(button);
-}
+// （旧侧栏行渲染器 appendAccountRow 已随侧栏移除，账号呈现改为 renderAccountRoster 卡片）
 
 // 账号身份分组：同一登录账号的多个槽位归为一组（identityKey 或指纹关联）。
 // 庭院一只猫 = 一个账号组；会话与额度也按组聚合。

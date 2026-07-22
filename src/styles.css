@@ -211,12 +211,55 @@ button.danger:hover:not(:disabled) {
   outline-offset: 1px;
 }
 
+/* 统一骨架（两视图共用，单列固定窗口）：
+ * 顶栏 / 账号呈现层(庭院场景 或 经典名册) / 账号控制条 / 需要留意 / 全院额度 / 工作区 / 状态栏。
+ * 呈现层只换内容(场景↔名册)+皮肤令牌，控制条 / 工作区 / 状态栏两视图逐块同结构。 */
 .app-shell {
   display: grid;
-  grid-template-columns: 268px minmax(720px, 1fr);
-  grid-template-rows: 48px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 48px auto auto auto auto minmax(0, 1fr) 28px;
   height: 100vh;
 }
+
+/* 骨架区域定位（元素已是 app-shell 直接子级，覆盖旧的 workspace-panel 定位） */
+.presenter { grid-column: 1; grid-row: 2; position: relative; min-width: 0; min-height: 0; }
+.app-shell > .account-bar { grid-column: 1; grid-row: 3; }
+.app-shell > .attention-inbox { grid-column: 1; grid-row: 4; }
+.app-shell > .quota-overview { grid-column: 1; grid-row: 5; }
+.app-shell > .main-grid { grid-column: 1; grid-row: 6; min-height: 0; }
+.app-shell > .status-bar { grid-column: 1; grid-row: 7; }
+
+/* 经典视图账号呈现层：横向账号名册带（卡片=账号，真像素猫头像）。庭院视图隐藏、由场景呈现。 */
+.account-roster { display: none; }
+body[data-view="classic"] .account-roster {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(186px, 1fr); /* 卡片够宽显全状态；账号多时横向滚 */
+  gap: 12px;
+  padding: 14px 16px;
+  overflow-x: auto;
+}
+.account-card {
+  min-width: 0;
+  text-align: left;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  padding: 12px 13px;
+  cursor: pointer;
+  box-shadow: var(--shadow-raised);
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+.account-card:hover { border-color: var(--line-mid); transform: translateY(-1px); }
+.account-card.selected { border: 2px solid var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); padding: 11px 12px; }
+.account-card-top { display: flex; align-items: center; gap: 10px; }
+.account-card-avatar { width: 44px; height: 40px; flex: none; image-rendering: pixelated; border-radius: 9px; border: 1px solid var(--line-soft); background: oklch(96% 0.012 140); }
+.account-card-meta { min-width: 0; }
+.account-card-name { font-weight: 600; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-primary); }
+.account-card-busy, .account-card-link { color: var(--ink-tertiary); font-size: 12px; }
+.account-card-group { font-size: 11px; color: var(--ink-tertiary); margin-top: 1px; }
+.account-card-state { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.account-card-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 
 /* ── global command bar ────────────────────────────── */
 .app-topbar {
@@ -1634,72 +1677,5 @@ dialog::backdrop {
   white-space: pre-wrap;
 }
 
-@media (max-width: 1160px) {
-  .app-shell {
-    grid-template-columns: 232px minmax(680px, 1fr);
-  }
-
-  .account-bar {
-    gap: 12px;
-    padding-right: 16px;
-    padding-left: 18px;
-  }
-
-  .account-actions {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    max-width: 330px;
-  }
-
-  .account-actions button {
-    padding-right: 9px;
-    padding-left: 9px;
-  }
-
-  .main-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 290px);
-  }
-}
-
-@media (max-width: 900px) {
-  .app-shell {
-    grid-template-columns: 210px minmax(0, 1fr);
-  }
-
-  .topbar-context {
-    display: none;
-  }
-
-  .app-topbar {
-    grid-template-columns: 1fr auto;
-  }
-
-  .main-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  body[data-view="classic"] .inspector {
-    display: none;
-  }
-}
-
-@media (max-width: 620px) {
-  .app-topbar {
-    gap: 8px;
-    padding: 0 8px;
-  }
-
-  .topbar-brand {
-    min-width: 0;
-  }
-
-  .topbar-brand small,
-  .topbar-actions button span {
-    display: none;
-  }
-
-  .topbar-actions button {
-    width: 29px;
-    padding: 0;
-  }
-}
+/* 固定窗口 1040×840 · 不自适应：经典 sidebar 时代的响应式断点（max-width 1160/900/620）
+ * 已随统一重设计移除 —— 它们会把单列骨架打回 2 列侧栏网格。 */

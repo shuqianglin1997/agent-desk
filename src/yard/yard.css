@@ -33,52 +33,9 @@ body[data-view="yard"] {
   --yd-shadow: rgba(0, 0, 0, 0.45);
 }
 
-/* ── 布局：顶部庭院横带 + 下方业务主区（单列）──
- * 场景从「主画面」降为陪伴横带（第 1 行），业务区回落到经典 porcelain 的网格
- * 引擎（workspace-panel = repeat(3,auto) minmax(0,1fr) + main-grid pin 到第 4 行，
- * 见 styles.css），只保留庭院像素皮肤。这样会话主区吃满宽度、复制交接按钮常驻可见，
- * 且不再有右列单栏 1675px 长条滚动。 */
-body[data-view="yard"] .app-shell {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 48px minmax(0, 1fr);
-}
-
-body[data-view="yard"] .sidebar {
-  display: none;
-}
-
-body[data-view="yard"] .workspace {
-  grid-column: 1;
-  grid-row: 2;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) 28px; /* 横带 / 业务 / 状态栏 */
-  background: color-mix(in srgb, var(--yd-panel) 72%, #dfe7e1);
-}
-
-/* 业务区左右分屏（改动②）：左列 = 账号控制台面板（账号条 / 需要留意 / 全院额度 /
- * 会话详情，纵向依次），右列 = 会话表吃满整高。沿用基础层的 4 行轨道
- * repeat(3,auto) minmax(0,1fr)：account-bar/attention/quota 占前三 auto 行、inspector 落
- * 弹性行，session-pane 跨全部四行 —— 账号信息不再压在会话表上方，会话表拿满右列高度。 */
-body[data-view="yard"] .workspace-panel {
-  grid-column: 1;
-  grid-row: 2;
-  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
-  column-gap: 3px;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  border-left: 0;
-  background: var(--yd-panel);
-}
-
-/* main-grid 解包成透明容器（display:contents）：让原本嵌在里面的 session-pane 与
- * inspector 直接成为 workspace-panel 的网格项，才能把 inspector 拨到左列、session-pane 占右列。
- * main-grid 本身无皮肤/边框，解包无副作用；经典视图不受影响（本规则限定 yard 作用域）。 */
-body[data-view="yard"] .account-bar     { grid-column: 1; grid-row: 1; }
-body[data-view="yard"] .attention-inbox { grid-column: 1; grid-row: 2; }
-body[data-view="yard"] .quota-overview  { grid-column: 1; grid-row: 3; }
-body[data-view="yard"] .inspector       { grid-column: 1; grid-row: 4; }
-body[data-view="yard"] .session-pane    { grid-column: 2; grid-row: 1 / -1; }
+/* 布局已由统一骨架（styles.css 的 .app-shell 单列 7 行，两视图共用）承担；
+ * yard.css 只保留庭院像素皮肤 + 满铺裁剪场景横带。旧的 yard 专属布局覆盖（改动①/②的
+ * app-shell/workspace/workspace-panel 分屏）已随统一重设计移除。 */
 
 body[data-view="yard"] .status-bar {
   grid-column: 1 / -1;
@@ -654,7 +611,7 @@ body[data-view="yard"] .runtime-form button {
 /* 常驻名牌：名字 = 账号名称，可点击选中 */
 /*
  * 名牌用 #yardOverlay 提升优先级：它是 <button>，
- * 必须压过 body[data-view="yard"] .workspace button 的通用木质皮肤，
+ * 必须压过 body[data-view="yard"] .app-shell button 的通用木质皮肤，
  * 尤其 :active 的 transform 不能顶掉定位用的 translate。
  */
 #yardOverlay .yard-nameplate {
@@ -854,34 +811,29 @@ body[data-view="yard"] .runtime-form button {
   color: #69271f;
 }
 
-/* ── 像素皮肤：账号条 / 按钮 / 表格 / 状态栏 ──
- * 分屏后账号条落在左列窄面板（~330px），内部改单列纵向堆叠：快速切换条 → 标题块 →
- * 操作行，依次往下。（旧的「标题左 / 操作右」双列是为全宽设计的，塞进窄列会把标题
- * 挤成一字一行、行高暴涨顶掉下面的详情，故这里收回单列。） */
+/* ── 像素皮肤：账号控制条 / 按钮 / 表格 / 状态栏 ──
+ * 账号控制条是一条横条：标题块（左，账号名 / 摘要 / 额度）+ 操作行（右）。 */
 body[data-view="yard"] .account-bar {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-  gap: 8px;
-  padding: 10px 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 18px;
+  padding: 9px 16px;
   background: var(--yd-panel2);
   border-bottom: 3px solid var(--yd-line);
   backdrop-filter: none;
 }
 
-body[data-view="yard"] .yard-account-strip {
-  grid-column: 1 / -1;
-}
-
 body[data-view="yard"] .account-heading {
   grid-column: 1;
+  min-width: 0;
 }
 
 body[data-view="yard"] .account-actions {
-  grid-column: 1;
-  align-self: start;
-  justify-content: flex-start;
+  grid-column: 2;
+  align-self: center;
+  justify-content: flex-end;
 }
 
 body[data-view="yard"] .attention-inbox {
@@ -1130,7 +1082,7 @@ body[data-view="yard"] .quota-message {
   color: var(--yd-ink2) !important;
 }
 
-body[data-view="yard"] .workspace button {
+body[data-view="yard"] .app-shell button {
   border: 2px solid var(--yd-line);
   border-radius: 0;
   background: var(--yd-wood);
@@ -1140,18 +1092,18 @@ body[data-view="yard"] .workspace button {
   transition: none;
 }
 
-body[data-view="yard"] .workspace button:hover:not(:disabled) {
+body[data-view="yard"] .app-shell button:hover:not(:disabled) {
   background: var(--yd-wood-l);
   border-color: var(--yd-line);
   color: #33261a;
 }
 
-body[data-view="yard"] .workspace button:active:not(:disabled) {
+body[data-view="yard"] .app-shell button:active:not(:disabled) {
   transform: translateY(2px);
   box-shadow: 0 1px 0 var(--yd-shadow);
 }
 
-body[data-view="yard"] .workspace button:disabled {
+body[data-view="yard"] .app-shell button:disabled {
   background: var(--yd-panel);
   color: var(--yd-ink2);
   border-color: var(--yd-shadow);
@@ -1159,12 +1111,12 @@ body[data-view="yard"] .workspace button:disabled {
   opacity: 0.7;
 }
 
-body[data-view="yard"] .workspace button.primary {
+body[data-view="yard"] .app-shell button.primary {
   background: var(--yd-primary);
   color: #fff7e8;
 }
 
-body[data-view="yard"] .workspace button.primary:hover:not(:disabled) {
+body[data-view="yard"] .app-shell button.primary:hover:not(:disabled) {
   background: var(--yd-wood-l);
   color: #33261a;
 }
@@ -1178,18 +1130,11 @@ body[data-view="yard"] .table-wrap {
   max-height: none;
 }
 
-/* 会话主区回落到经典真表格（5 列含来源），不再是卡片堆叠：删掉全部
- * card-mode 覆盖，让基础层的真表格（table-layout:fixed、sticky thead、
- * 5 列宽）生效，这里只补庭院皮肤色。main-grid 在 yard 下解包（display:contents），
- * 见上方分屏规则块。 */
-body[data-view="yard"] .main-grid {
-  display: contents;
-}
-
+/* 会话主区用基础层真表格（5 列含来源、table-layout:fixed、sticky thead），只补庭院皮肤色。
+ * main-grid = 基础层 [会话表 | 会话详情] 两列（改动②的 display:contents 分屏已随统一重设计移除）。 */
 body[data-view="yard"] .session-pane {
   min-height: 0;
   padding: 16px;
-  border-left: 3px solid var(--yd-line);
 }
 
 /* 木牌表头常驻（sticky 由基础层提供），套庭院配色 */
@@ -1227,13 +1172,10 @@ body[data-view="yard"] input:focus {
   box-shadow: 0 0 0 3px var(--yd-select-wash);
 }
 
-/* 详情栏搬到左列账号面板底部（改动②）：用基础层网格 auto/minmax(0,1fr)/auto，
- * 详情字段占中间弹性行可滚、复制交接信息（inspector-actions）固定在底部 auto 行常驻可见。
- * 分屏后分隔线改到上沿（与上方全院额度/账号条分开），左侧分隔交给 session-pane 的 border-left。 */
+/* 会话详情栏（工作区右列）：木框左分隔 + 庭院皮肤色 */
 body[data-view="yard"] .inspector {
   min-height: 0;
-  border-left: 0;
-  border-top: 3px solid var(--yd-line);
+  border-left: 3px solid var(--yd-line);
   background: var(--yd-panel2);
 }
 
@@ -1249,7 +1191,7 @@ body[data-view="yard"] .status-bar {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body[data-view="yard"] .workspace button:active:not(:disabled) {
+  body[data-view="yard"] .app-shell button:active:not(:disabled) {
     transform: none;
   }
 }
