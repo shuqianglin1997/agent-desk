@@ -32,7 +32,7 @@ test('统一骨架：单列 顶栏/呈现层/账号控制条/工作区/状态栏
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.main-grid \{\s*display: contents/);
 });
 
-test('庭院会话表恢复真表格（5 列含来源），删掉卡片式覆盖，表格为唯一滚动区', () => {
+test('庭院会话表恢复真表格（4 列：标题/活跃/项目/来源，「新建」进详情），删掉卡片式覆盖，表格为唯一滚动区', () => {
   const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
   // 不再藏表头、不再把 tbody/行改成卡片网格、不再逐列 nth-child 隐藏
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] thead \{\s*display:\s*none/);

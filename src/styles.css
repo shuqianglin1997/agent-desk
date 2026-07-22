@@ -1182,8 +1182,8 @@ body[data-view="classic"] .account-manage {
 .session-toolbar h3 {
   display: inline;
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .session-toolbar span {
@@ -1254,7 +1254,7 @@ thead {
 
 th,
 td {
-  height: 32px;
+  height: 40px;
   padding: 0 12px;
   border-bottom: 1px solid var(--line-soft);
   overflow: hidden;
@@ -1263,12 +1263,19 @@ td {
   white-space: nowrap;
 }
 
+/* 会话表 = 主工作面：表头退成注脚层、表体等宽数字、标题列主导、元数据退灰（细线表） */
+.table-wrap table { font-variant-numeric: tabular-nums; }
+
 th {
   color: var(--ink-tertiary);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 500;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+}
+
+tbody td {
+  font-size: 12.5px;
+  color: var(--ink-tertiary);
 }
 
 tbody tr {
@@ -1298,6 +1305,7 @@ tbody tr:last-child td {
 }
 
 .title-cell {
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink-primary);
 }
