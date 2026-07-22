@@ -33,7 +33,11 @@ body[data-view="yard"] {
   --yd-shadow: rgba(0, 0, 0, 0.45);
 }
 
-/* ── 布局：左侧完整庭院 + 右侧可滚动信息轨道 ── */
+/* ── 布局：顶部庭院横带 + 下方业务主区（单列）──
+ * 场景从「主画面」降为陪伴横带（第 1 行），业务区回落到经典 porcelain 的网格
+ * 引擎（workspace-panel = repeat(3,auto) minmax(0,1fr) + main-grid pin 到第 4 行，
+ * 见 styles.css），只保留庭院像素皮肤。这样会话主区吃满宽度、复制交接按钮常驻可见，
+ * 且不再有右列单栏 1675px 长条滚动。 */
 body[data-view="yard"] .app-shell {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 48px minmax(0, 1fr);
@@ -46,26 +50,27 @@ body[data-view="yard"] .sidebar {
 body[data-view="yard"] .workspace {
   grid-column: 1;
   grid-row: 2;
-  grid-template-columns: minmax(0, 3fr) minmax(340px, 1fr);
-  grid-template-rows: minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) 28px; /* 横带 / 业务 / 状态栏 */
   background: color-mix(in srgb, var(--yd-panel) 72%, #dfe7e1);
 }
 
+/* 业务区回落到经典网格引擎：不再自造 yard 专属网格，改用 workspace-panel 基础规则
+ * repeat(3,auto) minmax(0,1fr) + `.workspace-panel > .main-grid { grid-row: 4 }`，
+ * attention/quota 收起时会话主区仍拿弹性行。只覆盖皮肤色与边框，布局全交回基础层。 */
 body[data-view="yard"] .workspace-panel {
-  grid-column: 2;
-  grid-row: 1;
-  display: block;
+  grid-column: 1;
+  grid-row: 2;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border-left: 3px solid var(--yd-line);
+  overflow: hidden;
+  border-left: 0;
   background: var(--yd-panel);
 }
 
 body[data-view="yard"] .status-bar {
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: 3;
 }
 
 body[data-view="yard"] .app-topbar {
@@ -87,19 +92,28 @@ body[data-view="yard"] .topbar-context::before {
   border-radius: 0;
 }
 
-/* ── 庭院画布 ── */
+/* ── 庭院横带 ──
+ * 第 1 行：场景木框（col1，宽度由封顶的画布高度决定）＋ 今日小账本（col2，
+ * 吃掉场景用不到的横向空间）。第 2 行：内嵌控制台展开时整条铺满（收起时塌 0）。
+ * 横带自身永不滚动（overflow:visible），唯一滚动区是下方会话表。背景用草坪色，
+ * 让场景两侧读作「越过草坪看院子」而不是空面板。 */
 .yard-stage {
   grid-column: 1;
   grid-row: 1;
   display: grid;
-  /* 三行全 auto：控制台默认收起后不再有空转的 1fr 行，场景吃满左列 */
-  grid-template-rows: auto auto auto;
-  align-content: start;
-  gap: 9px;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 8px 16px;
   min-width: 0;
-  min-height: 0;
-  overflow: hidden auto;
-  padding: 14px 16px;
+  overflow: visible;
+  padding: 10px 16px;
+  border-bottom: 3px solid var(--yd-line);
+  background: color-mix(in srgb, var(--yd-panel) 72%, #dfe7e1);
+}
+
+:root[data-theme="dark"] .yard-stage {
+  background: var(--yd-panel2);
 }
 
 /* hidden 属性必须压过上面的 display:grid（作者样式会盖过 UA 的 [hidden]）。
@@ -109,19 +123,23 @@ body[data-view="yard"] .topbar-context::before {
   display: none;
 }
 
-/* 控制台展开时按固定高度出现在场景下方（收起时 [hidden] 塌 0） */
+/* 控制台展开时整条铺在横带第 2 行（收起时 [hidden] 塌 0）。它把业务区往下压，
+ * 但横带本身仍不滚动 —— 展开是显式操作。 */
 .runtime-dock:not([hidden]) {
-  height: 320px;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 300px;
+  margin-top: 8px;
 }
 
+/* 木框宽度由画布决定（画布高度封顶后自适应宽），不再撑满整条横带 */
 .yard-frame {
   position: relative;
   border: 3px solid var(--yd-line, #33261a);
   box-shadow: 0 4px 0 var(--yd-shadow, rgba(51, 38, 26, 0.25));
   background: #000;
-  width: 100%;
-  max-width: 1440px;
-  margin: 0 auto;
+  width: auto;
+  margin: 0;
 }
 
 /* ── multi-Agent fleet: useful structure, independent from final yard art ── */
@@ -539,10 +557,12 @@ body[data-view="yard"] .runtime-form button {
   line-height: 1.4;
 }
 
+/* 画布高度封顶为横带高度，宽由 480:236 比例自适应（≈ 高 ×2.03）。
+ * 之前 width:100% 会把场景撑到 ~510px 占满左列，正是空间倒挂的根源。 */
 .yard-frame canvas {
   display: block;
-  width: 100%;
-  height: auto;
+  width: auto;
+  height: min(184px, 23vh);
   touch-action: none;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -631,16 +651,17 @@ body[data-view="yard"] .runtime-form button {
   box-shadow: 0 2px 0 rgba(51, 38, 26, 0.35);
   padding: 0 6px;
   color: #33261a;
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 700;
-  line-height: 1.6;
+  line-height: 1.4;
   white-space: nowrap;
-  max-width: 100px;
+  max-width: 74px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* 名牌到猫头顶的小吊线：高低交错时也能一眼对上号 */
+/* 名牌到猫头顶的小吊线：高低交错时也能一眼对上号。
+   横带缩小后吊线相应缩短（旧值是为大场景调的，会在小横带里过冲）。 */
 #yardOverlay .yard-nameplate::after {
   content: "";
   position: absolute;
@@ -648,12 +669,16 @@ body[data-view="yard"] .runtime-form button {
   top: 100%;
   transform: translateX(-50%);
   width: 2px;
-  height: 6px;
+  height: 5px;
   background: #33261a;
 }
 
 #yardOverlay .yard-nameplate.tier1::after {
-  height: 32px;
+  height: 15px;
+}
+
+#yardOverlay .yard-nameplate.tier2::after {
+  height: 26px;
 }
 
 #yardOverlay .yard-nameplate:hover,
@@ -807,22 +832,38 @@ body[data-view="yard"] .runtime-form button {
   color: #69271f;
 }
 
-/* ── 像素皮肤：账号条 / 按钮 / 表格 / 状态栏 ── */
+/* ── 像素皮肤：账号条 / 按钮 / 表格 / 状态栏 ──
+ * 全宽后账号条改双列：快速切换条铺满第 1 行；标题块（左）与操作行（右上）在第 2 行
+ * 分列，操作不再单独占一整行 —— 把纵向空间还给下方会话表。 */
 body[data-view="yard"] .account-bar {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr;
-  align-items: stretch;
-  gap: 14px;
-  padding: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 18px;
+  padding: 10px 16px;
   background: var(--yd-panel2);
   border-bottom: 3px solid var(--yd-line);
   backdrop-filter: none;
 }
 
+body[data-view="yard"] .yard-account-strip {
+  grid-column: 1 / -1;
+}
+
+body[data-view="yard"] .account-heading {
+  grid-column: 1;
+}
+
+body[data-view="yard"] .account-actions {
+  grid-column: 2;
+  align-self: start;
+  justify-content: flex-end;
+}
+
 body[data-view="yard"] .attention-inbox {
-  gap: 7px;
-  padding: 10px 13px;
+  gap: 6px;
+  padding: 7px 13px;
   border-bottom: 3px solid var(--yd-line);
   background: #f2dfaa;
   color: #33261a;
@@ -912,7 +953,7 @@ body[data-view="yard"] .yard-account-chip[data-state="confused"]::after {
 }
 
 body[data-view="yard"] .account-heading h2 {
-  font-size: 22px;
+  font-size: 18px;
   white-space: normal;
 }
 
@@ -922,17 +963,32 @@ body[data-view="yard"] .account-heading p {
   overflow-wrap: anywhere;
 }
 
+/* 全宽后账号操作改为紧凑一行（wrap）：打开账号主操作醒目，配置按钮降级为安静木牌小片，
+ * 管理下拉收在行尾。之前的双列全宽按钮堆叠会把会话表挤到折叠线下。 */
 body[data-view="yard"] .account-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 7px;
   white-space: normal;
 }
 
 body[data-view="yard"] .account-actions button {
-  width: 100%;
+  width: auto;
   min-width: 0;
-  height: 32px;
+  height: 30px;
+}
+
+/* 低频配置按钮（路径/诊断/位置/刷新）降级：安静面板色小片，不再和主操作抢视觉层级 */
+body[data-view="yard"] #pathConfigBtn,
+body[data-view="yard"] #diagnosticsBtn,
+body[data-view="yard"] #profileFolderBtn,
+body[data-view="yard"] #refreshBtn {
+  height: 26px;
+  padding: 0 10px;
+  background: var(--yd-panel);
+  color: var(--yd-ink2);
+  font-size: 10.5px;
 }
 
 body[data-view="yard"] .account-manage {
@@ -941,10 +997,12 @@ body[data-view="yard"] .account-manage {
 }
 
 body[data-view="yard"] .account-manage summary {
-  display: grid;
-  width: 100%;
-  height: 32px;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: 30px;
+  padding: 0 14px;
   border: 2px solid var(--yd-line);
   background: var(--yd-wood);
   color: var(--yd-on-wood);
@@ -994,8 +1052,8 @@ body[data-view="yard"] .account-manage-menu button {
 }
 
 body[data-view="yard"] #launchBtn {
-  grid-column: 1 / -1;
-  height: 38px;
+  height: 34px;
+  padding: 0 22px;
   font-size: 13px;
 }
 
@@ -1005,7 +1063,17 @@ body[data-view="yard"] #removeProfileBtn {
 
 body[data-view="yard"] .quota-summary {
   max-width: none;
+  margin-top: 6px;
+  padding-top: 6px;
   border-top: 2px solid color-mix(in srgb, var(--yd-line) 35%, transparent);
+}
+
+/* 全院额度：全宽后压缩纵向占用，把行留给会话表 */
+body[data-view="yard"] .quota-overview {
+  gap: 5px;
+  padding: 7px 16px;
+  border-bottom: 3px solid var(--yd-line);
+  background: var(--yd-panel);
 }
 
 body[data-view="yard"] .quota-state-badge,
@@ -1085,105 +1153,24 @@ body[data-view="yard"] .table-wrap {
   box-shadow: 0 4px 0 var(--yd-shadow);
 }
 
+/* 会话主区回落到经典真表格（5 列含来源），不再是卡片堆叠：删掉全部
+ * card-mode 覆盖，让基础层的真表格（table-layout:fixed、sticky thead、
+ * 5 列宽）生效，这里只补庭院皮肤色。main-grid 恢复两列（表格 | 详情）。 */
 body[data-view="yard"] .main-grid {
-  display: block;
-  min-height: auto;
+  display: grid;
+  min-height: 0;
 }
 
 body[data-view="yard"] .session-pane {
-  display: grid;
-  min-height: 0;
   padding: 16px;
-  border-bottom: 3px solid var(--yd-line);
 }
 
-body[data-view="yard"] .session-toolbar {
-  grid-template-columns: 1fr;
-}
-
-body[data-view="yard"] .session-toolbar input {
-  width: 100%;
-}
-
+/* 表格是唯一滚动区：高度由弹性行约束，去掉 380px 硬顶 */
 body[data-view="yard"] .table-wrap {
-  max-height: 380px;
-  overflow-y: auto;
+  max-height: none;
 }
 
-body[data-view="yard"] table {
-  display: block;
-  min-width: 0;
-}
-
-body[data-view="yard"] thead {
-  display: none;
-}
-
-body[data-view="yard"] tbody {
-  display: grid;
-}
-
-body[data-view="yard"] tbody tr {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 4px 10px;
-  min-width: 0;
-  min-height: 62px;
-  padding: 10px 11px;
-  border-bottom: 1px solid color-mix(in srgb, var(--yd-line) 25%, transparent);
-}
-
-body[data-view="yard"] tbody tr:last-child {
-  border-bottom: 0;
-}
-
-body[data-view="yard"] tbody td {
-  display: none;
-  width: auto;
-  height: auto;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-}
-
-body[data-view="yard"] tbody td:nth-child(1),
-body[data-view="yard"] tbody td:nth-child(2),
-body[data-view="yard"] tbody td:nth-child(4) {
-  display: block;
-}
-
-body[data-view="yard"] tbody td:nth-child(1) {
-  grid-column: 1 / -1;
-  padding-right: 4px;
-  font-size: 12px;
-}
-
-body[data-view="yard"] tbody td:nth-child(2) {
-  color: var(--yd-ink2);
-  font-size: 9.5px;
-}
-
-body[data-view="yard"] tbody td:nth-child(4) {
-  max-width: 180px;
-  color: var(--yd-ink2);
-  font-size: 9px;
-  text-align: right;
-}
-
-body[data-view="yard"] tbody tr.empty-row {
-  display: block;
-  min-height: 100px;
-}
-
-body[data-view="yard"] tbody tr.empty-row td {
-  display: grid;
-  height: 100px;
-  place-items: center;
-  padding: 14px;
-  white-space: normal;
-}
-
+/* 木牌表头常驻（sticky 由基础层提供），套庭院配色 */
 body[data-view="yard"] thead {
   background: var(--yd-panel2);
   backdrop-filter: none;
@@ -1191,6 +1178,10 @@ body[data-view="yard"] thead {
 
 body[data-view="yard"] th {
   border-bottom: 2px solid var(--yd-line);
+}
+
+body[data-view="yard"] td {
+  border-bottom-color: color-mix(in srgb, var(--yd-line) 22%, transparent);
 }
 
 body[data-view="yard"] tbody tr.selected {
@@ -1214,15 +1205,17 @@ body[data-view="yard"] input:focus {
   box-shadow: 0 0 0 3px var(--yd-select-wash);
 }
 
+/* 详情栏用基础层网格 auto/minmax(0,1fr)/auto：详情字段占中间弹性行、可滚，
+ * 复制交接信息（inspector-actions）固定在底部 auto 行 —— 常驻可见、不再沉到折叠线下。 */
 body[data-view="yard"] .inspector {
-  min-height: 420px;
-  border-left: 0;
+  min-height: 0;
+  border-left: 3px solid var(--yd-line);
   border-top: 0;
   background: var(--yd-panel2);
 }
 
 body[data-view="yard"] .inspector dl {
-  max-height: 330px;
+  max-height: none;
 }
 
 body[data-view="yard"] .status-bar {
@@ -1238,10 +1231,15 @@ body[data-view="yard"] .status-bar {
   }
 }
 
-@media (max-height: 700px) {
+@media (max-height: 760px) {
+  /* 矮屏：横带场景再压一档，把纵向空间留给会话表 */
+  body[data-view="yard"] .yard-frame canvas {
+    height: min(150px, 20vh);
+  }
+
   body[data-view="yard"] .account-bar {
-    gap: 8px;
-    padding: 10px 12px;
+    gap: 6px 16px;
+    padding: 8px 14px;
   }
 
   body[data-view="yard"] .yard-account-strip {
@@ -1250,10 +1248,6 @@ body[data-view="yard"] .status-bar {
 
   body[data-view="yard"] .yard-account-chip {
     height: 26px;
-  }
-
-  body[data-view="yard"] .account-heading h2 {
-    font-size: 18px;
   }
 
   body[data-view="yard"] .account-heading code,
@@ -1270,30 +1264,25 @@ body[data-view="yard"] .status-bar {
     padding-top: 5px;
   }
 
-  body[data-view="yard"] .account-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
+  body[data-view="yard"] .account-actions button {
+    height: 28px;
   }
 
-  body[data-view="yard"] #launchBtn {
-    grid-column: 1 / -1;
-    height: 34px;
-  }
-
-  body[data-view="yard"] .account-actions button,
   body[data-view="yard"] .account-manage summary {
-    height: 29px;
+    height: 28px;
   }
 }
 
-/* ── 今日小账本 + 提醒开关（庭院视图底部木条） ── */
+/* ── 今日小账本 + 提醒开关（横带第 1 行 col2，吃掉场景用不到的横向空间） ── */
 .yard-ledger {
   display: flex;
   align-items: center;
   gap: 8px;
+  grid-column: 2;
+  align-self: center;
   width: 100%;
-  max-width: 1440px;
-  margin: 8px auto 0;
+  max-width: none;
+  margin: 0;
   padding: 6px 12px;
   border: 3px solid var(--yd-line, #33261a);
   box-shadow: 0 3px 0 var(--yd-shadow, rgba(51, 38, 26, 0.25));
@@ -1538,12 +1527,9 @@ body[data-view="yard"] .status-bar {
 }
 
 @media (max-width: 1100px) {
-  body[data-view="yard"] .workspace {
-    grid-template-columns: minmax(0, 1fr) 340px;
-  }
-
+  /* 布局已是单列（横带 / 业务 / 状态）；这里只收一点横带内边距 */
   .yard-stage {
-    padding: 12px;
+    padding: 10px 12px;
   }
 
   .runtime-launcher {
@@ -1563,17 +1549,29 @@ body[data-view="yard"] .status-bar {
 }
 
 @media (max-width: 900px) {
+  /* 窄屏：整页可滚，业务区给个最小高度；横带内场景改回撑满宽度（竖排在账本上方） */
   body[data-view="yard"] .workspace {
-    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(360px, 1fr) 28px;
     overflow-y: auto;
   }
 
   body[data-view="yard"] .yard-stage {
-    grid-column: 1;
-    grid-row: 1;
-    align-content: start;
+    grid-template-columns: minmax(0, 1fr);
     padding: 9px 10px 11px;
+  }
+
+  body[data-view="yard"] .yard-frame {
+    width: 100%;
+  }
+
+  body[data-view="yard"] .yard-frame canvas {
+    width: 100%;
+    height: auto;
+  }
+
+  .yard-ledger {
+    grid-column: 1;
+    margin-top: 6px;
   }
 
   body[data-view="yard"] .runtime-dock {
@@ -1581,19 +1579,7 @@ body[data-view="yard"] .status-bar {
   }
 
   body[data-view="yard"] .workspace-panel {
-    grid-column: 1;
-    grid-row: 2;
     border-top: 3px solid var(--yd-line);
-    border-left: 0;
-  }
-
-  body[data-view="yard"] .status-bar {
-    grid-column: 1;
-    grid-row: 3;
-  }
-
-  .yard-ledger {
-    margin-top: 6px;
   }
 }
 

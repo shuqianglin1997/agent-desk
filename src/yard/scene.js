@@ -194,12 +194,12 @@
         let targetX = homeX;
         let targetY = homeY;
         let seat = false;
-        let tier = col % 2; // 名牌高低交错，避免相邻名牌互相盖住
+        let tier = col % 3; // 名牌三档高低交错：横带缩小后相邻名牌更密，两档不够分开
         if (seatEligible(state) && seatIndex < SEATS.length) {
           targetX = SEATS[seatIndex];
           targetY = SEAT_FOOT_Y;
           seat = true;
-          tier = seatIndex % 2;
+          tier = seatIndex % 3; // 工作亭三席错成三档，任意两名牌不同高
           seatIndex += 1;
         }
 
@@ -348,6 +348,7 @@
       chip.classList.toggle('selected', id === data.selectedId);
       chip.classList.toggle('hovered', id === hoveredId);
       chip.classList.toggle('tier1', entry.tier === 1);
+      chip.classList.toggle('tier2', entry.tier === 2);
       entry.actor._chip = chip;
       entry.actor._chipKey = '';
     }
@@ -457,7 +458,7 @@
       const a = entry.actor;
       const chip = a._chip;
       if (!chip) continue;
-      const lift = entry.tier === 1 ? 15 : 3;
+      const lift = [3, 15, 27][entry.tier] || 3; // 三档抬高，与 CSS 的 tier1/tier2 吊线对应
       const key = `${a.x.toFixed(1)}|${entry.topY}|${lift}`;
       if (a._chipKey === key) continue;
       a._chipKey = key;
@@ -472,7 +473,7 @@
       const a = entry.actor;
       const bubble = a._speech;
       if (!bubble || !bubble.isConnected) continue;
-      const lift = entry.tier === 1 ? 47 : 30;
+      const lift = [30, 47, 59][entry.tier] || 30;
       const key = `${a.x.toFixed(1)}|${entry.topY}|${lift}`;
       if (a._speechKey === key) continue;
       a._speechKey = key;
