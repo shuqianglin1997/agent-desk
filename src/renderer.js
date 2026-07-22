@@ -2333,12 +2333,15 @@ function appendAccountRow(profile) {
     busy.title = `${activeNow} 个会话正在进行`;
     name.append(busy);
   }
-  // 同账号标识：同一登录身份的多个客户端槽位（如 Kimi Code + Kimi Work）
-  if (identityPeersOf(profile).length) {
+  // 同账号标识：同一登录身份的多个客户端槽位（如 Kimi Code + Kimi Work、
+  // 桌面 Claude 与终端 Claude CLI —— 后者按账号指纹自动识别）
+  const peers = identityPeersOf(profile);
+  if (peers.length) {
     const link = document.createElement('span');
     link.className = 'account-identity';
     link.textContent = '⛓';
-    link.title = `同账号：${profile.identityKey} · 与「${identityPeersOf(profile).map((peer) => peer.name).join('、')}」是同一登录身份`;
+    const how = profile.identityKey ? `同账号「${profile.identityKey}」` : '检测到同一登录账号';
+    link.title = `${how} · 与「${peers.map((peer) => peer.name).join('、')}」是同一身份`;
     name.append(link);
   }
   const small = button.querySelector('small');
@@ -2352,12 +2355,16 @@ function appendAccountRow(profile) {
   els.accountList.append(button);
 }
 
-// 与该槽位同 identityKey 的其他槽位（identityKey 为空则不算关联）
+// 同一登录身份的其他槽位：手动 identityKey 相同，或自动指纹
+// （main 侧按账号 UUID 哈希出的 identityFingerprint）相同。
 function identityPeersOf(profile) {
-  if (!profile?.identityKey) return [];
-  return state.profiles.filter(
-    (item) => item.id !== profile.id && item.identityKey === profile.identityKey
-  );
+  if (!profile) return [];
+  return state.profiles.filter((item) => {
+    if (item.id === profile.id) return false;
+    if (profile.identityKey && item.identityKey === profile.identityKey) return true;
+    if (profile.identityFingerprint && item.identityFingerprint === profile.identityFingerprint) return true;
+    return false;
+  });
 }
 
 function populateIdentityDatalist() {
@@ -2440,8 +2447,8 @@ function renderAccountHeader() {
   const groupLabel = profile.group ? ` · ${profile.group}` : '';
   const activeNow = state.activity[profile.id]?.activeNow || 0;
   const busyLabel = activeNow > 0 ? ` · ⌨ ${activeNow} 个会话进行中` : '';
-  const peers = identityPeersOf(profile);
-  const identityLabel = peers.length ? ` · ⛓ 与 ${peers.map((peer) => peer.name).join('、')} 同账号` : '';
+  const headerPeers = identityPeersOf(profile);
+  const identityLabel = headerPeers.length ? ` · ⛓ 与 ${headerPeers.map((peer) => peer.name).join('、')} 同账号` : '';
   els.accountMeta.textContent = `${appLabel(profile.appId)} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel}${busyLabel}${identityLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
   els.accountPath.textContent = `账号 ${shortPath(profile.profilePath)} · 会话 ${shortPath(profile.sessionRoot)}`;
   els.accountNote.textContent = profile.note || '';
