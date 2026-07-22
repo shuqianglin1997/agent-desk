@@ -700,6 +700,16 @@ function bindEvents() {
     renderQuotaOverview();
   });
 
+  // 「管理」下拉遵循业界惯例：点菜单外任意处或按 Esc 关闭
+  document.addEventListener('pointerdown', (event) => {
+    if (els.accountManage.open && !els.accountManage.contains(event.target)) {
+      els.accountManage.open = false;
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && els.accountManage.open) els.accountManage.open = false;
+  });
+
   els.quotaRefreshBtn.addEventListener('click', async () => {
     if (!selectedProfile()) return;
     setStatus('正在从官方服务刷新额度…');
@@ -1117,7 +1127,6 @@ function renderQuotaSummary() {
 }
 
 function renderQuotaOverview() {
-  if (!els.quotaOverview || !window.QuotaOverview) return;
   // 总览按「账号」而不是槽位：同一登录身份的多个槽位只出一行，
   // 行代表取组内有真实额度快照的那个（额度只在部分客户端有官方 API）。
   const groups = identityGroups();
@@ -1125,10 +1134,14 @@ function renderQuotaOverview() {
     const holder = group.members.find((member) => state.quotas[member.id]?.status === 'ok') || group.primary;
     return { ...holder, name: group.primary.name };
   });
-  const rows = window.QuotaOverview.buildQuotaOverview(representatives, state.quotas, Date.now());
+  const rows = window.QuotaOverview
+    ? window.QuotaOverview.buildQuotaOverview(representatives, state.quotas, Date.now())
+    : [];
 
-  // 控制条 chips（本号/全院）永远刷新；总览带默认收起，点「全院」chip 展开（原型）
+  // 控制条 chips（本号/全院）永远刷新，且不依赖总览带/聚合模块是否存在
+  // （code-review：控制条核心 UI 不能被可选模块的守卫连带闸住）
   renderQuotaChips(groups, rows);
+  if (!els.quotaOverview || !window.QuotaOverview) return;
   els.quotaOverview.hidden = !state.quotaOverviewOpen || groups.length < 2;
   if (els.quotaOverview.hidden) return;
   const withQuota = rows.filter((row) => row.hasQuota).length;
@@ -1198,11 +1211,18 @@ function renderQuotaChips(groups, rows) {
     ? known.reduce((a, b) => (a.tightest.remainingPercent <= b.tightest.remainingPercent ? a : b))
     : null;
   setQuotaChip(els.quotaChipAll, allRow, '点击展开全院额度总览', allRow ? `全院最紧 ${allRow.name}` : null);
+
+  // 可展开控件惯例：aria-expanded 反映面板实际可见态；单账号没有总览可展，置灰
+  els.quotaChipSelf.setAttribute('aria-expanded', String(Boolean(selectedGroup) && state.quotaSelfOpen));
+  els.quotaChipAll.disabled = groups.length < 2;
+  els.quotaChipAll.setAttribute('aria-expanded', String(groups.length >= 2 && state.quotaOverviewOpen));
+  if (els.quotaChipAll.disabled) els.quotaChipAll.title = '只有一个账号时没有全院总览';
 }
 
 function setQuotaChip(chip, row, hint, prefix = null) {
   const fill = chip.querySelector('.mtr i');
   const value = chip.querySelector('b');
+  if (!fill || !value) return; // chip 内部结构被改动时安静降级，别抛 TypeError（code-review 加固）
   const loading = Boolean(quotaRequest);
   if (row && row.hasQuota) {
     const percent = Math.max(0, Math.min(100, Math.round(row.tightest.remainingPercent)));

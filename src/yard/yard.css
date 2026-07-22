@@ -857,14 +857,14 @@ body[data-view="yard"] .account-id h2 {
 
 body[data-view="yard"] .account-badge {
   border: 1px solid var(--yd-line);
-  background: #f4ecd4;
+  background: var(--yd-panel);
   color: var(--yd-ink2);
 }
 
 body[data-view="yard"] .account-bar .quota-chip {
   border: 1px solid var(--yd-line);
   border-radius: 20px;
-  background: #f4ecd4;
+  background: var(--yd-panel);
   color: var(--yd-ink2);
   box-shadow: none;
   font-weight: 600;
@@ -872,7 +872,7 @@ body[data-view="yard"] .account-bar .quota-chip {
 
 body[data-view="yard"] .account-bar .quota-chip .mtr {
   border: 1px solid var(--yd-line);
-  background: #e3d8bb;
+  background: color-mix(in srgb, var(--yd-panel2) 72%, var(--yd-line));
 }
 
 body[data-view="yard"] .attention-inbox {
