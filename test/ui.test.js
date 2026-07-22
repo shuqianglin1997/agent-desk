@@ -37,7 +37,7 @@ test('庭院会话表恢复真表格（5 列含来源），删掉卡片式覆盖
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] tbody \{\s*display:\s*grid/);
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] tbody td:nth-child/);
   // 表格是唯一滚动区（去掉 380px 硬顶，改由弹性行约束）
-  assert.match(yardStyles, /body\[data-view="yard"\] \.table-wrap \{\s*max-height:\s*none/);
+  assert.match(yardStyles, /body\[data-view="yard"\] \.table-wrap \{[^}]*max-height:\s*none/);
 });
 
 test('横带场景高度封顶为陪伴带，不再撑满整列', () => {

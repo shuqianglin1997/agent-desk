@@ -1146,11 +1146,13 @@ body[data-view="yard"] .workspace button.primary:hover:not(:disabled) {
   color: #33261a;
 }
 
+/* 表格木框皮肤 + 唯一滚动区（高度由弹性行约束，无 380px 硬顶） */
 body[data-view="yard"] .table-wrap {
   border: 3px solid var(--yd-line);
   border-radius: 0;
   background: var(--yd-panel);
   box-shadow: 0 4px 0 var(--yd-shadow);
+  max-height: none;
 }
 
 /* 会话主区回落到经典真表格（5 列含来源），不再是卡片堆叠：删掉全部
@@ -1163,11 +1165,6 @@ body[data-view="yard"] .main-grid {
 
 body[data-view="yard"] .session-pane {
   padding: 16px;
-}
-
-/* 表格是唯一滚动区：高度由弹性行约束，去掉 380px 硬顶 */
-body[data-view="yard"] .table-wrap {
-  max-height: none;
 }
 
 /* 木牌表头常驻（sticky 由基础层提供），套庭院配色 */
