@@ -117,6 +117,7 @@ const els = {
   runtimeInput: document.querySelector('#runtimeInput'),
   runtimeSendBtn: document.querySelector('#runtimeSendBtn'),
   runtimeHint: document.querySelector('#runtimeHint'),
+  agentRegistryBtn: document.querySelector('#agentRegistryBtn'),
   agentRegistryDialog: document.querySelector('#agentRegistryDialog'),
   discoveredAgentList: document.querySelector('#discoveredAgentList'),
   customAgentList: document.querySelector('#customAgentList'),
@@ -517,6 +518,14 @@ function bindEvents() {
 
   els.helpBtn.addEventListener('click', () => {
     els.welcomeDialog.showModal();
+  });
+
+  // 「接入 Agent」入口（原在已删的多 Agent 控制台头部，移到顶栏全局操作区恢复）
+  els.agentRegistryBtn?.addEventListener('click', async () => {
+    await loadRuntimeAdapters();
+    renderDiscoveredAgentList();
+    renderCustomAgentList();
+    els.agentRegistryDialog.showModal();
   });
 
   els.pickCustomAgentExecutableBtn.addEventListener('click', async () => {
