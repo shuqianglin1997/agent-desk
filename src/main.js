@@ -123,6 +123,10 @@ if (!hasSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
+    // 开发态 dock 也用品牌像素脸（打包态由 electron-builder 的 icns 提供），品牌全站统一
+    if (process.platform === 'darwin' && !app.isPackaged && app.dock) {
+      try { app.dock.setIcon(path.join(__dirname, '..', 'assets', 'icon.png')); } catch (_error) { /* best effort */ }
+    }
     registerIpc();
     createWindow();
 
