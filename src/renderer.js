@@ -523,6 +523,7 @@ function bindEvents() {
     persistSettings({ lang: next });
     updateLangToggle();
     applyView();
+    rerenderLocalizedText(); // apply() 只换静态 data-i18n；动态渲染的文案也要重刷一遍
   });
 
   els.viewToggle.addEventListener('click', () => {
@@ -584,7 +585,7 @@ function bindEvents() {
 
   els.pickProfilePathBtn.addEventListener('click', async () => {
     const picked = await window.manager.pickDirectory({
-      title: '选择账号数据目录',
+      title: tr('picker.profileDir'),
       defaultPath: els.profilePathInput.value
     });
     if (picked) els.profilePathInput.value = picked;
@@ -592,7 +593,7 @@ function bindEvents() {
 
   els.pickSessionRootBtn.addEventListener('click', async () => {
     const picked = await window.manager.pickDirectory({
-      title: '选择会话根目录',
+      title: tr('picker.sessionRoot'),
       defaultPath: els.sessionRootInput.value
     });
     if (picked) els.sessionRootInput.value = picked;
@@ -600,7 +601,7 @@ function bindEvents() {
 
   els.pickExecutablePathBtn.addEventListener('click', async () => {
     const picked = await window.manager.pickFile({
-      title: '选择官方 App 可执行文件',
+      title: tr('picker.executable'),
       defaultPath: els.executablePathInput.value || undefined
     });
     if (picked) els.executablePathInput.value = picked;
@@ -755,14 +756,14 @@ async function handleUpdateClick() {
   clearTimeout(updateButtonTimer);
   els.updateBtn.disabled = true;
   els.updateBtn.classList.remove('update-available', 'update-error');
-  els.updateBtn.textContent = '检查中…';
-  els.updateBtn.title = '正在查询 GitHub Releases';
+  els.updateBtn.textContent = tr('update.btn.checking');
+  els.updateBtn.title = tr('update.title.querying');
   setStatus(tr('status.checkingUpdate'));
 
   const result = await window.manager.checkForUpdates();
   if (!result.ok) {
     setStatus(result.reason || tr('status.checkFail'));
-    finishUpdateButton('! 重试', '检查更新失败，点击重试', 'update-error');
+    finishUpdateButton(tr('update.btn.retry'), tr('update.title.checkFailRetry'), 'update-error');
     return;
   }
 
@@ -770,19 +771,19 @@ async function handleUpdateClick() {
   renderAttentionInbox();
   if (!result.updateAvailable) {
     setStatus(tr('status.latest', { version: result.currentVersion }));
-    finishUpdateButton('✓ 最新', `当前版本 v${result.currentVersion}`, '');
+    finishUpdateButton(tr('update.btn.latest'), tr('update.title.currentVersion', { version: result.currentVersion }), '');
     return;
   }
 
   els.updateBtn.classList.add('update-available');
-  els.updateBtn.textContent = '↑ 更新';
-  els.updateBtn.title = `发现 v${result.latestVersion}，点击更新`;
-  const size = result.assetSize ? `（${formatBytes(result.assetSize)}）` : '';
+  els.updateBtn.textContent = tr('update.btn.update');
+  els.updateBtn.title = tr('update.title.foundClick', { version: result.latestVersion });
+  const size = result.assetSize ? tr('update.sizeSuffix', { size: formatBytes(result.assetSize) }) : '';
   const action = result.installSupported
-    ? `将从 GitHub 下载 ${result.assetName || 'Windows portable 更新包'}${size}，通过 SHA-256 校验后替换当前程序并重启。`
-    : `${result.manualReason || '当前环境不能自动覆盖。'}\n将打开 GitHub Release 页面。`;
+    ? tr('update.action.auto', { asset: result.assetName || tr('update.assetFallback'), size })
+    : tr('update.action.manual', { reason: result.manualReason || tr('update.manualReasonFallback') });
   const confirmed = window.confirm(
-    `发现 AgentDesk v${result.latestVersion}\n当前版本：v${result.currentVersion}\n\n${action}\n\n继续吗？`
+    tr('update.confirm', { latest: result.latestVersion, current: result.currentVersion, action })
   );
   if (!confirmed) {
     updateBusy = false;
@@ -792,26 +793,26 @@ async function handleUpdateClick() {
   }
 
   els.updateBtn.disabled = true;
-  els.updateBtn.textContent = result.installSupported ? '0%' : '↗ 打开';
+  els.updateBtn.textContent = result.installSupported ? '0%' : tr('update.btn.open');
   const installed = await window.manager.installUpdate();
   if (!installed.ok) {
     setStatus(installed.reason || tr('status.updateFail'));
-    finishUpdateButton('! 重试', '更新失败，点击重试', 'update-error');
+    finishUpdateButton(tr('update.btn.retry'), tr('update.title.updateFailRetry'), 'update-error');
     return;
   }
   if (installed.manual) {
     setStatus(installed.message || tr('status.openedRelease'));
-    finishUpdateButton('↗ 已打开', '已打开 GitHub Release', '');
+    finishUpdateButton(tr('update.btn.opened'), tr('update.title.openedRelease'), '');
     return;
   }
   if (installed.upToDate) {
     setStatus(installed.message || tr('status.alreadyLatestShort'));
-    finishUpdateButton('✓ 最新', '当前已是最新版', '');
+    finishUpdateButton(tr('update.btn.latest'), tr('update.title.alreadyLatest'), '');
     return;
   }
   if (installed.restarting) {
-    els.updateBtn.textContent = '✓ 重启';
-    els.updateBtn.title = '更新完成，正在重启';
+    els.updateBtn.textContent = tr('update.btn.restart');
+    els.updateBtn.title = tr('update.title.restarting');
     setStatus(installed.message || tr('status.updateDoneRestart'));
   }
 }
@@ -820,14 +821,14 @@ function handleUpdateProgress(progress = {}) {
   if (progress.message) setStatus(progress.message);
   if (progress.stage === 'downloading' && Number.isFinite(progress.percent)) {
     els.updateBtn.textContent = `${progress.percent}%`;
-    els.updateBtn.title = `正在下载更新：${progress.percent}%`;
+    els.updateBtn.title = tr('update.title.downloading', { percent: progress.percent });
   } else if (progress.stage === 'installing') {
-    els.updateBtn.textContent = '✓ 安装';
-    els.updateBtn.title = '校验完成，准备重启';
+    els.updateBtn.textContent = tr('update.btn.install');
+    els.updateBtn.title = tr('update.title.verifyReady');
   } else if (progress.stage === 'error') {
-    els.updateBtn.textContent = '! 重试';
+    els.updateBtn.textContent = tr('update.btn.retry');
     els.updateBtn.classList.add('update-error');
-    els.updateBtn.title = progress.message || '更新失败';
+    els.updateBtn.title = progress.message || tr('update.title.updateFail');
   }
 }
 
@@ -840,12 +841,12 @@ function finishUpdateButton(label, title, className) {
   if (className) els.updateBtn.classList.add(className);
   updateButtonTimer = setTimeout(() => {
     if (state.updateInfo?.updateAvailable) {
-      els.updateBtn.textContent = '↑ 更新';
-      els.updateBtn.title = `发现 v${state.updateInfo.latestVersion}，点击更新`;
+      els.updateBtn.textContent = tr('update.btn.update');
+      els.updateBtn.title = tr('update.title.foundClick', { version: state.updateInfo.latestVersion });
       els.updateBtn.classList.add('update-available');
     } else {
-      els.updateBtn.textContent = '↻ 更新';
-      els.updateBtn.title = '检查 GitHub 更新';
+      els.updateBtn.textContent = tr('update.btn.recheck');
+      els.updateBtn.title = tr('topbar.update.title');
       els.updateBtn.classList.remove('update-available', 'update-error');
     }
   }, 2200);
@@ -912,13 +913,13 @@ async function loadQuotas(force = false) {
   quotaRequest = (async () => {
     try {
       const list = await window.manager.listQuotas({ force: force === true });
-      if (!Array.isArray(list)) throw new Error('额度服务返回格式异常');
+      if (!Array.isArray(list)) throw new Error(tr('quota.err.badFormat'));
       state.quotas = Object.fromEntries(
         list.filter((item) => item?.profileId).map((item) => [item.profileId, item])
       );
       return list;
     } catch (error) {
-      state.quotaError = error?.message || '额度查询失败';
+      state.quotaError = error?.message || tr('quota.err.queryFail');
       return null;
     } finally {
       quotaHasLoaded = true;
@@ -1331,7 +1332,7 @@ function initYard() {
       if (profile) setStatus(tr('status.selected', { name: profile.name }));
     },
     onPet: (profile) => {
-      window.YardScene.say(profile.id, { text: '喵～ 呼噜呼噜', kind: 'ambient', duration: 2800 });
+      window.YardScene.say(profile.id, { text: tr('yard.say.purr'), kind: 'ambient', duration: 2800 });
       setStatus(tr('status.purr', { name: profile.name }));
     },
     onDrop: handleYardDrop
@@ -1391,14 +1392,12 @@ function updateAtmosphereReadout() {
   const current = window.YardScene.getAtmosphere();
   els.yardStage.dataset.time = current.time;
   els.yardStage.dataset.weather = current.weather;
-  const timeLabels = { day: '白天', dusk: '黄昏', night: '夜晚' };
-  const weatherLabels = { clear: '晴', cloudy: '多云', rain: '雨', snow: '雪' };
   const autoTime = els.atmosTime.querySelector('[data-time="auto"]');
   const autoWeather = els.atmosWeather.querySelector('[data-weather="auto"]');
-  if (autoTime) autoTime.title = `系统时间：当前${timeLabels[current.time] || current.time}`;
+  if (autoTime) autoTime.title = tr('atmos.autoTimeTip', { label: tr('yard.time.' + current.time) });
   if (autoWeather) {
-    const next = current.nextWeatherAt ? compactDate(current.nextWeatherAt) : '稍后';
-    autoWeather.title = `自动天气：当前${weatherLabels[current.weather] || current.weather}，${next}后更新`;
+    const next = current.nextWeatherAt ? compactDate(current.nextWeatherAt) : tr('atmos.later');
+    autoWeather.title = tr('atmos.autoWeatherTip', { label: tr('yard.weather.' + current.weather), next });
   }
 }
 
@@ -1923,7 +1922,7 @@ async function queueSessionForRuntime(profile, session) {
   const agent = state.runtime.adapters.find((item) => item.id === preferredId && item.available)
     || state.runtime.adapters.find((item) => item.mode === 'agent' && item.available);
   if (!agent) {
-    window.YardScene?.say(profile.id, { text: '先安装 Agent CLI，喵。', kind: 'warning', duration: 4200 });
+    window.YardScene?.say(profile.id, { text: tr('yard.say.needCli'), kind: 'warning', duration: 4200 });
     setStatus(tr('status.taskLaneNeedCli'));
     return;
   }
@@ -1938,7 +1937,7 @@ async function queueSessionForRuntime(profile, session) {
     id: `${profile.id}:${session.id}:${Date.now()}`,
     profileId: profile.id,
     title: session.title,
-    text: `${makeHandoffText(profile, session)}\n\n这是从猫猫庭院任务道加入的待办。请先确认你理解当前项目，再继续处理尚未完成的工作。`
+    text: `${makeHandoffText(profile, session)}${tr('yard.task.suffix')}`
   });
   await openTerminalForProfile(profile);
   renderAttentionInbox();
@@ -2115,7 +2114,7 @@ function handleYardDrop({ profile, state: activityState, point, zone }) {
 
   if (intent.action === 'save-position') {
     saveYardPosition(profile.id, point, zoneId);
-    window.YardScene.say(profile.id, { text: '这里不错，喵。', kind: 'ambient' });
+    window.YardScene.say(profile.id, { text: tr('yard.say.nice'), kind: 'ambient' });
     setStatus(tr('status.yardPosSaved', { name: profile.name }));
     return { keepPosition: true };
   }
@@ -2204,6 +2203,21 @@ function updateLangToggle() {
   els.langToggle.textContent = map[window.I18N.getLang()] || '文';
 }
 
+// 语言切换后重刷所有「运行时用 tr 生成」的文案（静态 data-i18n 由 I18N.apply 处理）
+function rerenderLocalizedText() {
+  renderTopbarContext();
+  renderAccounts();
+  renderAccountHeader();
+  renderSessions();
+  renderInspector();
+  renderQuotaSummary();
+  renderAttentionInbox();
+  renderLedger();
+  if (els.reminderToggle) els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
+  updateAtmosphereReadout();
+  if (yardMounted) syncYard();
+}
+
 function applyView() {
   const yard = state.view === 'yard' && yardMounted;
   document.body.dataset.view = yard ? 'yard' : 'classic';
@@ -2255,7 +2269,7 @@ function applyAgentConsole() {
 // ── 陪伴账本 ─────────────────────────────────────────
 function initCompanion() {
   els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
-  els.reminderToggle.textContent = state.remindersOn ? '🔔 提醒 开' : '🔕 提醒 关';
+  els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
   applyAgentConsole();
   if (window.YardCompanion) {
     state.ledger = state.ledger || window.YardCompanion.emptyLedger(Date.now());
@@ -2327,9 +2341,9 @@ function syncYard() {
         (member) => window.YardCats.deriveState(now, member, state.activity[member.id]) === 'confused'
       );
       if (broken) {
-        attentionById[primary.id] = { kind: 'error', text: `${broken.name} 的会话路径需要检查` };
+        attentionById[primary.id] = { kind: 'error', text: tr('attention.confused.title', { name: broken.name }) };
       } else if (group.members.some((member) => member.id === state.selectedProfileId) && energyById[primary.id] === 'exhausted') {
-        attentionById[primary.id] = { kind: 'warning', text: '额度快用完了' };
+        attentionById[primary.id] = { kind: 'warning', text: tr('yard.attn.lowquota') };
       }
     }
     const selectedGroup = groupOfProfile(state.selectedProfileId);
@@ -2502,11 +2516,11 @@ function buildAccountCard(group, now) {
     const percent = Math.max(0, Math.min(100, Math.round(tightest.remainingPercent)));
     quotaTrack.dataset.level = window.YardEnergy?.energyForRemaining?.(percent) || 'unknown';
     quotaFill.style.width = `${percent}%`;
-    quotaTrack.title = `${tightest.label} 剩 ${percent}%`;
+    quotaTrack.title = tr('quota.overview.value', { label: tightest.label, pct: percent });
   } else {
     quotaTrack.dataset.level = 'unknown';
     quotaFill.style.width = '0%';
-    quotaTrack.title = '暂无额度数据';
+    quotaTrack.title = tr('quota.chip.noData');
   }
 
   card.append(top, st, quotaTrack);
