@@ -958,23 +958,24 @@ function quotaPlanLabel(value) {
 
 function formatQuotaReset(value, now = Date.now()) {
   const resetAt = Date.parse(value);
-  if (!Number.isFinite(resetAt)) return '重置时间未知';
+  if (!Number.isFinite(resetAt)) return tr('quota.reset.unknown');
   const remaining = resetAt - now;
-  if (remaining <= 0) return '已到重置点，等待刷新';
+  if (remaining <= 0) return tr('quota.reset.due');
   const minutes = Math.ceil(remaining / 60_000);
-  if (minutes < 60) return `${minutes} 分钟后重置`;
+  if (minutes < 60) return tr('quota.reset.min', { n: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} 小时 ${minutes % 60} 分后重置`;
+  if (hours < 24) return tr('quota.reset.hm', { h: hours, m: minutes % 60 });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} 天 ${hours % 24} 小时后重置`;
-  return `${new Date(resetAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 重置`;
+  if (days < 7) return tr('quota.reset.dh', { d: days, h: hours % 24 });
+  const time = new Date(resetAt).toLocaleString(dateLocale(), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return tr('quota.reset.at', { time });
 }
 
 function quotaHeadline(snapshot) {
-  if (!snapshot || !window.YardEnergy) return '额度未知';
+  if (!snapshot || !window.YardEnergy) return tr('quota.unknown');
   const window_ = window.YardEnergy.constrainingWindow(snapshot, Date.now());
-  if (!window_) return snapshot.reason || '额度未知';
-  return `${window_.label}剩余 ${Math.round(window_.remainingPercent)}%`;
+  if (!window_) return snapshot.reason || tr('quota.unknown');
+  return tr('quota.headline', { label: window_.label, pct: Math.round(window_.remainingPercent) });
 }
 
 function renderQuotaMeters(snapshot) {
@@ -1000,10 +1001,10 @@ function renderQuotaMeters(snapshot) {
     label.className = 'quota-meter-label';
     const scope = String(window_.scope || '').trim();
     const showScope = scope && (scope.toLowerCase() !== 'codex' || labelCounts.get(window_.label) > 1);
-    label.textContent = `${showScope ? `${scope} · ` : ''}${window_.label || '额度周期'}`;
+    label.textContent = `${showScope ? `${scope} · ` : ''}${window_.label || tr('quota.window.fallback')}`;
     const value = document.createElement('span');
     value.className = 'quota-meter-value';
-    value.textContent = `剩 ${Math.round(remaining)}%`;
+    value.textContent = tr('quota.remainingShort', { pct: Math.round(remaining) });
     head.append(label, value);
 
     const track = document.createElement('div');
@@ -1021,7 +1022,7 @@ function renderQuotaMeters(snapshot) {
     const foot = document.createElement('div');
     foot.className = 'quota-meter-foot';
     foot.textContent = formatQuotaReset(window_.resetsAt);
-    meter.title = `${label.textContent}：已用 ${Math.round(window_.usedPercent)}%，${foot.textContent}`;
+    meter.title = tr('quota.meter.title', { label: label.textContent, used: Math.round(window_.usedPercent), reset: foot.textContent });
     meter.append(head, track, foot);
     els.quotaMeters.append(meter);
   }
@@ -1047,43 +1048,45 @@ function renderQuotaSummary() {
   els.quotaMeters.replaceChildren();
 
   if (!snapshot) {
-    els.quotaStateBadge.textContent = loading ? '查询中' : (state.quotaError ? '读取失败' : '等待查询');
+    els.quotaStateBadge.textContent = loading ? tr('quota.badge.querying') : (state.quotaError ? tr('quota.badge.readFail') : tr('quota.waiting'));
     els.quotaMessage.textContent = loading
-      ? '正在读取官方额度；首次冷启动可能需要十几秒…'
-      : (state.quotaError || '选择账号后会自动查询，额度不会混入高频活跃度轮询。');
+      ? tr('quota.msg.loading')
+      : (state.quotaError || tr('quota.msg.idle'));
     els.quotaSummary.title = els.quotaMessage.textContent;
     return;
   }
 
   const statusLabels = {
-    unsupported: '暂不支持',
-    signed_out: '未登录',
-    stale: '本地缓存',
-    error: '读取失败'
+    unsupported: tr('quota.status.unsupported'),
+    signed_out: tr('quota.status.signed_out'),
+    stale: tr('quota.status.stale'),
+    error: tr('quota.status.error')
   };
   if (refreshFailed) {
-    els.quotaStateBadge.textContent = '上次数据';
+    els.quotaStateBadge.textContent = tr('quota.badge.lastData');
     renderQuotaMeters(snapshot);
-    els.quotaMessage.textContent = `刷新失败：${state.quotaError}。已保留上次数据。`;
+    els.quotaMessage.textContent = tr('quota.msg.refreshFailKeep', { err: state.quotaError });
   } else if (snapshot.status === 'ok') {
     const energy = window.YardEnergy ? window.YardEnergy.deriveEnergy(snapshot, Date.now()) : 'unknown';
     const meta = window.YardEnergy?.ENERGY_META?.[energy];
     els.quotaSummary.dataset.energy = energy;
-    els.quotaStateBadge.textContent = loading ? `${meta?.label || '额度可用'} · 刷新中` : (meta?.label || '额度可用');
+    const energyLabel = meta ? tr('energy.' + energy) : tr('quota.available');
+    els.quotaStateBadge.textContent = loading ? `${energyLabel} · ${tr('quota.suffix.refreshing')}` : energyLabel;
     renderQuotaMeters(snapshot);
     const extras = [];
-    if (snapshot.credits?.unlimited) extras.push('加购额度不限');
+    if (snapshot.credits?.unlimited) extras.push(tr('quota.credits.unlimited'));
     else if (snapshot.credits?.hasCredits && snapshot.credits?.balance !== null && snapshot.credits?.balance !== undefined) {
-      extras.push(`加购余额 ${snapshot.credits.balance}`);
+      extras.push(tr('quota.credits.balance', { n: snapshot.credits.balance }));
     }
-    extras.push('官方实时数据');
+    extras.push(tr('quota.credits.live'));
     els.quotaMessage.textContent = extras.join(' · ');
   } else {
+    const statusLabel = statusLabels[snapshot.status] || tr('quota.unknown');
     els.quotaStateBadge.textContent = loading
-      ? `${statusLabels[snapshot.status] || '额度未知'} · 刷新中`
-      : (statusLabels[snapshot.status] || '额度未知');
+      ? `${statusLabel} · ${tr('quota.suffix.refreshing')}`
+      : statusLabel;
     if (snapshot.status === 'stale') renderQuotaMeters(snapshot);
-    els.quotaMessage.textContent = snapshot.reason || '当前没有可展示的额度数据。';
+    els.quotaMessage.textContent = snapshot.reason || tr('quota.msg.noData');
   }
   els.quotaSummary.title = snapshot.reason || `${quotaPlanLabel(snapshot.planType)} ${quotaHeadline(snapshot)}`.trim();
 }
@@ -1109,8 +1112,8 @@ function renderQuotaOverview() {
   const withQuota = rows.filter((row) => row.hasQuota).length;
   if (els.quotaOverviewMeta) {
     els.quotaOverviewMeta.textContent = withQuota
-      ? `${withQuota}/${rows.length} 个账号有实时额度`
-      : `${rows.length} 个账号`;
+      ? tr('quota.overview.withQuota', { a: withQuota, b: rows.length })
+      : tr('quota.overview.count', { n: rows.length });
   }
 
   els.quotaOverviewList.replaceChildren();
@@ -1133,10 +1136,10 @@ function renderQuotaOverview() {
     if (row.hasQuota) {
       const level = window.YardEnergy?.energyForRemaining(row.tightest.remainingPercent) || 'unknown';
       item.dataset.level = level;
-      value.textContent = `${row.tightest.label} 剩 ${Math.round(row.tightest.remainingPercent)}%`;
+      value.textContent = tr('quota.overview.value', { label: row.tightest.label, pct: Math.round(row.tightest.remainingPercent) });
       item.title = `${row.name} · ${formatQuotaReset(row.tightest.resetsAt)}`;
     } else {
-      value.textContent = row.status === 'loading' ? '查询中…' : (row.reason || '无额度数据');
+      value.textContent = row.status === 'loading' ? tr('quota.overview.querying') : (row.reason || tr('quota.overview.noData'));
       item.title = row.reason || value.textContent;
     }
 
@@ -1147,7 +1150,7 @@ function renderQuotaOverview() {
   if (unsupported.length) {
     const rest = document.createElement('li');
     rest.className = 'quota-overview-rest';
-    rest.textContent = `其余 ${unsupported.length} 个账号暂无官方额度接口`;
+    rest.textContent = tr('quota.overview.rest', { n: unsupported.length });
     rest.title = unsupported.map((row) => row.name).join('、');
     els.quotaOverviewList.append(rest);
   }
@@ -1166,19 +1169,19 @@ function renderQuotaChips(groups, rows) {
       if (row && (!selfRow || (row.hasQuota && !selfRow.hasQuota))) selfRow = row;
     }
   }
-  setQuotaChip(els.quotaChipSelf, selfRow, '点击展开本号额度详情');
+  setQuotaChip(els.quotaChipSelf, selfRow, tr('quota.chip.selfHint'));
 
   const known = rows.filter((row) => row.hasQuota);
   const allRow = known.length
     ? known.reduce((a, b) => (a.tightest.remainingPercent <= b.tightest.remainingPercent ? a : b))
     : null;
-  setQuotaChip(els.quotaChipAll, allRow, '点击展开全院额度总览', allRow ? `全院最紧 ${allRow.name}` : null);
+  setQuotaChip(els.quotaChipAll, allRow, tr('quota.chip.allHint'), allRow ? tr('quota.chip.allPrefix', { name: allRow.name }) : null);
 
   // 可展开控件惯例：aria-expanded 反映面板实际可见态；单账号没有总览可展，置灰
   els.quotaChipSelf.setAttribute('aria-expanded', String(Boolean(selectedGroup) && state.quotaSelfOpen));
   els.quotaChipAll.disabled = groups.length < 2;
   els.quotaChipAll.setAttribute('aria-expanded', String(groups.length >= 2 && state.quotaOverviewOpen));
-  if (els.quotaChipAll.disabled) els.quotaChipAll.title = '只有一个账号时没有全院总览';
+  if (els.quotaChipAll.disabled) els.quotaChipAll.title = tr('quota.chip.noAll');
 }
 
 function setQuotaChip(chip, row, hint, prefix = null) {
@@ -1191,12 +1194,12 @@ function setQuotaChip(chip, row, hint, prefix = null) {
     chip.dataset.level = window.YardEnergy?.energyForRemaining?.(percent) || 'unknown';
     fill.style.width = `${percent}%`;
     value.textContent = `${percent}%`;
-    chip.title = `${prefix || row.name} · ${row.tightest.label} 剩 ${percent}% · ${hint}`;
+    chip.title = tr('quota.chip.title', { prefix: prefix || row.name, label: row.tightest.label, pct: percent, hint });
   } else {
     chip.dataset.level = 'unknown';
     fill.style.width = '0%';
     value.textContent = loading ? '…' : '—';
-    chip.title = `${row?.reason || (loading ? '额度查询中…' : '暂无额度数据')} · ${hint}`;
+    chip.title = tr('quota.chip.hintOnly', { reason: row?.reason || (loading ? tr('quota.chip.querying') : tr('quota.chip.noData')), hint });
   }
 }
 
