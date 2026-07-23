@@ -23,6 +23,19 @@ const {
   parseArgumentLines
 } = require('./agent-registry');
 const { normalizeCat } = require('./yard/cats');
+const { mt } = require('./i18n/main-i18n');
+
+// 主进程当前界面语言：直接读持久化 settings 文件（无副作用；renderer 切语言时已写入）。
+function currentLang() {
+  try {
+    const lang = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'))?.settings?.lang;
+    return (lang === 'en' || lang === 'ja' || lang === 'zh') ? lang : 'zh';
+  } catch (_error) {
+    return 'zh';
+  }
+}
+// 便捷取词：按当前语言解析主进程侧文案（键在 src/i18n/*.js 的 main.* 命名空间）。
+const t = (key, params) => mt(currentLang(), key, params);
 
 const APP_NAME = 'AgentDesk';
 const STORE_VERSION = 2;
@@ -235,7 +248,7 @@ function registerIpc() {
   ipcMain.handle('profiles:remove', (_event, id) => {
     const profiles = loadProfiles();
     const target = profiles.find((profile) => profile.id === id);
-    if (!target || target.isProtected) return { ok: false, reason: '默认槽位不能移除' };
+    if (!target || target.isProtected) return { ok: false, reason: t('main.err.defaultSlotNoRemove') };
     runtimeService.stopProfile(id);
     saveProfiles(profiles.filter((profile) => profile.id !== id));
     quotaService.invalidate(id);
@@ -249,7 +262,7 @@ function registerIpc() {
   ipcMain.handle('profiles:launch', async (_event, id) => {
     const profiles = loadProfiles();
     const index = profiles.findIndex((profile) => profile.id === id);
-    if (index < 0) return { ok: false, reason: '找不到账号槽位' };
+    if (index < 0) return { ok: false, reason: t('main.err.slotNotFound') };
 
     const profile = profiles[index];
     const result = await launchProfile(profile);
@@ -316,23 +329,23 @@ function registerIpc() {
 
   ipcMain.handle('runtime:pickExecutable', async (event, input = {}) => {
     const dialogOptions = {
-      title: '选择 ACP Agent 可执行文件',
+      title: t('main.picker.acpExecutable'),
       defaultPath: input.defaultPath || app.getPath('home'),
       properties: ['openFile']
     };
     if (process.platform === 'win32') {
       dialogOptions.filters = [
-        { name: 'Agent 程序', extensions: ['exe', 'cmd', 'bat', 'js', 'mjs', 'cjs'] },
-        { name: '所有文件', extensions: ['*'] }
+        { name: t('main.filter.agentProgram'), extensions: ['exe', 'cmd', 'bat', 'js', 'mjs', 'cjs'] },
+        { name: t('main.filter.allFiles'), extensions: ['*'] }
       ];
     }
     const result = await dialog.showOpenDialog(mainWindow, dialogOptions);
     if (result.canceled || !result.filePaths.length) return { ok: false, cancelled: true };
     const executable = path.resolve(result.filePaths[0]);
     try {
-      if (!fs.statSync(executable).isFile()) return { ok: false, reason: '选择的位置不是文件' };
+      if (!fs.statSync(executable).isFile()) return { ok: false, reason: t('main.err.notAFile') };
     } catch (error) {
-      return { ok: false, reason: `无法访问这个文件：${error.message}` };
+      return { ok: false, reason: t('main.err.cannotAccessFile', { msg: error.message }) };
     }
     const grantId = crypto.randomUUID();
     runtimeExecutableGrants.set(grantId, {
@@ -349,7 +362,7 @@ function registerIpc() {
   ipcMain.handle('runtime:addCustomAdapter', (event, input = {}) => {
     const grant = runtimeExecutableGrants.get(String(input.executableGrantId || ''));
     if (!grant || grant.ownerId !== event.sender.id) {
-      return { ok: false, reason: '可执行文件授权已失效，请重新选择' };
+      return { ok: false, reason: t('main.err.execGrantExpired') };
     }
     try {
       const agent = normalizeCustomAgent({
@@ -359,7 +372,7 @@ function registerIpc() {
         args: parseArgumentLines(input.arguments),
         createdAt: new Date().toISOString()
       });
-      if (!agent) return { ok: false, reason: '请填写 Agent 名称并选择有效的可执行文件' };
+      if (!agent) return { ok: false, reason: t('main.err.fillAgentName') };
       const agents = loadCustomAgents();
       agents.push(agent);
       saveCustomAgents(agents);
@@ -373,14 +386,14 @@ function registerIpc() {
   ipcMain.handle('runtime:removeCustomAdapter', (_event, id) => {
     const agents = loadCustomAgents();
     const next = agents.filter((item) => item.id !== String(id || ''));
-    if (next.length === agents.length) return { ok: false, reason: '找不到这个自定义 Agent' };
+    if (next.length === agents.length) return { ok: false, reason: t('main.err.customAgentNotFound') };
     saveCustomAgents(next);
     return { ok: true };
   });
 
   ipcMain.handle('runtime:pickWorkspace', async (event, input = {}) => {
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: '选择 Agent 工作目录',
+      title: t('main.picker.agentWorkdir'),
       defaultPath: input.defaultPath || app.getPath('home'),
       properties: ['openDirectory', 'createDirectory']
     });
@@ -388,10 +401,10 @@ function registerIpc() {
     const workspacePath = path.resolve(result.filePaths[0]);
     try {
       if (!fs.statSync(workspacePath).isDirectory()) {
-        return { ok: false, reason: '选择的位置不是目录' };
+        return { ok: false, reason: t('main.err.notADir') };
       }
     } catch (error) {
-      return { ok: false, reason: `无法访问这个目录：${error.message}` };
+      return { ok: false, reason: t('main.err.cannotAccessDir', { msg: error.message }) };
     }
 
     const grantId = crypto.randomUUID();
@@ -415,15 +428,15 @@ function registerIpc() {
     const requestedGrantId = String(input.workspaceGrantId || '');
     const workspaceGrant = requestedGrantId ? runtimeWorkspaceGrants.get(requestedGrantId) : null;
     if (requestedGrantId && (!workspaceGrant || workspaceGrant.ownerId !== event.sender.id)) {
-      return { ok: false, reason: '工作目录授权已失效，请重新选择目录' };
+      return { ok: false, reason: t('main.err.workdirGrantExpired') };
     }
     const identityId = input.identityProfileId || input.profileId || null;
     const workspaceId = workspaceGrant ? null : (input.workspaceProfileId || input.profileId || null);
     const identityProfile = identityId ? storedProfile(identityId) : null;
     const workspaceProfile = workspaceId ? storedProfile(workspaceId) : null;
-    if (identityId && !identityProfile) return { ok: false, reason: '找不到要绑定的身份槽位' };
-    if (workspaceId && !workspaceProfile) return { ok: false, reason: '找不到要使用的工作区槽位' };
-    if (!await confirmRuntimeAccess()) return { ok: false, cancelled: true, reason: '已取消开启 Agent 运行环境' };
+    if (identityId && !identityProfile) return { ok: false, reason: t('main.err.identitySlotNotFound') };
+    if (workspaceId && !workspaceProfile) return { ok: false, reason: t('main.err.workspaceSlotNotFound') };
+    if (!await confirmRuntimeAccess()) return { ok: false, cancelled: true, reason: t('main.err.runtimeCancelled') };
     try {
       const cwd = workspaceGrant
         ? { path: workspaceGrant.path, source: 'explicit-grant', sessionId: null, exact: true }
@@ -465,7 +478,7 @@ function registerIpc() {
 
   ipcMain.handle('system:pickDirectory', async (_event, options = {}) => {
     const result = await dialog.showOpenDialog({
-      title: options.title || '选择目录',
+      title: options.title || t('main.picker.dir'),
       defaultPath: options.defaultPath || app.getPath('home'),
       properties: ['openDirectory', 'createDirectory']
     });
@@ -475,14 +488,14 @@ function registerIpc() {
 
   ipcMain.handle('system:pickFile', async (_event, options = {}) => {
     const dialogOptions = {
-      title: options.title || '选择文件',
+      title: options.title || t('main.picker.file'),
       defaultPath: options.defaultPath || app.getPath('home'),
       properties: ['openFile']
     };
     if (process.platform === 'win32') {
       dialogOptions.filters = [
-        { name: 'Windows 应用', extensions: ['exe'] },
-        { name: '所有文件', extensions: ['*'] }
+        { name: t('main.filter.winApp'), extensions: ['exe'] },
+        { name: t('main.filter.allFiles'), extensions: ['*'] }
       ];
     }
     const result = await dialog.showOpenDialog(dialogOptions);
@@ -521,10 +534,10 @@ async function confirmRuntimeAccess() {
   if (runtimeConsentGranted) return true;
   const result = await dialog.showMessageBox(mainWindow, {
     type: 'warning',
-    title: '开启本机 Agent',
-    message: 'Agent 控制台可以同时运行多个本机进程',
-    detail: 'Shell 中输入的命令会直接运行；Codex、Claude Code 等 Agent 可能在各自工作区读写文件。每个实例都会显示身份、目录与状态，请只运行你信任的 Agent 和项目。',
-    buttons: ['取消', '我了解，开启 Agent'],
+    title: t('main.perm.title'),
+    message: t('main.perm.message'),
+    detail: t('main.perm.detail'),
+    buttons: [t('main.btn.cancel'), t('main.perm.confirm')],
     cancelId: 0,
     defaultId: 0,
     noLink: true
@@ -538,10 +551,10 @@ async function requestRuntimePermission(runtime, params = {}) {
   const options = Array.isArray(params.options) ? params.options.slice(0, 8) : [];
   if (!options.length) return { outcome: { outcome: 'cancelled' } };
   const kindLabels = {
-    allow_once: '仅本次允许',
-    allow_always: '本实例始终允许',
-    reject_once: '本次拒绝',
-    reject_always: '本实例始终拒绝'
+    allow_once: t('main.tool.allowOnce'),
+    allow_always: t('main.tool.allowAlways'),
+    reject_once: t('main.tool.rejectOnce'),
+    reject_always: t('main.tool.rejectAlways')
   };
   let rawInput = '';
   try {
@@ -553,14 +566,14 @@ async function requestRuntimePermission(runtime, params = {}) {
   }
   const result = await dialog.showMessageBox(mainWindow, {
     type: 'warning',
-    title: `${runtime.adapterLabel} 请求权限`,
-    message: params.toolCall?.title || 'Agent 请求执行一项操作',
+    title: t('main.tool.title', { label: runtime.adapterLabel }),
+    message: params.toolCall?.title || t('main.tool.message'),
     detail: [
-      `实例：${runtime.title}`,
-      `工作目录：${runtime.cwd}`,
-      rawInput ? `\n参数：\n${rawInput}` : ''
+      t('main.tool.instance', { title: runtime.title }),
+      t('main.tool.workdir', { cwd: runtime.cwd }),
+      rawInput ? t('main.tool.args', { args: rawInput }) : ''
     ].filter(Boolean).join('\n'),
-    buttons: ['取消', ...options.map((option) => (
+    buttons: [t('main.btn.cancel'), ...options.map((option) => (
       `${option.name} · ${kindLabels[option.kind] || option.kind}`
     ))],
     cancelId: 0,
@@ -578,7 +591,7 @@ function runtimeErrorResult(error) {
   return {
     ok: false,
     code: error?.code || 'RUNTIME_ERROR',
-    reason: error?.message || 'Agent 运行环境发生错误'
+    reason: error?.message || t('main.err.runtimeError')
   };
 }
 
@@ -631,15 +644,15 @@ async function fetchLatestGitHubRelease() {
     if (!response.ok) {
       const remaining = response.headers.get('x-ratelimit-remaining');
       if (response.status === 404) {
-        throw new Error('GitHub 暂无已正式发布的 Release；草稿和仅有 Git tag 的版本不会用于自动更新。');
+        throw new Error(t('main.upd.noRelease'));
       }
       if (response.status === 403 && remaining === '0') {
-        throw new Error('GitHub API 请求次数暂时用完，请稍后再试。');
+        throw new Error(t('main.upd.rateLimit'));
       }
-      throw new Error(`GitHub Release 查询失败（HTTP ${response.status}）。`);
+      throw new Error(t('main.upd.queryFail', { status: response.status }));
     }
     const text = await response.text();
-    if (text.length > 4 * 1024 * 1024) throw new Error('GitHub Release 响应异常过大。');
+    if (text.length > 4 * 1024 * 1024) throw new Error(t('main.upd.respTooLarge'));
     return JSON.parse(text);
   } finally {
     clearTimeout(timer);
@@ -654,7 +667,7 @@ function updateCapability(resolved) {
     return {
       installSupported: false,
       mode: 'release-page',
-      reason: '最新版暂时没有适用于当前系统的安装包。',
+      reason: t('main.upd.noAsset'),
       targetPath: null
     };
   }
@@ -662,7 +675,7 @@ function updateCapability(resolved) {
     return {
       installSupported: false,
       mode: 'release-page',
-      reason: 'macOS 版本需要从 Release 页面打开 DMG 完成替换。',
+      reason: t('main.upd.macDmg'),
       targetPath: null
     };
   }
@@ -670,7 +683,7 @@ function updateCapability(resolved) {
     return {
       installSupported: false,
       mode: 'release-page',
-      reason: '开发模式不会覆盖源码运行环境。',
+      reason: t('main.upd.devMode'),
       targetPath: null
     };
   }
@@ -680,7 +693,7 @@ function updateCapability(resolved) {
     return {
       installSupported: false,
       mode: 'release-page',
-      reason: '当前不是由 Windows portable exe 启动，无法安全地自我替换。',
+      reason: t('main.upd.notPortable'),
       targetPath: null
     };
   }
@@ -688,7 +701,7 @@ function updateCapability(resolved) {
     return {
       installSupported: false,
       mode: 'release-page',
-      reason: 'Release 未提供 GitHub SHA-256 digest，已禁止自动覆盖。',
+      reason: t('main.upd.noDigest'),
       targetPath: null
     };
   }
@@ -699,7 +712,7 @@ function updateCapability(resolved) {
     return {
       installSupported: false,
       mode: 'release-page',
-      reason: '当前 portable exe 所在目录不可写，请从 GitHub 手动下载更新。',
+      reason: t('main.upd.dirNotWritable'),
       targetPath: null
     };
   }
@@ -732,7 +745,7 @@ function publicUpdateInfo(update) {
 }
 
 async function installLatestUpdate(webContents) {
-  if (updateInstalling) return { ok: false, reason: '更新正在进行中。' };
+  if (updateInstalling) return { ok: false, reason: t('main.upd.inProgress') };
 
   let update;
   try {
@@ -743,7 +756,7 @@ async function installLatestUpdate(webContents) {
 
   const { resolved, capability } = update;
   if (!resolved.updateAvailable) {
-    return { ok: true, upToDate: true, message: `当前已经是最新版 v${resolved.currentVersion}。` };
+    return { ok: true, upToDate: true, message: t('main.upd.alreadyLatest', { version: resolved.currentVersion }) };
   }
 
   if (!capability.installSupported) {
@@ -752,10 +765,10 @@ async function installLatestUpdate(webContents) {
       return {
         ok: true,
         manual: true,
-        message: capability.reason || '已打开 GitHub Release 页面。'
+        message: capability.reason || t('main.upd.openedRelease')
       };
     } catch (error) {
-      return { ok: false, reason: `无法打开 GitHub Release：${error.message}` };
+      return { ok: false, reason: t('main.upd.cannotOpenRelease', { msg: error.message }) };
     }
   }
 
@@ -765,13 +778,13 @@ async function installLatestUpdate(webContents) {
     sendUpdateProgress(webContents, {
       stage: 'preparing',
       percent: 0,
-      message: `准备下载 v${resolved.latestVersion}…`
+      message: t('main.upd.preparing', { version: resolved.latestVersion })
     });
     const downloadedPath = await downloadReleaseAsset(resolved, webContents);
     sendUpdateProgress(webContents, {
       stage: 'installing',
       percent: 100,
-      message: '校验完成，正在准备替换并重启…'
+      message: t('main.upd.verifyRestart')
     });
     // Preserve the exact current user configuration immediately before the
     // executable is replaced. These snapshots are outside the portable exe
@@ -783,7 +796,7 @@ async function installLatestUpdate(webContents) {
     return {
       ok: true,
       restarting: true,
-      message: `v${resolved.latestVersion} 已下载并校验，AgentDesk 即将重启。`
+      message: t('main.upd.downloadedRestart', { version: resolved.latestVersion })
     };
   } catch (error) {
     sendUpdateProgress(webContents, {
@@ -799,7 +812,7 @@ async function installLatestUpdate(webContents) {
 
 async function downloadReleaseAsset(resolved, webContents) {
   const asset = resolved.asset;
-  if (!asset?.url || !asset.sha256) throw new Error('Release 资产缺少安全校验信息。');
+  if (!asset?.url || !asset.sha256) throw new Error(t('main.upd.assetMissingSec'));
 
   const updateDir = path.join(app.getPath('temp'), 'AgentDesk-updates');
   ensureDir(updateDir);
@@ -828,7 +841,7 @@ async function downloadReleaseAsset(resolved, webContents) {
     const statusCode = Number(response.statusCode);
     if (!Number.isInteger(statusCode) || statusCode < 200 || statusCode >= 300) {
       response.resume();
-      throw new Error(`更新包下载失败（HTTP ${statusCode || '-'}）。`);
+      throw new Error(t('main.upd.downloadFail', { status: statusCode || '-' }));
     }
 
     const meter = new Transform({
@@ -851,7 +864,7 @@ async function downloadReleaseAsset(resolved, webContents) {
             percent,
             received,
             total: asset.size,
-            message: percent === null ? '正在下载更新…' : `正在下载更新… ${percent}%`
+            message: percent === null ? t('main.upd.downloading') : t('main.upd.downloadingPct', { percent })
           });
         }
         callback(null, buffer);
@@ -865,15 +878,15 @@ async function downloadReleaseAsset(resolved, webContents) {
     );
 
     if (received !== asset.size) {
-      throw new Error(`更新包大小不一致（预期 ${asset.size}，实际 ${received}）。`);
+      throw new Error(t('main.upd.sizeMismatch', { expected: asset.size, received }));
     }
     const digest = hash.digest('hex');
-    if (digest !== asset.sha256) throw new Error('更新包 SHA-256 校验失败，已停止覆盖。');
+    if (digest !== asset.sha256) throw new Error(t('main.upd.shaFail'));
     fs.renameSync(partialPath, finalPath);
     return finalPath;
   } catch (error) {
     try { fs.rmSync(partialPath, { force: true }); } catch (_error) { /* best effort */ }
-    if (timedOut) throw new Error('更新包下载超时，请检查网络后重试。');
+    if (timedOut) throw new Error(t('main.upd.downloadTimeout'));
     throw error;
   } finally {
     clearTimeout(timer);
@@ -903,13 +916,13 @@ function createTrustedDownloadRequest(url, headers) {
     request.on('redirect', (_statusCode, _method, redirectUrl) => {
       redirects += 1;
       if (redirects > 5) {
-        failure = new Error('更新包下载重定向次数过多。');
+        failure = new Error(t('main.upd.tooManyRedirects'));
         finish(reject, failure);
         request.abort();
         return;
       }
       if (!updater.isTrustedDownloadResponseUrl(redirectUrl)) {
-        failure = new Error('更新包被重定向到了非 GitHub 下载地址。');
+        failure = new Error(t('main.upd.redirectNonGithub'));
         finish(reject, failure);
         request.abort();
         return;
@@ -925,7 +938,7 @@ function createTrustedDownloadRequest(url, headers) {
     });
     request.once('response', (incoming) => {
       if (!updater.isTrustedDownloadResponseUrl(currentUrl)) {
-        failure = new Error('更新包响应来自非 GitHub 下载地址。');
+        failure = new Error(t('main.upd.respNonGithub'));
         finish(reject, failure);
         request.abort();
         return;
@@ -934,10 +947,10 @@ function createTrustedDownloadRequest(url, headers) {
     });
     request.once('error', (error) => finish(reject, failure || error));
     request.once('abort', () => {
-      finish(reject, failure || new Error('更新包下载已取消。'));
+      finish(reject, failure || new Error(t('main.upd.downloadCancelled')));
     });
     request.once('close', () => {
-      finish(reject, failure || new Error('更新包连接意外关闭。'));
+      finish(reject, failure || new Error(t('main.upd.connClosed')));
     });
     request.end();
   });
@@ -977,7 +990,7 @@ async function launchWindowsPortableUpdater(downloadedPath, targetPath) {
       lastError = error;
     }
   }
-  throw new Error(`无法启动 Windows 更新替换器：${lastError?.message || 'PowerShell 不可用'}`);
+  throw new Error(t('main.upd.replacerFail', { msg: lastError?.message || 'PowerShell 不可用' }));
 }
 
 function sendUpdateProgress(webContents, payload) {
@@ -990,9 +1003,9 @@ function sendUpdateProgress(webContents, payload) {
 }
 
 function updateErrorMessage(error) {
-  if (error?.name === 'AbortError') return '连接 GitHub 超时，请检查网络后重试。';
-  if (error instanceof SyntaxError) return 'GitHub Release 返回了无法解析的数据。';
-  return error?.message || '更新失败。';
+  if (error?.name === 'AbortError') return t('main.upd.githubTimeout');
+  if (error instanceof SyntaxError) return t('main.upd.unparsable');
+  return error?.message || t('main.upd.genericFail');
 }
 
 function loadProfiles() {
@@ -1474,7 +1487,7 @@ async function launchProfile(profile) {
   if (app_.noLaunch) {
     return {
       ok: false,
-      reason: `${app_.label} 在你自己的终端里运行；这个槽位负责识别和索引它的会话。`
+      reason: t('main.launch.cliRuns', { label: app_.label })
     };
   }
   const appName = app_.appName;
@@ -1491,7 +1504,7 @@ async function launchProfile(profile) {
       ensureDir(profile.sessionRoot);
     }
   } catch (error) {
-    return { ok: false, reason: `无法准备账号目录：${error.message}` };
+    return { ok: false, reason: t('main.err.cannotPrepDir', { msg: error.message }) };
   }
 
   const args = windowsDefault ? [] : [`--user-data-dir=${profile.profilePath}`];
@@ -1507,7 +1520,7 @@ async function launchProfile(profile) {
       }
 
       await spawnDetached('/usr/bin/open', ['-n', '-a', appName, '--args', ...args], env);
-      return { ok: true, command: `open -a ${appName}`, warning: '没有在标准路径找到 App，已交给 macOS Launch Services 查找。' };
+      return { ok: true, command: `open -a ${appName}`, warning: t('main.launch.launchServices') };
     }
 
     if (process.platform === 'win32') {
@@ -1520,7 +1533,7 @@ async function launchProfile(profile) {
             command: executable.path,
             source: executable.source,
             warning: executable.source?.startsWith('Microsoft Store / MSIX')
-              ? '已通过当前 Store/MSIX 包启动；应用更新后会在下次打开时重新定位。'
+              ? t('main.launch.storeMsix')
               : null
           };
         } catch (error) {
@@ -1533,15 +1546,15 @@ async function launchProfile(profile) {
         return {
           ok: true,
           command: app_.windows.protocol,
-          source: 'Windows 协议',
-          warning: '已通过系统协议打开默认账号。协议启动不支持独立账号参数。'
+          source: t('main.launch.winProtocolSource'),
+          warning: t('main.launch.winProtocolWarn')
         };
       }
 
-      const suffix = failures.length ? ` 已找到的启动器也无法运行：${failures[0]}` : '';
+      const suffix = failures.length ? t('main.launch.foundSuffix', { first: failures[0] }) : '';
       return {
         ok: false,
-        reason: `找不到可用的 ${appName} 桌面启动器。请在「路径」里手动选择 ${appName}.exe，或先安装官方 App。${suffix}`
+        reason: t('main.launch.noLauncher', { appName, suffix })
       };
     }
 
@@ -1571,26 +1584,26 @@ function diagnoseProfile(profile) {
   const migration = windowsMigrationInfo(profile);
 
   if (!executable.found && !executable.protocolUsable) {
-    warnings.push(`未在标准路径找到 ${appName} 官方 App。`);
+    warnings.push(t('main.warn.appNotFound', { appName }));
   }
   if (executable.explicitMissing) {
-    warnings.push('手动指定的官方 App 路径已失效，当前已回退到自动查找。');
+    warnings.push(t('main.warn.manualPathInvalid'));
   }
   if (!profilePath.exists) {
-    warnings.push('账号数据目录还不存在，打开账号时会自动创建。');
+    warnings.push(t('main.warn.profileDirMissing'));
   } else if (!profilePath.readable || !profilePath.writable) {
-    warnings.push('账号数据目录权限不足。');
+    warnings.push(t('main.warn.profileDirPerm'));
   }
   if (!sessionRoot.exists) {
-    warnings.push('会话根目录不存在，当前槽位暂时不会读到会话。');
+    warnings.push(t('main.warn.sessionRootMissing'));
   } else if (!sessionRoot.readable) {
-    warnings.push('会话根目录不可读取。');
+    warnings.push(t('main.warn.sessionRootUnreadable'));
   }
   if (sessions.length === 0 && sessionRoot.exists && sessionRoot.readable) {
-    warnings.push(`会话根目录可读，但没有匹配到 ${app_.label} 会话文件。`);
+    warnings.push(t('main.warn.noSessionFiles', { label: app_.label }));
   }
   if (process.platform === 'win32' && migration.needed) {
-    warnings.push('这个账号槽位位于 AppData。Store/MSIX 会把它重定向到包私有目录，Explorer 和 AgentDesk 可能看到不同位置；建议执行路径迁移。');
+    warnings.push(t('main.warn.appDataProfile'));
   }
   if (
     process.platform === 'win32' &&
@@ -1598,13 +1611,13 @@ function diagnoseProfile(profile) {
     windows.isPathInsideWindowsAppData(profile.sessionRoot) &&
     !isSubpath(profile.sessionRoot, profile.profilePath)
   ) {
-    warnings.push('会话根目录仍位于 AppData 且不在账号目录内，MSIX 也可能重定向它；建议改到用户主目录或其他稳定目录。');
+    warnings.push(t('main.warn.appDataSessionRoot'));
   }
   if (process.platform === 'win32' && /[^\x00-\x7f]/.test(profile.profilePath)) {
-    warnings.push('账号路径含非 ASCII 字符；部分 Claude Windows 版本创建用户数据目录时存在兼容问题，若启动异常请改用纯英文路径。');
+    warnings.push(t('main.warn.nonAscii'));
   }
   if (process.platform === 'win32' && Math.max(profile.profilePath.length, profile.sessionRoot.length) >= 240) {
-    warnings.push('路径接近 Windows Explorer 的兼容边界；打开位置时将自动退回到可访问的上级目录。');
+    warnings.push(t('main.warn.nearWinLimit'));
   }
 
   return {
@@ -1698,12 +1711,12 @@ function findExecutable(profileOrAppId) {
       found: Boolean(executable),
       path: executable || null,
       source: executable
-        ? (explicitPath && executable === explicitPath ? '手动指定' : '标准应用目录')
+        ? (explicitPath && executable === explicitPath ? t('main.src.manual') : t('main.src.standardAppDir'))
         : null,
       candidates,
       candidateDetails: candidates.map((candidate) => ({
         path: candidate,
-        source: candidate === explicitPath ? '手动指定' : '标准应用目录',
+        source: candidate === explicitPath ? t('main.src.manual') : t('main.src.standardAppDir'),
         exists: fs.existsSync(candidate)
       })),
       explicitMissing: Boolean(explicitPath && !fs.existsSync(explicitPath)),
@@ -1725,8 +1738,8 @@ function findExecutable(profileOrAppId) {
       ...resolved,
       protocolAvailable: hasWindowsProtocol(app_),
       discoveryChannels: [
-        { source: 'Windows App Paths 注册表', count: registryExecutablePaths.length },
-        { source: 'MSIX 包仓库注册表', count: msixRegistryExecutablePaths.length },
+        { source: t('main.src.winAppPathsReg'), count: registryExecutablePaths.length },
+        { source: t('main.src.msixReg'), count: msixRegistryExecutablePaths.length },
         { source: 'Get-AppxPackage', count: appxExecutablePaths.length }
       ]
     };
@@ -1737,11 +1750,11 @@ function findExecutable(profileOrAppId) {
   return {
     found: Boolean(executable),
     path: executable,
-    source: explicitPath && executable === explicitPath ? '手动指定' : 'PATH',
+    source: explicitPath && executable === explicitPath ? t('main.src.manual') : 'PATH',
     candidates,
     candidateDetails: candidates.map((candidate) => ({
       path: candidate,
-      source: candidate === explicitPath ? '手动指定' : 'PATH',
+      source: candidate === explicitPath ? t('main.src.manual') : 'PATH',
       exists: candidate === executable
     })),
     explicitMissing: Boolean(explicitPath && executable !== explicitPath),
@@ -1915,24 +1928,24 @@ function spawnDetached(command, args, env) {
       child.once('exit', (code, signal) => {
         clearTimeout(timer);
         if (code === 0) finish(resolve);
-        else finish(reject, new Error(`进程启动后立即退出（code=${code}, signal=${signal || '-'}）`));
+        else finish(reject, new Error(t('main.err.procExited', { code, signal: signal || '-' })));
       });
     });
   });
 }
 
 async function migrateWindowsProfilePath(id) {
-  if (process.platform !== 'win32') return { ok: false, reason: '路径迁移只用于 Windows。' };
+  if (process.platform !== 'win32') return { ok: false, reason: t('main.mig.winOnly') };
   const profiles = loadProfiles();
   const index = profiles.findIndex((profile) => profile.id === id);
-  if (index < 0) return { ok: false, reason: '找不到账号槽位。' };
+  if (index < 0) return { ok: false, reason: t('main.err.slotNotFoundDot') };
 
   const profile = profiles[index];
   if (usesWindowsOfficialDefault(profile)) {
-    return { ok: false, reason: '自动默认槽位会跟随系统目录，不需要迁移。' };
+    return { ok: false, reason: t('main.mig.autoDefault') };
   }
   const migration = windowsMigrationInfo(profile);
-  if (!migration.needed) return { ok: true, profile, message: '当前账号目录已经是 Windows 安全位置。' };
+  if (!migration.needed) return { ok: true, profile, message: t('main.mig.alreadySafe') };
 
   const sourcePath = migration.source;
   const targetPath = migration.recommendedPath;
@@ -1941,7 +1954,7 @@ async function migrateWindowsProfilePath(id) {
     isRunningIn(psText, profile.profilePath) ||
     (sourcePath && isRunningIn(psText, sourcePath))
   )) {
-    return { ok: false, reason: `请先关闭「${profile.name}」对应的官方 App，再执行迁移。` };
+    return { ok: false, reason: t('main.mig.closeAppFirst', { name: profile.name }) };
   }
 
   try {
@@ -1958,11 +1971,11 @@ async function migrateWindowsProfilePath(id) {
     }
 
     const latest = loadProfiles().find((item) => item.id === id);
-    if (!latest) return { ok: false, reason: '迁移完成前账号槽位已被移除；复制的数据仍保留在目标目录。' };
+    if (!latest) return { ok: false, reason: t('main.mig.slotRemovedDuring') };
     if (!pathsEqual(latest.profilePath, profile.profilePath)) {
       return {
         ok: false,
-        reason: '迁移期间账号路径被修改，已保留复制的数据但没有覆盖新的路径设置。'
+        reason: t('main.mig.pathChangedDuring')
       };
     }
 
@@ -1989,11 +2002,11 @@ async function migrateWindowsProfilePath(id) {
       sourcePath,
       targetPath,
       message: sourcePath
-        ? '账号数据已复制到 Windows 安全目录；旧目录保留为备份。'
-        : '未找到旧数据，已创建 Windows 安全目录。'
+        ? t('main.mig.copiedBackup')
+        : t('main.mig.createdSafe')
     };
   } catch (error) {
-    return { ok: false, reason: `迁移失败：${error.message}` };
+    return { ok: false, reason: t('main.mig.failed', { msg: error.message }) };
   }
 }
 
@@ -2007,43 +2020,43 @@ function shouldCopyProfileItem(sourcePath) {
 async function exportSessionTranscript(input) {
   const profiles = loadProfiles();
   const profile = profiles.find((item) => item.id === input.profileId);
-  if (!profile) return { ok: false, reason: '找不到账号槽位。' };
+  if (!profile) return { ok: false, reason: t('main.err.slotNotFoundDot') };
 
   const app_ = apps.getApp(profile.appId);
   if (typeof app_.exportTranscript !== 'function') {
-    return { ok: false, reason: `${app_.label} 的会话暂不支持导出 Markdown。` };
+    return { ok: false, reason: t('main.exp.notSupported', { label: app_.label }) };
   }
 
   const records = app_.scan(profile);
   const session = records.find((item) => item.id === input.sessionId);
-  if (!session) return { ok: false, reason: '找不到这个会话，刷新列表后再试。' };
+  if (!session) return { ok: false, reason: t('main.exp.sessionNotFound') };
 
   let exported;
   try {
     exported = app_.exportTranscript(session);
   } catch (error) {
-    return { ok: false, reason: `导出失败：${error.message}` };
+    return { ok: false, reason: t('main.exp.failed', { msg: error.message }) };
   }
 
   const result = await dialog.showSaveDialog(mainWindow, {
-    title: '导出会话 Markdown',
+    title: t('main.exp.dialogTitle'),
     defaultPath: path.join(app.getPath('desktop'), exported.suggestedName || 'session.md'),
     filters: [{ name: 'Markdown', extensions: ['md'] }]
   });
-  if (result.canceled || !result.filePath) return { ok: false, canceled: true, reason: '已取消导出。' };
+  if (result.canceled || !result.filePath) return { ok: false, canceled: true, reason: t('main.exp.cancelled') };
 
   try {
     fs.writeFileSync(result.filePath, exported.markdown, 'utf8');
   } catch (error) {
-    return { ok: false, reason: `写入失败：${error.message}` };
+    return { ok: false, reason: t('main.exp.writeFail', { msg: error.message }) };
   }
-  return { ok: true, savedPath: result.filePath, message: `已导出 Markdown：${result.filePath}` };
+  return { ok: true, savedPath: result.filePath, message: t('main.exp.done', { path: result.filePath }) };
 }
 
 async function revealSessionFile(input) {
   const profiles = loadProfiles();
   const profile = profiles.find((item) => item.id === input.profileId);
-  if (!profile) return { ok: false, reason: '找不到账号槽位。' };
+  if (!profile) return { ok: false, reason: t('main.err.slotNotFoundDot') };
 
   const sessions = apps.getApp(profile.appId).scan(profile);
   const refreshed = sessions.find((session) => session.id === input.sessionId);
@@ -2053,20 +2066,20 @@ async function revealSessionFile(input) {
     return {
       ...result,
       exact: false,
-      message: '原会话文件已被移动或清理，已打开最近可用的目录。刷新列表后可查看当前状态。'
+      message: t('main.rev.movedOpenedRecent')
     };
   }
   return result;
 }
 
 async function revealPath(itemPath, fallbackPath = null) {
-  if (!itemPath && !fallbackPath) return { ok: false, reason: '没有可打开的路径。' };
+  if (!itemPath && !fallbackPath) return { ok: false, reason: t('main.rev.noPath') };
   const resolved = nearestExistingDirectory(itemPath, fallbackPath);
-  if (!resolved.path) return { ok: false, reason: '原位置和可用的上级目录都不存在。' };
+  if (!resolved.path) return { ok: false, reason: t('main.rev.nothingExists') };
 
   if (resolved.exact && resolved.originalIsFile && process.platform !== 'win32' && itemPath.length < 240) {
     shell.showItemInFolder(itemPath);
-    return { ok: true, exact: true, openedPath: resolved.path, message: '已在文件管理器中定位会话文件。' };
+    return { ok: true, exact: true, openedPath: resolved.path, message: t('main.rev.locatedInFiler') };
   }
 
   const opened = await openDirectoryWithFallback(resolved.path);
@@ -2076,7 +2089,7 @@ async function revealPath(itemPath, fallbackPath = null) {
       ok: true,
       exact: false,
       openedPath: opened.openedPath,
-      message: '目标目录无法由文件管理器直接打开，已退回到可访问的上级目录。'
+      message: t('main.rev.cannotOpenReturned')
     };
   }
   if (resolved.exact && resolved.originalIsFile) {
@@ -2084,17 +2097,17 @@ async function revealPath(itemPath, fallbackPath = null) {
       ok: true,
       exact: true,
       openedPath: opened.openedPath,
-      message: `已打开会话文件所在目录：${path.basename(itemPath)}`
+      message: t('main.rev.openedContaining', { name: path.basename(itemPath) })
     };
   }
   if (resolved.exact) {
-    return { ok: true, exact: true, openedPath: opened.openedPath, message: '已打开目录。' };
+    return { ok: true, exact: true, openedPath: opened.openedPath, message: t('main.rev.openedDir') };
   }
   return {
     ok: true,
     exact: false,
     openedPath: opened.openedPath,
-    message: '原位置已移动或不存在，已打开最近可用的上级目录。'
+    message: t('main.rev.movedOpenedParent')
   };
 }
 
@@ -2113,7 +2126,7 @@ async function openDirectoryWithFallback(directoryPath) {
     if (parent === current) break;
     current = parent;
   }
-  return { ok: false, reason: lastError || '文件管理器无法打开这个位置。' };
+  return { ok: false, reason: lastError || t('main.rev.filerCannotOpen') };
 }
 
 function ensureDir(dir) {
