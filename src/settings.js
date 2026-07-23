@@ -11,12 +11,14 @@ const { normalizePositions } = require('./yard/interactions');
 const SETTINGS_VERSION = 2;
 const THEMES = new Set(['light', 'dark']);
 const VIEWS = new Set(['yard', 'classic']);
+const LANGS = new Set(['zh', 'en', 'ja']);
 const YARD_TIMES = new Set(['auto', 'day', 'dusk', 'night']);
 const YARD_WEATHER = new Set(['auto', 'clear', 'cloudy', 'rain', 'snow']);
 
 const DEFAULT_SETTINGS = Object.freeze({
   theme: null,
   view: 'yard',
+  lang: null, // null = 跟随系统语言（中 / 英 / 日）
   remindersOn: true,
   // 内嵌多 Agent 控制台默认收起：多数人用自己的终端跑 agent，
   // AgentDesk 负责识别与索引；控制台按需在庭院账本行打开。
@@ -78,6 +80,7 @@ function normalizeSettings(value) {
     ...input,
     theme: THEMES.has(input.theme) ? input.theme : DEFAULT_SETTINGS.theme,
     view: VIEWS.has(input.view) ? input.view : DEFAULT_SETTINGS.view,
+    lang: LANGS.has(input.lang) ? input.lang : DEFAULT_SETTINGS.lang,
     remindersOn: typeof input.remindersOn === 'boolean'
       ? input.remindersOn
       : DEFAULT_SETTINGS.remindersOn,
