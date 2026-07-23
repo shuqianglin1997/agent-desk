@@ -1585,8 +1585,8 @@ async function loadRuntimeAdapters() {
     state.runtime.adapters = [];
     state.runtime.notice = {
       kind: 'error',
-      title: 'Agent 发现失败',
-      detail: error?.message || '无法读取本机 Agent CLI',
+      title: tr('attention.adapterFail.title'),
+      detail: error?.message || tr('attention.adapterFail.detail'),
       action: 'runtime'
     };
   }
@@ -1993,8 +1993,8 @@ function collectAttentionItems() {
       if (activityState === 'confused') {
         items.push({
           kind: 'error',
-          title: `${profile.name} 的会话路径需要检查`,
-          detail: '打开诊断',
+          title: tr('attention.confused.title', { name: profile.name }),
+          detail: tr('attention.confused.detail'),
           profileId: profile.id,
           action: 'diagnostics'
         });
@@ -2005,8 +2005,8 @@ function collectAttentionItems() {
       if (energy === 'exhausted') {
         items.push({
           kind: 'warning',
-          title: `${profile.name} 的可用额度已经很低`,
-          detail: '查看额度',
+          title: tr('attention.lowquota.title', { name: profile.name }),
+          detail: tr('attention.lowquota.detail'),
           profileId: profile.id,
           action: 'quota'
         });
@@ -2017,16 +2017,16 @@ function collectAttentionItems() {
   if (state.runtime.queue.length) {
     items.push({
       kind: 'info',
-      title: `${state.runtime.queue.length} 个任务正在等待 Agent`,
-      detail: '打开工作台',
+      title: tr('attention.queue.title', { n: state.runtime.queue.length }),
+      detail: tr('attention.queue.detail'),
       action: 'runtime'
     });
   }
   if (state.updateInfo?.updateAvailable) {
     items.push({
       kind: 'info',
-      title: `AgentDesk v${state.updateInfo.latestVersion} 可以更新`,
-      detail: '立即更新',
+      title: tr('attention.update.title', { version: state.updateInfo.latestVersion }),
+      detail: tr('attention.update.detail'),
       action: 'update'
     });
   }
@@ -2047,7 +2047,7 @@ function renderAttentionInbox() {
     const title = document.createElement('b');
     title.textContent = item.title;
     const detail = document.createElement('small');
-    detail.textContent = item.detail || '查看';
+    detail.textContent = item.detail || tr('attention.detail.fallback');
     button.append(title, detail);
     button.addEventListener('click', async () => {
       if (item.profileId && item.profileId !== state.selectedProfileId) await selectProfile(item.profileId);
@@ -2073,7 +2073,7 @@ function renderStatusMeta() {
   bDone.textContent = els.ledgerDone?.textContent || '0';
   const bMin = document.createElement('b');
   bMin.textContent = els.ledgerMin?.textContent || '0';
-  life.append('今日 · 收工 ', bDone, ' · 陪伴 ', bMin, ' 分');
+  life.append(tr('status.life.prefix'), bDone, tr('status.life.mid'), bMin, tr('status.life.suffix'));
   els.statusMeta.append(life);
 
   const items = collectAttentionItems();
@@ -2082,7 +2082,7 @@ function renderStatusMeta() {
     warn.type = 'button';
     warn.className = 'status-warn';
     warn.setAttribute('aria-expanded', String(els.attentionInbox && !els.attentionInbox.hidden));
-    warn.textContent = `⚠ ${items.length} 个需留意`;
+    warn.textContent = `⚠ ${tr('status.attention', { n: items.length })}`;
     warn.addEventListener('click', () => {
       if (!els.attentionInbox) return;
       els.attentionInbox.hidden = !els.attentionInbox.hidden;

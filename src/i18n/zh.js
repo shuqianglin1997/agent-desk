@@ -110,6 +110,17 @@
     // ── 需要留意 / 全院额度 ──
     'attention.kicker': 'ATTENTION',
     'attention.title': '需要留意',
+    'attention.confused.title': '{name} 的会话路径需要检查',
+    'attention.confused.detail': '打开诊断',
+    'attention.lowquota.title': '{name} 的可用额度已经很低',
+    'attention.lowquota.detail': '查看额度',
+    'attention.queue.title': '{n} 个任务正在等待 Agent',
+    'attention.queue.detail': '打开工作台',
+    'attention.update.title': 'AgentDesk v{version} 可以更新',
+    'attention.update.detail': '立即更新',
+    'attention.adapterFail.title': 'Agent 发现失败',
+    'attention.adapterFail.detail': '无法读取本机 Agent CLI',
+    'attention.detail.fallback': '查看',
     'quotaMap.kicker': 'QUOTA MAP',
     'quotaMap.title': '全院额度',
 
@@ -161,7 +172,9 @@
 
     // ── 状态栏 ──
     'status.ready': '就绪',
-    'status.today': '今日 · 收工 {done} · 陪伴 {min} 分',
+    'status.life.prefix': '今日 · 收工 ',
+    'status.life.mid': ' · 陪伴 ',
+    'status.life.suffix': ' 分',
     'status.attention': '{n} 个需留意',
     'common.unrecorded': '未记录',
 
