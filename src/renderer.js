@@ -1228,8 +1228,6 @@ function applySessionFilter(selectFirst = false) {
 }
 
 // ── 猫咪档案卡（编辑对话框换装） ─────────────────────
-const COLLAR_LABELS = { '#c94f2e': '绯红', '#2f9e8f': '松石', '#d9a53a': '姜黄', '#3d6aa8': '黛蓝', '#8a6bb8': '藤紫', '#6d9440': '茶绿' };
-const ACC_LABELS = { none: '无', scarf: '围巾', glasses: '眼镜', bow: '蝴蝶结', hat: '草帽' };
 let catDraft = { breed: 'orange', collar: '#c94f2e', accessory: 'none' };
 let editingProfile = null;
 let catSwatchesBuilt = false;
@@ -1247,21 +1245,21 @@ function buildCatSwatches() {
   const breeds = window.YardSprites.BREEDS;
   window.YardCats.BREED_KEYS.forEach((key) => {
     els.editBreedSwatches.append(makeSwatch({
-      dot: breeds[key].f, label: breeds[key].label,
+      dot: breeds[key].f, label: tr('cat.breed.' + key),
       pressed: () => catDraft.breed === key,
       pick: () => { catDraft = { ...catDraft, breed: key }; }
     }));
   });
   window.YardCats.COLLAR_COLORS.forEach((color) => {
     els.editCollarSwatches.append(makeSwatch({
-      dot: color, label: COLLAR_LABELS[color] || color,
+      dot: color, label: tr('cat.collar.' + color),
       pressed: () => catDraft.collar === color,
       pick: () => { catDraft = { ...catDraft, collar: color }; }
     }));
   });
   window.YardCats.ACCESSORIES.forEach((id) => {
     els.editAccSwatches.append(makeSwatch({
-      label: ACC_LABELS[id] || id,
+      label: tr('cat.acc.' + id),
       pressed: () => catDraft.accessory === id,
       pick: () => { catDraft = { ...catDraft, accessory: id }; }
     }));
@@ -1466,10 +1464,10 @@ function renderDiscoveredAgentList() {
     protocol.textContent = adapter.protocol === 'acp'
       ? 'ACP'
       : adapter.protocol === 'shell'
-        ? '终端'
-        : '直连';
+        ? tr('registry.protocol.shell')
+        : tr('registry.protocol.direct');
     const stateLabel = document.createElement('b');
-    stateLabel.textContent = adapter.available ? '可用' : '未发现';
+    stateLabel.textContent = adapter.available ? tr('registry.available') : tr('registry.notFound');
     const detail = document.createElement('small');
     detail.textContent = adapter.detail || adapter.source || '';
     item.append(name, protocol, stateLabel, detail);
@@ -1482,7 +1480,7 @@ function renderCustomAgentList() {
   els.customAgentList.replaceChildren();
   if (!state.runtime.customAgents.length) {
     const empty = document.createElement('p');
-    empty.textContent = '还没有自定义 Agent；上面的常用 Agent 会自动发现，不需要重复添加。';
+    empty.textContent = tr('registry.customEmpty');
     els.customAgentList.append(empty);
     return;
   }
@@ -1496,7 +1494,7 @@ function renderCustomAgentList() {
     executable.title = [agent.executable, ...(agent.args || [])].join(' ');
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.textContent = '移除';
+    remove.textContent = tr('account.remove');
     remove.addEventListener('click', async () => {
       if (!window.confirm(tr('status.removeCustomConfirm', { name: agent.name }))) return;
       const result = await window.manager.removeCustomAgent(agent.id);
@@ -2374,7 +2372,7 @@ function renderLeaderboard() {
   const ranked = window.YardWorkload.rankAccounts(rows);
   els.leaderboardBody.replaceChildren();
   if (!ranked.length) {
-    els.leaderboardBody.textContent = '还没有账号。';
+    els.leaderboardBody.textContent = tr('leaderboard.empty');
     return;
   }
   ranked.forEach((row, i) => {
@@ -2404,7 +2402,7 @@ function renderLeaderboard() {
     const name = document.createElement('b');
     name.textContent = row.name + (row.working ? ' 🔥' : '');
     const sub = document.createElement('small');
-    sub.textContent = `${appLabel(row.appId)} · 今日活跃 ${row.activeToday} · 新建 ${row.createdToday}`;
+    sub.textContent = tr('leaderboard.sub', { app: appLabel(row.appId), active: row.activeToday, created: row.createdToday });
     who.append(name, sub);
 
     const score = document.createElement('div');
@@ -2781,10 +2779,10 @@ function renderDiagnostics(diagnostics) {
   const summary = document.createElement('div');
   summary.className = 'diagnostics-summary';
   summary.append(
-    diagnosticBadge(diagnostics.executable.launchable ? 'ok' : 'warn', diagnostics.executable.launchable ? 'App 可启动' : 'App 未找到'),
-    diagnosticBadge(diagnostics.profilePath.exists ? 'ok' : 'warn', diagnostics.profilePath.exists ? '账号目录存在' : '账号目录未创建'),
-    diagnosticBadge(diagnostics.sessionRoot.exists && diagnostics.sessionRoot.readable ? 'ok' : 'warn', diagnostics.sessionRoot.exists ? '会话目录可读' : '会话目录不存在'),
-    diagnosticBadge(diagnostics.sessionCount > 0 ? 'ok' : 'warn', `${diagnostics.sessionCount} 个会话`)
+    diagnosticBadge(diagnostics.executable.launchable ? 'ok' : 'warn', diagnostics.executable.launchable ? tr('diag.appLaunchable') : tr('diag.appNotFound')),
+    diagnosticBadge(diagnostics.profilePath.exists ? 'ok' : 'warn', diagnostics.profilePath.exists ? tr('diag.profileDirExists') : tr('diag.profileDirMissing')),
+    diagnosticBadge(diagnostics.sessionRoot.exists && diagnostics.sessionRoot.readable ? 'ok' : 'warn', diagnostics.sessionRoot.exists ? tr('diag.sessionDirReadable') : tr('diag.sessionDirMissing')),
+    diagnosticBadge(diagnostics.sessionCount > 0 ? 'ok' : 'warn', tr('diag.sessionCount', { n: diagnostics.sessionCount }))
   );
   els.diagnosticsBody.append(summary);
 
@@ -2803,11 +2801,11 @@ function renderDiagnostics(diagnostics) {
     const repair = document.createElement('div');
     repair.className = 'diagnostics-repair';
     const text = document.createElement('span');
-    text.textContent = `建议迁移到 ${diagnostics.migration.recommendedPath}。迁移会复制登录态和会话数据，旧目录保留为备份。`;
+    text.textContent = tr('diag.migrateSuggest', { path: diagnostics.migration.recommendedPath });
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'primary';
-    button.textContent = '一键迁移 Windows 路径';
+    button.textContent = tr('diag.migrateBtn');
     button.addEventListener('click', async () => {
       const profile = selectedProfile();
       if (!profile) return;
@@ -2815,12 +2813,12 @@ function renderDiagnostics(diagnostics) {
         return;
       }
       button.disabled = true;
-      button.textContent = '迁移中…';
+      button.textContent = tr('diag.migrating');
       setStatus(tr('status.migrating'));
       const result = await window.manager.migrateWindowsProfilePath(profile.id);
       if (!result.ok) {
         button.disabled = false;
-        button.textContent = '一键迁移 Windows 路径';
+        button.textContent = tr('diag.migrateBtn');
         setStatus(result.reason || tr('status.migrateFail'));
         return;
       }
@@ -2837,43 +2835,43 @@ function renderDiagnostics(diagnostics) {
   table.className = 'diagnostics-table';
   const tbody = document.createElement('tbody');
   [
-    ['平台', [diagnostics.platform, diagnostics.arch, diagnostics.osRelease].filter(Boolean).join(' · ')],
-    ['官方 App', diagnostics.executable.path || '未找到'],
-    ['启动方式', diagnostics.executable.source || (diagnostics.executable.protocolUsable ? 'Windows 协议（仅自动默认账号）' : '未找到')],
-    ['手动路径', diagnostics.executable.configuredPath
-      ? `${diagnostics.executable.configuredPath}${diagnostics.executable.explicitMissing ? '（已失效）' : ''}`
-      : '未设置'],
-    ['账号目录', diagnostics.profilePath.path],
-    ['会话根目录', diagnostics.sessionRoot.path],
-    ['系统默认目录', `${diagnostics.defaultProfile.source} · ${diagnostics.defaultProfile.path}`],
-    ['配置文件', diagnostics.storeFile]
+    [tr('diag.row.platform'), [diagnostics.platform, diagnostics.arch, diagnostics.osRelease].filter(Boolean).join(' · ')],
+    [tr('diag.row.officialApp'), diagnostics.executable.path || tr('diag.notFound')],
+    [tr('diag.row.launchMethod'), diagnostics.executable.source || (diagnostics.executable.protocolUsable ? tr('diag.winProtocol') : tr('diag.notFound'))],
+    [tr('diag.row.manualPath'), diagnostics.executable.configuredPath
+      ? `${diagnostics.executable.configuredPath}${diagnostics.executable.explicitMissing ? tr('diag.invalid') : ''}`
+      : tr('diag.notSet')],
+    [tr('diag.row.profileDir'), diagnostics.profilePath.path],
+    [tr('diag.row.sessionRoot'), diagnostics.sessionRoot.path],
+    [tr('diag.row.systemDefault'), `${diagnostics.defaultProfile.source} · ${diagnostics.defaultProfile.path}`],
+    [tr('diag.row.configFile'), diagnostics.storeFile]
   ].forEach(([label, value]) => appendDiagnosticRow(tbody, label, value));
   const executableCandidates = diagnostics.executable.candidateDetails || [];
   if (executableCandidates.length) {
     appendDiagnosticRow(
       tbody,
-      '启动候选',
+      tr('diag.row.launchCandidates'),
       executableCandidates.map((item) => `${item.exists ? '✓' : '×'} ${item.source} · ${item.path}`).join('\n')
     );
   }
   if (diagnostics.executable.discoveryChannels?.length) {
     appendDiagnosticRow(
       tbody,
-      'Windows 发现通道',
+      tr('diag.row.discoveryChannels'),
       diagnostics.executable.discoveryChannels
-        .map((item) => `${item.source}：${item.count} 个候选`)
+        .map((item) => tr('diag.channelCandidates', { source: item.source, n: item.count }))
         .join('\n')
     );
   }
   if (diagnostics.defaultProfile?.candidates?.length) {
     appendDiagnosticRow(
       tbody,
-      '数据目录候选',
+      tr('diag.row.dataDirCandidates'),
       diagnostics.defaultProfile.candidates.map((item) => `${item.score >= 0 ? '✓' : '×'} ${item.source} · ${item.path}`).join('\n')
     );
   }
   diagnostics.sessionAreas.forEach((area) => {
-    appendDiagnosticRow(tbody, area.label, `${area.exists ? '存在' : '不存在'} · ${area.path}`);
+    appendDiagnosticRow(tbody, area.label, `${area.exists ? tr('diag.exists') : tr('diag.notExists')} · ${area.path}`);
   });
   table.append(tbody);
   els.diagnosticsBody.append(table);
@@ -2898,48 +2896,48 @@ function appendDiagnosticRow(tbody, label, value) {
 
 function formatDiagnosticsText(diagnostics) {
   const lines = [
-    'AgentDesk 诊断',
+    tr('diag.txt.title'),
     '',
-    `平台：${diagnostics.platform}`,
-    `系统：${diagnostics.arch || '-'} · ${diagnostics.osRelease || '-'}`,
-    `应用：${diagnostics.appName}`,
-    `官方 App：${diagnostics.executable.path || '未找到'}`,
-    `启动方式：${diagnostics.executable.source || (diagnostics.executable.protocolUsable ? 'Windows 协议（仅自动默认账号）' : '未找到')}`,
-    `手动路径：${diagnostics.executable.configuredPath || '未设置'}${diagnostics.executable.explicitMissing ? '（已失效）' : ''}`,
-    `账号目录：${diagnostics.profilePath.path}`,
-    `会话根目录：${diagnostics.sessionRoot.path}`,
-    `会话数量：${diagnostics.sessionCount}`,
-    `配置文件：${diagnostics.storeFile}`
+    tr('diag.txt.platform', { v: diagnostics.platform }),
+    tr('diag.txt.system', { arch: diagnostics.arch || '-', os: diagnostics.osRelease || '-' }),
+    tr('diag.txt.app', { v: diagnostics.appName }),
+    tr('diag.txt.officialApp', { v: diagnostics.executable.path || tr('diag.notFound') }),
+    tr('diag.txt.launchMethod', { v: diagnostics.executable.source || (diagnostics.executable.protocolUsable ? tr('diag.winProtocol') : tr('diag.notFound')) }),
+    tr('diag.txt.manualPath', { v: `${diagnostics.executable.configuredPath || tr('diag.notSet')}${diagnostics.executable.explicitMissing ? tr('diag.invalid') : ''}` }),
+    tr('diag.txt.profileDir', { v: diagnostics.profilePath.path }),
+    tr('diag.txt.sessionRoot', { v: diagnostics.sessionRoot.path }),
+    tr('diag.txt.sessionCount', { v: diagnostics.sessionCount }),
+    tr('diag.txt.configFile', { v: diagnostics.storeFile })
   ];
 
   if (diagnostics.warnings.length) {
-    lines.push('', '警告：', ...diagnostics.warnings.map((warning) => `- ${warning}`));
+    lines.push('', tr('diag.txt.warnings'), ...diagnostics.warnings.map((warning) => `- ${warning}`));
   }
 
-  lines.push('', '扫描位置：');
+  lines.push('', tr('diag.txt.scanAreas'));
   diagnostics.sessionAreas.forEach((area) => {
-    lines.push(`- ${area.label}: ${area.exists ? '存在' : '不存在'} · ${area.path}`);
+    lines.push(`- ${area.label}: ${area.exists ? tr('diag.exists') : tr('diag.notExists')} · ${area.path}`);
   });
 
-  lines.push('', '启动候选：');
+  lines.push('', tr('diag.txt.launchCandidates'));
   (diagnostics.executable.candidateDetails || []).forEach((item) => {
-    lines.push(`- ${item.exists ? '可用' : '不可用'} · ${item.source} · ${item.path}`);
+    lines.push(`- ${item.exists ? tr('diag.available') : tr('diag.unavailable')} · ${item.source} · ${item.path}`);
   });
 
   if (diagnostics.executable.discoveryChannels?.length) {
-    lines.push('', 'Windows 发现通道：');
+    lines.push('', tr('diag.txt.discoveryChannels'));
     diagnostics.executable.discoveryChannels.forEach((item) => {
-      lines.push(`- ${item.source}: ${item.count} 个候选`);
+      lines.push('- ' + tr('diag.txt.channelLine', { source: item.source, n: item.count }));
     });
   }
 
-  lines.push('', '数据目录候选：');
+  lines.push('', tr('diag.txt.dataDirCandidates'));
   (diagnostics.defaultProfile?.candidates || []).forEach((item) => {
-    lines.push(`- ${item.score >= 0 ? '存在' : '不存在'} · ${item.source} · ${item.path}`);
+    lines.push(`- ${item.score >= 0 ? tr('diag.exists') : tr('diag.notExists')} · ${item.source} · ${item.path}`);
   });
 
   if (diagnostics.migration?.needed) {
-    lines.push('', `建议迁移：${diagnostics.migration.recommendedPath}`);
+    lines.push('', tr('diag.txt.migrateSuggest', { path: diagnostics.migration.recommendedPath }));
   }
 
   return lines.join('\n');
