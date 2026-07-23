@@ -110,6 +110,17 @@
     // 要確認 / クォータ一覧
     'attention.kicker': 'ATTENTION',
     'attention.title': '要確認',
+    'attention.confused.title': '{name}：セッションパスの確認が必要',
+    'attention.confused.detail': '診断を開く',
+    'attention.lowquota.title': '{name}：残りクォータが少なくなっています',
+    'attention.lowquota.detail': 'クォータを見る',
+    'attention.queue.title': '{n} 件のタスクがエージェント待ち',
+    'attention.queue.detail': 'ワークベンチを開く',
+    'attention.update.title': 'AgentDesk v{version} に更新できます',
+    'attention.update.detail': '今すぐ更新',
+    'attention.adapterFail.title': 'エージェント検出に失敗',
+    'attention.adapterFail.detail': 'ローカルのエージェント CLI を読み取れません',
+    'attention.detail.fallback': '表示',
     'quotaMap.kicker': 'QUOTA MAP',
     'quotaMap.title': '全体のクォータ',
 
@@ -161,7 +172,9 @@
 
     // ステータスバー
     'status.ready': '準備完了',
-    'status.today': '今日 · {done} 回 · {min} 分',
+    'status.life.prefix': '今日 · ',
+    'status.life.mid': ' 回 · ',
+    'status.life.suffix': ' 分',
     'status.attention': '要確認 {n} 件',
     'common.unrecorded': '記録なし',
 

@@ -110,6 +110,17 @@
     // Attention / quota map
     'attention.kicker': 'ATTENTION',
     'attention.title': 'Needs attention',
+    'attention.confused.title': '{name}: session path needs a check',
+    'attention.confused.detail': 'Open diagnostics',
+    'attention.lowquota.title': '{name}: available quota is very low',
+    'attention.lowquota.detail': 'View quota',
+    'attention.queue.title': '{n} tasks waiting for an agent',
+    'attention.queue.detail': 'Open workbench',
+    'attention.update.title': 'AgentDesk v{version} is available',
+    'attention.update.detail': 'Update now',
+    'attention.adapterFail.title': 'Agent discovery failed',
+    'attention.adapterFail.detail': 'Could not read local agent CLIs',
+    'attention.detail.fallback': 'View',
     'quotaMap.kicker': 'QUOTA MAP',
     'quotaMap.title': 'All quotas',
 
@@ -161,7 +172,9 @@ Based on this, work out what this session is doing and continue it.`,
 
     // Status bar
     'status.ready': 'Ready',
-    'status.today': 'Today · {done} wrapped · {min} min',
+    'status.life.prefix': 'Today · ',
+    'status.life.mid': ' wrapped · ',
+    'status.life.suffix': ' min',
     'status.attention': '{n} need attention',
     'common.unrecorded': 'Not recorded',
 
