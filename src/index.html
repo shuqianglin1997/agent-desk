@@ -36,24 +36,24 @@
             <!-- 时间行常驻（原型单行）；天气行默认收起，⛅ 展开 -->
             <div class="yard-atmos">
               <div class="atmos-line">
-                <div class="atmos-row" id="atmosTime" role="group" aria-label="时间">
-                  <button type="button" data-time="auto">跟随</button>
-                  <button type="button" data-time="day">白天</button>
-                  <button type="button" data-time="dusk">黄昏</button>
-                  <button type="button" data-time="night">夜晚</button>
+                <div class="atmos-row" id="atmosTime" role="group" data-i18n-aria="yard.atmos.time" aria-label="时间">
+                  <button type="button" data-time="auto" data-i18n="yard.time.auto">跟随</button>
+                  <button type="button" data-time="day" data-i18n="yard.time.day">白天</button>
+                  <button type="button" data-time="dusk" data-i18n="yard.time.dusk">黄昏</button>
+                  <button type="button" data-time="night" data-i18n="yard.time.night">夜晚</button>
                 </div>
-                <button type="button" id="atmosWeatherToggle" class="atmos-more" aria-expanded="false" title="天气设置">⛅</button>
+                <button type="button" id="atmosWeatherToggle" class="atmos-more" aria-expanded="false" data-i18n-title="yard.weather.title" title="天气设置">⛅</button>
               </div>
-              <div class="atmos-row" id="atmosWeather" role="group" aria-label="天气" hidden>
-                <button type="button" data-weather="auto">自动</button>
-                <button type="button" data-weather="clear">晴</button>
-                <button type="button" data-weather="cloudy">多云</button>
-                <button type="button" data-weather="rain">雨</button>
-                <button type="button" data-weather="snow">雪</button>
+              <div class="atmos-row" id="atmosWeather" role="group" data-i18n-aria="yard.atmos.weather" aria-label="天气" hidden>
+                <button type="button" data-weather="auto" data-i18n="yard.weather.auto">自动</button>
+                <button type="button" data-weather="clear" data-i18n="yard.weather.clear">晴</button>
+                <button type="button" data-weather="cloudy" data-i18n="yard.weather.cloudy">多云</button>
+                <button type="button" data-weather="rain" data-i18n="yard.weather.rain">雨</button>
+                <button type="button" data-weather="snow" data-i18n="yard.weather.snow">雪</button>
               </div>
             </div>
             <div class="yard-ledger" id="yardLedger">
-              <span class="ledger-title">今日小账本</span>
+              <span class="ledger-title" data-i18n="ledger.title">今日小账本</span>
               <span class="ledger-stat">收工 <b id="ledgerDone">0</b> 次</span>
               <span class="ledger-sep">·</span>
               <span class="ledger-stat">陪你干活 <b id="ledgerMin">0</b> 分钟</span>
@@ -80,38 +80,38 @@
                卡片/猫只选中整组(primary)；这里把 selectedProfileId 切到具体槽位，
                编辑/移除/打开/诊断/位置/额度刷新自然作用到所选形态。两视图共用这条控制条。 -->
           <label id="formSwitcher" class="form-switcher" hidden>
-            <span class="form-switcher-label">形态</span>
-            <select id="formSelect" title="这个账号有多个客户端形态；切换后 打开 / 编辑 / 移除 / 诊断 / 位置 / 额度 都作用于所选形态"></select>
+            <span class="form-switcher-label" data-i18n="account.form">形态</span>
+            <select id="formSelect" data-i18n-title="account.form.title" title="这个账号有多个客户端形态；切换后 打开 / 编辑 / 移除 / 诊断 / 位置 / 额度 都作用于所选形态"></select>
           </label>
 
           <div class="account-actions" id="accountActions">
-            <button id="launchBtn" class="primary">打开账号</button>
-            <button id="addProfileBtn">新增</button>
-            <button id="pathConfigBtn">路径</button>
-            <button id="diagnosticsBtn">诊断</button>
-            <button id="refreshBtn">刷新</button>
+            <button id="launchBtn" class="primary" data-i18n="account.open">打开账号</button>
+            <button id="addProfileBtn" data-i18n="account.add">新增</button>
+            <button id="pathConfigBtn" data-i18n="account.path">路径</button>
+            <button id="diagnosticsBtn" data-i18n="account.diagnostics">诊断</button>
+            <button id="refreshBtn" data-i18n="account.refresh">刷新</button>
             <details id="accountManage" class="account-manage">
-              <summary>管理</summary>
+              <summary data-i18n="account.manage">管理</summary>
               <div id="yardManageActions" class="account-manage-menu">
-                <button id="editProfileBtn">编辑</button>
-                <button id="removeProfileBtn">移除</button>
-                <button id="profileFolderBtn">位置</button>
+                <button id="editProfileBtn" data-i18n="account.edit">编辑</button>
+                <button id="removeProfileBtn" data-i18n="account.remove">移除</button>
+                <button id="profileFolderBtn" data-i18n="account.folder">位置</button>
               </div>
             </details>
           </div>
 
           <div class="quota-chips">
-            <button id="quotaChipSelf" class="quota-chip" type="button" aria-controls="quotaSummary" aria-expanded="false" title="本号额度 · 点击展开详情">本号 <span class="mtr"><i></i></span><b>—</b></button>
-            <button id="quotaChipAll" class="quota-chip" type="button" aria-controls="quotaOverview" aria-expanded="false" title="全院额度 · 点击展开总览">全院 <span class="mtr"><i></i></span><b>—</b></button>
+            <button id="quotaChipSelf" class="quota-chip" type="button" aria-controls="quotaSummary" aria-expanded="false" data-i18n-title="quota.self.title" title="本号额度 · 点击展开详情"><span data-i18n="quota.self">本号</span> <span class="mtr"><i></i></span><b>—</b></button>
+            <button id="quotaChipAll" class="quota-chip" type="button" aria-controls="quotaOverview" aria-expanded="false" data-i18n-title="quota.all.title" title="全院额度 · 点击展开总览"><span data-i18n="quota.all">全院</span> <span class="mtr"><i></i></span><b>—</b></button>
           </div>
 
           <div class="account-quota-detail">
             <section id="quotaSummary" class="quota-summary" aria-label="账号额度" aria-live="polite" hidden>
               <div class="quota-summary-head">
-                <span class="quota-kicker">额度 Beta</span>
+                <span class="quota-kicker" data-i18n="quota.kicker">额度 Beta</span>
                 <span id="quotaPlan" class="quota-plan"></span>
                 <span id="quotaStateBadge" class="quota-state-badge">等待查询</span>
-                <button id="quotaRefreshBtn" class="quota-refresh" type="button" title="从官方服务刷新额度">↻ 刷新额度</button>
+                <button id="quotaRefreshBtn" class="quota-refresh" type="button" data-i18n-title="quota.refresh.title" title="从官方服务刷新额度" data-i18n="quota.refresh">↻ 刷新额度</button>
               </div>
               <div id="quotaMeters" class="quota-meters"></div>
               <p id="quotaMessage" class="quota-message"></p>
@@ -127,7 +127,7 @@
 
         <section id="attentionInbox" class="attention-inbox" aria-live="polite" hidden>
           <header>
-            <div><span>ATTENTION</span><b>需要留意</b></div>
+            <div><span data-i18n="attention.kicker">ATTENTION</span><b data-i18n="attention.title">需要留意</b></div>
             <strong id="attentionCount">0</strong>
           </header>
           <div id="attentionItems" class="attention-items"></div>
@@ -135,7 +135,7 @@
 
         <section id="quotaOverview" class="quota-overview" aria-label="跨账号额度总览" hidden>
           <header>
-            <div><span>QUOTA MAP</span><b>全院额度</b></div>
+            <div><span data-i18n="quotaMap.kicker">QUOTA MAP</span><b data-i18n="quotaMap.title">全院额度</b></div>
             <small id="quotaOverviewMeta"></small>
           </header>
           <ul id="quotaOverviewList" class="quota-overview-list"></ul>
@@ -145,20 +145,20 @@
           <section class="session-pane">
             <div class="session-toolbar">
               <div>
-                <h3>会话</h3>
+                <h3 data-i18n="session.title">会话</h3>
                 <span id="sessionCount">0 个</span>
               </div>
-              <input id="searchInput" type="search" placeholder="搜索标题、项目或 ID" />
+              <input id="searchInput" type="search" data-i18n-placeholder="session.search" placeholder="搜索标题、项目或 ID" />
             </div>
 
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th class="col-title">标题</th>
-                    <th>活跃</th>
-                    <th class="col-project">项目目录</th>
-                    <th>来源</th>
+                    <th class="col-title" data-i18n="session.col.title">标题</th>
+                    <th data-i18n="session.col.active">活跃</th>
+                    <th class="col-project" data-i18n="session.col.project">项目目录</th>
+                    <th data-i18n="session.col.source">来源</th>
                   </tr>
                 </thead>
                 <tbody id="sessionRows"></tbody>
@@ -167,32 +167,32 @@
           </section>
 
           <aside class="inspector">
-            <h3>会话详情</h3>
+            <h3 data-i18n="detail.title">会话详情</h3>
             <dl>
-              <dt>标题</dt>
+              <dt data-i18n="detail.field.title">标题</dt>
               <dd id="detailTitle">未选择</dd>
-              <dt>线程 ID</dt>
+              <dt data-i18n="detail.field.thread">线程 ID</dt>
               <dd id="detailId">-</dd>
-              <dt>新建</dt>
+              <dt data-i18n="detail.field.created">新建</dt>
               <dd id="detailCreated">-</dd>
-              <dt>活跃</dt>
+              <dt data-i18n="detail.field.active">活跃</dt>
               <dd id="detailUpdated">-</dd>
-              <dt>来源</dt>
+              <dt data-i18n="detail.field.source">来源</dt>
               <dd id="detailSource">-</dd>
-              <dt>项目</dt>
+              <dt data-i18n="detail.field.project">项目</dt>
               <dd id="detailProject">-</dd>
-              <dt>文件</dt>
+              <dt data-i18n="detail.field.file">文件</dt>
               <dd id="detailFile">-</dd>
-              <dt>会话标识</dt>
+              <dt data-i18n="detail.field.address">会话标识</dt>
               <dd id="detailAddress">-</dd>
             </dl>
 
             <div class="inspector-actions">
-              <button id="copySummaryBtn" class="primary">复制交接信息</button>
-              <button id="copyAddressBtn">复制标识</button>
-              <button id="copyProjectBtn">复制项目</button>
-              <button id="openSessionFileBtn">打开所在位置</button>
-              <button id="exportSessionBtn">导出 Markdown</button>
+              <button id="copySummaryBtn" class="primary" data-i18n="detail.copyHandoff">复制交接信息</button>
+              <button id="copyAddressBtn" data-i18n="detail.copyAddress">复制标识</button>
+              <button id="copyProjectBtn" data-i18n="detail.copyProject">复制项目</button>
+              <button id="openSessionFileBtn" data-i18n="detail.reveal">打开所在位置</button>
+              <button id="exportSessionBtn" data-i18n="detail.exportMd">导出 Markdown</button>
             </div>
           </aside>
         </div>
