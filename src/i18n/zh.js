@@ -79,6 +79,8 @@
     'session.col.active': '活跃',
     'session.col.project': '项目目录',
     'session.col.source': '来源',
+    'session.empty.filtered': '没有匹配的会话，换个关键词试试。',
+    'session.empty.none': '这个账号还没有会话。点「打开账号」登录官方 App，用过之后会话会自动出现在这里；读不到时可点「诊断」。',
 
     // ── 会话详情 ──
     'detail.title': '会话详情',
@@ -95,10 +97,59 @@
     'detail.copyProject': '复制项目',
     'detail.reveal': '打开所在位置',
     'detail.exportMd': '导出 Markdown',
+    'detail.export.can': '把这段对话导出成 Markdown 文件',
+    'detail.export.cannot': '这个客户端的会话暂不支持导出 Markdown',
+
+    // ── 交接信息（复制到剪贴板）──
+    'handoff.template': `请帮我继续理解这个会话：
+
+应用：{app}
+账号槽位：{slot}
+标题：{title}
+新建时间：{created}
+最后活跃：{active}
+来源：{source}
+状态：{status}
+项目目录：{project}
+会话标识：{address}
+会话文件：{file}
+线程 ID：{thread}
+
+请基于这些信息判断这个会话在做什么，并继续处理。`,
 
     // ── 状态栏 ──
     'status.ready': '就绪',
     'status.today': '今日 · 收工 {done} · 陪伴 {min} 分',
-    'status.attention': '{n} 个需留意'
+    'status.attention': '{n} 个需留意',
+    'common.unrecorded': '未记录',
+
+    // ── 动态文案（renderer / scene 运行时用 tr）──
+    'state.confused': '迷路',
+    'state.working': '干活中',
+    'state.onduty': '在岗',
+    'state.arriving': '开工路上',
+    'state.play': '玩耍',
+    'state.rest': '面包猫',
+    'state.nap': '打盹',
+    'state.hibernate': '冬眠',
+    'energy.fresh': '元气满满',
+    'energy.steady': '状态稳定',
+    'energy.tired': '有点累',
+    'energy.exhausted': '快没电',
+    'energy.unknown': '额度未知',
+    'ctx.yard': '猫猫庭院',
+    'ctx.classic': '经典工作台',
+    'ctx.noAccount': '尚未选择账号',
+    'acct.slotDefault': '默认槽位',
+    'acct.slotIndependent': '独立槽位',
+    'acct.lastOpen': '上次打开 {t}',
+    'acct.badgeParallel': '⌨ {n} 并行',
+    'acct.badgeForms': '⛓ {n} 形态',
+    'acct.tip': '账号 {p} · 会话 {s}',
+    'acct.note': '备注 {note}',
+    'detail.unselected': '未选择',
+    'card.busy': '{n} 个会话正在进行',
+    'card.forms': '一个账号 {n} 个形态',
+    'card.group': '分组 · {g}'
   };
 })(typeof self !== 'undefined' ? self : this);

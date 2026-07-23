@@ -364,8 +364,8 @@
         chip.addEventListener('mouseleave', () => setHoverId(null));
         overlay.appendChild(chip);
       }
-      const stateLabel = meta[entry.state] ? meta[entry.state].label : entry.state;
-      const energyLabel = energyMeta[entry.energy] ? energyMeta[entry.energy].label : '额度未知';
+      const stateLabel = root.I18N ? root.I18N.t('state.' + entry.state) : (meta[entry.state] ? meta[entry.state].label : entry.state);
+      const energyLabel = root.I18N ? root.I18N.t('energy.' + entry.energy) : (energyMeta[entry.energy] ? energyMeta[entry.energy].label : '额度未知');
       chip.querySelector('.plate-name').textContent = entry.profile.name;
       chip.querySelector('.app-dot').style.background = (root.YardSprites.APP_TAG[entry.profile.appId]) || '#d96f33';
       chip.title = `${entry.profile.name} · ${stateLabel} · ${energyLabel}${entry.profile.group ? ' · ' + entry.profile.group : ''}`;

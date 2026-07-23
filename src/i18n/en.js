@@ -79,6 +79,8 @@
     'session.col.active': 'Active',
     'session.col.project': 'Project',
     'session.col.source': 'Source',
+    'session.empty.filtered': 'No matching sessions — try another keyword.',
+    'session.empty.none': 'No sessions for this account yet. Click "Open account" to sign in to the official app; once you have used it, sessions show up here automatically. If nothing loads, try "Diagnostics".',
 
     // Session detail
     'detail.title': 'Session detail',
@@ -95,10 +97,59 @@
     'detail.copyProject': 'Copy project',
     'detail.reveal': 'Reveal location',
     'detail.exportMd': 'Export Markdown',
+    'detail.export.can': 'Export this conversation as a Markdown file',
+    'detail.export.cannot': 'This client does not support Markdown export yet',
+
+    // Handoff text (copied to clipboard)
+    'handoff.template': `Help me pick up this session:
+
+App: {app}
+Account slot: {slot}
+Title: {title}
+Created: {created}
+Last active: {active}
+Source: {source}
+Status: {status}
+Project: {project}
+Session ID: {address}
+Session file: {file}
+Thread ID: {thread}
+
+Based on this, work out what this session is doing and continue it.`,
 
     // Status bar
     'status.ready': 'Ready',
     'status.today': 'Today · {done} wrapped · {min} min',
-    'status.attention': '{n} need attention'
+    'status.attention': '{n} need attention',
+    'common.unrecorded': 'Not recorded',
+
+    // Dynamic (renderer / scene at runtime via tr)
+    'state.confused': 'Lost',
+    'state.working': 'Working',
+    'state.onduty': 'On duty',
+    'state.arriving': 'Arriving',
+    'state.play': 'Playing',
+    'state.rest': 'Loafing',
+    'state.nap': 'Napping',
+    'state.hibernate': 'Hibernating',
+    'energy.fresh': 'Fresh',
+    'energy.steady': 'Steady',
+    'energy.tired': 'Tired',
+    'energy.exhausted': 'Low',
+    'energy.unknown': 'Unknown',
+    'ctx.yard': 'Cat Yard',
+    'ctx.classic': 'Classic',
+    'ctx.noAccount': 'No account selected',
+    'acct.slotDefault': 'Default slot',
+    'acct.slotIndependent': 'Isolated slot',
+    'acct.lastOpen': 'Opened {t}',
+    'acct.badgeParallel': '⌨ {n} parallel',
+    'acct.badgeForms': '⛓ {n} forms',
+    'acct.tip': 'Account {p} · Sessions {s}',
+    'acct.note': 'Note: {note}',
+    'detail.unselected': 'None',
+    'card.busy': '{n} sessions running',
+    'card.forms': '{n} forms of one account',
+    'card.group': 'Group · {g}'
   };
 })(typeof self !== 'undefined' ? self : this);
