@@ -16,12 +16,13 @@
         </div>
         <p id="topbarContext" class="topbar-context">猫猫庭院 · 本地账号与会话</p>
         <nav class="topbar-actions" aria-label="全局操作">
-          <button id="leaderboardBtn" type="button" title="各账号今日工作量排行榜">🏆 <span>排行</span></button>
-          <button id="updateBtn" type="button" title="检查 GitHub 更新">↻ <span>更新</span></button>
-          <button id="viewToggle" type="button" title="切换 猫猫庭院 / 经典视图">⇄ <span>经典</span></button>
-          <button id="agentRegistryBtn" type="button" title="接入 / 管理 Agent 类型（发现系统 Agent + 添加自定义）">🔌 <span>接入</span></button>
-          <button id="helpBtn" class="icon-toggle" type="button" title="使用说明">?</button>
-          <button id="themeToggle" class="icon-toggle" type="button" title="切换深色 / 浅色">◐</button>
+          <button id="leaderboardBtn" type="button" data-i18n-title="topbar.leaderboard.title">🏆 <span data-i18n="topbar.leaderboard">排行</span></button>
+          <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">更新</span></button>
+          <button id="viewToggle" type="button" data-i18n-title="topbar.view.title">⇄ <span id="viewToggleLabel" data-i18n="topbar.toClassic">经典</span></button>
+          <button id="agentRegistryBtn" type="button" data-i18n-title="topbar.connect.title">🔌 <span data-i18n="topbar.connect">接入</span></button>
+          <button id="helpBtn" class="icon-toggle" type="button" data-i18n-title="topbar.help.title">?</button>
+          <button id="langToggle" class="icon-toggle" type="button" data-i18n-title="topbar.lang.title">文</button>
+          <button id="themeToggle" class="icon-toggle" type="button" data-i18n-title="topbar.theme.title">◐</button>
         </nav>
       </header>
 
@@ -405,6 +406,11 @@
     <script src="./yard/atmosphere.js"></script>
     <script src="./yard/interactions.js"></script>
     <script src="./yard/scene.js"></script>
+    <!-- i18n 独立模块（加一门语言 = 加一个 locale 文件 + 这里多引一行）-->
+    <script src="./i18n/i18n.js"></script>
+    <script src="./i18n/zh.js"></script>
+    <script src="./i18n/en.js"></script>
+    <script src="./i18n/ja.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>

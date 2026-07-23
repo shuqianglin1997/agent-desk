@@ -90,6 +90,8 @@ const els = {
   yardCanvas: document.querySelector('#yardCanvas'),
   yardOverlay: document.querySelector('#yardOverlay'),
   viewToggle: document.querySelector('#viewToggle'),
+  viewToggleLabel: document.querySelector('#viewToggleLabel'),
+  langToggle: document.querySelector('#langToggle'),
   accountActions: document.querySelector('#accountActions'),
   accountManage: document.querySelector('#accountManage'),
   yardManageActions: document.querySelector('#yardManageActions'),
@@ -317,6 +319,9 @@ function applyUserSettings(value = {}) {
   state.yardPositions = window.YardInteractions
     ? window.YardInteractions.normalizePositions(value.yardPositions)
     : {};
+  // i18n：优先用户存过的语言，否则跟随系统；init 会替换所有 data-i18n 静态文案
+  if (window.I18N) window.I18N.init(value.lang);
+  updateLangToggle();
 }
 
 async function loadUserSettings() {
@@ -508,6 +513,16 @@ function bindEvents() {
     document.documentElement.dataset.theme = next;
     persistSettings({ theme: next });
     syncYard();
+  });
+
+  // 语言切换：循环 中 → EN → 日 → 中，持久化到 settings；setLang 已替换静态文案，
+  // applyView 顺带刷新 viewToggle 的动态标签。
+  els.langToggle?.addEventListener('click', () => {
+    if (!window.I18N) return;
+    const next = window.I18N.setLang(window.I18N.next(), { persist: true });
+    persistSettings({ lang: next });
+    updateLangToggle();
+    applyView();
   });
 
   els.viewToggle.addEventListener('click', () => {
@@ -2171,13 +2186,25 @@ async function executeYardIntent(profile, initialIntent) {
   }
 }
 
+// i18n 便捷取词（window.I18N 由 src/i18n/ 提供；未加载时回退到 key，永不抛错）
+function tr(key, params) {
+  return window.I18N ? window.I18N.t(key, params) : key;
+}
+
+// 顶栏语言按钮显示当前语言缩写（中 / EN / 日）
+function updateLangToggle() {
+  if (!els.langToggle || !window.I18N) return;
+  const map = { zh: '中', en: 'EN', ja: '日' };
+  els.langToggle.textContent = map[window.I18N.getLang()] || '文';
+}
+
 function applyView() {
   const yard = state.view === 'yard' && yardMounted;
   document.body.dataset.view = yard ? 'yard' : 'classic';
   // 统一骨架：账号呈现层随视图切换 —— 庭院视图显示场景，经典视图显示账号名册（CSS 控制显隐）。
   // 新增/编辑/移除按钮固定在控制条（新增紧跟打开账号，编辑/移除在「管理」菜单），两视图共用、不再搬家。
   els.yardStage.hidden = !yard;
-  els.viewToggle.textContent = yard ? '⇄ 经典' : '⇄ 庭院';
+  if (els.viewToggleLabel) els.viewToggleLabel.textContent = tr(yard ? 'topbar.toClassic' : 'topbar.toYard');
   els.accountManage.open = false;
   if (yardMounted) window.YardScene.setActive(yard);
   if (yard) loadActivity(); // 切回庭院时立刻刷新猫的状态
