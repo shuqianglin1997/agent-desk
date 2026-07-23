@@ -80,6 +80,8 @@ const els = {
   accountRoster: document.querySelector('#accountRoster'),
   accountId: document.querySelector('#accountId'),
   accountBadge: document.querySelector('#accountBadge'),
+  formSwitcher: document.querySelector('#formSwitcher'),
+  formSelect: document.querySelector('#formSelect'),
   quotaChipSelf: document.querySelector('#quotaChipSelf'),
   quotaChipAll: document.querySelector('#quotaChipAll'),
   atmosWeatherToggle: document.querySelector('#atmosWeatherToggle'),
@@ -484,6 +486,12 @@ function bindEvents() {
     }
     await loadProfiles(profile.id);
     setStatus(result.warning || `已打开 ${profile.name}。`);
+  });
+
+  // 组内形态切换：把 selectedProfileId 切到所选槽位，控制条上的编辑/移除/打开/诊断/位置/额度自然跟随
+  els.formSelect?.addEventListener('change', () => {
+    const id = els.formSelect.value;
+    if (id && id !== state.selectedProfileId) selectProfile(id);
   });
 
   els.updateBtn.addEventListener('click', async () => {
@@ -2552,6 +2560,30 @@ function populateGroupDatalist() {
   }
 }
 
+// 组内形态切换器：账号(组)有多个客户端形态时，在控制条列出各形态供切换。
+// 卡片/猫只负责选中整组(primary)；这里把 selectedProfileId 落到具体槽位，
+// 于是编辑/移除/打开/诊断/位置/额度刷新都作用到所选形态（它们本就读 selectedProfileId）。
+function renderFormSwitcher(profile, group) {
+  if (!els.formSwitcher || !els.formSelect) return;
+  // 复用调用方已算好的组；缺省时才自己算一次，保持函数自足
+  const grp = profile ? (group || groupOfProfile(profile.id)) : null;
+  const members = grp ? grp.members : [];
+  if (members.length < 2) {
+    els.formSwitcher.hidden = true;
+    els.formSelect.replaceChildren();
+    return;
+  }
+  els.formSelect.replaceChildren();
+  for (const member of members) {
+    const option = document.createElement('option');
+    option.value = member.id;
+    option.textContent = `${member.name} · ${appLabel(member.appId)}`;
+    option.selected = member.id === profile.id;
+    els.formSelect.append(option);
+  }
+  els.formSwitcher.hidden = false;
+}
+
 function renderAccountHeader() {
   const profile = selectedProfile();
   const disabled = !profile;
@@ -2576,6 +2608,7 @@ function renderAccountHeader() {
     els.accountPath.textContent = '';
     els.accountNote.textContent = '';
     els.accountNote.style.display = 'none';
+    renderFormSwitcher(null);
     renderQuotaSummary();
     renderTopbarContext();
     return;
@@ -2601,6 +2634,7 @@ function renderAccountHeader() {
     els.accountBadge.textContent = badgeParts.join(' · ');
     els.accountBadge.hidden = badgeParts.length === 0;
   }
+  renderFormSwitcher(profile, identityGroup);
 
   const metaLine = `${appLabel(profile.appId)} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
   const pathLine = `账号 ${shortPath(profile.profilePath)} · 会话 ${shortPath(profile.sessionRoot)}`;

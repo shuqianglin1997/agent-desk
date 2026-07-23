@@ -75,6 +75,14 @@
             <span id="accountBadge" class="account-badge" hidden></span>
           </div>
 
+          <!-- 组内形态切换：一个账号(组)有多个客户端形态(桌面/CLI、Kimi Code/Work)时，
+               卡片/猫只选中整组(primary)；这里把 selectedProfileId 切到具体槽位，
+               编辑/移除/打开/诊断/位置/额度刷新自然作用到所选形态。两视图共用这条控制条。 -->
+          <label id="formSwitcher" class="form-switcher" hidden>
+            <span class="form-switcher-label">形态</span>
+            <select id="formSelect" title="这个账号有多个客户端形态；切换后 打开 / 编辑 / 移除 / 诊断 / 位置 / 额度 都作用于所选形态"></select>
+          </label>
+
           <div class="account-actions" id="accountActions">
             <button id="launchBtn" class="primary">打开账号</button>
             <button id="addProfileBtn">新增</button>

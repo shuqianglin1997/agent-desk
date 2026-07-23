@@ -632,6 +632,28 @@ body[data-view="classic"] .account-roster {
   white-space: nowrap;
 }
 
+/* 组内形态切换器（仅账号有多形态时出现）。inline-flex 会盖过 UA 的 [hidden]，
+   必须显式补 [hidden]{display:none}，否则单形态账号也会露出这条控件（同 .runtime-dock 旧坑）。 */
+.form-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.form-switcher[hidden] { display: none; }
+.form-switcher-label {
+  font-size: 11px;
+  color: var(--ink-tertiary);
+  white-space: nowrap;
+}
+.form-switcher select {
+  width: auto;
+  max-width: 200px;
+  height: var(--ctl-sm);
+  padding: 0 8px;
+  font-size: 12px;
+}
+
 .quota-chips {
   display: flex;
   align-items: center;
