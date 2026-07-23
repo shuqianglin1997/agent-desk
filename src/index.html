@@ -15,7 +15,7 @@
           <span><b>AgentDesk</b><small>AGENT WORKSPACE</small></span>
         </div>
         <p id="topbarContext" class="topbar-context">猫猫庭院 · 本地账号与会话</p>
-        <nav class="topbar-actions" aria-label="全局操作">
+        <nav class="topbar-actions" data-i18n-aria="aria.topbarActions" aria-label="全局操作">
           <button id="leaderboardBtn" type="button" data-i18n-title="topbar.leaderboard.title">🏆 <span data-i18n="topbar.leaderboard">排行</span></button>
           <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">更新</span></button>
           <button id="viewToggle" type="button" data-i18n-title="topbar.view.title">⇄ <span id="viewToggleLabel" data-i18n="topbar.toClassic">经典</span></button>
@@ -30,7 +30,7 @@
         <section id="yardStage" class="yard-stage" hidden>
           <div class="yard-frame">
             <div class="yard-scene">
-              <canvas id="yardCanvas" width="480" height="236" aria-label="猫猫庭院：每只猫是一个账号，点击选中"></canvas>
+              <canvas id="yardCanvas" width="480" height="236" data-i18n-aria="aria.yardCanvas" aria-label="猫猫庭院：每只猫是一个账号，点击选中"></canvas>
               <div id="yardOverlay" class="yard-overlay"></div>
             </div>
             <!-- 时间行常驻（原型单行）；天气行默认收起，⛅ 展开 -->
@@ -54,17 +54,17 @@
             </div>
             <div class="yard-ledger" id="yardLedger">
               <span class="ledger-title" data-i18n="ledger.title">今日小账本</span>
-              <span class="ledger-stat">收工 <b id="ledgerDone">0</b> 次</span>
+              <span class="ledger-stat"><span data-i18n="ledger.donePre">收工 </span><b id="ledgerDone">0</b><span data-i18n="ledger.doneSuf"> 次</span></span>
               <span class="ledger-sep">·</span>
-              <span class="ledger-stat">陪你干活 <b id="ledgerMin">0</b> 分钟</span>
+              <span class="ledger-stat"><span data-i18n="ledger.minPre">陪你干活 </span><b id="ledgerMin">0</b><span data-i18n="ledger.minSuf"> 分钟</span></span>
               <span class="ledger-spacer"></span>
-              <button id="reminderToggle" class="ledger-toggle" type="button" aria-pressed="true" title="休息提醒（伸懒腰 / 收工播报）总开关">🔔 提醒 开</button>
+              <button id="reminderToggle" class="ledger-toggle" type="button" aria-pressed="true" data-i18n-title="reminder.title" title="休息提醒（伸懒腰 / 收工播报）总开关">🔔 提醒 开</button>
             </div>
           </div>
           <!-- 内嵌「多 Agent 控制台」浮层已移除：AgentDesk 专注「账号 + 会话管理」，不内嵌终端工作台 -->
 
         </section>
-        <div id="accountRoster" class="account-roster" aria-label="账号名册（经典视图）"></div>
+        <div id="accountRoster" class="account-roster" data-i18n-aria="aria.roster" aria-label="账号名册（经典视图）"></div>
       </section>
 
       <!-- 账号控制条（统一设计）：单行 = 名牌+徽章 ｜ 操作 ｜ 额度 chips。
@@ -106,7 +106,7 @@
           </div>
 
           <div class="account-quota-detail">
-            <section id="quotaSummary" class="quota-summary" aria-label="账号额度" aria-live="polite" hidden>
+            <section id="quotaSummary" class="quota-summary" data-i18n-aria="aria.quotaSummary" aria-label="账号额度" aria-live="polite" hidden>
               <div class="quota-summary-head">
                 <span class="quota-kicker" data-i18n="quota.kicker">额度 Beta</span>
                 <span id="quotaPlan" class="quota-plan"></span>
@@ -133,7 +133,7 @@
           <div id="attentionItems" class="attention-items"></div>
         </section>
 
-        <section id="quotaOverview" class="quota-overview" aria-label="跨账号额度总览" hidden>
+        <section id="quotaOverview" class="quota-overview" data-i18n-aria="aria.quotaOverview" aria-label="跨账号额度总览" hidden>
           <header>
             <div><span data-i18n="quotaMap.kicker">QUOTA MAP</span><b data-i18n="quotaMap.title">全院额度</b></div>
             <small id="quotaOverviewMeta"></small>
@@ -198,16 +198,16 @@
         </div>
 
       <footer id="statusBar" class="status-bar">
-        <span id="statusText">就绪</span>
+        <span id="statusText" data-i18n="status.ready">就绪</span>
         <div id="statusMeta" class="status-meta"></div>
       </footer>
     </div>
 
     <dialog id="profileDialog">
       <form method="dialog" class="dialog-body">
-        <h3>新增账号槽位</h3>
+        <h3 data-i18n="dialog.addProfile.title">新增账号槽位</h3>
         <label>
-          应用
+          <span data-i18n="dialog.field.app">应用</span>
           <!-- 选项由注册表动态填充（src/apps.js → loadApps）；这里放兜底默认 -->
           <select id="newProfileApp">
             <option value="claude">Claude</option>
@@ -215,151 +215,151 @@
           </select>
         </label>
         <label>
-          名称
-          <input id="newProfileName" type="text" placeholder="例如：Claude 工作号" />
+          <span data-i18n="dialog.field.name">名称</span>
+          <input id="newProfileName" type="text" data-i18n-placeholder="dialog.ph.profileName" placeholder="例如：Claude 工作号" />
         </label>
         <label>
-          分组
-          <input id="newProfileGroup" type="text" list="groupOptions" placeholder="可选，例如：工作 / 个人 / 备用" />
+          <span data-i18n="dialog.field.group">分组</span>
+          <input id="newProfileGroup" type="text" list="groupOptions" data-i18n-placeholder="dialog.ph.profileGroup" placeholder="可选，例如：工作 / 个人 / 备用" />
         </label>
         <label>
-          备注
-          <textarea id="newProfileNote" rows="2" placeholder="可选，给这个账号加点说明"></textarea>
+          <span data-i18n="dialog.field.note">备注</span>
+          <textarea id="newProfileNote" rows="2" data-i18n-placeholder="dialog.ph.profileNote" placeholder="可选，给这个账号加点说明"></textarea>
         </label>
         <div class="dialog-actions">
-          <button value="cancel">取消</button>
-          <button id="confirmAddProfileBtn" value="default" class="primary">创建</button>
+          <button value="cancel" data-i18n="dialog.cancel">取消</button>
+          <button id="confirmAddProfileBtn" value="default" class="primary" data-i18n="dialog.create">创建</button>
         </div>
       </form>
     </dialog>
 
     <dialog id="editDialog">
       <form method="dialog" class="dialog-body">
-        <h3>编辑账号槽位</h3>
+        <h3 data-i18n="dialog.editProfile.title">编辑账号槽位</h3>
         <label>
-          名称
+          <span data-i18n="dialog.field.name">名称</span>
           <input id="editName" type="text" />
         </label>
         <label>
-          分组
-          <input id="editGroup" type="text" list="groupOptions" placeholder="留空 = 未分组" />
+          <span data-i18n="dialog.field.group">分组</span>
+          <input id="editGroup" type="text" list="groupOptions" data-i18n-placeholder="dialog.ph.groupEmpty" placeholder="留空 = 未分组" />
         </label>
         <label>
-          同账号标识
-          <span class="field-hint">同一个登录身份的多个客户端槽位填同一个词（如 Kimi Code 与 Kimi Work 同填「Kimi」），列表会用 ⛓ 标出关联。</span>
-          <input id="editIdentity" type="text" list="identityOptions" placeholder="留空 = 不关联" />
+          <span data-i18n="dialog.field.identity">同账号标识</span>
+          <span class="field-hint" data-i18n="dialog.hint.identity">同一个登录身份的多个客户端槽位填同一个词（如 Kimi Code 与 Kimi Work 同填「Kimi」），列表会用 ⛓ 标出关联。</span>
+          <input id="editIdentity" type="text" list="identityOptions" data-i18n-placeholder="dialog.ph.identityEmpty" placeholder="留空 = 不关联" />
         </label>
         <label>
-          备注
-          <textarea id="editNote" rows="3" placeholder="给这个账号加点备注……"></textarea>
+          <span data-i18n="dialog.field.note">备注</span>
+          <textarea id="editNote" rows="3" data-i18n-placeholder="dialog.ph.editNote" placeholder="给这个账号加点备注……"></textarea>
         </label>
         <div class="cat-customizer">
           <div class="cc-preview">
-            <canvas id="editCatCanvas" width="112" height="112" aria-label="猫咪外观预览"></canvas>
-            <button id="editCatRandom" type="button" class="cc-random">🎲 随机</button>
+            <canvas id="editCatCanvas" width="112" height="112" data-i18n-aria="aria.catPreview" aria-label="猫咪外观预览"></canvas>
+            <button id="editCatRandom" type="button" class="cc-random">🎲 <span data-i18n="dialog.random">随机</span></button>
           </div>
           <div class="cc-groups">
             <div class="cc-group">
-              <span class="cc-title">毛色</span>
+              <span class="cc-title" data-i18n="dialog.cc.breed">毛色</span>
               <div class="cc-swatches" id="editBreedSwatches"></div>
             </div>
             <div class="cc-group">
-              <span class="cc-title">项圈</span>
+              <span class="cc-title" data-i18n="dialog.cc.collar">项圈</span>
               <div class="cc-swatches" id="editCollarSwatches"></div>
             </div>
             <div class="cc-group">
-              <span class="cc-title">配饰</span>
+              <span class="cc-title" data-i18n="dialog.cc.accessory">配饰</span>
               <div class="cc-swatches" id="editAccSwatches"></div>
             </div>
           </div>
         </div>
         <div class="dialog-actions">
-          <button value="cancel">取消</button>
-          <button id="confirmEditBtn" value="default" class="primary">保存</button>
+          <button value="cancel" data-i18n="dialog.cancel">取消</button>
+          <button id="confirmEditBtn" value="default" class="primary" data-i18n="dialog.save">保存</button>
         </div>
       </form>
     </dialog>
 
     <dialog id="pathDialog" class="wide-dialog">
       <form method="dialog" class="dialog-body">
-        <h3>路径设置</h3>
+        <h3 data-i18n="dialog.path.title">路径设置</h3>
         <label>
-          账号数据目录
+          <span data-i18n="dialog.field.profileDir">账号数据目录</span>
           <div class="path-input-row">
             <input id="profilePathInput" type="text" />
-            <button id="pickProfilePathBtn" type="button">选择</button>
+            <button id="pickProfilePathBtn" type="button" data-i18n="dialog.pick">选择</button>
           </div>
         </label>
         <label>
-          会话根目录
+          <span data-i18n="dialog.field.sessionRoot">会话根目录</span>
           <div class="path-input-row">
             <input id="sessionRootInput" type="text" />
-            <button id="pickSessionRootBtn" type="button">选择</button>
+            <button id="pickSessionRootBtn" type="button" data-i18n="dialog.pick">选择</button>
           </div>
         </label>
         <label>
-          官方 App 可执行文件（可选）
-          <span class="field-hint">默认自动识别 Store/MSIX、执行别名和传统安装；仅在诊断提示未找到时手动选择 Claude.exe / Codex.exe。</span>
+          <span data-i18n="dialog.field.executable">官方 App 可执行文件（可选）</span>
+          <span class="field-hint" data-i18n="dialog.hint.executable">默认自动识别 Store/MSIX、执行别名和传统安装；仅在诊断提示未找到时手动选择 Claude.exe / Codex.exe。</span>
           <div class="path-input-row">
-            <input id="executablePathInput" type="text" placeholder="留空 = 自动查找" />
-            <button id="pickExecutablePathBtn" type="button">选择</button>
+            <input id="executablePathInput" type="text" data-i18n-placeholder="dialog.ph.executable" placeholder="留空 = 自动查找" />
+            <button id="pickExecutablePathBtn" type="button" data-i18n="dialog.pick">选择</button>
           </div>
         </label>
         <div class="dialog-actions">
-          <button value="cancel">取消</button>
-          <button id="confirmPathBtn" value="default" class="primary">保存</button>
+          <button value="cancel" data-i18n="dialog.cancel">取消</button>
+          <button id="confirmPathBtn" value="default" class="primary" data-i18n="dialog.save">保存</button>
         </div>
       </form>
     </dialog>
 
     <dialog id="diagnosticsDialog" class="wide-dialog">
       <form method="dialog" class="dialog-body">
-        <h3>诊断</h3>
+        <h3 data-i18n="dialog.diag.title">诊断</h3>
         <div id="diagnosticsBody" class="diagnostics-body"></div>
         <div class="dialog-actions">
-          <button id="copyDiagnosticsBtn" type="button">复制诊断</button>
-          <button value="default" class="primary">关闭</button>
+          <button id="copyDiagnosticsBtn" type="button" data-i18n="dialog.diag.copy">复制诊断</button>
+          <button value="default" class="primary" data-i18n="dialog.close">关闭</button>
         </div>
       </form>
     </dialog>
 
     <dialog id="agentRegistryDialog" class="wide-dialog agent-registry-dialog">
       <form method="dialog" class="dialog-body">
-        <h3>接入终端 Agent</h3>
-        <p class="agent-registry-lead">AgentDesk 会自动发现常用终端 Agent。支持 <b>ACP stdio</b> 的其他工具可以自定义接入；暂未支持 ACP 的交互式 CLI 仍可在多个独立 Shell 实例中运行。</p>
-        <section class="custom-agent-section" aria-label="本机 Agent 发现状态">
-          <h4>本机发现</h4>
+        <h3 data-i18n="registry.title">接入终端 Agent</h3>
+        <p class="agent-registry-lead" data-i18n-html="registry.lead">AgentDesk 会自动发现常用终端 Agent。支持 <b>ACP stdio</b> 的其他工具可以自定义接入；暂未支持 ACP 的交互式 CLI 仍可在多个独立 Shell 实例中运行。</p>
+        <section class="custom-agent-section" data-i18n-aria="aria.discoveryStatus" aria-label="本机 Agent 发现状态">
+          <h4 data-i18n="registry.discovered">本机发现</h4>
           <div id="discoveredAgentList" class="discovered-agent-list"></div>
         </section>
-        <section class="custom-agent-section" aria-label="已接入的自定义 Agent">
-          <h4>自定义 ACP Agent</h4>
+        <section class="custom-agent-section" data-i18n-aria="aria.customAgents" aria-label="已接入的自定义 Agent">
+          <h4 data-i18n="registry.customTitle">自定义 ACP Agent</h4>
           <div id="customAgentList" class="custom-agent-list">
-            <p>还没有自定义 Agent。</p>
+            <p data-i18n="registry.customEmptyStatic">还没有自定义 Agent。</p>
           </div>
         </section>
         <fieldset class="custom-agent-form">
-          <legend>添加 ACP Agent</legend>
+          <legend data-i18n="registry.addLegend">添加 ACP Agent</legend>
           <label>
-            显示名称
-            <input id="customAgentName" type="text" maxlength="60" placeholder="例如：团队内部 Agent" />
+            <span data-i18n="registry.displayName">显示名称</span>
+            <input id="customAgentName" type="text" maxlength="60" data-i18n-placeholder="registry.ph.customName" placeholder="例如：团队内部 Agent" />
           </label>
           <label>
-            可执行文件
-            <span class="field-hint">必须由系统文件选择器授权；界面不能直接提交任意路径。</span>
+            <span data-i18n="registry.executable">可执行文件</span>
+            <span class="field-hint" data-i18n="registry.hint.customExec">必须由系统文件选择器授权；界面不能直接提交任意路径。</span>
             <div class="path-input-row">
-              <input id="customAgentExecutable" type="text" readonly placeholder="尚未选择" />
-              <button id="pickCustomAgentExecutableBtn" type="button">选择</button>
+              <input id="customAgentExecutable" type="text" readonly data-i18n-placeholder="registry.ph.notPicked" placeholder="尚未选择" />
+              <button id="pickCustomAgentExecutableBtn" type="button" data-i18n="dialog.pick">选择</button>
             </div>
           </label>
           <label>
-            ACP 启动参数（可选，每行一个）
-            <textarea id="customAgentArguments" rows="3" placeholder="例如：&#10;acp"></textarea>
+            <span data-i18n="registry.args">ACP 启动参数（可选，每行一个）</span>
+            <textarea id="customAgentArguments" rows="3" data-i18n-placeholder="registry.ph.customArgs" placeholder="例如：&#10;acp"></textarea>
           </label>
-          <p class="field-hint">AgentDesk 使用参数数组直接启动进程，不经过 shell，也不会自动下载注册表里的软件。具体参数以该 Agent 官方 ACP 文档为准。</p>
-          <button id="confirmAddCustomAgentBtn" type="button" class="primary">添加 Agent</button>
+          <p class="field-hint" data-i18n="registry.hint.customArgs">AgentDesk 使用参数数组直接启动进程，不经过 shell，也不会自动下载注册表里的软件。具体参数以该 Agent 官方 ACP 文档为准。</p>
+          <button id="confirmAddCustomAgentBtn" type="button" class="primary" data-i18n="registry.addBtn">添加 Agent</button>
         </fieldset>
         <div class="dialog-actions">
-          <button value="default" class="primary">完成</button>
+          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
         </div>
       </form>
     </dialog>
@@ -367,27 +367,27 @@
     <dialog id="welcomeDialog" class="welcome-dialog">
       <form method="dialog" class="dialog-body">
         <h3>AgentDesk</h3>
-        <p class="welcome-lead">管理多个 Claude / Codex 账号，不保存任何密码 —— 登录始终发生在官方 App 里。</p>
+        <p class="welcome-lead" data-i18n="welcome.lead">管理多个 Claude / Codex 账号，不保存任何密码 —— 登录始终发生在官方 App 里。</p>
         <ol class="welcome-steps">
-          <li><b>新增</b>一个账号槽位（工作号 / 个人号 / 备用号……）。</li>
-          <li>选中它点<b>打开账号</b>，在弹出的官方 App 里登录。</li>
-          <li>用过之后，这个账号的本地会话会<b>自动出现</b>在中间列表。</li>
-          <li>选中会话点<b>复制交接信息</b>，粘给新会话继续上下文。</li>
+          <li data-i18n-html="welcome.step1"><b>新增</b>一个账号槽位（工作号 / 个人号 / 备用号……）。</li>
+          <li data-i18n-html="welcome.step2">选中它点<b>打开账号</b>，在弹出的官方 App 里登录。</li>
+          <li data-i18n-html="welcome.step3">用过之后，这个账号的本地会话会<b>自动出现</b>在中间列表。</li>
+          <li data-i18n-html="welcome.step4">选中会话点<b>复制交接信息</b>，粘给新会话继续上下文。</li>
         </ol>
-        <p class="welcome-tip">每个槽位是独立登录、互不挤下线，可加备注和分组管理。读不到会话时点<b>诊断</b>，或用<b>路径</b>手动指定会话目录。</p>
+        <p class="welcome-tip" data-i18n-html="welcome.tip">每个槽位是独立登录、互不挤下线，可加备注和分组管理。读不到会话时点<b>诊断</b>，或用<b>路径</b>手动指定会话目录。</p>
         <div class="dialog-actions">
-          <button value="default" class="primary">开始使用</button>
+          <button value="default" class="primary" data-i18n="welcome.start">开始使用</button>
         </div>
       </form>
     </dialog>
 
     <dialog id="leaderboardDialog" class="wide-dialog">
       <form method="dialog" class="dialog-body">
-        <h3>🏆 工作量排行榜 <small style="font-weight:400;color:var(--ink-tertiary)">· 今日</small></h3>
+        <h3>🏆 <span data-i18n="leaderboard.title">工作量排行榜</span> <small style="font-weight:400;color:var(--ink-tertiary)">· <span data-i18n="leaderboard.today">今日</span></small></h3>
         <div id="leaderboardBody" class="leaderboard-body"></div>
-        <p class="leaderboard-note">分 = 10·√今日活跃会话 + 6·√新建 + 正在干活 ×15。平方根阻尼：不同工具把任务拆成的会话文件数差异很大，避免粒度细的工具刷爆榜。每分钟刷新，状态即时。</p>
+        <p class="leaderboard-note" data-i18n="leaderboard.note">分 = 10·√今日活跃会话 + 6·√新建 + 正在干活 ×15。平方根阻尼：不同工具把任务拆成的会话文件数差异很大，避免粒度细的工具刷爆榜。每分钟刷新，状态即时。</p>
         <div class="dialog-actions">
-          <button value="default" class="primary">关闭</button>
+          <button value="default" class="primary" data-i18n="dialog.close">关闭</button>
         </div>
       </form>
     </dialog>
