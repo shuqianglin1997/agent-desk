@@ -407,7 +407,7 @@ function bindEvents() {
     event.preventDefault();
     const name = els.newProfileName.value.trim();
     if (!name) {
-      setStatus('先给账号槽位起一个名字。');
+      setStatus(tr('status.nameFirst'));
       return;
     }
     const profile = await window.manager.addProfile({
@@ -418,7 +418,7 @@ function bindEvents() {
     });
     els.profileDialog.close();
     await loadProfiles(profile.id);
-    setStatus(`已创建 ${profile.name}。`);
+    setStatus(tr('status.created', { name: profile.name }));
   });
 
   els.editProfileBtn.addEventListener('click', () => {
@@ -441,7 +441,7 @@ function bindEvents() {
     if (!profile) return;
     const name = els.editName.value.trim();
     if (!name) {
-      setStatus('名称不能为空。');
+      setStatus(tr('status.nameEmpty'));
       return;
     }
     await window.manager.updateProfile({
@@ -454,7 +454,7 @@ function bindEvents() {
     });
     els.editDialog.close();
     await loadProfiles(profile.id);
-    setStatus('已保存账号资料和猫咪外观。');
+    setStatus(tr('status.savedProfileCat'));
   });
 
   els.editCatRandom.addEventListener('click', () => {
@@ -471,14 +471,14 @@ function bindEvents() {
     els.accountManage.open = false;
     const profile = selectedProfile();
     if (!profile || profile.isProtected) return;
-    if (!window.confirm(`移除「${profile.name}」？本地目录不会删除。`)) return;
+    if (!window.confirm(tr('status.removeConfirm', { name: profile.name }))) return;
     const result = await window.manager.removeProfile(profile.id);
     if (!result.ok) {
-      setStatus(result.reason || '移除失败。');
+      setStatus(result.reason || tr('status.removeFail'));
       return;
     }
     await loadProfiles();
-    setStatus('已移除账号槽位。');
+    setStatus(tr('status.removedSlot'));
   });
 
   els.launchBtn.addEventListener('click', async () => {
@@ -486,11 +486,11 @@ function bindEvents() {
     if (!profile) return;
     const result = await window.manager.launchProfile(profile.id);
     if (!result.ok) {
-      setStatus(result.reason || '打开失败。');
+      setStatus(result.reason || tr('status.openFail'));
       return;
     }
     await loadProfiles(profile.id);
-    setStatus(result.warning || `已打开 ${profile.name}。`);
+    setStatus(result.warning || tr('status.opened', { name: profile.name }));
   });
 
   // 组内形态切换：把 selectedProfileId 切到所选槽位，控制条上的编辑/移除/打开/诊断/位置/额度自然跟随
@@ -536,7 +536,7 @@ function bindEvents() {
     persistSettings({ remindersOn: state.remindersOn });
     els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
     els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
-    setStatus(state.remindersOn ? '休息提醒已开启。' : '休息提醒已关闭，猫照常陪你干活。');
+    setStatus(state.remindersOn ? tr('status.reminderEnabled') : tr('status.reminderDisabled'));
   });
 
   els.helpBtn.addEventListener('click', () => {
@@ -557,7 +557,7 @@ function bindEvents() {
       defaultPath: state.runtime.executableGrant?.path
     });
     if (!result?.ok) {
-      if (!result?.cancelled) setStatus(result?.reason || '无法选择 Agent 可执行文件。');
+      if (!result?.cancelled) setStatus(result?.reason || tr('status.pickAgentFail'));
       return;
     }
     state.runtime.executableGrant = result;
@@ -613,7 +613,7 @@ function bindEvents() {
     const profilePath = els.profilePathInput.value.trim();
     const sessionRoot = els.sessionRootInput.value.trim();
     if (!profilePath || !sessionRoot) {
-      setStatus('账号目录和会话根目录都不能为空。');
+      setStatus(tr('status.pathEmpty'));
       return;
     }
     await window.manager.updateProfile({
@@ -624,7 +624,7 @@ function bindEvents() {
     });
     els.pathDialog.close();
     await loadProfiles(profile.id);
-    setStatus('路径已保存，会话已重新扫描。');
+    setStatus(tr('status.pathSaved'));
   });
 
   els.diagnosticsBtn.addEventListener('click', async () => {
@@ -634,21 +634,21 @@ function bindEvents() {
   els.copyDiagnosticsBtn.addEventListener('click', async () => {
     if (!lastDiagnostics) return;
     await window.manager.writeClipboard(formatDiagnosticsText(lastDiagnostics));
-    setStatus('已复制诊断信息。');
+    setStatus(tr('status.diagCopied'));
   });
 
   els.profileFolderBtn.addEventListener('click', async () => {
     const profile = selectedProfile();
     if (!profile) return;
     const result = await window.manager.openPath(profile.profilePath);
-    setStatus(result.message || result.reason || (result.ok ? '已打开账号目录。' : '无法打开账号目录。'));
+    setStatus(result.message || result.reason || (result.ok ? tr('status.openAcctDirOk') : tr('status.openAcctDirFail')));
   });
 
   els.refreshBtn.addEventListener('click', async () => {
     if (isYardView()) window.YardScene.fx('bell');
     await loadSessions(true);
     await loadActivity();
-    setStatus(isYardView() ? '♪ 摇铃 —— 全体猫竖起耳朵，会话已重新扫描。' : '会话列表已刷新。');
+    setStatus(isYardView() ? tr('status.refreshBell') : tr('status.refreshList'));
   });
 
   // 额度 chips：本号 chip 开合额度 Beta 详情；全院 chip 开合跨账号总览带（原型交互）
@@ -674,15 +674,15 @@ function bindEvents() {
 
   els.quotaRefreshBtn.addEventListener('click', async () => {
     if (!selectedProfile()) return;
-    setStatus('正在从官方服务刷新额度…');
+    setStatus(tr('status.quotaRefreshing'));
     await loadQuotas(true);
     const quota = selectedQuota();
     if (state.quotaError) {
-      setStatus(`额度刷新失败：${state.quotaError}`);
+      setStatus(tr('status.quotaRefreshFail', { err: state.quotaError }));
     } else if (quota?.status === 'ok') {
-      setStatus(`额度已刷新：${quotaHeadline(quota)}。`);
+      setStatus(tr('status.quotaRefreshed', { headline: quotaHeadline(quota) }));
     } else {
-      setStatus(quota?.reason || state.quotaError || '额度暂不可用。');
+      setStatus(quota?.reason || state.quotaError || tr('status.quotaUnavailable'));
     }
   });
 
@@ -703,9 +703,9 @@ function bindEvents() {
     await window.manager.writeClipboard(makeHandoffText(sessionOwnerProfile(session), session));
     if (isYardView()) {
       window.YardScene.fx('handoff');
-      setStatus(`${profile.name} 把交接信投进了邮筒 —— 已复制，粘给新会话即可。`);
+      setStatus(tr('status.handoffMailbox', { name: profile.name }));
     } else {
-      setStatus('已复制会话交接信息。');
+      setStatus(tr('status.handoffCopied'));
     }
   });
 
@@ -713,14 +713,14 @@ function bindEvents() {
     const session = selectedSession();
     if (!session) return;
     await window.manager.writeClipboard(session.address || session.filePath || session.id);
-    setStatus('已复制会话标识。');
+    setStatus(tr('status.addressCopied'));
   });
 
   els.copyProjectBtn.addEventListener('click', async () => {
     const session = selectedSession();
     if (!session?.projectPath) return;
     await window.manager.writeClipboard(session.projectPath);
-    setStatus('已复制项目目录。');
+    setStatus(tr('status.projectCopied'));
   });
 
   els.openSessionFileBtn.addEventListener('click', async () => {
@@ -733,7 +733,7 @@ function bindEvents() {
       sessionId: session.id,
       filePath: session.filePath
     });
-    setStatus(result.message || result.reason || (result.ok ? '已打开会话位置。' : '无法打开会话位置。'));
+    setStatus(result.message || result.reason || (result.ok ? tr('status.sessionLocOk') : tr('status.sessionLocFail')));
   });
 
   els.exportSessionBtn.addEventListener('click', async () => {
@@ -745,7 +745,7 @@ function bindEvents() {
       sessionId: session.id
     });
     if (result?.canceled) return;
-    setStatus(result?.message || result?.reason || (result?.ok ? '已导出会话。' : '导出失败。'));
+    setStatus(result?.message || result?.reason || (result?.ok ? tr('status.exportOk') : tr('status.exportFail')));
   });
 }
 
@@ -757,11 +757,11 @@ async function handleUpdateClick() {
   els.updateBtn.classList.remove('update-available', 'update-error');
   els.updateBtn.textContent = '检查中…';
   els.updateBtn.title = '正在查询 GitHub Releases';
-  setStatus('正在检查 GitHub 更新…');
+  setStatus(tr('status.checkingUpdate'));
 
   const result = await window.manager.checkForUpdates();
   if (!result.ok) {
-    setStatus(result.reason || '检查更新失败。');
+    setStatus(result.reason || tr('status.checkFail'));
     finishUpdateButton('! 重试', '检查更新失败，点击重试', 'update-error');
     return;
   }
@@ -769,7 +769,7 @@ async function handleUpdateClick() {
   state.updateInfo = result;
   renderAttentionInbox();
   if (!result.updateAvailable) {
-    setStatus(`当前已是最新版 v${result.currentVersion}。`);
+    setStatus(tr('status.latest', { version: result.currentVersion }));
     finishUpdateButton('✓ 最新', `当前版本 v${result.currentVersion}`, '');
     return;
   }
@@ -787,7 +787,7 @@ async function handleUpdateClick() {
   if (!confirmed) {
     updateBusy = false;
     els.updateBtn.disabled = false;
-    setStatus(`发现新版本 v${result.latestVersion}，随时点击账号操作栏中的“↑ 更新”。`);
+    setStatus(tr('status.newVersion', { version: result.latestVersion }));
     return;
   }
 
@@ -795,24 +795,24 @@ async function handleUpdateClick() {
   els.updateBtn.textContent = result.installSupported ? '0%' : '↗ 打开';
   const installed = await window.manager.installUpdate();
   if (!installed.ok) {
-    setStatus(installed.reason || '更新失败。');
+    setStatus(installed.reason || tr('status.updateFail'));
     finishUpdateButton('! 重试', '更新失败，点击重试', 'update-error');
     return;
   }
   if (installed.manual) {
-    setStatus(installed.message || '已打开 GitHub Release 页面。');
+    setStatus(installed.message || tr('status.openedRelease'));
     finishUpdateButton('↗ 已打开', '已打开 GitHub Release', '');
     return;
   }
   if (installed.upToDate) {
-    setStatus(installed.message || '当前已是最新版。');
+    setStatus(installed.message || tr('status.alreadyLatestShort'));
     finishUpdateButton('✓ 最新', '当前已是最新版', '');
     return;
   }
   if (installed.restarting) {
     els.updateBtn.textContent = '✓ 重启';
     els.updateBtn.title = '更新完成，正在重启';
-    setStatus(installed.message || '更新完成，正在重启…');
+    setStatus(installed.message || tr('status.updateDoneRestart'));
   }
 }
 
@@ -1330,11 +1330,11 @@ function initYard() {
     onSelect: async (profileId) => {
       await selectProfile(profileId);
       const profile = selectedProfile();
-      if (profile) setStatus(`已选中 ${profile.name} —— 下方是它的会话。`);
+      if (profile) setStatus(tr('status.selected', { name: profile.name }));
     },
     onPet: (profile) => {
       window.YardScene.say(profile.id, { text: '喵～ 呼噜呼噜', kind: 'ambient', duration: 2800 });
-      setStatus(`${profile.name}：呼噜呼噜呼噜……`);
+      setStatus(tr('status.purr', { name: profile.name }));
     },
     onDrop: handleYardDrop
   });
@@ -1346,8 +1346,6 @@ function initYard() {
 
 // 时间 / 天气控件：从稳定设置恢复，点击切换并持久化
 function initAtmosphere() {
-  const TIME_LABEL = { auto: '跟随系统', day: '白天', dusk: '黄昏', night: '夜晚' };
-  const WEATHER_LABEL = { auto: '自动变化', clear: '晴天', cloudy: '多云', rain: '下雨', snow: '下雪' };
   const syncPressed = () => {
     els.atmosTime.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.time === state.atmosTime)));
     els.atmosWeather.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.weather === state.atmosWeather)));
@@ -1360,7 +1358,7 @@ function initAtmosphere() {
     window.YardScene.setAtmosphere({ time: state.atmosTime });
     syncPressed();
     updateAtmosphereReadout();
-    setStatus(`庭院时间：${TIME_LABEL[state.atmosTime]}。`);
+    setStatus(tr('status.yardTime', { label: tr('yard.time.' + state.atmosTime) }));
   });
   els.atmosWeather.addEventListener('click', (event) => {
     const btn = event.target.closest('button');
@@ -1370,7 +1368,7 @@ function initAtmosphere() {
     window.YardScene.setAtmosphere({ weather: state.atmosWeather });
     syncPressed();
     updateAtmosphereReadout();
-    setStatus(`庭院天气：${WEATHER_LABEL[state.atmosWeather]}。`);
+    setStatus(tr('status.yardWeather', { label: tr('yard.weather.' + state.atmosWeather) }));
   });
   // 天气行默认收起（原型只显时间行）；⛅ 展开，或用户存过非自动天气时自动展开
   const syncWeatherToggle = () => {
@@ -1500,17 +1498,17 @@ function renderCustomAgentList() {
     remove.type = 'button';
     remove.textContent = '移除';
     remove.addEventListener('click', async () => {
-      if (!window.confirm(`移除自定义 Agent「${agent.name}」？已运行的实例不会被中断。`)) return;
+      if (!window.confirm(tr('status.removeCustomConfirm', { name: agent.name }))) return;
       const result = await window.manager.removeCustomAgent(agent.id);
       if (!result?.ok) {
-        setStatus(result?.reason || '无法移除自定义 Agent。');
+        setStatus(result?.reason || tr('status.removeCustomFail'));
         return;
       }
       await loadCustomAgents();
       await loadRuntimeAdapters();
       renderDiscoveredAgentList();
       renderCustomAgentList();
-      setStatus(`已移除「${agent.name}」；正在运行的实例不受影响。`);
+      setStatus(tr('status.customRemoved', { name: agent.name }));
     });
     row.append(name, executable, remove);
     els.customAgentList.append(row);
@@ -1521,12 +1519,12 @@ async function addCustomAgent() {
   if (!window.manager.addCustomAgent) return;
   const name = els.customAgentName.value.trim();
   if (!name) {
-    setStatus('请填写自定义 Agent 名称。');
+    setStatus(tr('status.customNameEmpty'));
     els.customAgentName.focus();
     return;
   }
   if (!state.runtime.executableGrant?.grantId) {
-    setStatus('请先通过系统选择器选择 Agent 可执行文件。');
+    setStatus(tr('status.customPickFirst'));
     return;
   }
   els.confirmAddCustomAgentBtn.disabled = true;
@@ -1537,7 +1535,7 @@ async function addCustomAgent() {
   });
   els.confirmAddCustomAgentBtn.disabled = false;
   if (!result?.ok) {
-    setStatus(result?.reason || '无法添加自定义 Agent。');
+    setStatus(result?.reason || tr('status.addCustomFail'));
     return;
   }
   state.runtime.executableGrant = null;
@@ -1548,7 +1546,7 @@ async function addCustomAgent() {
   await loadRuntimeAdapters();
   renderDiscoveredAgentList();
   renderCustomAgentList();
-  setStatus(`已接入 ACP Agent「${result.agent.name}」。`);
+  setStatus(tr('status.acpConnected', { name: result.agent.name }));
 }
 
 async function loadRuntimeAdapters() {
@@ -1827,7 +1825,7 @@ async function sendRuntimeInput() {
       runtimeId: runtime.id,
       action: 'runtime'
     };
-    setStatus(result?.reason || '无法发送到 Agent。');
+    setStatus(result?.reason || tr('status.runtimeSendFail'));
     renderAttentionInbox();
     renderRuntimeDock();
     return false;
@@ -1913,10 +1911,10 @@ async function openTerminalForProfile(profile) {
   renderRuntimeDock();
   els.runtimeDock.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   if (!state.runtime.adapters.some((item) => item.available)) {
-    setStatus('本机没有可用的终端或 Agent CLI，请先查看诊断。');
+    setStatus(tr('status.noTerminalCli'));
     return;
   }
-  setStatus(`已定位到 ${profile.name} 的 Agent Fleet；可以新建，也可以切换其他实例。`);
+  setStatus(tr('status.locatedFleet', { name: profile.name }));
   if (!els.runtimeInput.disabled) els.runtimeInput.focus();
   else els.runtimeStartBtn.focus();
 }
@@ -1928,11 +1926,11 @@ async function queueSessionForRuntime(profile, session) {
     || state.runtime.adapters.find((item) => item.mode === 'agent' && item.available);
   if (!agent) {
     window.YardScene?.say(profile.id, { text: '先安装 Agent CLI，喵。', kind: 'warning', duration: 4200 });
-    setStatus('任务道需要至少一个可用的 Agent CLI；Shell 不会冒充 Agent 自动执行任务。');
+    setStatus(tr('status.taskLaneNeedCli'));
     return;
   }
   if (state.runtime.queue.length >= 20) {
-    setStatus('Agent 待办已满（最多 20 条），先处理或清理现有任务。');
+    setStatus(tr('status.queueFull'));
     return;
   }
 
@@ -1957,7 +1955,7 @@ async function queueSessionForRuntime(profile, session) {
     renderRuntimeDock();
     await runNextQueuedTask(ready.id);
   } else {
-    setStatus(`已把「${session.title}」排队；新建一个 ${agent.label} 实例后会自动发送。`);
+    setStatus(tr('status.queued', { title: session.title, agent: agent.label }));
   }
 }
 
@@ -1977,7 +1975,7 @@ async function runNextQueuedTask(runtimeId = state.runtime.selectedRuntimeId) {
   renderAttentionInbox();
   const sent = await sendRuntimeInput();
   if (!sent) state.runtime.queue.splice(index, 0, task);
-  else setStatus(`「${runtime.title}」开始处理待办：${task.title}。`);
+  else setStatus(tr('status.runtimeStartTask', { title: runtime.title, task: task.title }));
   runtimeQueueSending = false;
   renderRuntimeDock();
   renderAttentionInbox();
@@ -2120,7 +2118,7 @@ function handleYardDrop({ profile, state: activityState, point, zone }) {
   if (intent.action === 'save-position') {
     saveYardPosition(profile.id, point, zoneId);
     window.YardScene.say(profile.id, { text: '这里不错，喵。', kind: 'ambient' });
-    setStatus(`已保存 ${profile.name} 在庭院里的位置。`);
+    setStatus(tr('status.yardPosSaved', { name: profile.name }));
     return { keepPosition: true };
   }
 
@@ -2148,33 +2146,33 @@ async function executeYardIntent(profile, initialIntent) {
     return;
   }
   if (intent.action === 'focus-running') {
-    setStatus(`${profile.name} 已经在运行，右侧是它的账号和会话。`);
+    setStatus(tr('status.alreadyRunning', { name: profile.name }));
     return;
   }
   if (intent.action === 'focus-session') {
     document.querySelector('.inspector')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    setStatus(`已打开 ${profile.name} 的当前会话详情。`);
+    setStatus(tr('status.openedSessionDetail', { name: profile.name }));
     return;
   }
   if (intent.action === 'launch-profile') {
-    if (!window.confirm(`把「${profile.name}」送到工作亭并打开官方 App？`)) return;
+    if (!window.confirm(tr('status.openConfirmLaunch', { name: profile.name }))) return;
     const result = await window.manager.launchProfile(profile.id);
     if (!result.ok) {
-      window.YardScene.say(profile.id, { text: result.reason || '打开失败', kind: 'error', duration: 5000 });
-      setStatus(result.reason || '打开失败。');
+      window.YardScene.say(profile.id, { text: result.reason || tr('status.openFailShort'), kind: 'error', duration: 5000 });
+      setStatus(result.reason || tr('status.openFail'));
       return;
     }
     await loadProfiles(profile.id);
-    setStatus(result.warning || `已打开 ${profile.name}。`);
+    setStatus(result.warning || tr('status.opened', { name: profile.name }));
     return;
   }
   if (intent.action === 'copy-handoff') {
     const session = selectedSession();
     if (!session) return;
-    if (!window.confirm(`把「${session.title}」的交接信息投进邮筒并复制？`)) return;
+    if (!window.confirm(tr('status.handoffConfirm', { title: session.title }))) return;
     await window.manager.writeClipboard(makeHandoffText(profile, session));
     window.YardScene.fx('handoff');
-    setStatus(`${profile.name} 已把交接信投进邮筒。`);
+    setStatus(tr('status.handoffMailboxShort', { name: profile.name }));
     return;
   }
   if (intent.action === 'open-terminal' && typeof openTerminalForProfile === 'function') {
@@ -2184,7 +2182,7 @@ async function executeYardIntent(profile, initialIntent) {
   if (intent.action === 'queue-task') {
     const session = selectedSession();
     if (!session) return;
-    if (!window.confirm(`把「${session.title}」加入 ${profile.name} 的 Agent 待办？`)) return;
+    if (!window.confirm(tr('status.queueConfirm', { title: session.title, name: profile.name }))) return;
     await queueSessionForRuntime(profile, session);
   }
 }
@@ -2287,9 +2285,9 @@ function runCompanion() {
 
     for (const event of events) {
       if (event.type === 'clockoff') {
-        setStatus(`一只猫收工了 —— 今日完成 +1（这轮陪你干了 ${event.minutes} 分钟）。`);
+        setStatus(tr('status.catWrapped', { min: event.minutes }));
       } else if (event.type === 'stretch') {
-        setStatus(`已经陪你干了 ${event.minutes} 分钟，要不要一起伸个懒腰？ ☕`);
+        setStatus(tr('status.workedMin', { min: event.minutes }));
         if (isYardView()) window.YardScene.fx('stretch');
       }
     }
@@ -2813,23 +2811,23 @@ function renderDiagnostics(diagnostics) {
     button.addEventListener('click', async () => {
       const profile = selectedProfile();
       if (!profile) return;
-      if (!window.confirm(`请先完全关闭「${profile.name}」对应的官方 App。确认已经关闭并开始复制迁移？`)) {
+      if (!window.confirm(tr('status.migrateConfirm', { name: profile.name }))) {
         return;
       }
       button.disabled = true;
       button.textContent = '迁移中…';
-      setStatus('正在迁移账号数据，请先不要打开官方 App。');
+      setStatus(tr('status.migrating'));
       const result = await window.manager.migrateWindowsProfilePath(profile.id);
       if (!result.ok) {
         button.disabled = false;
         button.textContent = '一键迁移 Windows 路径';
-        setStatus(result.reason || '路径迁移失败。');
+        setStatus(result.reason || tr('status.migrateFail'));
         return;
       }
       await loadProfiles(profile.id);
       lastDiagnostics = await window.manager.getDiagnostics(selectedProfile());
       renderDiagnostics(lastDiagnostics);
-      setStatus(result.message || 'Windows 路径迁移完成。');
+      setStatus(result.message || tr('status.migrateDone'));
     });
     repair.append(text, button);
     els.diagnosticsBody.append(repair);
