@@ -535,7 +535,7 @@ function bindEvents() {
     state.remindersOn = !state.remindersOn;
     persistSettings({ remindersOn: state.remindersOn });
     els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
-    els.reminderToggle.textContent = state.remindersOn ? '🔔 提醒 开' : '🔕 提醒 关';
+    els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
     setStatus(state.remindersOn ? '休息提醒已开启。' : '休息提醒已关闭，猫照常陪你干活。');
   });
 
@@ -2191,6 +2191,13 @@ function tr(key, params) {
   return window.I18N ? window.I18N.t(key, params) : key;
 }
 
+// 日期格式跟随界面语言（BCP-47）；新增语言时在此登记
+function dateLocale() {
+  const map = { zh: 'zh-CN', en: 'en-US', ja: 'ja-JP' };
+  const lang = window.I18N ? window.I18N.getLang() : 'zh';
+  return map[lang] || 'zh-CN';
+}
+
 // 顶栏语言按钮显示当前语言缩写（中 / EN / 日）
 function updateLangToggle() {
   if (!els.langToggle || !window.I18N) return;
@@ -2441,7 +2448,7 @@ function buildAccountCard(group, now) {
     ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
     : state.activity[primary.id];
   const activityState = window.YardCats ? window.YardCats.deriveState(now, primary, merged) : 'rest';
-  const stateLabel = window.YardCats?.STATE_META?.[activityState]?.label || activityState;
+  const stateLabel = tr('state.' + activityState);
 
   const top = document.createElement('div');
   top.className = 'account-card-top';
@@ -2460,19 +2467,19 @@ function buildAccountCard(group, now) {
     const busy = document.createElement('span');
     busy.className = 'account-card-busy';
     busy.textContent = ` ⌨${activeNow}`;
-    busy.title = `${activeNow} 个会话正在进行`;
+    busy.title = tr('card.busy', { n: activeNow });
     name.append(busy);
   }
   if (group.members.length > 1) {
     const link = document.createElement('span');
     link.className = 'account-card-link';
     link.textContent = ' ⛓';
-    link.title = `一个账号 ${group.members.length} 个形态`;
+    link.title = tr('card.forms', { n: group.members.length });
     name.append(link);
   }
   const gp = document.createElement('div');
   gp.className = 'account-card-group';
-  gp.textContent = primary.group ? `分组 · ${primary.group}` : appLabel(primary.appId);
+  gp.textContent = primary.group ? tr('card.group', { g: primary.group }) : appLabel(primary.appId);
   meta.append(name, gp);
   top.append(avatar, meta);
 
@@ -2527,16 +2534,16 @@ function drawAccountAvatar(canvas, profile) {
 
 function renderTopbarContext() {
   if (!els.topbarContext) return;
+  const ctx = tr(state.view === 'yard' ? 'ctx.yard' : 'ctx.classic');
   const profile = selectedProfile();
   if (!profile) {
-    els.topbarContext.textContent = state.view === 'yard' ? '猫猫庭院 · 尚未选择账号' : '经典工作台 · 尚未选择账号';
+    els.topbarContext.textContent = `${ctx} · ${tr('ctx.noAccount')}`;
     return;
   }
   const activityState = window.YardCats
     ? window.YardCats.deriveState(Date.now(), profile, state.activity[profile.id])
     : 'rest';
-  const label = window.YardCats?.STATE_META?.[activityState]?.label || activityState;
-  els.topbarContext.textContent = `${state.view === 'yard' ? '猫猫庭院' : '经典工作台'} · ${profile.name} · ${label}`;
+  els.topbarContext.textContent = `${ctx} · ${profile.name} · ${tr('state.' + activityState)}`;
 }
 
 // （旧侧栏行渲染器 appendAccountRow 已随侧栏移除，账号呈现改为 renderAccountRoster 卡片）
@@ -2628,7 +2635,7 @@ function renderAccountHeader() {
   els.removeProfileBtn.disabled = disabled || profile?.isProtected;
 
   if (!profile) {
-    els.accountTitle.textContent = '未选择账号';
+    els.accountTitle.textContent = tr('account.none');
     if (els.accountBadge) els.accountBadge.hidden = true;
     if (els.accountId) els.accountId.title = '';
     els.accountMeta.textContent = '';
@@ -2650,12 +2657,12 @@ function renderAccountHeader() {
   // 并行会话数按整个账号（组）聚合：桌面在跑 + 终端在跑 = 一起数
   const activeNow = members.reduce((acc, member) => acc + (state.activity[member.id]?.activeNow || 0), 0);
   const badgeParts = [];
-  if (activeNow > 0) badgeParts.push(`⌨ ${activeNow} 并行`);
-  if (members.length > 1) badgeParts.push(`⛓ ${members.length} 形态`);
+  if (activeNow > 0) badgeParts.push(tr('acct.badgeParallel', { n: activeNow }));
+  if (members.length > 1) badgeParts.push(tr('acct.badgeForms', { n: members.length }));
   const quotaSnapshot = selectedQuota();
   if (quotaSnapshot?.status === 'ok' && window.YardEnergy) {
-    const energyMeta = window.YardEnergy.ENERGY_META?.[window.YardEnergy.deriveEnergy(quotaSnapshot, Date.now())];
-    if (energyMeta) badgeParts.push(`⚡ ${energyMeta.label}`);
+    const energyKey = window.YardEnergy.deriveEnergy(quotaSnapshot, Date.now());
+    badgeParts.push(`⚡ ${tr('energy.' + energyKey)}`);
   }
   if (els.accountBadge) {
     els.accountBadge.textContent = badgeParts.join(' · ');
@@ -2663,10 +2670,10 @@ function renderAccountHeader() {
   }
   renderFormSwitcher(profile, identityGroup);
 
-  const metaLine = `${appLabel(profile.appId)} · ${profile.isProtected ? '默认槽位' : '独立槽位'}${groupLabel} · 上次打开 ${compactDate(profile.lastLaunchedAt)}`;
-  const pathLine = `账号 ${shortPath(profile.profilePath)} · 会话 ${shortPath(profile.sessionRoot)}`;
+  const metaLine = `${appLabel(profile.appId)} · ${tr(profile.isProtected ? 'acct.slotDefault' : 'acct.slotIndependent')}${groupLabel} · ${tr('acct.lastOpen', { t: compactDate(profile.lastLaunchedAt) })}`;
+  const pathLine = tr('acct.tip', { p: shortPath(profile.profilePath), s: shortPath(profile.sessionRoot) });
   if (els.accountId) {
-    els.accountId.title = [metaLine, pathLine, profile.note ? `备注 ${profile.note}` : ''].filter(Boolean).join('\n');
+    els.accountId.title = [metaLine, pathLine, profile.note ? tr('acct.note', { note: profile.note }) : ''].filter(Boolean).join('\n');
   }
   // 隐藏源（.account-legacy）：保留旧字段写入，作为 tooltip 之外的读取兜底
   els.accountMeta.textContent = metaLine;
@@ -2679,7 +2686,7 @@ function renderAccountHeader() {
 
 function renderSessions() {
   els.sessionRows.replaceChildren();
-  els.sessionCount.textContent = `${state.filteredSessions.length} 个`;
+  els.sessionCount.textContent = tr('session.count', { n: state.filteredSessions.length });
 
   if (!state.filteredSessions.length) {
     const row = document.createElement('tr');
@@ -2687,8 +2694,8 @@ function renderSessions() {
     const cell = document.createElement('td');
     cell.colSpan = 4;
     cell.textContent = state.sessions.length
-      ? '没有匹配的会话，换个关键词试试。'
-      : '这个账号还没有会话。点「打开账号」登录官方 App，用过之后会话会自动出现在这里；读不到时可点「诊断」。';
+      ? tr('session.empty.filtered')
+      : tr('session.empty.none');
     row.append(cell);
     els.sessionRows.append(row);
     return;
@@ -2728,11 +2735,11 @@ function renderInspector() {
   const canExport = Boolean(session && state.appMeta[session.appId]?.canExportTranscript);
   els.exportSessionBtn.disabled = !canExport;
   els.exportSessionBtn.title = canExport
-    ? '把这段对话导出成 Markdown 文件'
-    : (session ? '这个客户端的会话暂不支持导出 Markdown' : '');
+    ? tr('detail.export.can')
+    : (session ? tr('detail.export.cannot') : '');
 
   if (!session) {
-    setDetail(els.detailTitle, '未选择', { keep: true });
+    setDetail(els.detailTitle, tr('detail.unselected'), { keep: true });
     for (const dd of [els.detailId, els.detailCreated, els.detailUpdated, els.detailSource, els.detailProject, els.detailFile, els.detailAddress]) {
       setDetail(dd, '');
     }
@@ -2751,7 +2758,7 @@ function renderInspector() {
 
 // 会话详情：空字段连同标签一起折叠，详情栏更紧凑（keep=true 的字段始终保留）
 function setDetail(dd, value, { keep = false } = {}) {
-  const empty = !keep && (!value || value === '-' || value === '未记录');
+  const empty = !keep && (!value || value === '-' || value === tr('common.unrecorded'));
   dd.textContent = value || '-';
   dd.hidden = empty;
   const dt = dd.previousElementSibling;
@@ -2946,30 +2953,25 @@ function selectedSession() {
 }
 
 function makeHandoffText(profile, session) {
-  const appName = appLabel(profile.appId);
-  return [
-    '请帮我继续理解这个会话：',
-    '',
-    `应用：${appName}`,
-    `账号槽位：${profile.name}`,
-    `标题：${session.title}`,
-    `新建时间：${fullDate(session.createdAt)}`,
-    `最后活跃：${fullDate(session.updatedAt)}`,
-    `来源：${session.source}`,
-    `状态：${session.status}`,
-    `项目目录：${session.projectPath || '未记录'}`,
-    `会话标识：${session.address || session.id}`,
-    `会话文件：${session.filePath}`,
-    `线程 ID：${session.id}`,
-    '',
-    '请基于这些信息判断这个会话在做什么，并继续处理。'
-  ].join('\n');
+  return tr('handoff.template', {
+    app: appLabel(profile.appId),
+    slot: profile.name,
+    title: session.title,
+    created: fullDate(session.createdAt),
+    active: fullDate(session.updatedAt),
+    source: session.source,
+    status: session.status,
+    project: session.projectPath || tr('common.unrecorded'),
+    address: session.address || session.id,
+    file: session.filePath,
+    thread: session.id
+  });
 }
 
 function compactDate(value) {
-  if (!value) return '未记录';
+  if (!value) return tr('common.unrecorded');
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '未记录';
+  if (Number.isNaN(date.getTime())) return tr('common.unrecorded');
   const now = new Date();
   const sameYear = date.getFullYear() === now.getFullYear();
   const sameDay = date.toDateString() === now.toDateString();
@@ -2978,14 +2980,14 @@ function compactDate(value) {
     : sameYear
       ? { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }
       : { year: 'numeric', month: 'numeric', day: 'numeric' };
-  return new Intl.DateTimeFormat('zh-CN', options).format(date);
+  return new Intl.DateTimeFormat(dateLocale(), options).format(date);
 }
 
 function fullDate(value) {
-  if (!value) return '未记录';
+  if (!value) return tr('common.unrecorded');
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '未记录';
-  return new Intl.DateTimeFormat('zh-CN', {
+  if (Number.isNaN(date.getTime())) return tr('common.unrecorded');
+  return new Intl.DateTimeFormat(dateLocale(), {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
