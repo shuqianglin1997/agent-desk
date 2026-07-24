@@ -11,6 +11,15 @@ contextBridge.exposeInMainWorld('manager', {
     ipcRenderer.on('updates:progress', listener);
     return () => ipcRenderer.removeListener('updates:progress', listener);
   },
+  scanTools: (options = {}) => ipcRenderer.invoke('tools:scan', options),
+  openTool: (input) => ipcRenderer.invoke('tools:open', input),
+  updateTool: (toolId) => ipcRenderer.invoke('tools:update', { toolId }),
+  updateAllTools: () => ipcRenderer.invoke('tools:updateAll'),
+  onToolProgress: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('tools:progress', listener);
+    return () => ipcRenderer.removeListener('tools:progress', listener);
+  },
   listProfiles: () => ipcRenderer.invoke('profiles:list'),
   addProfile: (input) => ipcRenderer.invoke('profiles:add', input),
   updateProfile: (input) => ipcRenderer.invoke('profiles:update', input),
