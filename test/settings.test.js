@@ -23,6 +23,8 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
   const normalized = normalizeSettings({
     theme: 'dark',
     view: 'classic',
+    sessionScope: 'all',
+    sessionView: 'detail',
     remindersOn: false,
     atmosTime: 'dusk',
     atmosWeather: 'rain',
@@ -38,6 +40,8 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
 
   assert.equal(normalized.theme, 'dark');
   assert.equal(normalized.view, 'classic');
+  assert.equal(normalized.sessionScope, 'all');
+  assert.equal(normalized.sessionView, 'detail');
   assert.equal(normalized.remindersOn, false);
   // 未出现在旧设置里的新字段落默认：内嵌控制台默认收起
   assert.equal(normalized.agentConsoleOn, false);
@@ -52,6 +56,8 @@ test('非法设置安全回落默认值，损坏账本不会阻断启动', () =>
   const normalized = normalizeSettings({
     theme: 'sepia',
     view: 'unknown',
+    sessionScope: 'some',
+    sessionView: 'cards',
     remindersOn: 'no',
     atmosTime: 'sunset',
     atmosWeather: 'storm',

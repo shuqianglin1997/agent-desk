@@ -4,6 +4,12 @@ const state = {
   filteredSessions: [],
   selectedProfileId: null,
   selectedSessionId: null,
+  selectedSessionKey: null,
+  sessionScope: 'current',
+  sessionView: 'compact',
+  sessionSort: { key: 'updatedAt', direction: 'desc' },
+  handoffSelection: new Map(),
+  selectionAnchorKey: null,
   query: '',
   theme: null,
   view: 'yard',
@@ -162,11 +168,22 @@ const els = {
   quotaMessage: document.querySelector('#quotaMessage'),
   sessionCount: document.querySelector('#sessionCount'),
   searchInput: document.querySelector('#searchInput'),
+  sessionScopeCurrentBtn: document.querySelector('#sessionScopeCurrentBtn'),
+  sessionScopeAllBtn: document.querySelector('#sessionScopeAllBtn'),
+  sessionCompactBtn: document.querySelector('#sessionCompactBtn'),
+  sessionDetailBtn: document.querySelector('#sessionDetailBtn'),
+  sessionTable: document.querySelector('#sessionTable'),
+  sessionHead: document.querySelector('#sessionHead'),
   sessionRows: document.querySelector('#sessionRows'),
+  handoffBulkBar: document.querySelector('#handoffBulkBar'),
+  handoffSelectionSummary: document.querySelector('#handoffSelectionSummary'),
+  clearHandoffSelectionBtn: document.querySelector('#clearHandoffSelectionBtn'),
+  copySelectedHandoffBtn: document.querySelector('#copySelectedHandoffBtn'),
   statusBar: document.querySelector('#statusBar'),
   statusText: document.querySelector('#statusText'),
   statusMeta: document.querySelector('#statusMeta'),
   detailTitle: document.querySelector('#detailTitle'),
+  detailAccount: document.querySelector('#detailAccount'),
   detailId: document.querySelector('#detailId'),
   detailCreated: document.querySelector('#detailCreated'),
   detailUpdated: document.querySelector('#detailUpdated'),
@@ -174,6 +191,9 @@ const els = {
   detailProject: document.querySelector('#detailProject'),
   detailFile: document.querySelector('#detailFile'),
   detailAddress: document.querySelector('#detailAddress'),
+  handoffPlan: document.querySelector('#handoffPlan'),
+  handoffPlanSummary: document.querySelector('#handoffPlanSummary'),
+  handoffPlanList: document.querySelector('#handoffPlanList'),
   copySummaryBtn: document.querySelector('#copySummaryBtn'),
   copyAddressBtn: document.querySelector('#copyAddressBtn'),
   copyProjectBtn: document.querySelector('#copyProjectBtn'),
@@ -306,6 +326,8 @@ function legacyUserSettings() {
 function applyUserSettings(value = {}) {
   state.theme = value.theme === 'light' || value.theme === 'dark' ? value.theme : null;
   state.view = value.view === 'classic' ? 'classic' : 'yard';
+  state.sessionScope = value.sessionScope === 'all' ? 'all' : 'current';
+  state.sessionView = value.sessionView === 'detail' ? 'detail' : 'compact';
   state.remindersOn = value.remindersOn !== false;
   state.agentConsoleOn = false; // 内嵌控制台 UI 已移除，恒关
   state.atmosTime = ['auto', 'day', 'dusk', 'night'].includes(value.atmosTime)
@@ -692,22 +714,39 @@ function bindEvents() {
     els.leaderboardDialog.showModal();
   });
 
+  els.sessionScopeCurrentBtn?.addEventListener('click', () => {
+    void setSessionScope('current');
+  });
+
+  els.sessionScopeAllBtn?.addEventListener('click', () => {
+    void setSessionScope('all');
+  });
+
+  els.sessionCompactBtn?.addEventListener('click', () => {
+    setSessionView('compact');
+  });
+
+  els.sessionDetailBtn?.addEventListener('click', () => {
+    setSessionView('detail');
+  });
+
   els.searchInput.addEventListener('input', () => {
     state.query = els.searchInput.value.trim().toLowerCase();
     applySessionFilter(true);
   });
 
   els.copySummaryBtn.addEventListener('click', async () => {
-    const profile = selectedProfile();
-    const session = selectedSession();
-    if (!profile || !session) return;
-    await window.manager.writeClipboard(makeHandoffText(sessionOwnerProfile(session), session));
-    if (isYardView()) {
-      window.YardScene.fx('handoff');
-      setStatus(tr('status.handoffMailbox', { name: profile.name }));
-    } else {
-      setStatus(tr('status.handoffCopied'));
+    if (selectedHandoffSessions().length) {
+      await copyHandoffPlan();
+      return;
     }
+    await copyActiveHandoff();
+  });
+
+  els.copySelectedHandoffBtn?.addEventListener('click', copyHandoffPlan);
+
+  els.clearHandoffSelectionBtn?.addEventListener('click', () => {
+    clearHandoffSelection();
   });
 
   els.copyAddressBtn.addEventListener('click', async () => {
@@ -858,12 +897,16 @@ async function loadProfiles(preferredId = null) {
   state.quotas = Object.fromEntries(
     Object.entries(state.quotas).filter(([profileId]) => liveIds.has(profileId))
   );
+  for (const [key, session] of state.handoffSelection) {
+    if (!liveIds.has(session._profileId)) state.handoffSelection.delete(key);
+  }
   state.selectedProfileId = preferredId || state.selectedProfileId || state.profiles[0]?.id || null;
   if (!state.profiles.some((profile) => profile.id === state.selectedProfileId)) {
     state.selectedProfileId = state.profiles[0]?.id || null;
   }
   renderAccounts();
   renderAccountHeader();
+  renderSessionControls();
   await loadSessions(true);
   await loadRuntimeAdapters();
   renderAttentionInbox();
@@ -874,23 +917,63 @@ async function loadProfiles(preferredId = null) {
 
 async function loadSessions(selectFirst = false) {
   const profile = selectedProfile();
-  if (!profile) {
+  if (!profile && state.sessionScope === 'current') {
     state.sessions = [];
     applySessionFilter(selectFirst);
     return;
   }
-  // 会话按「账号」合流：同一登录身份的所有槽位（桌面 / CLI / Work…）一起列。
-  // 每条记录带上归属槽位 id，定位 / 导出仍指向正确的槽位；「来源」列区分形态。
-  const group = groupOfProfile(profile.id);
-  const members = group ? group.members : [profile];
-  // allSettled：某个槽位扫描失败只丢它自己的会话，不清空整组的合并列表
-  const settled = await Promise.allSettled(members.map(async (member) => {
-    const records = await window.manager.listSessions(member);
-    return (Array.isArray(records) ? records : []).map((record) => ({ ...record, _profileId: member.id }));
+
+  // 当前账号：合流同一登录身份的全部形态；全部账号：一次扫描所有身份组。
+  // 每条记录都带归属槽位 + 账号组元数据，跨账号排序、选择和操作仍能回到正确槽位。
+  const groups = identityGroups();
+  const currentGroup = profile ? groupOfProfile(profile.id) : null;
+  const scopedGroups = state.sessionScope === 'all'
+    ? groups
+    : (currentGroup ? [currentGroup] : []);
+  const descriptors = new Map();
+  for (const group of scopedGroups) {
+    for (const member of group.members) {
+      descriptors.set(member.id, {
+        member,
+        accountKey: group.key,
+        accountName: group.primary.name
+      });
+    }
+  }
+
+  // 一个槽位扫描失败只丢它自己的会话，不清空其它账号，也不误删它已勾选的快照。
+  const results = await Promise.all([...descriptors.values()].map(async (descriptor) => {
+    const { member, accountKey, accountName } = descriptor;
+    try {
+      const records = await window.manager.listSessions(member);
+      const owned = (Array.isArray(records) ? records : [])
+        .map((record) => ({ ...record, _profileId: member.id }));
+      return {
+        ok: true,
+        profileId: member.id,
+        records: owned.map((record) => ({
+          ...record,
+          _accountKey: accountKey,
+          _accountName: accountName,
+          _profileName: member.name,
+          _appLabel: appLabel(record.appId || member.appId)
+        }))
+      };
+    } catch (_error) {
+      return { ok: false, profileId: member.id, records: [] };
+    }
   }));
-  state.sessions = settled
-    .filter((entry) => entry.status === 'fulfilled')
-    .flatMap((entry) => entry.value)
+
+  const successfulProfiles = new Set(results.filter((result) => result.ok).map((result) => result.profileId));
+  const loaded = results.flatMap((result) => result.records);
+  const freshByKey = new Map(loaded.map((session) => [sessionKey(session), session]));
+  for (const [key, snapshot] of state.handoffSelection) {
+    if (!successfulProfiles.has(snapshot._profileId)) continue;
+    if (freshByKey.has(key)) state.handoffSelection.set(key, freshByKey.get(key));
+    else state.handoffSelection.delete(key);
+  }
+
+  state.sessions = loaded
     .sort((a, b) => (
       new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime()
     ));
@@ -900,6 +983,41 @@ async function loadSessions(selectFirst = false) {
 // 合流列表里每条会话真正归属的槽位（操作要用它，不能用当前选中槽位）
 function sessionOwnerProfile(session) {
   return state.profiles.find((item) => item.id === session?._profileId) || selectedProfile();
+}
+
+async function setSessionScope(scope) {
+  const next = scope === 'all' ? 'all' : 'current';
+  if (next === state.sessionScope) {
+    renderSessionControls();
+    return;
+  }
+  state.sessionScope = next;
+  state.selectionAnchorKey = null;
+  persistSettings({ sessionScope: next });
+  renderSessionControls();
+  await loadSessions(true);
+}
+
+function setSessionView(view) {
+  const next = view === 'detail' ? 'detail' : 'compact';
+  if (next === state.sessionView) return;
+  state.sessionView = next;
+  persistSettings({ sessionView: next });
+  renderSessionControls();
+  renderSessions();
+}
+
+function renderSessionControls() {
+  const all = state.sessionScope === 'all';
+  const detail = state.sessionView === 'detail';
+  els.sessionScopeCurrentBtn?.setAttribute('aria-pressed', String(!all));
+  els.sessionScopeAllBtn?.setAttribute('aria-pressed', String(all));
+  els.sessionCompactBtn?.setAttribute('aria-pressed', String(!detail));
+  els.sessionDetailBtn?.setAttribute('aria-pressed', String(detail));
+  if (els.sessionTable) {
+    els.sessionTable.dataset.scope = state.sessionScope;
+    els.sessionTable.dataset.mode = state.sessionView;
+  }
 }
 
 // ── 账号额度（Beta）────────────────────────────────────
@@ -1206,23 +1324,32 @@ function setQuotaChip(chip, row, hint, prefix = null) {
 
 function applySessionFilter(selectFirst = false) {
   const query = state.query;
-  state.filteredSessions = query
+  const filtered = query
     ? state.sessions.filter((session) => {
         return [
           session.title,
           session.id,
+          session.address,
           session.projectPath,
+          session.filePath,
           session.source,
           session.status,
-          session.model
+          session.model,
+          session._accountName,
+          session._profileName,
+          session._appLabel
         ].filter(Boolean).some((value) => String(value).toLowerCase().includes(query));
       })
     : [...state.sessions];
+  state.filteredSessions = window.SessionTable
+    ? window.SessionTable.sort(filtered, state.sessionSort, dateLocale())
+    : filtered;
 
-  if (selectFirst || !state.filteredSessions.some((session) => session.id === state.selectedSessionId)) {
-    state.selectedSessionId = state.filteredSessions[0]?.id || null;
+  if (selectFirst || !state.filteredSessions.some((session) => sessionKey(session) === state.selectedSessionKey)) {
+    setActiveSession(state.filteredSessions[0] || null);
   }
 
+  renderSessionControls();
   renderSessions();
   renderInspector();
   renderRuntimeDock();
@@ -2104,7 +2231,7 @@ function saveYardPosition(profileId, point, zoneId = 'ground') {
 function handleYardDrop({ profile, state: activityState, point, zone }) {
   if (!profile || !window.YardInteractions) return false;
   const zoneId = zone?.id || 'ground';
-  const hasSelectedSession = profile.id === state.selectedProfileId && Boolean(selectedSession());
+  const hasSelectedSession = profile.id === state.selectedProfileId && Boolean(sessionForProfile(profile.id));
   const intent = window.YardInteractions.resolveDropIntent(zoneId, {
     activityState,
     hasSession: hasSelectedSession,
@@ -2127,12 +2254,18 @@ function handleYardDrop({ profile, state: activityState, point, zone }) {
 
 async function executeYardIntent(profile, initialIntent) {
   await selectProfile(profile.id);
+  const profileSession = sessionForProfile(profile.id);
+  if (profileSession) {
+    setActiveSession(profileSession);
+    renderSessions();
+    renderInspector();
+  }
   const activityState = window.YardCats
     ? window.YardCats.deriveState(Date.now(), profile, state.activity[profile.id])
     : 'rest';
   const intent = window.YardInteractions.resolveDropIntent(initialIntent.zoneId, {
     activityState,
-    hasSession: Boolean(selectedSession()),
+    hasSession: Boolean(profileSession),
     terminalSupported: Boolean(window.manager.listTerminalAdapters),
     taskQueueSupported: state.runtime.adapters.some((item) => item.mode === 'agent' && item.available)
   });
@@ -2164,7 +2297,7 @@ async function executeYardIntent(profile, initialIntent) {
     return;
   }
   if (intent.action === 'copy-handoff') {
-    const session = selectedSession();
+    const session = sessionForProfile(profile.id);
     if (!session) return;
     if (!window.confirm(tr('status.handoffConfirm', { title: session.title }))) return;
     await window.manager.writeClipboard(makeHandoffText(profile, session));
@@ -2177,7 +2310,7 @@ async function executeYardIntent(profile, initialIntent) {
     return;
   }
   if (intent.action === 'queue-task') {
-    const session = selectedSession();
+    const session = sessionForProfile(profile.id);
     if (!session) return;
     if (!window.confirm(tr('status.queueConfirm', { title: session.title, name: profile.name }))) return;
     await queueSessionForRuntime(profile, session);
@@ -2697,38 +2830,134 @@ function renderAccountHeader() {
   renderTopbarContext();
 }
 
+const COMPACT_SESSION_COLUMNS = [
+  { key: 'title', label: 'session.col.title', className: 'col-title', cellClass: 'title-cell' },
+  { key: 'updatedAt', label: 'session.col.active', className: 'col-date' },
+  { key: 'project', label: 'session.col.project', className: 'col-project', cellClass: 'mono path-cell' },
+  { key: 'source', label: 'session.col.source', className: 'col-source' }
+];
+
+const DETAIL_SESSION_COLUMNS = [
+  { key: 'title', label: 'session.col.title', className: 'col-title', cellClass: 'title-cell' },
+  { key: 'account', label: 'session.col.account', className: 'col-account' },
+  { key: 'app', label: 'session.col.app', className: 'col-app' },
+  { key: 'createdAt', label: 'session.col.created', className: 'col-date' },
+  { key: 'updatedAt', label: 'session.col.active', className: 'col-date' },
+  { key: 'project', label: 'session.col.project', className: 'col-project', cellClass: 'mono path-cell' },
+  { key: 'source', label: 'session.col.source', className: 'col-source' },
+  { key: 'status', label: 'session.col.status', className: 'col-status' },
+  { key: 'model', label: 'session.col.model', className: 'col-model' },
+  { key: 'id', label: 'session.col.id', className: 'col-id', cellClass: 'mono' }
+];
+
+function sessionColumns() {
+  return state.sessionView === 'detail' ? DETAIL_SESSION_COLUMNS : COMPACT_SESSION_COLUMNS;
+}
+
+function renderSessionHead() {
+  if (!els.sessionHead) return;
+  const row = document.createElement('tr');
+  const selectionHead = document.createElement('th');
+  selectionHead.className = 'selection-col';
+  selectionHead.scope = 'col';
+  const selectAll = document.createElement('input');
+  selectAll.type = 'checkbox';
+  selectAll.setAttribute('aria-label', tr('session.select.all'));
+  const selectedVisible = state.filteredSessions.filter((session) => (
+    state.handoffSelection.has(sessionKey(session))
+  )).length;
+  selectAll.checked = state.filteredSessions.length > 0 && selectedVisible === state.filteredSessions.length;
+  selectAll.indeterminate = selectedVisible > 0 && selectedVisible < state.filteredSessions.length;
+  selectAll.disabled = state.filteredSessions.length === 0;
+  selectAll.addEventListener('change', () => {
+    selectFilteredSessions(selectAll.checked);
+  });
+  selectionHead.append(selectAll);
+  row.append(selectionHead);
+
+  for (const column of sessionColumns()) {
+    const heading = document.createElement('th');
+    heading.scope = 'col';
+    heading.className = column.className || '';
+    const active = state.sessionSort.key === column.key;
+    if (active) {
+      heading.setAttribute('aria-sort', state.sessionSort.direction === 'asc' ? 'ascending' : 'descending');
+    }
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'sort-button';
+    const label = tr(column.label);
+    button.title = tr('session.sort.hint', { label });
+    const text = document.createElement('span');
+    text.textContent = label;
+    const indicator = document.createElement('span');
+    indicator.className = 'sort-indicator';
+    indicator.setAttribute('aria-hidden', 'true');
+    indicator.textContent = active ? (state.sessionSort.direction === 'asc' ? '↑' : '↓') : '';
+    button.append(text, indicator);
+    button.addEventListener('click', () => {
+      const direction = state.sessionSort.key === column.key
+        ? (state.sessionSort.direction === 'asc' ? 'desc' : 'asc')
+        : (window.SessionTable?.defaultDirection(column.key) || 'asc');
+      state.sessionSort = { key: column.key, direction };
+      applySessionFilter(false);
+    });
+    heading.append(button);
+    row.append(heading);
+  }
+
+  els.sessionHead.replaceChildren(row);
+}
+
 function renderSessions() {
+  renderSessionControls();
+  renderSessionHead();
   els.sessionRows.replaceChildren();
-  els.sessionCount.textContent = tr('session.count', { n: state.filteredSessions.length });
+  const accountCount = handoffAccountCount(state.filteredSessions);
+  els.sessionCount.textContent = state.sessionScope === 'all'
+    ? tr('session.countAll', { n: state.filteredSessions.length, accounts: accountCount })
+    : tr('session.count', { n: state.filteredSessions.length });
 
   if (!state.filteredSessions.length) {
     const row = document.createElement('tr');
     row.className = 'empty-row';
     const cell = document.createElement('td');
-    cell.colSpan = 4;
+    cell.colSpan = sessionColumns().length + 1;
     cell.textContent = state.sessions.length
       ? tr('session.empty.filtered')
-      : tr('session.empty.none');
+      : tr(state.sessionScope === 'all' ? 'session.empty.noneAll' : 'session.empty.none');
     row.append(cell);
     els.sessionRows.append(row);
     return;
   }
 
   for (const session of state.filteredSessions) {
+    const key = sessionKey(session);
     const row = document.createElement('tr');
-    row.className = session.id === state.selectedSessionId ? 'selected' : '';
-    row.innerHTML = `
-      <td class="title-cell"></td>
-      <td></td>
-      <td class="mono path-cell"></td>
-      <td></td>
-    `;
-    row.children[0].textContent = session.title;
-    row.children[1].textContent = compactDate(session.updatedAt);
-    row.children[2].textContent = session.projectPath ? shortPath(session.projectPath) : '-';
-    row.children[3].textContent = session.source;
+    row.classList.toggle('selected', key === state.selectedSessionKey);
+    row.classList.toggle('handoff-selected', state.handoffSelection.has(key));
+    row.setAttribute('aria-selected', String(key === state.selectedSessionKey));
+
+    const selectionCell = document.createElement('td');
+    selectionCell.className = 'selection-col';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = state.handoffSelection.has(key);
+    checkbox.setAttribute('aria-label', tr('session.select.one', { title: session.title }));
+    checkbox.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleHandoffSelection(session, checkbox.checked, { range: event.shiftKey });
+    });
+    selectionCell.append(checkbox);
+    row.append(selectionCell);
+
+    for (const column of sessionColumns()) {
+      row.append(renderSessionCell(session, column));
+    }
+
     row.addEventListener('click', () => {
-      state.selectedSessionId = session.id;
+      setActiveSession(session);
       renderSessions();
       renderInspector();
       renderRuntimeDock();
@@ -2737,10 +2966,205 @@ function renderSessions() {
   }
 }
 
+function renderSessionCell(session, column) {
+  const cell = document.createElement('td');
+  cell.className = column.cellClass || '';
+  let value = '';
+  let fullValue = '';
+  switch (column.key) {
+    case 'title': {
+      const title = document.createElement('span');
+      title.className = 'title-cell-main';
+      title.textContent = session.title || '-';
+      cell.append(title);
+      if (state.sessionScope === 'all' && state.sessionView === 'compact') {
+        const account = document.createElement('span');
+        account.className = 'cell-subline';
+        account.textContent = tr('handoff.itemMeta', {
+          account: session._accountName || session._profileName || '-',
+          app: session._appLabel || session.appId || '-'
+        });
+        cell.append(account);
+      }
+      cell.title = session.title || '';
+      return cell;
+    }
+    case 'account':
+      value = session._accountName || session._profileName || '-';
+      break;
+    case 'app':
+      value = session._appLabel || session.appId || '-';
+      break;
+    case 'createdAt':
+      value = compactDate(session.createdAt);
+      fullValue = fullDate(session.createdAt);
+      break;
+    case 'updatedAt':
+      value = compactDate(session.updatedAt);
+      fullValue = fullDate(session.updatedAt);
+      break;
+    case 'project':
+      value = session.projectPath ? shortPath(session.projectPath) : '-';
+      fullValue = session.projectPath || '';
+      break;
+    case 'id':
+      value = session.address || session.id || '-';
+      break;
+    default:
+      value = session[column.key] || '-';
+  }
+  cell.textContent = value;
+  cell.title = fullValue || String(value === '-' ? '' : value);
+  return cell;
+}
+
+function selectedHandoffSessions() {
+  return [...state.handoffSelection.values()];
+}
+
+function toggleHandoffSelection(session, checked, { range = false } = {}) {
+  const key = sessionKey(session);
+  const anchorIndex = state.filteredSessions.findIndex((item) => (
+    sessionKey(item) === state.selectionAnchorKey
+  ));
+  const currentIndex = state.filteredSessions.findIndex((item) => sessionKey(item) === key);
+  if (range && anchorIndex >= 0 && currentIndex >= 0) {
+    const [start, end] = anchorIndex < currentIndex
+      ? [anchorIndex, currentIndex]
+      : [currentIndex, anchorIndex];
+    for (const item of state.filteredSessions.slice(start, end + 1)) {
+      const itemKey = sessionKey(item);
+      if (checked) state.handoffSelection.set(itemKey, item);
+      else state.handoffSelection.delete(itemKey);
+    }
+  } else if (checked) {
+    state.handoffSelection.set(key, session);
+  } else {
+    state.handoffSelection.delete(key);
+  }
+  state.selectionAnchorKey = key;
+  renderSessions();
+  renderInspector();
+}
+
+function selectFilteredSessions(checked) {
+  for (const session of state.filteredSessions) {
+    const key = sessionKey(session);
+    if (checked) state.handoffSelection.set(key, session);
+    else state.handoffSelection.delete(key);
+  }
+  state.selectionAnchorKey = state.filteredSessions.at(-1)
+    ? sessionKey(state.filteredSessions.at(-1))
+    : null;
+  renderSessions();
+  renderInspector();
+}
+
+function clearHandoffSelection() {
+  state.handoffSelection.clear();
+  state.selectionAnchorKey = null;
+  renderSessions();
+  renderInspector();
+}
+
+function moveHandoffSelection(key, offset) {
+  const entries = [...state.handoffSelection.entries()];
+  const index = entries.findIndex(([itemKey]) => itemKey === key);
+  const target = index + offset;
+  if (index < 0 || target < 0 || target >= entries.length) return;
+  const [entry] = entries.splice(index, 1);
+  entries.splice(target, 0, entry);
+  state.handoffSelection = new Map(entries);
+  renderInspector();
+}
+
+function renderHandoffPlan() {
+  const selected = selectedHandoffSessions();
+  const accountCount = handoffAccountCount(selected);
+  const hasSelection = selected.length > 0;
+  if (els.handoffBulkBar) els.handoffBulkBar.hidden = !hasSelection;
+  if (els.handoffPlan) els.handoffPlan.hidden = !hasSelection;
+  if (els.handoffSelectionSummary) {
+    els.handoffSelectionSummary.textContent = tr('handoff.selectionSummary', {
+      n: selected.length,
+      accounts: accountCount
+    });
+  }
+  if (els.handoffPlanSummary) {
+    els.handoffPlanSummary.textContent = tr('handoff.plan.summary', {
+      n: selected.length,
+      accounts: accountCount
+    });
+  }
+  if (els.copySelectedHandoffBtn) {
+    els.copySelectedHandoffBtn.textContent = tr('handoff.copySelected', { n: selected.length });
+    els.copySelectedHandoffBtn.disabled = !hasSelection;
+  }
+  els.copySummaryBtn.textContent = hasSelection
+    ? tr('handoff.copySelected', { n: selected.length })
+    : tr('detail.copyHandoff');
+
+  if (!els.handoffPlanList) return;
+  els.handoffPlanList.replaceChildren();
+  selected.forEach((session, index) => {
+    const key = sessionKey(session);
+    const item = document.createElement('li');
+    item.className = 'handoff-plan-item';
+    const order = document.createElement('span');
+    order.className = 'handoff-plan-index';
+    order.textContent = String(index + 1).padStart(2, '0');
+    const copy = document.createElement('div');
+    copy.className = 'handoff-plan-copy';
+    const title = document.createElement('strong');
+    title.textContent = session.title || '-';
+    const meta = document.createElement('small');
+    meta.textContent = tr('handoff.itemMeta', {
+      account: session._accountName || session._profileName || '-',
+      app: session._appLabel || session.appId || '-'
+    });
+    copy.append(title, meta);
+
+    const controls = document.createElement('div');
+    controls.className = 'handoff-plan-controls';
+    const up = handoffPlanButton('↑', tr('handoff.moveUp', { title: session.title }), index === 0, () => {
+      moveHandoffSelection(key, -1);
+    });
+    const down = handoffPlanButton('↓', tr('handoff.moveDown', { title: session.title }), index === selected.length - 1, () => {
+      moveHandoffSelection(key, 1);
+    });
+    const remove = handoffPlanButton('×', tr('handoff.remove', { title: session.title }), false, () => {
+      state.handoffSelection.delete(key);
+      renderSessions();
+      renderInspector();
+    });
+    controls.append(up, down, remove);
+    item.append(order, copy, controls);
+    els.handoffPlanList.append(item);
+  });
+}
+
+function handoffPlanButton(text, label, disabled, handler) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = text;
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  button.disabled = disabled;
+  button.addEventListener('click', handler);
+  return button;
+}
+
+function handoffAccountCount(sessions) {
+  return new Set((sessions || []).map((session) => (
+    session._accountKey || session._profileId || ''
+  )).filter(Boolean)).size;
+}
+
 function renderInspector() {
+  renderHandoffPlan();
   const session = selectedSession();
   const disabled = !session;
-  els.copySummaryBtn.disabled = disabled;
+  els.copySummaryBtn.disabled = disabled && selectedHandoffSessions().length === 0;
   els.copyAddressBtn.disabled = disabled;
   els.copyProjectBtn.disabled = disabled || !session?.projectPath;
   els.openSessionFileBtn.disabled = disabled;
@@ -2753,13 +3177,19 @@ function renderInspector() {
 
   if (!session) {
     setDetail(els.detailTitle, tr('detail.unselected'), { keep: true });
-    for (const dd of [els.detailId, els.detailCreated, els.detailUpdated, els.detailSource, els.detailProject, els.detailFile, els.detailAddress]) {
+    for (const dd of [els.detailAccount, els.detailId, els.detailCreated, els.detailUpdated, els.detailSource, els.detailProject, els.detailFile, els.detailAddress]) {
       setDetail(dd, '');
     }
     return;
   }
 
+  const owner = sessionOwnerProfile(session);
   setDetail(els.detailTitle, session.title, { keep: true });
+  setDetail(els.detailAccount, [
+    session._accountName || owner?.name,
+    session._profileName && session._profileName !== session._accountName ? session._profileName : null,
+    session._appLabel || (owner ? appLabel(owner.appId) : null)
+  ].filter(Boolean).join(' · '));
   setDetail(els.detailId, session.id);
   setDetail(els.detailCreated, fullDate(session.createdAt));
   setDetail(els.detailUpdated, fullDate(session.updatedAt));
@@ -2961,8 +3391,53 @@ function selectedProfile() {
   return state.profiles.find((profile) => profile.id === state.selectedProfileId) || null;
 }
 
+function sessionKey(session) {
+  if (window.SessionTable) return window.SessionTable.keyOf(session);
+  if (!session) return '';
+  return `${session._profileId || ''}::${session.address || session.id || session.filePath || ''}`;
+}
+
+function setActiveSession(session) {
+  state.selectedSessionKey = session ? sessionKey(session) : null;
+  // 保留旧字段给运行时及向后兼容代码；跨账号唯一性以 selectedSessionKey 为准。
+  state.selectedSessionId = session?.id || null;
+}
+
 function selectedSession() {
-  return state.filteredSessions.find((session) => session.id === state.selectedSessionId) || null;
+  return state.filteredSessions.find((session) => (
+    sessionKey(session) === state.selectedSessionKey
+  )) || null;
+}
+
+function sessionForProfile(profileId) {
+  const group = groupOfProfile(profileId);
+  const memberIds = new Set((group?.members || []).map((member) => member.id));
+  if (!memberIds.size && profileId) memberIds.add(profileId);
+  const active = selectedSession();
+  if (active && memberIds.has(active._profileId)) return active;
+  return state.filteredSessions.find((session) => memberIds.has(session._profileId)) || null;
+}
+
+async function copyActiveHandoff() {
+  const session = selectedSession();
+  const profile = sessionOwnerProfile(session);
+  if (!profile || !session) return;
+  await window.manager.writeClipboard(makeHandoffText(profile, session));
+  if (isYardView()) {
+    window.YardScene.fx('handoff');
+    setStatus(tr('status.handoffMailbox', { name: profile.name }));
+  } else {
+    setStatus(tr('status.handoffCopied'));
+  }
+}
+
+async function copyHandoffPlan() {
+  const sessions = selectedHandoffSessions();
+  if (!sessions.length) return;
+  const accounts = handoffAccountCount(sessions);
+  await window.manager.writeClipboard(makeHandoffPlanText(sessions));
+  if (isYardView()) window.YardScene.fx('handoff');
+  setStatus(tr('status.handoffPlanCopied', { n: sessions.length, accounts }));
 }
 
 function makeHandoffText(profile, session) {
@@ -2979,6 +3454,32 @@ function makeHandoffText(profile, session) {
     file: session.filePath,
     thread: session.id
   });
+}
+
+function makeHandoffPlanText(sessions) {
+  const list = Array.isArray(sessions) ? sessions.filter(Boolean) : [];
+  const accounts = handoffAccountCount(list);
+  const header = tr('handoff.bundleHeader', { n: list.length, accounts });
+  const items = list.map((session, index) => {
+    const profile = sessionOwnerProfile(session);
+    return tr('handoff.bundleItem', {
+      index: index + 1,
+      app: session._appLabel || (profile ? appLabel(profile.appId) : session.appId),
+      slot: session._profileName || profile?.name || tr('common.unrecorded'),
+      account: session._accountName || profile?.name || tr('common.unrecorded'),
+      title: session.title,
+      created: fullDate(session.createdAt),
+      active: fullDate(session.updatedAt),
+      source: session.source || tr('common.unrecorded'),
+      status: session.status || tr('common.unrecorded'),
+      model: session.model || tr('common.unrecorded'),
+      project: session.projectPath || tr('common.unrecorded'),
+      address: session.address || session.id || tr('common.unrecorded'),
+      file: session.filePath || tr('common.unrecorded'),
+      thread: session.id || tr('common.unrecorded')
+    });
+  });
+  return [header, ...items, tr('handoff.bundleFooter')].join('\n\n---\n\n');
 }
 
 function compactDate(value) {

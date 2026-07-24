@@ -127,17 +127,33 @@
     // Session table
     'session.title': 'Sessions',
     'session.count': '{n}',
-    'session.search': 'Search title, project or ID',
+    'session.countAll': '{n} · {accounts} accounts',
+    'session.search': 'Search sessions or IDs',
+    'session.scope.current': 'This account',
+    'session.scope.all': 'All accounts',
+    'session.view.compact': 'Compact',
+    'session.view.detail': 'Detail',
     'session.col.title': 'Title',
+    'session.col.account': 'Account',
+    'session.col.app': 'App',
+    'session.col.created': 'Created',
     'session.col.active': 'Active',
     'session.col.project': 'Project',
     'session.col.source': 'Source',
+    'session.col.status': 'Status',
+    'session.col.model': 'Model',
+    'session.col.id': 'Session ID',
+    'session.sort.hint': 'Sort by {label}',
+    'session.select.all': 'Select the current filtered results',
+    'session.select.one': 'Add “{title}” to the handoff plan',
     'session.empty.filtered': 'No matching sessions — try another keyword.',
     'session.empty.none': 'No sessions for this account yet. Click "Open account" to sign in to the official app; once you have used it, sessions show up here automatically. If nothing loads, try "Diagnostics".',
+    'session.empty.noneAll': 'There are no indexed sessions across your accounts yet.',
 
     // Session detail
     'detail.title': 'Session detail',
     'detail.field.title': 'Title',
+    'detail.field.account': 'Account',
     'detail.field.thread': 'Thread ID',
     'detail.field.created': 'Created',
     'detail.field.active': 'Active',
@@ -154,6 +170,17 @@
     'detail.export.cannot': 'This client does not support Markdown export yet',
 
     // Handoff text (copied to clipboard)
+    'handoff.plan.kicker': 'HANDOFF PLAN',
+    'handoff.plan.hint': 'Order sets priority',
+    'handoff.plan.summary': '{n} items · {accounts} accounts',
+    'handoff.selectionSummary': '{n} selected · {accounts} accounts',
+    'handoff.clear': 'Clear',
+    'handoff.copySelectedStatic': 'Copy selected',
+    'handoff.copySelected': 'Copy {n} handoffs',
+    'handoff.moveUp': 'Move “{title}” up',
+    'handoff.moveDown': 'Move “{title}” down',
+    'handoff.remove': 'Remove “{title}”',
+    'handoff.itemMeta': '{account} · {app}',
     'handoff.template': `Help me pick up this session:
 
 App: {app}
@@ -169,6 +196,24 @@ Session file: {file}
 Thread ID: {thread}
 
 Based on this, work out what this session is doing and continue it.`,
+    'handoff.bundleHeader': `Plan and continue the following {n} historical sessions. They come from {accounts} accounts, and their order is the handoff priority.
+
+First identify each session's goal, progress, and open work. Then merge duplicated context and flag dependencies or conflicts. This contains metadata only, never the full conversation.`,
+    'handoff.bundleItem': `## {index}. {title}
+
+App: {app}
+Account slot: {slot}
+Account: {account}
+Created: {created}
+Last active: {active}
+Source: {source}
+Status: {status}
+Model: {model}
+Project: {project}
+Session ID: {address}
+Session file: {file}
+Thread ID: {thread}`,
+    'handoff.bundleFooter': 'Start with one consolidated execution plan, then continue in the priority order above.',
 
     // Status bar
     'status.ready': 'Ready',
@@ -202,6 +247,7 @@ Based on this, work out what this session is doing and continue it.`,
     'status.quotaUnavailable': 'Quota unavailable right now.',
     'status.handoffMailbox': '{name} dropped the handoff note in the mailbox — copied, paste it into a new session.',
     'status.handoffCopied': 'Session handoff copied.',
+    'status.handoffPlanCopied': 'Copied a handoff plan for {n} sessions across {accounts} accounts.',
     'status.addressCopied': 'Session ID copied.',
     'status.projectCopied': 'Project directory copied.',
     'status.sessionLocOk': 'Opened the session location.',
@@ -356,6 +402,8 @@ Based on this, work out what this session is doing and continue it.`,
     'aria.roster': 'Account roster (classic view)',
     'aria.quotaSummary': 'Account quota',
     'aria.quotaOverview': 'Cross-account quota overview',
+    'aria.sessionScope': 'Session scope',
+    'aria.sessionView': 'Session list view',
     'aria.catPreview': 'Cat look preview',
     'aria.discoveryStatus': 'Local agent discovery status',
     'aria.customAgents': 'Connected custom agents',

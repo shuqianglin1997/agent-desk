@@ -1204,10 +1204,18 @@ body[data-view="classic"] .account-manage {
 
 .session-toolbar {
   display: grid;
-  grid-template-columns: auto minmax(180px, 240px);
+  gap: 8px;
+}
+
+.session-toolbar-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
+}
+
+.session-heading {
+  min-width: max-content;
 }
 
 .session-toolbar h3 {
@@ -1221,6 +1229,106 @@ body[data-view="classic"] .account-manage {
   margin-left: 8px;
   color: var(--ink-tertiary);
   font-size: 11px;
+}
+
+.session-toolbar-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.session-toolbar-controls input[type="search"] {
+  width: 188px;
+  min-width: 140px;
+}
+
+.session-segment {
+  display: inline-flex;
+  flex: none;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.session-segment button {
+  height: 22px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-tertiary);
+  font-size: 10px;
+}
+
+.session-segment button:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--hover-wash);
+}
+
+.session-segment button[aria-pressed="true"] {
+  background: var(--surface-raised);
+  box-shadow: 0 1px 3px color-mix(in oklab, var(--ink-primary) 14%, transparent);
+  color: var(--ink-primary);
+  font-weight: 700;
+}
+
+.handoff-bulk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+  padding: 5px 6px 5px 10px;
+  border: 1px solid color-mix(in oklab, var(--accent) 36%, var(--line-mid));
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(90deg, var(--accent-wash), transparent 62%),
+    var(--surface-raised);
+}
+
+.handoff-bulk-bar[hidden] {
+  display: none;
+}
+
+.handoff-bulk-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.session-toolbar .handoff-bulk-summary span {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.handoff-bulk-summary strong {
+  overflow: hidden;
+  color: var(--ink-primary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.handoff-bulk-actions {
+  display: flex;
+  flex: none;
+  gap: 5px;
+}
+
+.handoff-bulk-actions button {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 10px;
 }
 
 input[type="search"],
@@ -1275,6 +1383,10 @@ table {
   table-layout: fixed;
 }
 
+.session-table[data-mode="detail"] {
+  min-width: 1280px;
+}
+
 thead {
   position: sticky;
   top: 0;
@@ -1304,6 +1416,67 @@ th {
   letter-spacing: 0.04em;
 }
 
+.session-table th {
+  padding: 0;
+}
+
+.session-table .sort-button {
+  width: 100%;
+  height: 39px;
+  justify-content: flex-start;
+  gap: 5px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+}
+
+.session-table .sort-button:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--hover-wash);
+  color: var(--ink-secondary);
+}
+
+.session-table th[aria-sort="ascending"] .sort-button,
+.session-table th[aria-sort="descending"] .sort-button {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.sort-indicator {
+  width: 9px;
+  color: var(--accent);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.selection-col {
+  width: 38px;
+  padding: 0 !important;
+  text-align: center;
+}
+
+.selection-col input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  vertical-align: middle;
+}
+
+.session-table .col-account { width: 118px; }
+.session-table .col-app { width: 94px; }
+.session-table .col-date { width: 118px; }
+.session-table .col-source { width: 104px; }
+.session-table .col-status { width: 76px; }
+.session-table .col-model { width: 106px; }
+.session-table .col-id { width: 178px; }
+
 tbody td {
   font-size: 12.5px;
   color: var(--ink-tertiary);
@@ -1323,6 +1496,11 @@ tbody tr.selected {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.session-table tbody tr.handoff-selected:not(.selected) {
+  background: color-mix(in oklab, var(--accent-wash) 56%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in oklab, var(--accent) 62%, transparent);
+}
+
 tbody tr:last-child td {
   border-bottom: none;
 }
@@ -1339,6 +1517,29 @@ tbody tr:last-child td {
   font-size: 13px;
   font-weight: 600;
   color: var(--ink-primary);
+}
+
+.title-cell-main {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-subline {
+  display: block;
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--ink-tertiary);
+  font-size: 9.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-table[data-scope="all"][data-mode="compact"] tbody tr,
+.session-table[data-scope="all"][data-mode="compact"] tbody td {
+  height: 48px;
 }
 
 tbody tr.selected .title-cell {
@@ -1366,7 +1567,7 @@ tbody tr.selected .title-cell {
 /* ── inspector ──────────────────────────────────────── */
 .inspector {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 14px;
   min-height: 0;
   padding: 16px 18px;
@@ -1375,12 +1576,140 @@ tbody tr.selected .title-cell {
 }
 
 .inspector h3 {
+  grid-row: 1;
   margin: 0;
   font-size: 15px;
   font-weight: 700;
 }
 
+.handoff-plan {
+  grid-row: 2;
+  display: grid;
+  gap: 7px;
+  min-height: 0;
+  max-height: 156px;
+  padding: 9px;
+  border: 1px solid color-mix(in oklab, var(--accent) 36%, var(--line-mid));
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(145deg, var(--accent-wash), transparent 70%),
+    var(--surface-raised);
+}
+
+.handoff-plan[hidden] {
+  display: none;
+}
+
+.handoff-plan header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.handoff-plan header > div {
+  display: grid;
+  gap: 1px;
+}
+
+.handoff-plan header span {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.handoff-plan header strong {
+  font-size: 11px;
+}
+
+.handoff-plan header small {
+  color: var(--ink-tertiary);
+  font-size: 8.5px;
+  white-space: nowrap;
+}
+
+.handoff-plan ol {
+  display: grid;
+  gap: 4px;
+  min-height: 0;
+  margin: 0;
+  overflow-y: auto;
+  padding: 0;
+  list-style: none;
+}
+
+.handoff-plan-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  min-height: 31px;
+  padding: 3px 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--surface-raised) 90%, transparent);
+}
+
+.handoff-plan-index {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.handoff-plan-copy {
+  min-width: 0;
+}
+
+.handoff-plan-copy strong,
+.handoff-plan-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.handoff-plan-copy strong {
+  color: var(--ink-primary);
+  font-size: 9.5px;
+}
+
+.handoff-plan-copy small {
+  color: var(--ink-tertiary);
+  font-size: 8px;
+}
+
+.handoff-plan-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.handoff-plan-controls button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-tertiary);
+  font-size: 10px;
+}
+
+.handoff-plan-controls button:hover:not(:disabled) {
+  border-color: var(--line-mid);
+  background: var(--surface-raised);
+  color: var(--ink-primary);
+}
+
+.handoff-plan-controls button:last-child:hover:not(:disabled) {
+  color: var(--danger);
+}
+
 .inspector dl {
+  grid-row: 3;
   min-height: 0;
   margin: 0;
   overflow-y: auto;
@@ -1406,6 +1735,7 @@ tbody tr.selected .title-cell {
 }
 
 .inspector-actions {
+  grid-row: 4;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;

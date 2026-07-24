@@ -30,6 +30,8 @@ test('统一骨架：单列 顶栏/呈现层/账号控制条/工作区/状态栏
   assert.match(styles, /body\[data-view="classic"\] \.account-roster \{[\s\S]*?display:\s*grid/);
   // main-grid 回到基础层 [会话表 | 会话详情]，不再 display:contents 解包
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.main-grid \{\s*display: contents/);
+  // 状态栏由统一骨架固定在第 7 行；庭院皮肤不能再把它拉回第 3 行盖住账号控制条。
+  assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.status-bar \{[^}]*grid-row:\s*3/);
 });
 
 test('庭院会话表恢复真表格（4 列：标题/活跃/项目/来源，「新建」进详情），删掉卡片式覆盖，表格为唯一滚动区', () => {
@@ -40,6 +42,44 @@ test('庭院会话表恢复真表格（4 列：标题/活跃/项目/来源，「
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] tbody td:nth-child/);
   // 表格是唯一滚动区（去掉 380px 硬顶，改由弹性行约束）
   assert.match(yardStyles, /body\[data-view="yard"\] \.table-wrap \{[^}]*max-height:\s*none/);
+});
+
+test('交接清单支持跨账号多选、筛选结果全选、顺序调整与批量复制', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
+  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+
+  assert.match(html, /id="sessionScopeCurrentBtn"[\s\S]*?id="sessionScopeAllBtn"/);
+  assert.match(html, /id="handoffBulkBar"[\s\S]*?id="copySelectedHandoffBtn"/);
+  assert.match(html, /id="handoffPlan"[\s\S]*?id="handoffPlanList"/);
+  // 全账号扫描给每条会话保留真实槽位和账号组，选择 Map 不因切账号而重置。
+  assert.match(renderer, /state\.sessionScope === 'all'[\s\S]*?identityGroups\(\)/);
+  assert.match(renderer, /_profileId:\s*member\.id/);
+  assert.match(renderer, /_accountKey:\s*accountKey/);
+  assert.match(renderer, /handoffSelection:\s*new Map\(\)/);
+  assert.match(renderer, /function moveHandoffSelection\(/);
+  assert.match(renderer, /function makeHandoffPlanText\(/);
+  assert.match(styles, /\.handoff-plan[\s\S]*?\.handoff-plan-item/);
+  // 清单 hidden 时不参与 auto-placement，四块必须显式钉行，避免详情把操作按钮挤出窗口。
+  assert.match(styles, /\.handoff-plan \{[\s\S]*?grid-row:\s*2/);
+  assert.match(styles, /\.inspector dl \{[\s\S]*?grid-row:\s*3/);
+  assert.match(styles, /\.inspector-actions \{[\s\S]*?grid-row:\s*4/);
+});
+
+test('会话详细列表提供完整属性列，精简/详细切换且每个表头可点击排序', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
+  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const settings = fs.readFileSync(path.join(__dirname, '..', 'src', 'settings.js'), 'utf8');
+
+  assert.match(html, /id="sessionCompactBtn"[\s\S]*?id="sessionDetailBtn"/);
+  for (const key of ['title', 'account', 'app', 'createdAt', 'updatedAt', 'project', 'source', 'status', 'model', 'id']) {
+    assert.ok(renderer.includes(`key: '${key}'`), `detail column ${key} missing`);
+  }
+  assert.match(renderer, /className = 'sort-button'/);
+  assert.match(renderer, /state\.sessionSort = \{ key: column\.key, direction \}/);
+  assert.match(renderer, /window\.SessionTable\.sort\(filtered, state\.sessionSort/);
+  assert.match(settings, /SESSION_SCOPES = new Set\(\['current', 'all'\]\)/);
+  assert.match(settings, /SESSION_VIEWS = new Set\(\['compact', 'detail'\]\)/);
 });
 
 test('猫猫庭院场景：满铺横带 + 裁掉底部空草坪（定高木框 overflow:hidden + 裁剪台）', () => {
