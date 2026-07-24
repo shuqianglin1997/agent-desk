@@ -34,13 +34,7 @@ body[data-view="yard"] {
 }
 
 /* 布局已由统一骨架（styles.css 的 .app-shell 单列 7 行，两视图共用）承担；
- * yard.css 只保留庭院像素皮肤 + 满铺裁剪场景横带。旧的 yard 专属布局覆盖（改动①/②的
- * app-shell/workspace/workspace-panel 分屏）已随统一重设计移除。 */
-
-body[data-view="yard"] .status-bar {
-  grid-column: 1 / -1;
-  grid-row: 3;
-}
+ * yard.css 只保留庭院像素皮肤 + 满铺裁剪场景横带。 */
 
 body[data-view="yard"] .app-topbar {
   border-bottom: 2px solid var(--yd-line);
@@ -1163,6 +1157,61 @@ body[data-view="yard"] .app-shell button.primary:hover:not(:disabled) {
   color: #33261a;
 }
 
+body[data-view="yard"] .session-segment {
+  border: 2px solid var(--yd-line);
+  border-radius: 0;
+  background: var(--yd-panel2);
+}
+
+body[data-view="yard"] .app-shell .session-segment button {
+  height: 20px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--yd-ink2);
+}
+
+body[data-view="yard"] .app-shell .session-segment button:hover:not(:disabled),
+body[data-view="yard"] .app-shell .session-segment button[aria-pressed="true"] {
+  border: 0;
+  background: var(--yd-wood);
+  box-shadow: none;
+  color: var(--yd-on-wood);
+}
+
+body[data-view="yard"] .app-shell .session-segment button:active:not(:disabled),
+body[data-view="yard"] .app-shell .session-table .sort-button:active:not(:disabled),
+body[data-view="yard"] .app-shell .handoff-plan-controls button:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+body[data-view="yard"] .handoff-bulk-bar,
+body[data-view="yard"] .handoff-plan {
+  border: 2px solid var(--yd-line);
+  border-radius: 0;
+  background: var(--yd-panel2);
+}
+
+body[data-view="yard"] .handoff-plan-item {
+  border-color: color-mix(in srgb, var(--yd-line) 35%, transparent);
+  border-radius: 0;
+  background: var(--yd-panel);
+}
+
+body[data-view="yard"] .handoff-plan header span,
+body[data-view="yard"] .handoff-plan-index,
+body[data-view="yard"] .session-toolbar .handoff-bulk-summary span {
+  color: var(--yd-primary);
+}
+
+body[data-view="yard"] .app-shell .handoff-plan-controls button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--yd-ink2);
+}
+
 /* 表格木框皮肤 + 唯一滚动区（高度由弹性行约束，无 380px 硬顶） */
 body[data-view="yard"] .table-wrap {
   border: 3px solid var(--yd-line);
@@ -1190,6 +1239,29 @@ body[data-view="yard"] th {
   color: var(--yd-ink2);
 }
 
+body[data-view="yard"] .app-shell .session-table .sort-button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+body[data-view="yard"] .app-shell .session-table .sort-button:hover:not(:disabled) {
+  border: 0;
+  background: color-mix(in srgb, var(--yd-wood) 22%, transparent);
+  color: var(--yd-ink);
+}
+
+body[data-view="yard"] .session-table th[aria-sort="ascending"] .sort-button,
+body[data-view="yard"] .session-table th[aria-sort="descending"] .sort-button,
+body[data-view="yard"] .sort-indicator {
+  color: var(--yd-primary);
+}
+
+body[data-view="yard"] .selection-col input {
+  accent-color: var(--yd-primary);
+}
+
 body[data-view="yard"] td {
   border-bottom-color: color-mix(in srgb, var(--yd-line) 22%, transparent);
 }
@@ -1201,6 +1273,11 @@ body[data-view="yard"] .title-cell { color: var(--yd-ink); }
 body[data-view="yard"] tbody tr.selected {
   background: var(--yd-select-wash);
   box-shadow: inset 3px 0 0 var(--yd-primary);
+}
+
+body[data-view="yard"] .session-table tbody tr.handoff-selected:not(.selected) {
+  background: color-mix(in srgb, var(--yd-select-wash) 58%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--yd-primary) 70%, transparent);
 }
 
 body[data-view="yard"] tbody tr.selected .title-cell {

@@ -144,17 +144,40 @@
         <div class="main-grid">
           <section class="session-pane">
             <div class="session-toolbar">
-              <div>
-                <h3 data-i18n="session.title">会话</h3>
-                <span id="sessionCount">0 个</span>
+              <div class="session-toolbar-main">
+                <div class="session-heading">
+                  <h3 data-i18n="session.title">会话</h3>
+                  <span id="sessionCount">0 个</span>
+                </div>
+                <div class="session-toolbar-controls">
+                  <div class="session-segment" role="group" data-i18n-aria="aria.sessionScope" aria-label="会话范围">
+                    <button id="sessionScopeCurrentBtn" type="button" aria-pressed="true" data-i18n="session.scope.current">本账号</button>
+                    <button id="sessionScopeAllBtn" type="button" aria-pressed="false" data-i18n="session.scope.all">全部账号</button>
+                  </div>
+                  <div class="session-segment" role="group" data-i18n-aria="aria.sessionView" aria-label="会话列表视图">
+                    <button id="sessionCompactBtn" type="button" aria-pressed="true" data-i18n="session.view.compact">精简</button>
+                    <button id="sessionDetailBtn" type="button" aria-pressed="false" data-i18n="session.view.detail">详细</button>
+                  </div>
+                  <input id="searchInput" type="search" data-i18n-placeholder="session.search" placeholder="搜索会话、账号或 ID" />
+                </div>
               </div>
-              <input id="searchInput" type="search" data-i18n-placeholder="session.search" placeholder="搜索标题、项目或 ID" />
+              <div id="handoffBulkBar" class="handoff-bulk-bar" hidden>
+                <div class="handoff-bulk-summary">
+                  <span data-i18n="handoff.plan.kicker">HANDOFF PLAN</span>
+                  <strong id="handoffSelectionSummary">已选 0 项</strong>
+                </div>
+                <div class="handoff-bulk-actions">
+                  <button id="clearHandoffSelectionBtn" type="button" data-i18n="handoff.clear">清空</button>
+                  <button id="copySelectedHandoffBtn" type="button" class="primary" data-i18n="handoff.copySelectedStatic">复制所选交接</button>
+                </div>
+              </div>
             </div>
 
             <div class="table-wrap">
-              <table>
-                <thead>
+              <table id="sessionTable" class="session-table" data-mode="compact">
+                <thead id="sessionHead">
                   <tr>
+                    <th class="selection-col"></th>
                     <th class="col-title" data-i18n="session.col.title">标题</th>
                     <th data-i18n="session.col.active">活跃</th>
                     <th class="col-project" data-i18n="session.col.project">项目目录</th>
@@ -168,9 +191,21 @@
 
           <aside class="inspector">
             <h3 data-i18n="detail.title">会话详情</h3>
+            <section id="handoffPlan" class="handoff-plan" hidden>
+              <header>
+                <div>
+                  <span data-i18n="handoff.plan.kicker">HANDOFF PLAN</span>
+                  <strong id="handoffPlanSummary">交接清单</strong>
+                </div>
+                <small data-i18n="handoff.plan.hint">顺序即交接优先级</small>
+              </header>
+              <ol id="handoffPlanList"></ol>
+            </section>
             <dl>
               <dt data-i18n="detail.field.title">标题</dt>
               <dd id="detailTitle">未选择</dd>
+              <dt data-i18n="detail.field.account">账号</dt>
+              <dd id="detailAccount">-</dd>
               <dt data-i18n="detail.field.thread">线程 ID</dt>
               <dd id="detailId">-</dd>
               <dt data-i18n="detail.field.created">新建</dt>
@@ -400,6 +435,7 @@
     <script src="./yard/energy.js"></script>
     <script src="./quota-overview.js"></script>
     <script src="./identity-groups.js"></script>
+    <script src="./session-table.js"></script>
     <script src="./yard/companion.js"></script>
     <script src="./yard/workload.js"></script>
     <script src="./yard/palettes.js"></script>

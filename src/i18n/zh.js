@@ -127,17 +127,33 @@
     // ── 会话表 ──
     'session.title': '会话',
     'session.count': '{n} 个',
-    'session.search': '搜索标题、项目或 ID',
+    'session.countAll': '{n} 个 · {accounts} 个账号',
+    'session.search': '搜索会话、账号或 ID',
+    'session.scope.current': '本账号',
+    'session.scope.all': '全部账号',
+    'session.view.compact': '精简',
+    'session.view.detail': '详细',
     'session.col.title': '标题',
+    'session.col.account': '账号',
+    'session.col.app': '应用',
+    'session.col.created': '新建',
     'session.col.active': '活跃',
     'session.col.project': '项目目录',
     'session.col.source': '来源',
+    'session.col.status': '状态',
+    'session.col.model': '模型',
+    'session.col.id': '会话标识',
+    'session.sort.hint': '点击按{label}排序',
+    'session.select.all': '选择当前筛选结果',
+    'session.select.one': '将「{title}」加入交接清单',
     'session.empty.filtered': '没有匹配的会话，换个关键词试试。',
     'session.empty.none': '这个账号还没有会话。点「打开账号」登录官方 App，用过之后会话会自动出现在这里；读不到时可点「诊断」。',
+    'session.empty.noneAll': '所有账号都还没有可索引的会话。',
 
     // ── 会话详情 ──
     'detail.title': '会话详情',
     'detail.field.title': '标题',
+    'detail.field.account': '账号',
     'detail.field.thread': '线程 ID',
     'detail.field.created': '新建',
     'detail.field.active': '活跃',
@@ -154,6 +170,17 @@
     'detail.export.cannot': '这个客户端的会话暂不支持导出 Markdown',
 
     // ── 交接信息（复制到剪贴板）──
+    'handoff.plan.kicker': 'HANDOFF PLAN',
+    'handoff.plan.hint': '顺序即交接优先级',
+    'handoff.plan.summary': '{n} 项 · {accounts} 个账号',
+    'handoff.selectionSummary': '已选 {n} 项 · {accounts} 个账号',
+    'handoff.clear': '清空',
+    'handoff.copySelectedStatic': '复制所选交接',
+    'handoff.copySelected': '复制 {n} 项交接',
+    'handoff.moveUp': '上移「{title}」',
+    'handoff.moveDown': '下移「{title}」',
+    'handoff.remove': '移除「{title}」',
+    'handoff.itemMeta': '{account} · {app}',
     'handoff.template': `请帮我继续理解这个会话：
 
 应用：{app}
@@ -169,6 +196,24 @@
 线程 ID：{thread}
 
 请基于这些信息判断这个会话在做什么，并继续处理。`,
+    'handoff.bundleHeader': `请基于以下 {n} 个历史会话规划并继续工作。它们来自 {accounts} 个账号，排列顺序就是交接优先级。
+
+请先识别每个会话的目标、已有进展和未决事项，再合并重复上下文、标出依赖或冲突。以下只包含元信息，不包含完整聊天内容。`,
+    'handoff.bundleItem': `## {index}. {title}
+
+应用：{app}
+账号槽位：{slot}
+账号：{account}
+新建时间：{created}
+最后活跃：{active}
+来源：{source}
+状态：{status}
+模型：{model}
+项目目录：{project}
+会话标识：{address}
+会话文件：{file}
+线程 ID：{thread}`,
+    'handoff.bundleFooter': '请先给出一份合并后的执行计划，再按上述优先级继续处理。',
 
     // ── 状态栏 ──
     'status.ready': '就绪',
@@ -202,6 +247,7 @@
     'status.quotaUnavailable': '额度暂不可用。',
     'status.handoffMailbox': '{name} 把交接信投进了邮筒 —— 已复制，粘给新会话即可。',
     'status.handoffCopied': '已复制会话交接信息。',
+    'status.handoffPlanCopied': '已复制 {n} 个会话（来自 {accounts} 个账号）的交接计划。',
     'status.addressCopied': '已复制会话标识。',
     'status.projectCopied': '已复制项目目录。',
     'status.sessionLocOk': '已打开会话位置。',
@@ -356,6 +402,8 @@
     'aria.roster': '账号名册（经典视图）',
     'aria.quotaSummary': '账号额度',
     'aria.quotaOverview': '跨账号额度总览',
+    'aria.sessionScope': '会话范围',
+    'aria.sessionView': '会话列表视图',
     'aria.catPreview': '猫咪外观预览',
     'aria.discoveryStatus': '本机 Agent 发现状态',
     'aria.customAgents': '已接入的自定义 Agent',

@@ -57,8 +57,8 @@ Add a few logins and a few tools, and the login identity, the project directory 
 Each pain above maps to one thing it gives you:
 
 - **Isolated account slots.** Each slot is its own local data directory; AgentDesk launches the official Claude / Codex app pointed at that directory, so **multiple accounts coexist — no collisions, no constant re-login.** This is the axis most tools skip.
-- **Automatic session index.** It scans each account's session files into one table — title · last active · project directory · source — with search across title / project / thread ID. **Find any old session in seconds.** (The exact creation time and file path stay in the detail pane, one click away.)
-- **One-click context handoff.** Select a session, hit **Copy handoff**, paste into a new chat. It copies **metadata only, never the full transcript** — nothing private leaks by accident.
+- **Automatic session index.** It scans every account's session files into one table. Switch between the current account and all accounts, open the detailed attribute view, and click any column header to sort. Search covers title, project, account and thread ID. **Find any old session in seconds.**
+- **Planned multi-session handoff.** Check sessions from one or many accounts, arrange their priority in the handoff plan, then copy one consolidated brief into a new chat. It copies **metadata only, never the full transcript** — nothing private leaks by accident.
 - **Recognizes many agents.** Built-in adapters identify Codex and Claude Code sessions directly; Gemini CLI, OpenCode, Cursor Agent, GitHub Copilot CLI, goose, Kimi and Qwen Code are recognized as [Agent Client Protocol](https://agentclientprotocol.com/) tools. The **🔌 Connect** button in the top bar discovers installed agents and lets you register a custom ACP agent through a native file picker.
 - **Notes & groups.** Give any slot a free-text note and drop it into a group (Work / Personal / Spare…). Accounts organize by group, like a contact list.
 - **Same account, one identity.** When one login shows up as several client slots (desktop + CLI, or Kimi Code + Kimi Work), AgentDesk merges them into **one account** — one cat, one card — with sessions and quota flowing together.
@@ -208,8 +208,8 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, Windows speci
 上面每个痛点，都对应它给你的一样东西：
 
 - **独立账号槽位。** 每个槽位是一份独立本地数据目录，AgentDesk 用该目录启动官方 App —— **多号并存、不串号、不用反复登录。** 这正是大多数工具跳过的一条轴。
-- **自动会话索引。** 扫描每个账号的会话文件，汇成一张表：标题 · 最后活跃 · 项目目录 · 来源，可按标题 / 项目 / 线程 ID 搜索。**几秒钟找到任何旧会话。**（精确新建时间和文件路径收在右侧详情里，一点即看。）
-- **一键交接上下文。** 选中会话点「复制交接信息」，粘到新对话即可。**只复制元信息，不含完整对话** —— 隐私不会被误传。
+- **自动会话索引。** 扫描每个账号的会话文件，可在「本账号 / 全部账号」间切换；详细列表展示完整属性，点击任一表头即可升降序排列。搜索覆盖标题、项目、账号和线程 ID。**几秒钟找到任何旧会话。**
+- **多会话交接规划。** 可跨账号勾选多个会话，在交接清单中调整优先级，再一次复制成合并交接说明。**只复制元信息，不含完整对话** —— 隐私不会被误传。
 - **认识各种 Agent。** 内置适配器直接识别 Codex、Claude Code 的会话；Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi、Qwen Code 作为 [ACP](https://agentclientprotocol.com/) 工具被识别。顶栏「**🔌 接入**」会发现本机已装的 Agent，也能通过系统文件选择器登记自定义 ACP Agent。
 - **备注与分组。** 给任意槽位加自由备注、丢进分组（工作 / 个人 / 备用……），像通讯录一样按分组管理。
 - **同一账号只算一个。** 当一个登录以多个客户端形态出现（桌面 + CLI，或 Kimi Code + Kimi Work），AgentDesk 把它们合并成**一个账号** —— 一只猫、一张卡 —— 会话和额度一起合流。

@@ -127,17 +127,33 @@
     // セッション表
     'session.title': 'セッション',
     'session.count': '{n} 件',
-    'session.search': 'タイトル・プロジェクト・ID で検索',
+    'session.countAll': '{n} 件 · {accounts} アカウント',
+    'session.search': 'セッション・アカウント・ID 検索',
+    'session.scope.current': 'このアカウント',
+    'session.scope.all': '全アカウント',
+    'session.view.compact': '簡潔',
+    'session.view.detail': '詳細',
     'session.col.title': 'タイトル',
+    'session.col.account': 'アカウント',
+    'session.col.app': 'アプリ',
+    'session.col.created': '作成',
     'session.col.active': '最終',
     'session.col.project': 'プロジェクト',
     'session.col.source': 'ソース',
+    'session.col.status': '状態',
+    'session.col.model': 'モデル',
+    'session.col.id': 'セッション ID',
+    'session.sort.hint': '{label}で並べ替え',
+    'session.select.all': '現在の絞り込み結果を選択',
+    'session.select.one': '「{title}」を引き継ぎプランに追加',
     'session.empty.filtered': '一致するセッションがありません。別のキーワードでお試しください。',
     'session.empty.none': 'このアカウントにはまだセッションがありません。「アカウントを開く」で公式アプリにログインし、利用するとここに自動で表示されます。読み込めない場合は「診断」を。',
+    'session.empty.noneAll': '全アカウントにインデックス済みのセッションがまだありません。',
 
     // セッション詳細
     'detail.title': 'セッション詳細',
     'detail.field.title': 'タイトル',
+    'detail.field.account': 'アカウント',
     'detail.field.thread': 'スレッド ID',
     'detail.field.created': '作成',
     'detail.field.active': '最終',
@@ -154,6 +170,17 @@
     'detail.export.cannot': 'このクライアントはまだ Markdown 書き出しに対応していません',
 
     // 引き継ぎテキスト（クリップボードにコピー）
+    'handoff.plan.kicker': 'HANDOFF PLAN',
+    'handoff.plan.hint': '順番が優先度です',
+    'handoff.plan.summary': '{n} 件 · {accounts} アカウント',
+    'handoff.selectionSummary': '{n} 件選択 · {accounts} アカウント',
+    'handoff.clear': 'クリア',
+    'handoff.copySelectedStatic': '選択分をコピー',
+    'handoff.copySelected': '{n} 件の引き継ぎをコピー',
+    'handoff.moveUp': '「{title}」を上へ',
+    'handoff.moveDown': '「{title}」を下へ',
+    'handoff.remove': '「{title}」を削除',
+    'handoff.itemMeta': '{account} · {app}',
     'handoff.template': `このセッションの続きを理解する手助けをしてください：
 
 アプリ：{app}
@@ -169,6 +196,24 @@
 スレッド ID：{thread}
 
 これらの情報から、このセッションが何をしているか判断し、続けてください。`,
+    'handoff.bundleHeader': `次の {n} 件の履歴セッションを計画し、作業を続けてください。{accounts} 個のアカウントから選ばれており、並び順が引き継ぎの優先度です。
+
+まず各セッションの目的・進捗・未解決事項を確認し、重複する文脈をまとめ、依存関係や矛盾を示してください。以下はメタデータのみで、会話全文は含みません。`,
+    'handoff.bundleItem': `## {index}. {title}
+
+アプリ：{app}
+アカウント枠：{slot}
+アカウント：{account}
+作成日時：{created}
+最終アクティブ：{active}
+ソース：{source}
+状態：{status}
+モデル：{model}
+プロジェクト：{project}
+セッション ID：{address}
+セッションファイル：{file}
+スレッド ID：{thread}`,
+    'handoff.bundleFooter': 'まず統合した実行計画を示し、その後、上記の優先順で作業を続けてください。',
 
     // ステータスバー
     'status.ready': '準備完了',
@@ -202,6 +247,7 @@
     'status.quotaUnavailable': '現在クォータを取得できません。',
     'status.handoffMailbox': '{name} が引き継ぎメモをポストに投函 —— コピー済み、新しいセッションに貼り付けてください。',
     'status.handoffCopied': 'セッションの引き継ぎ情報をコピーしました。',
+    'status.handoffPlanCopied': '{accounts} アカウント、{n} 件のセッションの引き継ぎプランをコピーしました。',
     'status.addressCopied': 'セッション ID をコピーしました。',
     'status.projectCopied': 'プロジェクトディレクトリをコピーしました。',
     'status.sessionLocOk': 'セッションの場所を開きました。',
@@ -356,6 +402,8 @@
     'aria.roster': 'アカウント名簿（クラシック表示）',
     'aria.quotaSummary': 'アカウントのクォータ',
     'aria.quotaOverview': 'アカウント横断クォータ一覧',
+    'aria.sessionScope': 'セッション範囲',
+    'aria.sessionView': 'セッション一覧表示',
     'aria.catPreview': 'ねこの見た目プレビュー',
     'aria.discoveryStatus': 'ローカルエージェント検出状況',
     'aria.customAgents': '接続済みカスタムエージェント',
