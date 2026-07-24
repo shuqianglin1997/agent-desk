@@ -42,9 +42,20 @@ AgentDesk 是一个本地优先的 **多 Agent 工作空间与运行控制台**�
 2. **Agent Client Protocol（ACP）**：以长驻 stdio 会话接入 Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot、goose、Kimi、Qwen Code等常用 Agent，并允许用户通过文件选择器接入任何实现 ACP stdio 的本机 Agent。
 3. **通用终端兜底**：暂未实现 ACP 的 CLI 可以在多个独立 Shell 实例中运行。当前是管道终端；需要完整 TTY 的工具属于后续 PTY / ConPTY 阶段。
 
-AgentDesk 只发现本机安装，不静默下载或升级第三方 Agent。内置清单不是封闭白名单；自定义 ACP 接入负责覆盖团队内部工具和未来新增 Agent。
+AgentDesk 不静默下载或升级第三方 Agent。工具维护台只在用户显式点击后检查或更新，并优先沿用检测到的 npm、Homebrew、uv 或工具自身更新器；无法安全自动更新的桌面 App / CLI 只打开官方页面。内置清单不是封闭白名单；自定义 ACP 接入负责覆盖团队内部工具和未来新增 Agent。
 
 完整运行模型与安全边界见 [AGENT_FLEET.md](AGENT_FLEET.md)。
+
+## 应用与终端维护台
+
+顶栏「工具」提供桌面 App、终端 Agent 与系统终端的统一清单：
+
+- 显示是否安装、本地版本、最新版本、实际安装来源和维护状态。
+- 每项都能一键打开；未安装项打开官方获取页。
+- npm、Homebrew、uv 或带官方自更新命令的 CLI 可单项更新或一键批量更新。
+- 桌面 App 没有稳定公开更新源时，交给官方 App 内更新器或官方页面。
+- renderer 只能提交目录中的 `toolId` 和可选账号槽位；可执行路径、参数、更新源与命令由主进程白名单生成，不接受界面拼装。
+- 更新前检查正在运行的 Agent 实例，批量更新使用原生确认框，不调用 `sudo`。
 
 ## 客户端账号与本地会话层
 
@@ -88,11 +99,12 @@ Windows 独立槽位不能放在 AppData，否则 MSIX 文件系统虚拟化会�
 ## 安全与产品边界
 
 - renderer 不能直接提交可执行文件、参数、环境变量或任意目录。
+- 工具更新只接受内置 `toolId`；版本查询域名、包名、包管理器与参数全部由主进程白名单约束。
 - 自定义 Agent 可执行文件和任意工作区都必须经原生系统选择器生成一次性授权。
 - ACP 工具权限由主进程原生对话框逐次呈现，默认按钮永远是取消。
 - Shell 确实执行本机命令；首次开启整个运行面前必须确认。
 - 同时最多 12 个主进程运行实例；单次输入 32 KB；单实例累计输出 1 MB，超限立即终止。
-- AgentDesk 不保存密码 / token，不读取浏览器 Cookie，不静默安装第三方 Agent。
+- AgentDesk 不保存密码 / token，不读取浏览器 Cookie，不静默安装或更新第三方 Agent。
 
 ## 近期验收标准
 

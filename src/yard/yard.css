@@ -1598,3 +1598,48 @@ body[data-view="yard"] .account-manage summary { height: var(--ctl-sm); backgrou
 body[data-view="yard"] .inspector-actions button { border: 2px solid var(--yd-line); background: var(--yd-wood); color: var(--yd-on-wood); box-shadow: 0 2px 0 var(--yd-shadow); border-radius: 0; }
 body[data-view="yard"] .inspector-actions button.primary { background: var(--yd-primary); color: #fff7e8; }
 body[data-view="yard"] button:focus-visible, body[data-view="yard"] input:focus-visible { outline-color: var(--yd-primary); }
+
+/* 工具维护台：庭院里是一块有状态灯的木工台，信息密度仍与经典视图一致。 */
+body[data-view="yard"] .tool-center-head {
+  border: 2px solid var(--yd-line);
+  border-radius: 0;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--yd-primary) 13%, transparent), transparent 42%),
+    var(--yd-panel);
+  box-shadow: 0 3px 0 var(--yd-shadow);
+}
+
+body[data-view="yard"] .tool-center-overview,
+body[data-view="yard"] .tool-center-status,
+body[data-view="yard"] .tool-card,
+body[data-view="yard"] .custom-agent-drawer {
+  border-color: var(--yd-line);
+  border-radius: 0;
+  background-color: var(--yd-panel);
+}
+
+body[data-view="yard"] .tool-card {
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--yd-shadow) 65%, transparent);
+}
+
+body[data-view="yard"] .tool-card-actions button,
+body[data-view="yard"] .tool-center-head-actions button,
+body[data-view="yard"] .custom-agent-drawer button {
+  border: 2px solid var(--yd-line);
+  border-radius: 0;
+  background: var(--yd-wood);
+  color: var(--yd-on-wood);
+  box-shadow: 0 2px 0 var(--yd-shadow);
+}
+
+body[data-view="yard"] .tool-card-actions button.primary,
+body[data-view="yard"] .tool-center-head-actions button.primary,
+body[data-view="yard"] .custom-agent-drawer button.primary {
+  background: var(--yd-primary);
+  color: #fff7e8;
+}
+
+body[data-view="yard"] .tool-status-badge {
+  border-width: 2px;
+  border-radius: 0;
+}

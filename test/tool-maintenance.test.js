@@ -117,6 +117,7 @@ test('更新计划只为可写且识别出的来源自动执行，公开记录�
     installed: true,
     installedVersion: '2.1.112',
     source: 'npm',
+    sourceKey: 'npmGlobal',
     executablePath: '/secret/bin/claude',
     launcher: { command: '/secret/bin/node', prefixArgs: ['/secret/cli.js'] },
     installation: {
@@ -145,6 +146,7 @@ test('更新计划只为可写且识别出的来源自动执行，公开记录�
   const publicValue = maintenance.publicRecord(record);
   assert.equal(publicValue.updateAvailable, true);
   assert.equal(publicValue.canAutoUpdate, true);
+  assert.equal(publicValue.sourceKey, 'npmGlobal');
   assert.equal(Object.prototype.hasOwnProperty.call(publicValue, 'executablePath'), false);
   assert.equal(JSON.stringify(publicValue).includes('/secret'), false);
 

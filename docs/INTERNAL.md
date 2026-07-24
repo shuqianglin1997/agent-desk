@@ -77,6 +77,7 @@ agent-desk/
     agent-registry.js  ACP 内置发现清单、自定义 Agent 归一化与跨平台 CLI 候选
     acp-client.js      官方 ACP SDK 的 stdio 长连接、会话和更新映射
     runtime.js         多 Agent 适配器、安全边界与实例生命周期（纯 Node）
+    tool-maintenance.js 桌面 App / CLI 目录、版本与安装来源检测、更新计划白名单（纯 Node）
     sessions.js        会话扫描（纯 Node，可单元测试）
     activity.js        活跃度探测（stat-only，纯 Node，驱动庭院状态）
     preload.js         安全桥接 IPC
@@ -165,6 +166,7 @@ macOS 当前示例：
 - 选择目录
 - 生成诊断信息
 - 检查 GitHub Release，并在受支持的 Windows portable 环境执行校验更新
+- 扫描受管桌面 App / CLI 的安装、版本和来源；查询可信更新源并按原安装器执行显式更新
 - 读取、缓存并脱敏 Codex 各槽位官方额度
 - 发现 Shell、Codex、Claude Code、常用 ACP Agent 和用户接入的 ACP Agent
 - 启动、监管并停止最多 12 个相互独立的运行实例
@@ -180,6 +182,10 @@ macOS 当前示例：
 ```js
 checkForUpdates()
 installUpdate()
+scanTools({ force })
+openTool({ toolId, profileId })
+updateTool(toolId)
+updateAllTools()
 listApps()
 getSettings(legacySettings)
 updateSettings(patch)
@@ -213,6 +219,8 @@ writeClipboard(value)
 ```
 
 运行 IPC 不接受 renderer 直接提供的 executable、argv、env 或 cwd。已保存 identity / workspace profile 会在 main 中重新读取；任意工作目录和自定义 ACP 可执行文件必须由原生选择器生成、且与 `webContents.id` 绑定的 grant。首次开启整个运行面还有原生系统确认，ACP 工具权限逐次通过默认取消的原生选择框决定。完整模型见 [AGENT_FLEET.md](AGENT_FLEET.md)。
+
+工具维护 IPC 同样不接受 renderer 提供的命令、参数、可执行路径或下载 URL。renderer 只提交 `toolId` 和可选 `profileId`；主进程从 `tool-maintenance.js` 的静态目录重新解析工具、安装来源、可信版本 API 与更新参数。批量更新在原生确认后串行执行，正在运行的对应 Agent 会阻止更新。
 
 ## 会话扫描规则
 

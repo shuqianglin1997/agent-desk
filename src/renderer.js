@@ -38,6 +38,15 @@ const state = {
   },
   welcomed: false,
   updateInfo: null,
+  tools: {
+    items: [],
+    summary: null,
+    checkedAt: null,
+    loading: false,
+    busyId: null,
+    message: '',
+    statusTone: 'idle'
+  },
   appMeta: { claude: { label: 'Claude', tagColor: '#d96f33' }, codex: { label: 'Codex', tagColor: '#2f9e8f' } }
 };
 
@@ -129,6 +138,13 @@ const els = {
   runtimeHint: document.querySelector('#runtimeHint'),
   agentRegistryBtn: document.querySelector('#agentRegistryBtn'),
   agentRegistryDialog: document.querySelector('#agentRegistryDialog'),
+  toolCenterStatus: document.querySelector('#toolCenterStatus'),
+  toolSummary: document.querySelector('#toolSummary'),
+  toolCheckedAt: document.querySelector('#toolCheckedAt'),
+  desktopToolList: document.querySelector('#desktopToolList'),
+  cliToolList: document.querySelector('#cliToolList'),
+  checkToolsBtn: document.querySelector('#checkToolsBtn'),
+  updateAllToolsBtn: document.querySelector('#updateAllToolsBtn'),
   discoveredAgentList: document.querySelector('#discoveredAgentList'),
   customAgentList: document.querySelector('#customAgentList'),
   customAgentName: document.querySelector('#customAgentName'),
@@ -566,12 +582,23 @@ function bindEvents() {
     els.welcomeDialog.showModal();
   });
 
-  // 「接入 Agent」入口（原在已删的多 Agent 控制台头部，移到顶栏全局操作区恢复）
+  // 「工具」入口：统一维护桌面 App / 终端 Agent，同时保留自定义 ACP 接入。
   els.agentRegistryBtn?.addEventListener('click', async () => {
-    await loadRuntimeAdapters();
-    renderDiscoveredAgentList();
-    renderCustomAgentList();
     els.agentRegistryDialog.showModal();
+    renderToolCenter();
+    await Promise.all([
+      refreshToolInventory(false),
+      loadCustomAgents()
+    ]);
+    renderCustomAgentList();
+  });
+
+  els.checkToolsBtn?.addEventListener('click', async () => {
+    await refreshToolInventory(true);
+  });
+
+  els.updateAllToolsBtn?.addEventListener('click', async () => {
+    await updateAllManagedTools();
   });
 
   els.pickCustomAgentExecutableBtn.addEventListener('click', async () => {
@@ -593,6 +620,9 @@ function bindEvents() {
 
   if (window.manager.onTerminalEvent) {
     window.manager.onTerminalEvent(handleRuntimeEvent);
+  }
+  if (window.manager.onToolProgress) {
+    window.manager.onToolProgress(handleToolProgress);
   }
 
   els.pathConfigBtn.addEventListener('click', () => {
@@ -1576,6 +1606,283 @@ async function loadCustomAgents() {
   }
 }
 
+async function refreshToolInventory(force = false) {
+  if (!window.manager.scanTools || state.tools.loading) return;
+  state.tools.loading = true;
+  state.tools.statusTone = 'idle';
+  state.tools.message = tr('tools.status.checking');
+  renderToolCenter();
+  try {
+    const result = await window.manager.scanTools({ force });
+    if (!result?.ok || !Array.isArray(result.items)) {
+      throw new Error(result?.reason || tr('tools.status.checkFailed'));
+    }
+    state.tools.items = result.items;
+    state.tools.summary = result.summary || null;
+    state.tools.checkedAt = result.checkedAt || null;
+    const updates = Number(result.summary?.updates || 0);
+    state.tools.message = updates
+      ? tr('tools.status.updatesFound', { n: updates })
+      : tr('tools.status.checked');
+  } catch (error) {
+    state.tools.statusTone = 'error';
+    state.tools.message = tr('tools.status.checkError', { msg: error.message || error });
+  } finally {
+    state.tools.loading = false;
+    renderToolCenter();
+  }
+}
+
+function renderToolCenter() {
+  if (!els.desktopToolList || !els.cliToolList) return;
+  const desktop = state.tools.items.filter((item) => item.kind === 'desktop');
+  const terminal = state.tools.items.filter((item) => item.kind !== 'desktop');
+  renderToolList(els.desktopToolList, desktop);
+  renderToolList(els.cliToolList, terminal);
+
+  const summary = state.tools.summary;
+  if (els.toolSummary) {
+    els.toolSummary.textContent = summary
+      ? tr('tools.summary', {
+          installed: summary.installed || 0,
+          total: summary.total || 0,
+          updates: summary.updates || 0
+        })
+      : tr('tools.summary.waiting');
+  }
+  if (els.toolCheckedAt) {
+    els.toolCheckedAt.textContent = state.tools.checkedAt
+      ? tr('tools.checkedAt', { time: compactDate(state.tools.checkedAt) })
+      : tr('tools.notChecked');
+  }
+  if (els.toolCenterStatus) {
+    els.toolCenterStatus.textContent = state.tools.message || tr('tools.status.ready');
+    els.toolCenterStatus.dataset.state = state.tools.loading || state.tools.busyId
+      ? 'busy'
+      : state.tools.statusTone;
+  }
+  if (els.checkToolsBtn) {
+    els.checkToolsBtn.disabled = state.tools.loading || Boolean(state.tools.busyId);
+    els.checkToolsBtn.textContent = state.tools.loading
+      ? tr('tools.checking')
+      : tr('tools.check');
+  }
+  if (els.updateAllToolsBtn) {
+    const count = Number(summary?.automatic || 0);
+    els.updateAllToolsBtn.disabled = state.tools.loading || Boolean(state.tools.busyId) || count === 0;
+    els.updateAllToolsBtn.textContent = state.tools.busyId === 'all'
+      ? tr('tools.updatingAll')
+      : tr('tools.updateAll', { n: count });
+  }
+}
+
+function renderToolList(container, items) {
+  container.replaceChildren();
+  if (state.tools.loading && !items.length) {
+    for (let index = 0; index < (container === els.desktopToolList ? 4 : 6); index += 1) {
+      const skeleton = document.createElement('div');
+      skeleton.className = 'tool-card tool-card-skeleton';
+      skeleton.setAttribute('aria-hidden', 'true');
+      container.append(skeleton);
+    }
+    return;
+  }
+  if (!items.length) {
+    const empty = document.createElement('p');
+    empty.className = 'tool-list-empty';
+    empty.textContent = tr('tools.empty');
+    container.append(empty);
+    return;
+  }
+
+  for (const item of items) {
+    const status = toolStatus(item);
+    const card = document.createElement('article');
+    card.className = 'tool-card';
+    card.dataset.toolId = item.id;
+    card.dataset.state = status.state;
+    card.dataset.installed = String(Boolean(item.installed));
+
+    const rail = document.createElement('span');
+    rail.className = 'tool-card-rail';
+    rail.setAttribute('aria-hidden', 'true');
+
+    const identity = document.createElement('div');
+    identity.className = 'tool-card-identity';
+    const name = document.createElement('strong');
+    name.textContent = item.label;
+    const kind = document.createElement('small');
+    kind.textContent = tr(`tools.kind.${item.kind}`);
+    identity.append(name, kind);
+
+    const badge = document.createElement('b');
+    badge.className = 'tool-status-badge';
+    badge.textContent = status.label;
+
+    const version = document.createElement('div');
+    version.className = 'tool-version-track';
+    const local = document.createElement('span');
+    local.textContent = item.installedVersion
+      ? `v${item.installedVersion}`
+      : item.installed
+        ? tr('tools.version.detected')
+        : tr('tools.version.none');
+    const arrow = document.createElement('i');
+    arrow.textContent = '→';
+    const latest = document.createElement('span');
+    latest.textContent = item.latestVersion
+      ? `v${item.latestVersion}`
+      : item.kind === 'desktop'
+        ? tr('tools.version.appManaged')
+        : '—';
+    version.append(local, arrow, latest);
+
+    const source = document.createElement('small');
+    source.className = 'tool-source';
+    const manager = !item.installed && item.kind === 'cli'
+      ? ''
+      : tr(`tools.manager.${item.manager}`);
+    const sourceLabel = item.sourceKey
+      ? tr(`tools.source.${item.sourceKey}`)
+      : item.source;
+    source.textContent = [manager, sourceLabel].filter(Boolean).join(' · ');
+    source.title = source.textContent;
+
+    const actions = document.createElement('div');
+    actions.className = 'tool-card-actions';
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.textContent = item.installed ? tr('tools.open') : tr('tools.get');
+    open.disabled = state.tools.loading || Boolean(state.tools.busyId);
+    open.addEventListener('click', () => openManagedTool(item));
+    actions.append(open);
+
+    if (item.kind !== 'terminal' && item.installed && item.canUpdate) {
+      const update = document.createElement('button');
+      update.type = 'button';
+      update.className = item.updateAvailable === true ? 'primary' : '';
+      update.textContent = toolUpdateActionLabel(item);
+      update.disabled = state.tools.loading ||
+        Boolean(state.tools.busyId) ||
+        item.updateAvailable === false;
+      update.addEventListener('click', () => updateManagedTool(item));
+      actions.append(update);
+    }
+
+    card.append(rail, identity, badge, version, source, actions);
+    container.append(card);
+  }
+}
+
+function toolStatus(item) {
+  if (state.tools.busyId === item.id || state.tools.busyId === 'all') {
+    return { state: 'busy', label: tr('tools.state.updating') };
+  }
+  if (!item.installed) return { state: 'missing', label: tr('tools.state.missing') };
+  if (item.kind === 'terminal') return { state: 'system', label: tr('tools.state.system') };
+  if (item.updateAvailable === true) return { state: 'update', label: tr('tools.state.update') };
+  if (item.updateAvailable === false) return { state: 'current', label: tr('tools.state.current') };
+  if (item.checkError) return { state: 'error', label: tr('tools.state.checkError') };
+  if (item.kind === 'desktop') return { state: 'managed', label: tr('tools.state.appManaged') };
+  if (item.canAutoUpdate) return { state: 'unknown', label: tr('tools.state.canCheck') };
+  return { state: 'manual', label: tr('tools.state.manual') };
+}
+
+function toolUpdateActionLabel(item) {
+  if (item.updateAvailable === false) return tr('tools.current');
+  if (item.canAutoUpdate) {
+    return item.updateAvailable === true ? tr('tools.updateNow') : tr('tools.checkAndUpdate');
+  }
+  return item.kind === 'desktop' ? tr('tools.openUpdater') : tr('tools.updateGuide');
+}
+
+async function openManagedTool(item) {
+  if (!window.manager.openTool) return;
+  state.tools.statusTone = 'idle';
+  state.tools.message = tr('tools.status.opening', { label: item.label });
+  renderToolCenter();
+  try {
+    const result = await window.manager.openTool({
+      toolId: item.id,
+      profileId: state.selectedProfileId || null
+    });
+    state.tools.statusTone = result?.ok ? 'idle' : 'error';
+    state.tools.message = result?.ok
+      ? (result.message || tr('tools.status.opened', { label: item.label }))
+      : (result?.reason || tr('tools.status.openFailed', { label: item.label }));
+  } catch (error) {
+    state.tools.statusTone = 'error';
+    state.tools.message = tr('tools.status.openFailed', { label: item.label });
+  }
+  setStatus(state.tools.message);
+  renderToolCenter();
+}
+
+async function updateManagedTool(item) {
+  if (!window.manager.updateTool || state.tools.busyId) return;
+  state.tools.busyId = item.id;
+  state.tools.statusTone = 'idle';
+  state.tools.message = tr('tools.status.updating', { label: item.label });
+  renderToolCenter();
+  try {
+    const result = await window.manager.updateTool(item.id);
+    state.tools.statusTone = result?.ok ? 'idle' : 'error';
+    state.tools.message = result?.ok
+      ? (result.message || tr('tools.status.updated', { label: item.label }))
+      : (result?.reason || tr('tools.status.updateFailed', { label: item.label }));
+    setStatus(state.tools.message);
+    if (result?.item || result?.current) await refreshToolInventory(true);
+  } catch (_error) {
+    state.tools.statusTone = 'error';
+    state.tools.message = tr('tools.status.updateFailed', { label: item.label });
+    setStatus(state.tools.message);
+  } finally {
+    state.tools.busyId = null;
+    renderToolCenter();
+  }
+}
+
+async function updateAllManagedTools() {
+  if (!window.manager.updateAllTools || state.tools.busyId) return;
+  state.tools.busyId = 'all';
+  state.tools.statusTone = 'idle';
+  state.tools.message = tr('tools.status.updatingAll');
+  renderToolCenter();
+  try {
+    const result = await window.manager.updateAllTools();
+    if (result?.cancelled) {
+      state.tools.message = tr('tools.status.cancelled');
+    } else {
+      state.tools.statusTone = result?.ok ? 'idle' : 'error';
+      state.tools.message = result?.message ||
+        (result?.ok ? tr('tools.status.updatedAll') : result?.reason || tr('tools.status.updateAllFailed'));
+      if (result?.inventory?.items) {
+        state.tools.items = result.inventory.items;
+        state.tools.summary = result.inventory.summary || null;
+        state.tools.checkedAt = result.inventory.checkedAt || null;
+      } else {
+        await refreshToolInventory(true);
+      }
+    }
+    setStatus(state.tools.message);
+  } catch (_error) {
+    state.tools.statusTone = 'error';
+    state.tools.message = tr('tools.status.updateAllFailed');
+    setStatus(state.tools.message);
+  } finally {
+    state.tools.busyId = null;
+    renderToolCenter();
+  }
+}
+
+function handleToolProgress(progress) {
+  if (!progress?.toolId) return;
+  if (!state.tools.busyId) state.tools.busyId = progress.toolId;
+  state.tools.statusTone = progress.phase === 'error' ? 'error' : 'idle';
+  if (progress.message) state.tools.message = progress.message;
+  renderToolCenter();
+}
+
 function renderDiscoveredAgentList() {
   if (!els.discoveredAgentList) return;
   els.discoveredAgentList.replaceChildren();
@@ -2346,6 +2653,8 @@ function rerenderLocalizedText() {
   renderQuotaSummary();
   renderAttentionInbox();
   renderLedger();
+  renderToolCenter();
+  renderCustomAgentList();
   if (els.reminderToggle) els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
   updateAtmosphereReadout();
   if (yardMounted) syncYard();

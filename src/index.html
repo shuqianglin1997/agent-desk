@@ -19,7 +19,7 @@
           <button id="leaderboardBtn" type="button" data-i18n-title="topbar.leaderboard.title">🏆 <span data-i18n="topbar.leaderboard">排行</span></button>
           <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">更新</span></button>
           <button id="viewToggle" type="button" data-i18n-title="topbar.view.title">⇄ <span id="viewToggleLabel" data-i18n="topbar.toClassic">经典</span></button>
-          <button id="agentRegistryBtn" type="button" data-i18n-title="topbar.connect.title">🔌 <span data-i18n="topbar.connect">接入</span></button>
+          <button id="agentRegistryBtn" type="button" data-i18n-title="topbar.connect.title">🧰 <span data-i18n="topbar.connect">工具</span></button>
           <button id="helpBtn" class="icon-toggle" type="button" data-i18n-title="topbar.help.title">?</button>
           <button id="langToggle" class="icon-toggle" type="button" data-i18n-title="topbar.lang.title">文</button>
           <button id="themeToggle" class="icon-toggle" type="button" data-i18n-title="topbar.theme.title">◐</button>
@@ -358,42 +358,72 @@
       </form>
     </dialog>
 
-    <dialog id="agentRegistryDialog" class="wide-dialog agent-registry-dialog">
+    <dialog id="agentRegistryDialog" class="wide-dialog agent-registry-dialog tool-center-dialog">
       <form method="dialog" class="dialog-body">
-        <h3 data-i18n="registry.title">接入终端 Agent</h3>
-        <p class="agent-registry-lead" data-i18n-html="registry.lead">AgentDesk 会自动发现常用终端 Agent。支持 <b>ACP stdio</b> 的其他工具可以自定义接入；暂未支持 ACP 的交互式 CLI 仍可在多个独立 Shell 实例中运行。</p>
-        <section class="custom-agent-section" data-i18n-aria="aria.discoveryStatus" aria-label="本机 Agent 发现状态">
-          <h4 data-i18n="registry.discovered">本机发现</h4>
-          <div id="discoveredAgentList" class="discovered-agent-list"></div>
-        </section>
-        <section class="custom-agent-section" data-i18n-aria="aria.customAgents" aria-label="已接入的自定义 Agent">
-          <h4 data-i18n="registry.customTitle">自定义 ACP Agent</h4>
-          <div id="customAgentList" class="custom-agent-list">
-            <p data-i18n="registry.customEmptyStatic">还没有自定义 Agent。</p>
+        <header class="tool-center-head">
+          <div class="tool-center-title">
+            <span data-i18n="tools.kicker">TOOL BAY · LOCAL</span>
+            <h3 data-i18n="registry.title">应用与终端维护台</h3>
+            <p class="agent-registry-lead" data-i18n-html="registry.lead">检查本机桌面 App 与终端 Agent 的安装和版本；可自动项始终沿用原来的 <b>npm / Homebrew / uv / 官方更新器</b>，不会调用 sudo。</p>
           </div>
-        </section>
-        <fieldset class="custom-agent-form">
-          <legend data-i18n="registry.addLegend">添加 ACP Agent</legend>
-          <label>
-            <span data-i18n="registry.displayName">显示名称</span>
-            <input id="customAgentName" type="text" maxlength="60" data-i18n-placeholder="registry.ph.customName" placeholder="例如：团队内部 Agent" />
-          </label>
-          <label>
-            <span data-i18n="registry.executable">可执行文件</span>
-            <span class="field-hint" data-i18n="registry.hint.customExec">必须由系统文件选择器授权；界面不能直接提交任意路径。</span>
-            <div class="path-input-row">
-              <input id="customAgentExecutable" type="text" readonly data-i18n-placeholder="registry.ph.notPicked" placeholder="尚未选择" />
-              <button id="pickCustomAgentExecutableBtn" type="button" data-i18n="dialog.pick">选择</button>
+          <div class="tool-center-overview">
+            <strong id="toolSummary" data-i18n="tools.summary.waiting">等待检查</strong>
+            <small id="toolCheckedAt" data-i18n="tools.notChecked">尚未检查</small>
+            <div class="tool-center-head-actions">
+              <button id="checkToolsBtn" type="button" data-i18n="tools.check">↻ 检查全部</button>
+              <button id="updateAllToolsBtn" type="button" class="primary" disabled data-i18n="tools.updateAllStatic">↑ 一键更新</button>
             </div>
-          </label>
-          <label>
-            <span data-i18n="registry.args">ACP 启动参数（可选，每行一个）</span>
-            <textarea id="customAgentArguments" rows="3" data-i18n-placeholder="registry.ph.customArgs" placeholder="例如：&#10;acp"></textarea>
-          </label>
-          <p class="field-hint" data-i18n="registry.hint.customArgs">AgentDesk 使用参数数组直接启动进程，不经过 shell，也不会自动下载注册表里的软件。具体参数以该 Agent 官方 ACP 文档为准。</p>
-          <button id="confirmAddCustomAgentBtn" type="button" class="primary" data-i18n="registry.addBtn">添加 Agent</button>
-        </fieldset>
-        <div class="dialog-actions">
+          </div>
+        </header>
+
+        <p id="toolCenterStatus" class="tool-center-status" data-state="idle" aria-live="polite" data-i18n="tools.status.ready">准备检查本机工具。</p>
+
+        <section class="tool-shelf" data-i18n-aria="aria.desktopTools" aria-label="桌面应用">
+          <header><span data-i18n="tools.section.desktop">DESKTOP APPS</span><small data-i18n="tools.section.desktopHint">桌面应用由官方更新器管理</small></header>
+          <div id="desktopToolList" class="tool-list tool-list-desktop"></div>
+        </section>
+
+        <section class="tool-shelf" data-i18n-aria="aria.terminalTools" aria-label="终端工具">
+          <header><span data-i18n="tools.section.terminal">TERMINAL AGENTS</span><small data-i18n="tools.section.terminalHint">识别实际安装来源后更新</small></header>
+          <div id="cliToolList" class="tool-list tool-list-cli"></div>
+        </section>
+
+        <details class="custom-agent-drawer">
+          <summary>
+            <span data-i18n="registry.customTitle">自定义 ACP Agent</span>
+            <small data-i18n="registry.customSummary">接入团队内部或其他 ACP stdio 工具</small>
+          </summary>
+          <section class="custom-agent-section" data-i18n-aria="aria.customAgents" aria-label="已接入的自定义 Agent">
+            <h4 data-i18n="registry.connected">已接入</h4>
+            <div id="customAgentList" class="custom-agent-list">
+              <p data-i18n="registry.customEmptyStatic">还没有自定义 Agent。</p>
+            </div>
+          </section>
+          <fieldset class="custom-agent-form">
+            <legend data-i18n="registry.addLegend">添加 ACP Agent</legend>
+            <label>
+              <span data-i18n="registry.displayName">显示名称</span>
+              <input id="customAgentName" type="text" maxlength="60" data-i18n-placeholder="registry.ph.customName" placeholder="例如：团队内部 Agent" />
+            </label>
+            <label>
+              <span data-i18n="registry.executable">可执行文件</span>
+              <span class="field-hint" data-i18n="registry.hint.customExec">必须由系统文件选择器授权；界面不能直接提交任意路径。</span>
+              <div class="path-input-row">
+                <input id="customAgentExecutable" type="text" readonly data-i18n-placeholder="registry.ph.notPicked" placeholder="尚未选择" />
+                <button id="pickCustomAgentExecutableBtn" type="button" data-i18n="dialog.pick">选择</button>
+              </div>
+            </label>
+            <label>
+              <span data-i18n="registry.args">ACP 启动参数（可选，每行一个）</span>
+              <textarea id="customAgentArguments" rows="3" data-i18n-placeholder="registry.ph.customArgs" placeholder="例如：&#10;acp"></textarea>
+            </label>
+            <p class="field-hint" data-i18n="registry.hint.customArgs">AgentDesk 使用参数数组直接启动进程，不经过 shell，也不会自动下载注册表里的软件。具体参数以该 Agent 官方 ACP 文档为准。</p>
+            <button id="confirmAddCustomAgentBtn" type="button" class="primary" data-i18n="registry.addBtn">添加 Agent</button>
+          </fieldset>
+        </details>
+
+        <div class="dialog-actions tool-center-footer">
+          <small data-i18n="tools.securityNote">更新命令固定在主进程白名单；不会执行界面提交的路径、命令或下载地址。</small>
           <button value="default" class="primary" data-i18n="dialog.done">完成</button>
         </div>
       </form>
