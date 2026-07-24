@@ -2005,6 +2005,403 @@ dialog::backdrop {
   justify-self: end;
 }
 
+/* ── tool maintenance bay ───────────────────────────── */
+.tool-center-dialog {
+  width: min(920px, calc(100vw - 48px));
+}
+
+.tool-center-dialog .dialog-body {
+  gap: 11px;
+  padding: 16px;
+}
+
+.tool-center-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 18px;
+  align-items: stretch;
+  padding: 14px 15px;
+  border: 1px solid var(--line-mid);
+  background:
+    linear-gradient(135deg, var(--accent-wash), transparent 42%),
+    var(--surface-raised);
+  box-shadow: var(--edge-highlight);
+}
+
+.tool-center-title {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tool-center-title > span {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.tool-center-title h3 {
+  font-size: 18px;
+  letter-spacing: -0.025em;
+}
+
+.tool-center-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  align-content: center;
+  padding: 10px 11px;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-sunken);
+}
+
+.tool-center-overview strong {
+  overflow: hidden;
+  color: var(--ink-primary);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-center-overview > small {
+  align-self: center;
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  white-space: nowrap;
+}
+
+.tool-center-head-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.tool-center-head-actions button {
+  flex: 1;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
+.tool-center-status {
+  position: relative;
+  min-height: 26px;
+  margin: 0;
+  padding: 5px 10px 5px 27px;
+  border: 1px solid var(--line-soft);
+  color: var(--ink-secondary);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 14px;
+}
+
+.tool-center-status::before {
+  position: absolute;
+  top: 9px;
+  left: 11px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid color-mix(in oklab, var(--success) 70%, var(--line-strong));
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-wash);
+  content: "";
+}
+
+.tool-center-status[data-state="busy"]::before {
+  border-color: var(--warn-line);
+  background: var(--warn);
+  box-shadow: 0 0 0 3px var(--warn-wash);
+  animation: tool-led-pulse 900ms ease-in-out infinite alternate;
+}
+
+.tool-center-status[data-state="error"]::before {
+  border-color: var(--danger);
+  background: var(--danger);
+  box-shadow: none;
+}
+
+@keyframes tool-led-pulse {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+.tool-shelf {
+  display: grid;
+  gap: 7px;
+}
+
+.tool-shelf > header {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 0 2px;
+}
+
+.tool-shelf > header span {
+  color: var(--ink-primary);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+
+.tool-shelf > header small {
+  color: var(--ink-tertiary);
+  font-size: 9.5px;
+}
+
+.tool-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.tool-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 4px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
+  gap: 4px 9px;
+  align-items: center;
+  min-width: 0;
+  min-height: 82px;
+  padding: 9px 9px 8px 7px;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-raised);
+  box-shadow: var(--edge-highlight);
+}
+
+.tool-card:hover {
+  border-color: var(--line-mid);
+}
+
+.tool-card-rail {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: stretch;
+  width: 4px;
+  background: var(--line-mid);
+}
+
+.tool-card-identity {
+  grid-column: 2;
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.tool-card-identity strong {
+  overflow: hidden;
+  color: var(--ink-primary);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-card-identity small {
+  flex: none;
+  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tool-status-badge {
+  grid-column: 3;
+  justify-self: end;
+  padding: 1px 5px;
+  border: 1px solid var(--line-mid);
+  color: var(--ink-tertiary);
+  background: var(--surface-sunken);
+  font-size: 8.5px;
+  font-weight: 700;
+}
+
+.tool-version-track {
+  grid-column: 2 / -1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  color: var(--ink-secondary);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-version-track span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-version-track i {
+  color: var(--ink-disabled);
+  font-style: normal;
+}
+
+.tool-source {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-tertiary);
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-card-actions {
+  grid-column: 3;
+  display: flex;
+  gap: 5px;
+}
+
+.tool-card-actions button {
+  height: 23px;
+  padding: 0 7px;
+  font-size: 9px;
+}
+
+.tool-card[data-state="current"] .tool-card-rail,
+.tool-card[data-state="system"] .tool-card-rail {
+  background: var(--success);
+}
+
+.tool-card[data-state="current"] .tool-status-badge,
+.tool-card[data-state="system"] .tool-status-badge {
+  border-color: var(--success-line);
+  color: var(--success);
+  background: var(--success-wash);
+}
+
+.tool-card[data-state="update"] .tool-card-rail,
+.tool-card[data-state="busy"] .tool-card-rail {
+  background: var(--warn);
+}
+
+.tool-card[data-state="update"] .tool-status-badge,
+.tool-card[data-state="busy"] .tool-status-badge {
+  border-color: var(--warn-line);
+  color: var(--warn);
+  background: var(--warn-wash);
+}
+
+.tool-card[data-state="managed"] .tool-card-rail,
+.tool-card[data-state="unknown"] .tool-card-rail {
+  background: var(--accent);
+}
+
+.tool-card[data-state="managed"] .tool-status-badge,
+.tool-card[data-state="unknown"] .tool-status-badge {
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--line-mid));
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.tool-card[data-state="missing"] {
+  background: color-mix(in oklab, var(--surface-raised) 68%, var(--surface-canvas));
+}
+
+.tool-card[data-state="missing"] .tool-card-identity,
+.tool-card[data-state="missing"] .tool-version-track,
+.tool-card[data-state="missing"] .tool-source {
+  opacity: 0.66;
+}
+
+.tool-card[data-state="error"] .tool-card-rail {
+  background: var(--danger);
+}
+
+.tool-card-skeleton {
+  min-height: 82px;
+  border-color: var(--line-soft);
+  background:
+    linear-gradient(100deg, transparent 30%, var(--hover-wash) 45%, transparent 60%),
+    var(--surface-raised);
+  background-size: 220% 100%;
+  animation: tool-skeleton 1.2s linear infinite;
+}
+
+@keyframes tool-skeleton {
+  to { background-position: -220% 0; }
+}
+
+.tool-list-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--line-mid);
+  color: var(--ink-tertiary);
+  text-align: center;
+}
+
+.custom-agent-drawer {
+  border: 1px solid var(--line-soft);
+  background: var(--surface-raised);
+}
+
+.custom-agent-drawer > summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 9px 11px;
+  color: var(--ink-secondary);
+  cursor: default;
+  list-style: none;
+}
+
+.custom-agent-drawer > summary::-webkit-details-marker {
+  display: none;
+}
+
+.custom-agent-drawer > summary::after {
+  grid-column: 3;
+  grid-row: 1;
+  color: var(--ink-tertiary);
+  content: "＋";
+}
+
+.custom-agent-drawer[open] > summary::after {
+  content: "−";
+}
+
+.custom-agent-drawer > summary span {
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.custom-agent-drawer > summary small {
+  color: var(--ink-tertiary);
+  font-size: 9.5px;
+}
+
+.custom-agent-drawer > .custom-agent-section,
+.custom-agent-drawer > .custom-agent-form {
+  margin: 0 11px 11px;
+}
+
+.tool-center-footer {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tool-center-footer small {
+  max-width: 640px;
+  color: var(--ink-tertiary);
+  font-size: 8.5px;
+}
+
 /* ── welcome / help ─────────────────────────────────── */
 .welcome-dialog {
   width: min(480px, calc(100vw - 48px));

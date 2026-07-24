@@ -524,7 +524,9 @@ function publicRecord(record) {
     updateAvailable: typeof record.updateAvailable === 'boolean' ? record.updateAvailable : null,
     checkError: record.checkError || null,
     source: record.source || '',
-    manager: record.installation?.manager || (record.kind === 'desktop' ? 'desktop' : 'system'),
+    sourceKey: record.sourceKey || null,
+    manager: record.installation?.manager ||
+      (record.kind === 'desktop' ? 'desktop' : record.kind === 'terminal' ? 'system' : 'unknown'),
     canOpen: record.canOpen !== false,
     canUpdate: plan.mode === 'automatic' || plan.mode === 'manual',
     canAutoUpdate: plan.mode === 'automatic',

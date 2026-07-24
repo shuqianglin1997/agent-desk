@@ -14,7 +14,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue" alt="Platform" />
-  <img src="https://img.shields.io/badge/local-only%20·%20read--only-2e7d4f" alt="Local-only, read-only" />
+  <img src="https://img.shields.io/badge/local--first%20·%20explicit%20maintenance-2e7d4f" alt="Local-first, explicit maintenance" />
 </p>
 
 <p align="center">
@@ -60,6 +60,7 @@ Each pain above maps to one thing it gives you:
 - **Automatic session index.** It scans every account's session files into one table. Switch between the current account and all accounts, open the detailed attribute view, and click any column header to sort. Search covers title, project, account and thread ID. **Find any old session in seconds.**
 - **Planned multi-session handoff.** Check sessions from one or many accounts, arrange their priority in the handoff plan, then copy one consolidated brief into a new chat. It copies **metadata only, never the full transcript** — nothing private leaks by accident.
 - **Recognizes many agents.** Built-in adapters identify Codex and Claude Code sessions directly; Gemini CLI, OpenCode, Cursor Agent, GitHub Copilot CLI, goose, Kimi and Qwen Code are recognized as [Agent Client Protocol](https://agentclientprotocol.com/) tools. The **🔌 Connect** button in the top bar discovers installed agents and lets you register a custom ACP agent through a native file picker.
+- **Local tool bay.** The top-bar **🧰 Tools** panel inventories supported desktop apps and terminal agents, shows installed/latest versions and install source, opens each tool in one click, and updates one or all eligible CLIs through the same npm, Homebrew, uv or self-updater that installed them. Desktop apps without a stable public update feed open their official updater or download page.
 - **Notes & groups.** Give any slot a free-text note and drop it into a group (Work / Personal / Spare…). Accounts organize by group, like a contact list.
 - **Same account, one identity.** When one login shows up as several client slots (desktop + CLI, or Kimi Code + Kimi Work), AgentDesk merges them into **one account** — one cat, one card — with sessions and quota flowing together.
 - **Diagnostics.** A panel that explains *why* a session won't show up or an app won't launch: executable / Store candidates, MSIX-vs-legacy data paths, permissions, scanned locations, session count, and config location.
@@ -101,16 +102,16 @@ By default AgentDesk greets you with a **pixel cat yard** — the same accounts 
 
 ## What it deliberately does *not* do
 
-AgentDesk touches your accounts, so its boundaries matter. It is **local-only and read-only** by design:
+AgentDesk touches your accounts, so its boundaries matter. Account/session discovery is **local-only and read-only**; tool maintenance is separate and always user-initiated:
 
 - It **stores no passwords and no tokens**, and **never reads browser passwords** or saved credentials.
-- **No embedded terminal, no agent runner.** AgentDesk manages and indexes; it does not run agents or shell commands for you. There is **no execution surface** in the app.
+- **No embedded terminal or silent updater.** Opening a CLI launches the user's system terminal. Maintenance commands run only after an explicit click, use fixed main-process allowlists, and never use `sudo`.
 - It **does not bypass official login** — authentication happens inside the official Claude / Codex app.
 - Quota checks **never read browser cookies or expose account e-mail / tokens**; only the sanitized result of Codex's official local RPC reaches the UI.
 - The handoff copy **excludes the full conversation by default** — metadata only.
 - In the account and session lists, your home directory is shortened to `~`. (The diagnostics panel shows full paths on purpose — it's a troubleshooting tool.)
 
-Account and session discovery are local and read-only, full stop.
+Account and session discovery remain local and read-only. Only explicit maintenance actions can change third-party tool installations.
 
 ---
 
@@ -211,6 +212,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, Windows speci
 - **自动会话索引。** 扫描每个账号的会话文件，可在「本账号 / 全部账号」间切换；详细列表展示完整属性，点击任一表头即可升降序排列。搜索覆盖标题、项目、账号和线程 ID。**几秒钟找到任何旧会话。**
 - **多会话交接规划。** 可跨账号勾选多个会话，在交接清单中调整优先级，再一次复制成合并交接说明。**只复制元信息，不含完整对话** —— 隐私不会被误传。
 - **认识各种 Agent。** 内置适配器直接识别 Codex、Claude Code 的会话；Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi、Qwen Code 作为 [ACP](https://agentclientprotocol.com/) 工具被识别。顶栏「**🔌 接入**」会发现本机已装的 Agent，也能通过系统文件选择器登记自定义 ACP Agent。
+- **本机工具维护台。** 顶栏「**🧰 工具**」统一检查桌面 App 与终端 Agent，展示本地/最新版本和安装来源；每一项都能一键打开，可自动维护的 CLI 会继续使用原来的 npm、Homebrew、uv 或自身更新器进行单项/批量更新。没有稳定公开更新源的桌面 App 会打开官方更新入口或下载页。
 - **备注与分组。** 给任意槽位加自由备注、丢进分组（工作 / 个人 / 备用……），像通讯录一样按分组管理。
 - **同一账号只算一个。** 当一个登录以多个客户端形态出现（桌面 + CLI，或 Kimi Code + Kimi Work），AgentDesk 把它们合并成**一个账号** —— 一只猫、一张卡 —— 会话和额度一起合流。
 - **诊断面板。** 解释「为什么读不到会话 / 打不开 App」：传统安装与 Store/MSIX 启动候选、真实数据目录、权限、扫描位置、会话数量和配置文件。
@@ -246,16 +248,16 @@ AgentDesk 只有一套布局 —— **顶栏 · 账号呈现层 · 账号控制�
 
 ## 安全边界
 
-它碰的是你的账号，所以边界很重要。它按设计是**纯本地、只读**的：
+它碰的是你的账号，所以边界很重要。账号与会话发现按设计是**纯本地、只读**的；工具维护与之分开，并且必须由用户显式触发：
 
 - **不保存任何密码、任何 token**，**不读取浏览器密码**或任何已存凭据。
-- **没有内嵌终端，也不替你跑 Agent。** AgentDesk 只做管理和索引，App 里**没有任何执行入口**。
+- **没有内嵌终端，也不会静默更新。** 打开 CLI 时只启动系统终端；维护命令必须由用户显式点击，并且只使用主进程固定白名单，不调用 `sudo`。
 - **不绕过官方登录** —— 鉴权始终发生在官方 Claude / Codex App 里。
 - 额度查询**不读浏览器 Cookie，也不向界面暴露账号邮箱 / token**；界面只收到 Codex 官方本机 RPC 的脱敏结果。
 - 交接复制**默认不含完整对话** —— 只有元信息。
 - 账号和会话列表里，你的用户主目录会被简写成 `~`。（诊断面板故意显示完整路径——它是排查工具。）
 
-账号与会话发现，完全本地、只读，没有例外。
+账号与会话发现始终完全本地、只读；只有用户明确点击的维护操作会改变第三方工具安装。
 
 ## 下载安装
 

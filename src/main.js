@@ -35,10 +35,19 @@ const { mt } = require('./i18n/main-i18n');
 function currentLang() {
   try {
     const lang = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'))?.settings?.lang;
-    return (lang === 'en' || lang === 'ja' || lang === 'zh') ? lang : 'zh';
+    if (lang === 'en' || lang === 'ja' || lang === 'zh') return lang;
   } catch (_error) {
-    return 'zh';
+    // 没有显式偏好时跟随 Electron 的系统 locale，与 renderer 的 navigator.language 保持一致。
   }
+  try {
+    const locale = String(app.isReady() ? app.getLocale() : process.env.LANG || '').toLowerCase();
+    if (locale.startsWith('ja')) return 'ja';
+    if (locale.startsWith('en')) return 'en';
+    if (locale.startsWith('zh')) return 'zh';
+  } catch (_error) {
+    // app 尚未 ready 时回退中文。
+  }
+  return 'zh';
 }
 // 便捷取词：按当前语言解析主进程侧文案（键在 src/i18n/*.js 的 main.* 命名空间）。
 const t = (key, params) => mt(currentLang(), key, params);
@@ -2104,6 +2113,9 @@ function maintenanceDesktopRecord(tool) {
     latestVersion: null,
     updateAvailable: null,
     source: launcher?.source || (launcher?.protocolAvailable ? t('main.launch.winProtocolSource') : ''),
+    sourceKey: installed
+      ? (launcher?.protocolAvailable && !launcher?.found ? 'windowsProtocol' : 'appDirectory')
+      : null,
     executablePath: launcher?.path || null,
     launcher,
     installation: installed ? {
@@ -2136,6 +2148,17 @@ function maintenanceCliRecord(tool, adapter, npmRoots) {
     latestVersion: null,
     updateAvailable: null,
     source: launcher?.source || adapter?.source || '',
+    sourceKey: !installed
+      ? 'catalog'
+      : installation?.manager === 'npm'
+        ? 'npmGlobal'
+        : installation?.manager === 'brew'
+          ? 'homebrew'
+          : installation?.manager === 'uv'
+            ? 'uvTool'
+            : launcher?.source === 'PATH'
+              ? 'path'
+              : 'localExecutable',
     executablePath: launcher?.path || null,
     launcher,
     installation,
@@ -2157,6 +2180,7 @@ function maintenanceTerminalRecord(tool) {
     latestVersion: null,
     updateAvailable: false,
     source: process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL || 'Shell'),
+    sourceKey: null,
     installation: { manager: 'system', writable: false },
     canOpen: true
   };

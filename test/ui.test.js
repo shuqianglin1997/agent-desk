@@ -279,6 +279,44 @@ test('接入 Agent 入口在顶栏全局操作区（控制台移除后不丢失�
   assert.match(main, /ipcMain\.handle\('profiles:add'[\s\S]*?profiles\.push\(profile\);\s*\n\s*saveProfiles\(profiles\);/);
 });
 
+test('工具维护台覆盖桌面 App 与终端 Agent：检查、打开、单项/批量更新且 renderer 不提交命令', () => {
+  const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
+  const html = read('src/index.html');
+  const renderer = read('src/renderer.js');
+  const preload = read('src/preload.js');
+  const main = read('src/main.js');
+  const maintenance = read('src/tool-maintenance.js');
+  const styles = read('src/styles.css');
+  const yardStyles = read('src/yard/yard.css');
+
+  assert.match(html, /id="agentRegistryBtn"[\s\S]*?data-i18n="topbar\.connect"/);
+  assert.match(html, /id="agentRegistryDialog"[^>]*tool-center-dialog/);
+  assert.match(html, /id="checkToolsBtn"[\s\S]*?id="updateAllToolsBtn"/);
+  assert.match(html, /id="desktopToolList"[\s\S]*?id="cliToolList"/);
+  assert.match(html, /class="custom-agent-drawer"/);
+
+  assert.match(preload, /scanTools:[\s\S]*?tools:scan/);
+  assert.match(preload, /openTool:[\s\S]*?tools:open/);
+  assert.match(preload, /updateTool:[\s\S]*?tools:update/);
+  assert.match(preload, /updateAllTools:[\s\S]*?tools:updateAll/);
+  assert.match(main, /ipcMain\.handle\('tools:scan'/);
+  assert.match(main, /ipcMain\.handle\('tools:open'/);
+  assert.match(main, /ipcMain\.handle\('tools:update'/);
+  assert.match(main, /ipcMain\.handle\('tools:updateAll'/);
+
+  // renderer 只交 toolId / profileId；命令、参数、路径和官方 URL 都由主进程目录生成。
+  assert.match(renderer, /window\.manager\.openTool\(\{\s*toolId: item\.id,\s*profileId:/);
+  assert.match(renderer, /window\.manager\.updateTool\(item\.id\)/);
+  assert.doesNotMatch(renderer, /openTool\(\{[\s\S]{0,180}(?:command|args|url|executablePath):/);
+  assert.match(main, /toolMaintenance\.catalogTool\(toolId\)/);
+  assert.match(main, /toolMaintenance\.updateArgumentsFor\(plan\)/);
+  assert.match(maintenance, /function isTrustedLatestRequest\(/);
+  assert.match(maintenance, /if \(url\.protocol !== 'https:'\) return false/);
+
+  assert.match(styles, /\.tool-center-dialog[\s\S]*?\.tool-card-actions/);
+  assert.match(yardStyles, /工具维护台：庭院里是一块有状态灯的木工台/);
+});
+
 test('庭院猫位置越界兜底：旧拖拽位置落在被裁的前景草坪带(y≥124)时作废、回默认布局（Kimi 消失回归）', () => {
   const scene = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'scene.js'), 'utf8');
   // 统一重设计裁掉 y≥132 的前景草坪带后，旧的 saved 位置若落在那里会把猫画到可见区外
@@ -301,7 +339,7 @@ test('i18n 独立模块：三语加载顺序 + 顶栏接线 + 语言持久化 + 
   // 三语词表都注册 meta.label，且核心 key 三语对齐
   for (const loc of [read('src/i18n/zh.js'), read('src/i18n/en.js'), read('src/i18n/ja.js')]) {
     assert.match(loc, /meta: \{ label:/);
-    for (const key of ['topbar.leaderboard', 'account.open', 'session.title', 'status.ready']) {
+    for (const key of ['topbar.leaderboard', 'account.open', 'session.title', 'status.ready', 'tools.check', 'tools.updateAll', 'tools.manager.unknown', 'tools.source.catalog']) {
       assert.ok(loc.includes("'" + key + "'"), key + ' missing in a locale');
     }
   }
