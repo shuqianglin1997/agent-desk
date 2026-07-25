@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('manager', {
   migrateWindowsProfilePath: (id) => ipcRenderer.invoke('profiles:migrateWindowsPath', id),
   launchProfile: (id) => ipcRenderer.invoke('profiles:launch', id),
   listSessions: (profile) => ipcRenderer.invoke('sessions:list', profile),
+  listSessionArtifacts: (input) => ipcRenderer.invoke('sessions:artifacts', input),
   revealSession: (input) => ipcRenderer.invoke('sessions:reveal', input),
   exportSession: (input) => ipcRenderer.invoke('sessions:export', input),
   listActivity: () => ipcRenderer.invoke('activity:all'),

@@ -15,6 +15,7 @@ const { nearestExistingDirectory } = require('./path-utils');
 const settings = require('./settings');
 const updater = require('./updater');
 const toolMaintenance = require('./tool-maintenance');
+const { indexSessionArtifacts } = require('./session-artifacts');
 const windows = require('./windows');
 const { QuotaService } = require('./quota-service');
 const {
@@ -320,6 +321,10 @@ function registerIpc() {
     if (!profile) return [];
     const normalized = normalizeProfile(profile);
     return apps.getApp(normalized.appId).scan(normalized);
+  });
+
+  ipcMain.handle('sessions:artifacts', async (_event, input = {}) => {
+    return listSessionArtifacts(input);
   });
 
   ipcMain.handle('sessions:reveal', async (_event, input = {}) => {
@@ -2749,6 +2754,28 @@ async function migrateWindowsProfilePath(id) {
 function shouldCopyProfileItem(sourcePath) {
   const name = path.basename(sourcePath).toLowerCase();
   return !PROFILE_COPY_EXCLUDES.has(name);
+}
+
+// 会话交接资料索引。渲染层只能提交槽位和会话 id；路径一律从持久化槽位
+// 重新扫描得到，避免 renderer 借此读取任意文件。
+async function listSessionArtifacts(input) {
+  const profile = storedProfile(String(input.profileId || ''));
+  if (!profile) return { ok: false, reason: t('main.err.slotNotFoundDot') };
+
+  const session = safeScanSessions(profile)
+    .find((item) => item.id === String(input.sessionId || ''));
+  if (!session) return { ok: false, reason: t('main.artifacts.sessionNotFound') };
+
+  try {
+    return {
+      ok: true,
+      profileId: profile.id,
+      sessionId: session.id,
+      ...(await indexSessionArtifacts(profile, session))
+    };
+  } catch (error) {
+    return { ok: false, reason: t('main.artifacts.failed', { msg: error.message }) };
+  }
 }
 
 // 导出会话为 Markdown。与 reveal 相同的口径：先重扫拿最新 filePath，防止

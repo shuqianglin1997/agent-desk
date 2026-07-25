@@ -712,6 +712,8 @@
     'main.exp.cancelled': '已取消导出。',
     'main.exp.writeFail': '写入失败：{msg}',
     'main.exp.done': '已导出 Markdown：{path}',
+    'main.artifacts.sessionNotFound': '找不到这个会话，刷新列表后再试。',
+    'main.artifacts.failed': '交接资料索引失败：{msg}',
     'main.rev.movedOpenedRecent': '原会话文件已被移动或清理，已打开最近可用的目录。刷新列表后可查看当前状态。',
     'main.rev.noPath': '没有可打开的路径。',
     'main.rev.nothingExists': '原位置和可用的上级目录都不存在。',

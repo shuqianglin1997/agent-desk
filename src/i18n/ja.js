@@ -712,6 +712,8 @@
     'main.exp.cancelled': '書き出しをキャンセルしました。',
     'main.exp.writeFail': '書き込みに失敗しました：{msg}',
     'main.exp.done': 'Markdown を書き出しました：{path}',
+    'main.artifacts.sessionNotFound': 'このセッションが見つかりません。一覧を更新して再試行してください。',
+    'main.artifacts.failed': '引き継ぎ資料のインデックス作成に失敗しました：{msg}',
     'main.rev.movedOpenedRecent': '元のセッションファイルが移動または削除されたため、最近利用可能なディレクトリを開きました。一覧を更新すると現在の状態を確認できます。',
     'main.rev.noPath': '開けるパスがありません。',
     'main.rev.nothingExists': '元の場所も利用可能な上位ディレクトリも存在しません。',
