@@ -103,6 +103,7 @@
       status: TASK_STATUSES.has(input.status) ? input.status : 'waiting',
       runtimeId: optionalText(input.runtimeId, 160),
       startedAt: isoDate(input.startedAt, null),
+      dispatchedAt: isoDate(input.dispatchedAt, null),
       completedAt: isoDate(input.completedAt, null),
       error: optionalText(input.error, 1_000)
     };
@@ -119,6 +120,7 @@
       status: SYNTHESIS_STATUSES.has(input.status) ? input.status : 'waiting',
       runtimeId: optionalText(input.runtimeId, 160),
       startedAt: isoDate(input.startedAt, null),
+      dispatchedAt: isoDate(input.dispatchedAt, null),
       completedAt: isoDate(input.completedAt, null),
       error: optionalText(input.error, 1_000)
     };
@@ -190,7 +192,10 @@
   function deriveWorkgraphStatus(graph) {
     if (graph?.synthesis?.status === 'completed') return 'completed';
     const progress = workgraphProgress(graph);
-    if (progress.failed > 0) return 'attention';
+    if (
+      progress.failed > 0
+      || ['failed', 'blocked'].includes(graph?.synthesis?.status)
+    ) return 'attention';
     if (progress.ready) {
       return graph?.synthesis?.status === 'running' ? 'running' : 'ready';
     }

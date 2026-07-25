@@ -16,6 +16,11 @@
         </div>
         <p id="topbarContext" class="topbar-context">猫猫庭院 · 本地账号与会话</p>
         <nav class="topbar-actions" data-i18n-aria="aria.topbarActions" aria-label="全局操作">
+          <button id="workgraphBtn" class="workgraph-entry" type="button" data-i18n-title="topbar.workgraph.title">
+            <span class="workgraph-mini" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span data-i18n="topbar.workgraph">编排</span>
+            <b id="workgraphTopCount" hidden>0</b>
+          </button>
           <button id="leaderboardBtn" type="button" data-i18n-title="topbar.leaderboard.title">🏆 <span data-i18n="topbar.leaderboard">排行</span></button>
           <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">更新</span></button>
           <button id="viewToggle" type="button" data-i18n-title="topbar.view.title">⇄ <span id="viewToggleLabel" data-i18n="topbar.toClassic">经典</span></button>
@@ -168,6 +173,7 @@
                 </div>
                 <div class="handoff-bulk-actions">
                   <button id="clearHandoffSelectionBtn" type="button" data-i18n="handoff.clear">清空</button>
+                  <button id="createWorkgraphBtn" type="button" class="workgraph-quick" data-i18n="workgraph.createSelected">编排所选</button>
                   <button id="copySelectedHandoffBtn" type="button" class="primary" data-i18n="handoff.copySelectedStatic">复制所选交接</button>
                 </div>
               </div>
@@ -446,6 +452,134 @@
       </form>
     </dialog>
 
+    <dialog id="workgraphDialog" class="workgraph-dialog">
+      <form method="dialog" class="workgraph-shell">
+        <header class="workgraph-head">
+          <div class="workgraph-head-title">
+            <span data-i18n="workgraph.kicker">WORKGRAPH · SESSION ORCHESTRATION</span>
+            <h3 data-i18n="workgraph.title">会话编排台</h3>
+            <p data-i18n="workgraph.lead">让多个会话并行完成分工，全部汇合后再交给一个会话综合处理。</p>
+          </div>
+          <div class="workgraph-head-legend" aria-label="工作图图例">
+            <span><i data-state="running"></i><b data-i18n="workgraph.legend.running">执行</b></span>
+            <span><i data-state="completed"></i><b data-i18n="workgraph.legend.completed">完成</b></span>
+            <span><i data-state="attention"></i><b data-i18n="workgraph.legend.attention">需处理</b></span>
+          </div>
+          <button class="workgraph-close" value="default" data-i18n-aria="dialog.close" aria-label="关闭">×</button>
+        </header>
+
+        <div class="workgraph-layout">
+          <aside class="workgraph-rail">
+            <div class="workgraph-rail-head">
+              <div>
+                <span data-i18n="workgraph.saved.kicker">SAVED GRAPHS</span>
+                <strong id="workgraphSavedSummary" data-i18n="workgraph.saved.empty">尚无编排</strong>
+              </div>
+              <button id="newWorkgraphBtn" type="button" data-i18n-title="workgraph.new.title" title="用当前勾选的会话新建编排">＋</button>
+            </div>
+            <ol id="workgraphList" class="workgraph-list"></ol>
+            <div class="workgraph-rail-note">
+              <span aria-hidden="true">◇</span>
+              <p data-i18n="workgraph.rail.note">工作图保存的是任务结构；会话只是当前执行者，失效后可以重新绑定。</p>
+            </div>
+          </aside>
+
+          <main class="workgraph-main">
+            <section id="workgraphEmpty" class="workgraph-empty">
+              <span class="workgraph-empty-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <small data-i18n="workgraph.empty.kicker">NO ACTIVE GRAPH</small>
+              <h4 data-i18n="workgraph.empty.title">先从会话列表选择并行任务</h4>
+              <p data-i18n="workgraph.empty.body">勾选一个或多个会话，或直接使用当前会话。系统会建立并行阶段、全部完成汇合点和综合处理阶段。</p>
+              <button id="workgraphEmptyCreateBtn" type="button" class="primary" data-i18n="workgraph.createSelected">编排所选</button>
+            </section>
+
+            <section id="workgraphEditor" class="workgraph-editor" hidden>
+              <header class="workgraph-editor-head">
+                <label class="workgraph-title-field">
+                  <span data-i18n="workgraph.field.name">编排名称</span>
+                  <input id="workgraphTitleInput" type="text" maxlength="120" data-i18n-placeholder="workgraph.ph.name" placeholder="例如：三路调研 → 综合方案" />
+                </label>
+                <label>
+                  <span data-i18n="workgraph.field.execution">上游执行</span>
+                  <select id="workgraphExecutionMode">
+                    <option value="observe" data-i18n="workgraph.mode.observe">观察已有会话</option>
+                    <option value="managed" data-i18n="workgraph.mode.managed">AgentDesk 自动执行</option>
+                  </select>
+                </label>
+                <label>
+                  <span data-i18n="workgraph.field.dispatch">汇合之后</span>
+                  <select id="workgraphDispatchMode">
+                    <option value="review" data-i18n="workgraph.dispatch.review">先由我确认</option>
+                    <option value="automatic" data-i18n="workgraph.dispatch.automatic">自动投递综合</option>
+                  </select>
+                </label>
+                <span id="workgraphStatusBadge" class="workgraph-status" data-state="draft">草稿</span>
+              </header>
+
+              <div class="workgraph-canvas">
+                <section class="workgraph-stage workgraph-stage-upstream">
+                  <header>
+                    <div>
+                      <span>01 · <b data-i18n="workgraph.stage.parallel">PARALLEL</b></span>
+                      <strong data-i18n="workgraph.stage.parallelTitle">并行任务</strong>
+                    </div>
+                    <small id="workgraphTaskSummary">0/0</small>
+                  </header>
+                  <div id="workgraphTaskList" class="workgraph-task-list"></div>
+                </section>
+
+                <section class="workgraph-join" aria-label="全部完成汇合">
+                  <div class="workgraph-join-rail" aria-hidden="true"><i></i><i></i><i></i></div>
+                  <div id="workgraphJoinNode" class="workgraph-join-node" data-state="waiting">
+                    <span data-i18n="workgraph.join.all">全部完成</span>
+                    <strong id="workgraphJoinCount">0 / 0</strong>
+                    <small id="workgraphJoinBadge" data-i18n="workgraph.join.waiting">等待上游</small>
+                  </div>
+                </section>
+
+                <section class="workgraph-stage workgraph-stage-synthesis">
+                  <header>
+                    <div>
+                      <span>02 · <b data-i18n="workgraph.stage.synthesis">SYNTHESIS</b></span>
+                      <strong data-i18n="workgraph.stage.synthesisTitle">综合处理</strong>
+                    </div>
+                    <small id="workgraphSynthesisStatus">等待汇合</small>
+                  </header>
+                  <label class="workgraph-synthesis-session">
+                    <span data-i18n="workgraph.field.synthesisSession">综合会话</span>
+                    <select id="workgraphSynthesisSelect"></select>
+                  </label>
+                  <label class="workgraph-synthesis-prompt">
+                    <span data-i18n="workgraph.field.synthesisPrompt">综合任务</span>
+                    <textarea id="workgraphSynthesisPrompt" rows="5" maxlength="6000" data-i18n-placeholder="workgraph.ph.synthesis" placeholder="综合所有上游结果，处理冲突并形成最终方案。"></textarea>
+                  </label>
+                  <div class="workgraph-delivery">
+                    <span aria-hidden="true">↳</span>
+                    <p id="workgraphDeliveryHint" data-i18n="workgraph.delivery.review">汇合后生成可检查的交接包，不会直接启动 Agent。</p>
+                  </div>
+                </section>
+              </div>
+
+              <footer class="workgraph-actions">
+                <div class="workgraph-run-summary">
+                  <span id="workgraphRunDot" data-state="draft"></span>
+                  <p>
+                    <strong id="workgraphRunSummary" data-i18n="workgraph.run.draft">准备规划</strong>
+                    <small id="workgraphRunMeta" data-i18n="workgraph.run.draftMeta">保存后即可开始观察或自动执行。</small>
+                  </p>
+                </div>
+                <button id="workgraphDeleteBtn" type="button" class="danger" data-i18n="workgraph.delete">删除</button>
+                <button id="workgraphSaveBtn" type="button" data-i18n="workgraph.save">保存</button>
+                <button id="workgraphCopyBtn" type="button" data-i18n="workgraph.copy">复制交接包</button>
+                <button id="workgraphStartBtn" type="button" class="primary" data-i18n="workgraph.start">开始编排</button>
+                <button id="workgraphDispatchBtn" type="button" class="primary workgraph-dispatch" data-i18n="workgraph.dispatch">投递综合</button>
+              </footer>
+            </section>
+          </main>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="welcomeDialog" class="welcome-dialog">
       <form method="dialog" class="dialog-body">
         <h3>AgentDesk</h3>
@@ -483,6 +617,7 @@
     <script src="./quota-overview.js"></script>
     <script src="./identity-groups.js"></script>
     <script src="./session-table.js"></script>
+    <script src="./workgraphs.js"></script>
     <script src="./yard/companion.js"></script>
     <script src="./yard/workload.js"></script>
     <script src="./yard/palettes.js"></script>

@@ -209,9 +209,13 @@ test('内嵌「多 Agent 控制台」UI 已移除——无浮层、无入口开�
   assert.doesNotMatch(html, /id="runtimeDock"/);
   assert.doesNotMatch(html, /id="consoleToggle"/);
   assert.doesNotMatch(html, /id="runtimeCloseBtn"/);
-  // 设置里不再开启控制台（恒关）+ 终端事件入口有 !els.runtimeDock 守卫（移除后不抛错）
+  // 设置里不再开启控制台（恒关）；事件先交给工作图，再由 !els.runtimeDock
+  // 守卫跳过已经移除的控制台 UI。
   assert.match(renderer, /state\.agentConsoleOn = false/);
-  assert.match(renderer, /function handleRuntimeEvent\(event\) \{\s*\n\s*if \(!els\.runtimeDock\) return/);
+  assert.match(
+    renderer,
+    /function handleRuntimeEvent\(event\) \{\s*\n\s*handleWorkgraphRuntimeEvent\(event\);\s*\n\s*if \(!els\.runtimeDock\) return/
+  );
 });
 
 test('不可 launch 的 CLI 槽位禁用打开按钮，账号卡片展示并行会话与同账号徽章', () => {
@@ -335,6 +339,35 @@ test('工具维护台覆盖桌面 App 与终端 Agent：检查、打开、单项
   assert.match(yardStyles, /工具维护台：庭院里是一块有状态灯的木工台/);
 });
 
+test('会话工作图把跨账号选择编成并行任务、ALL 汇合点和综合会话，并复用安全 Agent 运行时', () => {
+  const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
+  const html = read('src/index.html');
+  const renderer = read('src/renderer.js');
+  const preload = read('src/preload.js');
+  const main = read('src/main.js');
+  const workgraphs = read('src/workgraphs.js');
+  const styles = read('src/styles.css');
+
+  assert.match(html, /id="workgraphBtn"[\s\S]*?id="workgraphTopCount"/);
+  assert.match(html, /id="createWorkgraphBtn"[^>]*data-i18n="workgraph\.createSelected"/);
+  assert.match(html, /id="workgraphDialog"[\s\S]*?id="workgraphTaskList"[\s\S]*?id="workgraphJoinNode"[\s\S]*?id="workgraphSynthesisSelect"/);
+  assert.ok(html.indexOf('./workgraphs.js') > 0 && html.indexOf('./workgraphs.js') < html.indexOf('./renderer.js'));
+
+  assert.match(renderer, /sessions:\s*sessions\.map\(workgraphSessionSnapshot\)/);
+  assert.match(workgraphs, /joinMode:\s*'all'/);
+  assert.match(renderer, /function makeWorkgraphHandoff\(/);
+  assert.match(renderer, /await prepareHandoffArtifacts\(liveSessions/);
+  assert.match(renderer, /window\.manager\.startTerminal\(\{/);
+  assert.match(renderer, /window\.manager\.sendTerminal\(\{/);
+  assert.match(renderer, /event\.status === 'ready'[\s\S]*?node\.status = 'completed'/);
+
+  assert.match(preload, /listWorkgraphs:[\s\S]*?workgraphs:list/);
+  assert.match(preload, /saveWorkgraph:[\s\S]*?workgraphs:save/);
+  assert.match(main, /ipcMain\.handle\('workgraphs:list'/);
+  assert.match(main, /ipcMain\.handle\('workgraphs:save'/);
+  assert.match(styles, /\.workgraph-dialog[\s\S]*?\.workgraph-task[\s\S]*?\.workgraph-join-node[\s\S]*?\.workgraph-stage-synthesis/);
+});
+
 test('庭院猫位置越界兜底：旧拖拽位置落在被裁的前景草坪带(y≥124)时作废、回默认布局（Kimi 消失回归）', () => {
   const scene = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'scene.js'), 'utf8');
   // 统一重设计裁掉 y≥132 的前景草坪带后，旧的 saved 位置若落在那里会把猫画到可见区外
@@ -361,4 +394,10 @@ test('i18n 独立模块：三语加载顺序 + 顶栏接线 + 语言持久化 + 
       assert.ok(loc.includes("'" + key + "'"), key + ' missing in a locale');
     }
   }
+  const localeKeys = ['zh', 'en', 'ja'].map((lang) => new Set(
+    [...read(`src/i18n/${lang}.js`).matchAll(/'(workgraph\.[A-Za-z0-9_.]+)'\s*:/g)]
+      .map((match) => match[1])
+  ));
+  assert.deepEqual([...localeKeys[1]].sort(), [...localeKeys[0]].sort());
+  assert.deepEqual([...localeKeys[2]].sort(), [...localeKeys[0]].sort());
 });

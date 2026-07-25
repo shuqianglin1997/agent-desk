@@ -10,6 +10,9 @@ const state = {
   sessionSort: { key: 'updatedAt', direction: 'desc' },
   handoffSelection: new Map(),
   handoffArtifacts: new Map(),
+  workgraphs: [],
+  activeWorkgraphId: null,
+  workgraphDirty: false,
   selectionAnchorKey: null,
   query: '',
   theme: null,
@@ -157,6 +160,36 @@ const els = {
   attentionCount: document.querySelector('#attentionCount'),
   attentionItems: document.querySelector('#attentionItems'),
   leaderboardBtn: document.querySelector('#leaderboardBtn'),
+  workgraphBtn: document.querySelector('#workgraphBtn'),
+  workgraphTopCount: document.querySelector('#workgraphTopCount'),
+  workgraphDialog: document.querySelector('#workgraphDialog'),
+  workgraphSavedSummary: document.querySelector('#workgraphSavedSummary'),
+  workgraphList: document.querySelector('#workgraphList'),
+  newWorkgraphBtn: document.querySelector('#newWorkgraphBtn'),
+  workgraphEmpty: document.querySelector('#workgraphEmpty'),
+  workgraphEmptyCreateBtn: document.querySelector('#workgraphEmptyCreateBtn'),
+  workgraphEditor: document.querySelector('#workgraphEditor'),
+  workgraphTitleInput: document.querySelector('#workgraphTitleInput'),
+  workgraphExecutionMode: document.querySelector('#workgraphExecutionMode'),
+  workgraphDispatchMode: document.querySelector('#workgraphDispatchMode'),
+  workgraphStatusBadge: document.querySelector('#workgraphStatusBadge'),
+  workgraphTaskSummary: document.querySelector('#workgraphTaskSummary'),
+  workgraphTaskList: document.querySelector('#workgraphTaskList'),
+  workgraphJoinNode: document.querySelector('#workgraphJoinNode'),
+  workgraphJoinCount: document.querySelector('#workgraphJoinCount'),
+  workgraphJoinBadge: document.querySelector('#workgraphJoinBadge'),
+  workgraphSynthesisStatus: document.querySelector('#workgraphSynthesisStatus'),
+  workgraphSynthesisSelect: document.querySelector('#workgraphSynthesisSelect'),
+  workgraphSynthesisPrompt: document.querySelector('#workgraphSynthesisPrompt'),
+  workgraphDeliveryHint: document.querySelector('#workgraphDeliveryHint'),
+  workgraphRunDot: document.querySelector('#workgraphRunDot'),
+  workgraphRunSummary: document.querySelector('#workgraphRunSummary'),
+  workgraphRunMeta: document.querySelector('#workgraphRunMeta'),
+  workgraphDeleteBtn: document.querySelector('#workgraphDeleteBtn'),
+  workgraphSaveBtn: document.querySelector('#workgraphSaveBtn'),
+  workgraphCopyBtn: document.querySelector('#workgraphCopyBtn'),
+  workgraphStartBtn: document.querySelector('#workgraphStartBtn'),
+  workgraphDispatchBtn: document.querySelector('#workgraphDispatchBtn'),
   leaderboardDialog: document.querySelector('#leaderboardDialog'),
   leaderboardBody: document.querySelector('#leaderboardBody'),
   themeToggle: document.querySelector('#themeToggle'),
@@ -195,6 +228,7 @@ const els = {
   handoffBulkBar: document.querySelector('#handoffBulkBar'),
   handoffSelectionSummary: document.querySelector('#handoffSelectionSummary'),
   clearHandoffSelectionBtn: document.querySelector('#clearHandoffSelectionBtn'),
+  createWorkgraphBtn: document.querySelector('#createWorkgraphBtn'),
   copySelectedHandoffBtn: document.querySelector('#copySelectedHandoffBtn'),
   statusBar: document.querySelector('#statusBar'),
   statusText: document.querySelector('#statusText'),
@@ -259,6 +293,9 @@ let updateButtonTimer = null;
 let quotaRequest = null;
 let quotaHasLoaded = false;
 let quotaRequestedAt = 0;
+let workgraphSaveQueue = Promise.resolve();
+const workgraphDispatching = new Set();
+const workgraphOutputTimers = new Map();
 const QUOTA_REFRESH_INTERVAL = 5 * 60_000;
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -270,6 +307,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   initCompanion();
   applyView();
   await loadProfiles();
+  await loadWorkgraphs();
   loadActivity();
   loadQuotas();
   // 庭院可见、或排行榜开着时轮询（排行榜按钮在经典视图也可点，要保证它也实时刷新）。
@@ -747,6 +785,105 @@ function bindEvents() {
   els.leaderboardBtn.addEventListener('click', () => {
     renderLeaderboard();
     els.leaderboardDialog.showModal();
+  });
+
+  els.workgraphBtn?.addEventListener('click', () => {
+    openWorkgraphDialog();
+  });
+
+  els.createWorkgraphBtn?.addEventListener('click', () => {
+    void createWorkgraphFromSelection();
+  });
+
+  els.newWorkgraphBtn?.addEventListener('click', () => {
+    void createWorkgraphFromSelection();
+  });
+
+  els.workgraphEmptyCreateBtn?.addEventListener('click', () => {
+    void createWorkgraphFromSelection();
+  });
+
+  els.workgraphTitleInput?.addEventListener('input', () => {
+    const graph = activeWorkgraph();
+    if (!graph) return;
+    graph.title = els.workgraphTitleInput.value.slice(0, 120);
+    state.workgraphDirty = true;
+    renderWorkgraphTopCount();
+  });
+
+  els.workgraphTitleInput?.addEventListener('change', () => {
+    void saveActiveWorkgraph();
+  });
+
+  els.workgraphExecutionMode?.addEventListener('change', () => {
+    const graph = activeWorkgraph();
+    if (!graph) return;
+    graph.executionMode = els.workgraphExecutionMode.value === 'managed' ? 'managed' : 'observe';
+    state.workgraphDirty = true;
+    renderWorkgraphEditor(graph);
+    void saveActiveWorkgraph();
+  });
+
+  els.workgraphDispatchMode?.addEventListener('change', () => {
+    const graph = activeWorkgraph();
+    if (!graph) return;
+    graph.dispatchMode = els.workgraphDispatchMode.value === 'automatic' ? 'automatic' : 'review';
+    state.workgraphDirty = true;
+    renderWorkgraphEditor(graph);
+    void saveActiveWorkgraph();
+  });
+
+  els.workgraphSynthesisSelect?.addEventListener('change', () => {
+    const graph = activeWorkgraph();
+    if (!graph) return;
+    const session = workgraphSessionOptions(graph)
+      .find((item) => sessionKey(item) === els.workgraphSynthesisSelect.value);
+    graph.synthesis = {
+      ...graph.synthesis,
+      ...workgraphSessionSnapshot(session),
+      status: workgraphReady(graph) ? 'ready' : 'waiting',
+      runtimeId: null,
+      error: null
+    };
+    state.workgraphDirty = true;
+    renderWorkgraphEditor(graph);
+    void saveActiveWorkgraph();
+  });
+
+  els.workgraphSynthesisPrompt?.addEventListener('input', () => {
+    const graph = activeWorkgraph();
+    if (!graph) return;
+    graph.synthesis.prompt = els.workgraphSynthesisPrompt.value.slice(0, 6000);
+    state.workgraphDirty = true;
+  });
+
+  els.workgraphSynthesisPrompt?.addEventListener('change', () => {
+    void saveActiveWorkgraph();
+  });
+
+  els.workgraphSaveBtn?.addEventListener('click', () => {
+    void saveActiveWorkgraph({ announce: true });
+  });
+
+  els.workgraphStartBtn?.addEventListener('click', () => {
+    void startActiveWorkgraph();
+  });
+
+  els.workgraphCopyBtn?.addEventListener('click', () => {
+    void copyActiveWorkgraphHandoff();
+  });
+
+  els.workgraphDispatchBtn?.addEventListener('click', () => {
+    const graph = activeWorkgraph();
+    if (graph) void dispatchWorkgraphSynthesis(graph, { userInitiated: true });
+  });
+
+  els.workgraphDeleteBtn?.addEventListener('click', () => {
+    void deleteActiveWorkgraph();
+  });
+
+  els.workgraphDialog?.addEventListener('close', () => {
+    if (state.workgraphDirty) void saveActiveWorkgraph();
   });
 
   els.sessionScopeCurrentBtn?.addEventListener('click', () => {
@@ -2303,6 +2440,7 @@ async function stopCurrentRuntime() {
 }
 
 function handleRuntimeEvent(event) {
+  handleWorkgraphRuntimeEvent(event);
   if (!els.runtimeDock) return; // 控制台 UI 已移除，不再处理终端事件
   if (!event?.runtimeId) return;
   if (!state.runtime.runtimes.some((item) => item.id === event.runtimeId)) {
@@ -2679,6 +2817,8 @@ function rerenderLocalizedText() {
   renderLedger();
   renderToolCenter();
   renderCustomAgentList();
+  renderWorkgraphTopCount();
+  if (els.workgraphDialog?.open) renderWorkgraphDialog();
   if (els.reminderToggle) els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
   updateAtmosphereReadout();
   if (yardMounted) syncYard();
@@ -4108,6 +4248,937 @@ function markdownFence(content) {
   const runs = String(content || '').match(/`+/g) || [];
   const longest = runs.reduce((max, run) => Math.max(max, run.length), 0);
   return '`'.repeat(Math.max(3, longest + 1));
+}
+
+// ── 会话工作图 / 多会话编排 ────────────────────────────────────────────────
+
+function workgraphApi() {
+  return window.AgentDeskWorkgraphs || null;
+}
+
+function activeWorkgraph() {
+  return state.workgraphs.find((graph) => graph.id === state.activeWorkgraphId) || null;
+}
+
+function workgraphRefKey(value) {
+  return value?.sessionKey || sessionKey(value);
+}
+
+function workgraphSessionSnapshot(session) {
+  if (!session) {
+    return {
+      sessionKey: '',
+      profileId: '',
+      sessionId: '',
+      appId: '',
+      title: '',
+      accountName: '',
+      profileName: '',
+      projectPath: null,
+      filePath: null,
+      source: null
+    };
+  }
+  const profileId = session._profileId || session.profileId || '';
+  const owner = state.profiles.find((profile) => profile.id === profileId) || null;
+  return {
+    sessionKey: workgraphRefKey(session),
+    profileId,
+    sessionId: session.id || session.sessionId || '',
+    appId: session.appId || owner?.appId || '',
+    title: session.title || tr('handoff.artifacts.untitled'),
+    accountName: session._accountName || session.accountName || owner?.name || '',
+    profileName: session._profileName || session.profileName || owner?.name || '',
+    projectPath: session.projectPath || null,
+    filePath: session.filePath || null,
+    source: session.source || null
+  };
+}
+
+function workgraphLiveSession(ref) {
+  const key = workgraphRefKey(ref);
+  if (!key) return null;
+  return state.sessions.find((session) => sessionKey(session) === key)
+    || state.handoffSelection.get(key)
+    || null;
+}
+
+function workgraphSessionOptions(graph) {
+  const upstream = new Set((graph?.tasks || []).map(workgraphRefKey));
+  const byKey = new Map();
+  for (const session of [...state.sessions, ...state.handoffSelection.values()]) {
+    const key = sessionKey(session);
+    if (key && !upstream.has(key)) byKey.set(key, session);
+  }
+  if (graph?.synthesis?.sessionKey && !byKey.has(graph.synthesis.sessionKey)) {
+    byKey.set(graph.synthesis.sessionKey, graph.synthesis);
+  }
+  return [...byKey.values()].sort((left, right) => (
+    new Date(right.updatedAt || right.createdAt || 0).getTime()
+    - new Date(left.updatedAt || left.createdAt || 0).getTime()
+  ));
+}
+
+async function loadWorkgraphs() {
+  if (!window.manager.listWorkgraphs || !workgraphApi()) {
+    state.workgraphs = [];
+    state.activeWorkgraphId = null;
+    renderWorkgraphTopCount();
+    return;
+  }
+  try {
+    const items = await window.manager.listWorkgraphs();
+    state.workgraphs = workgraphApi().normalizeWorkgraphList(items, {
+      id: () => cryptoId(),
+      now: () => Date.now()
+    });
+    if (!state.workgraphs.some((graph) => graph.id === state.activeWorkgraphId)) {
+      state.activeWorkgraphId = state.workgraphs[0]?.id || null;
+    }
+    reconcileInterruptedWorkgraphs();
+  } catch (_error) {
+    state.workgraphs = [];
+    state.activeWorkgraphId = null;
+  }
+  state.workgraphDirty = false;
+  renderWorkgraphTopCount();
+  renderWorkgraphDialog();
+}
+
+function reconcileInterruptedWorkgraphs() {
+  const liveRuntimeIds = new Set(state.runtime.runtimes.map((runtime) => runtime.id));
+  for (const graph of state.workgraphs) {
+    let changed = false;
+    for (const task of graph.tasks) {
+      if (task.status !== 'running' || !task.runtimeId || liveRuntimeIds.has(task.runtimeId)) continue;
+      task.status = 'blocked';
+      task.error = tr('workgraph.error.interrupted');
+      task.runtimeId = null;
+      changed = true;
+    }
+    if (
+      graph.synthesis.status === 'running' &&
+      graph.synthesis.runtimeId &&
+      !liveRuntimeIds.has(graph.synthesis.runtimeId)
+    ) {
+      graph.synthesis.status = 'blocked';
+      graph.synthesis.error = tr('workgraph.error.interrupted');
+      graph.synthesis.runtimeId = null;
+      changed = true;
+    }
+    if (changed) {
+      synchronizeWorkgraphState(graph);
+      void saveWorkgraph(graph);
+    }
+  }
+}
+
+function cryptoId() {
+  try {
+    return crypto.randomUUID();
+  } catch (_error) {
+    return `wg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function workgraphProgress(graph) {
+  return workgraphApi()?.workgraphProgress(graph) || {
+    total: graph?.tasks?.length || 0,
+    completed: 0,
+    failed: 0,
+    running: 0,
+    waiting: graph?.tasks?.length || 0,
+    ready: false
+  };
+}
+
+function workgraphReady(graph) {
+  return workgraphProgress(graph).ready;
+}
+
+function synchronizeWorkgraphState(graph) {
+  if (!graph) return null;
+  const progress = workgraphProgress(graph);
+  if (progress.ready && graph.synthesis.status === 'waiting') {
+    graph.synthesis.status = 'ready';
+  } else if (!progress.ready && graph.synthesis.status === 'ready') {
+    graph.synthesis.status = 'waiting';
+  }
+  graph.status = workgraphApi()?.deriveWorkgraphStatus(graph) || graph.status || 'draft';
+  if (graph.status === 'completed' && !graph.completedAt) {
+    graph.completedAt = new Date().toISOString();
+  }
+  return graph;
+}
+
+function markWorkgraphDirty(graph) {
+  if (!graph) return;
+  graph.updatedAt = new Date().toISOString();
+  state.workgraphDirty = true;
+}
+
+async function openWorkgraphDialog() {
+  if (!els.workgraphDialog) return;
+  if (!state.workgraphs.length && selectedHandoffSessions().length) {
+    await createWorkgraphFromSelection({ open: false });
+  }
+  renderWorkgraphDialog();
+  if (!els.workgraphDialog.open) els.workgraphDialog.showModal();
+}
+
+async function createWorkgraphFromSelection({ open = true } = {}) {
+  const api = workgraphApi();
+  if (!api) return null;
+  let sessions = selectedHandoffSessions();
+  if (!sessions.length && selectedSession()) sessions = [selectedSession()];
+  if (!sessions.length) {
+    setStatus(tr('status.workgraphSelectFirst'));
+    renderWorkgraphDialog();
+    if (open && els.workgraphDialog && !els.workgraphDialog.open) els.workgraphDialog.showModal();
+    return null;
+  }
+
+  const selectedKeys = new Set(sessions.map(sessionKey));
+  const sameProject = state.sessions.find((candidate) => (
+    !selectedKeys.has(sessionKey(candidate)) &&
+    sessions[0]?.projectPath &&
+    candidate.projectPath === sessions[0].projectPath
+  ));
+  const synthesisSession = sameProject
+    || state.sessions.find((candidate) => !selectedKeys.has(sessionKey(candidate)))
+    || null;
+  const graph = api.createWorkgraph({
+    title: tr('workgraph.defaultName', { n: sessions.length }),
+    sessions: sessions.map(workgraphSessionSnapshot),
+    taskPrompt: tr('workgraph.defaultTaskPrompt'),
+    synthesisSession: workgraphSessionSnapshot(synthesisSession),
+    synthesisPrompt: tr('workgraph.defaultSynthesisPrompt'),
+    executionMode: 'observe',
+    dispatchMode: 'review'
+  }, {
+    id: () => cryptoId(),
+    now: () => Date.now()
+  });
+  state.workgraphs.unshift(graph);
+  state.activeWorkgraphId = graph.id;
+  state.workgraphDirty = true;
+  await saveWorkgraph(graph);
+  renderWorkgraphDialog();
+  if (open && els.workgraphDialog && !els.workgraphDialog.open) els.workgraphDialog.showModal();
+  return graph;
+}
+
+function replaceSavedWorkgraph(saved, snapshotText = null) {
+  const index = state.workgraphs.findIndex((graph) => graph.id === saved.id);
+  const current = index >= 0 ? state.workgraphs[index] : null;
+  if (current && snapshotText && JSON.stringify(current) !== snapshotText) {
+    state.workgraphDirty = true;
+    return current;
+  }
+  if (index >= 0) state.workgraphs[index] = saved;
+  else state.workgraphs.unshift(saved);
+  state.workgraphs.sort((left, right) => (
+    new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+  ));
+  if (state.activeWorkgraphId === saved.id) state.workgraphDirty = false;
+  return saved;
+}
+
+function saveWorkgraph(graph, { announce = false } = {}) {
+  if (!graph || !window.manager.saveWorkgraph || !workgraphApi()) return Promise.resolve(null);
+  synchronizeWorkgraphState(graph);
+  markWorkgraphDirty(graph);
+  const snapshot = workgraphApi().normalizeWorkgraph(graph, {
+    id: () => cryptoId(),
+    now: () => Date.now()
+  });
+  const snapshotText = JSON.stringify(graph);
+  workgraphSaveQueue = workgraphSaveQueue
+    .catch(() => null)
+    .then(async () => {
+      const result = await window.manager.saveWorkgraph(snapshot);
+      if (!result?.ok || !result.graph) throw new Error(result?.reason || tr('status.workgraphSaveFail'));
+      const saved = workgraphApi().normalizeWorkgraph(result.graph, {
+        id: () => cryptoId(),
+        now: () => Date.now()
+      });
+      replaceSavedWorkgraph(saved, snapshotText);
+      renderWorkgraphTopCount();
+      if (els.workgraphDialog?.open) renderWorkgraphDialog();
+      if (announce) setStatus(tr('status.workgraphSaved', { title: saved.title }));
+      return saved;
+    })
+    .catch((error) => {
+      state.workgraphDirty = true;
+      if (announce) setStatus(error?.message || tr('status.workgraphSaveFail'));
+      return null;
+    });
+  return workgraphSaveQueue;
+}
+
+function saveActiveWorkgraph(options = {}) {
+  return saveWorkgraph(activeWorkgraph(), options);
+}
+
+async function deleteActiveWorkgraph() {
+  const graph = activeWorkgraph();
+  if (!graph || !window.manager.removeWorkgraph) return;
+  if (!window.confirm(tr('workgraph.confirm.delete', { title: graph.title }))) return;
+  const result = await window.manager.removeWorkgraph(graph.id);
+  if (!result?.ok) {
+    setStatus(tr('status.workgraphDeleteFail'));
+    return;
+  }
+  state.workgraphs = state.workgraphs.filter((item) => item.id !== graph.id);
+  state.activeWorkgraphId = state.workgraphs[0]?.id || null;
+  state.workgraphDirty = false;
+  renderWorkgraphTopCount();
+  renderWorkgraphDialog();
+  setStatus(tr('status.workgraphDeleted', { title: graph.title }));
+}
+
+function renderWorkgraphTopCount() {
+  if (!els.workgraphTopCount) return;
+  const count = state.workgraphs.filter((graph) => (
+    synchronizeWorkgraphState(graph)?.status !== 'completed'
+  )).length;
+  els.workgraphTopCount.hidden = count === 0;
+  els.workgraphTopCount.textContent = String(count);
+  els.workgraphBtn?.classList.toggle('has-active-graphs', count > 0);
+}
+
+function renderWorkgraphDialog() {
+  if (!els.workgraphDialog) return;
+  renderWorkgraphTopCount();
+  renderWorkgraphList();
+  const graph = activeWorkgraph();
+  if (els.workgraphEmpty) els.workgraphEmpty.hidden = Boolean(graph);
+  if (els.workgraphEditor) els.workgraphEditor.hidden = !graph;
+  const canCreate = selectedHandoffSessions().length > 0 || Boolean(selectedSession());
+  if (els.newWorkgraphBtn) els.newWorkgraphBtn.disabled = !canCreate;
+  if (els.workgraphEmptyCreateBtn) els.workgraphEmptyCreateBtn.disabled = !canCreate;
+  if (graph) renderWorkgraphEditor(graph);
+}
+
+function renderWorkgraphList() {
+  if (!els.workgraphList || !els.workgraphSavedSummary) return;
+  els.workgraphList.replaceChildren();
+  els.workgraphSavedSummary.textContent = state.workgraphs.length
+    ? tr('workgraph.saved.summary', { n: state.workgraphs.length })
+    : tr('workgraph.saved.empty');
+  for (const graph of state.workgraphs) {
+    synchronizeWorkgraphState(graph);
+    const progress = workgraphProgress(graph);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'workgraph-list-item';
+    button.dataset.state = graph.status;
+    button.setAttribute('aria-current', String(graph.id === state.activeWorkgraphId));
+    const copy = document.createElement('span');
+    copy.className = 'workgraph-list-copy';
+    const title = document.createElement('strong');
+    title.textContent = graph.title;
+    const meta = document.createElement('small');
+    meta.textContent = [
+      workgraphStatusLabel(graph.status),
+      tr('workgraph.progress', { completed: progress.completed, total: progress.total })
+    ].join(' · ');
+    copy.append(title, meta);
+    button.append(copy);
+    button.addEventListener('click', () => {
+      state.activeWorkgraphId = graph.id;
+      state.workgraphDirty = false;
+      renderWorkgraphDialog();
+    });
+    const item = document.createElement('li');
+    item.append(button);
+    els.workgraphList.append(item);
+  }
+}
+
+function renderWorkgraphEditor(graph) {
+  synchronizeWorkgraphState(graph);
+  const progress = workgraphProgress(graph);
+  if (document.activeElement !== els.workgraphTitleInput) els.workgraphTitleInput.value = graph.title;
+  els.workgraphExecutionMode.value = graph.executionMode;
+  els.workgraphDispatchMode.value = graph.dispatchMode;
+  els.workgraphStatusBadge.dataset.state = graph.status;
+  els.workgraphStatusBadge.textContent = workgraphStatusLabel(graph.status);
+  els.workgraphTaskSummary.textContent = tr('workgraph.progress', {
+    completed: progress.completed,
+    total: progress.total
+  });
+  renderWorkgraphTasks(graph);
+  renderWorkgraphSynthesisOptions(graph);
+
+  const joinState = progress.failed > 0 ? 'attention' : progress.ready ? 'ready' : 'waiting';
+  els.workgraphJoinNode.dataset.state = joinState;
+  els.workgraphJoinCount.textContent = `${progress.completed} / ${progress.total}`;
+  els.workgraphJoinBadge.textContent = tr(
+    progress.failed > 0
+      ? 'workgraph.join.attention'
+      : progress.ready
+        ? 'workgraph.join.ready'
+        : 'workgraph.join.waiting'
+  );
+
+  els.workgraphSynthesisStatus.textContent = workgraphSynthesisStatusLabel(graph.synthesis.status);
+  if (document.activeElement !== els.workgraphSynthesisPrompt) {
+    els.workgraphSynthesisPrompt.value = graph.synthesis.prompt || '';
+  }
+  els.workgraphDeliveryHint.textContent = tr(
+    graph.dispatchMode === 'automatic'
+      ? 'workgraph.delivery.automatic'
+      : 'workgraph.delivery.review'
+  );
+
+  els.workgraphRunDot.dataset.state = graph.status;
+  const runText = workgraphRunText(graph, progress);
+  els.workgraphRunSummary.textContent = runText.title;
+  els.workgraphRunMeta.textContent = runText.meta;
+  els.workgraphStartBtn.textContent = tr(
+    graph.status === 'attention' ? 'workgraph.retryFailed' : 'workgraph.start'
+  );
+  els.workgraphStartBtn.disabled = (
+    !graph.tasks.length ||
+    ['ready', 'completed'].includes(graph.status) ||
+    (graph.status === 'running' && progress.failed === 0)
+  );
+  els.workgraphCopyBtn.disabled = !graph.tasks.length;
+  els.workgraphDispatchBtn.disabled = !(
+    progress.ready &&
+    graph.synthesis.sessionKey &&
+    !['running', 'completed'].includes(graph.synthesis.status)
+  );
+  els.workgraphDispatchBtn.hidden = !progress.ready;
+  els.workgraphDeleteBtn.disabled = graph.synthesis.status === 'running';
+}
+
+function renderWorkgraphTasks(graph) {
+  els.workgraphTaskList.replaceChildren();
+  graph.tasks.forEach((task, index) => {
+    const card = document.createElement('article');
+    card.className = 'workgraph-task';
+    card.dataset.state = task.status;
+
+    const head = document.createElement('div');
+    head.className = 'workgraph-task-head';
+    const order = document.createElement('span');
+    order.className = 'workgraph-task-index';
+    order.textContent = String(index + 1).padStart(2, '0');
+    const copy = document.createElement('div');
+    copy.className = 'workgraph-task-copy';
+    const title = document.createElement('strong');
+    title.textContent = task.title;
+    const meta = document.createElement('small');
+    meta.textContent = [task.accountName || task.profileName, appLabel(task.appId)].filter(Boolean).join(' · ');
+    copy.append(title, meta);
+    const status = document.createElement('span');
+    status.className = 'workgraph-task-state';
+    status.textContent = workgraphTaskStatusLabel(task.status);
+    head.append(order, copy, status);
+
+    const promptLabel = document.createElement('label');
+    promptLabel.className = 'workgraph-task-field';
+    const promptName = document.createElement('span');
+    promptName.textContent = tr('workgraph.field.task');
+    const prompt = document.createElement('textarea');
+    prompt.rows = 2;
+    prompt.maxLength = 6000;
+    prompt.value = task.prompt || '';
+    prompt.placeholder = tr('workgraph.ph.task');
+    prompt.disabled = task.status === 'running';
+    prompt.addEventListener('input', () => {
+      task.prompt = prompt.value.slice(0, 6000);
+      markWorkgraphDirty(graph);
+    });
+    prompt.addEventListener('change', () => void saveWorkgraph(graph));
+    promptLabel.append(promptName, prompt);
+
+    const noteLabel = document.createElement('label');
+    noteLabel.className = 'workgraph-task-field workgraph-task-note';
+    noteLabel.hidden = !['completed', 'failed', 'blocked'].includes(task.status);
+    const noteName = document.createElement('span');
+    noteName.textContent = tr('workgraph.field.result');
+    const note = document.createElement('input');
+    note.type = 'text';
+    note.maxLength = 8000;
+    note.value = task.completionNote || task.error || '';
+    note.placeholder = tr('workgraph.ph.result');
+    note.addEventListener('input', () => {
+      task.completionNote = note.value.slice(0, 8000);
+      markWorkgraphDirty(graph);
+    });
+    note.addEventListener('change', () => void saveWorkgraph(graph));
+    noteLabel.append(noteName, note);
+
+    const actions = document.createElement('div');
+    actions.className = 'workgraph-task-actions';
+    actions.append(workgraphTaskButton('open', tr('workgraph.task.open'), () => {
+      void focusWorkgraphSession(task);
+    }));
+    if (['waiting', 'running'].includes(task.status) && graph.status !== 'draft') {
+      actions.append(workgraphTaskButton('complete', tr('workgraph.task.complete'), () => {
+        void setWorkgraphTaskStatus(graph, task, 'completed');
+      }));
+      actions.append(workgraphTaskButton('fail', tr('workgraph.task.blocked'), () => {
+        void setWorkgraphTaskStatus(graph, task, 'blocked');
+      }));
+    } else if (['failed', 'blocked', 'completed', 'skipped'].includes(task.status)) {
+      actions.append(workgraphTaskButton('retry', tr('workgraph.task.retry'), () => {
+        void retryWorkgraphTask(graph, task);
+      }));
+    }
+    if (graph.status === 'draft') {
+      actions.append(workgraphTaskButton('remove', tr('workgraph.task.remove'), () => {
+        graph.tasks = graph.tasks.filter((item) => item.id !== task.id);
+        markWorkgraphDirty(graph);
+        renderWorkgraphDialog();
+        void saveWorkgraph(graph);
+      }));
+    }
+
+    card.append(head, promptLabel, noteLabel, actions);
+    els.workgraphTaskList.append(card);
+  });
+}
+
+function workgraphTaskButton(action, label, handler) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.dataset.action = action;
+  button.textContent = label;
+  button.addEventListener('click', handler);
+  return button;
+}
+
+function renderWorkgraphSynthesisOptions(graph) {
+  const previous = graph.synthesis.sessionKey || '';
+  els.workgraphSynthesisSelect.replaceChildren();
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = tr('workgraph.selectSynthesis');
+  els.workgraphSynthesisSelect.append(placeholder);
+  for (const session of workgraphSessionOptions(graph)) {
+    const snapshot = workgraphSessionSnapshot(session);
+    const option = document.createElement('option');
+    option.value = snapshot.sessionKey;
+    option.textContent = [
+      snapshot.title,
+      snapshot.accountName || snapshot.profileName,
+      appLabel(snapshot.appId)
+    ].filter(Boolean).join(' · ');
+    els.workgraphSynthesisSelect.append(option);
+  }
+  els.workgraphSynthesisSelect.value = previous;
+  els.workgraphSynthesisSelect.disabled = graph.synthesis.status === 'running';
+}
+
+function workgraphStatusLabel(status) {
+  const known = new Set(['draft', 'running', 'ready', 'attention', 'paused', 'completed']);
+  return tr(`workgraph.status.${known.has(status) ? status : 'draft'}`);
+}
+
+function workgraphTaskStatusLabel(status) {
+  const known = new Set(['waiting', 'running', 'completed', 'failed', 'blocked', 'skipped']);
+  return tr(`workgraph.taskStatus.${known.has(status) ? status : 'waiting'}`);
+}
+
+function workgraphSynthesisStatusLabel(status) {
+  const known = new Set(['waiting', 'ready', 'running', 'completed', 'failed', 'blocked']);
+  return tr(`workgraph.synthesisStatus.${known.has(status) ? status : 'waiting'}`);
+}
+
+function workgraphRunText(graph, progress) {
+  if (graph.status === 'completed') {
+    return { title: tr('workgraph.run.completed'), meta: tr('workgraph.run.completedMeta') };
+  }
+  if (graph.status === 'attention') {
+    return {
+      title: tr('workgraph.run.attention'),
+      meta: tr('workgraph.run.attentionMeta', { n: progress.failed })
+    };
+  }
+  if (graph.status === 'ready') {
+    return { title: tr('workgraph.run.ready'), meta: tr('workgraph.run.readyMeta') };
+  }
+  if (graph.status === 'running') {
+    return {
+      title: tr('workgraph.run.running'),
+      meta: tr('workgraph.run.runningMeta', {
+        completed: progress.completed,
+        total: progress.total
+      })
+    };
+  }
+  return { title: tr('workgraph.run.draft'), meta: tr('workgraph.run.draftMeta') };
+}
+
+async function focusWorkgraphSession(ref) {
+  const key = workgraphRefKey(ref);
+  let target = state.sessions.find((session) => sessionKey(session) === key);
+  if (!target && state.sessionScope !== 'all') {
+    await setSessionScope('all');
+    target = state.sessions.find((session) => sessionKey(session) === key);
+  }
+  if (!target) {
+    setStatus(tr('status.workgraphSessionMissing'));
+    return;
+  }
+  setActiveSession(target);
+  renderSessions();
+  renderInspector();
+  els.workgraphDialog?.close();
+  setStatus(tr('status.workgraphSessionFocused', { title: target.title }));
+}
+
+async function startActiveWorkgraph() {
+  const graph = activeWorkgraph();
+  if (!graph || !graph.tasks.length) return;
+  if (graph.executionMode === 'managed') {
+    const ok = window.confirm(tr('workgraph.confirm.managed', { n: graph.tasks.length }));
+    if (!ok) return;
+  }
+  const now = new Date().toISOString();
+  graph.startedAt = graph.startedAt || now;
+  graph.completedAt = null;
+  for (const task of graph.tasks) {
+    if (['waiting', 'failed', 'blocked'].includes(task.status)) {
+      task.status = 'running';
+      task.startedAt = now;
+      task.completedAt = null;
+      task.runtimeId = null;
+      task.dispatchedAt = null;
+      task.error = null;
+    }
+  }
+  graph.status = 'running';
+  graph.synthesis.status = 'waiting';
+  graph.synthesis.error = null;
+  markWorkgraphDirty(graph);
+  await saveWorkgraph(graph);
+  renderWorkgraphDialog();
+
+  if (graph.executionMode === 'managed') {
+    setStatus(tr('status.workgraphLaunching', { n: graph.tasks.length }));
+    for (const task of graph.tasks.filter((item) => item.status === 'running')) {
+      await startManagedWorkgraphNode(graph, task, 'task');
+    }
+  } else {
+    setStatus(tr('status.workgraphObserving', { n: graph.tasks.length }));
+  }
+}
+
+async function setWorkgraphTaskStatus(graph, task, nextStatus) {
+  if (!graph || !task) return;
+  task.status = nextStatus;
+  if (nextStatus === 'completed') {
+    task.completedAt = new Date().toISOString();
+    task.error = null;
+  } else if (['failed', 'blocked'].includes(nextStatus)) {
+    task.error = task.error || tr('workgraph.error.manualBlock');
+  }
+  if (task.runtimeId && ['completed', 'failed', 'blocked'].includes(nextStatus)) {
+    const runtimeId = task.runtimeId;
+    task.runtimeId = null;
+    try { await window.manager.stopTerminal({ runtimeId }); } catch (_error) { /* already done */ }
+  }
+  markWorkgraphDirty(graph);
+  await settleWorkgraph(graph);
+}
+
+async function retryWorkgraphTask(graph, task) {
+  task.status = 'running';
+  task.startedAt = new Date().toISOString();
+  task.completedAt = null;
+  task.runtimeId = null;
+  task.dispatchedAt = null;
+  task.error = null;
+  graph.status = 'running';
+  graph.completedAt = null;
+  markWorkgraphDirty(graph);
+  await saveWorkgraph(graph);
+  renderWorkgraphDialog();
+  if (graph.executionMode === 'managed') {
+    await startManagedWorkgraphNode(graph, task, 'task');
+  } else {
+    setStatus(tr('status.workgraphRetrying', { title: task.title }));
+  }
+}
+
+async function settleWorkgraph(graph) {
+  synchronizeWorkgraphState(graph);
+  markWorkgraphDirty(graph);
+  await saveWorkgraph(graph);
+  renderWorkgraphTopCount();
+  if (els.workgraphDialog?.open && graph.id === state.activeWorkgraphId) renderWorkgraphDialog();
+  if (graph.status === 'ready') {
+    setStatus(tr('status.workgraphReady', { title: graph.title }));
+    if (graph.dispatchMode === 'automatic') {
+      await dispatchWorkgraphSynthesis(graph, { userInitiated: false });
+    }
+  } else if (graph.status === 'completed') {
+    setStatus(tr('status.workgraphCompleted', { title: graph.title }));
+  }
+}
+
+async function workgraphAdapterFor(ref) {
+  if (!window.manager.listTerminalAdapters) return null;
+  const adapters = await window.manager.listTerminalAdapters(ref.profileId || null);
+  const preferredId = ref.appId === 'codex'
+    ? 'codex'
+    : (ref.appId === 'claude' || ref.appId === 'claude-cli' ? 'claude' : null);
+  return (Array.isArray(adapters) ? adapters : []).find((adapter) => (
+    adapter.id === preferredId && adapter.mode === 'agent' && adapter.available
+  )) || (Array.isArray(adapters) ? adapters : []).find((adapter) => (
+    adapter.mode === 'agent' && adapter.available
+  )) || null;
+}
+
+async function startManagedWorkgraphNode(graph, node, kind) {
+  const adapter = await workgraphAdapterFor(node);
+  if (!adapter) {
+    node.status = 'blocked';
+    node.error = tr('workgraph.error.noAgent');
+    markWorkgraphDirty(graph);
+    await settleWorkgraph(graph);
+    return false;
+  }
+  const profile = state.profiles.find((item) => item.id === node.profileId) || null;
+  const identityProfileId = adapter.identityAppId && profile?.appId === adapter.identityAppId
+    ? profile.id
+    : null;
+  const result = await window.manager.startTerminal({
+    adapterId: adapter.id,
+    identityProfileId,
+    workspaceProfileId: node.profileId || null,
+    sessionId: node.sessionId || null,
+    title: `${graph.title} · ${node.title || tr('workgraph.stage.synthesisTitle')}`
+  });
+  if (!result?.ok) {
+    node.status = result?.cancelled ? 'blocked' : 'failed';
+    node.error = result?.reason || tr('workgraph.error.launchFail');
+    markWorkgraphDirty(graph);
+    await settleWorkgraph(graph);
+    return false;
+  }
+  node.runtimeId = result.id;
+  node.status = 'running';
+  node.startedAt = node.startedAt || new Date().toISOString();
+  node.dispatchedAt = null;
+  node.error = null;
+  markWorkgraphDirty(graph);
+  await saveWorkgraph(graph);
+  if (els.workgraphDialog?.open && graph.id === state.activeWorkgraphId) renderWorkgraphDialog();
+  if (result.status === 'ready') {
+    await sendManagedWorkgraphNode(graph, node, kind);
+  }
+  return true;
+}
+
+async function sendManagedWorkgraphNode(graph, node, kind) {
+  if (!node.runtimeId || node.dispatchedAt) return false;
+  node.dispatchedAt = new Date().toISOString();
+  const text = kind === 'synthesis'
+    ? await makeWorkgraphHandoff(graph, 28 * 1024)
+    : await makeManagedWorkgraphTaskPrompt(graph, node);
+  const result = await window.manager.sendTerminal({
+    runtimeId: node.runtimeId,
+    text
+  });
+  if (!result?.ok) {
+    node.dispatchedAt = null;
+    node.status = 'failed';
+    node.error = result?.reason || tr('workgraph.error.sendFail');
+    markWorkgraphDirty(graph);
+    await settleWorkgraph(graph);
+    return false;
+  }
+  node.status = 'running';
+  markWorkgraphDirty(graph);
+  await saveWorkgraph(graph);
+  return true;
+}
+
+async function makeManagedWorkgraphTaskPrompt(graph, task) {
+  const live = workgraphLiveSession(task);
+  let context = '';
+  if (live) {
+    await prepareHandoffArtifacts([live], { announce: false });
+    const owner = sessionOwnerProfile(live);
+    if (owner) context = makeHandoffText(owner, live);
+  }
+  if (!context) {
+    context = [
+      tr('workgraph.handoff.session', {
+        title: task.title,
+        account: task.accountName || task.profileName || tr('common.unrecorded'),
+        project: task.projectPath || tr('common.unrecorded')
+      })
+    ].join('\n');
+  }
+  const instruction = tr('workgraph.managedTask', {
+    graph: graph.title,
+    task: task.prompt || tr('workgraph.defaultTaskPrompt')
+  });
+  return clipUtf8(`${instruction}\n\n---\n\n${context}`, 28 * 1024).text;
+}
+
+function locateWorkgraphRuntime(runtimeId) {
+  for (const graph of state.workgraphs) {
+    const task = graph.tasks.find((item) => item.runtimeId === runtimeId);
+    if (task) return { graph, node: task, kind: 'task' };
+    if (graph.synthesis.runtimeId === runtimeId) {
+      return { graph, node: graph.synthesis, kind: 'synthesis' };
+    }
+  }
+  return null;
+}
+
+function handleWorkgraphRuntimeEvent(event) {
+  if (!event?.runtimeId) return;
+  const link = locateWorkgraphRuntime(event.runtimeId);
+  if (!link) return;
+  const { graph, node, kind } = link;
+  if (event.type === 'output' && event.text && ['agent', 'tool', 'stderr', 'stdout'].includes(event.stream)) {
+    node.output = `${node.output || ''}${event.text}`.slice(-12_000);
+    if (event.stream === 'stderr') node.error = String(event.text).trim().slice(0, 1000) || node.error;
+    scheduleWorkgraphOutputSave(graph);
+  }
+  if (event.type !== 'state') return;
+  if (event.status === 'ready') {
+    if (!node.dispatchedAt) {
+      void sendManagedWorkgraphNode(graph, node, kind);
+      return;
+    }
+    if (node.status === 'running') {
+      node.status = 'completed';
+      node.completedAt = new Date().toISOString();
+      node.error = null;
+      markWorkgraphDirty(graph);
+      void settleWorkgraph(graph);
+    }
+    return;
+  }
+  if (['error', 'exited', 'stopped'].includes(event.status)) {
+    node.status = event.status === 'stopped' ? 'blocked' : 'failed';
+    node.error = node.error || tr('workgraph.error.runtimeExit');
+    node.runtimeId = null;
+    markWorkgraphDirty(graph);
+    void settleWorkgraph(graph);
+  }
+}
+
+function scheduleWorkgraphOutputSave(graph) {
+  clearTimeout(workgraphOutputTimers.get(graph.id));
+  const timer = setTimeout(() => {
+    workgraphOutputTimers.delete(graph.id);
+    void saveWorkgraph(graph);
+  }, 600);
+  workgraphOutputTimers.set(graph.id, timer);
+  if (els.workgraphDialog?.open && graph.id === state.activeWorkgraphId) renderWorkgraphEditor(graph);
+}
+
+async function copyActiveWorkgraphHandoff() {
+  const graph = activeWorkgraph();
+  if (!graph) return;
+  const text = await makeWorkgraphHandoff(graph, 384 * 1024);
+  await window.manager.writeClipboard(text);
+  setStatus(tr('status.workgraphCopied', { n: graph.tasks.length }));
+}
+
+async function dispatchWorkgraphSynthesis(graph, { userInitiated = false } = {}) {
+  if (!graph || !workgraphReady(graph) || !graph.synthesis.sessionKey) {
+    if (userInitiated) setStatus(tr('status.workgraphSynthesisMissing'));
+    return false;
+  }
+  if (workgraphDispatching.has(graph.id) || graph.synthesis.status === 'running') return false;
+  workgraphDispatching.add(graph.id);
+  try {
+    const adapter = await workgraphAdapterFor(graph.synthesis);
+    if (!adapter) {
+      const text = await makeWorkgraphHandoff(graph, 384 * 1024);
+      await window.manager.writeClipboard(text);
+      const profile = state.profiles.find((item) => item.id === graph.synthesis.profileId);
+      if (profile) await window.manager.launchProfile(profile.id);
+      graph.synthesis.status = 'ready';
+      graph.synthesis.error = tr('workgraph.error.manualDelivery');
+      markWorkgraphDirty(graph);
+      await saveWorkgraph(graph);
+      renderWorkgraphDialog();
+      setStatus(tr('status.workgraphManualDelivery', { title: graph.synthesis.title }));
+      return true;
+    }
+    graph.synthesis.status = 'running';
+    graph.synthesis.startedAt = new Date().toISOString();
+    graph.synthesis.runtimeId = null;
+    graph.synthesis.dispatchedAt = null;
+    graph.synthesis.error = null;
+    graph.status = 'running';
+    markWorkgraphDirty(graph);
+    await saveWorkgraph(graph);
+    renderWorkgraphDialog();
+    const started = await startManagedWorkgraphNode(graph, graph.synthesis, 'synthesis');
+    if (started) setStatus(tr('status.workgraphDispatching', { title: graph.synthesis.title }));
+    return started;
+  } finally {
+    workgraphDispatching.delete(graph.id);
+  }
+}
+
+async function makeWorkgraphHandoff(graph, maxBytes) {
+  const liveSessions = graph.tasks.map(workgraphLiveSession).filter(Boolean);
+  if (liveSessions.length) await prepareHandoffArtifacts(liveSessions, { announce: false });
+  const blocks = [
+    tr('workgraph.handoff.header', {
+      title: graph.title,
+      n: graph.tasks.length
+    })
+  ];
+  graph.tasks.forEach((task, index) => {
+    const live = workgraphLiveSession(task);
+    const artifacts = live ? selectedSessionArtifacts(live).slice(0, 4) : [];
+    const artifactText = artifacts.map((artifact) => [
+      `#### ${artifact.title}`,
+      `${artifact.relativePath || artifact.path || tr('handoff.artifacts.virtualPath')}`,
+      artifact.content
+    ].join('\n\n')).join('\n\n');
+    blocks.push(tr('workgraph.handoff.task', {
+      index: index + 1,
+      title: task.title,
+      account: task.accountName || task.profileName || tr('common.unrecorded'),
+      status: workgraphTaskStatusLabel(task.status),
+      task: task.prompt || tr('common.unrecorded'),
+      result: task.completionNote || task.output || task.error || tr('workgraph.handoff.noResult'),
+      artifacts: artifactText || tr('workgraph.handoff.noArtifacts')
+    }));
+  });
+  const footer = tr('workgraph.handoff.footer', {
+    target: graph.synthesis.title || tr('workgraph.selectSynthesis'),
+    task: graph.synthesis.prompt || tr('workgraph.defaultSynthesisPrompt')
+  });
+  const footerBytes = new TextEncoder().encode(`\n\n---\n\n${footer}`).length;
+  const body = clipUtf8(blocks.join('\n\n---\n\n'), Math.max(1024, maxBytes - footerBytes));
+  return [
+    body.text,
+    body.truncated ? tr('workgraph.handoff.truncated') : null,
+    footer
+  ].filter(Boolean).join('\n\n---\n\n');
+}
+
+function clipUtf8(value, maxBytes) {
+  const text = String(value || '');
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(text);
+  if (bytes.length <= maxBytes) return { text, truncated: false };
+  let low = 0;
+  let high = text.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (encoder.encode(text.slice(0, middle)).length <= maxBytes) low = middle;
+    else high = middle - 1;
+  }
+  return { text: text.slice(0, low), truncated: true };
 }
 
 function compactDate(value) {

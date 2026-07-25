@@ -93,6 +93,19 @@ test('汇合进度区分执行、失败、全部完成与综合完成', () => {
   assert.equal(deriveWorkgraphStatus(graph), 'completed');
 });
 
+test('综合节点失败或阻塞会把工作图标为需处理', () => {
+  const graph = normalizeWorkgraph({
+    id: 'graph',
+    status: 'running',
+    tasks: [{ id: 'a', status: 'completed' }],
+    synthesis: { id: 's', status: 'failed' }
+  });
+
+  assert.equal(deriveWorkgraphStatus(graph), 'attention');
+  graph.synthesis.status = 'blocked';
+  assert.equal(deriveWorkgraphStatus(graph), 'attention');
+});
+
 test('工作图列表去重并按最后更新时间排序', () => {
   const list = normalizeWorkgraphList([
     { id: 'older', updatedAt: '2026-07-20T00:00:00Z' },
