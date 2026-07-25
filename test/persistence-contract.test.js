@@ -50,6 +50,24 @@ test('renderer 使用 contextIsolation 且启用 Chromium sandbox', () => {
   assert.match(windowSetup, /sandbox:\s*true/);
 });
 
+test('会话资料索引只接受槽位/会话 id，并从持久化槽位重新扫描可信路径', () => {
+  const handler = sourceBetween(
+    "ipcMain.handle('sessions:artifacts'",
+    "ipcMain.handle('sessions:reveal'"
+  );
+  const indexer = sourceBetween(
+    'async function listSessionArtifacts',
+    '// 导出会话为 Markdown'
+  );
+
+  assert.match(handler, /listSessionArtifacts\(input\)/);
+  assert.match(indexer, /storedProfile\(String\(input\.profileId/);
+  assert.match(indexer, /safeScanSessions\(profile\)/);
+  assert.match(indexer, /item\.id === String\(input\.sessionId/);
+  assert.match(indexer, /indexSessionArtifacts\(profile, session\)/);
+  assert.doesNotMatch(indexer, /input\.(filePath|projectPath|path)/);
+});
+
 test('账号局部编辑会合并猫外观，归一化不删自定义颜色和未来字段', () => {
   const handler = sourceBetween(
     "ipcMain.handle('profiles:update'",
