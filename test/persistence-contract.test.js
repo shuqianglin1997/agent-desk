@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+const preloadSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
 
 function sourceBetween(startMarker, endMarker) {
   const start = mainSource.indexOf(startMarker);
@@ -80,7 +81,7 @@ test('账号局部编辑会合并猫外观，归一化不删自定义颜色和�
   assert.match(normalizer, /cat: normalizeCat\(profile\.cat, id\)/);
 });
 
-test('替换可执行文件前同时快照账号外观、界面设置和自定义 Agent', () => {
+test('替换可执行文件前同时快照账号外观、界面设置、自定义 Agent 和会话工作图', () => {
   const snapshot = sourceBetween('function snapshotConfigurationForUpdate()', '// 以下三个曾按');
   const installer = sourceBetween('async function installLatestUpdate', 'async function downloadReleaseAsset');
   const customLoad = sourceBetween('function loadCustomAgents()', 'function saveCustomAgents');
@@ -88,8 +89,26 @@ test('替换可执行文件前同时快照账号外观、界面设置和自定�
   assert.match(snapshot, /profilesFile\(\), profilesPreUpdateBackupFile\(\)/);
   assert.match(snapshot, /settingsFile\(\), settingsPreUpdateBackupFile\(\)/);
   assert.match(snapshot, /customAgentsFile\(\), customAgentsPreUpdateBackupFile\(\)/);
+  assert.match(snapshot, /workgraphsFile\(\), workgraphsPreUpdateBackupFile\(\)/);
   assert.match(customLoad, /customAgentsFile\(\),[\s\S]*customAgentsBackupFile\(\),[\s\S]*customAgentsPreUpdateBackupFile\(\)/);
   assert.match(installer, /snapshotConfigurationForUpdate\(\)/);
+});
+
+test('会话工作图通过独立崩溃恢复存储读写，主进程归一化 renderer 载荷', () => {
+  const handlers = sourceBetween(
+    "ipcMain.handle('workgraphs:list'",
+    "ipcMain.handle('updates:check'"
+  );
+  const store = sourceBetween('function workgraphsFile()', 'function loadCustomAgents()');
+
+  assert.match(handlers, /loadWorkgraphs\(\)/);
+  assert.match(handlers, /upsertWorkgraph\(input\)/);
+  assert.match(handlers, /removeWorkgraph\(id\)/);
+  assert.match(store, /workgraphsFile\(\),[\s\S]*workgraphsBackupFile\(\),[\s\S]*workgraphsPreUpdateBackupFile\(\)/);
+  assert.match(store, /workgraphs\.normalizeWorkgraphList/);
+  assert.match(store, /workgraphs\.normalizeWorkgraph\(/);
+  assert.match(store, /updatedAt:\s*now/);
+  assert.match(preloadSource, /listWorkgraphs:[\s\S]*saveWorkgraph:[\s\S]*removeWorkgraph:/);
 });
 
 test('identityKey：清空能生效（显式 null 不被回填），只迁移从未有过字段的旧槽位', () => {

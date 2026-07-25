@@ -4,6 +4,9 @@ contextBridge.exposeInMainWorld('manager', {
   listApps: () => ipcRenderer.invoke('apps:list'),
   getSettings: (legacySettings) => ipcRenderer.invoke('settings:get', legacySettings),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
+  listWorkgraphs: () => ipcRenderer.invoke('workgraphs:list'),
+  saveWorkgraph: (input) => ipcRenderer.invoke('workgraphs:save', input),
+  removeWorkgraph: (id) => ipcRenderer.invoke('workgraphs:remove', id),
   checkForUpdates: () => ipcRenderer.invoke('updates:check'),
   installUpdate: () => ipcRenderer.invoke('updates:install'),
   onUpdateProgress: (callback) => {

@@ -16,6 +16,7 @@ const settings = require('./settings');
 const updater = require('./updater');
 const toolMaintenance = require('./tool-maintenance');
 const { indexSessionArtifacts } = require('./session-artifacts');
+const workgraphs = require('./workgraphs');
 const windows = require('./windows');
 const { QuotaService } = require('./quota-service');
 const {
@@ -56,6 +57,7 @@ const t = (key, params) => mt(currentLang(), key, params);
 const APP_NAME = 'AgentDesk';
 const STORE_VERSION = 2;
 const CUSTOM_AGENT_STORE_VERSION = 1;
+const WORKGRAPH_STORE_VERSION = 1;
 const WINDOWS_DISCOVERY_TTL = 30_000;
 const UPDATE_CACHE_TTL = 5 * 60_000;
 const UPDATE_CHECK_TIMEOUT = 15_000;
@@ -191,6 +193,18 @@ function registerIpc() {
 
   ipcMain.handle('settings:update', (_event, patch = {}) => {
     return updateSettings(patch);
+  });
+
+  ipcMain.handle('workgraphs:list', () => {
+    return loadWorkgraphs();
+  });
+
+  ipcMain.handle('workgraphs:save', (_event, input = {}) => {
+    return { ok: true, graph: upsertWorkgraph(input) };
+  });
+
+  ipcMain.handle('workgraphs:remove', (_event, id) => {
+    return { ok: removeWorkgraph(id) };
   });
 
   ipcMain.handle('updates:check', async () => {
@@ -1380,6 +1394,79 @@ function customAgentsPreUpdateBackupFile() {
   return `${customAgentsFile()}.pre-update.bak`;
 }
 
+function workgraphsFile() {
+  return path.join(app.getPath('userData'), 'workgraphs.json');
+}
+
+function workgraphsBackupFile() {
+  return `${workgraphsFile()}.bak`;
+}
+
+function workgraphsPreUpdateBackupFile() {
+  return `${workgraphsFile()}.pre-update.bak`;
+}
+
+function loadWorkgraphs() {
+  ensureDir(path.dirname(workgraphsFile()));
+  const loaded = [
+    workgraphsFile(),
+    workgraphsBackupFile(),
+    workgraphsPreUpdateBackupFile()
+  ].map((filePath) => readJsonStore(filePath, (value) => (
+    value && typeof value === 'object' && Array.isArray(value.graphs)
+  ))).find(Boolean);
+  if (!loaded) return [];
+
+  const normalized = workgraphs.normalizeWorkgraphList(loaded.parsed.graphs);
+  if (
+    loaded.filePath !== workgraphsFile() ||
+    JSON.stringify(normalized) !== JSON.stringify(loaded.parsed.graphs)
+  ) {
+    saveWorkgraphs(normalized, { skipBackup: loaded.filePath !== workgraphsFile() });
+  }
+  return normalized;
+}
+
+function saveWorkgraphs(items, options = {}) {
+  const normalized = workgraphs.normalizeWorkgraphList(items);
+  writeJsonStore(
+    workgraphsFile(),
+    { version: WORKGRAPH_STORE_VERSION, graphs: normalized },
+    { ...options, backupFile: workgraphsBackupFile() }
+  );
+  return normalized;
+}
+
+function upsertWorkgraph(input) {
+  const items = loadWorkgraphs();
+  const requestedId = typeof input?.id === 'string' ? input.id.trim() : '';
+  const existing = requestedId ? items.find((item) => item.id === requestedId) : null;
+  const now = new Date().toISOString();
+  const graph = workgraphs.normalizeWorkgraph({
+    ...input,
+    id: existing?.id || requestedId || crypto.randomUUID(),
+    createdAt: existing?.createdAt || input?.createdAt || now,
+    updatedAt: now
+  }, {
+    id: crypto.randomUUID,
+    now: () => Date.now()
+  });
+  const next = items.filter((item) => item.id !== graph.id);
+  next.unshift(graph);
+  saveWorkgraphs(next);
+  return graph;
+}
+
+function removeWorkgraph(id) {
+  const targetId = String(id || '').trim();
+  if (!targetId) return false;
+  const items = loadWorkgraphs();
+  const next = items.filter((item) => item.id !== targetId);
+  if (next.length === items.length) return false;
+  saveWorkgraphs(next);
+  return true;
+}
+
 function loadCustomAgents() {
   ensureDir(path.dirname(customAgentsFile()));
   const candidates = [
@@ -1412,7 +1499,8 @@ function snapshotConfigurationForUpdate() {
   for (const [source, target] of [
     [profilesFile(), profilesPreUpdateBackupFile()],
     [settingsFile(), settingsPreUpdateBackupFile()],
-    [customAgentsFile(), customAgentsPreUpdateBackupFile()]
+    [customAgentsFile(), customAgentsPreUpdateBackupFile()],
+    [workgraphsFile(), workgraphsPreUpdateBackupFile()]
   ]) {
     snapshotFile(source, target);
   }
