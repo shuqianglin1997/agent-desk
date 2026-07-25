@@ -13,6 +13,11 @@ const state = {
   workgraphs: [],
   activeWorkgraphId: null,
   workgraphDirty: false,
+  workgraphSelectedNodeId: null,
+  workgraphSelectedEdgeId: null,
+  workgraphInspectorTab: 'node',
+  workgraphConnectFrom: null,
+  workgraphSessionQuery: '',
   selectionAnchorKey: null,
   query: '',
   theme: null,
@@ -166,22 +171,26 @@ const els = {
   workgraphSavedSummary: document.querySelector('#workgraphSavedSummary'),
   workgraphList: document.querySelector('#workgraphList'),
   newWorkgraphBtn: document.querySelector('#newWorkgraphBtn'),
+  workgraphFleetSummary: document.querySelector('#workgraphFleetSummary'),
+  workgraphSessionCount: document.querySelector('#workgraphSessionCount'),
+  workgraphSessionSearch: document.querySelector('#workgraphSessionSearch'),
+  workgraphSessionList: document.querySelector('#workgraphSessionList'),
   workgraphEmpty: document.querySelector('#workgraphEmpty'),
   workgraphEmptyCreateBtn: document.querySelector('#workgraphEmptyCreateBtn'),
   workgraphEditor: document.querySelector('#workgraphEditor'),
   workgraphTitleInput: document.querySelector('#workgraphTitleInput'),
   workgraphExecutionMode: document.querySelector('#workgraphExecutionMode'),
-  workgraphDispatchMode: document.querySelector('#workgraphDispatchMode'),
   workgraphStatusBadge: document.querySelector('#workgraphStatusBadge'),
-  workgraphTaskSummary: document.querySelector('#workgraphTaskSummary'),
-  workgraphTaskList: document.querySelector('#workgraphTaskList'),
-  workgraphJoinNode: document.querySelector('#workgraphJoinNode'),
-  workgraphJoinCount: document.querySelector('#workgraphJoinCount'),
-  workgraphJoinBadge: document.querySelector('#workgraphJoinBadge'),
-  workgraphSynthesisStatus: document.querySelector('#workgraphSynthesisStatus'),
-  workgraphSynthesisSelect: document.querySelector('#workgraphSynthesisSelect'),
-  workgraphSynthesisPrompt: document.querySelector('#workgraphSynthesisPrompt'),
-  workgraphDeliveryHint: document.querySelector('#workgraphDeliveryHint'),
+  workgraphAddApprovalBtn: document.querySelector('#workgraphAddApprovalBtn'),
+  workgraphAddDelayBtn: document.querySelector('#workgraphAddDelayBtn'),
+  workgraphAutoLayoutBtn: document.querySelector('#workgraphAutoLayoutBtn'),
+  workgraphFitBtn: document.querySelector('#workgraphFitBtn'),
+  workgraphConnectHint: document.querySelector('#workgraphConnectHint'),
+  workgraphCanvasViewport: document.querySelector('#workgraphCanvasViewport'),
+  workgraphCanvas: document.querySelector('#workgraphCanvas'),
+  workgraphEdgeLayer: document.querySelector('#workgraphEdgeLayer'),
+  workgraphNodeLayer: document.querySelector('#workgraphNodeLayer'),
+  workgraphCanvasEmpty: document.querySelector('#workgraphCanvasEmpty'),
   workgraphRunDot: document.querySelector('#workgraphRunDot'),
   workgraphRunSummary: document.querySelector('#workgraphRunSummary'),
   workgraphRunMeta: document.querySelector('#workgraphRunMeta'),
@@ -189,7 +198,58 @@ const els = {
   workgraphSaveBtn: document.querySelector('#workgraphSaveBtn'),
   workgraphCopyBtn: document.querySelector('#workgraphCopyBtn'),
   workgraphStartBtn: document.querySelector('#workgraphStartBtn'),
-  workgraphDispatchBtn: document.querySelector('#workgraphDispatchBtn'),
+  workgraphPauseBtn: document.querySelector('#workgraphPauseBtn'),
+  workgraphInspector: document.querySelector('#workgraphInspector'),
+  workgraphNodePane: document.querySelector('#workgraphNodePane'),
+  workgraphSchedulePane: document.querySelector('#workgraphSchedulePane'),
+  workgraphRunsPane: document.querySelector('#workgraphRunsPane'),
+  workgraphInspectorEmpty: document.querySelector('#workgraphInspectorEmpty'),
+  workgraphNodeInspector: document.querySelector('#workgraphNodeInspector'),
+  workgraphEdgeInspector: document.querySelector('#workgraphEdgeInspector'),
+  workgraphNodeTypeBadge: document.querySelector('#workgraphNodeTypeBadge'),
+  workgraphNodeInspectorTitle: document.querySelector('#workgraphNodeInspectorTitle'),
+  workgraphNodeTitleInput: document.querySelector('#workgraphNodeTitleInput'),
+  workgraphNodeSessionField: document.querySelector('#workgraphNodeSessionField'),
+  workgraphNodeSessionSelect: document.querySelector('#workgraphNodeSessionSelect'),
+  workgraphNodePromptField: document.querySelector('#workgraphNodePromptField'),
+  workgraphNodePromptInput: document.querySelector('#workgraphNodePromptInput'),
+  workgraphNodeTriggerMode: document.querySelector('#workgraphNodeTriggerMode'),
+  workgraphNodeThresholdField: document.querySelector('#workgraphNodeThresholdField'),
+  workgraphNodeThresholdInput: document.querySelector('#workgraphNodeThresholdInput'),
+  workgraphNodeDelayField: document.querySelector('#workgraphNodeDelayField'),
+  workgraphNodeDelayInput: document.querySelector('#workgraphNodeDelayInput'),
+  workgraphNodeApprovalInput: document.querySelector('#workgraphNodeApprovalInput'),
+  workgraphNodeRetriesInput: document.querySelector('#workgraphNodeRetriesInput'),
+  workgraphNodeTimeoutInput: document.querySelector('#workgraphNodeTimeoutInput'),
+  workgraphNodeStaleInput: document.querySelector('#workgraphNodeStaleInput'),
+  workgraphNodeRecoverySelect: document.querySelector('#workgraphNodeRecoverySelect'),
+  workgraphNodeRuntime: document.querySelector('#workgraphNodeRuntime'),
+  workgraphOpenNodeSessionBtn: document.querySelector('#workgraphOpenNodeSessionBtn'),
+  workgraphDeleteNodeBtn: document.querySelector('#workgraphDeleteNodeBtn'),
+  workgraphEdgeRoute: document.querySelector('#workgraphEdgeRoute'),
+  workgraphEdgeWhenSelect: document.querySelector('#workgraphEdgeWhenSelect'),
+  workgraphEdgeLabelInput: document.querySelector('#workgraphEdgeLabelInput'),
+  workgraphDeleteEdgeBtn: document.querySelector('#workgraphDeleteEdgeBtn'),
+  workgraphScheduleEnabled: document.querySelector('#workgraphScheduleEnabled'),
+  workgraphScheduleType: document.querySelector('#workgraphScheduleType'),
+  workgraphScheduleOnceField: document.querySelector('#workgraphScheduleOnceField'),
+  workgraphScheduleOnceAt: document.querySelector('#workgraphScheduleOnceAt'),
+  workgraphScheduleIntervalField: document.querySelector('#workgraphScheduleIntervalField'),
+  workgraphScheduleInterval: document.querySelector('#workgraphScheduleInterval'),
+  workgraphScheduleCalendarField: document.querySelector('#workgraphScheduleCalendarField'),
+  workgraphScheduleTime: document.querySelector('#workgraphScheduleTime'),
+  workgraphScheduleWeekdays: document.querySelector('#workgraphScheduleWeekdays'),
+  workgraphScheduleOverlap: document.querySelector('#workgraphScheduleOverlap'),
+  workgraphScheduleMaxRuns: document.querySelector('#workgraphScheduleMaxRuns'),
+  workgraphNextSchedule: document.querySelector('#workgraphNextSchedule'),
+  workgraphMonitorEnabled: document.querySelector('#workgraphMonitorEnabled'),
+  workgraphMonitorInterval: document.querySelector('#workgraphMonitorInterval'),
+  workgraphMonitorStale: document.querySelector('#workgraphMonitorStale'),
+  workgraphMonitorTimeout: document.querySelector('#workgraphMonitorTimeout'),
+  workgraphMonitorRecovery: document.querySelector('#workgraphMonitorRecovery'),
+  workgraphMonitorConcurrency: document.querySelector('#workgraphMonitorConcurrency'),
+  workgraphActiveRunCard: document.querySelector('#workgraphActiveRunCard'),
+  workgraphRunList: document.querySelector('#workgraphRunList'),
   leaderboardDialog: document.querySelector('#leaderboardDialog'),
   leaderboardBody: document.querySelector('#leaderboardBody'),
   themeToggle: document.querySelector('#themeToggle'),
@@ -294,8 +354,11 @@ let quotaRequest = null;
 let quotaHasLoaded = false;
 let quotaRequestedAt = 0;
 let workgraphSaveQueue = Promise.resolve();
-const workgraphDispatching = new Set();
+const workgraphLaunching = new Set();
+const workgraphSessionLaunching = new Set();
 const workgraphOutputTimers = new Map();
+let workgraphCoordinatorTimer = null;
+let workgraphNodeDrag = null;
 const QUOTA_REFRESH_INTERVAL = 5 * 60_000;
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -308,6 +371,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   applyView();
   await loadProfiles();
   await loadWorkgraphs();
+  startWorkgraphCoordinator();
   loadActivity();
   loadQuotas();
   // 庭院可见、或排行榜开着时轮询（排行榜按钮在经典视图也可点，要保证它也实时刷新）。
@@ -792,15 +856,15 @@ function bindEvents() {
   });
 
   els.createWorkgraphBtn?.addEventListener('click', () => {
-    void createWorkgraphFromSelection();
+    void createWorkgraphFromSelection({ allowEmpty: false });
   });
 
   els.newWorkgraphBtn?.addEventListener('click', () => {
-    void createWorkgraphFromSelection();
+    void createWorkgraphFromSelection({ allowEmpty: true });
   });
 
   els.workgraphEmptyCreateBtn?.addEventListener('click', () => {
-    void createWorkgraphFromSelection();
+    void createWorkgraphFromSelection({ allowEmpty: true });
   });
 
   els.workgraphTitleInput?.addEventListener('input', () => {
@@ -824,40 +888,124 @@ function bindEvents() {
     void saveActiveWorkgraph();
   });
 
-  els.workgraphDispatchMode?.addEventListener('change', () => {
-    const graph = activeWorkgraph();
-    if (!graph) return;
-    graph.dispatchMode = els.workgraphDispatchMode.value === 'automatic' ? 'automatic' : 'review';
-    state.workgraphDirty = true;
-    renderWorkgraphEditor(graph);
+  els.workgraphSessionSearch?.addEventListener('input', () => {
+    state.workgraphSessionQuery = els.workgraphSessionSearch.value.trim().toLowerCase();
+    renderWorkgraphSessionDepot();
+  });
+
+  els.workgraphAddApprovalBtn?.addEventListener('click', () => {
+    addWorkgraphUtilityNode('approval');
+  });
+
+  els.workgraphAddDelayBtn?.addEventListener('click', () => {
+    addWorkgraphUtilityNode('delay');
+  });
+
+  els.workgraphAutoLayoutBtn?.addEventListener('click', () => {
+    autoLayoutActiveWorkgraph();
+  });
+
+  els.workgraphFitBtn?.addEventListener('click', () => {
+    fitActiveWorkgraph();
+  });
+
+  els.workgraphCanvasViewport?.addEventListener('dragover', (event) => {
+    if (!event.dataTransfer?.types.includes('application/x-agentdesk-session')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  });
+
+  els.workgraphCanvasViewport?.addEventListener('drop', (event) => {
+    event.preventDefault();
+    const key = event.dataTransfer?.getData('application/x-agentdesk-session');
+    if (key) addSessionToActiveWorkgraph(key, workgraphCanvasPoint(event));
+  });
+
+  els.workgraphCanvas?.addEventListener('click', (event) => {
+    if (event.target !== els.workgraphCanvas && event.target !== els.workgraphNodeLayer) return;
+    state.workgraphSelectedNodeId = null;
+    state.workgraphSelectedEdgeId = null;
+    state.workgraphConnectFrom = null;
+    renderWorkgraphEditor(activeWorkgraph());
+  });
+
+  els.workgraphInspector?.addEventListener('click', (event) => {
+    const tab = event.target.closest('[data-workgraph-tab]');
+    if (!tab) return;
+    state.workgraphInspectorTab = tab.dataset.workgraphTab;
+    renderWorkgraphInspector(activeWorkgraph());
+  });
+
+  const updateSelectedNode = () => {
+    updateSelectedWorkgraphNodeFromForm();
+  };
+  [
+    els.workgraphNodeTitleInput,
+    els.workgraphNodeSessionSelect,
+    els.workgraphNodePromptInput,
+    els.workgraphNodeTriggerMode,
+    els.workgraphNodeThresholdInput,
+    els.workgraphNodeDelayInput,
+    els.workgraphNodeApprovalInput,
+    els.workgraphNodeRetriesInput,
+    els.workgraphNodeTimeoutInput,
+    els.workgraphNodeStaleInput,
+    els.workgraphNodeRecoverySelect
+  ].forEach((element) => {
+    element?.addEventListener('input', updateSelectedNode);
+    element?.addEventListener('change', () => {
+      updateSelectedNode();
+      void saveActiveWorkgraph();
+    });
+  });
+
+  els.workgraphOpenNodeSessionBtn?.addEventListener('click', () => {
+    const node = selectedWorkgraphNode();
+    if (node) void focusWorkgraphSession(node);
+  });
+
+  els.workgraphDeleteNodeBtn?.addEventListener('click', () => {
+    deleteSelectedWorkgraphNode();
+  });
+
+  els.workgraphEdgeWhenSelect?.addEventListener('change', () => {
+    updateSelectedWorkgraphEdgeFromForm();
     void saveActiveWorkgraph();
   });
 
-  els.workgraphSynthesisSelect?.addEventListener('change', () => {
-    const graph = activeWorkgraph();
-    if (!graph) return;
-    const session = workgraphSessionOptions(graph)
-      .find((item) => sessionKey(item) === els.workgraphSynthesisSelect.value);
-    graph.synthesis = {
-      ...graph.synthesis,
-      ...workgraphSessionSnapshot(session),
-      status: workgraphReady(graph) ? 'ready' : 'waiting',
-      runtimeId: null,
-      error: null
-    };
-    state.workgraphDirty = true;
-    renderWorkgraphEditor(graph);
+  els.workgraphEdgeLabelInput?.addEventListener('input', updateSelectedWorkgraphEdgeFromForm);
+  els.workgraphEdgeLabelInput?.addEventListener('change', () => {
+    updateSelectedWorkgraphEdgeFromForm();
     void saveActiveWorkgraph();
   });
 
-  els.workgraphSynthesisPrompt?.addEventListener('input', () => {
-    const graph = activeWorkgraph();
-    if (!graph) return;
-    graph.synthesis.prompt = els.workgraphSynthesisPrompt.value.slice(0, 6000);
-    state.workgraphDirty = true;
+  els.workgraphDeleteEdgeBtn?.addEventListener('click', () => {
+    deleteSelectedWorkgraphEdge();
   });
 
-  els.workgraphSynthesisPrompt?.addEventListener('change', () => {
+  const scheduleInputs = [
+    els.workgraphScheduleEnabled,
+    els.workgraphScheduleType,
+    els.workgraphScheduleOnceAt,
+    els.workgraphScheduleInterval,
+    els.workgraphScheduleTime,
+    els.workgraphScheduleOverlap,
+    els.workgraphScheduleMaxRuns,
+    els.workgraphMonitorEnabled,
+    els.workgraphMonitorInterval,
+    els.workgraphMonitorStale,
+    els.workgraphMonitorTimeout,
+    els.workgraphMonitorRecovery,
+    els.workgraphMonitorConcurrency
+  ];
+  scheduleInputs.forEach((element) => {
+    element?.addEventListener('change', () => {
+      updateActiveWorkgraphTimingFromForm();
+      void saveActiveWorkgraph();
+    });
+  });
+  els.workgraphScheduleWeekdays?.addEventListener('change', () => {
+    updateActiveWorkgraphTimingFromForm();
     void saveActiveWorkgraph();
   });
 
@@ -873,9 +1021,8 @@ function bindEvents() {
     void copyActiveWorkgraphHandoff();
   });
 
-  els.workgraphDispatchBtn?.addEventListener('click', () => {
-    const graph = activeWorkgraph();
-    if (graph) void dispatchWorkgraphSynthesis(graph, { userInitiated: true });
+  els.workgraphPauseBtn?.addEventListener('click', () => {
+    void toggleActiveWorkgraphPause();
   });
 
   els.workgraphDeleteBtn?.addEventListener('click', () => {
@@ -883,8 +1030,13 @@ function bindEvents() {
   });
 
   els.workgraphDialog?.addEventListener('close', () => {
+    state.workgraphConnectFrom = null;
+    workgraphNodeDrag = null;
     if (state.workgraphDirty) void saveActiveWorkgraph();
   });
+
+  window.addEventListener('pointermove', handleWorkgraphNodePointerMove);
+  window.addEventListener('pointerup', handleWorkgraphNodePointerUp);
 
   els.sessionScopeCurrentBtn?.addEventListener('click', () => {
     void setSessionScope('current');

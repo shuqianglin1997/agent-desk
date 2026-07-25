@@ -6,6 +6,7 @@
     <title>AgentDesk</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./yard/yard.css" />
+    <link rel="stylesheet" href="./workgraph-editor.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -456,108 +457,92 @@
       <form method="dialog" class="workgraph-shell">
         <header class="workgraph-head">
           <div class="workgraph-head-title">
-            <span data-i18n="workgraph.kicker">WORKGRAPH · SESSION ORCHESTRATION</span>
+            <span data-i18n="workgraph.kicker">WORKGRAPH · LIVE SIGNAL DESK</span>
             <h3 data-i18n="workgraph.title">会话编排台</h3>
-            <p data-i18n="workgraph.lead">让多个会话并行完成分工，全部汇合后再交给一个会话综合处理。</p>
+            <p data-i18n="workgraph.lead">拖入会话、连接依赖，并用明确的触发与监管规则运行整张图。</p>
           </div>
-          <div class="workgraph-head-legend" aria-label="工作图图例">
-            <span><i data-state="running"></i><b data-i18n="workgraph.legend.running">执行</b></span>
-            <span><i data-state="completed"></i><b data-i18n="workgraph.legend.completed">完成</b></span>
-            <span><i data-state="attention"></i><b data-i18n="workgraph.legend.attention">需处理</b></span>
+          <div id="workgraphFleetSummary" class="workgraph-fleet-summary">
+            <span aria-hidden="true">◉</span>
+            <p><strong data-i18n="workgraph.fleet.idle">运行车队待命</strong><small data-i18n="workgraph.fleet.idleMeta">没有正在执行的图</small></p>
           </div>
           <button class="workgraph-close" value="default" data-i18n-aria="dialog.close" aria-label="关闭">×</button>
         </header>
+
+        <section class="workgraph-commandbar">
+          <label class="workgraph-title-field">
+            <span data-i18n="workgraph.field.name">编排名称</span>
+            <input id="workgraphTitleInput" type="text" maxlength="120" data-i18n-placeholder="workgraph.ph.name" placeholder="例如：三路调研 → 综合方案" />
+          </label>
+          <label>
+            <span data-i18n="workgraph.field.execution">执行方式</span>
+            <select id="workgraphExecutionMode">
+              <option value="observe" data-i18n="workgraph.mode.observe">观察 / 手动确认</option>
+              <option value="managed" data-i18n="workgraph.mode.managed">AgentDesk 自动执行</option>
+            </select>
+          </label>
+          <div class="workgraph-legend" aria-label="连线图例">
+            <span><i data-when="success"></i><b data-i18n="workgraph.edge.success">成功</b></span>
+            <span><i data-when="failure"></i><b data-i18n="workgraph.edge.failure">失败</b></span>
+            <span><i data-when="always"></i><b data-i18n="workgraph.edge.always">无论结果</b></span>
+          </div>
+          <span id="workgraphStatusBadge" class="workgraph-status" data-state="draft">草稿</span>
+        </section>
 
         <div class="workgraph-layout">
           <aside class="workgraph-rail">
             <div class="workgraph-rail-head">
               <div>
-                <span data-i18n="workgraph.saved.kicker">SAVED GRAPHS</span>
+                <span data-i18n="workgraph.saved.kicker">GRAPH FLEET</span>
                 <strong id="workgraphSavedSummary" data-i18n="workgraph.saved.empty">尚无编排</strong>
               </div>
-              <button id="newWorkgraphBtn" type="button" data-i18n-title="workgraph.new.title" title="用当前勾选的会话新建编排">＋</button>
+              <button id="newWorkgraphBtn" type="button" data-i18n-title="workgraph.new.title" title="新建空白编排">＋</button>
             </div>
             <ol id="workgraphList" class="workgraph-list"></ol>
-            <div class="workgraph-rail-note">
-              <span aria-hidden="true">◇</span>
-              <p data-i18n="workgraph.rail.note">工作图保存的是任务结构；会话只是当前执行者，失效后可以重新绑定。</p>
+
+            <div class="workgraph-session-head">
+              <div>
+                <span data-i18n="workgraph.sessions.kicker">SESSION DEPOT</span>
+                <strong data-i18n="workgraph.sessions.title">会话库</strong>
+              </div>
+              <small id="workgraphSessionCount">0</small>
             </div>
+            <input id="workgraphSessionSearch" class="workgraph-session-search" type="search" data-i18n-placeholder="workgraph.sessions.search" placeholder="搜索会话、账号或项目…" />
+            <div id="workgraphSessionList" class="workgraph-session-list"></div>
+            <p class="workgraph-drag-hint" data-i18n="workgraph.sessions.hint">把任意账号的会话拖到画布；会话是执行者，节点是可复用任务。</p>
           </aside>
 
           <main class="workgraph-main">
             <section id="workgraphEmpty" class="workgraph-empty">
               <span class="workgraph-empty-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
               <small data-i18n="workgraph.empty.kicker">NO ACTIVE GRAPH</small>
-              <h4 data-i18n="workgraph.empty.title">先从会话列表选择并行任务</h4>
-              <p data-i18n="workgraph.empty.body">勾选一个或多个会话，或直接使用当前会话。系统会建立并行阶段、全部完成汇合点和综合处理阶段。</p>
-              <button id="workgraphEmptyCreateBtn" type="button" class="primary" data-i18n="workgraph.createSelected">编排所选</button>
+              <h4 data-i18n="workgraph.empty.title">建立第一张会话工作图</h4>
+              <p data-i18n="workgraph.empty.body">可以从已勾选的会话快速生成，也可以新建空白图，再从左侧持续拖入跨账号会话。</p>
+              <button id="workgraphEmptyCreateBtn" type="button" class="primary" data-i18n="workgraph.createSelected">新建编排</button>
             </section>
 
             <section id="workgraphEditor" class="workgraph-editor" hidden>
-              <header class="workgraph-editor-head">
-                <label class="workgraph-title-field">
-                  <span data-i18n="workgraph.field.name">编排名称</span>
-                  <input id="workgraphTitleInput" type="text" maxlength="120" data-i18n-placeholder="workgraph.ph.name" placeholder="例如：三路调研 → 综合方案" />
-                </label>
-                <label>
-                  <span data-i18n="workgraph.field.execution">上游执行</span>
-                  <select id="workgraphExecutionMode">
-                    <option value="observe" data-i18n="workgraph.mode.observe">观察已有会话</option>
-                    <option value="managed" data-i18n="workgraph.mode.managed">AgentDesk 自动执行</option>
-                  </select>
-                </label>
-                <label>
-                  <span data-i18n="workgraph.field.dispatch">汇合之后</span>
-                  <select id="workgraphDispatchMode">
-                    <option value="review" data-i18n="workgraph.dispatch.review">先由我确认</option>
-                    <option value="automatic" data-i18n="workgraph.dispatch.automatic">自动投递综合</option>
-                  </select>
-                </label>
-                <span id="workgraphStatusBadge" class="workgraph-status" data-state="draft">草稿</span>
-              </header>
+              <div class="workgraph-toolbar">
+                <div class="workgraph-tool-cluster">
+                  <button id="workgraphAddApprovalBtn" type="button"><span>◆</span><b data-i18n="workgraph.add.approval">人工确认</b></button>
+                  <button id="workgraphAddDelayBtn" type="button"><span>◷</span><b data-i18n="workgraph.add.delay">等待节点</b></button>
+                  <button id="workgraphAutoLayoutBtn" type="button"><span>⌘</span><b data-i18n="workgraph.autoLayout">自动排布</b></button>
+                </div>
+                <div id="workgraphConnectHint" class="workgraph-connect-hint" data-state="idle">
+                  <i></i><span data-i18n="workgraph.connect.hint">点节点右侧端口，再点目标左侧端口连线</span>
+                </div>
+                <button id="workgraphFitBtn" type="button" class="workgraph-fit-btn" data-i18n="workgraph.fit">定位全部</button>
+              </div>
 
-              <div class="workgraph-canvas">
-                <section class="workgraph-stage workgraph-stage-upstream">
-                  <header>
-                    <div>
-                      <span>01 · <b data-i18n="workgraph.stage.parallel">PARALLEL</b></span>
-                      <strong data-i18n="workgraph.stage.parallelTitle">并行任务</strong>
-                    </div>
-                    <small id="workgraphTaskSummary">0/0</small>
-                  </header>
-                  <div id="workgraphTaskList" class="workgraph-task-list"></div>
-                </section>
-
-                <section class="workgraph-join" aria-label="全部完成汇合">
-                  <div class="workgraph-join-rail" aria-hidden="true"><i></i><i></i><i></i></div>
-                  <div id="workgraphJoinNode" class="workgraph-join-node" data-state="waiting">
-                    <span data-i18n="workgraph.join.all">全部完成</span>
-                    <strong id="workgraphJoinCount">0 / 0</strong>
-                    <small id="workgraphJoinBadge" data-i18n="workgraph.join.waiting">等待上游</small>
+              <div id="workgraphCanvasViewport" class="workgraph-canvas-viewport">
+                <div id="workgraphCanvas" class="workgraph-canvas">
+                  <svg id="workgraphEdgeLayer" class="workgraph-edge-layer" width="1600" height="1000" aria-hidden="true"></svg>
+                  <div id="workgraphNodeLayer" class="workgraph-node-layer"></div>
+                  <div id="workgraphCanvasEmpty" class="workgraph-canvas-empty">
+                    <span>＋</span>
+                    <strong data-i18n="workgraph.canvas.empty">从左侧拖入一个会话</strong>
+                    <small data-i18n="workgraph.canvas.emptyMeta">也可以先加入人工确认或等待节点</small>
                   </div>
-                </section>
-
-                <section class="workgraph-stage workgraph-stage-synthesis">
-                  <header>
-                    <div>
-                      <span>02 · <b data-i18n="workgraph.stage.synthesis">SYNTHESIS</b></span>
-                      <strong data-i18n="workgraph.stage.synthesisTitle">综合处理</strong>
-                    </div>
-                    <small id="workgraphSynthesisStatus">等待汇合</small>
-                  </header>
-                  <label class="workgraph-synthesis-session">
-                    <span data-i18n="workgraph.field.synthesisSession">综合会话</span>
-                    <select id="workgraphSynthesisSelect"></select>
-                  </label>
-                  <label class="workgraph-synthesis-prompt">
-                    <span data-i18n="workgraph.field.synthesisPrompt">综合任务</span>
-                    <textarea id="workgraphSynthesisPrompt" rows="5" maxlength="6000" data-i18n-placeholder="workgraph.ph.synthesis" placeholder="综合所有上游结果，处理冲突并形成最终方案。"></textarea>
-                  </label>
-                  <div class="workgraph-delivery">
-                    <span aria-hidden="true">↳</span>
-                    <p id="workgraphDeliveryHint" data-i18n="workgraph.delivery.review">汇合后生成可检查的交接包，不会直接启动 Agent。</p>
-                  </div>
-                </section>
+                </div>
               </div>
 
               <footer class="workgraph-actions">
@@ -565,17 +550,193 @@
                   <span id="workgraphRunDot" data-state="draft"></span>
                   <p>
                     <strong id="workgraphRunSummary" data-i18n="workgraph.run.draft">准备规划</strong>
-                    <small id="workgraphRunMeta" data-i18n="workgraph.run.draftMeta">保存后即可开始观察或自动执行。</small>
+                    <small id="workgraphRunMeta" data-i18n="workgraph.run.draftMeta">连接节点并保存后即可运行。</small>
                   </p>
                 </div>
                 <button id="workgraphDeleteBtn" type="button" class="danger" data-i18n="workgraph.delete">删除</button>
                 <button id="workgraphSaveBtn" type="button" data-i18n="workgraph.save">保存</button>
-                <button id="workgraphCopyBtn" type="button" data-i18n="workgraph.copy">复制交接包</button>
-                <button id="workgraphStartBtn" type="button" class="primary" data-i18n="workgraph.start">开始编排</button>
-                <button id="workgraphDispatchBtn" type="button" class="primary workgraph-dispatch" data-i18n="workgraph.dispatch">投递综合</button>
+                <button id="workgraphCopyBtn" type="button" data-i18n="workgraph.copy">复制运行包</button>
+                <button id="workgraphPauseBtn" type="button" data-i18n="workgraph.pause" hidden>暂停</button>
+                <button id="workgraphStartBtn" type="button" class="primary" data-i18n="workgraph.start">运行新实例</button>
               </footer>
             </section>
           </main>
+
+          <aside id="workgraphInspector" class="workgraph-inspector">
+            <div class="workgraph-inspector-tabs">
+              <button type="button" data-workgraph-tab="node" aria-pressed="true" data-i18n="workgraph.tab.node">节点</button>
+              <button type="button" data-workgraph-tab="schedule" aria-pressed="false" data-i18n="workgraph.tab.schedule">时间与监管</button>
+              <button type="button" data-workgraph-tab="runs" aria-pressed="false" data-i18n="workgraph.tab.runs">运行记录</button>
+            </div>
+
+            <section id="workgraphNodePane" class="workgraph-inspector-pane">
+              <div id="workgraphInspectorEmpty" class="workgraph-inspector-empty">
+                <span>◎</span>
+                <strong data-i18n="workgraph.inspector.empty">选择节点或连线</strong>
+                <p data-i18n="workgraph.inspector.emptyMeta">在这里设置触发、重试、超时和连接条件。</p>
+              </div>
+
+              <div id="workgraphNodeInspector" hidden>
+                <div class="workgraph-inspector-title">
+                  <span id="workgraphNodeTypeBadge">SESSION</span>
+                  <strong id="workgraphNodeInspectorTitle">节点</strong>
+                </div>
+                <label>
+                  <span data-i18n="workgraph.node.title">节点名称</span>
+                  <input id="workgraphNodeTitleInput" type="text" maxlength="120" />
+                </label>
+                <label id="workgraphNodeSessionField">
+                  <span data-i18n="workgraph.node.session">执行会话</span>
+                  <select id="workgraphNodeSessionSelect"></select>
+                </label>
+                <label id="workgraphNodePromptField">
+                  <span data-i18n="workgraph.node.prompt">任务指令</span>
+                  <textarea id="workgraphNodePromptInput" rows="5" maxlength="6000"></textarea>
+                </label>
+                <div class="workgraph-field-row">
+                  <label>
+                    <span data-i18n="workgraph.node.trigger">入站触发</span>
+                    <select id="workgraphNodeTriggerMode">
+                      <option value="all">ALL · 全部到达</option>
+                      <option value="any">ANY · 任一到达</option>
+                      <option value="each">EACH · 每次到达</option>
+                      <option value="threshold">N-of-M · 达到数量</option>
+                    </select>
+                  </label>
+                  <label id="workgraphNodeThresholdField">
+                    <span data-i18n="workgraph.node.threshold">需要数量</span>
+                    <input id="workgraphNodeThresholdInput" type="number" min="1" max="48" value="2" />
+                  </label>
+                </div>
+                <label id="workgraphNodeDelayField">
+                  <span data-i18n="workgraph.node.delay">等待秒数</span>
+                  <input id="workgraphNodeDelayInput" type="number" min="10" max="86400" step="10" />
+                </label>
+                <label class="workgraph-check-row">
+                  <input id="workgraphNodeApprovalInput" type="checkbox" />
+                  <span data-i18n="workgraph.node.requireApproval">执行这个会话前需要人工批准</span>
+                </label>
+                <div class="workgraph-policy-grid">
+                  <label><span data-i18n="workgraph.node.retries">重试次数</span><input id="workgraphNodeRetriesInput" type="number" min="0" max="5" /></label>
+                  <label><span data-i18n="workgraph.node.timeout">超时（分钟）</span><input id="workgraphNodeTimeoutInput" type="number" min="0" max="1440" /></label>
+                  <label><span data-i18n="workgraph.node.stale">无活动（分钟）</span><input id="workgraphNodeStaleInput" type="number" min="0" max="1440" /></label>
+                  <label>
+                    <span data-i18n="workgraph.node.recovery">恢复策略</span>
+                    <select id="workgraphNodeRecoverySelect">
+                      <option value="inherit" data-i18n="workgraph.node.inherit">跟随全图</option>
+                      <option value="alert" data-i18n="workgraph.monitor.alert">提醒</option>
+                      <option value="retry" data-i18n="workgraph.monitor.retry">自动重试</option>
+                      <option value="pause" data-i18n="workgraph.monitor.pause">暂停图</option>
+                    </select>
+                  </label>
+                </div>
+                <div id="workgraphNodeRuntime" class="workgraph-node-runtime"></div>
+                <div class="workgraph-inspector-actions">
+                  <button id="workgraphOpenNodeSessionBtn" type="button" data-i18n="workgraph.task.open">打开会话</button>
+                  <button id="workgraphDeleteNodeBtn" type="button" class="danger" data-i18n="workgraph.node.delete">删除节点</button>
+                </div>
+              </div>
+
+              <div id="workgraphEdgeInspector" hidden>
+                <div class="workgraph-inspector-title">
+                  <span>EDGE</span>
+                  <strong data-i18n="workgraph.edge.title">连接条件</strong>
+                </div>
+                <p id="workgraphEdgeRoute" class="workgraph-edge-route"></p>
+                <label>
+                  <span data-i18n="workgraph.edge.when">何时发送信号</span>
+                  <select id="workgraphEdgeWhenSelect">
+                    <option value="success" data-i18n="workgraph.edge.success">上游成功</option>
+                    <option value="failure" data-i18n="workgraph.edge.failure">上游失败</option>
+                    <option value="always" data-i18n="workgraph.edge.always">上游结束（无论结果）</option>
+                  </select>
+                </label>
+                <label>
+                  <span data-i18n="workgraph.edge.label">连线备注</span>
+                  <input id="workgraphEdgeLabelInput" type="text" maxlength="80" />
+                </label>
+                <button id="workgraphDeleteEdgeBtn" type="button" class="danger" data-i18n="workgraph.edge.delete">删除连线</button>
+              </div>
+            </section>
+
+            <section id="workgraphSchedulePane" class="workgraph-inspector-pane" hidden>
+              <div class="workgraph-section-kicker"><span>01</span><strong data-i18n="workgraph.schedule.title">启动计划</strong></div>
+              <label class="workgraph-check-row">
+                <input id="workgraphScheduleEnabled" type="checkbox" />
+                <span data-i18n="workgraph.schedule.enabled">启用定时触发</span>
+              </label>
+              <label>
+                <span data-i18n="workgraph.schedule.type">触发方式</span>
+                <select id="workgraphScheduleType">
+                  <option value="manual" data-i18n="workgraph.schedule.manual">仅手动</option>
+                  <option value="once" data-i18n="workgraph.schedule.once">指定时间一次</option>
+                  <option value="interval" data-i18n="workgraph.schedule.interval">固定间隔</option>
+                  <option value="calendar" data-i18n="workgraph.schedule.calendar">每周日历</option>
+                </select>
+              </label>
+              <label id="workgraphScheduleOnceField">
+                <span data-i18n="workgraph.schedule.onceAt">运行时间</span>
+                <input id="workgraphScheduleOnceAt" type="datetime-local" />
+              </label>
+              <label id="workgraphScheduleIntervalField">
+                <span data-i18n="workgraph.schedule.every">每隔多少分钟</span>
+                <input id="workgraphScheduleInterval" type="number" min="1" max="43200" />
+              </label>
+              <div id="workgraphScheduleCalendarField">
+                <label><span data-i18n="workgraph.schedule.at">每天时间</span><input id="workgraphScheduleTime" type="time" /></label>
+                <div id="workgraphScheduleWeekdays" class="workgraph-weekdays">
+                  <label><input type="checkbox" value="1" /><span>一</span></label>
+                  <label><input type="checkbox" value="2" /><span>二</span></label>
+                  <label><input type="checkbox" value="3" /><span>三</span></label>
+                  <label><input type="checkbox" value="4" /><span>四</span></label>
+                  <label><input type="checkbox" value="5" /><span>五</span></label>
+                  <label><input type="checkbox" value="6" /><span>六</span></label>
+                  <label><input type="checkbox" value="0" /><span>日</span></label>
+                </div>
+              </div>
+              <div class="workgraph-field-row">
+                <label>
+                  <span data-i18n="workgraph.schedule.overlap">上次未结束</span>
+                  <select id="workgraphScheduleOverlap">
+                    <option value="skip" data-i18n="workgraph.schedule.skip">跳过本次</option>
+                    <option value="queue" data-i18n="workgraph.schedule.queue">排队等待</option>
+                    <option value="parallel" data-i18n="workgraph.schedule.parallel">并行新实例</option>
+                  </select>
+                </label>
+                <label>
+                  <span data-i18n="workgraph.schedule.maxRuns">同图并发</span>
+                  <input id="workgraphScheduleMaxRuns" type="number" min="1" max="4" />
+                </label>
+              </div>
+              <div id="workgraphNextSchedule" class="workgraph-next-schedule"></div>
+
+              <div class="workgraph-section-kicker"><span>02</span><strong data-i18n="workgraph.monitor.title">运行监管</strong></div>
+              <label class="workgraph-check-row">
+                <input id="workgraphMonitorEnabled" type="checkbox" />
+                <span data-i18n="workgraph.monitor.enabled">定时检查运行健康</span>
+              </label>
+              <div class="workgraph-policy-grid">
+                <label><span data-i18n="workgraph.monitor.frequency">检查频率（秒）</span><input id="workgraphMonitorInterval" type="number" min="10" max="3600" /></label>
+                <label><span data-i18n="workgraph.monitor.stale">无活动判定（分钟）</span><input id="workgraphMonitorStale" type="number" min="1" max="1440" /></label>
+                <label><span data-i18n="workgraph.monitor.timeout">最长运行（分钟）</span><input id="workgraphMonitorTimeout" type="number" min="1" max="10080" /></label>
+                <label>
+                  <span data-i18n="workgraph.monitor.recovery">异常处理</span>
+                  <select id="workgraphMonitorRecovery">
+                    <option value="alert" data-i18n="workgraph.monitor.alert">提醒我处理</option>
+                    <option value="retry" data-i18n="workgraph.monitor.retry">按节点预算重试</option>
+                    <option value="pause" data-i18n="workgraph.monitor.pause">暂停整张图</option>
+                  </select>
+                </label>
+                <label><span data-i18n="workgraph.monitor.concurrency">节点并发上限</span><input id="workgraphMonitorConcurrency" type="number" min="1" max="12" /></label>
+              </div>
+              <p class="workgraph-monitor-note" data-i18n="workgraph.monitor.note">心跳来自 Agent 输出和状态事件；超时与卡住是不同判定，恢复动作会写入运行日志。</p>
+            </section>
+
+            <section id="workgraphRunsPane" class="workgraph-inspector-pane" hidden>
+              <div id="workgraphActiveRunCard" class="workgraph-active-run-card"></div>
+              <div id="workgraphRunList" class="workgraph-run-list"></div>
+            </section>
+          </aside>
         </div>
       </form>
     </dialog>
@@ -630,5 +791,6 @@
     <script src="./i18n/en.js"></script>
     <script src="./i18n/ja.js"></script>
     <script src="./renderer.js"></script>
+    <script src="./workgraph-ui.js"></script>
   </body>
 </html>

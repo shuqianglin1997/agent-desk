@@ -112,7 +112,10 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      // Workgraph schedules and watchdog checks must keep their cadence while
+      // the fixed-size control desk is minimized or covered by another app.
+      backgroundThrottling: false
     }
   });
 

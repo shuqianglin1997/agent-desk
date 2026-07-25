@@ -339,33 +339,45 @@ test('工具维护台覆盖桌面 App 与终端 Agent：检查、打开、单项
   assert.match(yardStyles, /工具维护台：庭院里是一块有状态灯的木工台/);
 });
 
-test('会话工作图把跨账号选择编成并行任务、ALL 汇合点和综合会话，并复用安全 Agent 运行时', () => {
+test('会话工作图提供跨账号拖拽、DAG 连线、通用触发、定时监管和隔离运行实例', () => {
   const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
+  const workgraphUi = read('src/workgraph-ui.js');
   const preload = read('src/preload.js');
   const main = read('src/main.js');
   const workgraphs = read('src/workgraphs.js');
-  const styles = read('src/styles.css');
+  const styles = read('src/workgraph-editor.css');
 
   assert.match(html, /id="workgraphBtn"[\s\S]*?id="workgraphTopCount"/);
   assert.match(html, /id="createWorkgraphBtn"[^>]*data-i18n="workgraph\.createSelected"/);
-  assert.match(html, /id="workgraphDialog"[\s\S]*?id="workgraphTaskList"[\s\S]*?id="workgraphJoinNode"[\s\S]*?id="workgraphSynthesisSelect"/);
-  assert.ok(html.indexOf('./workgraphs.js') > 0 && html.indexOf('./workgraphs.js') < html.indexOf('./renderer.js'));
+  assert.match(html, /id="workgraphDialog"[\s\S]*?id="workgraphSessionList"[\s\S]*?id="workgraphCanvasViewport"[\s\S]*?id="workgraphEdgeLayer"[\s\S]*?id="workgraphNodeLayer"/);
+  assert.match(html, /id="workgraphSchedulePane"[\s\S]*?id="workgraphMonitorInterval"[\s\S]*?id="workgraphRunList"/);
+  assert.ok(
+    html.indexOf('./workgraphs.js') > 0
+    && html.indexOf('./workgraphs.js') < html.indexOf('./renderer.js')
+    && html.indexOf('./renderer.js') < html.indexOf('./workgraph-ui.js')
+  );
 
-  assert.match(renderer, /sessions:\s*sessions\.map\(workgraphSessionSnapshot\)/);
-  assert.match(workgraphs, /joinMode:\s*'all'/);
-  assert.match(renderer, /function makeWorkgraphHandoff\(/);
-  assert.match(renderer, /await prepareHandoffArtifacts\(liveSessions/);
-  assert.match(renderer, /window\.manager\.startTerminal\(\{/);
-  assert.match(renderer, /window\.manager\.sendTerminal\(\{/);
-  assert.match(renderer, /event\.status === 'ready'[\s\S]*?node\.status = 'completed'/);
+  assert.match(workgraphUi, /sessions:\s*sessions\.map\(workgraphSessionSnapshot\)/);
+  assert.match(workgraphUi, /application\/x-agentdesk-session/);
+  assert.match(workgraphUi, /validateEdgeAddition\(graph, from, targetId\)/);
+  assert.match(workgraphs, /TRIGGER_MODES = new Set\(\['all', 'any', 'each', 'threshold'\]\)/);
+  assert.match(workgraphs, /function scheduleNextAt\(/);
+  assert.match(workgraphs, /function sweepWatchdog\(/);
+  assert.match(workgraphUi, /function workgraphCoordinatorTick\(/);
+  assert.match(workgraphUi, /function makeWorkgraphHandoff\(/);
+  assert.match(workgraphUi, /await prepareHandoffArtifacts\(liveSessions/);
+  assert.match(workgraphUi, /window\.manager\.startTerminal\(\{/);
+  assert.match(workgraphUi, /window\.manager\.sendTerminal\(\{/);
+  assert.match(workgraphUi, /event\.status === 'ready'[\s\S]*?'succeeded'/);
 
   assert.match(preload, /listWorkgraphs:[\s\S]*?workgraphs:list/);
   assert.match(preload, /saveWorkgraph:[\s\S]*?workgraphs:save/);
   assert.match(main, /ipcMain\.handle\('workgraphs:list'/);
   assert.match(main, /ipcMain\.handle\('workgraphs:save'/);
-  assert.match(styles, /\.workgraph-dialog[\s\S]*?\.workgraph-task[\s\S]*?\.workgraph-join-node[\s\S]*?\.workgraph-stage-synthesis/);
+  assert.match(main, /backgroundThrottling:\s*false/);
+  assert.match(styles, /\.workgraph-dialog[\s\S]*?\.workgraph-session-ticket[\s\S]*?\.workgraph-edge[\s\S]*?\.workgraph-node[\s\S]*?\.workgraph-inspector/);
 });
 
 test('庭院猫位置越界兜底：旧拖拽位置落在被裁的前景草坪带(y≥124)时作废、回默认布局（Kimi 消失回归）', () => {

@@ -1,0 +1,1680 @@
+/* Workgraph v2 · live railway signal desk
+ *
+ * The editor intentionally reads like an operating surface rather than a
+ * generic dashboard: session tickets wait in a depot, graph nodes sit on a
+ * measured drafting grid, and every run state has a signal colour.
+ */
+
+.workgraph-dialog {
+  --wg-ink: #102934;
+  --wg-ink-2: #234653;
+  --wg-paper: #eee9dc;
+  --wg-paper-2: #faf7ee;
+  --wg-paper-3: #fffdf7;
+  --wg-rule: #c9c1ae;
+  --wg-rule-dark: #8e948d;
+  --wg-muted: #68767a;
+  --wg-rust: #c85c3c;
+  --wg-rust-dark: #93412c;
+  --wg-green: #2d8069;
+  --wg-amber: #d3973e;
+  --wg-blue: #2d7087;
+  width: min(1016px, calc(100vw - 16px));
+  max-width: none;
+  height: min(790px, calc(100vh - 16px));
+  max-height: none;
+  border: 1px solid #213d48;
+  border-radius: 10px;
+  padding: 0;
+  color: var(--wg-ink);
+  background: var(--wg-paper);
+  box-shadow: 0 28px 80px rgb(6 20 27 / 46%);
+  overflow: hidden;
+}
+
+[data-theme="dark"] .workgraph-dialog {
+  --wg-ink: #e8eee9;
+  --wg-ink-2: #b6cac9;
+  --wg-paper: #17272d;
+  --wg-paper-2: #1d3037;
+  --wg-paper-3: #233941;
+  --wg-rule: #3b5157;
+  --wg-rule-dark: #60747a;
+  --wg-muted: #98aaab;
+  --wg-green: #5db596;
+  --wg-amber: #e3ad5d;
+  --wg-blue: #66a8bb;
+  border-color: #56717a;
+}
+
+.workgraph-dialog::backdrop {
+  background: rgb(8 23 29 / 66%);
+  backdrop-filter: blur(3px) saturate(.85);
+}
+
+.workgraph-shell {
+  display: grid;
+  grid-template-rows: 74px 48px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.workgraph-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 32px;
+  align-items: center;
+  gap: 18px;
+  min-height: 0;
+  padding: 10px 14px 10px 18px;
+  color: #f8f3e7;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 4%) 1px, transparent 1px) 0 0 / 46px 100%,
+    linear-gradient(135deg, #102832, #1f414c);
+  border-bottom: 3px solid var(--wg-rust);
+}
+
+.workgraph-head-title {
+  min-width: 0;
+}
+
+.workgraph-head-title > span,
+.workgraph-rail-head span,
+.workgraph-session-head span,
+.workgraph-empty > small {
+  display: block;
+  color: #e9b77b;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .17em;
+}
+
+.workgraph-head-title h3 {
+  margin: 2px 0 1px;
+  color: #fffaf0;
+  font-family: ui-serif, "Songti SC", "STSong", Georgia, serif;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: .03em;
+}
+
+.workgraph-head-title p {
+  max-width: 520px;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: #b9c9c9;
+  font-size: 9px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workgraph-fleet-summary {
+  display: grid;
+  grid-template-columns: 18px auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 150px;
+  border-left: 1px solid rgb(255 255 255 / 18%);
+  padding-left: 14px;
+}
+
+.workgraph-fleet-summary > span {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  color: #91aaa9;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 8px;
+}
+
+.workgraph-fleet-summary[data-state="running"] > span {
+  color: #e9ac50;
+  animation: workgraph-signal-pulse 1.8s ease-in-out infinite;
+}
+
+.workgraph-fleet-summary[data-state="attention"] > span {
+  color: #ef8164;
+}
+
+.workgraph-fleet-summary p {
+  min-width: 0;
+  margin: 0;
+}
+
+.workgraph-fleet-summary strong,
+.workgraph-fleet-summary small {
+  display: block;
+  max-width: 175px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workgraph-fleet-summary strong {
+  color: #f7f0df;
+  font-size: 9px;
+}
+
+.workgraph-fleet-summary small {
+  margin-top: 2px;
+  color: #9db1b2;
+  font-family: var(--font-mono);
+  font-size: 7px;
+}
+
+.workgraph-head .workgraph-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 19%);
+  border-radius: 50%;
+  padding: 0;
+  color: #d8e1dd;
+  background: transparent;
+  box-shadow: none;
+  font-size: 17px;
+}
+
+.workgraph-head .workgraph-close:hover {
+  color: white;
+  background: rgb(255 255 255 / 10%);
+}
+
+.workgraph-commandbar {
+  display: grid;
+  grid-template-columns: minmax(230px, 1fr) 160px auto auto;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--wg-rule);
+  padding: 5px 12px;
+  background: var(--wg-paper-2);
+}
+
+.workgraph-commandbar label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.workgraph-commandbar label > span {
+  color: var(--wg-muted);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.workgraph-commandbar input,
+.workgraph-commandbar select {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid var(--wg-rule);
+  border-radius: 4px;
+  padding: 0 8px;
+  color: var(--wg-ink);
+  background: var(--wg-paper-3);
+  box-shadow: none;
+  font-size: 10px;
+}
+
+.workgraph-title-field input {
+  font-family: ui-serif, "Songti SC", Georgia, serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workgraph-legend {
+  display: flex;
+  gap: 7px;
+}
+
+.workgraph-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--wg-muted);
+}
+
+.workgraph-legend i {
+  width: 14px;
+  height: 0;
+  border-top: 2px solid var(--wg-green);
+}
+
+.workgraph-legend i[data-when="failure"] {
+  border-color: var(--wg-rust);
+  border-top-style: dashed;
+}
+
+.workgraph-legend i[data-when="always"] {
+  border-color: var(--wg-blue);
+  border-top-style: dotted;
+}
+
+.workgraph-legend b {
+  font-size: 7px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.workgraph-status {
+  display: inline-grid;
+  min-width: 54px;
+  height: 23px;
+  place-items: center;
+  border: 1px solid var(--wg-rule-dark);
+  border-radius: 999px;
+  padding: 0 9px;
+  color: var(--wg-muted);
+  background: var(--wg-paper-3);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 850;
+  letter-spacing: .08em;
+}
+
+.workgraph-status[data-state="running"],
+.workgraph-status[data-state="waiting"] {
+  border-color: var(--wg-amber);
+  color: #9a641a;
+  background: color-mix(in oklab, var(--wg-amber) 13%, var(--wg-paper-3));
+}
+
+.workgraph-status[data-state="scheduled"],
+.workgraph-status[data-state="completed"] {
+  border-color: var(--wg-green);
+  color: var(--wg-green);
+  background: color-mix(in oklab, var(--wg-green) 10%, var(--wg-paper-3));
+}
+
+.workgraph-status[data-state="attention"] {
+  border-color: var(--wg-rust);
+  color: var(--wg-rust-dark);
+  background: color-mix(in oklab, var(--wg-rust) 10%, var(--wg-paper-3));
+}
+
+.workgraph-layout {
+  display: grid;
+  grid-template-columns: 194px minmax(0, 1fr) 246px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workgraph-rail {
+  display: grid;
+  grid-template-rows: auto minmax(60px, 132px) auto auto minmax(0, 1fr) auto;
+  min-height: 0;
+  border-right: 1px solid var(--wg-rule);
+  background: color-mix(in oklab, var(--wg-paper-2) 88%, var(--wg-ink) 2%);
+  overflow: hidden;
+}
+
+.workgraph-rail-head,
+.workgraph-session-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 10px 7px 12px;
+}
+
+.workgraph-rail-head span,
+.workgraph-session-head span {
+  color: var(--wg-rust);
+  font-size: 6px;
+}
+
+.workgraph-rail-head strong,
+.workgraph-session-head strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--wg-ink);
+  font-size: 10px;
+}
+
+.workgraph-rail-head button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid var(--wg-rule);
+  border-radius: 50%;
+  padding: 0;
+  color: var(--wg-ink-2);
+  background: var(--wg-paper-3);
+  box-shadow: none;
+  font-size: 15px;
+}
+
+.workgraph-list {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-height: 0;
+  margin: 0;
+  padding: 0 8px 8px;
+  list-style: none;
+  overflow: auto;
+}
+
+.workgraph-list-item {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 7px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 6px 7px;
+  color: var(--wg-ink);
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+
+.workgraph-list-item:hover {
+  background: color-mix(in oklab, var(--wg-ink) 5%, transparent);
+}
+
+.workgraph-list-item[aria-current="true"] {
+  border-color: color-mix(in oklab, var(--wg-rust) 38%, var(--wg-rule));
+  background: color-mix(in oklab, var(--wg-rust) 8%, var(--wg-paper-3));
+}
+
+.workgraph-list-item::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--wg-rule-dark);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.workgraph-list-item[data-state="running"]::before,
+.workgraph-list-item[data-state="waiting"]::before { border-color: var(--wg-amber); background: var(--wg-amber); }
+.workgraph-list-item[data-state="attention"]::before { border-color: var(--wg-rust); background: var(--wg-rust); }
+.workgraph-list-item[data-state="scheduled"]::before,
+.workgraph-list-item[data-state="completed"]::before { border-color: var(--wg-green); background: var(--wg-green); }
+
+.workgraph-list-copy {
+  min-width: 0;
+}
+
+.workgraph-list-copy strong,
+.workgraph-list-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workgraph-list-copy strong {
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.workgraph-list-copy small {
+  margin-top: 2px;
+  color: var(--wg-muted);
+  font-family: var(--font-mono);
+  font-size: 6px;
+}
+
+.workgraph-session-head {
+  border-top: 1px solid var(--wg-rule);
+  padding-top: 9px;
+}
+
+.workgraph-session-head small {
+  display: grid;
+  min-width: 20px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--wg-paper-3);
+  background: var(--wg-ink-2);
+  font-family: var(--font-mono);
+  font-size: 7px;
+}
+
+.workgraph-session-search {
+  height: 27px;
+  margin: 0 8px 7px;
+  border: 1px solid var(--wg-rule);
+  border-radius: 4px;
+  padding: 0 8px;
+  color: var(--wg-ink);
+  background: var(--wg-paper-3);
+  box-shadow: none;
+  font-size: 9px;
+}
+
+.workgraph-session-list {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-height: 0;
+  padding: 0 8px 8px;
+  overflow: auto;
+}
+
+.workgraph-session-ticket {
+  position: relative;
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-height: 43px;
+  border: 1px solid var(--wg-rule);
+  border-left: 3px solid var(--ticket-color, var(--wg-blue));
+  border-radius: 4px;
+  padding: 5px 6px 5px 5px;
+  cursor: grab;
+  background:
+    radial-gradient(circle at 100% 50%, var(--wg-paper) 0 3px, transparent 3.5px),
+    var(--wg-paper-3);
+  box-shadow: 0 2px 5px rgb(24 38 40 / 5%);
+  user-select: none;
+}
+
+.workgraph-session-ticket:active {
+  cursor: grabbing;
+}
+
+.workgraph-session-ticket:hover {
+  border-color: var(--wg-rule-dark);
+  transform: translateX(2px);
+}
+
+.workgraph-session-ticket > span {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 3px;
+  color: white;
+  background: var(--ticket-color, var(--wg-blue));
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 850;
+}
+
+.workgraph-session-ticket p {
+  min-width: 0;
+  margin: 0;
+}
+
+.workgraph-session-ticket strong,
+.workgraph-session-ticket small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workgraph-session-ticket strong {
+  color: var(--wg-ink);
+  font-size: 8px;
+}
+
+.workgraph-session-ticket small {
+  margin-top: 2px;
+  color: var(--wg-muted);
+  font-size: 6px;
+}
+
+.workgraph-drag-hint {
+  margin: 0;
+  border-top: 1px solid var(--wg-rule);
+  padding: 7px 9px;
+  color: var(--wg-muted);
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.workgraph-main {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  background: var(--wg-paper);
+  overflow: hidden;
+}
+
+.workgraph-empty {
+  display: grid;
+  height: 100%;
+  place-content: center;
+  justify-items: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.workgraph-empty[hidden],
+.workgraph-editor[hidden] {
+  display: none;
+}
+
+.workgraph-empty-mark {
+  position: relative;
+  display: block;
+  width: 112px;
+  height: 56px;
+  margin-bottom: 16px;
+}
+
+.workgraph-empty-mark::before,
+.workgraph-empty-mark::after {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: 28px;
+  width: 68px;
+  border-top: 2px solid var(--wg-rule-dark);
+  transform-origin: left;
+}
+
+.workgraph-empty-mark::before { transform: rotate(-17deg); }
+.workgraph-empty-mark::after { transform: rotate(17deg); }
+
+.workgraph-empty-mark i {
+  position: absolute;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--wg-ink-2);
+  border-radius: 50%;
+  background: var(--wg-paper);
+}
+
+.workgraph-empty-mark i:nth-child(1) { left: 4px; top: 21px; border-color: var(--wg-rust); }
+.workgraph-empty-mark i:nth-child(2) { left: 53px; top: 0; }
+.workgraph-empty-mark i:nth-child(3) { left: 53px; bottom: 0; }
+.workgraph-empty-mark i:nth-child(4) { right: 0; top: 21px; border-radius: 3px; transform: rotate(45deg); border-color: var(--wg-green); }
+
+.workgraph-empty > small {
+  color: var(--wg-rust);
+}
+
+.workgraph-empty h4 {
+  margin: 8px 0 6px;
+  font-family: ui-serif, "Songti SC", Georgia, serif;
+  font-size: 18px;
+}
+
+.workgraph-empty p {
+  max-width: 360px;
+  margin: 0 0 15px;
+  color: var(--wg-muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.workgraph-empty button {
+  height: 30px;
+  border-color: transparent;
+  color: white;
+  background: var(--wg-rust);
+  box-shadow: none;
+  font-size: 9px;
+}
+
+.workgraph-editor {
+  display: grid;
+  grid-template-rows: 36px minmax(0, 1fr) 43px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workgraph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border-bottom: 1px solid var(--wg-rule);
+  padding: 4px 7px;
+  background: var(--wg-paper-2);
+}
+
+.workgraph-tool-cluster {
+  display: flex;
+  gap: 3px;
+}
+
+.workgraph-toolbar button {
+  display: inline-flex;
+  height: 27px;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--wg-rule);
+  border-radius: 4px;
+  padding: 0 7px;
+  color: var(--wg-ink-2);
+  background: var(--wg-paper-3);
+  box-shadow: none;
+  font-size: 7px;
+}
+
+.workgraph-toolbar button span {
+  color: var(--wg-rust);
+  font-size: 10px;
+}
+
+.workgraph-toolbar button b {
+  font-weight: 650;
+}
+
+.workgraph-connect-hint {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto;
+  color: var(--wg-muted);
+  font-size: 7px;
+}
+
+.workgraph-connect-hint i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--wg-rule-dark);
+  border-radius: 50%;
+}
+
+.workgraph-connect-hint[data-state="connecting"] {
+  color: var(--wg-rust-dark);
+  font-weight: 700;
+}
+
+.workgraph-connect-hint[data-state="connecting"] i {
+  border-color: var(--wg-rust);
+  background: var(--wg-rust);
+  animation: workgraph-signal-pulse 1.2s ease-in-out infinite;
+}
+
+.workgraph-canvas-viewport {
+  position: relative;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #ded8c9;
+}
+
+[data-theme="dark"] .workgraph-canvas-viewport {
+  background: #102127;
+}
+
+.workgraph-canvas {
+  position: relative;
+  width: 1600px;
+  min-width: 1600px;
+  height: 1000px;
+  min-height: 1000px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background-color: var(--wg-paper);
+  background-image:
+    linear-gradient(color-mix(in oklab, var(--wg-rule) 44%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--wg-rule) 44%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in oklab, var(--wg-rule) 20%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--wg-rule) 20%, transparent) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--wg-rule) 70%, transparent);
+}
+
+.workgraph-edge-layer,
+.workgraph-node-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.workgraph-edge-layer {
+  z-index: 1;
+  pointer-events: auto;
+  overflow: visible;
+}
+
+.workgraph-edge {
+  fill: none;
+  stroke: var(--wg-green);
+  stroke-width: 2;
+  pointer-events: stroke;
+  cursor: pointer;
+  vector-effect: non-scaling-stroke;
+}
+
+.workgraph-edge[data-when="failure"] {
+  stroke: var(--wg-rust);
+  stroke-dasharray: 7 5;
+}
+
+.workgraph-edge[data-when="always"] {
+  stroke: var(--wg-blue);
+  stroke-dasharray: 2 5;
+}
+
+.workgraph-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.workgraph-edge-group[aria-current="true"] .workgraph-edge {
+  stroke-width: 4;
+  filter: drop-shadow(0 0 3px color-mix(in oklab, currentColor 45%, transparent));
+}
+
+.workgraph-edge-label {
+  fill: var(--wg-muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 750;
+  pointer-events: painted;
+  cursor: pointer;
+  paint-order: stroke;
+  stroke: var(--wg-paper);
+  stroke-width: 4px;
+}
+
+.workgraph-node-layer {
+  z-index: 2;
+  pointer-events: none;
+}
+
+.workgraph-node {
+  --node-accent: var(--wg-blue);
+  position: absolute;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 218px;
+  min-height: 112px;
+  border: 1px solid var(--wg-rule-dark);
+  border-top: 4px solid var(--node-accent);
+  border-radius: 6px;
+  padding: 0;
+  color: var(--wg-ink);
+  cursor: move;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 9%), transparent 35%),
+    var(--wg-paper-3);
+  box-shadow: 0 6px 16px rgb(17 34 39 / 13%);
+  pointer-events: auto;
+  user-select: none;
+}
+
+.workgraph-node[data-type="approval"] {
+  --node-accent: var(--wg-rust);
+  width: 190px;
+}
+
+.workgraph-node[data-type="delay"] {
+  --node-accent: var(--wg-amber);
+  width: 190px;
+}
+
+.workgraph-node[aria-current="true"] {
+  border-color: var(--node-accent);
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--node-accent) 18%, transparent),
+    0 9px 22px rgb(17 34 39 / 18%);
+}
+
+.workgraph-node[data-state="running"] { --node-accent: var(--wg-amber); }
+.workgraph-node[data-state="succeeded"] { --node-accent: var(--wg-green); }
+.workgraph-node[data-state="failed"],
+.workgraph-node[data-state="timed_out"],
+.workgraph-node[data-state="blocked"],
+.workgraph-node[data-state="stalled"] { --node-accent: var(--wg-rust); }
+.workgraph-node[data-state="waiting_approval"] { --node-accent: #9d6dad; }
+
+.workgraph-node-head {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid color-mix(in oklab, var(--wg-rule) 72%, transparent);
+  padding: 6px 8px 5px;
+}
+
+.workgraph-node-head > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 3px;
+  color: white;
+  background: var(--node-accent);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.workgraph-node-copy {
+  min-width: 0;
+}
+
+.workgraph-node-copy strong,
+.workgraph-node-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workgraph-node-copy strong {
+  font-family: ui-serif, "Songti SC", Georgia, serif;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.workgraph-node-copy small {
+  margin-top: 1px;
+  color: var(--wg-muted);
+  font-size: 6px;
+}
+
+.workgraph-node-state {
+  max-width: 68px;
+  overflow: hidden;
+  color: var(--node-accent);
+  font-family: var(--font-mono);
+  font-size: 6px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.workgraph-node-body {
+  min-height: 44px;
+  padding: 7px 9px;
+}
+
+.workgraph-node-body p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--wg-muted);
+  font-size: 7px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.workgraph-node-body strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--wg-ink-2);
+  font-family: var(--font-mono);
+  font-size: 6px;
+  font-weight: 750;
+}
+
+.workgraph-node-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px dashed color-mix(in oklab, var(--wg-rule) 70%, transparent);
+  padding: 4px 8px;
+  color: var(--wg-muted);
+  font-family: var(--font-mono);
+  font-size: 6px;
+}
+
+.workgraph-node-foot b {
+  color: var(--node-accent);
+}
+
+.workgraph-node-port {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  place-items: center;
+  border: 2px solid var(--wg-paper-3);
+  border-radius: 50%;
+  padding: 0;
+  color: transparent;
+  background: var(--node-accent);
+  box-shadow: 0 0 0 1px var(--wg-rule-dark);
+  transform: translateY(-50%);
+  cursor: crosshair;
+}
+
+.workgraph-node-port::after {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--wg-paper-3);
+}
+
+.workgraph-node-port[data-port="in"] { left: -9px; }
+.workgraph-node-port[data-port="out"] { right: -9px; }
+
+.workgraph-node-port:hover,
+.workgraph-node-port[data-active="true"] {
+  width: 20px;
+  height: 20px;
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--node-accent) 20%, transparent);
+}
+
+.workgraph-canvas-empty {
+  position: absolute;
+  z-index: 0;
+  display: grid;
+  width: 260px;
+  left: 130px;
+  top: 150px;
+  justify-items: center;
+  border: 1px dashed var(--wg-rule-dark);
+  border-radius: 7px;
+  padding: 22px;
+  color: var(--wg-muted);
+  text-align: center;
+  pointer-events: none;
+}
+
+.workgraph-canvas-empty[hidden] {
+  display: none;
+}
+
+.workgraph-canvas-empty > span {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  margin-bottom: 8px;
+  border: 1px solid var(--wg-rule-dark);
+  border-radius: 50%;
+  color: var(--wg-rust);
+  font-size: 18px;
+}
+
+.workgraph-canvas-empty strong {
+  color: var(--wg-ink);
+  font-size: 10px;
+}
+
+.workgraph-canvas-empty small {
+  margin-top: 4px;
+  font-size: 7px;
+}
+
+.workgraph-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  border-top: 1px solid var(--wg-rule);
+  padding: 6px 8px;
+  background: var(--wg-paper-2);
+}
+
+.workgraph-actions button {
+  height: 28px;
+  border: 1px solid var(--wg-rule);
+  border-radius: 4px;
+  padding: 0 8px;
+  color: var(--wg-ink-2);
+  background: var(--wg-paper-3);
+  box-shadow: none;
+  font-size: 7px;
+}
+
+.workgraph-actions button.primary {
+  border-color: transparent;
+  color: white;
+  background: var(--wg-rust);
+}
+
+.workgraph-actions button.primary:hover:not(:disabled) {
+  color: white;
+  background: var(--wg-rust-dark);
+}
+
+.workgraph-run-summary {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 10px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  margin-right: auto;
+}
+
+.workgraph-run-summary > span {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--wg-rule-dark);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.workgraph-run-summary > span[data-state="running"],
+.workgraph-run-summary > span[data-state="waiting"] { border-color: var(--wg-amber); background: var(--wg-amber); animation: workgraph-signal-pulse 1.8s ease-in-out infinite; }
+.workgraph-run-summary > span[data-state="scheduled"],
+.workgraph-run-summary > span[data-state="completed"] { border-color: var(--wg-green); background: var(--wg-green); }
+.workgraph-run-summary > span[data-state="attention"] { border-color: var(--wg-rust); background: var(--wg-rust); }
+
+.workgraph-run-summary p {
+  min-width: 0;
+  margin: 0;
+}
+
+.workgraph-run-summary strong,
+.workgraph-run-summary small {
+  display: block;
+  max-width: 155px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workgraph-run-summary strong {
+  color: var(--wg-ink);
+  font-size: 8px;
+}
+
+.workgraph-run-summary small {
+  margin-top: 1px;
+  color: var(--wg-muted);
+  font-size: 6px;
+}
+
+.workgraph-inspector {
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--wg-rule);
+  background: var(--wg-paper-2);
+  overflow: hidden;
+}
+
+.workgraph-inspector-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  height: 37px;
+  border-bottom: 1px solid var(--wg-rule);
+}
+
+.workgraph-inspector-tabs button {
+  position: relative;
+  height: 37px;
+  border: 0;
+  border-right: 1px solid color-mix(in oklab, var(--wg-rule) 65%, transparent);
+  border-radius: 0;
+  padding: 0 3px;
+  color: var(--wg-muted);
+  background: transparent;
+  box-shadow: none;
+  font-size: 7px;
+  font-weight: 750;
+}
+
+.workgraph-inspector-tabs button[aria-pressed="true"] {
+  color: var(--wg-ink);
+  background: var(--wg-paper-3);
+}
+
+.workgraph-inspector-tabs button[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  height: 2px;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  background: var(--wg-rust);
+}
+
+.workgraph-inspector-pane {
+  height: calc(100% - 37px);
+  min-height: 0;
+  padding: 10px;
+  overflow: auto;
+}
+
+.workgraph-inspector-pane[hidden],
+.workgraph-node-runtime:empty {
+  display: none;
+}
+
+.workgraph-inspector-empty {
+  display: grid;
+  min-height: 270px;
+  align-content: center;
+  justify-items: center;
+  color: var(--wg-muted);
+  text-align: center;
+}
+
+.workgraph-inspector-empty > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--wg-rule-dark);
+  border-radius: 50%;
+  font-size: 16px;
+}
+
+.workgraph-inspector-empty strong {
+  margin-top: 9px;
+  color: var(--wg-ink);
+  font-family: ui-serif, "Songti SC", Georgia, serif;
+  font-size: 12px;
+}
+
+.workgraph-inspector-empty p {
+  max-width: 170px;
+  margin: 5px 0 0;
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.workgraph-inspector-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 11px;
+  border-bottom: 1px solid var(--wg-rule);
+  padding-bottom: 8px;
+}
+
+.workgraph-inspector-title > span {
+  display: inline-grid;
+  min-width: 42px;
+  height: 19px;
+  place-items: center;
+  border-radius: 3px;
+  padding: 0 5px;
+  color: white;
+  background: var(--wg-ink-2);
+  font-family: var(--font-mono);
+  font-size: 6px;
+  font-weight: 850;
+  letter-spacing: .08em;
+}
+
+.workgraph-inspector-title strong {
+  min-width: 0;
+  overflow: hidden;
+  font-family: ui-serif, "Songti SC", Georgia, serif;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workgraph-inspector-pane label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+.workgraph-inspector-pane label > span {
+  color: var(--wg-muted);
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.workgraph-inspector-pane input,
+.workgraph-inspector-pane select,
+.workgraph-inspector-pane textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--wg-rule);
+  border-radius: 4px;
+  padding: 6px 7px;
+  color: var(--wg-ink);
+  background: var(--wg-paper-3);
+  box-shadow: none;
+  font-size: 8px;
+}
+
+.workgraph-inspector-pane input,
+.workgraph-inspector-pane select {
+  height: 28px;
+}
+
+.workgraph-inspector-pane textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.workgraph-field-row,
+.workgraph-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.workgraph-check-row {
+  display: grid !important;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px !important;
+  border: 1px solid var(--wg-rule);
+  border-radius: 4px;
+  padding: 7px;
+  background: color-mix(in oklab, var(--wg-paper-3) 80%, transparent);
+}
+
+.workgraph-check-row input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+}
+
+.workgraph-check-row > span {
+  color: var(--wg-ink-2) !important;
+  font-weight: 650 !important;
+}
+
+.workgraph-node-runtime {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0;
+  border: 1px solid var(--wg-rule);
+  border-left: 3px solid var(--wg-amber);
+  border-radius: 4px;
+  padding: 7px;
+  background: var(--wg-paper-3);
+}
+
+.workgraph-node-runtime article {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.workgraph-node-runtime article > i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wg-rule-dark);
+}
+
+.workgraph-node-runtime article[data-state="running"] > i { background: var(--wg-amber); }
+.workgraph-node-runtime article[data-state="succeeded"] > i { background: var(--wg-green); }
+.workgraph-node-runtime article[data-state="failed"] > i,
+.workgraph-node-runtime article[data-state="stalled"] > i,
+.workgraph-node-runtime article[data-state="timed_out"] > i { background: var(--wg-rust); }
+
+.workgraph-node-runtime p {
+  min-width: 0;
+  margin: 0;
+}
+
+.workgraph-node-runtime strong,
+.workgraph-node-runtime small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workgraph-node-runtime strong { font-size: 7px; }
+.workgraph-node-runtime small { color: var(--wg-muted); font-size: 6px; }
+
+.workgraph-node-runtime button {
+  height: 22px;
+  border: 1px solid var(--wg-rule);
+  border-radius: 3px;
+  padding: 0 5px;
+  color: var(--wg-ink-2);
+  background: var(--wg-paper-2);
+  box-shadow: none;
+  font-size: 6px;
+}
+
+.workgraph-inspector-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.workgraph-inspector-actions button,
+#workgraphDeleteEdgeBtn {
+  height: 28px;
+  border: 1px solid var(--wg-rule);
+  border-radius: 4px;
+  padding: 0 8px;
+  color: var(--wg-ink-2);
+  background: var(--wg-paper-3);
+  box-shadow: none;
+  font-size: 7px;
+}
+
+.workgraph-inspector-actions .danger,
+#workgraphDeleteEdgeBtn.danger {
+  color: var(--wg-rust-dark);
+  border-color: color-mix(in oklab, var(--wg-rust) 45%, var(--wg-rule));
+}
+
+.workgraph-edge-route {
+  border: 1px dashed var(--wg-rule-dark);
+  border-radius: 4px;
+  padding: 9px;
+  color: var(--wg-ink-2);
+  background: var(--wg-paper-3);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.workgraph-section-kicker {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  margin: 2px 0 9px;
+  border-bottom: 1px solid var(--wg-rule);
+  padding-bottom: 7px;
+}
+
+.workgraph-section-kicker:not(:first-child) {
+  margin-top: 17px;
+}
+
+.workgraph-section-kicker > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: var(--wg-rust);
+  font-family: var(--font-mono);
+  font-size: 6px;
+  font-weight: 850;
+}
+
+.workgraph-section-kicker strong {
+  font-family: ui-serif, "Songti SC", Georgia, serif;
+  font-size: 12px;
+}
+
+.workgraph-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  margin-bottom: 9px;
+}
+
+.workgraph-weekdays label {
+  display: block;
+  margin: 0;
+}
+
+.workgraph-weekdays input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.workgraph-weekdays span {
+  display: grid;
+  height: 24px;
+  place-items: center;
+  border: 1px solid var(--wg-rule);
+  border-radius: 3px;
+  color: var(--wg-muted);
+  background: var(--wg-paper-3);
+  cursor: pointer;
+  font-size: 7px;
+}
+
+.workgraph-weekdays input:checked + span {
+  border-color: var(--wg-ink-2);
+  color: white !important;
+  background: var(--wg-ink-2);
+}
+
+.workgraph-next-schedule {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  border: 1px solid color-mix(in oklab, var(--wg-green) 35%, var(--wg-rule));
+  border-radius: 5px;
+  padding: 7px;
+  background: color-mix(in oklab, var(--wg-green) 8%, var(--wg-paper-3));
+}
+
+.workgraph-next-schedule::before {
+  content: "◷";
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: var(--wg-green);
+}
+
+.workgraph-next-schedule strong,
+.workgraph-next-schedule small {
+  display: block;
+}
+
+.workgraph-next-schedule strong { font-size: 8px; }
+.workgraph-next-schedule small { margin-top: 2px; color: var(--wg-muted); font-size: 6px; }
+
+.workgraph-monitor-note {
+  margin: 2px 0 0;
+  border-left: 2px solid var(--wg-blue);
+  padding: 4px 0 4px 7px;
+  color: var(--wg-muted);
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.workgraph-active-run-card {
+  border: 1px solid var(--wg-rule);
+  border-top: 3px solid var(--wg-amber);
+  border-radius: 5px;
+  padding: 9px;
+  background: var(--wg-paper-3);
+}
+
+.workgraph-active-run-card:empty {
+  display: none;
+}
+
+.workgraph-active-run-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.workgraph-active-run-card header strong {
+  font-family: ui-serif, "Songti SC", Georgia, serif;
+  font-size: 11px;
+}
+
+.workgraph-active-run-card header span {
+  color: var(--wg-amber);
+  font-family: var(--font-mono);
+  font-size: 6px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.workgraph-run-meter {
+  height: 5px;
+  margin: 9px 0 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--wg-rule) 55%, transparent);
+  overflow: hidden;
+}
+
+.workgraph-run-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--wg-green);
+}
+
+.workgraph-active-run-card p {
+  margin: 0;
+  color: var(--wg-muted);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.workgraph-event-log {
+  display: grid;
+  gap: 0;
+  max-height: 276px;
+  margin: 9px -2px 0;
+  border-top: 1px solid var(--wg-rule);
+  padding: 4px 2px 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.workgraph-event-log li {
+  display: grid;
+  grid-template-columns: 6px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 7px;
+  min-width: 0;
+  border-bottom: 1px dashed color-mix(in oklab, var(--wg-rule) 72%, transparent);
+  padding: 6px 1px;
+}
+
+.workgraph-event-log li > i {
+  width: 6px;
+  height: 6px;
+  margin-top: 2px;
+  border: 1px solid var(--wg-paper-3);
+  border-radius: 50%;
+  background: var(--wg-blue);
+  box-shadow: 0 0 0 1px var(--wg-blue);
+}
+
+.workgraph-event-log li[data-type="activation-state"] > i,
+.workgraph-event-log li[data-type="delay-completed"] > i,
+.workgraph-event-log li[data-type="signal-emitted"] > i {
+  background: var(--wg-green);
+  box-shadow: 0 0 0 1px var(--wg-green);
+}
+
+.workgraph-event-log li[data-type^="watchdog"] > i,
+.workgraph-event-log li[data-type="node-blocked"] > i {
+  background: var(--wg-rust);
+  box-shadow: 0 0 0 1px var(--wg-rust);
+}
+
+.workgraph-event-log span {
+  min-width: 0;
+  color: var(--wg-ink-2);
+  font-size: 7px;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.workgraph-event-log time {
+  color: var(--wg-muted);
+  font-family: var(--font-mono);
+  font-size: 6px;
+  line-height: 1.55;
+  white-space: nowrap;
+}
+
+.workgraph-run-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.workgraph-run-item {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid var(--wg-rule);
+  padding: 6px 1px 8px;
+}
+
+.workgraph-run-item > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--wg-rule-dark);
+}
+
+.workgraph-run-item[data-state="running"] > i,
+.workgraph-run-item[data-state="waiting"] > i { background: var(--wg-amber); }
+.workgraph-run-item[data-state="completed"] > i { background: var(--wg-green); }
+.workgraph-run-item[data-state="failed"] > i,
+.workgraph-run-item[data-state="attention"] > i { background: var(--wg-rust); }
+
+.workgraph-run-item p {
+  min-width: 0;
+  margin: 0;
+}
+
+.workgraph-run-item strong,
+.workgraph-run-item small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workgraph-run-item strong { font-size: 8px; }
+.workgraph-run-item small { margin-top: 2px; color: var(--wg-muted); font-size: 6px; }
+
+.workgraph-run-item button {
+  height: 22px;
+  border: 1px solid var(--wg-rule);
+  border-radius: 3px;
+  padding: 0 5px;
+  color: var(--wg-ink-2);
+  background: var(--wg-paper-3);
+  box-shadow: none;
+  font-size: 6px;
+}
+
+@keyframes workgraph-signal-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(211 151 62 / 0%); }
+  50% { box-shadow: 0 0 0 5px rgb(211 151 62 / 18%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workgraph-session-ticket,
+  .workgraph-node {
+    transition: none;
+  }
+
+  .workgraph-fleet-summary[data-state="running"] > span,
+  .workgraph-run-summary > span[data-state="running"],
+  .workgraph-connect-hint[data-state="connecting"] i {
+    animation: none;
+  }
+}
