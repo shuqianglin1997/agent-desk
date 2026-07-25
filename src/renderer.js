@@ -9,6 +9,7 @@ const state = {
   sessionView: 'compact',
   sessionSort: { key: 'updatedAt', direction: 'desc' },
   handoffSelection: new Map(),
+  handoffArtifacts: new Map(),
   selectionAnchorKey: null,
   query: '',
   theme: null,
@@ -210,6 +211,10 @@ const els = {
   handoffPlan: document.querySelector('#handoffPlan'),
   handoffPlanSummary: document.querySelector('#handoffPlanSummary'),
   handoffPlanList: document.querySelector('#handoffPlanList'),
+  artifactIndex: document.querySelector('#artifactIndex'),
+  artifactSummary: document.querySelector('#artifactSummary'),
+  artifactList: document.querySelector('#artifactList'),
+  refreshArtifactsBtn: document.querySelector('#refreshArtifactsBtn'),
   copySummaryBtn: document.querySelector('#copySummaryBtn'),
   copyAddressBtn: document.querySelector('#copyAddressBtn'),
   copyProjectBtn: document.querySelector('#copyProjectBtn'),
@@ -779,6 +784,16 @@ function bindEvents() {
     clearHandoffSelection();
   });
 
+  els.refreshArtifactsBtn?.addEventListener('click', async () => {
+    const session = selectedSession();
+    if (!session) return;
+    setStatus(tr('status.artifactsIndexingOne'));
+    const indexed = await ensureSessionArtifacts(session, { force: true });
+    setStatus(indexed.status === 'ready' && !indexed.error
+      ? tr('status.artifactsIndexed', { n: indexed.items.length })
+      : (indexed.error || tr('status.artifactsIndexFail')));
+  });
+
   els.copyAddressBtn.addEventListener('click', async () => {
     const session = selectedSession();
     if (!session) return;
@@ -930,6 +945,9 @@ async function loadProfiles(preferredId = null) {
   for (const [key, session] of state.handoffSelection) {
     if (!liveIds.has(session._profileId)) state.handoffSelection.delete(key);
   }
+  for (const [key, entry] of state.handoffArtifacts) {
+    if (!liveIds.has(entry.profileId)) state.handoffArtifacts.delete(key);
+  }
   state.selectedProfileId = preferredId || state.selectedProfileId || state.profiles[0]?.id || null;
   if (!state.profiles.some((profile) => profile.id === state.selectedProfileId)) {
     state.selectedProfileId = state.profiles[0]?.id || null;
@@ -997,6 +1015,10 @@ async function loadSessions(selectFirst = false) {
   const successfulProfiles = new Set(results.filter((result) => result.ok).map((result) => result.profileId));
   const loaded = results.flatMap((result) => result.records);
   const freshByKey = new Map(loaded.map((session) => [sessionKey(session), session]));
+  for (const [key, entry] of state.handoffArtifacts) {
+    const fresh = freshByKey.get(key);
+    if (fresh && entry.token !== artifactCacheToken(fresh)) state.handoffArtifacts.delete(key);
+  }
   for (const [key, snapshot] of state.handoffSelection) {
     if (!successfulProfiles.has(snapshot._profileId)) continue;
     if (freshByKey.has(key)) state.handoffSelection.set(key, freshByKey.get(key));
@@ -2365,6 +2387,7 @@ async function queueSessionForRuntime(profile, session) {
     return;
   }
 
+  await prepareHandoffArtifacts([session], { announce: false });
   state.runtime.selectedAdapterId = agent.id;
   state.runtime.selectedIdentityId = agent.identityAppId === profile.appId ? profile.id : null;
   state.runtime.queue.push({
@@ -2607,6 +2630,7 @@ async function executeYardIntent(profile, initialIntent) {
     const session = sessionForProfile(profile.id);
     if (!session) return;
     if (!window.confirm(tr('status.handoffConfirm', { title: session.title }))) return;
+    await prepareHandoffArtifacts([session]);
     await window.manager.writeClipboard(makeHandoffText(profile, session));
     window.YardScene.fx('handoff');
     setStatus(tr('status.handoffMailboxShort', { name: profile.name }));
@@ -3354,6 +3378,7 @@ function toggleHandoffSelection(session, checked, { range = false } = {}) {
   state.selectionAnchorKey = key;
   renderSessions();
   renderInspector();
+  if (checked) void ensureSessionArtifacts(session);
 }
 
 function selectFilteredSessions(checked) {
@@ -3422,15 +3447,29 @@ function renderHandoffPlan() {
     const order = document.createElement('span');
     order.className = 'handoff-plan-index';
     order.textContent = String(index + 1).padStart(2, '0');
-    const copy = document.createElement('div');
+    const copy = document.createElement('button');
+    copy.type = 'button';
     copy.className = 'handoff-plan-copy';
+    copy.title = tr('handoff.artifacts.inspect', { title: session.title });
+    copy.addEventListener('click', async () => {
+      if (!state.filteredSessions.some((item) => sessionKey(item) === key)) {
+        await setSessionScope('all');
+      }
+      const target = state.filteredSessions.find((item) => sessionKey(item) === key);
+      if (!target) return;
+      setActiveSession(target);
+      renderSessions();
+      renderInspector();
+    });
     const title = document.createElement('strong');
     title.textContent = session.title || '-';
     const meta = document.createElement('small');
-    meta.textContent = tr('handoff.itemMeta', {
+    const baseMeta = tr('handoff.itemMeta', {
       account: session._accountName || session._profileName || '-',
       app: session._appLabel || session.appId || '-'
     });
+    const artifactMeta = handoffArtifactMeta(session);
+    meta.textContent = [baseMeta, artifactMeta].filter(Boolean).join(' · ');
     copy.append(title, meta);
 
     const controls = document.createElement('div');
@@ -3469,9 +3508,205 @@ function handoffAccountCount(sessions) {
   )).filter(Boolean)).size;
 }
 
+function artifactCacheToken(session) {
+  if (!session) return '';
+  return [
+    session.filePath || '',
+    session.updatedAt || '',
+    session.createdAt || ''
+  ].join('::');
+}
+
+function artifactEntryFor(session) {
+  return session ? state.handoffArtifacts.get(sessionKey(session)) || null : null;
+}
+
+async function ensureSessionArtifacts(session, { force = false } = {}) {
+  if (!session || typeof window.manager.listSessionArtifacts !== 'function') {
+    return { status: 'unavailable', items: [], error: tr('handoff.artifacts.unavailable') };
+  }
+  const owner = sessionOwnerProfile(session);
+  if (!owner) return { status: 'error', items: [], error: tr('handoff.artifacts.unavailable') };
+
+  const key = sessionKey(session);
+  const token = artifactCacheToken(session);
+  const current = state.handoffArtifacts.get(key);
+  if (!force && current?.token === token) {
+    return current.promise ? current.promise : current;
+  }
+
+  const previousSelection = new Map(
+    (current?.items || []).map((item) => [item.id, Boolean(item.included)])
+  );
+  const entry = {
+    profileId: owner.id,
+    sessionId: session.id,
+    token,
+    status: 'loading',
+    items: current?.items || [],
+    error: null,
+    truncated: false,
+    promise: null
+  };
+  state.handoffArtifacts.set(key, entry);
+
+  entry.promise = (async () => {
+    try {
+      const result = await window.manager.listSessionArtifacts({
+        profileId: owner.id,
+        sessionId: session.id
+      });
+      if (!result?.ok) throw new Error(result?.reason || tr('handoff.artifacts.unavailable'));
+      entry.items = (Array.isArray(result.items) ? result.items : [])
+        .slice(0, 24)
+        .map((item) => ({
+          ...item,
+          included: previousSelection.has(item.id)
+            ? previousSelection.get(item.id)
+            : item.selectedByDefault === true
+        }));
+      entry.status = 'ready';
+      entry.error = null;
+      entry.truncated = result.truncated === true;
+    } catch (error) {
+      entry.status = entry.items.length ? 'ready' : 'error';
+      entry.error = error?.message || tr('handoff.artifacts.unavailable');
+    } finally {
+      entry.promise = null;
+      if (state.handoffArtifacts.get(key) === entry) {
+        if (sessionKey(selectedSession()) === key) renderArtifactIndex(session);
+        renderHandoffPlan();
+      }
+    }
+    return entry;
+  })();
+  return entry.promise;
+}
+
+async function prepareHandoffArtifacts(sessions, { announce = true } = {}) {
+  const list = (Array.isArray(sessions) ? sessions : [sessions]).filter(Boolean);
+  for (let index = 0; index < list.length; index += 1) {
+    const session = list[index];
+    const cached = artifactEntryFor(session);
+    if (announce && (!cached || cached.status === 'loading' || cached.token !== artifactCacheToken(session))) {
+      setStatus(tr('status.artifactsIndexing', { current: index + 1, total: list.length }));
+    }
+    await ensureSessionArtifacts(session);
+  }
+  return list.reduce((count, session) => count + selectedSessionArtifacts(session).length, 0);
+}
+
+function selectedSessionArtifacts(session) {
+  const entry = artifactEntryFor(session);
+  return (entry?.items || []).filter((item) => item.included === true && item.content);
+}
+
+function handoffArtifactMeta(session) {
+  const entry = artifactEntryFor(session);
+  if (!entry) return '';
+  if (entry.status === 'loading') return tr('handoff.artifacts.indexingShort');
+  if (entry.status === 'error') return tr('handoff.artifacts.errorShort');
+  const selected = selectedSessionArtifacts(session).length;
+  return tr('handoff.artifacts.itemMeta', { selected, total: entry.items.length });
+}
+
+function renderArtifactIndex(session) {
+  if (!els.artifactIndex || !els.artifactList || !els.artifactSummary) return;
+  els.artifactIndex.hidden = !session;
+  els.artifactList.replaceChildren();
+  if (!session) {
+    els.artifactSummary.textContent = '';
+    if (els.refreshArtifactsBtn) els.refreshArtifactsBtn.disabled = true;
+    return;
+  }
+
+  const entry = artifactEntryFor(session);
+  if (els.refreshArtifactsBtn) els.refreshArtifactsBtn.disabled = entry?.status === 'loading';
+  if (!entry) {
+    els.artifactSummary.textContent = tr('handoff.artifacts.indexingShort');
+    appendArtifactState(tr('handoff.artifacts.loading'));
+    void ensureSessionArtifacts(session);
+    return;
+  }
+
+  const selected = selectedSessionArtifacts(session).length;
+  els.artifactSummary.textContent = entry.status === 'loading'
+    ? tr('handoff.artifacts.indexingShort')
+    : tr('handoff.artifacts.summary', { selected, total: entry.items.length });
+
+  if (entry.status === 'error' && !entry.items.length) {
+    appendArtifactState(entry.error || tr('handoff.artifacts.unavailable'));
+    return;
+  }
+  if (!entry.items.length) {
+    appendArtifactState(entry.status === 'loading'
+      ? tr('handoff.artifacts.loading')
+      : tr('handoff.artifacts.empty'));
+    return;
+  }
+
+  for (const artifact of entry.items) {
+    const item = document.createElement('li');
+    item.className = 'artifact-index-item';
+    item.dataset.confidence = artifact.confidence === 'exact' ? 'exact' : 'related';
+    item.title = artifact.path || artifact.title || '';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = artifact.included === true;
+    checkbox.setAttribute('aria-label', tr('handoff.artifacts.select', { title: artifact.title }));
+    checkbox.addEventListener('change', () => {
+      artifact.included = checkbox.checked;
+      renderArtifactIndex(session);
+      renderHandoffPlan();
+    });
+
+    const copy = document.createElement('div');
+    copy.className = 'artifact-index-copy';
+    const title = document.createElement('strong');
+    title.textContent = artifact.title || tr('handoff.artifacts.untitled');
+    const meta = document.createElement('small');
+    meta.textContent = [
+      artifactKindLabel(artifact.kind),
+      artifact.relativePath || artifactSourceLabel(artifact.source),
+      artifact.truncated ? tr('handoff.artifacts.truncatedShort') : null
+    ].filter(Boolean).join(' · ');
+    copy.append(title, meta);
+
+    const badge = document.createElement('span');
+    badge.className = 'artifact-index-badge';
+    badge.textContent = artifact.confidence === 'exact'
+      ? tr('handoff.artifacts.exact')
+      : tr('handoff.artifacts.candidate');
+
+    item.append(checkbox, copy, badge);
+    els.artifactList.append(item);
+  }
+
+  if (entry.error) appendArtifactState(entry.error);
+}
+
+function appendArtifactState(message) {
+  const item = document.createElement('li');
+  item.className = 'artifact-index-state';
+  item.textContent = message;
+  els.artifactList.append(item);
+}
+
+function artifactKindLabel(kind) {
+  const supported = new Set(['plan', 'tasks', 'roadmap', 'handoff']);
+  return tr(`handoff.artifacts.kind.${supported.has(kind) ? kind : 'plan'}`);
+}
+
+function artifactSourceLabel(source) {
+  const supported = new Set(['session-plan', 'client-plan', 'project-file']);
+  return tr(`handoff.artifacts.source.${supported.has(source) ? source : 'project-file'}`);
+}
+
 function renderInspector() {
   renderHandoffPlan();
   const session = selectedSession();
+  renderArtifactIndex(session);
   const disabled = !session;
   els.copySummaryBtn.disabled = disabled && selectedHandoffSessions().length === 0;
   els.copyAddressBtn.disabled = disabled;
@@ -3731,12 +3966,15 @@ async function copyActiveHandoff() {
   const session = selectedSession();
   const profile = sessionOwnerProfile(session);
   if (!profile || !session) return;
+  const artifactCount = await prepareHandoffArtifacts([session]);
   await window.manager.writeClipboard(makeHandoffText(profile, session));
   if (isYardView()) {
     window.YardScene.fx('handoff');
     setStatus(tr('status.handoffMailbox', { name: profile.name }));
   } else {
-    setStatus(tr('status.handoffCopied'));
+    setStatus(artifactCount
+      ? tr('status.handoffCopiedArtifacts', { n: artifactCount })
+      : tr('status.handoffCopied'));
   }
 }
 
@@ -3744,13 +3982,20 @@ async function copyHandoffPlan() {
   const sessions = selectedHandoffSessions();
   if (!sessions.length) return;
   const accounts = handoffAccountCount(sessions);
+  const artifactCount = await prepareHandoffArtifacts(sessions);
   await window.manager.writeClipboard(makeHandoffPlanText(sessions));
   if (isYardView()) window.YardScene.fx('handoff');
-  setStatus(tr('status.handoffPlanCopied', { n: sessions.length, accounts }));
+  setStatus(artifactCount
+    ? tr('status.handoffPlanCopiedArtifacts', {
+        n: sessions.length,
+        accounts,
+        artifacts: artifactCount
+      })
+    : tr('status.handoffPlanCopied', { n: sessions.length, accounts }));
 }
 
 function makeHandoffText(profile, session) {
-  return tr('handoff.template', {
+  const metadata = tr('handoff.template', {
     app: appLabel(profile.appId),
     slot: profile.name,
     title: session.title,
@@ -3763,15 +4008,23 @@ function makeHandoffText(profile, session) {
     file: session.filePath,
     thread: session.id
   });
+  const budget = { remaining: 384 * 1024, truncated: false };
+  const artifacts = makeHandoffArtifactText(session, budget);
+  return [
+    metadata,
+    artifacts,
+    budget.truncated ? tr('handoff.artifacts.bundleTruncated') : null
+  ].filter(Boolean).join('\n\n---\n\n');
 }
 
 function makeHandoffPlanText(sessions) {
   const list = Array.isArray(sessions) ? sessions.filter(Boolean) : [];
   const accounts = handoffAccountCount(list);
-  const header = tr('handoff.bundleHeader', { n: list.length, accounts });
+  const budget = { remaining: 384 * 1024, truncated: false };
+  let artifactCount = 0;
   const items = list.map((session, index) => {
     const profile = sessionOwnerProfile(session);
-    return tr('handoff.bundleItem', {
+    const metadata = tr('handoff.bundleItem', {
       index: index + 1,
       app: session._appLabel || (profile ? appLabel(profile.appId) : session.appId),
       slot: session._profileName || profile?.name || tr('common.unrecorded'),
@@ -3787,8 +4040,74 @@ function makeHandoffPlanText(sessions) {
       file: session.filePath || tr('common.unrecorded'),
       thread: session.id || tr('common.unrecorded')
     });
+    const artifacts = makeHandoffArtifactText(session, budget);
+    artifactCount += selectedSessionArtifacts(session).length;
+    return [metadata, artifacts].filter(Boolean).join('\n\n');
   });
+  const header = tr(
+    artifactCount ? 'handoff.bundleHeaderWithArtifacts' : 'handoff.bundleHeader',
+    { n: list.length, accounts, artifacts: artifactCount }
+  );
+  if (budget.truncated) items.push(tr('handoff.artifacts.bundleTruncated'));
   return [header, ...items, tr('handoff.bundleFooter')].join('\n\n---\n\n');
+}
+
+function makeHandoffArtifactText(session, budget = { remaining: 384 * 1024, truncated: false }) {
+  const artifacts = selectedSessionArtifacts(session);
+  if (!artifacts.length || budget.remaining <= 0) return '';
+  const blocks = [];
+  let included = 0;
+
+  for (const artifact of artifacts) {
+    if (budget.remaining <= 0) {
+      budget.truncated = true;
+      break;
+    }
+    const metadata = tr('handoff.artifacts.embedMeta', {
+      title: artifact.title || tr('handoff.artifacts.untitled'),
+      kind: artifactKindLabel(artifact.kind),
+      path: artifact.relativePath || artifact.path || tr('handoff.artifacts.virtualPath'),
+      relation: artifact.confidence === 'exact'
+        ? tr('handoff.artifacts.exact')
+        : tr('handoff.artifacts.candidate')
+    });
+    const available = Math.max(0, budget.remaining - metadata.length - 80);
+    let content = String(artifact.content || '');
+    let truncated = artifact.truncated === true;
+    if (content.length > available) {
+      content = content.slice(0, available);
+      truncated = true;
+      budget.truncated = true;
+    }
+    if (!content) {
+      budget.truncated = true;
+      break;
+    }
+    const fence = markdownFence(content);
+    const block = [
+      `#### ${artifact.title || tr('handoff.artifacts.untitled')}`,
+      metadata,
+      fence,
+      content,
+      fence,
+      truncated ? tr('handoff.artifacts.contentTruncated') : null
+    ].filter(Boolean).join('\n\n');
+    blocks.push(block);
+    budget.remaining = Math.max(0, budget.remaining - block.length);
+    included += 1;
+  }
+
+  if (!blocks.length) return '';
+  return [
+    tr('handoff.artifacts.embedHeader', { n: included }),
+    ...blocks
+  ].join('\n\n');
+}
+
+function markdownFence(content) {
+  const runs = String(content || '').match(/`+/g) || [];
+  const longest = runs.reduce((max, run) => Math.max(max, run.length), 0);
+  return '`'.repeat(Math.max(3, longest + 1));
 }
 
 function compactDate(value) {

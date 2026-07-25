@@ -58,7 +58,7 @@ Each pain above maps to one thing it gives you:
 
 - **Isolated account slots.** Each slot is its own local data directory; AgentDesk launches the official Claude / Codex app pointed at that directory, so **multiple accounts coexist — no collisions, no constant re-login.** This is the axis most tools skip.
 - **Automatic session index.** It scans every account's session files into one table. Switch between the current account and all accounts, open the detailed attribute view, and click any column header to sort. Search covers title, project, account and thread ID. **Find any old session in seconds.**
-- **Planned multi-session handoff.** Check sessions from one or many accounts, arrange their priority in the handoff plan, then copy one consolidated brief into a new chat. It copies **metadata only, never the full transcript** — nothing private leaks by accident.
+- **Planned multi-session handoff.** Check sessions from one or many accounts, arrange their priority, then copy one consolidated brief into a new chat. AgentDesk also indexes exact Claude `ExitPlanMode` files, Codex `update_plan` snapshots, and time-related project planning docs. Exact matches are included by default; weaker candidates require a checkbox. **The full transcript is never copied.**
 - **Recognizes many agents.** Built-in adapters identify Codex and Claude Code sessions directly; Gemini CLI, OpenCode, Cursor Agent, GitHub Copilot CLI, goose, Kimi and Qwen Code are recognized as [Agent Client Protocol](https://agentclientprotocol.com/) tools. The **🔌 Connect** button in the top bar discovers installed agents and lets you register a custom ACP agent through a native file picker.
 - **Local tool bay.** The top-bar **🧰 Tools** panel inventories supported desktop apps and terminal agents, shows installed/latest versions and install source, opens each tool in one click, and updates one or all eligible CLIs through the same npm, Homebrew, uv or self-updater that installed them. Desktop apps without a stable public update feed open their official updater or download page.
 - **Notes & groups.** Give any slot a free-text note and drop it into a group (Work / Personal / Spare…). Accounts organize by group, like a contact list.
@@ -108,7 +108,7 @@ AgentDesk touches your accounts, so its boundaries matter. Account/session disco
 - **No embedded terminal or silent updater.** Opening a CLI launches the user's system terminal. Maintenance commands run only after an explicit click, use fixed main-process allowlists, and never use `sudo`.
 - It **does not bypass official login** — authentication happens inside the official Claude / Codex app.
 - Quota checks **never read browser cookies or expose account e-mail / tokens**; only the sanitized result of Codex's official local RPC reaches the UI.
-- The handoff copy **excludes the full conversation by default** — metadata only.
+- Handoff copy **always excludes the full conversation**. It contains metadata plus only the planning/task materials shown and selected in **Handoff materials**; time-based candidates are opt-in and content is size-limited.
 - In the account and session lists, your home directory is shortened to `~`. (The diagnostics panel shows full paths on purpose — it's a troubleshooting tool.)
 
 Account and session discovery remain local and read-only. Only explicit maintenance actions can change third-party tool installations.
@@ -210,7 +210,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, Windows speci
 
 - **独立账号槽位。** 每个槽位是一份独立本地数据目录，AgentDesk 用该目录启动官方 App —— **多号并存、不串号、不用反复登录。** 这正是大多数工具跳过的一条轴。
 - **自动会话索引。** 扫描每个账号的会话文件，可在「本账号 / 全部账号」间切换；详细列表展示完整属性，点击任一表头即可升降序排列。搜索覆盖标题、项目、账号和线程 ID。**几秒钟找到任何旧会话。**
-- **多会话交接规划。** 可跨账号勾选多个会话，在交接清单中调整优先级，再一次复制成合并交接说明。**只复制元信息，不含完整对话** —— 隐私不会被误传。
+- **多会话交接规划。** 可跨账号勾选多个会话，在交接清单中调整优先级，再一次复制成合并交接说明。它还会索引 Claude `ExitPlanMode` 规划文件、Codex `update_plan` 快照，以及与会话时间相关的项目规划文档；明确关联默认带上，弱关联候选必须手动勾选。**始终不复制完整对话。**
 - **认识各种 Agent。** 内置适配器直接识别 Codex、Claude Code 的会话；Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi、Qwen Code 作为 [ACP](https://agentclientprotocol.com/) 工具被识别。顶栏「**🔌 接入**」会发现本机已装的 Agent，也能通过系统文件选择器登记自定义 ACP Agent。
 - **本机工具维护台。** 顶栏「**🧰 工具**」统一检查桌面 App 与终端 Agent，展示本地/最新版本和安装来源；每一项都能一键打开，可自动维护的 CLI 会继续使用原来的 npm、Homebrew、uv 或自身更新器进行单项/批量更新。没有稳定公开更新源的桌面 App 会打开官方更新入口或下载页。
 - **备注与分组。** 给任意槽位加自由备注、丢进分组（工作 / 个人 / 备用……），像通讯录一样按分组管理。
@@ -254,7 +254,7 @@ AgentDesk 只有一套布局 —— **顶栏 · 账号呈现层 · 账号控制�
 - **没有内嵌终端，也不会静默更新。** 打开 CLI 时只启动系统终端；维护命令必须由用户显式点击，并且只使用主进程固定白名单，不调用 `sudo`。
 - **不绕过官方登录** —— 鉴权始终发生在官方 Claude / Codex App 里。
 - 额度查询**不读浏览器 Cookie，也不向界面暴露账号邮箱 / token**；界面只收到 Codex 官方本机 RPC 的脱敏结果。
-- 交接复制**默认不含完整对话** —— 只有元信息。
+- 交接复制**始终不含完整对话**。它只包含元信息，以及在「交接资料」里可见并已勾选的规划 / 任务文本；时间关联候选默认不勾选，内容也有大小上限。
 - 账号和会话列表里，你的用户主目录会被简写成 `~`。（诊断面板故意显示完整路径——它是排查工具。）
 
 账号与会话发现始终完全本地、只读；只有用户明确点击的维护操作会改变第三方工具安装。

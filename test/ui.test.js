@@ -62,8 +62,26 @@ test('交接清单支持跨账号多选、筛选结果全选、顺序调整与�
   assert.match(styles, /\.handoff-plan[\s\S]*?\.handoff-plan-item/);
   // 清单 hidden 时不参与 auto-placement，四块必须显式钉行，避免详情把操作按钮挤出窗口。
   assert.match(styles, /\.handoff-plan \{[\s\S]*?grid-row:\s*2/);
-  assert.match(styles, /\.inspector dl \{[\s\S]*?grid-row:\s*3/);
+  assert.match(styles, /\.inspector-body \{[\s\S]*?grid-row:\s*3/);
   assert.match(styles, /\.inspector-actions \{[\s\S]*?grid-row:\s*4/);
+});
+
+test('会话交接资料区支持索引状态、逐项勾选和手动刷新', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
+  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+
+  assert.match(html, /id="artifactIndex"[\s\S]*?id="artifactSummary"[\s\S]*?id="refreshArtifactsBtn"[\s\S]*?id="artifactList"/);
+  assert.match(renderer, /handoffArtifacts:\s*new Map\(\)/);
+  assert.match(renderer, /window\.manager\.listSessionArtifacts/);
+  assert.match(renderer, /function renderArtifactIndex\(/);
+  assert.match(renderer, /function makeHandoffArtifactText\(/);
+  assert.match(renderer, /await prepareHandoffArtifacts\(\[session\]\)/);
+  assert.match(styles, /\.artifact-index[\s\S]*?\.artifact-index-item/);
+  assert.match(
+    fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8'),
+    /body\[data-view="yard"\] \.handoff-plan \{[\s\S]*?max-height:\s*100px/
+  );
 });
 
 test('会话详细列表提供完整属性列，精简/详细切换且每个表头可点击排序', () => {

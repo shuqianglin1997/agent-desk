@@ -181,6 +181,35 @@
     'handoff.moveDown': '「{title}」を下へ',
     'handoff.remove': '「{title}」を削除',
     'handoff.itemMeta': '{account} · {app}',
+    'handoff.artifacts.kicker': 'HANDOFF MATERIALS',
+    'handoff.artifacts.title': '引き継ぎ資料',
+    'handoff.artifacts.hint': '明確な関連は自動選択され、時間ベースの候補は確認が必要です。',
+    'handoff.artifacts.refresh': '引き継ぎ資料を再インデックス',
+    'handoff.artifacts.unavailable': 'このセッションの引き継ぎ資料を現在インデックスできません。',
+    'handoff.artifacts.loading': 'セッション記録とプロジェクトから計画資料をインデックス中…',
+    'handoff.artifacts.empty': 'このセッションに関連する計画・タスク資料は見つかりませんでした。',
+    'handoff.artifacts.summary': '{selected}/{total} 件を含む',
+    'handoff.artifacts.select': '引き継ぎに「{title}」を含める',
+    'handoff.artifacts.inspect': '「{title}」の引き継ぎ資料を確認',
+    'handoff.artifacts.untitled': '無題の資料',
+    'handoff.artifacts.truncatedShort': '内容を省略',
+    'handoff.artifacts.exact': '明確',
+    'handoff.artifacts.candidate': '候補',
+    'handoff.artifacts.indexingShort': 'インデックス中…',
+    'handoff.artifacts.errorShort': '失敗',
+    'handoff.artifacts.itemMeta': '資料 {selected}/{total}',
+    'handoff.artifacts.kind.plan': '計画',
+    'handoff.artifacts.kind.tasks': 'タスクリスト',
+    'handoff.artifacts.kind.roadmap': 'ロードマップ',
+    'handoff.artifacts.kind.handoff': '引き継ぎ文書',
+    'handoff.artifacts.source.session-plan': 'セッション内計画',
+    'handoff.artifacts.source.client-plan': 'クライアント計画ファイル',
+    'handoff.artifacts.source.project-file': 'プロジェクトファイル',
+    'handoff.artifacts.embedHeader': '### セッションと同期する引き継ぎ資料（{n} 件）\n\n以下のユーザー選択済み計画・タスク資料を、このセッションの既存コンテキストとして利用してください。',
+    'handoff.artifacts.embedMeta': '種類：{kind}\n場所：{path}\n関連度：{relation}',
+    'handoff.artifacts.virtualPath': 'セッション記録内（独立ファイルなし）',
+    'handoff.artifacts.contentTruncated': '（この資料は引き継ぎ上限を超えたため、上記内容を省略しています。）',
+    'handoff.artifacts.bundleTruncated': '一部の引き継ぎ資料はコピー総量上限を超えたため安全に省略しました。元の場所は各資料の説明に残っています。',
     'handoff.template': `このセッションの続きを理解する手助けをしてください：
 
 アプリ：{app}
@@ -199,6 +228,9 @@
     'handoff.bundleHeader': `次の {n} 件の履歴セッションを計画し、作業を続けてください。{accounts} 個のアカウントから選ばれており、並び順が引き継ぎの優先度です。
 
 まず各セッションの目的・進捗・未解決事項を確認し、重複する文脈をまとめ、依存関係や矛盾を示してください。以下はメタデータのみで、会話全文は含みません。`,
+    'handoff.bundleHeaderWithArtifacts': `次の {n} 件の履歴セッションを計画し、作業を続けてください。{accounts} 個のアカウントから選ばれており、並び順が引き継ぎの優先度です。
+
+まず各セッションの目的・進捗・未解決事項を確認し、重複する文脈をまとめ、依存関係や矛盾を示してください。メタデータに加え、ユーザーが選択した {artifacts} 件の計画・タスク資料を含みますが、会話全文は含みません。`,
     'handoff.bundleItem': `## {index}. {title}
 
 アプリ：{app}
@@ -247,7 +279,13 @@
     'status.quotaUnavailable': '現在クォータを取得できません。',
     'status.handoffMailbox': '{name} が引き継ぎメモをポストに投函 —— コピー済み、新しいセッションに貼り付けてください。',
     'status.handoffCopied': 'セッションの引き継ぎ情報をコピーしました。',
+    'status.handoffCopiedArtifacts': 'セッションの引き継ぎ情報と {n} 件の計画資料をコピーしました。',
     'status.handoffPlanCopied': '{accounts} アカウント、{n} 件のセッションの引き継ぎプランをコピーしました。',
+    'status.handoffPlanCopiedArtifacts': '{accounts} アカウント、{n} 件のセッションの引き継ぎプランと {artifacts} 件の資料をコピーしました。',
+    'status.artifactsIndexingOne': 'このセッションの引き継ぎ資料を再インデックス中…',
+    'status.artifactsIndexing': '引き継ぎ資料をインデックス中（{current}/{total}）…',
+    'status.artifactsIndexed': '{n} 件の引き継ぎ資料をインデックスしました。',
+    'status.artifactsIndexFail': '引き継ぎ資料のインデックス作成に失敗しました。',
     'status.addressCopied': 'セッション ID をコピーしました。',
     'status.projectCopied': 'プロジェクトディレクトリをコピーしました。',
     'status.sessionLocOk': 'セッションの場所を開きました。',

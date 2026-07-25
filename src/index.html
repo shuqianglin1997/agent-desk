@@ -201,26 +201,43 @@
               </header>
               <ol id="handoffPlanList"></ol>
             </section>
-            <dl>
-              <dt data-i18n="detail.field.title">标题</dt>
-              <dd id="detailTitle">未选择</dd>
-              <dt data-i18n="detail.field.account">账号</dt>
-              <dd id="detailAccount">-</dd>
-              <dt data-i18n="detail.field.thread">线程 ID</dt>
-              <dd id="detailId">-</dd>
-              <dt data-i18n="detail.field.created">新建</dt>
-              <dd id="detailCreated">-</dd>
-              <dt data-i18n="detail.field.active">活跃</dt>
-              <dd id="detailUpdated">-</dd>
-              <dt data-i18n="detail.field.source">来源</dt>
-              <dd id="detailSource">-</dd>
-              <dt data-i18n="detail.field.project">项目</dt>
-              <dd id="detailProject">-</dd>
-              <dt data-i18n="detail.field.file">文件</dt>
-              <dd id="detailFile">-</dd>
-              <dt data-i18n="detail.field.address">会话标识</dt>
-              <dd id="detailAddress">-</dd>
-            </dl>
+            <div class="inspector-body">
+              <dl>
+                <dt data-i18n="detail.field.title">标题</dt>
+                <dd id="detailTitle">未选择</dd>
+                <dt data-i18n="detail.field.account">账号</dt>
+                <dd id="detailAccount">-</dd>
+                <dt data-i18n="detail.field.thread">线程 ID</dt>
+                <dd id="detailId">-</dd>
+                <dt data-i18n="detail.field.created">新建</dt>
+                <dd id="detailCreated">-</dd>
+                <dt data-i18n="detail.field.active">活跃</dt>
+                <dd id="detailUpdated">-</dd>
+                <dt data-i18n="detail.field.source">来源</dt>
+                <dd id="detailSource">-</dd>
+                <dt data-i18n="detail.field.project">项目</dt>
+                <dd id="detailProject">-</dd>
+                <dt data-i18n="detail.field.file">文件</dt>
+                <dd id="detailFile">-</dd>
+                <dt data-i18n="detail.field.address">会话标识</dt>
+                <dd id="detailAddress">-</dd>
+              </dl>
+
+              <section id="artifactIndex" class="artifact-index" hidden>
+                <header>
+                  <div>
+                    <span data-i18n="handoff.artifacts.kicker">HANDOFF MATERIALS</span>
+                    <strong data-i18n="handoff.artifacts.title">交接资料</strong>
+                  </div>
+                  <div class="artifact-index-tools">
+                    <small id="artifactSummary"></small>
+                    <button id="refreshArtifactsBtn" type="button" data-i18n-title="handoff.artifacts.refresh" title="重新索引">↻</button>
+                  </div>
+                </header>
+                <p data-i18n="handoff.artifacts.hint">明确关联会自动勾选；时间关联候选需手动确认。</p>
+                <ul id="artifactList"></ul>
+              </section>
+            </div>
 
             <div class="inspector-actions">
               <button id="copySummaryBtn" class="primary" data-i18n="detail.copyHandoff">复制交接信息</button>
