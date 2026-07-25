@@ -35,9 +35,9 @@
 
 ## In one line
 
-AgentDesk is a **local, read-only cockpit** for people who run more than one AI-coding account. It keeps every Claude / Codex login isolated and simultaneously online, scans each one's local sessions into a single searchable table, and lets you hand any session off to a new chat — **without storing a single password or reading the full transcript.** Authentication always stays inside the official apps; AgentDesk never signs in for you.
+AgentDesk is a **local-first cockpit** for people who run more than one AI-coding account. It keeps every Claude / Codex login isolated and simultaneously online, scans each one's local sessions into a single searchable table, and lets you hand sessions off or arrange them into an explicit workgraph — **without storing a single password or reading the full transcript.** Authentication always stays inside the official apps; AgentDesk never signs in for you.
 
-> It **manages and indexes** accounts and sessions. It is deliberately **not** an embedded terminal or an agent-runner — see [Boundaries](#boundaries).
+> Account and session discovery stay read-only. Workgraph execution is a separate, explicit action with a confirmation gate — see [Boundaries](#boundaries).
 
 <a id="what-it-solves"></a>
 
@@ -59,6 +59,7 @@ Each pain above maps to one thing it gives you:
 - **Isolated account slots.** Each slot is its own local data directory; AgentDesk launches the official Claude / Codex app pointed at that directory, so **multiple accounts coexist — no collisions, no constant re-login.** This is the axis most tools skip.
 - **Automatic session index.** It scans every account's session files into one table. Switch between the current account and all accounts, open the detailed attribute view, and click any column header to sort. Search covers title, project, account and thread ID. **Find any old session in seconds.**
 - **Planned multi-session handoff.** Check sessions from one or many accounts, arrange their priority, then copy one consolidated brief into a new chat. AgentDesk also indexes exact Claude `ExitPlanMode` files, Codex `update_plan` snapshots, and time-related project planning docs. Exact matches are included by default; weaker candidates require a checkbox. **The full transcript is never copied.**
+- **Multi-session workgraphs.** Turn selected sessions into parallel task nodes, wait at an explicit **ALL** join, then deliver the bounded results and indexed planning materials to one synthesis session. Observe existing sessions manually, or explicitly confirm a managed run that starts compatible local Agents. Graphs, node state, retries, executor bindings, and restart recovery are persisted locally.
 - **Recognizes many agents.** Built-in adapters identify Codex and Claude Code sessions directly; Gemini CLI, OpenCode, Cursor Agent, GitHub Copilot CLI, goose, Kimi and Qwen Code are recognized as [Agent Client Protocol](https://agentclientprotocol.com/) tools. The **🔌 Connect** button in the top bar discovers installed agents and lets you register a custom ACP agent through a native file picker.
 - **Local tool bay.** The top-bar **🧰 Tools** panel inventories supported desktop apps and terminal agents, shows installed/latest versions and install source, opens each tool in one click, and updates one or all eligible CLIs through the same npm, Homebrew, uv or self-updater that installed them. Desktop apps without a stable public update feed open their official updater or download page.
 - **Notes & groups.** Give any slot a free-text note and drop it into a group (Work / Personal / Spare…). Accounts organize by group, like a contact list.
@@ -105,7 +106,7 @@ By default AgentDesk greets you with a **pixel cat yard** — the same accounts 
 AgentDesk touches your accounts, so its boundaries matter. Account/session discovery is **local-only and read-only**; tool maintenance is separate and always user-initiated:
 
 - It **stores no passwords and no tokens**, and **never reads browser passwords** or saved credentials.
-- **No embedded terminal or silent updater.** Opening a CLI launches the user's system terminal. Maintenance commands run only after an explicit click, use fixed main-process allowlists, and never use `sudo`.
+- **No embedded terminal or silent updater.** Opening a CLI launches the user's system terminal. A managed workgraph starts a compatible local Agent only after the user chooses that mode and confirms the run. Maintenance commands run only after an explicit click, use fixed main-process allowlists, and never use `sudo`.
 - It **does not bypass official login** — authentication happens inside the official Claude / Codex app.
 - Quota checks **never read browser cookies or expose account e-mail / tokens**; only the sanitized result of Codex's official local RPC reaches the UI.
 - Handoff copy **always excludes the full conversation**. It contains metadata plus only the planning/task materials shown and selected in **Handoff materials**; time-based candidates are opt-in and content is size-limited.
@@ -174,6 +175,7 @@ AgentDesk is a small [Electron](https://www.electronjs.org/) app:
 - **Main process** (`src/main.js`) — all filesystem access, app launching, session scanning, diagnostics. The only place that touches disk.
 - **Preload** (`src/preload.js`) — a narrow, `contextIsolation`-safe IPC bridge.
 - **Renderer** (`src/renderer.js`, `src/index.html`, `src/styles.css`) — the UI. It never touches the filesystem directly.
+- **Workgraphs** (`src/workgraphs.js`) — a bounded, dependency-free graph model shared by main and renderer; persisted separately in `workgraphs.json`.
 - **Cat yard** (`src/yard/`) — the default pixel-yard view: a canvas scene engine plus pure-function modules for cat state, energy, the companion ledger, and palettes. See [`docs/YARD.md`](docs/YARD.md).
 
 More detail (in Chinese) lives in [`docs/`](docs/): product notes, Windows specifics, internals, and the [cat yard](docs/YARD.md).
@@ -193,7 +195,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, Windows speci
 
 所有 Claude / Codex 账号同时在线、各自隔离、互不挤号；任何账号的本地旧会话几秒钟找回，一键交给下一个对话接着干。**不保存任何密码，也不复制完整对话。** 登录始终发生在官方 App 里，AgentDesk 从不替你登录。
 
-> 它负责**管理和索引**账号与会话，**刻意不做**内嵌终端、也不替你跑 Agent —— 见[安全边界](#安全边界)。
+> 账号与会话发现始终只读；工作图自动执行是另一条必须由用户明确选择并确认的路径 —— 见[安全边界](#安全边界)。
 
 ## 它解决什么痛点
 
@@ -211,6 +213,7 @@ More detail (in Chinese) lives in [`docs/`](docs/): product notes, Windows speci
 - **独立账号槽位。** 每个槽位是一份独立本地数据目录，AgentDesk 用该目录启动官方 App —— **多号并存、不串号、不用反复登录。** 这正是大多数工具跳过的一条轴。
 - **自动会话索引。** 扫描每个账号的会话文件，可在「本账号 / 全部账号」间切换；详细列表展示完整属性，点击任一表头即可升降序排列。搜索覆盖标题、项目、账号和线程 ID。**几秒钟找到任何旧会话。**
 - **多会话交接规划。** 可跨账号勾选多个会话，在交接清单中调整优先级，再一次复制成合并交接说明。它还会索引 Claude `ExitPlanMode` 规划文件、Codex `update_plan` 快照，以及与会话时间相关的项目规划文档；明确关联默认带上，弱关联候选必须手动勾选。**始终不复制完整对话。**
+- **多会话工作图。** 把所选会话绑定到多个并行任务节点，全部完成后经过明确的 **ALL 汇合点**，再把有体积上限的任务结果与已索引规划资料交给一个综合会话。既可只观察已有会话，也可明确选择自动模式并确认启动兼容的本地 Agent；工作图、节点状态、重试、会话绑定和重启恢复都单独落盘。
 - **认识各种 Agent。** 内置适配器直接识别 Codex、Claude Code 的会话；Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi、Qwen Code 作为 [ACP](https://agentclientprotocol.com/) 工具被识别。顶栏「**🔌 接入**」会发现本机已装的 Agent，也能通过系统文件选择器登记自定义 ACP Agent。
 - **本机工具维护台。** 顶栏「**🧰 工具**」统一检查桌面 App 与终端 Agent，展示本地/最新版本和安装来源；每一项都能一键打开，可自动维护的 CLI 会继续使用原来的 npm、Homebrew、uv 或自身更新器进行单项/批量更新。没有稳定公开更新源的桌面 App 会打开官方更新入口或下载页。
 - **备注与分组。** 给任意槽位加自由备注、丢进分组（工作 / 个人 / 备用……），像通讯录一样按分组管理。
@@ -251,7 +254,7 @@ AgentDesk 只有一套布局 —— **顶栏 · 账号呈现层 · 账号控制�
 它碰的是你的账号，所以边界很重要。账号与会话发现按设计是**纯本地、只读**的；工具维护与之分开，并且必须由用户显式触发：
 
 - **不保存任何密码、任何 token**，**不读取浏览器密码**或任何已存凭据。
-- **没有内嵌终端，也不会静默更新。** 打开 CLI 时只启动系统终端；维护命令必须由用户显式点击，并且只使用主进程固定白名单，不调用 `sudo`。
+- **没有内嵌终端，也不会静默更新。** 打开 CLI 时只启动系统终端；工作图只有在用户选择自动模式并确认后才启动兼容的本地 Agent。维护命令必须由用户显式点击，并且只使用主进程固定白名单，不调用 `sudo`。
 - **不绕过官方登录** —— 鉴权始终发生在官方 Claude / Codex App 里。
 - 额度查询**不读浏览器 Cookie，也不向界面暴露账号邮箱 / token**；界面只收到 Codex 官方本机 RPC 的脱敏结果。
 - 交接复制**始终不含完整对话**。它只包含元信息，以及在「交接资料」里可见并已勾选的规划 / 任务文本；时间关联候选默认不勾选，内容也有大小上限。

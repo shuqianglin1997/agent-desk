@@ -11,6 +11,7 @@ AgentDesk 是一个本地优先的多 Agent 工作空间，同时管理终端 Ag
 - 管理本地账号槽位
 - 扫描本地会话元信息
 - 在 Agent 之间复制或排队交接信息
+- 把多个会话编成可持久化、可恢复的并行任务与汇合图
 
 ## 核心概念
 
@@ -80,6 +81,7 @@ agent-desk/
     tool-maintenance.js 桌面 App / CLI 目录、版本与安装来源检测、更新计划白名单（纯 Node）
     sessions.js        会话扫描（纯 Node，可单元测试）
     session-artifacts.js  会话规划资料索引、安全路径校验和内容限额（纯 Node）
+    workgraphs.js      会话工作图归一化、ALL 汇合进度与状态派生（主进程 / renderer 共享）
     activity.js        活跃度探测（stat-only，纯 Node，驱动庭院状态）
     preload.js         安全桥接 IPC
     renderer.js        UI 状态与交互（经典视图 + 庭院视图）
@@ -110,6 +112,7 @@ macOS 当前示例：
 ~/Library/Application Support/AgentDesk/profiles.json
 ~/Library/Application Support/AgentDesk/settings.json
 ~/Library/Application Support/AgentDesk/agent-adapters.json
+~/Library/Application Support/AgentDesk/workgraphs.json
 ```
 
 配置结构：
@@ -143,9 +146,9 @@ macOS 当前示例：
 - `managed`：AgentDesk 创建并维护的独立槽位
 - `custom`：用户手动指定，不自动改写
 
-账号外观、名称、路径等保存在 `profiles.json`；主题、庭院时间/天气、视图、提醒和今日账本保存在 `settings.json`；用户明确接入的 ACP Agent 定义保存在 `agent-adapters.json`。旧版仅存在 `localStorage` 的界面偏好会在首次启动时迁移到 `settings.json`。
+账号外观、名称、路径等保存在 `profiles.json`；主题、庭院时间/天气、视图、提醒和今日账本保存在 `settings.json`；用户明确接入的 ACP Agent 定义保存在 `agent-adapters.json`；会话工作图保存在独立的 `workgraphs.json`。旧版仅存在 `localStorage` 的界面偏好会在首次启动时迁移到 `settings.json`。
 
-三个文件写入时都先生成完整临时文件并 `fsync`，再替换主文件，同时保留 `.bak`。主文件损坏时会依次从常规备份和 `.pre-update.bak` 恢复，而不是静默清空或重置。Windows portable 真正替换 exe 前，还会为三者额外保存更新前快照。
+四个文件写入时都先生成完整临时文件并 `fsync`，再替换主文件，同时保留 `.bak`。主文件损坏时会依次从常规备份和 `.pre-update.bak` 恢复，而不是静默清空或重置。Windows portable 真正替换 exe 前，还会为四者额外保存更新前快照。
 
 账号写回采用“重新读取最新配置，只修改目标字段”的方式。尤其 Windows 启动器发现和路径迁移可能耗时数秒，不能把异步操作开始前的整份旧快照写回，否则会覆盖用户同期修改的猫咪毛色、项圈、分组或备注。
 
@@ -190,6 +193,9 @@ updateAllTools()
 listApps()
 getSettings(legacySettings)
 updateSettings(patch)
+listWorkgraphs()
+saveWorkgraph(input)
+removeWorkgraph(id)
 listProfiles()
 addProfile(input)
 updateProfile(input)
