@@ -185,7 +185,9 @@ async function inspectSessionTranscript(profile, session) {
   }
 
   try {
-    inspectEvent(JSON.parse(fs.readFileSync(transcriptPath, 'utf8')), result, 0);
+    const document = JSON.parse(fs.readFileSync(transcriptPath, 'utf8'));
+    collectReferencedPlanningPaths(document, result.referencedPaths);
+    inspectJsonDocument(document, result, 0);
   } catch (_error) {
     // A partially-written desktop session should not make handoff copying fail.
   }
@@ -193,6 +195,14 @@ async function inspectSessionTranscript(profile, session) {
     ...result,
     referencedPaths: [...result.referencedPaths]
   };
+}
+
+function inspectJsonDocument(value, result, depth) {
+  if (!value || typeof value !== 'object' || depth > 12) return;
+  if (!Array.isArray(value)) inspectEvent(value, result, depth, false);
+  for (const child of Array.isArray(value) ? value : Object.values(value)) {
+    if (child && typeof child === 'object') inspectJsonDocument(child, result, depth + 1);
+  }
 }
 
 async function inspectJsonLines(filePath, result) {
@@ -220,7 +230,7 @@ async function inspectJsonLines(filePath, result) {
   }
 }
 
-function inspectEvent(event, result, depth) {
+function inspectEvent(event, result, depth, collectPaths = true) {
   if (!event || typeof event !== 'object' || depth > 12) return;
 
   const messageContent = event.message?.content;
@@ -263,7 +273,7 @@ function inspectEvent(event, result, depth) {
     }
   }
 
-  collectReferencedPlanningPaths(event, result.referencedPaths);
+  if (collectPaths) collectReferencedPlanningPaths(event, result.referencedPaths);
 }
 
 function collectReferencedPlanningPaths(value, output, depth = 0) {
@@ -442,7 +452,18 @@ function withinSessionWindow(filePath, session) {
   const stat = safeLstat(filePath);
   if (!stat?.isFile()) return false;
   const created = Date.parse(session.createdAt || '');
-  const updated = Date.parse(session.updatedAt || '');
+  const indexedUpdated = Date.parse(session.updatedAt || '');
+  // Codex session_index.updated_at can stay at thread creation while the
+  // rollout JSONL keeps growing. Use the newer trusted session-file mtime so
+  // documents produced later in a long-running session remain candidates.
+  const sessionFileStat = safeLstat(session.filePath);
+  const fileUpdated = sessionFileStat?.isFile() && !sessionFileStat.isSymbolicLink()
+    ? sessionFileStat.mtimeMs
+    : Number.NaN;
+  const updated = Math.max(
+    Number.isFinite(indexedUpdated) ? indexedUpdated : Number.NEGATIVE_INFINITY,
+    Number.isFinite(fileUpdated) ? fileUpdated : Number.NEGATIVE_INFINITY
+  );
   const start = Number.isFinite(created)
     ? created - SESSION_START_GRACE_MS
     : (Number.isFinite(updated) ? updated - FALLBACK_WINDOW_MS : Number.NEGATIVE_INFINITY);
@@ -484,7 +505,9 @@ function materializeArtifact(descriptor, allowedRoots, remainingBytes) {
 
   const title = descriptor.title || (filePath ? path.basename(filePath) : 'Session plan');
   return {
-    id: hashId(`${descriptor.key}:${content}`),
+    // Stable across file-content refreshes so a user's include/exclude choice
+    // survives re-indexing the same artifact.
+    id: hashId(descriptor.key),
     title,
     kind: descriptor.kind,
     source: descriptor.source,

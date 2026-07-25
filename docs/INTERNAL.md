@@ -54,7 +54,7 @@ sessionRoot: ~/.codex
 - `filePath`
 - `address`
 
-默认复制交接信息时不复制完整对话内容，避免把隐私或大段上下文误传到新会话。
+复制交接信息始终不复制完整对话内容。除会话元信息外，只同步资料索引中最终勾选的规划 / 任务文本；明确关联默认勾选，时间关联候选默认关闭。
 
 ## 目录结构
 
@@ -79,6 +79,7 @@ agent-desk/
     runtime.js         多 Agent 适配器、安全边界与实例生命周期（纯 Node）
     tool-maintenance.js 桌面 App / CLI 目录、版本与安装来源检测、更新计划白名单（纯 Node）
     sessions.js        会话扫描（纯 Node，可单元测试）
+    session-artifacts.js  会话规划资料索引、安全路径校验和内容限额（纯 Node）
     activity.js        活跃度探测（stat-only，纯 Node，驱动庭院状态）
     preload.js         安全桥接 IPC
     renderer.js        UI 状态与交互（经典视图 + 庭院视图）
@@ -386,7 +387,30 @@ Windows 默认数据目录会在传统 `%APPDATA%\<App>` 与包私有 `LocalCach
 线程 ID：...
 
 请基于这些信息判断这个会话在做什么，并继续处理。
+
+---
+
+### 随会话同步的交接资料（1 份）
+
+#### PLAN.md
+
+类型：规划
+位置：docs/PLAN.md
+关联度：明确
+
+````
+# 现有规划
+...
+````
 ```
+
+资料索引的关联规则：
+
+- Claude CLI：解析会话 JSONL 中 `ExitPlanMode` 的 `planFilePath` 和规划快照。
+- Codex：解析 rollout JSONL 中最新的 `update_plan` 调用，生成会话内规划快照。
+- 通用项目候选：只检查项目根目录、明确的 plans / roadmaps 目录和 `docs` 下规划命名文本；mtime 落在会话时间窗内才展示，默认不勾选。
+- 渲染层只提交账号槽位 ID 和会话 ID；主进程重新扫描可信会话路径，不接受 renderer 提交任意文件路径。
+- 跳过符号链接、二进制文件和越出项目 / 会话根目录的路径。每会话最多 12 份、单文件最多 2 MB、单份正文最多 64 KB、单会话正文最多 192 KB，整次复制再限制为约 384 KB。
 
 ## 测试
 

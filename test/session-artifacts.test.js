@@ -162,6 +162,41 @@ test('Codex update_plan becomes a virtual handoff artifact', async () => {
   }
 });
 
+test('nested JSON desktop sessions can expose an ExitPlanMode snapshot', async () => {
+  const fx = fixture();
+  try {
+    const transcriptDir = path.join(fx.sessionRoot, 'claude-code-sessions');
+    const transcript = path.join(transcriptDir, 'local_session-1.json');
+    const planPath = path.join(fx.projectPath, 'plans', 'desktop-plan.md');
+    fs.mkdirSync(transcriptDir, { recursive: true });
+    fs.mkdirSync(path.dirname(planPath), { recursive: true });
+    fs.writeFileSync(planPath, '# Desktop plan');
+    fs.writeFileSync(transcript, JSON.stringify({
+      sessionId: 'session-1',
+      history: [{
+        type: 'assistant',
+        message: {
+          content: [{
+            type: 'tool_use',
+            name: 'ExitPlanMode',
+            input: { plan: '# Snapshot', planFilePath: planPath }
+          }]
+        }
+      }]
+    }));
+
+    const result = await indexSessionArtifacts(
+      { appId: 'claude', sessionRoot: fx.sessionRoot },
+      session({ appId: 'claude', projectPath: fx.projectPath, filePath: transcript })
+    );
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].title, 'desktop-plan.md');
+    assert.equal(result.items[0].selectedByDefault, true);
+  } finally {
+    fx.cleanup();
+  }
+});
+
 test('project planning files in the session time window are opt-in candidates', async () => {
   const fx = fixture();
   try {
@@ -186,6 +221,38 @@ test('project planning files in the session time window are opt-in candidates', 
     assert.equal(result.items[0].selectedByDefault, false);
     assert.equal(result.items[0].reason, 'activity-window');
     assert.equal(result.items[0].relativePath, path.join('docs', 'ROADMAP.md'));
+  } finally {
+    fx.cleanup();
+  }
+});
+
+test('a live transcript mtime extends a stale indexed session window', async () => {
+  const fx = fixture();
+  try {
+    const transcriptDir = path.join(fx.sessionRoot, 'sessions');
+    const transcript = path.join(transcriptDir, 'session-1.jsonl');
+    const handoff = path.join(fx.projectPath, 'HANDOFF-NOTES.md');
+    fs.mkdirSync(transcriptDir, { recursive: true });
+    fs.writeFileSync(transcript, '{}\n');
+    fs.writeFileSync(handoff, '# Current-session notes');
+    const liveTime = new Date('2026-07-25T14:00:00.000Z');
+    fs.utimesSync(transcript, liveTime, liveTime);
+    fs.utimesSync(handoff, liveTime, liveTime);
+
+    const result = await indexSessionArtifacts(
+      { appId: 'codex', sessionRoot: fx.sessionRoot },
+      session({
+        appId: 'codex',
+        projectPath: fx.projectPath,
+        filePath: transcript,
+        // Simulates Codex session_index.jsonl staying at thread creation.
+        updatedAt: '2026-07-25T01:01:00.000Z'
+      })
+    );
+
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].title, 'HANDOFF-NOTES.md');
+    assert.equal(result.items[0].confidence, 'related');
   } finally {
     fx.cleanup();
   }
@@ -216,6 +283,37 @@ test('an explicit planning path outside the project and session roots is rejecte
       session({ projectPath: fx.projectPath, filePath: transcript })
     );
     assert.deepEqual(result.items, []);
+  } finally {
+    fx.cleanup();
+  }
+});
+
+test('artifact content is clipped at the per-file handoff limit', async () => {
+  const fx = fixture();
+  try {
+    const transcriptDir = path.join(fx.sessionRoot, 'projects');
+    const transcript = path.join(transcriptDir, 'session-1.jsonl');
+    const planPath = path.join(fx.projectPath, 'PLAN-LARGE.md');
+    fs.mkdirSync(transcriptDir, { recursive: true });
+    fs.writeFileSync(planPath, `# Large plan\n${'x'.repeat(100 * 1024)}`);
+    fs.writeFileSync(transcript, JSON.stringify({
+      type: 'assistant',
+      message: {
+        content: [{
+          type: 'tool_use',
+          name: 'Read',
+          input: { file_path: planPath }
+        }]
+      }
+    }) + '\n');
+
+    const result = await indexSessionArtifacts(
+      { appId: 'claude-cli', sessionRoot: fx.sessionRoot },
+      session({ projectPath: fx.projectPath, filePath: transcript })
+    );
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].truncated, true);
+    assert.ok(Buffer.byteLength(result.items[0].content, 'utf8') <= 64 * 1024);
   } finally {
     fx.cleanup();
   }

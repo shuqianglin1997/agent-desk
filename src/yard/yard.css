@@ -1303,6 +1303,33 @@ body[data-view="yard"] .inspector {
   background: var(--yd-panel2);
 }
 
+/* 庭院的工作区比经典视图矮：交接清单自身滚动，给资料索引至少留出一条
+ * 可见项；密集态省去已由「明确/候选」徽标表达的说明行。 */
+body[data-view="yard"] .handoff-plan {
+  gap: 4px;
+  max-height: 100px;
+  padding: 6px;
+}
+
+body[data-view="yard"] .handoff-plan ol {
+  gap: 2px;
+}
+
+body[data-view="yard"] .handoff-plan-item {
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  min-height: 25px;
+  padding: 1px 3px;
+}
+
+body[data-view="yard"] .handoff-plan-controls button {
+  width: 18px;
+  height: 18px;
+}
+
+body[data-view="yard"] .handoff-plan:not([hidden]) + .inspector-body .artifact-index > p {
+  display: none;
+}
+
 body[data-view="yard"] .inspector dl {
   max-height: none;
 }

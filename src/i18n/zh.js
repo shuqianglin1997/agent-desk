@@ -181,6 +181,35 @@
     'handoff.moveDown': '下移「{title}」',
     'handoff.remove': '移除「{title}」',
     'handoff.itemMeta': '{account} · {app}',
+    'handoff.artifacts.kicker': 'HANDOFF MATERIALS',
+    'handoff.artifacts.title': '交接资料',
+    'handoff.artifacts.hint': '明确关联会自动勾选；时间关联候选需手动确认。',
+    'handoff.artifacts.refresh': '重新索引交接资料',
+    'handoff.artifacts.unavailable': '暂时无法索引这个会话的交接资料。',
+    'handoff.artifacts.loading': '正在从会话记录和项目目录索引规划资料…',
+    'handoff.artifacts.empty': '没有发现与这个会话关联的规划或任务资料。',
+    'handoff.artifacts.summary': '带上 {selected}/{total}',
+    'handoff.artifacts.select': '交接时带上「{title}」',
+    'handoff.artifacts.inspect': '查看「{title}」的交接资料',
+    'handoff.artifacts.untitled': '未命名资料',
+    'handoff.artifacts.truncatedShort': '内容有截断',
+    'handoff.artifacts.exact': '明确',
+    'handoff.artifacts.candidate': '候选',
+    'handoff.artifacts.indexingShort': '索引中…',
+    'handoff.artifacts.errorShort': '索引失败',
+    'handoff.artifacts.itemMeta': '资料 {selected}/{total}',
+    'handoff.artifacts.kind.plan': '规划',
+    'handoff.artifacts.kind.tasks': '任务清单',
+    'handoff.artifacts.kind.roadmap': '路线图',
+    'handoff.artifacts.kind.handoff': '交接文档',
+    'handoff.artifacts.source.session-plan': '会话内规划',
+    'handoff.artifacts.source.client-plan': '客户端规划文件',
+    'handoff.artifacts.source.project-file': '项目文件',
+    'handoff.artifacts.embedHeader': '### 随会话同步的交接资料（{n} 份）\n\n以下是用户勾选的规划或任务资料，请把它们作为该会话的已有上下文继续使用。',
+    'handoff.artifacts.embedMeta': '类型：{kind}\n位置：{path}\n关联度：{relation}',
+    'handoff.artifacts.virtualPath': '会话记录内（无独立文件）',
+    'handoff.artifacts.contentTruncated': '（该资料超过交接上限，以上内容已截断。）',
+    'handoff.artifacts.bundleTruncated': '部分交接资料超过本次复制的总量上限，已安全截断；原文件位置仍保留在各资料说明中。',
     'handoff.template': `请帮我继续理解这个会话：
 
 应用：{app}
@@ -199,6 +228,9 @@
     'handoff.bundleHeader': `请基于以下 {n} 个历史会话规划并继续工作。它们来自 {accounts} 个账号，排列顺序就是交接优先级。
 
 请先识别每个会话的目标、已有进展和未决事项，再合并重复上下文、标出依赖或冲突。以下只包含元信息，不包含完整聊天内容。`,
+    'handoff.bundleHeaderWithArtifacts': `请基于以下 {n} 个历史会话规划并继续工作。它们来自 {accounts} 个账号，排列顺序就是交接优先级。
+
+请先识别每个会话的目标、已有进展和未决事项，再合并重复上下文、标出依赖或冲突。以下除元信息外，还同步了用户勾选的 {artifacts} 份规划或任务资料，但不包含完整聊天内容。`,
     'handoff.bundleItem': `## {index}. {title}
 
 应用：{app}
@@ -247,7 +279,13 @@
     'status.quotaUnavailable': '额度暂不可用。',
     'status.handoffMailbox': '{name} 把交接信投进了邮筒 —— 已复制，粘给新会话即可。',
     'status.handoffCopied': '已复制会话交接信息。',
+    'status.handoffCopiedArtifacts': '已复制会话交接信息，并同步 {n} 份规划资料。',
     'status.handoffPlanCopied': '已复制 {n} 个会话（来自 {accounts} 个账号）的交接计划。',
+    'status.handoffPlanCopiedArtifacts': '已复制 {n} 个会话（来自 {accounts} 个账号）的交接计划，并同步 {artifacts} 份资料。',
+    'status.artifactsIndexingOne': '正在重新索引这个会话的交接资料…',
+    'status.artifactsIndexing': '正在索引交接资料（{current}/{total}）…',
+    'status.artifactsIndexed': '已索引 {n} 份交接资料。',
+    'status.artifactsIndexFail': '交接资料索引失败。',
     'status.addressCopied': '已复制会话标识。',
     'status.projectCopied': '已复制项目目录。',
     'status.sessionLocOk': '已打开会话位置。',
