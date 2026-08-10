@@ -3,14 +3,15 @@ const state = {
   sessions: [],
   filteredSessions: [],
   selectedProfileId: null,
+  selectedAgentId: null,
+  selectedDeviceLensId: 'all',
+  selectedSlotKey: null,
   selectedSessionId: null,
   selectedSessionKey: null,
+  selectedSessionKeys: new Set(),
   sessionScope: 'current',
   sessionView: 'compact',
   sessionSort: { key: 'updatedAt', direction: 'desc' },
-  handoffSelection: new Map(),
-  handoffArtifacts: new Map(),
-  selectionAnchorKey: null,
   query: '',
   theme: null,
   view: 'yard',
@@ -24,19 +25,6 @@ const state = {
   atmosTime: 'auto',
   atmosWeather: 'auto',
   yardPositions: {},
-  runtime: {
-    adapters: [],
-    selectedAdapterId: null,
-    selectedIdentityId: null,
-    workspaceGrant: null,
-    customAgents: [],
-    executableGrant: null,
-    runtimes: [],
-    selectedRuntimeId: null,
-    outputs: {},
-    notice: null,
-    queue: []
-  },
   welcomed: false,
   updateInfo: null,
   tools: {
@@ -47,6 +35,23 @@ const state = {
     busyId: null,
     message: '',
     statusTone: 'idle'
+  },
+  mesh: {
+    overview: null,
+    loading: false,
+    errorCode: null,
+    message: '',
+    invitation: null,
+    permissionDeviceId: null,
+    diagnosticDeviceId: null,
+    diagnostics: null,
+    diagnosticsLoading: false,
+    diagnosticsError: null,
+    networkLoading: false,
+    remoteSessions: [],
+    transfers: [],
+    transferLoading: false,
+    transferMessage: ''
   },
   appMeta: { claude: { label: 'Claude', tagColor: '#d96f33' }, codex: { label: 'Codex', tagColor: '#2f9e8f' } }
 };
@@ -114,31 +119,61 @@ const els = {
   ledgerDone: document.querySelector('#ledgerDone'),
   ledgerMin: document.querySelector('#ledgerMin'),
   reminderToggle: document.querySelector('#reminderToggle'),
-  consoleToggle: document.querySelector('#consoleToggle'),
-  runtimeCloseBtn: document.querySelector('#runtimeCloseBtn'),
   atmosTime: document.querySelector('#atmosTime'),
   atmosWeather: document.querySelector('#atmosWeather'),
-  runtimeDock: document.querySelector('#runtimeDock'),
-  runtimeCount: document.querySelector('#runtimeCount'),
-  runtimeList: document.querySelector('#runtimeList'),
-  runtimeStatus: document.querySelector('#runtimeStatus'),
-  runtimeRegistryBtn: document.querySelector('#runtimeRegistryBtn'),
-  runtimeAdapter: document.querySelector('#runtimeAdapter'),
-  runtimeIdentity: document.querySelector('#runtimeIdentity'),
-  runtimeCwd: document.querySelector('#runtimeCwd'),
-  runtimeWorkspaceBtn: document.querySelector('#runtimeWorkspaceBtn'),
-  runtimeWorkspaceResetBtn: document.querySelector('#runtimeWorkspaceResetBtn'),
-  runtimeSelectedTitle: document.querySelector('#runtimeSelectedTitle'),
-  runtimeSelectedMeta: document.querySelector('#runtimeSelectedMeta'),
-  runtimeStartBtn: document.querySelector('#runtimeStartBtn'),
-  runtimeStopBtn: document.querySelector('#runtimeStopBtn'),
-  runtimeOutput: document.querySelector('#runtimeOutput'),
-  runtimeForm: document.querySelector('#runtimeForm'),
-  runtimeInput: document.querySelector('#runtimeInput'),
-  runtimeSendBtn: document.querySelector('#runtimeSendBtn'),
-  runtimeHint: document.querySelector('#runtimeHint'),
-  agentRegistryBtn: document.querySelector('#agentRegistryBtn'),
-  agentRegistryDialog: document.querySelector('#agentRegistryDialog'),
+  toolCenterBtn: document.querySelector('#toolCenterBtn'),
+  deviceCenterBtn: document.querySelector('#deviceCenterBtn'),
+  deviceLensSelect: document.querySelector('#deviceLensSelect'),
+  deviceCountBadge: document.querySelector('#deviceCountBadge'),
+  deviceCenterDialog: document.querySelector('#deviceCenterDialog'),
+  deviceCenterStatus: document.querySelector('#deviceCenterStatus'),
+  meshStateBadge: document.querySelector('#meshStateBadge'),
+  meshEmptyState: document.querySelector('#meshEmptyState'),
+  meshReadyState: document.querySelector('#meshReadyState'),
+  meshPreviewStats: document.querySelector('#meshPreviewStats'),
+  meshSummary: document.querySelector('#meshSummary'),
+  deviceShelfMeta: document.querySelector('#deviceShelfMeta'),
+  agentCatalogMeta: document.querySelector('#agentCatalogMeta'),
+  deviceList: document.querySelector('#deviceList'),
+  meshAgentList: document.querySelector('#meshAgentList'),
+  initializeMeshBtn: document.querySelector('#initializeMeshBtn'),
+  showJoinMeshBtn: document.querySelector('#showJoinMeshBtn'),
+  meshJoinPanel: document.querySelector('#meshJoinPanel'),
+  meshJoinCode: document.querySelector('#meshJoinCode'),
+  cancelJoinMeshBtn: document.querySelector('#cancelJoinMeshBtn'),
+  confirmJoinMeshBtn: document.querySelector('#confirmJoinMeshBtn'),
+  createDeviceInviteBtn: document.querySelector('#createDeviceInviteBtn'),
+  receiveConnectionsBtn: document.querySelector('#receiveConnectionsBtn'),
+  networkSettingsBtn: document.querySelector('#networkSettingsBtn'),
+  meshInvitePanel: document.querySelector('#meshInvitePanel'),
+  meshInviteShortCode: document.querySelector('#meshInviteShortCode'),
+  meshInviteCode: document.querySelector('#meshInviteCode'),
+  copyDeviceInviteBtn: document.querySelector('#copyDeviceInviteBtn'),
+  closeDeviceInviteBtn: document.querySelector('#closeDeviceInviteBtn'),
+  resetMeshBtn: document.querySelector('#resetMeshBtn'),
+  devicePermissionsDialog: document.querySelector('#devicePermissionsDialog'),
+  devicePermissionsTitle: document.querySelector('#devicePermissionsTitle'),
+  devicePermissionList: document.querySelector('#devicePermissionList'),
+  saveDevicePermissionsBtn: document.querySelector('#saveDevicePermissionsBtn'),
+  revokeDeviceBtn: document.querySelector('#revokeDeviceBtn'),
+  meshDiagnosticsDialog: document.querySelector('#meshDiagnosticsDialog'),
+  meshDiagnosticsTitle: document.querySelector('#meshDiagnosticsTitle'),
+  meshDiagnosticsStatus: document.querySelector('#meshDiagnosticsStatus'),
+  meshDiagnosticsBody: document.querySelector('#meshDiagnosticsBody'),
+  refreshMeshDiagnosticsBtn: document.querySelector('#refreshMeshDiagnosticsBtn'),
+  meshNetworkDialog: document.querySelector('#meshNetworkDialog'),
+  meshSignalingUrls: document.querySelector('#meshSignalingUrls'),
+  meshStunUrls: document.querySelector('#meshStunUrls'),
+  meshNetworkStatus: document.querySelector('#meshNetworkStatus'),
+  saveMeshNetworkBtn: document.querySelector('#saveMeshNetworkBtn'),
+  sessionSendDialog: document.querySelector('#sessionSendDialog'),
+  sessionSendTarget: document.querySelector('#sessionSendTarget'),
+  chooseFilesBtn: document.querySelector('#chooseFilesBtn'),
+  confirmSessionSendBtn: document.querySelector('#confirmSessionSendBtn'),
+  sessionSendStatus: document.querySelector('#sessionSendStatus'),
+  refreshTransfersBtn: document.querySelector('#refreshTransfersBtn'),
+  transferList: document.querySelector('#transferList'),
+  toolCenterDialog: document.querySelector('#toolCenterDialog'),
   toolCenterStatus: document.querySelector('#toolCenterStatus'),
   toolSummary: document.querySelector('#toolSummary'),
   toolCheckedAt: document.querySelector('#toolCheckedAt'),
@@ -146,13 +181,6 @@ const els = {
   cliToolList: document.querySelector('#cliToolList'),
   checkToolsBtn: document.querySelector('#checkToolsBtn'),
   updateAllToolsBtn: document.querySelector('#updateAllToolsBtn'),
-  discoveredAgentList: document.querySelector('#discoveredAgentList'),
-  customAgentList: document.querySelector('#customAgentList'),
-  customAgentName: document.querySelector('#customAgentName'),
-  customAgentExecutable: document.querySelector('#customAgentExecutable'),
-  customAgentArguments: document.querySelector('#customAgentArguments'),
-  pickCustomAgentExecutableBtn: document.querySelector('#pickCustomAgentExecutableBtn'),
-  confirmAddCustomAgentBtn: document.querySelector('#confirmAddCustomAgentBtn'),
   attentionInbox: document.querySelector('#attentionInbox'),
   attentionCount: document.querySelector('#attentionCount'),
   attentionItems: document.querySelector('#attentionItems'),
@@ -192,32 +220,18 @@ const els = {
   sessionTable: document.querySelector('#sessionTable'),
   sessionHead: document.querySelector('#sessionHead'),
   sessionRows: document.querySelector('#sessionRows'),
-  handoffBulkBar: document.querySelector('#handoffBulkBar'),
-  handoffSelectionSummary: document.querySelector('#handoffSelectionSummary'),
-  clearHandoffSelectionBtn: document.querySelector('#clearHandoffSelectionBtn'),
-  copySelectedHandoffBtn: document.querySelector('#copySelectedHandoffBtn'),
+  copySessionInfoBtn: document.querySelector('#copySessionInfoBtn'),
+  sendSessionInfoBtn: document.querySelector('#sendSessionInfoBtn'),
   statusBar: document.querySelector('#statusBar'),
   statusText: document.querySelector('#statusText'),
   statusMeta: document.querySelector('#statusMeta'),
   detailTitle: document.querySelector('#detailTitle'),
   detailAccount: document.querySelector('#detailAccount'),
-  detailId: document.querySelector('#detailId'),
   detailCreated: document.querySelector('#detailCreated'),
   detailUpdated: document.querySelector('#detailUpdated'),
   detailSource: document.querySelector('#detailSource'),
   detailProject: document.querySelector('#detailProject'),
-  detailFile: document.querySelector('#detailFile'),
-  detailAddress: document.querySelector('#detailAddress'),
-  handoffPlan: document.querySelector('#handoffPlan'),
-  handoffPlanSummary: document.querySelector('#handoffPlanSummary'),
-  handoffPlanList: document.querySelector('#handoffPlanList'),
-  artifactIndex: document.querySelector('#artifactIndex'),
-  artifactSummary: document.querySelector('#artifactSummary'),
-  artifactList: document.querySelector('#artifactList'),
-  refreshArtifactsBtn: document.querySelector('#refreshArtifactsBtn'),
-  copySummaryBtn: document.querySelector('#copySummaryBtn'),
-  copyAddressBtn: document.querySelector('#copyAddressBtn'),
-  copyProjectBtn: document.querySelector('#copyProjectBtn'),
+  detailCoordinate: document.querySelector('#detailCoordinate'),
   openSessionFileBtn: document.querySelector('#openSessionFileBtn'),
   exportSessionBtn: document.querySelector('#exportSessionBtn'),
   profileDialog: document.querySelector('#profileDialog'),
@@ -350,7 +364,6 @@ function applyUserSettings(value = {}) {
   state.sessionScope = value.sessionScope === 'all' ? 'all' : 'current';
   state.sessionView = value.sessionView === 'detail' ? 'detail' : 'compact';
   state.remindersOn = value.remindersOn !== false;
-  state.agentConsoleOn = false; // 内嵌控制台 UI 已移除，恒关
   state.atmosTime = ['auto', 'day', 'dusk', 'night'].includes(value.atmosTime)
     ? value.atmosTime
     : 'auto';
@@ -513,7 +526,7 @@ function bindEvents() {
   els.removeProfileBtn.addEventListener('click', async () => {
     els.accountManage.open = false;
     const profile = selectedProfile();
-    if (!profile || profile.isProtected) return;
+    if (!profile) return;
     if (!window.confirm(tr('status.removeConfirm', { name: profile.name }))) return;
     const result = await window.manager.removeProfile(profile.id);
     if (!result.ok) {
@@ -587,15 +600,128 @@ function bindEvents() {
     els.welcomeDialog.showModal();
   });
 
-  // 「工具」入口：统一维护桌面 App / 终端 Agent，同时保留自定义 ACP 接入。
-  els.agentRegistryBtn?.addEventListener('click', async () => {
-    els.agentRegistryDialog.showModal();
+  els.deviceCenterBtn?.addEventListener('click', async () => {
+    els.deviceCenterDialog.showModal();
+    renderDeviceCenter();
+    await loadDeviceOverview();
+  });
+
+  els.deviceLensSelect?.addEventListener('change', async () => {
+    state.selectedDeviceLensId = els.deviceLensSelect.value || 'all';
+    reconcileMeshSelection();
+    renderAccounts();
+    renderAccountHeader();
+    await loadSessions(true);
+  });
+
+  els.initializeMeshBtn?.addEventListener('click', async () => {
+    if (state.mesh.loading || !window.manager.initializeMesh) return;
+    state.mesh.loading = true;
+    state.mesh.errorCode = null;
+    state.mesh.message = tr('devices.status.initializing');
+    renderDeviceCenter();
+    const result = await window.manager.initializeMesh({});
+    state.mesh.loading = false;
+    if (!result?.ok) {
+      state.mesh.errorCode = result?.reasonCode || 'mesh-operation-failed';
+      state.mesh.message = '';
+      renderDeviceCenter();
+      return;
+    }
+    state.mesh.overview = result.overview;
+    reconcileMeshSelection();
+    state.mesh.message = tr('devices.status.initialized');
+    renderDeviceCenter();
+    renderTopbarContext();
+    renderAccounts();
+    renderAccountHeader();
+    await loadSessions(true);
+  });
+
+  els.showJoinMeshBtn?.addEventListener('click', () => {
+    if (!els.meshJoinPanel) return;
+    els.meshJoinPanel.hidden = false;
+    els.meshJoinCode.value = '';
+    els.meshJoinCode.focus();
+  });
+
+  els.cancelJoinMeshBtn?.addEventListener('click', () => {
+    if (els.meshJoinPanel) els.meshJoinPanel.hidden = true;
+  });
+
+  els.confirmJoinMeshBtn?.addEventListener('click', async () => {
+    await joinExistingMesh();
+  });
+
+  els.createDeviceInviteBtn?.addEventListener('click', async () => {
+    await createDeviceInvitation();
+  });
+
+  els.receiveConnectionsBtn?.addEventListener('click', async () => {
+    await toggleMeshReachability();
+  });
+
+  els.networkSettingsBtn?.addEventListener('click', async () => {
+    await openMeshNetworkSettings();
+  });
+
+  els.saveMeshNetworkBtn?.addEventListener('click', async () => {
+    await saveMeshNetworkSettings();
+  });
+
+  els.copyDeviceInviteBtn?.addEventListener('click', async () => {
+    const code = state.mesh.invitation?.code;
+    if (!code) return;
+    await window.manager.writeClipboard(code);
+    state.mesh.message = tr('devices.invite.copied');
+    renderDeviceCenter();
+  });
+
+  els.closeDeviceInviteBtn?.addEventListener('click', async () => {
+    const inviteId = state.mesh.invitation?.inviteId;
+    state.mesh.invitation = null;
+    renderDeviceCenter();
+    if (window.manager.cancelDeviceInvite) await window.manager.cancelDeviceInvite(inviteId);
+  });
+
+  els.saveDevicePermissionsBtn?.addEventListener('click', async () => {
+    await saveRemoteDevicePermissions();
+  });
+
+  els.revokeDeviceBtn?.addEventListener('click', async () => {
+    await revokeRemoteDevice();
+  });
+
+  els.refreshMeshDiagnosticsBtn?.addEventListener('click', async () => {
+    await refreshDeviceDiagnostics();
+  });
+
+  els.resetMeshBtn?.addEventListener('click', async () => {
+    if (state.mesh.loading || !window.manager.resetMesh) return;
+    if (!window.confirm(tr('devices.reset.confirm'))) return;
+    state.mesh.loading = true;
+    state.mesh.errorCode = null;
+    state.mesh.message = tr('devices.status.resetting');
+    renderDeviceCenter();
+    const result = await window.manager.resetMesh();
+    state.mesh.loading = false;
+    if (!result?.ok) {
+      state.mesh.errorCode = result?.reasonCode || 'mesh-operation-failed';
+      state.mesh.message = '';
+    } else {
+      state.mesh.overview = result.overview;
+      state.mesh.invitation = null;
+      state.mesh.message = tr('devices.status.resetDone');
+    }
+    renderDeviceCenter();
+    renderTopbarContext();
+  });
+
+  // 「工具」入口：统一维护桌面 App 与终端工具。
+  els.toolCenterBtn?.addEventListener('click', async () => {
+    els.toolCenterDialog.showModal();
     renderToolCenter();
-    await Promise.all([
-      refreshToolInventory(false),
-      loadCustomAgents()
-    ]);
-    renderCustomAgentList();
+    await refreshToolInventory(false);
   });
 
   els.checkToolsBtn?.addEventListener('click', async () => {
@@ -606,28 +732,54 @@ function bindEvents() {
     await updateAllManagedTools();
   });
 
-  els.pickCustomAgentExecutableBtn.addEventListener('click', async () => {
-    if (!window.manager.pickAgentExecutable) return;
-    const result = await window.manager.pickAgentExecutable({
-      defaultPath: state.runtime.executableGrant?.path
-    });
-    if (!result?.ok) {
-      if (!result?.cancelled) setStatus(result?.reason || tr('status.pickAgentFail'));
-      return;
-    }
-    state.runtime.executableGrant = result;
-    els.customAgentExecutable.value = result.path;
-  });
-
-  els.confirmAddCustomAgentBtn.addEventListener('click', async () => {
-    await addCustomAgent();
-  });
-
-  if (window.manager.onTerminalEvent) {
-    window.manager.onTerminalEvent(handleRuntimeEvent);
-  }
   if (window.manager.onToolProgress) {
     window.manager.onToolProgress(handleToolProgress);
+  }
+
+  if (window.manager.onDeviceConnectionState) {
+    window.manager.onDeviceConnectionState((value) => {
+      if (value?.state === 'authenticated' || value?.state === 'inventory-synced') {
+        state.mesh.message = tr('devices.connection.connected', { name: value.deviceName || value.deviceId || '-' });
+      } else if (value?.state === 'error') {
+        state.mesh.errorCode = value.reason || 'peer-connect-failed';
+      }
+      void loadDeviceOverview({ silent: true });
+    });
+  }
+
+  if (window.manager.onDeviceNetworkState) {
+    window.manager.onDeviceNetworkState((network) => {
+      if (!state.mesh.overview?.reachability || !network) return;
+      state.mesh.overview.reachability = {
+        ...state.mesh.overview.reachability,
+        signaling: network.signaling,
+        ice: network.ice
+      };
+      renderDeviceCenter();
+      if (state.mesh.diagnosticDeviceId) void refreshDeviceDiagnostics({ quiet: true });
+    });
+  }
+
+  if (window.manager.onTransfersChanged) {
+    window.manager.onTransfersChanged((transfers) => {
+      state.mesh.transfers = Array.isArray(transfers) ? transfers : [];
+      const latest = state.mesh.transfers.find((item) => item.direction === 'incoming' && item.state === 'received');
+      if (latest) {
+        state.mesh.transferMessage = tr(latest.type === 'file' ? 'transfers.fileOfferReceived' : 'transfers.received', {
+          n: latest.itemCount,
+          name: latest.receivedFromName || '-'
+        });
+        setStatus(state.mesh.transferMessage);
+      }
+      renderTransferList();
+    });
+  }
+
+  if (window.manager.onRemoteControlsChanged) {
+    window.manager.onRemoteControlsChanged((sessions) => {
+      state.mesh.remoteSessions = Array.isArray(sessions) ? sessions : [];
+      renderDeviceCenter();
+    });
   }
 
   els.pathConfigBtn.addEventListener('click', () => {
@@ -770,42 +922,37 @@ function bindEvents() {
     applySessionFilter(true);
   });
 
-  els.copySummaryBtn.addEventListener('click', async () => {
-    if (selectedHandoffSessions().length) {
-      await copyHandoffPlan();
-      return;
-    }
-    await copyActiveHandoff();
+  els.copySessionInfoBtn.addEventListener('click', async () => {
+    const sessions = selectedSessionsForCopy();
+    if (!sessions.length || !window.SessionLocation) return;
+    const value = window.SessionLocation.format(sessions, {
+      path: tr('session.location.path'),
+      coordinate: tr('session.location.coordinate'),
+      empty: tr('common.unrecorded')
+    });
+    await window.manager.writeClipboard(value);
+    setStatus(tr(
+      sessions.length === 1 ? 'status.sessionInfoCopied' : 'status.sessionInfosCopied',
+      { n: sessions.length }
+    ));
   });
 
-  els.copySelectedHandoffBtn?.addEventListener('click', copyHandoffPlan);
-
-  els.clearHandoffSelectionBtn?.addEventListener('click', () => {
-    clearHandoffSelection();
+  els.sendSessionInfoBtn?.addEventListener('click', async () => {
+    await openSessionSendDialog();
   });
 
-  els.refreshArtifactsBtn?.addEventListener('click', async () => {
-    const session = selectedSession();
-    if (!session) return;
-    setStatus(tr('status.artifactsIndexingOne'));
-    const indexed = await ensureSessionArtifacts(session, { force: true });
-    setStatus(indexed.status === 'ready' && !indexed.error
-      ? tr('status.artifactsIndexed', { n: indexed.items.length })
-      : (indexed.error || tr('status.artifactsIndexFail')));
+  els.confirmSessionSendBtn?.addEventListener('click', async () => {
+    await sendSelectedSessionsToDevice();
   });
 
-  els.copyAddressBtn.addEventListener('click', async () => {
-    const session = selectedSession();
-    if (!session) return;
-    await window.manager.writeClipboard(session.address || session.filePath || session.id);
-    setStatus(tr('status.addressCopied'));
+  els.chooseFilesBtn?.addEventListener('click', async () => {
+    await chooseFilesForTransfer();
   });
 
-  els.copyProjectBtn.addEventListener('click', async () => {
-    const session = selectedSession();
-    if (!session?.projectPath) return;
-    await window.manager.writeClipboard(session.projectPath);
-    setStatus(tr('status.projectCopied'));
+  els.sessionSendTarget?.addEventListener('change', () => renderTransferStatus());
+
+  els.refreshTransfersBtn?.addEventListener('click', async () => {
+    await loadTransfers();
   });
 
   els.openSessionFileBtn.addEventListener('click', async () => {
@@ -942,25 +1089,21 @@ async function loadProfiles(preferredId = null) {
   state.quotas = Object.fromEntries(
     Object.entries(state.quotas).filter(([profileId]) => liveIds.has(profileId))
   );
-  for (const [key, session] of state.handoffSelection) {
-    if (!liveIds.has(session._profileId)) state.handoffSelection.delete(key);
-  }
-  for (const [key, entry] of state.handoffArtifacts) {
-    if (!liveIds.has(entry.profileId)) state.handoffArtifacts.delete(key);
-  }
   state.selectedProfileId = preferredId || state.selectedProfileId || state.profiles[0]?.id || null;
   if (!state.profiles.some((profile) => profile.id === state.selectedProfileId)) {
     state.selectedProfileId = state.profiles[0]?.id || null;
   }
+  reconcileMeshSelection();
   renderAccounts();
   renderAccountHeader();
   renderSessionControls();
   await loadSessions(true);
-  await loadRuntimeAdapters();
   renderAttentionInbox();
   // Profile edits invalidate the main-process cache. Refresh in the background
   // after the first quota request, without making profile/session UI wait.
   if (quotaHasLoaded) loadQuotas();
+  // Mesh 目录由本机 Profile 派生；新增、编辑或删除运行位置后同步刷新设备摘要。
+  void loadDeviceOverview({ silent: true });
 }
 
 async function loadSessions(selectFirst = false) {
@@ -968,6 +1111,11 @@ async function loadSessions(selectFirst = false) {
   if (!profile && state.sessionScope === 'current') {
     state.sessions = [];
     applySessionFilter(selectFirst);
+    return;
+  }
+
+  if (state.mesh.overview?.initialized && window.manager.listMeshSessions) {
+    await loadMeshSessions(selectFirst);
     return;
   }
 
@@ -989,7 +1137,7 @@ async function loadSessions(selectFirst = false) {
     }
   }
 
-  // 一个槽位扫描失败只丢它自己的会话，不清空其它账号，也不误删它已勾选的快照。
+  // 一个槽位扫描失败只丢它自己的会话，不清空其它账号。
   const results = await Promise.all([...descriptors.values()].map(async (descriptor) => {
     const { member, accountKey, accountName } = descriptor;
     try {
@@ -1012,18 +1160,7 @@ async function loadSessions(selectFirst = false) {
     }
   }));
 
-  const successfulProfiles = new Set(results.filter((result) => result.ok).map((result) => result.profileId));
   const loaded = results.flatMap((result) => result.records);
-  const freshByKey = new Map(loaded.map((session) => [sessionKey(session), session]));
-  for (const [key, entry] of state.handoffArtifacts) {
-    const fresh = freshByKey.get(key);
-    if (fresh && entry.token !== artifactCacheToken(fresh)) state.handoffArtifacts.delete(key);
-  }
-  for (const [key, snapshot] of state.handoffSelection) {
-    if (!successfulProfiles.has(snapshot._profileId)) continue;
-    if (freshByKey.has(key)) state.handoffSelection.set(key, freshByKey.get(key));
-    else state.handoffSelection.delete(key);
-  }
 
   state.sessions = loaded
     .sort((a, b) => (
@@ -1032,9 +1169,82 @@ async function loadSessions(selectFirst = false) {
   applySessionFilter(selectFirst);
 }
 
+async function loadMeshSessions(selectFirst = false) {
+  let rows = [];
+  try {
+    const result = await window.manager.listMeshSessions();
+    if (!result?.ok || !Array.isArray(result.sessions)) throw new Error(result?.reasonCode || 'inventory-list-failed');
+    rows = result.sessions;
+  } catch (_error) {
+    rows = [];
+  }
+  const overview = state.mesh.overview;
+  const lens = state.selectedDeviceLensId || 'all';
+  if (lens !== 'all') {
+    rows = rows.flatMap((row) => {
+      const replica = row.replicas?.find((item) => item.deviceId === lens);
+      return replica ? [sessionAtReplica(row, replica, overview)] : [];
+    });
+  }
+  if (state.sessionScope === 'current') {
+    rows = rows.filter((row) => row._agentId === state.selectedAgentId);
+  }
+  state.sessions = rows.map((row) => enrichMeshSession(row, overview));
+  applySessionFilter(selectFirst);
+}
+
+function sessionAtReplica(row, replica, overview) {
+  const device = overview?.devices?.find((item) => item.deviceId === replica.deviceId);
+  return {
+    ...row,
+    id: replica.adapterConversationKey || row.id,
+    address: replica.adapterConversationKey || row.address,
+    appId: replica.appId,
+    title: replica.title,
+    createdAt: replica.createdAt,
+    updatedAt: replica.updatedAt,
+    projectPath: replica.projectPathHint,
+    filePath: replica.sourceFileHint,
+    source: replica.source,
+    status: replica.status,
+    model: replica.model,
+    _agentId: replica.agentId,
+    _accountBindingId: replica.accountBindingId,
+    _profileId: replica.profileId,
+    _deviceId: replica.deviceId,
+    _deviceName: replica.deviceName || device?.name || replica.deviceId,
+    _replicaId: replica.replicaId,
+    _remote: replica.deviceId !== overview?.localDeviceId,
+    _stale: replica.stale === true
+  };
+}
+
+function enrichMeshSession(row, overview) {
+  const agent = overview?.agents?.find((item) => item.agentId === row._agentId);
+  const slot = overview?.slots?.find((item) => (
+    item.deviceId === row._deviceId && String(item.profileId) === String(row._profileId)
+  ));
+  const device = overview?.devices?.find((item) => item.deviceId === row._deviceId);
+  return {
+    ...row,
+    _accountKey: row._agentId,
+    _accountName: agent?.displayName || slot?.localLabel || '-',
+    _profileName: slot?.localLabel || row._profileId,
+    _appLabel: appLabel(row.appId || slot?.appId),
+    _deviceName: row._deviceName || device?.name || row._deviceId
+  };
+}
+
 // 合流列表里每条会话真正归属的槽位（操作要用它，不能用当前选中槽位）
 function sessionOwnerProfile(session) {
-  return state.profiles.find((item) => item.id === session?._profileId) || selectedProfile();
+  for (const group of identityGroups()) {
+    const profile = group.members.find((item) => (
+      String(item._meshProfileId || item.id) === String(session?._profileId)
+      && (!session?._deviceId || item._meshDeviceId === session._deviceId)
+    ));
+    if (profile) return profile;
+  }
+  return selectedProfile();
 }
 
 async function setSessionScope(scope) {
@@ -1044,7 +1254,6 @@ async function setSessionScope(scope) {
     return;
   }
   state.sessionScope = next;
-  state.selectionAnchorKey = null;
   persistSettings({ sessionScope: next });
   renderSessionControls();
   await loadSessions(true);
@@ -1389,7 +1598,8 @@ function applySessionFilter(selectFirst = false) {
           session.model,
           session._accountName,
           session._profileName,
-          session._appLabel
+          session._appLabel,
+          session._deviceName
         ].filter(Boolean).some((value) => String(value).toLowerCase().includes(query));
       })
     : [...state.sessions];
@@ -1397,14 +1607,20 @@ function applySessionFilter(selectFirst = false) {
     ? window.SessionTable.sort(filtered, state.sessionSort, dateLocale())
     : filtered;
 
+  const visibleKeys = new Set(state.filteredSessions.map(sessionKey));
+  state.selectedSessionKeys = new Set(
+    [...state.selectedSessionKeys].filter((key) => visibleKeys.has(key))
+  );
+
   if (selectFirst || !state.filteredSessions.some((session) => sessionKey(session) === state.selectedSessionKey)) {
     setActiveSession(state.filteredSessions[0] || null);
+  } else if (!state.selectedSessionKeys.size && state.selectedSessionKey) {
+    state.selectedSessionKeys.add(state.selectedSessionKey);
   }
 
   renderSessionControls();
   renderSessions();
   renderInspector();
-  renderRuntimeDock();
 }
 
 // ── 猫咪档案卡（编辑对话框换装） ─────────────────────
@@ -1580,54 +1796,789 @@ function updateAtmosphereReadout() {
   }
 }
 
-// ── 多 Agent Fleet ───────────────────────────────────
-// Agent 类型、登录身份、工作区与运行实例是四个独立维度。Renderer 只能
-// 组合主进程登记过的适配器与账号；可执行文件和 argv 始终由 main 决定。
-const pendingRuntimeEvents = [];
-let runtimeQueueSending = false;
-
-function selectedRuntime() {
-  return state.runtime.runtimes.find((item) => item.id === state.runtime.selectedRuntimeId) || null;
-}
-
-function runtimeIsActive(runtime = selectedRuntime()) {
-  return Boolean(runtime && ['starting', 'running', 'ready'].includes(runtime.status));
-}
-
-function runtimeStatusLabel(runtime) {
-  const labels = {
-    idle: '未选择',
-    starting: '启动中',
-    running: runtime?.mode === 'agent' ? '处理中' : '运行中',
-    ready: '可输入',
-    error: '出错',
-    exited: '已退出',
-    stopped: '已停止'
-  };
-  return labels[runtime?.status || 'idle'] || runtime?.status || '未选择';
-}
-
-function upsertRuntime(value) {
-  if (!value?.id) return null;
-  const index = state.runtime.runtimes.findIndex((item) => item.id === value.id);
-  if (index < 0) state.runtime.runtimes.push(value);
-  else state.runtime.runtimes[index] = { ...state.runtime.runtimes[index], ...value };
-  return state.runtime.runtimes.find((item) => item.id === value.id) || null;
-}
-
-async function loadCustomAgents() {
-  if (!window.manager.listCustomAgents) {
-    state.runtime.customAgents = [];
-    return;
+// ── Personal Agent Mesh / 设备中心 ──────────────────
+async function loadDeviceOverview(options = {}) {
+  if (!window.manager.listDevices || state.mesh.loading) return;
+  const silent = options.silent === true;
+  if (!silent) {
+    state.mesh.loading = true;
+    state.mesh.errorCode = null;
+    state.mesh.message = tr('devices.status.loading');
+    renderDeviceCenter();
   }
   try {
-    const agents = await window.manager.listCustomAgents();
-    state.runtime.customAgents = Array.isArray(agents) ? agents : [];
-  } catch (_error) {
-    state.runtime.customAgents = [];
+    const result = await window.manager.listDevices();
+    if (!result?.ok) throw new Error(result?.reasonCode || 'mesh-operation-failed');
+    state.mesh.overview = result.overview;
+    reconcileMeshSelection();
+    state.mesh.errorCode = null;
+    if (!silent) state.mesh.message = '';
+  } catch (error) {
+    state.mesh.errorCode = error?.message || 'mesh-operation-failed';
+  } finally {
+    if (!silent) state.mesh.loading = false;
+    renderDeviceCenter();
+    renderTopbarContext();
+    if (state.mesh.overview?.initialized) {
+      renderAccounts();
+      renderAccountHeader();
+      await loadSessions(false);
+    }
   }
 }
 
+function renderDeviceCenter() {
+  if (!els.deviceCenterBtn) return;
+  const overview = state.mesh.overview;
+  const initialized = overview?.initialized === true;
+  const storageIncomplete = overview?.storageIncomplete === true;
+  const keyError = initialized && overview?.keyState && overview.keyState !== 'available'
+    ? overview.keyState
+    : null;
+
+  if (els.deviceCountBadge) {
+    els.deviceCountBadge.textContent = String(overview?.devices?.length || 0);
+    els.deviceCountBadge.hidden = !initialized;
+  }
+  renderDeviceLens(overview);
+  if (els.meshEmptyState) els.meshEmptyState.hidden = initialized;
+  if (els.meshReadyState) els.meshReadyState.hidden = !initialized;
+  if (els.initializeMeshBtn) {
+    els.initializeMeshBtn.disabled = state.mesh.loading || storageIncomplete || overview?.keyState === 'os-key-protection-unavailable';
+  }
+  if (els.showJoinMeshBtn) els.showJoinMeshBtn.disabled = state.mesh.loading || storageIncomplete;
+  if (els.confirmJoinMeshBtn) els.confirmJoinMeshBtn.disabled = state.mesh.loading;
+  if (els.createDeviceInviteBtn) els.createDeviceInviteBtn.disabled = state.mesh.loading;
+  if (els.networkSettingsBtn) els.networkSettingsBtn.disabled = state.mesh.loading || state.mesh.networkLoading;
+  if (els.receiveConnectionsBtn) {
+    const active = overview?.reachability?.userEnabled === true;
+    els.receiveConnectionsBtn.disabled = state.mesh.loading;
+    els.receiveConnectionsBtn.classList.toggle('primary', active);
+    els.receiveConnectionsBtn.textContent = tr(active
+      ? 'devices.reachability.disable'
+      : 'devices.reachability.enable');
+  }
+  if (els.resetMeshBtn) {
+    els.resetMeshBtn.hidden = !initialized && !storageIncomplete;
+    els.resetMeshBtn.disabled = state.mesh.loading;
+  }
+
+  if (els.meshStateBadge) {
+    els.meshStateBadge.dataset.state = state.mesh.errorCode || keyError || storageIncomplete
+      ? 'error'
+      : (initialized ? 'ready' : 'local');
+    els.meshStateBadge.textContent = tr(
+      state.mesh.errorCode || keyError || storageIncomplete
+        ? 'devices.state.attention'
+        : (initialized ? 'devices.state.ready' : 'devices.state.local')
+    );
+  }
+
+  if (els.deviceCenterStatus) {
+    let message = state.mesh.message;
+    let tone = state.mesh.loading ? 'busy' : 'idle';
+    if (state.mesh.errorCode || keyError || storageIncomplete) {
+      tone = 'error';
+      message = meshErrorText(state.mesh.errorCode || keyError || 'mesh-storage-incomplete');
+    } else if (!message) {
+      message = tr(initialized ? 'devices.status.readyMesh' : 'devices.status.ready');
+    }
+    els.deviceCenterStatus.dataset.state = tone;
+    els.deviceCenterStatus.textContent = message;
+  }
+
+  renderMeshPreview(overview?.localPreview);
+  if (!initialized) return;
+  if (els.meshJoinPanel) els.meshJoinPanel.hidden = true;
+  if (els.meshInvitePanel) els.meshInvitePanel.hidden = !state.mesh.invitation;
+  if (els.meshInviteShortCode) els.meshInviteShortCode.textContent = state.mesh.invitation?.shortCode || '';
+  if (els.meshInviteCode) els.meshInviteCode.value = state.mesh.invitation?.code || '';
+  renderMeshSummary(overview);
+  renderDeviceList(overview);
+  renderMeshAgentList(overview);
+}
+
+function renderMeshPreview(preview) {
+  if (!els.meshPreviewStats) return;
+  const value = preview || {
+    name: tr('devices.preview.thisDevice'),
+    agentCount: identityGroups().length,
+    slotCount: state.profiles.length,
+    sessionCount: state.sessions.length
+  };
+  fillMeshStats(els.meshPreviewStats, [
+    [tr('devices.stat.device'), value.name || tr('devices.preview.thisDevice')],
+    [tr('devices.stat.agents'), value.agentCount || 0],
+    [tr('devices.stat.slots'), value.slotCount || 0]
+  ]);
+}
+
+function renderDeviceLens(overview) {
+  if (!els.deviceLensSelect) return;
+  const initialized = overview?.initialized === true;
+  els.deviceLensSelect.hidden = !initialized;
+  if (!initialized) return;
+  const current = state.selectedDeviceLensId;
+  els.deviceLensSelect.replaceChildren();
+  const all = document.createElement('option');
+  all.value = 'all';
+  all.textContent = tr('devices.lens.all');
+  els.deviceLensSelect.append(all);
+  for (const device of overview.devices || []) {
+    const option = document.createElement('option');
+    option.value = device.deviceId;
+    option.textContent = device.isLocal
+      ? tr('devices.lens.localNamed', { name: device.name })
+      : device.name;
+    els.deviceLensSelect.append(option);
+  }
+  const valid = [...els.deviceLensSelect.options].some((option) => option.value === current);
+  state.selectedDeviceLensId = valid ? current : 'all';
+  els.deviceLensSelect.value = state.selectedDeviceLensId;
+}
+
+function renderMeshSummary(overview) {
+  if (!els.meshSummary) return;
+  const online = (overview.devices || []).filter((device) => device.status === 'online').length;
+  fillMeshStats(els.meshSummary, [
+    [tr('devices.stat.mesh'), overview.mesh?.displayName || 'Personal Agent Mesh'],
+    [tr('devices.stat.online'), tr('devices.value.online', { online, total: overview.devices.length })],
+    [tr('devices.stat.catalogRevision'), `r${overview.mesh?.catalogRevision || 0}`]
+  ]);
+  if (els.deviceShelfMeta) {
+    const signaling = overview.reachability?.signaling;
+    els.deviceShelfMeta.textContent = `${tr('devices.meta.deviceCount', { n: overview.devices.length })} · ${tr('devices.meta.signaling', {
+      state: diagnosticCode(signaling?.state || 'disabled')
+    })}`;
+  }
+  if (els.agentCatalogMeta) {
+    els.agentCatalogMeta.textContent = tr('devices.meta.agentSlotCount', {
+      agents: overview.agents.length,
+      slots: overview.slots.length
+    });
+  }
+}
+
+function fillMeshStats(container, rows) {
+  container.replaceChildren();
+  for (const [label, value] of rows) {
+    const item = document.createElement('div');
+    item.className = 'mesh-stat';
+    const small = document.createElement('small');
+    small.textContent = label;
+    const strong = document.createElement('strong');
+    strong.textContent = String(value);
+    strong.title = String(value);
+    item.append(small, strong);
+    container.append(item);
+  }
+}
+
+function renderDeviceList(overview) {
+  if (!els.deviceList) return;
+  els.deviceList.replaceChildren();
+  for (const device of overview.devices || []) {
+    const connection = (overview.connections || []).find((item) => item.deviceId === device.deviceId);
+    const card = document.createElement('article');
+    card.className = 'device-card';
+
+    const main = document.createElement('div');
+    main.className = 'device-card-main';
+    const title = document.createElement('div');
+    title.className = 'device-card-title';
+    const dot = document.createElement('i');
+    dot.className = 'device-online-dot';
+    if (device.status !== 'online') dot.style.background = 'var(--ink-tertiary)';
+    const name = document.createElement('strong');
+    name.textContent = device.name;
+    const local = document.createElement('span');
+    local.textContent = device.isLocal ? tr('devices.device.local') : tr('devices.device.remote');
+    title.append(dot, name, local);
+    const meta = document.createElement('div');
+    meta.className = 'device-card-meta';
+    meta.textContent = [
+      platformLabel(device.platform),
+      device.arch,
+      `AgentDesk ${device.appVersion}`,
+      tr('devices.device.fingerprint', { value: device.fingerprint || '-' }),
+      connection?.authenticated ? connectionPathText(connection) : null
+    ].filter(Boolean).join(' · ');
+    main.append(title, meta);
+
+    const stats = document.createElement('div');
+    stats.className = 'device-card-stats';
+    for (const [value, label] of [
+      [device.agentCount, tr('devices.stat.agents')],
+      [device.slotCount, tr('devices.stat.slots')],
+      [device.sessionCount, tr('devices.stat.sessions')]
+    ]) {
+      const item = document.createElement('div');
+      item.className = 'device-card-stat';
+      const count = document.createElement('b');
+      count.textContent = String(value || 0);
+      const caption = document.createElement('small');
+      caption.textContent = label;
+      item.append(count, caption);
+      stats.append(item);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'device-card-actions';
+    if (device.isLocal) {
+      const probe = document.createElement('button');
+      probe.type = 'button';
+      probe.textContent = state.mesh.loading ? tr('devices.probe.running') : tr('devices.probe.action');
+      probe.disabled = state.mesh.loading;
+      probe.addEventListener('click', () => runMeshTransportProbe());
+      const rename = document.createElement('button');
+      rename.type = 'button';
+      rename.textContent = tr('devices.rename');
+      rename.disabled = state.mesh.loading;
+      rename.addEventListener('click', () => renameLocalDevice(device));
+      const diagnostics = deviceDiagnosticsButton(device);
+      actions.append(probe, diagnostics, rename);
+    } else {
+      const connect = document.createElement('button');
+      connect.type = 'button';
+      connect.className = connection?.authenticated ? 'primary' : '';
+      connect.textContent = tr(connection?.authenticated
+        ? 'devices.connection.disconnect'
+        : (device.status === 'connecting' ? 'devices.connection.connecting' : 'devices.connection.connect'));
+      connect.disabled = state.mesh.loading || device.status === 'connecting';
+      connect.addEventListener('click', () => connection?.authenticated
+        ? disconnectMeshDevice(device)
+        : connectMeshDevice(device));
+      const remote = document.createElement('button');
+      remote.type = 'button';
+      remote.className = 'remote-control-action';
+      const remoteSession = state.mesh.remoteSessions.find((item) => item.deviceId === device.deviceId);
+      const canView = (device.permissions || []).includes('screen.view');
+      remote.textContent = tr(remoteSession ? 'remote.action.focus' : 'remote.action.view');
+      remote.disabled = state.mesh.loading || !canView;
+      remote.title = canView ? tr('remote.action.hint') : tr('remote.action.permissionRequired');
+      remote.addEventListener('click', () => openRemoteDevice(device));
+      const transfer = document.createElement('button');
+      transfer.type = 'button';
+      transfer.textContent = tr('devices.transfer.action');
+      transfer.disabled = state.mesh.loading;
+      transfer.addEventListener('click', () => {
+        els.deviceCenterDialog?.close();
+        void openSessionSendDialog(device.deviceId);
+      });
+      const permissions = document.createElement('button');
+      permissions.type = 'button';
+      permissions.textContent = tr('devices.permissions.action');
+      permissions.disabled = state.mesh.loading;
+      permissions.addEventListener('click', () => openDevicePermissions(device));
+      const diagnostics = deviceDiagnosticsButton(device);
+      const revoke = document.createElement('button');
+      revoke.type = 'button';
+      revoke.className = 'danger-text';
+      revoke.textContent = tr('devices.revoke.short');
+      revoke.disabled = state.mesh.loading;
+      revoke.addEventListener('click', () => openDevicePermissions(device));
+      actions.append(remote, connect, transfer, diagnostics, permissions, revoke);
+    }
+    card.append(main, stats, actions);
+    els.deviceList.append(card);
+  }
+}
+
+function renderMeshAgentList(overview) {
+  if (!els.meshAgentList) return;
+  els.meshAgentList.replaceChildren();
+  if (!overview.agents.length) {
+    const empty = document.createElement('p');
+    empty.className = 'mesh-catalog-empty';
+    empty.textContent = tr('devices.agents.empty');
+    els.meshAgentList.append(empty);
+    return;
+  }
+  for (const agent of overview.agents) {
+    const slots = overview.slots.filter((slot) => slot.agentId === agent.agentId);
+    const bindings = overview.accountBindings.filter((binding) => binding.agentId === agent.agentId);
+    const devices = new Set(slots.map((slot) => slot.deviceId));
+    const card = document.createElement('article');
+    card.className = 'mesh-agent-card';
+    const name = document.createElement('strong');
+    name.textContent = agent.displayName;
+    const count = document.createElement('span');
+    count.textContent = tr('devices.agents.positions', { devices: devices.size, slots: slots.length });
+    const providers = document.createElement('small');
+    providers.textContent = bindings.length
+      ? bindings.map((binding) => binding.providerNamespace).join(' · ')
+      : tr('devices.agents.noBinding');
+    card.append(name, count, providers);
+    els.meshAgentList.append(card);
+  }
+}
+
+async function createDeviceInvitation() {
+  if (state.mesh.loading || !window.manager.createDeviceInvite) return;
+  state.mesh.loading = true;
+  state.mesh.errorCode = null;
+  state.mesh.message = tr('devices.invite.creating');
+  renderDeviceCenter();
+  const result = await window.manager.createDeviceInvite();
+  state.mesh.loading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'pairing-invite-failed';
+    state.mesh.message = '';
+  } else {
+    state.mesh.invitation = result.invitation;
+    state.mesh.message = tr('devices.invite.ready', { code: result.invitation.shortCode });
+  }
+  renderDeviceCenter();
+}
+
+async function toggleMeshReachability() {
+  if (state.mesh.loading || !window.manager.setDeviceReachable) return;
+  const enabled = state.mesh.overview?.reachability?.userEnabled !== true;
+  state.mesh.loading = true;
+  state.mesh.errorCode = null;
+  state.mesh.message = tr(enabled ? 'devices.reachability.enabling' : 'devices.reachability.disabling');
+  renderDeviceCenter();
+  const result = await window.manager.setDeviceReachable(enabled);
+  state.mesh.loading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'mesh-reachability-failed';
+    state.mesh.message = '';
+  } else {
+    state.mesh.overview = result.overview;
+    state.mesh.message = tr(enabled ? 'devices.reachability.enabled' : 'devices.reachability.disabled');
+  }
+  renderDeviceCenter();
+}
+
+async function connectMeshDevice(device) {
+  if (state.mesh.loading || !window.manager.connectDevice) return;
+  state.mesh.loading = true;
+  state.mesh.errorCode = null;
+  state.mesh.message = tr('devices.connection.connectingNamed', { name: device.name });
+  renderDeviceCenter();
+  const result = await window.manager.connectDevice(device.deviceId);
+  state.mesh.loading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'peer-connect-failed';
+    state.mesh.message = '';
+  } else {
+    state.mesh.overview = result.overview;
+    state.mesh.message = tr('devices.connection.connected', { name: device.name });
+  }
+  renderDeviceCenter();
+  if (result?.ok) await loadSessions(false);
+}
+
+async function openRemoteDevice(device) {
+  if (state.mesh.loading || !window.manager.openRemoteControl) return;
+  state.mesh.loading = true;
+  state.mesh.errorCode = null;
+  state.mesh.message = tr('remote.action.opening', { name: device.name });
+  renderDeviceCenter();
+  const result = await window.manager.openRemoteControl(device.deviceId);
+  state.mesh.loading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'remote-open-failed';
+    state.mesh.message = '';
+  } else {
+    state.mesh.remoteSessions = Array.isArray(result.sessions) ? result.sessions : state.mesh.remoteSessions;
+    state.mesh.message = tr('remote.action.waitingConsent', { name: device.name });
+    els.deviceCenterDialog?.close();
+  }
+  renderDeviceCenter();
+}
+
+async function disconnectMeshDevice(device) {
+  if (state.mesh.loading || !window.manager.disconnectDevice) return;
+  state.mesh.loading = true;
+  const result = await window.manager.disconnectDevice(device.deviceId);
+  state.mesh.loading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'peer-disconnect-failed';
+  } else {
+    state.mesh.overview = result.overview;
+    state.mesh.errorCode = null;
+    state.mesh.message = tr('devices.connection.disconnected', { name: device.name });
+  }
+  renderDeviceCenter();
+}
+
+async function joinExistingMesh() {
+  if (state.mesh.loading || !window.manager.joinDeviceMesh) return;
+  const code = String(els.meshJoinCode?.value || '').trim();
+  if (!code) {
+    state.mesh.errorCode = 'pairing-code-required';
+    renderDeviceCenter();
+    return;
+  }
+  state.mesh.loading = true;
+  state.mesh.errorCode = null;
+  state.mesh.message = tr('devices.join.joining');
+  renderDeviceCenter();
+  const result = await window.manager.joinDeviceMesh({ code });
+  state.mesh.loading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'pairing-join-failed';
+    state.mesh.message = '';
+  } else {
+    state.mesh.overview = result.overview;
+    state.mesh.message = tr('devices.join.done');
+    if (els.meshJoinPanel) els.meshJoinPanel.hidden = true;
+  }
+  renderDeviceCenter();
+  renderTopbarContext();
+  if (result?.ok) await loadProfiles(state.selectedProfileId);
+}
+
+function deviceDiagnosticsButton(device) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = tr('devices.diagnostics.action');
+  button.disabled = state.mesh.loading;
+  button.addEventListener('click', () => openDeviceDiagnostics(device));
+  return button;
+}
+
+async function openMeshNetworkSettings() {
+  if (!els.meshNetworkDialog || state.mesh.networkLoading || !window.manager.getDeviceNetworkConfig) return;
+  state.mesh.networkLoading = true;
+  els.networkSettingsBtn.disabled = true;
+  const result = await window.manager.getDeviceNetworkConfig();
+  state.mesh.networkLoading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'network-config-read-failed';
+    renderDeviceCenter();
+    return;
+  }
+  els.meshSignalingUrls.value = (result.config?.signalingUrls || []).join('\n');
+  els.meshStunUrls.value = (result.config?.stunUrls || []).join('\n');
+  els.meshNetworkStatus.dataset.state = 'idle';
+  els.meshNetworkStatus.textContent = tr('devices.network.ready');
+  els.meshNetworkDialog.showModal();
+}
+
+async function saveMeshNetworkSettings() {
+  if (state.mesh.networkLoading || !window.manager.updateDeviceNetworkConfig) return;
+  state.mesh.networkLoading = true;
+  els.saveMeshNetworkBtn.disabled = true;
+  els.meshNetworkStatus.dataset.state = 'busy';
+  els.meshNetworkStatus.textContent = tr('devices.network.saving');
+  const result = await window.manager.updateDeviceNetworkConfig({
+    signalingUrls: splitNetworkLines(els.meshSignalingUrls.value),
+    stunUrls: splitNetworkLines(els.meshStunUrls.value)
+  });
+  state.mesh.networkLoading = false;
+  els.saveMeshNetworkBtn.disabled = false;
+  if (!result?.ok) {
+    els.meshNetworkStatus.dataset.state = 'error';
+    els.meshNetworkStatus.textContent = tr('devices.network.failed', { code: result?.reasonCode || 'network-config-invalid' });
+    return;
+  }
+  els.meshSignalingUrls.value = (result.config?.signalingUrls || []).join('\n');
+  els.meshStunUrls.value = (result.config?.stunUrls || []).join('\n');
+  if (state.mesh.overview?.reachability && result.network) {
+    state.mesh.overview.reachability = {
+      ...state.mesh.overview.reachability,
+      signaling: result.network.signaling,
+      ice: result.network.ice
+    };
+  }
+  state.mesh.message = tr('devices.network.saved');
+  els.meshNetworkDialog.close();
+  renderDeviceCenter();
+  await loadDeviceOverview({ silent: true });
+}
+
+function splitNetworkLines(value) {
+  return [...new Set(String(value || '')
+    .split(/[\r\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean))]
+    .slice(0, 8);
+}
+
+function connectionPathText(connection) {
+  const path = ['lan', 'direct', 'relay'].includes(connection?.networkPath)
+    ? connection.networkPath
+    : 'unknown';
+  return tr(`devices.path.${path}`);
+}
+
+async function openDeviceDiagnostics(device) {
+  if (!els.meshDiagnosticsDialog || !device?.deviceId) return;
+  state.mesh.diagnosticDeviceId = device.deviceId;
+  state.mesh.diagnostics = null;
+  state.mesh.diagnosticsError = null;
+  if (els.meshDiagnosticsTitle) {
+    els.meshDiagnosticsTitle.textContent = tr('devices.diagnostics.named', { name: device.name });
+  }
+  els.meshDiagnosticsDialog.showModal();
+  renderDeviceDiagnostics();
+  await refreshDeviceDiagnostics();
+}
+
+async function refreshDeviceDiagnostics(options = {}) {
+  const deviceId = state.mesh.diagnosticDeviceId;
+  if (!deviceId || state.mesh.diagnosticsLoading || !window.manager.getDeviceDiagnostics) return;
+  state.mesh.diagnosticsLoading = true;
+  state.mesh.diagnosticsError = null;
+  if (!options.quiet) renderDeviceDiagnostics();
+  const result = await window.manager.getDeviceDiagnostics(deviceId);
+  state.mesh.diagnosticsLoading = false;
+  if (!result?.ok) {
+    state.mesh.diagnosticsError = result?.reasonCode || 'device-diagnostics-failed';
+  } else {
+    state.mesh.diagnostics = result.diagnostics;
+  }
+  renderDeviceDiagnostics();
+}
+
+function renderDeviceDiagnostics() {
+  if (!els.meshDiagnosticsBody || !els.meshDiagnosticsStatus) return;
+  els.refreshMeshDiagnosticsBtn.disabled = state.mesh.diagnosticsLoading;
+  if (state.mesh.diagnosticsLoading) {
+    els.meshDiagnosticsStatus.dataset.state = 'busy';
+    els.meshDiagnosticsStatus.textContent = tr('devices.diagnostics.checking');
+  } else if (state.mesh.diagnosticsError) {
+    els.meshDiagnosticsStatus.dataset.state = 'error';
+    els.meshDiagnosticsStatus.textContent = tr('devices.diagnostics.failed', { code: state.mesh.diagnosticsError });
+  } else if (state.mesh.diagnostics) {
+    els.meshDiagnosticsStatus.dataset.state = 'ready';
+    els.meshDiagnosticsStatus.textContent = tr('devices.diagnostics.checked', {
+      time: diagnosticTime(state.mesh.diagnostics.checkedAt)
+    });
+  } else {
+    els.meshDiagnosticsStatus.dataset.state = 'idle';
+    els.meshDiagnosticsStatus.textContent = '';
+  }
+
+  els.meshDiagnosticsBody.replaceChildren();
+  const value = state.mesh.diagnostics;
+  if (!value) return;
+  appendDiagnosticSection(els.meshDiagnosticsBody, tr('devices.diagnostics.identity'), [
+    [tr('devices.diagnostics.deviceStatus'), diagnosticCode(value.device.status)],
+    [tr('devices.diagnostics.appProtocol'), `${value.device.platform} ${value.device.arch} · AgentDesk ${value.device.appVersion} · ${value.device.protocolVersion}`],
+    [tr('devices.diagnostics.fingerprint'), value.device.fingerprint || '-'],
+    [tr('devices.diagnostics.inventory'), `r${value.device.inventoryRevision || 0}`]
+  ]);
+
+  const signaling = value.signaling || {};
+  const services = (signaling.services || []).map((item) => (
+    `${item.service} · ${diagnosticCode(item.state)}`
+  )).join('\n') || tr('devices.value.none');
+  appendDiagnosticSection(els.meshDiagnosticsBody, tr('devices.diagnostics.reachability'), [
+    [tr('devices.diagnostics.signaling'), diagnosticCode(signaling.state)],
+    [tr('devices.diagnostics.signalingServices'), services],
+    [tr('devices.diagnostics.stun'), configuredText(value.ice?.stunConfigured, value.ice?.stunUrlCount)],
+    [tr('devices.diagnostics.turn'), configuredText(value.ice?.turnConfigured, value.ice?.turnUrlCount)],
+    [tr('devices.diagnostics.turnExpiry'), value.ice?.turnCredentialExpiresAt ? diagnosticTime(value.ice.turnCredentialExpiresAt) : tr('devices.value.none')],
+    [tr('devices.diagnostics.lanEndpoint'), value.localEndpoint?.active
+      ? tr('devices.value.activeCount', { n: value.localEndpoint.endpointCount || 0 })
+      : tr('devices.value.inactive')]
+  ]);
+
+  appendDiagnosticSection(els.meshDiagnosticsBody, tr('devices.diagnostics.connection'), [
+    [tr('devices.diagnostics.authenticated'), diagnosticCode(value.connection?.authenticated ? 'authenticated' : 'not-authenticated')],
+    [tr('devices.diagnostics.signalPath'), diagnosticCode(value.connection?.signalingPath)],
+    [tr('devices.diagnostics.mediaPath'), diagnosticCode(value.connection?.networkPath)],
+    [tr('devices.diagnostics.candidates'), (value.connection?.candidateTypes || []).join(' + ') || tr('devices.value.none')],
+    [tr('devices.diagnostics.transport'), (value.connection?.protocols || []).join(' + ') || tr('devices.value.none')],
+    [tr('devices.diagnostics.pairState'), diagnosticCode(value.connection?.selectedPairState)]
+  ]);
+
+  appendDiagnosticSection(els.meshDiagnosticsBody, tr('devices.diagnostics.permissions'), [
+    [tr('devices.diagnostics.screen'), diagnosticCode(value.permissions?.screen)],
+    [tr('devices.diagnostics.input'), diagnosticCode(value.permissions?.input)],
+    [tr('devices.diagnostics.file'), diagnosticCode(value.permissions?.file)],
+    [tr('devices.diagnostics.pointer'), diagnosticCode(value.permissions?.sessionPointer)]
+  ]);
+}
+
+function appendDiagnosticSection(container, title, rows) {
+  const section = document.createElement('section');
+  section.className = 'device-diagnostics-section';
+  const heading = document.createElement('h4');
+  heading.textContent = title;
+  const list = document.createElement('dl');
+  for (const [label, value] of rows) {
+    const term = document.createElement('dt');
+    term.textContent = label;
+    const detail = document.createElement('dd');
+    detail.textContent = String(value ?? '-');
+    list.append(term, detail);
+  }
+  section.append(heading, list);
+  container.append(section);
+}
+
+function configuredText(configured, count) {
+  return configured
+    ? tr('devices.value.configuredCount', { n: Number(count) || 0 })
+    : tr('devices.value.notConfigured');
+}
+
+function diagnosticCode(code) {
+  const key = String(code || 'none').toLowerCase();
+  if (['online', 'offline', 'connecting', 'sleeping', 'revoked'].includes(key)) {
+    return tr(`devices.status.${key}`);
+  }
+  const known = new Set([
+    'degraded', 'disabled', 'stopped',
+    'lan', 'signaling', 'direct', 'relay', 'unknown', 'none',
+    'authenticated', 'not-authenticated', 'succeeded',
+    'allowed', 'not-allowed', 'available', 'unavailable', 'unsupported',
+    'granted', 'denied', 'restricted', 'not-determined'
+  ]);
+  return known.has(key) ? tr(`devices.value.${key}`) : key;
+}
+
+function diagnosticTime(value) {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleString() : '-';
+}
+
+function openDevicePermissions(device) {
+  if (!els.devicePermissionsDialog || device.isLocal) return;
+  state.mesh.permissionDeviceId = device.deviceId;
+  if (els.devicePermissionsTitle) {
+    els.devicePermissionsTitle.textContent = tr('devices.permissions.named', { name: device.name });
+  }
+  const supported = new Set(device.capabilities || []);
+  const enabled = new Set(device.permissions || []);
+  for (const checkbox of els.devicePermissionList?.querySelectorAll('input[data-capability]') || []) {
+    const capability = checkbox.dataset.capability;
+    checkbox.checked = enabled.has(capability);
+    checkbox.disabled = !supported.has(capability);
+  }
+  els.devicePermissionsDialog.showModal();
+}
+
+async function saveRemoteDevicePermissions() {
+  const deviceId = state.mesh.permissionDeviceId;
+  if (!deviceId || state.mesh.loading || !window.manager.updateDevicePermissions) return;
+  const permissions = {};
+  for (const checkbox of els.devicePermissionList?.querySelectorAll('input[data-capability]') || []) {
+    if (!checkbox.disabled) permissions[checkbox.dataset.capability] = checkbox.checked;
+  }
+  state.mesh.loading = true;
+  const result = await window.manager.updateDevicePermissions({ deviceId, permissions });
+  state.mesh.loading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'device-permissions-failed';
+    state.mesh.message = '';
+  } else {
+    state.mesh.overview = result.overview;
+    state.mesh.errorCode = null;
+    state.mesh.message = tr('devices.permissions.saved');
+    els.devicePermissionsDialog.close();
+  }
+  renderDeviceCenter();
+}
+
+async function revokeRemoteDevice() {
+  const deviceId = state.mesh.permissionDeviceId;
+  const device = state.mesh.overview?.devices?.find((item) => item.deviceId === deviceId);
+  if (!device || device.isLocal || state.mesh.loading || !window.manager.revokeDevice) return;
+  if (!window.confirm(tr('devices.revoke.confirm', { name: device.name }))) return;
+  state.mesh.loading = true;
+  const result = await window.manager.revokeDevice({ deviceId, remove: true });
+  state.mesh.loading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'device-revoke-failed';
+    state.mesh.message = '';
+  } else {
+    state.mesh.overview = result.overview;
+    state.mesh.errorCode = null;
+    state.mesh.message = tr('devices.revoke.done', { name: device.name });
+    state.mesh.permissionDeviceId = null;
+    els.devicePermissionsDialog.close();
+  }
+  renderDeviceCenter();
+  renderTopbarContext();
+}
+
+async function renameLocalDevice(device) {
+  const name = window.prompt(tr('devices.rename.prompt'), device.name);
+  if (name === null || !name.trim() || name.trim() === device.name) return;
+  state.mesh.loading = true;
+  state.mesh.errorCode = null;
+  state.mesh.message = tr('devices.status.renaming');
+  renderDeviceCenter();
+  const result = await window.manager.renameDevice({ deviceId: device.deviceId, name: name.trim() });
+  state.mesh.loading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'mesh-operation-failed';
+    state.mesh.message = '';
+  } else {
+    state.mesh.overview = result.overview;
+    state.mesh.message = tr('devices.status.renamed');
+  }
+  renderDeviceCenter();
+}
+
+async function runMeshTransportProbe() {
+  if (state.mesh.loading || !window.manager.probeMeshTransport) return;
+  state.mesh.loading = true;
+  state.mesh.errorCode = null;
+  state.mesh.message = tr('devices.probe.starting');
+  renderDeviceCenter();
+  const result = await window.manager.probeMeshTransport();
+  state.mesh.loading = false;
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'webrtc-probe-failed';
+    state.mesh.message = '';
+  } else {
+    const probe = result.result;
+    const path = [
+      ...(probe.candidateTypes || []),
+      ...(probe.protocols || [])
+    ].join(' / ') || tr('devices.probe.localPath');
+    state.mesh.message = tr('devices.probe.success', {
+      ms: probe.elapsedMs,
+      path
+    });
+  }
+  renderDeviceCenter();
+}
+
+function meshErrorText(code) {
+  const known = {
+    'os-key-protection-unavailable': 'devices.error.keyProtection',
+    'mesh-storage-incomplete': 'devices.error.storageIncomplete',
+    'mesh-key-store-without-database': 'devices.error.keyWithoutStore',
+    'mesh-key-store-unreadable': 'devices.error.keyUnreadable',
+    'mesh-database-newer-than-app': 'devices.error.databaseNewer',
+    'device-not-found': 'devices.error.deviceNotFound',
+    'remote-device-rename-not-available': 'devices.error.remoteRename',
+    'capability-denied:file.receive': 'transfers.error.permission',
+    'file-disk-space': 'transfers.error.disk',
+    'file-checksum-failed': 'transfers.error.checksum',
+    'file-selection-too-large': 'transfers.error.size',
+    'file-selection-total-too-large': 'transfers.error.size',
+    'file-destination-required': 'transfers.error.destination',
+    'file-destination-invalid': 'transfers.error.destination',
+    'file-destination-not-directory': 'transfers.error.destination'
+  };
+  if (String(code || '').startsWith('pairing-')) return tr('devices.error.pairing', { code });
+  if (String(code || '').startsWith('device-') || String(code || '').startsWith('capability-')) {
+    return tr('devices.error.deviceAction', { code });
+  }
+  if (known[code]) return tr(known[code]);
+  if (String(code || '').startsWith('file-')) return tr('transfers.error.generic', { code });
+  if (String(code || '').startsWith('remote-')) return tr('remote.error.generic', { code });
+  if (String(code || '').startsWith('webrtc-') || String(code || '').startsWith('datachannel-') || String(code || '').startsWith('ice-')) {
+    return tr('devices.probe.failed', { code });
+  }
+  return tr('devices.error.generic', { code: code || '-' });
+}
+
+function platformLabel(platform) {
+  const key = `devices.platform.${platform}`;
+  const label = tr(key);
+  return label === key ? platform : label;
+}
+
+// ── 本机工具维护 ────────────────────────────────────
 async function refreshToolInventory(force = false) {
   if (!window.manager.scanTools || state.tools.loading) return;
   state.tools.loading = true;
@@ -1905,536 +2856,6 @@ function handleToolProgress(progress) {
   renderToolCenter();
 }
 
-function renderDiscoveredAgentList() {
-  if (!els.discoveredAgentList) return;
-  els.discoveredAgentList.replaceChildren();
-  const builtIns = state.runtime.adapters.filter((adapter) => !adapter.custom);
-  for (const adapter of builtIns) {
-    const item = document.createElement('div');
-    item.className = 'discovered-agent-item';
-    item.dataset.available = String(Boolean(adapter.available));
-    const name = document.createElement('strong');
-    name.textContent = adapter.label;
-    const protocol = document.createElement('span');
-    protocol.textContent = adapter.protocol === 'acp'
-      ? 'ACP'
-      : adapter.protocol === 'shell'
-        ? tr('registry.protocol.shell')
-        : tr('registry.protocol.direct');
-    const stateLabel = document.createElement('b');
-    stateLabel.textContent = adapter.available ? tr('registry.available') : tr('registry.notFound');
-    const detail = document.createElement('small');
-    detail.textContent = adapter.detail || adapter.source || '';
-    item.append(name, protocol, stateLabel, detail);
-    els.discoveredAgentList.append(item);
-  }
-}
-
-function renderCustomAgentList() {
-  if (!els.customAgentList) return;
-  els.customAgentList.replaceChildren();
-  if (!state.runtime.customAgents.length) {
-    const empty = document.createElement('p');
-    empty.textContent = tr('registry.customEmpty');
-    els.customAgentList.append(empty);
-    return;
-  }
-  for (const agent of state.runtime.customAgents) {
-    const row = document.createElement('div');
-    row.className = 'custom-agent-item';
-    const name = document.createElement('strong');
-    name.textContent = agent.name;
-    const executable = document.createElement('code');
-    executable.textContent = [shortPath(agent.executable), ...(agent.args || [])].join(' ');
-    executable.title = [agent.executable, ...(agent.args || [])].join(' ');
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.textContent = tr('account.remove');
-    remove.addEventListener('click', async () => {
-      if (!window.confirm(tr('status.removeCustomConfirm', { name: agent.name }))) return;
-      const result = await window.manager.removeCustomAgent(agent.id);
-      if (!result?.ok) {
-        setStatus(result?.reason || tr('status.removeCustomFail'));
-        return;
-      }
-      await loadCustomAgents();
-      await loadRuntimeAdapters();
-      renderDiscoveredAgentList();
-      renderCustomAgentList();
-      setStatus(tr('status.customRemoved', { name: agent.name }));
-    });
-    row.append(name, executable, remove);
-    els.customAgentList.append(row);
-  }
-}
-
-async function addCustomAgent() {
-  if (!window.manager.addCustomAgent) return;
-  const name = els.customAgentName.value.trim();
-  if (!name) {
-    setStatus(tr('status.customNameEmpty'));
-    els.customAgentName.focus();
-    return;
-  }
-  if (!state.runtime.executableGrant?.grantId) {
-    setStatus(tr('status.customPickFirst'));
-    return;
-  }
-  els.confirmAddCustomAgentBtn.disabled = true;
-  const result = await window.manager.addCustomAgent({
-    name,
-    executableGrantId: state.runtime.executableGrant.grantId,
-    arguments: els.customAgentArguments.value
-  });
-  els.confirmAddCustomAgentBtn.disabled = false;
-  if (!result?.ok) {
-    setStatus(result?.reason || tr('status.addCustomFail'));
-    return;
-  }
-  state.runtime.executableGrant = null;
-  els.customAgentName.value = '';
-  els.customAgentExecutable.value = '';
-  els.customAgentArguments.value = '';
-  await loadCustomAgents();
-  await loadRuntimeAdapters();
-  renderDiscoveredAgentList();
-  renderCustomAgentList();
-  setStatus(tr('status.acpConnected', { name: result.agent.name }));
-}
-
-async function loadRuntimeAdapters() {
-  const profile = selectedProfile();
-  if (!window.manager.listTerminalAdapters) {
-    state.runtime.adapters = [];
-    renderRuntimeDock();
-    return;
-  }
-  try {
-    const [adapters, liveRuntimes, customAgents] = await Promise.all([
-      window.manager.listTerminalAdapters(profile?.id || null),
-      window.manager.listTerminalRuntimes ? window.manager.listTerminalRuntimes() : [],
-      window.manager.listCustomAgents ? window.manager.listCustomAgents() : []
-    ]);
-    state.runtime.adapters = Array.isArray(adapters) ? adapters : [];
-    state.runtime.customAgents = Array.isArray(customAgents) ? customAgents : [];
-    for (const runtime of Array.isArray(liveRuntimes) ? liveRuntimes : []) upsertRuntime(runtime);
-    const selectedStillExists = state.runtime.adapters.some((item) => item.id === state.runtime.selectedAdapterId);
-    state.runtime.selectedAdapterId = selectedStillExists
-      ? state.runtime.selectedAdapterId
-      : (state.runtime.adapters.find((item) => item.available && item.mode === 'agent')?.id
-        || state.runtime.adapters.find((item) => item.available)?.id
-        || state.runtime.adapters[0]?.id
-        || null);
-    const adapter = state.runtime.adapters.find((item) => item.id === state.runtime.selectedAdapterId);
-    if (adapter?.identityAppId && profile?.appId === adapter.identityAppId && !state.runtime.selectedIdentityId) {
-      state.runtime.selectedIdentityId = profile.id;
-    }
-    if (!state.runtime.selectedRuntimeId && state.runtime.runtimes.length) {
-      state.runtime.selectedRuntimeId = state.runtime.runtimes.at(-1).id;
-    }
-  } catch (error) {
-    state.runtime.adapters = [];
-    state.runtime.notice = {
-      kind: 'error',
-      title: tr('attention.adapterFail.title'),
-      detail: error?.message || tr('attention.adapterFail.detail'),
-      action: 'runtime'
-    };
-  }
-  renderRuntimeDock();
-}
-
-function renderRuntimeAdapterPicker() {
-  const previous = state.runtime.selectedAdapterId || els.runtimeAdapter.value;
-  els.runtimeAdapter.replaceChildren();
-  if (!state.runtime.adapters.length) {
-    const option = document.createElement('option');
-    option.textContent = '没有发现 Agent';
-    option.disabled = true;
-    option.selected = true;
-    els.runtimeAdapter.append(option);
-    return null;
-  }
-  for (const adapter of state.runtime.adapters) {
-    const option = document.createElement('option');
-    option.value = adapter.id;
-    option.disabled = !adapter.available;
-    option.textContent = `${adapter.label}${adapter.available ? '' : '（未安装）'}`;
-    els.runtimeAdapter.append(option);
-  }
-  if (state.runtime.adapters.some((item) => item.id === previous)) els.runtimeAdapter.value = previous;
-  const selected = state.runtime.adapters.find((item) => item.id === els.runtimeAdapter.value) || null;
-  if (selected) state.runtime.selectedAdapterId = selected.id;
-  return selected;
-}
-
-function renderRuntimeIdentityPicker(adapter) {
-  els.runtimeIdentity.replaceChildren();
-  if (!adapter?.identityAppId) {
-    const option = document.createElement('option');
-    option.textContent = '不需要身份';
-    option.selected = true;
-    els.runtimeIdentity.append(option);
-    els.runtimeIdentity.disabled = true;
-    state.runtime.selectedIdentityId = null;
-    return;
-  }
-
-  els.runtimeIdentity.disabled = false;
-  const machine = document.createElement('option');
-  machine.value = '';
-  machine.textContent = `本机默认 ${adapter.label} 登录`;
-  els.runtimeIdentity.append(machine);
-  const identities = state.profiles.filter((profile) => profile.appId === adapter.identityAppId);
-  for (const profile of identities) {
-    const option = document.createElement('option');
-    option.value = profile.id;
-    option.textContent = profile.name;
-    els.runtimeIdentity.append(option);
-  }
-  if (identities.some((item) => item.id === state.runtime.selectedIdentityId)) {
-    els.runtimeIdentity.value = state.runtime.selectedIdentityId;
-  } else {
-    state.runtime.selectedIdentityId = null;
-    els.runtimeIdentity.value = '';
-  }
-}
-
-function renderRuntimeList() {
-  els.runtimeList.replaceChildren();
-  if (!state.runtime.runtimes.length) {
-    const empty = document.createElement('p');
-    empty.className = 'runtime-list-empty';
-    empty.textContent = '还没有运行实例';
-    els.runtimeList.append(empty);
-    return;
-  }
-
-  const ordered = [...state.runtime.runtimes].sort((left, right) => right.startedAt - left.startedAt);
-  for (const runtime of ordered) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `runtime-card${runtime.id === state.runtime.selectedRuntimeId ? ' selected' : ''}`;
-    button.dataset.status = runtime.status || 'idle';
-
-    const top = document.createElement('span');
-    top.className = 'runtime-card-top';
-    const adapter = document.createElement('b');
-    adapter.textContent = runtime.adapterLabel || runtime.adapterId;
-    const status = document.createElement('em');
-    status.textContent = runtimeStatusLabel(runtime);
-    top.append(adapter, status);
-
-    const title = document.createElement('strong');
-    title.textContent = runtime.title || runtime.adapterLabel || 'Agent';
-    const meta = document.createElement('small');
-    meta.textContent = [runtime.identityName || '默认身份', shortPath(runtime.cwd)].filter(Boolean).join(' · ');
-    button.append(top, title, meta);
-    button.addEventListener('click', () => {
-      state.runtime.selectedRuntimeId = runtime.id;
-      renderRuntimeDock();
-      if (!els.runtimeInput.disabled) els.runtimeInput.focus();
-    });
-    els.runtimeList.append(button);
-  }
-}
-
-function renderSelectedRuntimeOutput(runtime) {
-  els.runtimeOutput.replaceChildren();
-  const chunks = runtime ? (state.runtime.outputs[runtime.id] || []) : [];
-  if (!runtime || !chunks.length) {
-    const placeholder = document.createElement('span');
-    placeholder.className = 'runtime-placeholder';
-    placeholder.textContent = runtime
-      ? '这个实例还没有输出。发送第一条消息即可开始。'
-      : '左侧是全部运行实例。新建后可随时切换，其他 Agent 会继续在后台工作。';
-    els.runtimeOutput.append(placeholder);
-    return;
-  }
-  for (const item of chunks) {
-    const chunk = document.createElement('span');
-    chunk.dataset.stream = item.stream || 'stdout';
-    chunk.textContent = item.text;
-    els.runtimeOutput.append(chunk);
-  }
-  els.runtimeOutput.scrollTop = els.runtimeOutput.scrollHeight;
-}
-
-function renderRuntimeDock() {
-  if (!els.runtimeDock) return;
-  const profile = selectedProfile();
-  const session = selectedSession();
-  const adapter = renderRuntimeAdapterPicker();
-  renderRuntimeIdentityPicker(adapter);
-  renderRuntimeList();
-
-  const runtime = selectedRuntime();
-  const activeCount = state.runtime.runtimes.filter(runtimeIsActive).length;
-  els.runtimeCount.textContent = `${activeCount} 运行中 · ${state.runtime.runtimes.length} 个实例`;
-
-  const status = runtime?.status || 'idle';
-  els.runtimeStatus.dataset.status = status;
-  els.runtimeStatus.textContent = runtimeStatusLabel(runtime);
-  els.runtimeSelectedTitle.textContent = runtime?.title || '选择或新建一个 Agent';
-  els.runtimeSelectedMeta.textContent = runtime
-    ? [runtime.adapterLabel, runtime.identityName || '默认身份', shortPath(runtime.cwd)].filter(Boolean).join(' · ')
-    : '多个 Agent 可在不同身份与工作区并行运行';
-
-  const expectedCwd = state.runtime.workspaceGrant?.path
-    || session?.projectPath
-    || profile?.sessionRoot
-    || profile?.profilePath
-    || '用户主目录';
-  els.runtimeCwd.textContent = shortPath(expectedCwd);
-  els.runtimeCwd.title = expectedCwd;
-  els.runtimeWorkspaceResetBtn.hidden = !state.runtime.workspaceGrant;
-  els.runtimeWorkspaceBtn.textContent = state.runtime.workspaceGrant ? '更换' : '选择目录';
-
-  const canSend = Boolean(runtime && (
-    (runtime.mode === 'shell' && runtime.status === 'running') ||
-    (runtime.mode === 'agent' && runtime.status === 'ready')
-  ));
-  els.runtimeAdapter.disabled = !state.runtime.adapters.length;
-  els.runtimeStartBtn.disabled = !adapter?.available || activeCount >= 12;
-  els.runtimeStopBtn.disabled = !runtimeIsActive(runtime);
-  els.runtimeInput.disabled = !canSend;
-  els.runtimeSendBtn.disabled = !canSend;
-  els.runtimeInput.placeholder = !runtime
-    ? '选择一个实例后输入…'
-    : runtime.mode === 'shell'
-      ? '输入一行本机命令；Enter 执行，Shift+Enter 换行…'
-      : '对这个 Agent 说话；Enter 发送，Shift+Enter 换行…';
-  renderSelectedRuntimeOutput(runtime);
-
-  const queueHint = state.runtime.queue.length ? `待办 ${state.runtime.queue.length}` : '';
-  els.runtimeHint.textContent = adapter
-    ? [adapter.detail, adapter.caution, queueHint].filter(Boolean).join(' · ')
-    : '客户端账号只是可选身份；Agent 类型、身份、工作区和运行实例彼此独立。';
-}
-
-async function startRuntimeForSelectedProfile() {
-  const workspaceProfile = selectedProfile();
-  const adapterId = state.runtime.selectedAdapterId;
-  if (!adapterId || !window.manager.startTerminal) return;
-
-  els.runtimeStartBtn.disabled = true;
-  const result = await window.manager.startTerminal({
-    adapterId,
-    identityProfileId: state.runtime.selectedIdentityId,
-    workspaceGrantId: state.runtime.workspaceGrant?.grantId || null,
-    workspaceProfileId: state.runtime.workspaceGrant ? null : (workspaceProfile?.id || null),
-    sessionId: state.runtime.workspaceGrant ? null : (selectedSession()?.id || null)
-  });
-  if (!result?.ok) {
-    renderRuntimeDock();
-    if (!result?.cancelled) {
-      state.runtime.notice = {
-        kind: 'error',
-        title: 'Agent 实例无法开启',
-        detail: result?.reason || '启动失败',
-        profileId: workspaceProfile?.id || null,
-        action: 'runtime'
-      };
-      setStatus(result?.reason || 'Agent 实例启动失败。');
-      renderAttentionInbox();
-    } else {
-      setStatus('已取消新建 Agent 实例。');
-    }
-    return;
-  }
-
-  upsertRuntime(result);
-  state.runtime.selectedRuntimeId = result.id;
-  state.runtime.outputs[result.id] = [];
-  state.runtime.notice = null;
-  for (let index = 0; index < pendingRuntimeEvents.length;) {
-    const event = pendingRuntimeEvents[index];
-    if (event.runtimeId === result.id) {
-      pendingRuntimeEvents.splice(index, 1);
-      applyRuntimeEvent(event);
-    } else {
-      index += 1;
-    }
-  }
-  renderRuntimeDock();
-  renderAttentionInbox();
-  setStatus(`已新建 ${result.adapterLabel} 实例；其他 Agent 会继续运行。`);
-  if (!els.runtimeInput.disabled) els.runtimeInput.focus();
-}
-
-async function sendRuntimeInput() {
-  const runtime = selectedRuntime();
-  const text = els.runtimeInput.value.trim();
-  if (!runtime || !text || !window.manager.sendTerminal) return false;
-  els.runtimeInput.disabled = true;
-  els.runtimeSendBtn.disabled = true;
-  const result = await window.manager.sendTerminal({ runtimeId: runtime.id, text });
-  if (!result?.ok) {
-    state.runtime.notice = {
-      kind: 'error',
-      title: `${runtime.title || runtime.adapterLabel} 发送失败`,
-      detail: result?.reason || 'Agent 没有响应',
-      profileId: runtime.workspaceProfileId || runtime.profileId,
-      runtimeId: runtime.id,
-      action: 'runtime'
-    };
-    setStatus(result?.reason || tr('status.runtimeSendFail'));
-    renderAttentionInbox();
-    renderRuntimeDock();
-    return false;
-  }
-  upsertRuntime(result);
-  els.runtimeInput.value = '';
-  renderRuntimeDock();
-  return true;
-}
-
-async function stopCurrentRuntime() {
-  const runtime = selectedRuntime();
-  if (!runtime || !window.manager.stopTerminal) return;
-  const result = await window.manager.stopTerminal({ runtimeId: runtime.id });
-  if (!result?.ok) {
-    setStatus(result?.reason || '无法停止 Agent 实例。');
-    return;
-  }
-  upsertRuntime(result);
-  renderRuntimeDock();
-  setStatus(`已停止「${runtime.title || runtime.adapterLabel}」，其他实例不受影响。`);
-}
-
-function handleRuntimeEvent(event) {
-  if (!els.runtimeDock) return; // 控制台 UI 已移除，不再处理终端事件
-  if (!event?.runtimeId) return;
-  if (!state.runtime.runtimes.some((item) => item.id === event.runtimeId)) {
-    pendingRuntimeEvents.push(event);
-    if (pendingRuntimeEvents.length > 200) pendingRuntimeEvents.shift();
-    return;
-  }
-  applyRuntimeEvent(event);
-}
-
-function applyRuntimeEvent(event) {
-  const runtime = state.runtime.runtimes.find((item) => item.id === event.runtimeId);
-  if (!runtime) return;
-  if (event.type === 'output' && event.text) appendRuntimeOutput(event.runtimeId, event.text, event.stream);
-  if (event.type === 'state') {
-    upsertRuntime({ ...runtime, status: event.status || runtime.status });
-    if (event.status === 'error' || (Number.isInteger(event.exitCode) && event.exitCode !== 0)) {
-      state.runtime.notice = {
-        kind: 'error',
-        title: `${runtime.title || runtime.adapterLabel || 'Agent'} 已异常退出`,
-        detail: Number.isInteger(event.exitCode) ? `退出码 ${event.exitCode}` : '请查看该实例输出',
-        profileId: runtime.workspaceProfileId || runtime.profileId,
-        runtimeId: runtime.id,
-        action: 'runtime'
-      };
-      renderAttentionInbox();
-    }
-    renderRuntimeDock();
-    if (event.status === 'ready') void runNextQueuedTask(event.runtimeId);
-  }
-}
-
-function appendRuntimeOutput(runtimeId, text, stream = 'stdout') {
-  const chunks = state.runtime.outputs[runtimeId] || (state.runtime.outputs[runtimeId] = []);
-  chunks.push({ text, stream: stream || 'stdout' });
-  if (chunks.length > 500) chunks.splice(0, chunks.length - 500);
-  if (state.runtime.selectedRuntimeId !== runtimeId) return;
-  els.runtimeOutput.querySelector('.runtime-placeholder')?.remove();
-  const chunk = document.createElement('span');
-  chunk.dataset.stream = stream || 'stdout';
-  chunk.textContent = text;
-  els.runtimeOutput.append(chunk);
-  els.runtimeOutput.scrollTop = els.runtimeOutput.scrollHeight;
-}
-
-async function openTerminalForProfile(profile) {
-  if (!els.runtimeDock) return; // 控制台 UI 已移除
-  if (!profile) return;
-  if (profile.id !== state.selectedProfileId) await selectProfile(profile.id);
-  const matchingAdapter = state.runtime.adapters.find((item) => item.identityAppId === profile.appId && item.available);
-  if (matchingAdapter) {
-    state.runtime.selectedAdapterId = matchingAdapter.id;
-    state.runtime.selectedIdentityId = profile.id;
-  }
-  const matchingRuntime = [...state.runtime.runtimes]
-    .reverse()
-    .find((item) => item.workspaceProfileId === profile.id || item.profileId === profile.id);
-  if (matchingRuntime) state.runtime.selectedRuntimeId = matchingRuntime.id;
-  renderRuntimeDock();
-  els.runtimeDock.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  if (!state.runtime.adapters.some((item) => item.available)) {
-    setStatus(tr('status.noTerminalCli'));
-    return;
-  }
-  setStatus(tr('status.locatedFleet', { name: profile.name }));
-  if (!els.runtimeInput.disabled) els.runtimeInput.focus();
-  else els.runtimeStartBtn.focus();
-}
-
-async function queueSessionForRuntime(profile, session) {
-  if (!els.runtimeDock) return; // 控制台 UI 已移除
-  const preferredId = profile.appId === 'codex' ? 'codex' : profile.appId === 'claude' ? 'claude' : null;
-  const agent = state.runtime.adapters.find((item) => item.id === preferredId && item.available)
-    || state.runtime.adapters.find((item) => item.mode === 'agent' && item.available);
-  if (!agent) {
-    window.YardScene?.say(profile.id, { text: tr('yard.say.needCli'), kind: 'warning', duration: 4200 });
-    setStatus(tr('status.taskLaneNeedCli'));
-    return;
-  }
-  if (state.runtime.queue.length >= 20) {
-    setStatus(tr('status.queueFull'));
-    return;
-  }
-
-  await prepareHandoffArtifacts([session], { announce: false });
-  state.runtime.selectedAdapterId = agent.id;
-  state.runtime.selectedIdentityId = agent.identityAppId === profile.appId ? profile.id : null;
-  state.runtime.queue.push({
-    id: `${profile.id}:${session.id}:${Date.now()}`,
-    profileId: profile.id,
-    title: session.title,
-    text: `${makeHandoffText(profile, session)}${tr('yard.task.suffix')}`
-  });
-  await openTerminalForProfile(profile);
-  renderAttentionInbox();
-
-  const ready = [...state.runtime.runtimes]
-    .reverse()
-    .find((item) => item.mode === 'agent'
-      && item.status === 'ready'
-      && (item.workspaceProfileId === profile.id || item.profileId === profile.id));
-  if (ready) {
-    state.runtime.selectedRuntimeId = ready.id;
-    renderRuntimeDock();
-    await runNextQueuedTask(ready.id);
-  } else {
-    setStatus(tr('status.queued', { title: session.title, agent: agent.label }));
-  }
-}
-
-async function runNextQueuedTask(runtimeId = state.runtime.selectedRuntimeId) {
-  if (runtimeQueueSending) return;
-  const runtime = state.runtime.runtimes.find((item) => item.id === runtimeId);
-  if (!runtime || runtime.mode !== 'agent' || runtime.status !== 'ready') return;
-  const index = state.runtime.queue.findIndex((item) =>
-    item.profileId === runtime.workspaceProfileId || item.profileId === runtime.profileId);
-  if (index < 0) return;
-
-  runtimeQueueSending = true;
-  state.runtime.selectedRuntimeId = runtime.id;
-  const [task] = state.runtime.queue.splice(index, 1);
-  els.runtimeInput.value = task.text;
-  renderRuntimeDock();
-  renderAttentionInbox();
-  const sent = await sendRuntimeInput();
-  if (!sent) state.runtime.queue.splice(index, 0, task);
-  else setStatus(tr('status.runtimeStartTask', { title: runtime.title, task: task.title }));
-  runtimeQueueSending = false;
-  renderRuntimeDock();
-  renderAttentionInbox();
-}
-
 // ── 统一提醒入口 ─────────────────────────────────────
 function collectAttentionItems() {
   const items = [];
@@ -2464,15 +2885,6 @@ function collectAttentionItems() {
         });
       }
     }
-  }
-  if (state.runtime.notice) items.push(state.runtime.notice);
-  if (state.runtime.queue.length) {
-    items.push({
-      kind: 'info',
-      title: tr('attention.queue.title', { n: state.runtime.queue.length }),
-      detail: tr('attention.queue.detail'),
-      action: 'runtime'
-    });
   }
   if (state.updateInfo?.updateAvailable) {
     items.push({
@@ -2505,9 +2917,7 @@ function renderAttentionInbox() {
       if (item.profileId && item.profileId !== state.selectedProfileId) await selectProfile(item.profileId);
       if (item.action === 'diagnostics') await showDiagnostics();
       else if (item.action === 'quota') els.quotaSummary.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      else if (item.action === 'runtime') {
-        els.runtimeDock?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      } else if (item.action === 'update') await handleUpdateClick();
+      else if (item.action === 'update') await handleUpdateClick();
     });
     els.attentionItems.append(button);
   }
@@ -2564,9 +2974,7 @@ function handleYardDrop({ profile, state: activityState, point, zone }) {
   const hasSelectedSession = profile.id === state.selectedProfileId && Boolean(sessionForProfile(profile.id));
   const intent = window.YardInteractions.resolveDropIntent(zoneId, {
     activityState,
-    hasSession: hasSelectedSession,
-    terminalSupported: Boolean(window.manager.listTerminalAdapters),
-    taskQueueSupported: profile.id === state.selectedProfileId && state.runtime.adapters.some((item) => item.mode === 'agent' && item.available)
+    hasSession: hasSelectedSession
   });
 
   if (intent.action === 'save-position') {
@@ -2595,9 +3003,7 @@ async function executeYardIntent(profile, initialIntent) {
     : 'rest';
   const intent = window.YardInteractions.resolveDropIntent(initialIntent.zoneId, {
     activityState,
-    hasSession: Boolean(profileSession),
-    terminalSupported: Boolean(window.manager.listTerminalAdapters),
-    taskQueueSupported: state.runtime.adapters.some((item) => item.mode === 'agent' && item.available)
+    hasSession: Boolean(profileSession)
   });
 
   if (!intent.enabled) {
@@ -2625,26 +3031,6 @@ async function executeYardIntent(profile, initialIntent) {
     await loadProfiles(profile.id);
     setStatus(result.warning || tr('status.opened', { name: profile.name }));
     return;
-  }
-  if (intent.action === 'copy-handoff') {
-    const session = sessionForProfile(profile.id);
-    if (!session) return;
-    if (!window.confirm(tr('status.handoffConfirm', { title: session.title }))) return;
-    await prepareHandoffArtifacts([session]);
-    await window.manager.writeClipboard(makeHandoffText(profile, session));
-    window.YardScene.fx('handoff');
-    setStatus(tr('status.handoffMailboxShort', { name: profile.name }));
-    return;
-  }
-  if (intent.action === 'open-terminal' && typeof openTerminalForProfile === 'function') {
-    await openTerminalForProfile(profile);
-    return;
-  }
-  if (intent.action === 'queue-task') {
-    const session = sessionForProfile(profile.id);
-    if (!session) return;
-    if (!window.confirm(tr('status.queueConfirm', { title: session.title, name: profile.name }))) return;
-    await queueSessionForRuntime(profile, session);
   }
 }
 
@@ -2678,7 +3064,7 @@ function rerenderLocalizedText() {
   renderAttentionInbox();
   renderLedger();
   renderToolCenter();
-  renderCustomAgentList();
+  renderDeviceCenter();
   if (els.reminderToggle) els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
   updateAtmosphereReadout();
   if (yardMounted) syncYard();
@@ -2724,19 +3110,10 @@ async function loadActivity() {
   syncYard();
 }
 
-// 内嵌控制台显隐（默认收起：识别用户自己终端里的会话即可，不必在这里跑）
-function applyAgentConsole() {
-  if (!els.runtimeDock || !els.consoleToggle) return;
-  els.runtimeDock.hidden = !state.agentConsoleOn;
-  els.consoleToggle.setAttribute('aria-pressed', String(state.agentConsoleOn));
-  els.consoleToggle.textContent = state.agentConsoleOn ? '🖥 控制台 开' : '🖥 控制台 关';
-}
-
 // ── 陪伴账本 ─────────────────────────────────────────
 function initCompanion() {
   els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
   els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
-  applyAgentConsole();
   if (window.YardCompanion) {
     state.ledger = state.ledger || window.YardCompanion.emptyLedger(Date.now());
   }
@@ -3014,15 +3391,16 @@ function drawAccountAvatar(canvas, profile) {
 function renderTopbarContext() {
   if (!els.topbarContext) return;
   const ctx = tr(state.view === 'yard' ? 'ctx.yard' : 'ctx.classic');
+  const deviceContext = selectedDeviceLensLabel();
   const profile = selectedProfile();
   if (!profile) {
-    els.topbarContext.textContent = `${ctx} · ${tr('ctx.noAccount')}`;
+    els.topbarContext.textContent = [deviceContext, ctx, tr('ctx.noAccount')].filter(Boolean).join(' · ');
     return;
   }
   const activityState = window.YardCats
     ? window.YardCats.deriveState(Date.now(), profile, state.activity[profile.id])
     : 'rest';
-  els.topbarContext.textContent = `${ctx} · ${profile.name} · ${tr('state.' + activityState)}`;
+  els.topbarContext.textContent = [deviceContext, ctx, profile.name, tr('state.' + activityState)].filter(Boolean).join(' · ');
 }
 
 // （旧侧栏行渲染器 appendAccountRow 已随侧栏移除，账号呈现改为 renderAccountRoster 卡片）
@@ -3030,6 +3408,50 @@ function renderTopbarContext() {
 // 账号身份分组：同一登录账号的多个槽位归为一组（identityKey 或指纹关联）。
 // 庭院一只猫 = 一个账号组；会话与额度也按组聚合。
 function identityGroups() {
+  const overview = state.mesh.overview;
+  if (overview?.initialized) {
+    const devices = new Map((overview.devices || []).map((device) => [device.deviceId, device]));
+    const localProfiles = new Map(state.profiles.map((profile) => [String(profile.id), profile]));
+    const lens = state.selectedDeviceLensId || 'all';
+    const groups = [];
+    for (const agent of overview.agents || []) {
+      const slots = (overview.slots || []).filter((slot) => (
+        slot.agentId === agent.agentId
+        && (lens === 'all' || slot.deviceId === lens)
+      ));
+      if (!slots.length) continue;
+      const members = slots.map((slot) => {
+        const device = devices.get(slot.deviceId) || {};
+        const local = slot.deviceId === overview.localDeviceId
+          ? localProfiles.get(String(slot.profileId))
+          : null;
+        return {
+          ...(local || {}),
+          id: local ? String(local.id) : `mesh:${slot.deviceId}:${slot.profileId}`,
+          name: agent.displayName || local?.name || slot.localLabel || 'Agent',
+          appId: slot.appId || local?.appId || 'unknown',
+          cat: agent.catAppearance || local?.cat || null,
+          group: agent.group || local?.group || '',
+          note: agent.note || local?.note || '',
+          _meshAgentId: agent.agentId,
+          _meshDeviceId: slot.deviceId,
+          _meshProfileId: slot.profileId,
+          _meshSlotKey: `${slot.deviceId}:${slot.profileId}`,
+          _meshDeviceName: device.name || slot.deviceId,
+          _remote: slot.deviceId !== overview.localDeviceId,
+          _deviceStatus: device.status || 'offline',
+          _assignmentState: slot.assignmentState,
+          _launchable: slot.launchable === true
+        };
+      }).sort((left, right) => {
+        if (left._remote !== right._remote) return left._remote ? 1 : -1;
+        if (left._deviceStatus !== right._deviceStatus) return left._deviceStatus === 'online' ? -1 : 1;
+        return left._meshSlotKey.localeCompare(right._meshSlotKey);
+      });
+      groups.push({ key: agent.agentId, primary: members[0], members, agent, slots });
+    }
+    return groups;
+  }
   if (!window.IdentityGroups) return state.profiles.map((profile) => ({ key: profile.id, primary: profile, members: [profile] }));
   return window.IdentityGroups.groupProfilesByIdentity(state.profiles);
 }
@@ -3037,6 +3459,33 @@ function identityGroups() {
 function groupOfProfile(profileId) {
   if (!profileId) return null;
   return identityGroups().find((group) => group.members.some((member) => member.id === profileId)) || null;
+}
+
+function reconcileMeshSelection() {
+  const groups = identityGroups();
+  if (!groups.length) {
+    state.selectedAgentId = null;
+    state.selectedProfileId = null;
+    state.selectedSlotKey = null;
+    return;
+  }
+  let group = groups.find((item) => item.key === state.selectedAgentId)
+    || groups.find((item) => item.members.some((member) => member.id === state.selectedProfileId))
+    || groups[0];
+  let member = group.members.find((item) => item._meshSlotKey === state.selectedSlotKey)
+    || group.members.find((item) => item.id === state.selectedProfileId)
+    || group.members[0];
+  state.selectedAgentId = group.key;
+  state.selectedProfileId = member.id;
+  state.selectedSlotKey = member._meshSlotKey || null;
+}
+
+function selectedDeviceLensLabel() {
+  const overview = state.mesh.overview;
+  if (!overview?.initialized) return null;
+  if (!state.selectedDeviceLensId || state.selectedDeviceLensId === 'all') return tr('devices.lens.all');
+  return overview.devices?.find((device) => device.deviceId === state.selectedDeviceLensId)?.name
+    || tr('devices.lens.all');
 }
 
 function populateIdentityDatalist() {
@@ -3053,12 +3502,15 @@ function populateIdentityDatalist() {
 
 async function selectProfile(profileId) {
   state.selectedProfileId = profileId;
+  const group = groupOfProfile(profileId);
+  const member = group?.members.find((item) => item.id === profileId);
+  state.selectedAgentId = group?.key || null;
+  state.selectedSlotKey = member?._meshSlotKey || null;
   state.query = '';
   els.searchInput.value = '';
   renderAccounts();
   renderAccountHeader();
   await loadSessions(true);
-  await loadRuntimeAdapters();
   renderAttentionInbox();
 }
 
@@ -3090,7 +3542,9 @@ function renderFormSwitcher(profile, group) {
   for (const member of members) {
     const option = document.createElement('option');
     option.value = member.id;
-    option.textContent = `${member.name} · ${appLabel(member.appId)}`;
+    option.textContent = member._meshDeviceName
+      ? `${member._meshDeviceName} / ${appLabel(member.appId)}`
+      : `${member.name} · ${appLabel(member.appId)}`;
     option.selected = member.id === profile.id;
     els.formSelect.append(option);
   }
@@ -3100,18 +3554,19 @@ function renderFormSwitcher(profile, group) {
 function renderAccountHeader() {
   const profile = selectedProfile();
   const disabled = !profile;
+  const remote = profile?._remote === true;
 
   const canLaunch = !profile || state.appMeta[profile.appId]?.canLaunch !== false;
-  els.launchBtn.disabled = disabled || !canLaunch;
+  els.launchBtn.disabled = disabled || !canLaunch || remote;
   els.launchBtn.title = canLaunch
     ? ''
     : '这个客户端在你自己的终端里运行；AgentDesk 负责识别和索引它的会话。';
-  els.pathConfigBtn.disabled = disabled;
-  els.diagnosticsBtn.disabled = disabled;
-  els.profileFolderBtn.disabled = disabled;
-  els.refreshBtn.disabled = disabled;
-  els.editProfileBtn.disabled = disabled;
-  els.removeProfileBtn.disabled = disabled || profile?.isProtected;
+  els.pathConfigBtn.disabled = disabled || remote;
+  els.diagnosticsBtn.disabled = disabled || remote;
+  els.profileFolderBtn.disabled = disabled || remote;
+  els.refreshBtn.disabled = disabled || remote;
+  els.editProfileBtn.disabled = disabled || remote;
+  els.removeProfileBtn.disabled = disabled || remote;
 
   if (!profile) {
     els.accountTitle.textContent = tr('account.none');
@@ -3149,8 +3604,15 @@ function renderAccountHeader() {
   }
   renderFormSwitcher(profile, identityGroup);
 
-  const metaLine = `${appLabel(profile.appId)} · ${tr(profile.isProtected ? 'acct.slotDefault' : 'acct.slotIndependent')}${groupLabel} · ${tr('acct.lastOpen', { t: compactDate(profile.lastLaunchedAt) })}`;
-  const pathLine = tr('acct.tip', { p: shortPath(profile.profilePath), s: shortPath(profile.sessionRoot) });
+  const metaLine = remote
+    ? tr('devices.slot.remoteMeta', {
+        device: profile._meshDeviceName || '-',
+        status: tr(`devices.status.${profile._deviceStatus || 'offline'}`)
+      })
+    : `${appLabel(profile.appId)} · ${tr(profile.isProtected ? 'acct.slotDefault' : 'acct.slotIndependent')}${groupLabel} · ${tr('acct.lastOpen', { t: compactDate(profile.lastLaunchedAt) })}`;
+  const pathLine = remote
+    ? tr('devices.slot.remotePath')
+    : tr('acct.tip', { p: shortPath(profile.profilePath), s: shortPath(profile.sessionRoot) });
   if (els.accountId) {
     els.accountId.title = [metaLine, pathLine, profile.note ? tr('acct.note', { note: profile.note }) : ''].filter(Boolean).join('\n');
   }
@@ -3183,31 +3645,356 @@ const DETAIL_SESSION_COLUMNS = [
   { key: 'id', label: 'session.col.id', className: 'col-id', cellClass: 'mono' }
 ];
 
+const MESH_LOCATION_COLUMN = {
+  key: 'location',
+  label: 'session.col.location',
+  className: 'col-location'
+};
+
 function sessionColumns() {
-  return state.sessionView === 'detail' ? DETAIL_SESSION_COLUMNS : COMPACT_SESSION_COLUMNS;
+  const base = state.sessionView === 'detail' ? DETAIL_SESSION_COLUMNS : COMPACT_SESSION_COLUMNS;
+  return state.mesh.overview?.initialized && state.selectedDeviceLensId === 'all'
+    ? [...base, MESH_LOCATION_COLUMN]
+    : base;
+}
+
+function selectedSessionsForCopy() {
+  return state.filteredSessions.filter((session) => state.selectedSessionKeys.has(sessionKey(session)));
+}
+
+function renderSessionCopyControl() {
+  if (!els.copySessionInfoBtn) return;
+  const count = selectedSessionsForCopy().length;
+  els.copySessionInfoBtn.disabled = count === 0;
+  els.copySessionInfoBtn.textContent = count > 1
+    ? tr('session.copyInfoCount', { n: count })
+    : tr('session.copyInfo');
+  els.copySessionInfoBtn.title = tr('session.copyInfoHint');
+  if (els.sendSessionInfoBtn) {
+    const remotes = (state.mesh.overview?.devices || []).filter((device) => !device.isLocal);
+    els.sendSessionInfoBtn.disabled = count === 0 || remotes.length === 0;
+    els.sendSessionInfoBtn.textContent = count > 1
+      ? tr('session.sendInfoCount', { n: count })
+      : tr('session.sendInfo');
+    els.sendSessionInfoBtn.title = tr('session.sendInfoHint');
+  }
+}
+
+async function openSessionSendDialog(preselectedDeviceId = null) {
+  if (!els.sessionSendDialog) return;
+  const sessions = selectedSessionsForCopy();
+  const remotes = (state.mesh.overview?.devices || []).filter((device) => !device.isLocal);
+  els.sessionSendTarget.replaceChildren();
+  for (const device of remotes) {
+    const option = document.createElement('option');
+    option.value = device.deviceId;
+    option.textContent = `${device.name} · ${tr(`devices.status.${device.status || 'offline'}`)}`;
+    option.selected = device.deviceId === preselectedDeviceId;
+    els.sessionSendTarget.append(option);
+  }
+  state.mesh.transferMessage = remotes.length
+    ? (sessions.length ? tr('transfers.ready', { n: sessions.length }) : tr('transfers.readyFiles'))
+    : tr('transfers.noDevice');
+  if (els.sessionSendStatus) els.sessionSendStatus.dataset.state = 'idle';
+  renderTransferStatus();
+  els.sessionSendDialog.showModal();
+  await loadTransfers();
+}
+
+async function chooseFilesForTransfer() {
+  if (state.mesh.transferLoading || !window.manager.chooseFileTransfer) return;
+  const targetDeviceId = String(els.sessionSendTarget?.value || '');
+  if (!targetDeviceId) return;
+  state.mesh.transferLoading = true;
+  state.mesh.transferMessage = tr('transfers.filesPreparing');
+  renderTransferStatus();
+  const result = await window.manager.chooseFileTransfer({ targetDeviceId });
+  state.mesh.transferLoading = false;
+  if (!result?.ok) {
+    state.mesh.transferMessage = meshErrorText(result?.reasonCode || 'file-transfer-create-failed');
+    if (els.sessionSendStatus) els.sessionSendStatus.dataset.state = 'error';
+  } else if (result.cancelled) {
+    if (els.sessionSendStatus) els.sessionSendStatus.dataset.state = 'idle';
+    state.mesh.transferMessage = tr('transfers.filePickerCancelled');
+  } else {
+    if (els.sessionSendStatus) els.sessionSendStatus.dataset.state = 'idle';
+    state.mesh.transfers = result.transfers || state.mesh.transfers;
+    state.mesh.transferMessage = tr(
+      result.transfer?.state === 'completed' ? 'transfers.filesSent' : 'transfers.filesOffered',
+      { n: result.transfer?.itemCount || 0 }
+    );
+  }
+  renderTransferStatus();
+  renderTransferList();
+}
+
+async function sendSelectedSessionsToDevice() {
+  if (state.mesh.transferLoading || !window.manager.createSessionPointerTransfer) return;
+  const targetDeviceId = String(els.sessionSendTarget?.value || '');
+  const selections = selectedSessionsForCopy().map((session) => ({
+    conversationId: session.conversationId,
+    replicaId: session._replicaId
+  })).filter((item) => item.conversationId && item.replicaId);
+  if (!targetDeviceId || !selections.length) return;
+  state.mesh.transferLoading = true;
+  state.mesh.transferMessage = tr('transfers.sending');
+  if (els.sessionSendStatus) els.sessionSendStatus.dataset.state = 'busy';
+  renderTransferStatus();
+  const result = await window.manager.createSessionPointerTransfer({ targetDeviceId, selections });
+  state.mesh.transferLoading = false;
+  if (!result?.ok) {
+    state.mesh.transferMessage = meshErrorText(result?.reasonCode || 'transfer-create-failed');
+    if (els.sessionSendStatus) els.sessionSendStatus.dataset.state = 'error';
+  } else {
+    if (els.sessionSendStatus) els.sessionSendStatus.dataset.state = 'idle';
+    state.mesh.transferMessage = tr(
+      result.transfer?.state === 'completed' ? 'transfers.sent' : 'transfers.queued',
+      { n: result.transfer?.itemCount || selections.length }
+    );
+  }
+  renderTransferStatus();
+  await loadTransfers();
+}
+
+async function loadTransfers() {
+  if (!window.manager.listTransfers) return;
+  const result = await window.manager.listTransfers();
+  if (result?.ok) state.mesh.transfers = result.transfers || [];
+  else state.mesh.transferMessage = meshErrorText(result?.reasonCode || 'transfer-list-failed');
+  renderTransferStatus();
+  renderTransferList();
+}
+
+function renderTransferStatus() {
+  if (!els.sessionSendStatus) return;
+  const selectedCount = selectedSessionsForCopy().length;
+  els.sessionSendStatus.textContent = state.mesh.transferMessage || (selectedCount
+    ? tr('transfers.ready', { n: selectedCount })
+    : tr('transfers.readyFiles'));
+  if (els.sessionSendStatus.dataset.state !== 'error') {
+    els.sessionSendStatus.dataset.state = state.mesh.transferLoading ? 'busy' : 'idle';
+  }
+  const target = (state.mesh.overview?.devices || []).find((device) => device.deviceId === els.sessionSendTarget?.value);
+  const canReceiveFiles = Array.isArray(target?.permissions) && target.permissions.includes('file.receive');
+  if (els.confirmSessionSendBtn) {
+    els.confirmSessionSendBtn.disabled = state.mesh.transferLoading
+      || !els.sessionSendTarget?.value
+      || selectedSessionsForCopy().length === 0;
+  }
+  if (els.chooseFilesBtn) {
+    els.chooseFilesBtn.disabled = state.mesh.transferLoading || !target || !canReceiveFiles;
+    els.chooseFilesBtn.title = canReceiveFiles ? '' : tr('transfers.filePermissionRequired');
+  }
+}
+
+function renderTransferList() {
+  if (!els.transferList) return;
+  els.transferList.replaceChildren();
+  if (!state.mesh.transfers.length) {
+    const empty = document.createElement('p');
+    empty.className = 'transfer-empty';
+    empty.textContent = tr('transfers.empty');
+    els.transferList.append(empty);
+    return;
+  }
+  for (const transfer of state.mesh.transfers) {
+    const card = document.createElement('article');
+    card.className = 'transfer-card';
+    const head = document.createElement('div');
+    head.className = 'transfer-card-head';
+    const title = document.createElement('strong');
+    title.textContent = tr(transfer.direction === 'incoming' ? 'transfers.incoming' : 'transfers.outgoing', {
+      n: transfer.itemCount,
+      name: transfer.receivedFromName || transfer.targetName || '-'
+    });
+    const stateLabel = document.createElement('span');
+    stateLabel.dataset.state = transfer.state;
+    stateLabel.textContent = tr(`transfers.state.${transfer.state}`);
+    head.append(title, stateLabel);
+    const meta = document.createElement('small');
+    meta.textContent = `${compactDate(transfer.updatedAt)} · ${transfer.type === 'file' ? tr('transfers.type.file') : tr('transfers.type.pointer')}`;
+    card.append(head, meta);
+
+    if (transfer.direction === 'incoming' && Array.isArray(transfer.items)) {
+      const itemList = document.createElement('div');
+      itemList.className = 'transfer-item-list';
+      transfer.items.forEach((item, index) => {
+        const row = document.createElement('div');
+        const coordinate = document.createElement('code');
+        coordinate.textContent = `${index + 1}. ${item.path || '-'}\n${item.coordinate || '-'}`;
+        row.append(coordinate);
+        if (item.projectId && !item.mapping?.mapped) {
+          const map = document.createElement('button');
+          map.type = 'button';
+          map.textContent = tr('transfers.mapProject');
+          map.addEventListener('click', async () => {
+            const result = await window.manager.chooseProjectBinding({
+              projectId: item.projectId,
+              sourceDeviceId: transfer.sourceDeviceId
+            });
+            if (result?.ok && !result.cancelled) {
+              state.mesh.transfers = result.transfers || state.mesh.transfers;
+              state.mesh.transferMessage = tr('transfers.projectMapped');
+              renderTransferStatus();
+              renderTransferList();
+            }
+          });
+          row.append(map);
+        } else if (item.mapping?.mapped) {
+          const mapped = document.createElement('small');
+          mapped.textContent = tr('transfers.mappedPath', { path: item.mapping.targetPath });
+          row.append(mapped);
+        }
+        itemList.append(row);
+      });
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'primary';
+      copy.textContent = tr('transfers.copyReceived');
+      copy.addEventListener('click', async () => {
+        const value = window.SessionLocation.formatLocations(transfer.items, {
+          path: tr('session.location.path'),
+          coordinate: tr('session.location.coordinate'),
+          empty: tr('common.unrecorded')
+        });
+        await window.manager.writeClipboard(value);
+        setStatus(tr('status.sessionInfosCopied', { n: transfer.items.length }));
+      });
+      card.append(itemList, copy);
+    }
+
+    if (transfer.type === 'file' && Array.isArray(transfer.files)) {
+      const files = document.createElement('ul');
+      files.className = 'transfer-file-list';
+      for (const file of transfer.files) {
+        const item = document.createElement('li');
+        const name = document.createElement('span');
+        name.textContent = file.name;
+        name.title = file.name;
+        const size = document.createElement('span');
+        size.textContent = formatBytes(file.size);
+        item.append(name, size);
+        files.append(item);
+      }
+      const progress = document.createElement('progress');
+      progress.className = 'transfer-progress';
+      progress.max = Math.max(1, transfer.bytesTotal || 0);
+      progress.value = Math.min(progress.max, transfer.bytesTransferred || 0);
+      progress.setAttribute('aria-label', tr('transfers.progress'));
+      card.append(files, progress);
+    }
+
+    const canRetry = transfer.state === 'failed'
+      && (transfer.direction === 'outgoing' || transfer.type === 'file');
+    const canCancel = transfer.type === 'file'
+      ? !['completed', 'cancelled', 'expired'].includes(transfer.state)
+      : transfer.direction === 'outgoing' && ['queued', 'failed', 'awaiting-ack'].includes(transfer.state);
+    const canAccept = transfer.type === 'file' && transfer.direction === 'incoming' && transfer.acceptRequired;
+    const canOpen = transfer.type === 'file' && transfer.direction === 'incoming' && transfer.canOpen;
+    if (canRetry || canCancel || canAccept || canOpen) {
+      const actions = document.createElement('div');
+      actions.className = 'transfer-card-actions';
+      if (canAccept) {
+        const accept = document.createElement('button');
+        accept.type = 'button';
+        accept.className = 'primary';
+        accept.textContent = tr('transfers.acceptFiles');
+        accept.addEventListener('click', async () => {
+          state.mesh.transferMessage = tr('transfers.choosingDestination');
+          renderTransferStatus();
+          const result = await window.manager.acceptFileTransfer(transfer.transferId);
+          if (!result?.ok) state.mesh.transferMessage = meshErrorText(result?.reasonCode || 'file-transfer-accept-failed');
+          else if (!result.cancelled) state.mesh.transfers = result.transfers || state.mesh.transfers;
+          renderTransferStatus();
+          renderTransferList();
+        });
+        actions.append(accept);
+      }
+      if (canOpen) {
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'primary';
+        open.textContent = tr('transfers.openFiles');
+        open.addEventListener('click', async () => {
+          const result = await window.manager.openReceivedFile(transfer.transferId);
+          if (!result?.ok) setStatus(meshErrorText(result?.reasonCode || 'file-received-location-failed'));
+        });
+        actions.append(open);
+      }
+      if (canRetry) {
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.textContent = tr('transfers.retry');
+        retry.addEventListener('click', async () => {
+          await window.manager.retryTransfer(transfer.transferId);
+          await loadTransfers();
+        });
+        actions.append(retry);
+      }
+      if (canCancel) {
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = tr('transfers.cancel');
+        cancel.addEventListener('click', async () => {
+          await window.manager.cancelTransfer(transfer.transferId);
+          await loadTransfers();
+        });
+        actions.append(cancel);
+      }
+      card.append(actions);
+    }
+    els.transferList.append(card);
+  }
+}
+
+function setAllVisibleSessionsSelected(selected) {
+  if (selected) {
+    state.selectedSessionKeys = new Set(state.filteredSessions.map(sessionKey));
+    const active = selectedSession() || state.filteredSessions[0] || null;
+    setActiveSession(active, { syncSelection: false });
+  } else {
+    state.selectedSessionKeys = new Set();
+    setActiveSession(null, { syncSelection: false });
+  }
+  renderSessions();
+  renderInspector();
+}
+
+function setSessionChecked(session, checked) {
+  const key = sessionKey(session);
+  const next = new Set(state.selectedSessionKeys);
+  if (checked) next.add(key);
+  else next.delete(key);
+  state.selectedSessionKeys = next;
+
+  if (checked) {
+    setActiveSession(session, { syncSelection: false });
+  } else if (state.selectedSessionKey === key) {
+    const fallback = state.filteredSessions.find((item) => next.has(sessionKey(item))) || null;
+    setActiveSession(fallback, { syncSelection: false });
+  }
+  renderSessions();
+  renderInspector();
 }
 
 function renderSessionHead() {
   if (!els.sessionHead) return;
   const row = document.createElement('tr');
-  const selectionHead = document.createElement('th');
-  selectionHead.className = 'selection-col';
-  selectionHead.scope = 'col';
+  const selectHeading = document.createElement('th');
+  selectHeading.scope = 'col';
+  selectHeading.className = 'col-select';
   const selectAll = document.createElement('input');
+  selectAll.id = 'sessionSelectAll';
+  selectAll.className = 'session-select-box';
   selectAll.type = 'checkbox';
-  selectAll.setAttribute('aria-label', tr('session.select.all'));
-  const selectedVisible = state.filteredSessions.filter((session) => (
-    state.handoffSelection.has(sessionKey(session))
-  )).length;
-  selectAll.checked = state.filteredSessions.length > 0 && selectedVisible === state.filteredSessions.length;
-  selectAll.indeterminate = selectedVisible > 0 && selectedVisible < state.filteredSessions.length;
+  selectAll.setAttribute('aria-label', tr('session.selectAll'));
+  const selectedCount = selectedSessionsForCopy().length;
+  selectAll.checked = state.filteredSessions.length > 0 && selectedCount === state.filteredSessions.length;
+  selectAll.indeterminate = selectedCount > 0 && selectedCount < state.filteredSessions.length;
   selectAll.disabled = state.filteredSessions.length === 0;
-  selectAll.addEventListener('change', () => {
-    selectFilteredSessions(selectAll.checked);
-  });
-  selectionHead.append(selectAll);
-  row.append(selectionHead);
-
+  selectAll.addEventListener('change', () => setAllVisibleSessionsSelected(selectAll.checked));
+  selectHeading.append(selectAll);
+  row.append(selectHeading);
   for (const column of sessionColumns()) {
     const heading = document.createElement('th');
     heading.scope = 'col';
@@ -3245,9 +4032,10 @@ function renderSessionHead() {
 
 function renderSessions() {
   renderSessionControls();
+  renderSessionCopyControl();
   renderSessionHead();
   els.sessionRows.replaceChildren();
-  const accountCount = handoffAccountCount(state.filteredSessions);
+  const accountCount = sessionAccountCount(state.filteredSessions);
   els.sessionCount.textContent = state.sessionScope === 'all'
     ? tr('session.countAll', { n: state.filteredSessions.length, accounts: accountCount })
     : tr('session.count', { n: state.filteredSessions.length });
@@ -3268,32 +4056,35 @@ function renderSessions() {
   for (const session of state.filteredSessions) {
     const key = sessionKey(session);
     const row = document.createElement('tr');
-    row.classList.toggle('selected', key === state.selectedSessionKey);
-    row.classList.toggle('handoff-selected', state.handoffSelection.has(key));
-    row.setAttribute('aria-selected', String(key === state.selectedSessionKey));
+    const checked = state.selectedSessionKeys.has(key);
+    row.classList.toggle('selected', checked);
+    row.classList.toggle('session-active', key === state.selectedSessionKey);
+    row.setAttribute('aria-selected', String(checked));
 
-    const selectionCell = document.createElement('td');
-    selectionCell.className = 'selection-col';
+    const selectCell = document.createElement('td');
+    selectCell.className = 'select-cell';
     const checkbox = document.createElement('input');
+    checkbox.className = 'session-select-box';
     checkbox.type = 'checkbox';
-    checkbox.checked = state.handoffSelection.has(key);
-    checkbox.setAttribute('aria-label', tr('session.select.one', { title: session.title }));
-    checkbox.addEventListener('click', (event) => {
-      event.stopPropagation();
-      toggleHandoffSelection(session, checkbox.checked, { range: event.shiftKey });
-    });
-    selectionCell.append(checkbox);
-    row.append(selectionCell);
+    checkbox.checked = checked;
+    checkbox.setAttribute('aria-label', tr('session.selectOne', { title: session.title || session.id || '' }));
+    checkbox.addEventListener('click', (event) => event.stopPropagation());
+    checkbox.addEventListener('change', () => setSessionChecked(session, checkbox.checked));
+    selectCell.append(checkbox);
+    row.append(selectCell);
 
     for (const column of sessionColumns()) {
       row.append(renderSessionCell(session, column));
     }
 
-    row.addEventListener('click', () => {
-      setActiveSession(session);
-      renderSessions();
-      renderInspector();
-      renderRuntimeDock();
+    row.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey) {
+        setSessionChecked(session, !state.selectedSessionKeys.has(key));
+      } else {
+        setActiveSession(session);
+        renderSessions();
+        renderInspector();
+      }
     });
     els.sessionRows.append(row);
   }
@@ -3313,7 +4104,7 @@ function renderSessionCell(session, column) {
       if (state.sessionScope === 'all' && state.sessionView === 'compact') {
         const account = document.createElement('span');
         account.className = 'cell-subline';
-        account.textContent = tr('handoff.itemMeta', {
+        account.textContent = tr('session.itemMeta', {
           account: session._accountName || session._profileName || '-',
           app: session._appLabel || session.appId || '-'
         });
@@ -3343,6 +4134,14 @@ function renderSessionCell(session, column) {
     case 'id':
       value = session.address || session.id || '-';
       break;
+    case 'location': {
+      const replicas = Array.isArray(session.replicas) ? session.replicas : [];
+      value = replicas.length > 1
+        ? tr('session.locationCount', { n: replicas.length })
+        : (session._deviceName || '-');
+      fullValue = replicas.map((replica) => replica.deviceName || replica.deviceId).join(' · ');
+      break;
+    }
     default:
       value = session[column.key] || '-';
   }
@@ -3351,369 +4150,18 @@ function renderSessionCell(session, column) {
   return cell;
 }
 
-function selectedHandoffSessions() {
-  return [...state.handoffSelection.values()];
-}
-
-function toggleHandoffSelection(session, checked, { range = false } = {}) {
-  const key = sessionKey(session);
-  const anchorIndex = state.filteredSessions.findIndex((item) => (
-    sessionKey(item) === state.selectionAnchorKey
-  ));
-  const currentIndex = state.filteredSessions.findIndex((item) => sessionKey(item) === key);
-  if (range && anchorIndex >= 0 && currentIndex >= 0) {
-    const [start, end] = anchorIndex < currentIndex
-      ? [anchorIndex, currentIndex]
-      : [currentIndex, anchorIndex];
-    for (const item of state.filteredSessions.slice(start, end + 1)) {
-      const itemKey = sessionKey(item);
-      if (checked) state.handoffSelection.set(itemKey, item);
-      else state.handoffSelection.delete(itemKey);
-    }
-  } else if (checked) {
-    state.handoffSelection.set(key, session);
-  } else {
-    state.handoffSelection.delete(key);
-  }
-  state.selectionAnchorKey = key;
-  renderSessions();
-  renderInspector();
-  if (checked) void ensureSessionArtifacts(session);
-}
-
-function selectFilteredSessions(checked) {
-  for (const session of state.filteredSessions) {
-    const key = sessionKey(session);
-    if (checked) state.handoffSelection.set(key, session);
-    else state.handoffSelection.delete(key);
-  }
-  state.selectionAnchorKey = state.filteredSessions.at(-1)
-    ? sessionKey(state.filteredSessions.at(-1))
-    : null;
-  renderSessions();
-  renderInspector();
-}
-
-function clearHandoffSelection() {
-  state.handoffSelection.clear();
-  state.selectionAnchorKey = null;
-  renderSessions();
-  renderInspector();
-}
-
-function moveHandoffSelection(key, offset) {
-  const entries = [...state.handoffSelection.entries()];
-  const index = entries.findIndex(([itemKey]) => itemKey === key);
-  const target = index + offset;
-  if (index < 0 || target < 0 || target >= entries.length) return;
-  const [entry] = entries.splice(index, 1);
-  entries.splice(target, 0, entry);
-  state.handoffSelection = new Map(entries);
-  renderInspector();
-}
-
-function renderHandoffPlan() {
-  const selected = selectedHandoffSessions();
-  const accountCount = handoffAccountCount(selected);
-  const hasSelection = selected.length > 0;
-  if (els.handoffBulkBar) els.handoffBulkBar.hidden = !hasSelection;
-  if (els.handoffPlan) els.handoffPlan.hidden = !hasSelection;
-  if (els.handoffSelectionSummary) {
-    els.handoffSelectionSummary.textContent = tr('handoff.selectionSummary', {
-      n: selected.length,
-      accounts: accountCount
-    });
-  }
-  if (els.handoffPlanSummary) {
-    els.handoffPlanSummary.textContent = tr('handoff.plan.summary', {
-      n: selected.length,
-      accounts: accountCount
-    });
-  }
-  if (els.copySelectedHandoffBtn) {
-    els.copySelectedHandoffBtn.textContent = tr('handoff.copySelected', { n: selected.length });
-    els.copySelectedHandoffBtn.disabled = !hasSelection;
-  }
-  els.copySummaryBtn.textContent = hasSelection
-    ? tr('handoff.copySelected', { n: selected.length })
-    : tr('detail.copyHandoff');
-
-  if (!els.handoffPlanList) return;
-  els.handoffPlanList.replaceChildren();
-  selected.forEach((session, index) => {
-    const key = sessionKey(session);
-    const item = document.createElement('li');
-    item.className = 'handoff-plan-item';
-    const order = document.createElement('span');
-    order.className = 'handoff-plan-index';
-    order.textContent = String(index + 1).padStart(2, '0');
-    const copy = document.createElement('button');
-    copy.type = 'button';
-    copy.className = 'handoff-plan-copy';
-    copy.title = tr('handoff.artifacts.inspect', { title: session.title });
-    copy.addEventListener('click', async () => {
-      if (!state.filteredSessions.some((item) => sessionKey(item) === key)) {
-        await setSessionScope('all');
-      }
-      const target = state.filteredSessions.find((item) => sessionKey(item) === key);
-      if (!target) return;
-      setActiveSession(target);
-      renderSessions();
-      renderInspector();
-    });
-    const title = document.createElement('strong');
-    title.textContent = session.title || '-';
-    const meta = document.createElement('small');
-    const baseMeta = tr('handoff.itemMeta', {
-      account: session._accountName || session._profileName || '-',
-      app: session._appLabel || session.appId || '-'
-    });
-    const artifactMeta = handoffArtifactMeta(session);
-    meta.textContent = [baseMeta, artifactMeta].filter(Boolean).join(' · ');
-    copy.append(title, meta);
-
-    const controls = document.createElement('div');
-    controls.className = 'handoff-plan-controls';
-    const up = handoffPlanButton('↑', tr('handoff.moveUp', { title: session.title }), index === 0, () => {
-      moveHandoffSelection(key, -1);
-    });
-    const down = handoffPlanButton('↓', tr('handoff.moveDown', { title: session.title }), index === selected.length - 1, () => {
-      moveHandoffSelection(key, 1);
-    });
-    const remove = handoffPlanButton('×', tr('handoff.remove', { title: session.title }), false, () => {
-      state.handoffSelection.delete(key);
-      renderSessions();
-      renderInspector();
-    });
-    controls.append(up, down, remove);
-    item.append(order, copy, controls);
-    els.handoffPlanList.append(item);
-  });
-}
-
-function handoffPlanButton(text, label, disabled, handler) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = text;
-  button.title = label;
-  button.setAttribute('aria-label', label);
-  button.disabled = disabled;
-  button.addEventListener('click', handler);
-  return button;
-}
-
-function handoffAccountCount(sessions) {
+function sessionAccountCount(sessions) {
   return new Set((sessions || []).map((session) => (
     session._accountKey || session._profileId || ''
   )).filter(Boolean)).size;
 }
 
-function artifactCacheToken(session) {
-  if (!session) return '';
-  return [
-    session.filePath || '',
-    session.updatedAt || '',
-    session.createdAt || ''
-  ].join('::');
-}
-
-function artifactEntryFor(session) {
-  return session ? state.handoffArtifacts.get(sessionKey(session)) || null : null;
-}
-
-async function ensureSessionArtifacts(session, { force = false } = {}) {
-  if (!session || typeof window.manager.listSessionArtifacts !== 'function') {
-    return { status: 'unavailable', items: [], error: tr('handoff.artifacts.unavailable') };
-  }
-  const owner = sessionOwnerProfile(session);
-  if (!owner) return { status: 'error', items: [], error: tr('handoff.artifacts.unavailable') };
-
-  const key = sessionKey(session);
-  const token = artifactCacheToken(session);
-  const current = state.handoffArtifacts.get(key);
-  if (!force && current?.token === token) {
-    return current.promise ? current.promise : current;
-  }
-
-  const previousSelection = new Map(
-    (current?.items || []).map((item) => [item.id, Boolean(item.included)])
-  );
-  const entry = {
-    profileId: owner.id,
-    sessionId: session.id,
-    token,
-    status: 'loading',
-    items: current?.items || [],
-    error: null,
-    truncated: false,
-    promise: null
-  };
-  state.handoffArtifacts.set(key, entry);
-
-  entry.promise = (async () => {
-    try {
-      const result = await window.manager.listSessionArtifacts({
-        profileId: owner.id,
-        sessionId: session.id
-      });
-      if (!result?.ok) throw new Error(result?.reason || tr('handoff.artifacts.unavailable'));
-      entry.items = (Array.isArray(result.items) ? result.items : [])
-        .slice(0, 24)
-        .map((item) => ({
-          ...item,
-          included: previousSelection.has(item.id)
-            ? previousSelection.get(item.id)
-            : item.selectedByDefault === true
-        }));
-      entry.status = 'ready';
-      entry.error = null;
-      entry.truncated = result.truncated === true;
-    } catch (error) {
-      entry.status = entry.items.length ? 'ready' : 'error';
-      entry.error = error?.message || tr('handoff.artifacts.unavailable');
-    } finally {
-      entry.promise = null;
-      if (state.handoffArtifacts.get(key) === entry) {
-        if (sessionKey(selectedSession()) === key) renderArtifactIndex(session);
-        renderHandoffPlan();
-      }
-    }
-    return entry;
-  })();
-  return entry.promise;
-}
-
-async function prepareHandoffArtifacts(sessions, { announce = true } = {}) {
-  const list = (Array.isArray(sessions) ? sessions : [sessions]).filter(Boolean);
-  for (let index = 0; index < list.length; index += 1) {
-    const session = list[index];
-    const cached = artifactEntryFor(session);
-    if (announce && (!cached || cached.status === 'loading' || cached.token !== artifactCacheToken(session))) {
-      setStatus(tr('status.artifactsIndexing', { current: index + 1, total: list.length }));
-    }
-    await ensureSessionArtifacts(session);
-  }
-  return list.reduce((count, session) => count + selectedSessionArtifacts(session).length, 0);
-}
-
-function selectedSessionArtifacts(session) {
-  const entry = artifactEntryFor(session);
-  return (entry?.items || []).filter((item) => item.included === true && item.content);
-}
-
-function handoffArtifactMeta(session) {
-  const entry = artifactEntryFor(session);
-  if (!entry) return '';
-  if (entry.status === 'loading') return tr('handoff.artifacts.indexingShort');
-  if (entry.status === 'error') return tr('handoff.artifacts.errorShort');
-  const selected = selectedSessionArtifacts(session).length;
-  return tr('handoff.artifacts.itemMeta', { selected, total: entry.items.length });
-}
-
-function renderArtifactIndex(session) {
-  if (!els.artifactIndex || !els.artifactList || !els.artifactSummary) return;
-  els.artifactIndex.hidden = !session;
-  els.artifactList.replaceChildren();
-  if (!session) {
-    els.artifactSummary.textContent = '';
-    if (els.refreshArtifactsBtn) els.refreshArtifactsBtn.disabled = true;
-    return;
-  }
-
-  const entry = artifactEntryFor(session);
-  if (els.refreshArtifactsBtn) els.refreshArtifactsBtn.disabled = entry?.status === 'loading';
-  if (!entry) {
-    els.artifactSummary.textContent = tr('handoff.artifacts.indexingShort');
-    appendArtifactState(tr('handoff.artifacts.loading'));
-    void ensureSessionArtifacts(session);
-    return;
-  }
-
-  const selected = selectedSessionArtifacts(session).length;
-  els.artifactSummary.textContent = entry.status === 'loading'
-    ? tr('handoff.artifacts.indexingShort')
-    : tr('handoff.artifacts.summary', { selected, total: entry.items.length });
-
-  if (entry.status === 'error' && !entry.items.length) {
-    appendArtifactState(entry.error || tr('handoff.artifacts.unavailable'));
-    return;
-  }
-  if (!entry.items.length) {
-    appendArtifactState(entry.status === 'loading'
-      ? tr('handoff.artifacts.loading')
-      : tr('handoff.artifacts.empty'));
-    return;
-  }
-
-  for (const artifact of entry.items) {
-    const item = document.createElement('li');
-    item.className = 'artifact-index-item';
-    item.dataset.confidence = artifact.confidence === 'exact' ? 'exact' : 'related';
-    item.title = artifact.path || artifact.title || '';
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.checked = artifact.included === true;
-    checkbox.setAttribute('aria-label', tr('handoff.artifacts.select', { title: artifact.title }));
-    checkbox.addEventListener('change', () => {
-      artifact.included = checkbox.checked;
-      renderArtifactIndex(session);
-      renderHandoffPlan();
-    });
-
-    const copy = document.createElement('div');
-    copy.className = 'artifact-index-copy';
-    const title = document.createElement('strong');
-    title.textContent = artifact.title || tr('handoff.artifacts.untitled');
-    const meta = document.createElement('small');
-    meta.textContent = [
-      artifactKindLabel(artifact.kind),
-      artifact.relativePath || artifactSourceLabel(artifact.source),
-      artifact.truncated ? tr('handoff.artifacts.truncatedShort') : null
-    ].filter(Boolean).join(' · ');
-    copy.append(title, meta);
-
-    const badge = document.createElement('span');
-    badge.className = 'artifact-index-badge';
-    badge.textContent = artifact.confidence === 'exact'
-      ? tr('handoff.artifacts.exact')
-      : tr('handoff.artifacts.candidate');
-
-    item.append(checkbox, copy, badge);
-    els.artifactList.append(item);
-  }
-
-  if (entry.error) appendArtifactState(entry.error);
-}
-
-function appendArtifactState(message) {
-  const item = document.createElement('li');
-  item.className = 'artifact-index-state';
-  item.textContent = message;
-  els.artifactList.append(item);
-}
-
-function artifactKindLabel(kind) {
-  const supported = new Set(['plan', 'tasks', 'roadmap', 'handoff']);
-  return tr(`handoff.artifacts.kind.${supported.has(kind) ? kind : 'plan'}`);
-}
-
-function artifactSourceLabel(source) {
-  const supported = new Set(['session-plan', 'client-plan', 'project-file']);
-  return tr(`handoff.artifacts.source.${supported.has(source) ? source : 'project-file'}`);
-}
-
 function renderInspector() {
-  renderHandoffPlan();
   const session = selectedSession();
-  renderArtifactIndex(session);
   const disabled = !session;
-  els.copySummaryBtn.disabled = disabled && selectedHandoffSessions().length === 0;
-  els.copyAddressBtn.disabled = disabled;
-  els.copyProjectBtn.disabled = disabled || !session?.projectPath;
-  els.openSessionFileBtn.disabled = disabled;
-  // 导出能力按客户端注册表声明（目前 Kimi Code 支持）
-  const canExport = Boolean(session && state.appMeta[session.appId]?.canExportTranscript);
+  els.openSessionFileBtn.disabled = disabled || session?._remote === true || session?._stale === true;
+  // 导出能力按客户端目录声明。
+  const canExport = Boolean(session && !session._remote && !session._stale && state.appMeta[session.appId]?.canExportTranscript);
   els.exportSessionBtn.disabled = !canExport;
   els.exportSessionBtn.title = canExport
     ? tr('detail.export.can')
@@ -3721,7 +4169,7 @@ function renderInspector() {
 
   if (!session) {
     setDetail(els.detailTitle, tr('detail.unselected'), { keep: true });
-    for (const dd of [els.detailAccount, els.detailId, els.detailCreated, els.detailUpdated, els.detailSource, els.detailProject, els.detailFile, els.detailAddress]) {
+    for (const dd of [els.detailAccount, els.detailCreated, els.detailUpdated, els.detailSource, els.detailProject, els.detailCoordinate]) {
       setDetail(dd, '');
     }
     return;
@@ -3734,13 +4182,17 @@ function renderInspector() {
     session._profileName && session._profileName !== session._accountName ? session._profileName : null,
     session._appLabel || (owner ? appLabel(owner.appId) : null)
   ].filter(Boolean).join(' · '));
-  setDetail(els.detailId, session.id);
   setDetail(els.detailCreated, fullDate(session.createdAt));
   setDetail(els.detailUpdated, fullDate(session.updatedAt));
-  setDetail(els.detailSource, [session.source, session.status, session.model].filter(Boolean).join(' · '));
-  setDetail(els.detailProject, session.projectPath ? shortPath(session.projectPath) : '');
-  setDetail(els.detailFile, shortPath(session.filePath));
-  setDetail(els.detailAddress, shortPath(session.address || session.id));
+  setDetail(els.detailSource, [
+    session._deviceName,
+    session._stale ? tr('session.offlineSnapshot') : null,
+    session.source,
+    session.status,
+    session.model
+  ].filter(Boolean).join(' · '));
+  setDetail(els.detailProject, window.SessionLocation ? shortPath(window.SessionLocation.pathOf(session)) : shortPath(session.projectPath || session.filePath));
+  setDetail(els.detailCoordinate, window.SessionLocation ? shortPath(window.SessionLocation.coordinateOf(session)) : shortPath(session.filePath || session.address || session.id));
 }
 
 // 会话详情：空字段连同标签一起折叠，详情栏更紧凑（keep=true 的字段始终保留）
@@ -3932,7 +4384,11 @@ function formatDiagnosticsText(diagnostics) {
 }
 
 function selectedProfile() {
-  return state.profiles.find((profile) => profile.id === state.selectedProfileId) || null;
+  for (const group of identityGroups()) {
+    const profile = group.members.find((member) => member.id === state.selectedProfileId);
+    if (profile) return profile;
+  }
+  return null;
 }
 
 function sessionKey(session) {
@@ -3941,10 +4397,13 @@ function sessionKey(session) {
   return `${session._profileId || ''}::${session.address || session.id || session.filePath || ''}`;
 }
 
-function setActiveSession(session) {
+function setActiveSession(session, { syncSelection = true } = {}) {
   state.selectedSessionKey = session ? sessionKey(session) : null;
   // 保留旧字段给运行时及向后兼容代码；跨账号唯一性以 selectedSessionKey 为准。
   state.selectedSessionId = session?.id || null;
+  if (syncSelection) {
+    state.selectedSessionKeys = session ? new Set([state.selectedSessionKey]) : new Set();
+  }
 }
 
 function selectedSession() {
@@ -3960,154 +4419,6 @@ function sessionForProfile(profileId) {
   const active = selectedSession();
   if (active && memberIds.has(active._profileId)) return active;
   return state.filteredSessions.find((session) => memberIds.has(session._profileId)) || null;
-}
-
-async function copyActiveHandoff() {
-  const session = selectedSession();
-  const profile = sessionOwnerProfile(session);
-  if (!profile || !session) return;
-  const artifactCount = await prepareHandoffArtifacts([session]);
-  await window.manager.writeClipboard(makeHandoffText(profile, session));
-  if (isYardView()) {
-    window.YardScene.fx('handoff');
-    setStatus(tr('status.handoffMailbox', { name: profile.name }));
-  } else {
-    setStatus(artifactCount
-      ? tr('status.handoffCopiedArtifacts', { n: artifactCount })
-      : tr('status.handoffCopied'));
-  }
-}
-
-async function copyHandoffPlan() {
-  const sessions = selectedHandoffSessions();
-  if (!sessions.length) return;
-  const accounts = handoffAccountCount(sessions);
-  const artifactCount = await prepareHandoffArtifacts(sessions);
-  await window.manager.writeClipboard(makeHandoffPlanText(sessions));
-  if (isYardView()) window.YardScene.fx('handoff');
-  setStatus(artifactCount
-    ? tr('status.handoffPlanCopiedArtifacts', {
-        n: sessions.length,
-        accounts,
-        artifacts: artifactCount
-      })
-    : tr('status.handoffPlanCopied', { n: sessions.length, accounts }));
-}
-
-function makeHandoffText(profile, session) {
-  const metadata = tr('handoff.template', {
-    app: appLabel(profile.appId),
-    slot: profile.name,
-    title: session.title,
-    created: fullDate(session.createdAt),
-    active: fullDate(session.updatedAt),
-    source: session.source,
-    status: session.status,
-    project: session.projectPath || tr('common.unrecorded'),
-    address: session.address || session.id,
-    file: session.filePath,
-    thread: session.id
-  });
-  const budget = { remaining: 384 * 1024, truncated: false };
-  const artifacts = makeHandoffArtifactText(session, budget);
-  return [
-    metadata,
-    artifacts,
-    budget.truncated ? tr('handoff.artifacts.bundleTruncated') : null
-  ].filter(Boolean).join('\n\n---\n\n');
-}
-
-function makeHandoffPlanText(sessions) {
-  const list = Array.isArray(sessions) ? sessions.filter(Boolean) : [];
-  const accounts = handoffAccountCount(list);
-  const budget = { remaining: 384 * 1024, truncated: false };
-  let artifactCount = 0;
-  const items = list.map((session, index) => {
-    const profile = sessionOwnerProfile(session);
-    const metadata = tr('handoff.bundleItem', {
-      index: index + 1,
-      app: session._appLabel || (profile ? appLabel(profile.appId) : session.appId),
-      slot: session._profileName || profile?.name || tr('common.unrecorded'),
-      account: session._accountName || profile?.name || tr('common.unrecorded'),
-      title: session.title,
-      created: fullDate(session.createdAt),
-      active: fullDate(session.updatedAt),
-      source: session.source || tr('common.unrecorded'),
-      status: session.status || tr('common.unrecorded'),
-      model: session.model || tr('common.unrecorded'),
-      project: session.projectPath || tr('common.unrecorded'),
-      address: session.address || session.id || tr('common.unrecorded'),
-      file: session.filePath || tr('common.unrecorded'),
-      thread: session.id || tr('common.unrecorded')
-    });
-    const artifacts = makeHandoffArtifactText(session, budget);
-    artifactCount += selectedSessionArtifacts(session).length;
-    return [metadata, artifacts].filter(Boolean).join('\n\n');
-  });
-  const header = tr(
-    artifactCount ? 'handoff.bundleHeaderWithArtifacts' : 'handoff.bundleHeader',
-    { n: list.length, accounts, artifacts: artifactCount }
-  );
-  if (budget.truncated) items.push(tr('handoff.artifacts.bundleTruncated'));
-  return [header, ...items, tr('handoff.bundleFooter')].join('\n\n---\n\n');
-}
-
-function makeHandoffArtifactText(session, budget = { remaining: 384 * 1024, truncated: false }) {
-  const artifacts = selectedSessionArtifacts(session);
-  if (!artifacts.length || budget.remaining <= 0) return '';
-  const blocks = [];
-  let included = 0;
-
-  for (const artifact of artifacts) {
-    if (budget.remaining <= 0) {
-      budget.truncated = true;
-      break;
-    }
-    const metadata = tr('handoff.artifacts.embedMeta', {
-      title: artifact.title || tr('handoff.artifacts.untitled'),
-      kind: artifactKindLabel(artifact.kind),
-      path: artifact.relativePath || artifact.path || tr('handoff.artifacts.virtualPath'),
-      relation: artifact.confidence === 'exact'
-        ? tr('handoff.artifacts.exact')
-        : tr('handoff.artifacts.candidate')
-    });
-    const available = Math.max(0, budget.remaining - metadata.length - 80);
-    let content = String(artifact.content || '');
-    let truncated = artifact.truncated === true;
-    if (content.length > available) {
-      content = content.slice(0, available);
-      truncated = true;
-      budget.truncated = true;
-    }
-    if (!content) {
-      budget.truncated = true;
-      break;
-    }
-    const fence = markdownFence(content);
-    const block = [
-      `#### ${artifact.title || tr('handoff.artifacts.untitled')}`,
-      metadata,
-      fence,
-      content,
-      fence,
-      truncated ? tr('handoff.artifacts.contentTruncated') : null
-    ].filter(Boolean).join('\n\n');
-    blocks.push(block);
-    budget.remaining = Math.max(0, budget.remaining - block.length);
-    included += 1;
-  }
-
-  if (!blocks.length) return '';
-  return [
-    tr('handoff.artifacts.embedHeader', { n: included }),
-    ...blocks
-  ].join('\n\n');
-}
-
-function markdownFence(content) {
-  const runs = String(content || '').match(/`+/g) || [];
-  const longest = runs.reduce((max, run) => Math.max(max, run.length), 0);
-  return '`'.repeat(Math.max(3, longest + 1));
 }
 
 function compactDate(value) {

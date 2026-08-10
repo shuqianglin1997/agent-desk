@@ -43,9 +43,6 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
   assert.equal(normalized.sessionScope, 'all');
   assert.equal(normalized.sessionView, 'detail');
   assert.equal(normalized.remindersOn, false);
-  // 未出现在旧设置里的新字段落默认：内嵌控制台默认收起
-  assert.equal(normalized.agentConsoleOn, false);
-  assert.equal(normalizeSettings({ agentConsoleOn: true }).agentConsoleOn, true);
   assert.equal(normalized.atmosTime, 'dusk');
   assert.equal(normalized.atmosWeather, 'rain');
   assert.equal(normalized.welcomed, true);
@@ -151,4 +148,21 @@ test('旧版没有天气和位置字段时迁移到自动天气与空位置表',
   const normalized = normalizeSettings({ theme: 'dark' });
   assert.equal(normalized.atmosWeather, 'auto');
   assert.deepEqual(normalized.yardPositions, {});
+});
+
+test('设备网络设置只保留 HTTPS/本机信令与 STUN 地址', () => {
+  const normalized = normalizeSettings({
+    meshSignalingUrls: [
+      'https://signal.example.test/',
+      'http://127.0.0.1:8787',
+      'http://public.example.test',
+      'file:///tmp/socket'
+    ],
+    meshStunUrls: ['stun:stun.example.test:3478', 'https://not-stun.example.test']
+  });
+  assert.deepEqual(normalized.meshSignalingUrls, [
+    'https://signal.example.test',
+    'http://127.0.0.1:8787'
+  ]);
+  assert.deepEqual(normalized.meshStunUrls, ['stun:stun.example.test:3478']);
 });

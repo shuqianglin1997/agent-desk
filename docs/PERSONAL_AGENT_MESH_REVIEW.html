@@ -1,0 +1,1437 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>AgentDesk Personal Agent Mesh · 0.4 图解审阅稿</title>
+  <style>
+    :root {
+      --paper: #f3efe5;
+      --paper-2: #e8e1d3;
+      --ink: #11181b;
+      --ink-2: #344044;
+      --muted: #677276;
+      --line: #b9b2a5;
+      --line-dark: #3f494c;
+      --white: #fffdf7;
+      --orange: #e34d2e;
+      --orange-soft: #f8d7ca;
+      --teal: #087e78;
+      --teal-soft: #cce5df;
+      --yellow: #eeb33a;
+      --red: #b52e2b;
+      --green: #25745c;
+      --shadow: 0 18px 45px rgba(17, 24, 27, .12);
+      --serif: "Iowan Old Style", "Songti SC", "STSong", serif;
+      --sans: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(17, 24, 27, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(17, 24, 27, .035) 1px, transparent 1px),
+        var(--paper);
+      background-size: 32px 32px;
+      font-family: var(--sans);
+      line-height: 1.65;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    a { color: inherit; }
+    code, pre, .mono { font-family: var(--mono); }
+    ::selection { color: var(--white); background: var(--orange); }
+
+    .rail {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 20;
+      width: 76px;
+      padding: 22px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: var(--white);
+      background: var(--ink);
+      border-right: 1px solid #273034;
+    }
+    .rail-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.42);
+      font: 700 13px/1 var(--mono);
+      letter-spacing: -.04em;
+    }
+    .rail nav {
+      margin: auto 0;
+      display: grid;
+      gap: 8px;
+    }
+    .rail a {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      text-decoration: none;
+      color: #aeb8bb;
+      border: 1px solid transparent;
+      font: 600 10px/1 var(--mono);
+      transition: .18s ease;
+    }
+    .rail a:hover,
+    .rail a.active {
+      color: var(--white);
+      border-color: rgba(255,255,255,.45);
+      background: rgba(255,255,255,.08);
+    }
+    .rail-version {
+      writing-mode: vertical-rl;
+      color: #899397;
+      font: 10px/1 var(--mono);
+      letter-spacing: .12em;
+    }
+
+    main { margin-left: 76px; }
+    .wrap { width: min(1240px, calc(100vw - 124px)); margin: 0 auto; }
+    .hero {
+      min-height: 92vh;
+      padding: 54px 0 70px;
+      color: var(--white);
+      background:
+        linear-gradient(115deg, transparent 0 63%, rgba(227,77,46,.18) 63% 64%, transparent 64%),
+        radial-gradient(circle at 83% 16%, rgba(8,126,120,.28), transparent 30%),
+        var(--ink);
+      border-bottom: 8px solid var(--orange);
+      display: grid;
+      align-items: center;
+    }
+    .hero-meta,
+    .section-kicker {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--orange);
+      font: 700 11px/1.2 var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .hero-meta::before,
+    .section-kicker::before {
+      content: "";
+      width: 34px;
+      height: 2px;
+      background: currentColor;
+    }
+    .hero h1 {
+      max-width: 1040px;
+      margin: 28px 0 22px;
+      font: 600 clamp(45px, 7.2vw, 102px)/.98 var(--serif);
+      letter-spacing: -.055em;
+    }
+    .hero h1 em { color: var(--orange); font-style: normal; }
+    .hero-lead {
+      max-width: 760px;
+      margin: 0;
+      color: #c9d0d1;
+      font-size: clamp(17px, 1.8vw, 23px);
+    }
+    .hero-actions { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+    .button {
+      min-height: 44px;
+      padding: 0 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid rgba(255,255,255,.3);
+      background: transparent;
+      color: inherit;
+      text-decoration: none;
+      cursor: pointer;
+      font: 700 12px/1 var(--mono);
+      letter-spacing: .03em;
+    }
+    .button.primary { border-color: var(--orange); background: var(--orange); color: #fff; }
+    .button:hover { transform: translateY(-1px); }
+    .hero-proof {
+      margin-top: 64px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border: 1px solid rgba(255,255,255,.2);
+    }
+    .hero-proof > div { padding: 20px; border-right: 1px solid rgba(255,255,255,.2); }
+    .hero-proof > div:last-child { border-right: 0; }
+    .hero-proof strong {
+      display: block;
+      font: 600 42px/1 var(--serif);
+      color: var(--white);
+    }
+    .hero-proof span { color: #9eaaad; font: 11px/1.4 var(--mono); }
+    .hero-footnote { margin-top: 14px; color: #849094; font: 11px/1.5 var(--mono); }
+
+    .chapter {
+      padding: 100px 0;
+      border-bottom: 1px solid var(--line);
+      scroll-margin-top: 20px;
+    }
+    .chapter.dark { color: var(--white); background: var(--ink); }
+    .chapter.orange { background: var(--orange-soft); }
+    .chapter-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(260px, .75fr);
+      gap: 60px;
+      align-items: end;
+      margin-bottom: 54px;
+    }
+    .chapter h2 {
+      margin: 16px 0 0;
+      font: 600 clamp(36px, 5vw, 68px)/1.03 var(--serif);
+      letter-spacing: -.04em;
+    }
+    .chapter-intro { margin: 0; color: var(--ink-2); font-size: 17px; }
+    .dark .chapter-intro { color: #b9c2c4; }
+    .section-kicker { color: var(--teal); }
+    .dark .section-kicker { color: #5cc4bc; }
+    .accent { color: var(--orange); }
+    .quiet { color: var(--muted); }
+    .small { font-size: 13px; }
+
+    .thesis {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+    .thesis > * { background: var(--white); padding: clamp(28px, 5vw, 58px); }
+    .thesis-copy blockquote {
+      margin: 0;
+      font: 600 clamp(28px, 3vw, 45px)/1.12 var(--serif);
+      letter-spacing: -.035em;
+    }
+    .thesis-copy p { margin: 24px 0 0; color: var(--ink-2); }
+    .scene-map { min-height: 420px; position: relative; overflow: hidden; background: var(--ink); color: var(--white); }
+    .scene-owner {
+      position: absolute;
+      inset: 38% auto auto 50%;
+      transform: translate(-50%, -50%);
+      width: 155px;
+      height: 155px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      border: 2px solid var(--orange);
+      border-radius: 50%;
+      font: 700 12px/1.45 var(--mono);
+      z-index: 2;
+    }
+    .scene-device {
+      position: absolute;
+      width: 122px;
+      padding: 12px;
+      border: 1px solid #667174;
+      background: #1a2225;
+      font: 11px/1.4 var(--mono);
+    }
+    .scene-device b { display: block; color: #fff; margin-bottom: 4px; }
+    .scene-device i { color: #7ed1c9; font-style: normal; }
+    .scene-device.a { left: 7%; bottom: 9%; }
+    .scene-device.b { right: 7%; bottom: 9%; }
+    .scene-device.c { right: 8%; top: 7%; }
+    .scene-line {
+      position: absolute;
+      height: 1px;
+      background: #647074;
+      transform-origin: left center;
+    }
+    .scene-line.a { width: 170px; left: 30%; top: 54%; transform: rotate(142deg); }
+    .scene-line.b { width: 170px; left: 53%; top: 54%; transform: rotate(38deg); }
+    .scene-line.c { width: 170px; left: 53%; top: 35%; transform: rotate(-25deg); }
+    .scene-agent {
+      position: absolute;
+      left: 24px;
+      top: 24px;
+      padding: 8px 10px;
+      color: #111;
+      background: var(--yellow);
+      font: 700 10px/1 var(--mono);
+    }
+    .scene-note { position: absolute; left: 24px; right: 24px; bottom: 20px; color: #8e9a9d; font: 10px/1.5 var(--mono); }
+
+    .evidence-grid {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 26px;
+      align-items: stretch;
+    }
+    .evidence-board {
+      padding: 34px;
+      background: var(--ink);
+      color: var(--white);
+      border-top: 7px solid var(--orange);
+    }
+    .evidence-title { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
+    .evidence-title h3 { margin: 0; font: 600 28px/1.1 var(--serif); }
+    .evidence-title span { color: #909b9e; font: 10px/1 var(--mono); }
+    .file-dots {
+      margin: 30px 0 24px;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 8px;
+    }
+    .file-dot {
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.2);
+      font: 700 10px/1 var(--mono);
+    }
+    .file-dot.root { background: var(--teal); }
+    .file-dot.child { color: #261611; background: var(--orange); }
+    .evidence-split { display: grid; grid-template-columns: 6fr 10fr; gap: 8px; }
+    .evidence-split div { padding: 13px; font: 700 11px/1.3 var(--mono); }
+    .evidence-split .roots { background: var(--teal-soft); color: #083c38; }
+    .evidence-split .children { background: var(--orange-soft); color: #6c2415; }
+    .evidence-result {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid #465054;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 14px;
+      align-items: center;
+      text-align: center;
+    }
+    .evidence-result strong { display: block; font: 600 36px/1 var(--serif); }
+    .evidence-result .wrong strong { color: #ff796c; }
+    .evidence-result .right strong { color: #71d7c5; }
+    .evidence-result .arrow { color: #788487; font: 22px/1 var(--mono); }
+    .evidence-result span { color: #9ba6a8; font: 10px/1.4 var(--mono); }
+
+    .cause-panel { display: grid; gap: 14px; }
+    .cause-card {
+      position: relative;
+      padding: 22px 24px 22px 52px;
+      background: var(--white);
+      border: 1px solid var(--line);
+    }
+    .cause-card::before {
+      content: attr(data-n);
+      position: absolute;
+      left: 16px;
+      top: 21px;
+      color: var(--orange);
+      font: 700 12px/1 var(--mono);
+    }
+    .cause-card:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 24px;
+      bottom: -15px;
+      width: 1px;
+      height: 15px;
+      background: var(--orange);
+    }
+    .cause-card b { display: block; margin-bottom: 5px; }
+    .cause-card p { margin: 0; color: var(--muted); font-size: 13px; }
+    .cause-card code { color: var(--red); font-size: 11px; }
+    .proof-note {
+      grid-column: 1 / -1;
+      padding: 20px 24px;
+      border-left: 5px solid var(--yellow);
+      background: #fff8dd;
+      color: #4b3b16;
+    }
+
+    .mode-switch {
+      margin: 38px 0 20px;
+      display: inline-flex;
+      border: 1px solid var(--line-dark);
+    }
+    .mode-switch button {
+      min-width: 140px;
+      padding: 11px 16px;
+      border: 0;
+      border-right: 1px solid var(--line-dark);
+      background: transparent;
+      cursor: pointer;
+      font: 700 11px/1 var(--mono);
+    }
+    .mode-switch button:last-child { border-right: 0; }
+    .mode-switch button[aria-pressed="true"] { color: #fff; background: var(--ink); }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 34px;
+      align-items: stretch;
+    }
+    .pipe-node {
+      position: relative;
+      min-height: 150px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: var(--white);
+      border: 1px solid var(--line-dark);
+    }
+    .pipe-node:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -27px;
+      top: 50%;
+      transform: translateY(-50%);
+      font: 26px/1 var(--mono);
+    }
+    .pipe-node span { color: var(--muted); font: 10px/1.4 var(--mono); text-transform: uppercase; }
+    .pipe-node b { font: 600 22px/1.12 var(--serif); }
+    .pipe-node code { font-size: 10px; color: var(--red); }
+    .pipeline.correct .pipe-node { border-color: var(--teal); }
+    .pipeline.correct .pipe-node code { color: var(--teal); }
+    .pipeline.correct, .pipeline.wrong { display: none; }
+    .pipeline[data-visible="true"] { display: grid; }
+
+    .model-canvas {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #384347;
+      background: #0d1416;
+      box-shadow: var(--shadow);
+    }
+    .model-canvas svg { width: 100%; height: auto; display: block; }
+    .diagram-node { fill: #151f22; stroke: #647176; stroke-width: 1.5; }
+    .diagram-node.primary { fill: #073e3b; stroke: #51c3b8; stroke-width: 2; }
+    .diagram-node.hidden { fill: #482219; stroke: #e56a4e; }
+    .diagram-node.project { fill: #4a3511; stroke: #eeb33a; }
+    .diagram-title { fill: #fff; font: 700 16px var(--sans); }
+    .diagram-sub { fill: #9ca8aa; font: 11px var(--mono); }
+    .diagram-edge { fill: none; stroke: #687477; stroke-width: 1.5; }
+    .diagram-edge.orange { stroke: #e56a4e; stroke-dasharray: 5 5; }
+    .diagram-edge.teal { stroke: #51c3b8; }
+    .model-legend {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: #354044;
+      border-top: 1px solid #354044;
+    }
+    .model-legend div { padding: 16px 18px; background: #121a1d; color: #aab4b6; font-size: 12px; }
+    .model-legend b { display: block; margin-bottom: 4px; color: #fff; }
+
+    .timeline {
+      margin-top: 46px;
+      padding: 32px;
+      color: var(--ink);
+      background: var(--white);
+      border: 1px solid var(--line);
+    }
+    .timeline-top { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 34px; }
+    .timeline-top h3 { margin: 0; font: 600 28px/1.1 var(--serif); }
+    .row-counter { padding: 9px 12px; color: #fff; background: var(--teal); font: 700 11px/1 var(--mono); }
+    .time-track {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      position: relative;
+    }
+    .time-track::before {
+      content: "";
+      position: absolute;
+      left: 7%;
+      right: 7%;
+      top: 19px;
+      height: 2px;
+      background: var(--line-dark);
+    }
+    .time-event { position: relative; text-align: center; z-index: 1; }
+    .time-event i {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 14px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--line-dark);
+      border-radius: 50%;
+      background: var(--white);
+      font: 700 10px/1 var(--mono);
+      font-style: normal;
+    }
+    .time-event.compact i { color: #fff; border-color: var(--orange); background: var(--orange); }
+    .time-event.branch i { color: #fff; border-color: var(--ink); background: var(--ink); }
+    .time-event b { display: block; font-size: 12px; }
+    .time-event span { display: block; margin-top: 4px; color: var(--muted); font: 9px/1.4 var(--mono); }
+    .timeline-rule {
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border: 1px solid var(--line);
+    }
+    .timeline-rule div { padding: 15px; border-right: 1px solid var(--line); font-size: 12px; }
+    .timeline-rule div:last-child { border-right: 0; }
+    .timeline-rule b { color: var(--teal); }
+
+    .ui-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 26px;
+      align-items: start;
+    }
+    .app-frame {
+      aspect-ratio: 1040 / 840;
+      display: grid;
+      grid-template-rows: 5.7fr 27fr 8fr 6fr 7fr 43fr 3.3fr;
+      background: #e8edf0;
+      border: 9px solid var(--ink);
+      box-shadow: var(--shadow);
+      font: 10px/1.2 var(--mono);
+      overflow: hidden;
+    }
+    .app-row {
+      position: relative;
+      padding: 7px 10px;
+      border-bottom: 1px solid #aab4b8;
+      overflow: hidden;
+    }
+    .app-row::before {
+      content: attr(data-row);
+      position: absolute;
+      left: 8px;
+      top: 6px;
+      color: #7c898d;
+      font-size: 8px;
+    }
+    .app-row > .row-content { height: 100%; margin-left: 38px; display: flex; align-items: center; gap: 8px; }
+    .r1 { color: #fff; background: #182124; }
+    .r2 { background: #c8ddd4; }
+    .r3, .r5 { background: #fffdf7; }
+    .r4 { background: #fff2c9; }
+    .r6 { padding: 0; background: #f7f4ec; }
+    .r7 { color: #cad3d5; background: #283236; }
+    .mini-brand { font-weight: 800; margin-right: auto; }
+    .lens { padding: 5px 8px; color: #fff; background: var(--teal); border: 1px solid #4ec0b5; }
+    .mini-btn { padding: 4px 7px; border: 1px solid currentColor; }
+    .agent-cat {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 2px solid #345d58;
+      border-radius: 50%;
+      background: #fff7d6;
+      font-size: 18px;
+    }
+    .agent-cat.selected { outline: 3px solid var(--orange); }
+    .slot-pick { padding: 5px 8px; border: 1px solid #849094; background: #fff; }
+    .session-mini {
+      width: 100%;
+      display: grid;
+      grid-template-rows: 42px 1fr;
+    }
+    .session-toolbar-mini {
+      padding: 7px 9px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid #adb7b9;
+      background: #fff;
+    }
+    .session-toolbar-mini b { margin-right: auto; }
+    .copy-main { padding: 7px 10px; color: #fff; background: var(--orange); border: 0; font-weight: 800; }
+    .session-table-mini { display: grid; grid-template-columns: 1.25fr 1fr .65fr; align-content: start; }
+    .session-table-mini span { padding: 8px; border-right: 1px solid #c8cecf; border-bottom: 1px solid #c8cecf; }
+    .session-table-mini .head { font-weight: 800; background: #e5e9e9; }
+    .callouts { display: grid; gap: 12px; }
+    .callout {
+      padding: 18px;
+      border: 1px solid var(--line);
+      background: var(--white);
+    }
+    .callout .coord { color: var(--orange); font: 700 10px/1 var(--mono); }
+    .callout h4 { margin: 7px 0 5px; font-size: 14px; }
+    .callout p { margin: 0; color: var(--muted); font-size: 12px; }
+    .callout.locked { border-left: 5px solid var(--orange); }
+
+    .filter-demo {
+      margin-top: 42px;
+      padding: 28px;
+      background: var(--white);
+      border: 1px solid var(--line);
+    }
+    .filter-head { display: flex; justify-content: space-between; gap: 20px; align-items: end; flex-wrap: wrap; }
+    .filter-head h3 { margin: 0; font: 600 27px/1.1 var(--serif); }
+    .filter-controls { display: flex; gap: 14px; flex-wrap: wrap; }
+    .segmented { display: inline-flex; border: 1px solid var(--line-dark); }
+    .segmented button {
+      padding: 8px 11px;
+      border: 0;
+      border-right: 1px solid var(--line-dark);
+      background: transparent;
+      cursor: pointer;
+      font: 700 10px/1 var(--mono);
+    }
+    .segmented button:last-child { border-right: 0; }
+    .segmented button[aria-pressed="true"] { color: #fff; background: var(--teal); }
+    .demo-table { margin-top: 22px; border-top: 2px solid var(--ink); }
+    .demo-row {
+      display: grid;
+      grid-template-columns: 1.4fr .85fr .85fr .7fr;
+      min-height: 58px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+    .demo-row > * { padding: 10px; }
+    .demo-row.head { min-height: 38px; color: var(--muted); font: 700 10px/1 var(--mono); }
+    .demo-row[hidden] { display: none; }
+    .demo-title b { display: block; }
+    .demo-title small { color: var(--muted); font: 9px/1.4 var(--mono); }
+    .badge { display: inline-block; padding: 4px 7px; border: 1px solid var(--line); font: 9px/1 var(--mono); }
+    .filter-empty { padding: 24px; color: var(--muted); text-align: center; display: none; }
+
+    .network-canvas {
+      border: 1px solid #354044;
+      background: #0d1416;
+      box-shadow: var(--shadow);
+    }
+    .network-canvas svg { width: 100%; height: auto; display: block; }
+    .net-node { fill: #172124; stroke: #697679; stroke-width: 1.5; }
+    .net-device { fill: #073e3b; stroke: #5bc6bc; stroke-width: 2; }
+    .net-service { fill: #4a3511; stroke: #eeb33a; stroke-width: 1.5; stroke-dasharray: 6 5; }
+    .net-edge { stroke: #5bc6bc; stroke-width: 2.5; fill: none; }
+    .net-signal { stroke: #eeb33a; stroke-width: 1.5; stroke-dasharray: 6 5; fill: none; }
+    .net-title { fill: #fff; font: 700 15px var(--sans); }
+    .net-sub { fill: #9eabad; font: 10px var(--mono); }
+    .network-caption {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-top: 0;
+      background: var(--white);
+    }
+    .network-caption div { padding: 18px; border-right: 1px solid var(--line); font-size: 12px; }
+    .network-caption div:last-child { border-right: 0; }
+    .network-caption b { display: block; margin-bottom: 4px; color: var(--teal); }
+
+    .roadmap {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      align-items: end;
+      gap: 7px;
+      min-height: 430px;
+    }
+    .phase {
+      position: relative;
+      min-height: var(--h);
+      padding: 18px 15px;
+      color: #fff;
+      background: var(--ink);
+      border-top: 6px solid var(--c);
+    }
+    .phase::after {
+      content: "";
+      position: absolute;
+      right: -8px;
+      top: 30px;
+      width: 8px;
+      height: 1px;
+      background: var(--line-dark);
+    }
+    .phase:last-child::after { display: none; }
+    .phase span { color: var(--c); font: 700 10px/1 var(--mono); }
+    .phase h3 { margin: 12px 0 8px; font: 600 18px/1.15 var(--serif); }
+    .phase p { margin: 0; color: #aab4b6; font-size: 11px; line-height: 1.5; }
+    .phase strong { position: absolute; left: 15px; bottom: 14px; color: #fff; font: 700 9px/1.3 var(--mono); }
+    .gate-note { margin-top: 26px; padding: 18px 22px; border-left: 5px solid var(--orange); background: var(--white); }
+
+    .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line-dark); border: 1px solid var(--line-dark); }
+    .review-gate {
+      position: relative;
+      min-height: 230px;
+      padding: 28px;
+      background: var(--white);
+    }
+    .review-gate:first-child { grid-column: 1 / -1; }
+    .review-gate input { position: absolute; opacity: 0; pointer-events: none; }
+    .review-gate label { display: block; cursor: pointer; }
+    .check {
+      width: 28px;
+      height: 28px;
+      margin-bottom: 22px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--ink);
+      font: 800 16px/1 var(--mono);
+    }
+    .review-gate input:checked + label .check { color: #fff; border-color: var(--teal); background: var(--teal); }
+    .review-gate input:checked + label .check::before { content: "✓"; }
+    .review-gate h3 { margin: 0 0 10px; font: 600 24px/1.1 var(--serif); }
+    .review-gate p { margin: 0; color: var(--muted); font-size: 13px; }
+    .review-gate .consequence { margin-top: 18px; color: var(--ink); font: 700 10px/1.45 var(--mono); }
+    .review-progress {
+      margin-top: 20px;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: #fff;
+      background: var(--ink);
+    }
+    .review-progress strong { font: 600 28px/1 var(--serif); }
+    .progress-bar { flex: 1; height: 6px; background: #3c4649; }
+    .progress-bar i { display: block; height: 100%; width: 0; background: var(--orange); transition: width .2s ease; }
+
+    details {
+      border-top: 1px solid var(--line-dark);
+      background: var(--white);
+    }
+    details:last-child { border-bottom: 1px solid var(--line-dark); }
+    summary {
+      padding: 20px 22px;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      font-weight: 800;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; color: var(--orange); font: 700 20px/1 var(--mono); }
+    details[open] summary::after { content: "−"; }
+    .detail-body { padding: 0 22px 26px; color: var(--ink-2); }
+    .detail-body p { max-width: 900px; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .data-table th, .data-table td { padding: 12px; text-align: left; vertical-align: top; border: 1px solid var(--line); }
+    .data-table th { background: var(--paper-2); }
+    .data-table code { font-size: 10px; }
+    pre {
+      margin: 16px 0 0;
+      padding: 20px;
+      overflow: auto;
+      color: #d8dfdf;
+      background: var(--ink);
+      font-size: 11px;
+      line-height: 1.65;
+    }
+    .path-list { display: grid; gap: 8px; font: 11px/1.5 var(--mono); }
+    .path-list span { padding: 10px 12px; border-left: 3px solid var(--teal); background: var(--paper); overflow-wrap: anywhere; }
+
+    footer {
+      padding: 48px 0 70px;
+      color: #a9b4b6;
+      background: var(--ink);
+    }
+    footer .wrap { display: flex; justify-content: space-between; gap: 30px; align-items: end; }
+    footer strong { display: block; color: #fff; font: 600 28px/1.1 var(--serif); }
+    footer p { margin: 8px 0 0; max-width: 620px; }
+    footer .mono { color: #6f7c7f; font-size: 10px; }
+
+    @media (max-width: 980px) {
+      .chapter-head, .thesis, .evidence-grid, .ui-layout { grid-template-columns: 1fr; }
+      .pipeline { grid-template-columns: 1fr 1fr; }
+      .pipe-node:nth-child(2)::after { display: none; }
+      .roadmap { grid-template-columns: repeat(3, 1fr); }
+      .network-caption { grid-template-columns: 1fr 1fr; }
+      .network-caption div:nth-child(2) { border-right: 0; }
+      .network-caption div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    }
+    @media (max-width: 720px) {
+      .rail {
+        inset: 0 0 auto 0;
+        width: auto;
+        height: 54px;
+        padding: 8px 12px;
+        flex-direction: row;
+      }
+      .rail nav { margin: 0 0 0 auto; display: flex; }
+      .rail a { width: 32px; height: 32px; }
+      .rail-version { display: none; }
+      main { margin: 54px 0 0; }
+      .wrap { width: min(100% - 32px, 1240px); }
+      .hero { min-height: auto; padding: 70px 0; }
+      .hero-proof, .model-legend, .timeline-rule { grid-template-columns: 1fr; }
+      .hero-proof > div, .model-legend div, .timeline-rule div { border-right: 0; border-bottom: 1px solid rgba(255,255,255,.2); }
+      .chapter { padding: 72px 0; }
+      .chapter-head { gap: 22px; margin-bottom: 34px; }
+      .pipeline, .review-grid, .network-caption, .roadmap { grid-template-columns: 1fr; }
+      .pipe-node::after { display: none; }
+      .review-gate:first-child { grid-column: auto; }
+      .time-track { grid-template-columns: 1fr; gap: 12px; }
+      .time-track::before { left: 19px; right: auto; top: 10px; bottom: 10px; width: 2px; height: auto; }
+      .time-event { display: grid; grid-template-columns: 40px 1fr; gap: 14px; text-align: left; align-items: center; }
+      .time-event i { margin: 0; }
+      .file-dots { grid-template-columns: repeat(4, 1fr); }
+      .demo-row { grid-template-columns: 1.2fr .8fr; }
+      .demo-row > :nth-child(3), .demo-row > :nth-child(4) { display: none; }
+      footer .wrap { display: block; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+    @media print {
+      .rail, .hero-actions, .mode-switch, .filter-controls, .review-progress { display: none !important; }
+      main { margin: 0; }
+      .wrap { width: 100%; }
+      .hero { min-height: auto; color: #000; background: #fff; border-bottom: 3px solid #000; }
+      .hero h1 em, .accent { color: #000; }
+      .chapter { padding: 35px 0; break-inside: avoid; }
+      .dark { color: #000 !important; background: #fff !important; }
+      .model-canvas, .network-canvas { break-inside: avoid; }
+      details > .detail-body { display: block !important; }
+      details { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="rail" aria-label="章节导航">
+    <div class="rail-mark" aria-label="AgentDesk">AD</div>
+    <nav>
+      <a href="#scene" title="真实场景">01</a>
+      <a href="#proof" title="问题证据">02</a>
+      <a href="#identity" title="身份模型">03</a>
+      <a href="#interface" title="界面落点">04</a>
+      <a href="#system" title="系统架构">05</a>
+      <a href="#delivery" title="开发顺序">06</a>
+      <a href="#review" title="审阅决策">07</a>
+      <a href="#appendix" title="技术附录">08</a>
+    </nav>
+    <div class="rail-version">V0.4 · OWNER REVIEW</div>
+  </aside>
+
+  <main>
+    <header class="hero">
+      <div class="wrap">
+        <div class="hero-meta">AgentDesk Personal Agent Mesh · 0.4 · 只审阅，不实施</div>
+        <h1>压缩不是新项目。<br>真正的问题是：<em>列表把内部文件当成了会话。</em></h1>
+        <p class="hero-lead">这份审阅稿先用本机真实数据解释错误，再给出稳定的项目、会话、压缩、设备与 Agent 模型。所有后端和前端设计都从同一条因果链推出，不靠堆功能名。</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#proof">先看证据 →</a>
+          <a class="button" href="#identity">看最终模型</a>
+          <button class="button" type="button" id="printBtn">打印 / 存 PDF</button>
+        </div>
+        <div class="hero-proof" aria-label="本机脱敏核查摘要">
+          <div><strong>6</strong><span>USER ROOTS<br>真正的用户会话</span></div>
+          <div><strong>10</strong><span>INTERNAL CHILDREN<br>guardian / subagent</span></div>
+          <div><strong>16 → 6</strong><span>当前列表行 → 正确列表行</span></div>
+        </div>
+        <p class="hero-footnote">证据快照：2026-08-08，只读扫描本机 Codex 元数据；未展示会话正文、标题、账号或完整 ID。</p>
+      </div>
+    </header>
+
+    <section class="chapter" id="scene">
+      <div class="wrap">
+        <div class="chapter-head">
+          <div>
+            <div class="section-kicker">01 · 先把工作状态说对</div>
+            <h2>用户管理的是自己的 Agent，<br>设备只是它们可以工作的端口。</h2>
+          </div>
+          <p class="chapter-intro">一个账号能同时登录多台电脑，一台电脑也能登录多个账号。主界面必须先展示去重后的全局 Agent，再用设备筛选和运行位置选择器决定动作落到哪里。</p>
+        </div>
+
+        <div class="thesis">
+          <div class="thesis-copy">
+            <blockquote>一只猫 = 一个全局 Agent。<br>不是一台机器，也不是一个客户端文件夹。</blockquote>
+            <p>MacBook 今天是控制台，Mac Studio 和 Windows 工作站是执行端；明天角色可以互换。设备加入不会复制猫，设备删除也不会误删其他设备上的同一 Agent。</p>
+            <p><b>真正的动作目标：</b><span class="mono">deviceId + profileId</span>。<br><b>真正的展示身份：</b><span class="mono">agentId</span>。</p>
+          </div>
+          <div class="scene-map" role="img" aria-label="一个所有者通过全局 Agent 目录连接三台设备，每台设备承载不同运行位置">
+            <span class="scene-agent">GLOBAL AGENT CATALOG</span>
+            <div class="scene-owner">一个人<br>2 个 Agent<br>不是 6 张机器卡</div>
+            <span class="scene-line a"></span>
+            <span class="scene-line b"></span>
+            <span class="scene-line c"></span>
+            <div class="scene-device a"><b>MacBook</b><i>控制台 / Slot × 2</i></div>
+            <div class="scene-device b"><b>Mac Studio</b><i>在线 / Slot × 3</i></div>
+            <div class="scene-device c"><b>Windows GPU</b><i>在线 / Slot × 1</i></div>
+            <p class="scene-note">设备是筛选轴；Agent 是管理轴；具体 Slot 是打开、诊断、定位和远控动作的落点。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter orange" id="proof">
+      <div class="wrap">
+        <div class="chapter-head">
+          <div>
+            <div class="section-kicker">02 · 不是感觉，是已验证的索引错误</div>
+            <h2>16 个文件不等于 16 条会话。</h2>
+          </div>
+          <p class="chapter-intro">当前扫描器把“存储载体”直接升级成“用户身份”。压缩流程附近产生的 guardian 内部 rollout 因为拥有不同的物理 ID，就被错误地渲染成同名新行。</p>
+        </div>
+
+        <div class="evidence-grid">
+          <div class="evidence-board">
+            <div class="evidence-title">
+              <h3>本机记录拆解</h3>
+              <span>SANITIZED LOCAL AUDIT</span>
+            </div>
+            <div class="file-dots" aria-label="十六个物理文件，其中六个根会话，十个内部子记录">
+              <i class="file-dot root">R1</i><i class="file-dot child">G1</i>
+              <i class="file-dot child">G2</i><i class="file-dot root">R2</i>
+              <i class="file-dot child">G3</i><i class="file-dot root">R3</i>
+              <i class="file-dot child">G4</i><i class="file-dot child">G5</i>
+              <i class="file-dot root">R4</i><i class="file-dot child">G6</i>
+              <i class="file-dot child">G7</i><i class="file-dot root">R5</i>
+              <i class="file-dot child">G8</i><i class="file-dot root">R6</i>
+              <i class="file-dot child">G9</i><i class="file-dot child">G10</i>
+            </div>
+            <div class="evidence-split">
+              <div class="roots">6 × USER ROOT<br>应该成为 6 行</div>
+              <div class="children">10 × GUARDIAN<br>只能挂在父会话下</div>
+            </div>
+            <div class="evidence-result">
+              <div class="wrong"><strong>16</strong><span>当前渲染行</span></div>
+              <div class="arrow">≠</div>
+              <div class="right"><strong>6</strong><span>正确逻辑行</span></div>
+            </div>
+          </div>
+
+          <div class="cause-panel">
+            <article class="cause-card" data-n="01">
+              <b>扫描器遍历所有 JSONL</b>
+              <p>用户根文件和 guardian/subagent 文件没有先分类。</p>
+            </article>
+            <article class="cause-card" data-n="02">
+              <b>物理 ID 被当作会话 ID</b>
+              <p><code>id = payload.id</code>；10 个内部文件各有不同 ID。</p>
+            </article>
+            <article class="cause-card" data-n="03">
+              <b>父子关系被忽略</b>
+              <p><code>parent_thread_id</code>、<code>thread_source</code> 与 <code>source.subagent</code> 都没进入分类。</p>
+            </article>
+            <article class="cause-card" data-n="04">
+              <b>表格按物理地址生成独立行</b>
+              <p><code>profileId + address</code> 让每个 guardian 变成同名新条目。</p>
+            </article>
+          </div>
+
+          <div class="proof-note"><b>为什么看起来像“新项目”？</b> 当前“项目”列只是根元数据里的 <span class="mono">cwd</span>。内部子记录借用了父会话的标题和工作目录，于是出现“同一个标题、同一个路径、换了一个 ID”的新行。它不是新 ProjectIdentity，只是错误的新列表身份。</div>
+        </div>
+
+        <div class="mode-switch" role="group" aria-label="切换错误与正确处理链">
+          <button type="button" data-pipeline="wrong" aria-pressed="true">当前错误链</button>
+          <button type="button" data-pipeline="correct" aria-pressed="false">正确处理链</button>
+        </div>
+        <div class="pipeline wrong" data-pipeline-panel="wrong" data-visible="true">
+          <div class="pipe-node"><span>INPUT</span><b>每个 JSONL</b><code>16 physical files</code></div>
+          <div class="pipe-node"><span>IDENTITY</span><b>直接取 payload.id</b><code>16 unique ids</code></div>
+          <div class="pipe-node"><span>TABLE KEY</span><b>profile + address</b><code>16 row keys</code></div>
+          <div class="pipe-node"><span>VISIBLE RESULT</span><b>16 条“会话”</b><code>10 条是假身份</code></div>
+        </div>
+        <div class="pipeline correct" data-pipeline-panel="correct" data-visible="false">
+          <div class="pipe-node"><span>INPUT</span><b>每个物理记录</b><code>retain evidence</code></div>
+          <div class="pipe-node"><span>CLASSIFY</span><b>根 / checkpoint / branch</b><code>read lineage</code></div>
+          <div class="pipe-node"><span>GROUP</span><b>ConversationIdentity</b><code>6 logical roots</code></div>
+          <div class="pipe-node"><span>VISIBLE RESULT</span><b>6 条用户会话</b><code>10 branches hidden</code></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter dark" id="identity">
+      <div class="wrap">
+        <div class="chapter-head">
+          <div>
+            <div class="section-kicker">03 · 正确身份模型</div>
+            <h2>项目、会话、压缩、分支、设备副本，必须各有自己的生命。</h2>
+          </div>
+          <p class="chapter-intro">只要这六层不混，压缩、归档、跨设备复制和内部 Agent 执行都不会制造假项目。列表只认 ConversationIdentity；其他对象要么是归属，要么是内部状态，要么是动作位置。</p>
+        </div>
+
+        <div class="model-canvas">
+          <svg viewBox="0 0 1160 610" role="img" aria-labelledby="modelTitle modelDesc">
+            <title id="modelTitle">项目、逻辑会话、压缩检查点、内部执行分支、设备副本和物理记录的关系</title>
+            <desc id="modelDesc">ProjectIdentity 包含多个 ConversationIdentity。压缩检查点和内部执行分支都位于会话内部。会话可有多个设备副本，副本再关联物理记录。</desc>
+            <defs>
+              <marker id="arrowModel" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#687477"></path></marker>
+              <marker id="arrowTeal" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#51c3b8"></path></marker>
+            </defs>
+
+            <path class="diagram-edge" marker-end="url(#arrowModel)" d="M265 128 C330 128 330 230 390 230"></path>
+            <path class="diagram-edge orange" marker-end="url(#arrowModel)" d="M595 230 C675 150 710 120 790 120"></path>
+            <path class="diagram-edge orange" marker-end="url(#arrowModel)" d="M595 250 C690 250 705 290 790 290"></path>
+            <path class="diagram-edge teal" marker-end="url(#arrowTeal)" d="M595 270 C680 360 705 445 790 445"></path>
+            <path class="diagram-edge teal" marker-end="url(#arrowTeal)" d="M945 445 C1000 445 1010 445 1060 445"></path>
+            <path class="diagram-edge orange" d="M790 120 C685 75 575 90 545 170"></path>
+
+            <rect class="diagram-node project" x="55" y="70" width="210" height="116"></rect>
+            <text class="diagram-title" x="80" y="112">ProjectIdentity</text>
+            <text class="diagram-sub" x="80" y="139">稳定项目 / 仓库</text>
+            <text class="diagram-sub" x="80" y="159">不会因压缩创建</text>
+
+            <rect class="diagram-node primary" x="390" y="170" width="205" height="125"></rect>
+            <text class="diagram-title" x="415" y="214">ConversationIdentity</text>
+            <text class="diagram-sub" x="415" y="241">用户可见的一行</text>
+            <text class="diagram-sub" x="415" y="264">stable conversationId</text>
+
+            <rect class="diagram-node hidden" x="790" y="66" width="205" height="108"></rect>
+            <text class="diagram-title" x="815" y="107">Checkpoint</text>
+            <text class="diagram-sub" x="815" y="133">compacted × N</text>
+            <text class="diagram-sub" x="815" y="153">只增加内部计数</text>
+
+            <rect class="diagram-node hidden" x="790" y="236" width="205" height="108"></rect>
+            <text class="diagram-title" x="815" y="277">ExecutionBranch</text>
+            <text class="diagram-sub" x="815" y="303">guardian / subagent</text>
+            <text class="diagram-sub" x="815" y="323">默认隐藏</text>
+
+            <rect class="diagram-node primary" x="790" y="390" width="205" height="108"></rect>
+            <text class="diagram-title" x="815" y="431">SessionReplica</text>
+            <text class="diagram-sub" x="815" y="457">设备 + Slot</text>
+            <text class="diagram-sub" x="815" y="477">动作落点</text>
+
+            <rect class="diagram-node" x="1025" y="390" width="110" height="108"></rect>
+            <text class="diagram-title" x="1044" y="431">Physical</text>
+            <text class="diagram-sub" x="1044" y="457">JSONL</text>
+            <text class="diagram-sub" x="1044" y="477">DB row</text>
+
+            <text class="diagram-sub" x="296" y="112">1 PROJECT → MANY CONVERSATIONS</text>
+            <text class="diagram-sub" x="665" y="86">LOOP INSIDE THE SAME CONVERSATION</text>
+            <text class="diagram-sub" x="715" y="420">1..N LOCATIONS</text>
+          </svg>
+          <div class="model-legend">
+            <div><b>默认显示</b>ConversationIdentity；列表的一行就是用户的一条对话。</div>
+            <div><b>默认隐藏</b>Checkpoint 与 ExecutionBranch；它们只能在诊断谱系中展开。</div>
+            <div><b>动作前选择</b>SessionReplica；复制、打开、发送都落到确切设备位置。</div>
+          </div>
+        </div>
+        <p class="hero-footnote">六层技术对象：ProjectIdentity / ConversationIdentity / ConversationCheckpoint / ExecutionBranch / SessionReplica / PhysicalSessionRecord。</p>
+
+        <div class="timeline">
+          <div class="timeline-top">
+            <div><div class="section-kicker">同一会话的真实时间线</div><h3>发生五次压缩，列表仍然只有一行。</h3></div>
+            <div class="row-counter">VISIBLE ROWS = 1</div>
+          </div>
+          <div class="time-track" aria-label="同一逻辑会话经历消息、压缩、内部 guardian 和归档的时间线">
+            <div class="time-event"><i>01</i><b>新建会话</b><span>C-019f…</span></div>
+            <div class="time-event"><i>02</i><b>持续对话</b><span>SAME ROOT</span></div>
+            <div class="time-event compact"><i>C1</i><b>压缩 #1</b><span>CHECKPOINT</span></div>
+            <div class="time-event"><i>03</i><b>继续对话</b><span>SAME ROW</span></div>
+            <div class="time-event branch"><i>G</i><b>guardian</b><span>HIDDEN BRANCH</span></div>
+            <div class="time-event compact"><i>C5</i><b>压缩 #5</b><span>CHECKPOINT</span></div>
+            <div class="time-event"><i>04</i><b>归档</b><span>STATE CHANGE</span></div>
+          </div>
+          <div class="timeline-rule">
+            <div><b>conversationId</b><br>从开始到归档始终不变。</div>
+            <div><b>projectId</b><br>不会因 cwd、文件或压缩变化。</div>
+            <div><b>row key</b><br>只由逻辑会话决定，不由 payload.id 决定。</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" id="interface">
+      <div class="wrap">
+        <div class="chapter-head">
+          <div>
+            <div class="section-kicker">04 · 前端不推翻，只把维度放对位置</div>
+            <h2>七行骨架不动。设备、Agent、Slot、会话各回到自己的控件。</h2>
+          </div>
+          <p class="chapter-intro">现有 1040 × 840 主窗口继续使用 <span class="mono">48px auto auto auto auto minmax(0,1fr) 28px</span>。设备 Lens 进顶栏，运行位置进账号控制条，会话只在主工作区按逻辑身份出现。</p>
+        </div>
+
+        <div class="ui-layout">
+          <div class="app-frame" role="img" aria-label="AgentDesk 七行固定主窗口线框图">
+            <div class="app-row r1" data-row="01"><div class="row-content"><span class="mini-brand">AgentDesk</span><span class="lens">全部设备 ▾</span><span class="mini-btn">工具</span><span class="mini-btn">?</span></div></div>
+            <div class="app-row r2" data-row="02"><div class="row-content"><span class="agent-cat selected">🐈</span><span class="agent-cat">🐈‍⬛</span><span class="agent-cat">🐈</span><span class="quiet">全局 Agent · 不按机器复制</span></div></div>
+            <div class="app-row r3" data-row="03"><div class="row-content"><b>工作 Agent</b><span class="slot-pick">Mac Studio / Codex CLI ▾</span><span class="mini-btn">打开</span><span class="mini-btn">诊断</span><span class="mini-btn">移除</span></div></div>
+            <div class="app-row r4" data-row="04"><div class="row-content"><b>需要留意</b><span>1 个离线设备快照</span></div></div>
+            <div class="app-row r5" data-row="05"><div class="row-content"><b>全院额度</b><span>按 AccountBinding 去重，不按设备相加</span></div></div>
+            <div class="app-row r6" data-row="06">
+              <div class="session-mini">
+                <div class="session-toolbar-mini"><b>会话 · 6</b><span class="mini-btn">当前 Agent</span><span class="mini-btn">全部 Agent</span><span class="mini-btn">搜索</span><button class="copy-main" type="button">复制会话信息</button></div>
+                <div class="session-table-mini">
+                  <span class="head">会话</span><span class="head">项目</span><span class="head">位置</span>
+                  <span>AgentDesk 规划</span><span>/Documents/AgentDesk</span><span>2 个位置</span>
+                  <span>模型调优</span><span>/Projects/Lab</span><span>Mac Studio</span>
+                  <span>素材拆分</span><span>D:\Work\Assets</span><span>Windows GPU</span>
+                </div>
+              </div>
+            </div>
+            <div class="app-row r7" data-row="07"><div class="row-content">直连 · 索引已更新 · 无传输</div></div>
+          </div>
+
+          <aside class="callouts" aria-label="界面落点说明">
+            <div class="callout"><span class="coord">ROW 1 · Y 0–48</span><h4>设备 Lens</h4><p>“全部设备 / 某台设备”只改变筛选，不创建另一套 Agent 或会话身份。</p></div>
+            <div class="callout"><span class="coord">ROW 2 · PRESENTER</span><h4>全局 Agent</h4><p>同一 Agent 在三台设备仍是一只猫，只显示“3 个位置 · 2 在线”。</p></div>
+            <div class="callout"><span class="coord">ROW 3 · ACTION TARGET</span><h4>运行位置</h4><p>所有副作用动作落到明确的 deviceId + profileId，绝不靠名称猜机器。</p></div>
+            <div class="callout locked"><span class="coord">ROW 6 · PRIMARY ACTION</span><h4>复制会话信息</h4><p>继续是最明显的主按钮；格式永远只有路径和坐标，不增加话术模板。</p></div>
+          </aside>
+        </div>
+
+        <div class="filter-demo" aria-label="设备与 Agent 两个正交筛选维度的交互示例">
+          <div class="filter-head">
+            <div><div class="section-kicker">可操作示例</div><h3>设备 Lens × Agent 范围</h3></div>
+            <div class="filter-controls">
+              <div class="segmented" aria-label="设备 Lens">
+                <button type="button" data-device="all" aria-pressed="true">全部设备</button>
+                <button type="button" data-device="mbp" aria-pressed="false">MacBook</button>
+                <button type="button" data-device="studio" aria-pressed="false">Mac Studio</button>
+                <button type="button" data-device="win" aria-pressed="false">Windows</button>
+              </div>
+              <div class="segmented" aria-label="Agent 范围">
+                <button type="button" data-agent="current" aria-pressed="true">当前 Agent</button>
+                <button type="button" data-agent="all" aria-pressed="false">全部 Agent</button>
+              </div>
+            </div>
+          </div>
+          <div class="demo-table">
+            <div class="demo-row head"><span>逻辑会话</span><span>Agent</span><span>位置</span><span>内部状态</span></div>
+            <div class="demo-row" data-devices="mbp studio" data-owner="current"><span class="demo-title"><b>AgentDesk 规划</b><small>conversation C-01 · 始终一行</small></span><span>工作 Agent</span><span><span class="badge">2 个位置</span></span><span>5 checkpoints · 1 branch hidden</span></div>
+            <div class="demo-row" data-devices="studio" data-owner="current"><span class="demo-title"><b>模型调优</b><small>conversation C-02</small></span><span>工作 Agent</span><span>Mac Studio</span><span>0 checkpoint</span></div>
+            <div class="demo-row" data-devices="win" data-owner="other"><span class="demo-title"><b>素材拆分</b><small>conversation C-03</small></span><span>个人 Agent</span><span>Windows GPU</span><span>2 checkpoints</span></div>
+          </div>
+          <div class="filter-empty">这个交叉范围内没有会话。</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter dark" id="system">
+      <div class="wrap">
+        <div class="chapter-head">
+          <div>
+            <div class="section-kicker">05 · 前后端与 P2P 数据路径</div>
+            <h2>任意设备都能当控制台，信令只负责会合，业务数据留在设备之间。</h2>
+          </div>
+          <p class="chapter-intro">身份修正必须先在每台来源设备的适配器完成，再发布归一化库存。否则错误的 16 行会被同步到每台电脑，重复问题会被 Mesh 放大。</p>
+        </div>
+
+        <div class="network-canvas">
+          <svg viewBox="0 0 1160 620" role="img" aria-labelledby="networkTitle networkDesc">
+            <title id="networkTitle">AgentDesk Personal Mesh 的点对点架构</title>
+            <desc id="networkDesc">MacBook 与 Mac Studio 和 Windows 工作站按需建立加密点对点连接。信令和 TURN 只帮助会合或中继密文。每台设备内部由 UI、策略代理、身份分类器和本地适配器组成。</desc>
+            <defs>
+              <marker id="arrowNet" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5bc6bc"></path></marker>
+            </defs>
+
+            <path class="net-edge" marker-end="url(#arrowNet)" d="M350 295 C485 185 670 185 810 285"></path>
+            <path class="net-edge" marker-end="url(#arrowNet)" d="M350 325 C495 440 665 450 810 355"></path>
+            <path class="net-signal" d="M315 180 C450 65 710 65 845 180"></path>
+            <path class="net-signal" d="M580 130 L580 235"></path>
+
+            <rect class="net-device" x="70" y="180" width="280" height="260"></rect>
+            <text class="net-title" x="95" y="216">MacBook · 当前控制台</text>
+            <rect class="net-node" x="95" y="242" width="230" height="44"></rect>
+            <text class="net-sub" x="112" y="269">Main UI · Device Lens · Sessions</text>
+            <rect class="net-node" x="95" y="300" width="230" height="44"></rect>
+            <text class="net-sub" x="112" y="327">Main / Policy Broker</text>
+            <rect class="net-node" x="95" y="358" width="230" height="52"></rect>
+            <text class="net-sub" x="112" y="380">Classifier → ConversationIndex</text>
+            <text class="net-sub" x="112" y="397">Local adapters / cache</text>
+
+            <rect class="net-device" x="810" y="180" width="280" height="260"></rect>
+            <text class="net-title" x="835" y="216">Mac Studio / Windows · 执行端</text>
+            <rect class="net-node" x="835" y="242" width="230" height="44"></rect>
+            <text class="net-sub" x="852" y="269">Host context · visible consent</text>
+            <rect class="net-node" x="835" y="300" width="230" height="44"></rect>
+            <text class="net-sub" x="852" y="327">Main / Capability policy</text>
+            <rect class="net-node" x="835" y="358" width="230" height="52"></rect>
+            <text class="net-sub" x="852" y="380">Local source of truth</text>
+            <text class="net-sub" x="852" y="397">Sessions / screen / selected files</text>
+
+            <rect class="net-service" x="450" y="42" width="260" height="88"></rect>
+            <text class="net-title" x="485" y="78">Signaling + STUN/TURN</text>
+            <text class="net-sub" x="485" y="102">会合 / NAT / 必要时中继密文</text>
+
+            <rect class="net-node" x="438" y="250" width="284" height="120"></rect>
+            <text class="net-title" x="470" y="288">Authenticated P2P Channels</text>
+            <text class="net-sub" x="470" y="317">inventory · pointer · transfer</text>
+            <text class="net-sub" x="470" y="339">screen · input · telemetry</text>
+
+            <text class="net-sub" x="405" y="220">按需连接，不做 N² 常驻</text>
+            <text class="net-sub" x="460" y="520">服务端看不到账号、标题、路径、文件正文、屏幕和输入</text>
+          </svg>
+        </div>
+        <div class="network-caption">
+          <div><b>来源先分类</b>每台设备先把 root / checkpoint / branch 分清，再同步 ConversationIdentity。</div>
+          <div><b>服务端不授权</b>设备证书与本机策略决定能力；信令不能冒充设备。</div>
+          <div><b>动作是语义 ID</b>远端只收 profileId、conversationId 等稳定 ID，不收任意命令或路径。</div>
+          <div><b>一个输入目标</b>可同时观察多台设备，但键鼠只发往明确高亮的一台。</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" id="delivery">
+      <div class="wrap">
+        <div class="chapter-head">
+          <div>
+            <div class="section-kicker">06 · 开发顺序由依赖决定</div>
+            <h2>先修身份，再同步；先能找到会话，再远控。</h2>
+          </div>
+          <p class="chapter-intro">如果先接 P2P，当前的错误索引会被复制到所有设备。正确顺序是先把本地事实变干净，再建立目录和库存，最后才增加文件、屏幕和输入能力。</p>
+        </div>
+
+        <div class="roadmap" aria-label="AgentDesk Personal Mesh 分阶段开发路线">
+          <article class="phase" style="--h:190px;--c:#e34d2e"><span>GATE 0</span><h3>所有者审阅</h3><p>确认产品主轴、身份模型、界面与安全边界。</p><strong>当前所在位置</strong></article>
+          <article class="phase" style="--h:230px;--c:#eeb33a"><span>PHASE 1</span><h3>技术验证</h3><p>两机认证、WebRTC、STUN/TURN、系统权限与打包 ADR。</p><strong>真机证据</strong></article>
+          <article class="phase" style="--h:275px;--c:#51c3b8"><span>PHASE 2</span><h3>全局 Agent 目录</h3><p>Device、Agent、AccountBinding、Slot、删除与 tombstone。</p><strong>不复制猫</strong></article>
+          <article class="phase" style="--h:320px;--c:#51c3b8"><span>PHASE 3</span><h3>会话身份与库存</h3><p>先修 root/checkpoint/branch，再同步 Conversation 与 replica。</p><strong>16 → 6 的根治点</strong></article>
+          <article class="phase" style="--h:365px;--c:#eeb33a"><span>PHASE 4–5</span><h3>发送与文件</h3><p>SessionPointer、项目映射、离线队列和用户选定文件。</p><strong>路径 + 坐标不变</strong></article>
+          <article class="phase" style="--h:410px;--c:#e34d2e"><span>PHASE 6–9</span><h3>查看、控制、无人值守</h3><p>独立远控窗口、唯一输入目标；无人值守再次单独审阅。</p><strong>最后扩大权限</strong></article>
+        </div>
+        <div class="gate-note"><b>当前门禁：</b>本分支仍是 <span class="mono">DRAFT FOR OWNER REVIEW</span>。这轮只修改规划基准和审阅 HTML，没有实现扫描器、P2P、前端控件或数据迁移。</div>
+      </div>
+    </section>
+
+    <section class="chapter orange" id="review">
+      <div class="wrap">
+        <div class="chapter-head">
+          <div>
+            <div class="section-kicker">07 · 只审五个因果门</div>
+            <h2>不用回答二十四个散问题。<br>先确认五个会改变全局的决定。</h2>
+          </div>
+          <p class="chapter-intro">点击方框可在本页标记你的审阅进度；它不会写入文件或上传。任何一门不同意，就先改规划，不进入实现。</p>
+        </div>
+
+        <div class="review-grid">
+          <article class="review-gate">
+            <input id="gateA" type="checkbox">
+            <label for="gateA"><span class="check"></span><h3>A · 产品主轴</h3><p>单人 Personal Agent Mesh；Agent 是全局管理主轴，设备是筛选轴，Slot 是动作落点。一只猫不随机器数量增加。</p><div class="consequence">决定：领域模型、庭院数量、跨设备账号归并。</div></label>
+          </article>
+          <article class="review-gate">
+            <input id="gateB" type="checkbox">
+            <label for="gateB"><span class="check"></span><h3>B · 会话身份</h3><p>一行只代表 ConversationIdentity；压缩是 checkpoint；guardian/subagent 是隐藏分支；项目独立解析。</p><div class="consequence">决定：当前重复条目能否从根上消失。</div></label>
+          </article>
+          <article class="review-gate">
+            <input id="gateC" type="checkbox">
+            <label for="gateC"><span class="check"></span><h3>C · 第一版顺序</h3><p>先设备与 Agent 目录，再正确会话索引、发送和项目映射，之后才做屏幕与输入控制。</p><div class="consequence">决定：先得到 Agent 工作台，还是先得到普通远程桌面。</div></label>
+          </article>
+          <article class="review-gate">
+            <input id="gateD" type="checkbox">
+            <label for="gateD"><span class="check"></span><h3>D · 权限与数据</h3><p>不传凭据；目录/索引与屏幕/输入/文件分别授权；不提供通用 Shell、任意命令和任意路径执行。</p><div class="consequence">决定：协议边界、服务端可见数据和安全成本。</div></label>
+          </article>
+          <article class="review-gate">
+            <input id="gateE" type="checkbox">
+            <label for="gateE"><span class="check"></span><h3>E · 交互契约</h3><p>七行骨架不动；Device Lens 与 Agent 范围正交；“复制会话信息”仍是唯一主按钮，只含路径与坐标。</p><div class="consequence">决定：主窗口改动范围和日常使用效率。</div></label>
+          </article>
+        </div>
+        <div class="review-progress" aria-live="polite"><strong id="reviewCount">0 / 5</strong><div class="progress-bar"><i id="reviewBar"></i></div><span id="reviewText">等待审阅</span></div>
+      </div>
+    </section>
+
+    <section class="chapter" id="appendix">
+      <div class="wrap">
+        <div class="chapter-head">
+          <div>
+            <div class="section-kicker">08 · 技术附录</div>
+            <h2>细节全部保留，但不挡住主线。</h2>
+          </div>
+          <p class="chapter-intro">下面是实现者需要的稳定键、分类流程、异常矩阵、前后端边界与验收条件。默认折叠，审阅某一处时再展开。</p>
+        </div>
+
+        <details>
+          <summary>稳定键：每个 ID 到底解决什么问题</summary>
+          <div class="detail-body">
+            <table class="data-table">
+              <thead><tr><th>键</th><th>组成</th><th>只负责</th><th>绝不能负责</th></tr></thead>
+              <tbody>
+                <tr><td><code>agentId</code></td><td>Mesh UUID</td><td>全局 Agent / 一只猫</td><td>选择具体设备</td></tr>
+                <tr><td><code>slotKey</code></td><td>deviceId + profileId</td><td>动作落点</td><td>定义 Agent 身份</td></tr>
+                <tr><td><code>physicalRecordKey</code></td><td>设备 + Slot + payload.id</td><td>追踪 JSONL/DB 载体</td><td>直接生成列表行</td></tr>
+                <tr><td><code>adapterConversationKey</code></td><td>适配器用户根 thread ID</td><td>本地归组</td><td>脱离适配器命名空间全局合并</td></tr>
+                <tr><td><code>conversationId</code></td><td>强 provider ID、origin 链或设备作用域 ID</td><td>用户可见逻辑会话</td><td>代表项目</td></tr>
+                <tr><td><code>replicaId</code></td><td>设备 + Slot + adapterConversationKey</td><td>复制、打开、发送来源</td><td>让多设备副本变成多条会话</td></tr>
+                <tr><td><code>projectId</code></td><td>用户确认 / repo 指纹 / 稳定 workspace ID</td><td>项目归属与路径映射</td><td>由 cwd 字符串临时决定</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary>Codex 适配器：从物理记录到列表行的分类流程</summary>
+          <div class="detail-body">
+            <pre>for each physical record:
+  meta = readSessionMeta(record)
+  physicalRecordId = meta.payload.id
+
+  if meta.parent_thread_id
+     or meta.thread_source == "subagent"
+     or meta.source.subagent exists:
+       kind = INTERNAL_CHILD
+       parentKey = meta.parent_thread_id or meta.session_id
+       attachToDiagnosticLineage(parentKey)
+       neverCreateVisibleRow()
+  else:
+       kind = USER_ROOT
+       adapterConversationKey = meta.session_id or meta.id
+       upsertOneConversation(adapterConversationKey)
+       parseCompactedEventsAsCheckpoints()
+
+  resolveProjectSeparately(cwdAsBindingHintOnly)</pre>
+            <p><b>归档规则：</b>会话状态只看用户根。父根在 archived、guardian 在 active 时仍是已归档；父根缺失时 guardian 进入 diagnostic-orphan，不晋升为用户会话。</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>异常矩阵：最容易再次做偏的边界</summary>
+          <div class="detail-body">
+            <table class="data-table">
+              <thead><tr><th>输入情况</th><th>正确结果</th><th>禁止结果</th></tr></thead>
+              <tbody>
+                <tr><td>同一根会话 5 次 compacted</td><td>1 行；checkpointCount = 5</td><td>5 个项目或 6 条会话</td></tr>
+                <tr><td>1 根 + 3 guardian 文件</td><td>1 行；内部谱系 3 个分支</td><td>4 条同名会话</td></tr>
+                <tr><td>归档根 + 活跃 guardian</td><td>1 条已归档会话</td><td>guardian 把父会话变“可用”</td></tr>
+                <tr><td>只有 guardian，父根暂时找不到</td><td>诊断孤儿；默认不可见</td><td>提升成新会话</td></tr>
+                <tr><td>用户显式 fork</td><td>新 Conversation，同一 Project 可复用</td><td>强塞回旧会话或创建新 Project</td></tr>
+                <tr><td>同一会话 cwd 改变</td><td>更新路径观察/项目候选</td><td>按 cwd 拆会话或造项目</td></tr>
+                <tr><td>同一线程跨两设备有强来源链</td><td>1 逻辑行 + 2 replicas</td><td>丢掉来源位置或随机打开</td></tr>
+                <tr><td>只有标题和时间相近</td><td>宁可两行</td><td>模糊自动合并</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary>前端状态：四个选择不能再共用 selectedProfileId</summary>
+          <div class="detail-body">
+            <table class="data-table">
+              <thead><tr><th>状态</th><th>界面位置</th><th>含义</th></tr></thead>
+              <tbody>
+                <tr><td><code>selectedDeviceLensId</code></td><td>顶栏 Row 1</td><td>全部设备或一台设备，只做筛选</td></tr>
+                <tr><td><code>selectedAgentId</code></td><td>Presenter Row 2</td><td>全局 Agent / 一只猫</td></tr>
+                <tr><td><code>selectedSlotKey</code></td><td>账号控制条 Row 3</td><td>明确 deviceId + profileId，承接副作用动作</td></tr>
+                <tr><td><code>selectedConversationId</code></td><td>会话表 Row 6</td><td>用户逻辑会话</td></tr>
+                <tr><td><code>selectedSessionReplicaKey</code></td><td>详情 / 位置选择</td><td>复制、打开、发送时的确切来源</td></tr>
+              </tbody>
+            </table>
+            <p>“复制会话信息”从 selectedSessionReplicaKey 取路径和坐标；多选只收集 ConversationIdentity 的明确 replica。checkpoint 与 internal branch 没有独立选择状态。</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>后端边界：本地事实、Mesh 目录、P2P 与服务端各管什么</summary>
+          <div class="detail-body">
+            <table class="data-table">
+              <thead><tr><th>层</th><th>职责</th><th>不能做</th></tr></thead>
+              <tbody>
+                <tr><td>Source adapter</td><td>只读扫描；分类 root/checkpoint/branch；发布副本事实</td><td>用文件数定义会话数</td></tr>
+                <tr><td>Electron Main / Policy</td><td>按稳定 ID 查表、授权语义动作、保护路径和密钥</td><td>接受任意 command、argv、URL、absolute path</td></tr>
+                <tr><td>Mesh Link Core</td><td>设备认证、库存、连接、重试、传输队列</td><td>改写来源设备官方会话数据库</td></tr>
+                <tr><td>Signaling / TURN</td><td>会合、ICE、必要时转发端到端密文</td><td>读取账号、标题、路径、文件、屏幕或输入</td></tr>
+                <tr><td>Renderer</td><td>展示归一化对象，发白名单 ID 请求</td><td>直接解析网络协议、密钥或原始路径动作</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary>验收：什么证据才能说明真的修对了</summary>
+          <div class="detail-body">
+            <p>不是“测试绿了”就结束。实现阶段至少要同时看到四类证据：</p>
+            <table class="data-table">
+              <thead><tr><th>证据</th><th>最低要求</th></tr></thead>
+              <tbody>
+                <tr><td>适配器 fixture</td><td>1 根 + 多次压缩 + 多 guardian 始终只生成 1 个 ConversationIdentity。</td></tr>
+                <tr><td>本机真实数据</td><td>当前脱敏样本从 16 个物理记录归一为 6 个用户逻辑行，标题、归档和复制来源不回退。</td></tr>
+                <tr><td>UI 回归</td><td>七行骨架不变；复制按钮权重不降；单选/多选不包含内部记录。</td></tr>
+                <tr><td>跨设备集成</td><td>同一 Conversation 的两个 replica 折叠后仍能明确选择来源；弱标识不误合并。</td></tr>
+                <tr><td>失败路径</td><td>父记录缺失、active/archive 冲突、cwd 变化都不生成假项目或假会话。</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary>本轮交付文件与实施门禁</summary>
+          <div class="detail-body">
+            <div class="path-list">
+              <span>/Users/hupo/Documents/AgentDesk/docs/PERSONAL_AGENT_MESH_PLAN.md · 0.4 单一实施基准</span>
+              <span>/Users/hupo/Documents/AgentDesk/docs/PERSONAL_AGENT_MESH_REVIEW.html · 本图解审阅稿</span>
+              <span>/Users/hupo/Documents/AgentDesk/AGENTS.md · 压缩/接手后强制完整重读门禁</span>
+            </div>
+            <p><b>当前没有改：</b><code>src/sessions.js</code>、<code>src/session-table.js</code>、Renderer、P2P 服务、存储结构和安装包。只有所有者明确批准后，才从 Phase 1/Phase 3 所定义的门禁进入实现。</p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <div><strong>一句话收口：压缩留在会话里面，设备留在 Agent 旁边，项目独立存在。</strong><p>这样 AgentDesk 才能在多台电脑上放大硬件能力，而不是把内部实现细节放大成一堆重复项目。</p></div>
+        <div class="mono">AGENTDESK · PERSONAL AGENT MESH<br>PLAN 0.4 · 2026-08-08<br>DRAFT FOR OWNER REVIEW</div>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      var pipelineButtons = document.querySelectorAll("[data-pipeline]");
+      pipelineButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          var mode = button.getAttribute("data-pipeline");
+          pipelineButtons.forEach(function (item) {
+            item.setAttribute("aria-pressed", String(item === button));
+          });
+          document.querySelectorAll("[data-pipeline-panel]").forEach(function (panel) {
+            panel.setAttribute("data-visible", String(panel.getAttribute("data-pipeline-panel") === mode));
+          });
+        });
+      });
+
+      var device = "all";
+      var agent = "current";
+      function updateDemo() {
+        var shown = 0;
+        document.querySelectorAll(".demo-row[data-devices]").forEach(function (row) {
+          var deviceMatch = device === "all" || row.getAttribute("data-devices").split(" ").indexOf(device) >= 0;
+          var agentMatch = agent === "all" || row.getAttribute("data-owner") === "current";
+          row.hidden = !(deviceMatch && agentMatch);
+          if (!row.hidden) shown += 1;
+        });
+        document.querySelector(".filter-empty").style.display = shown ? "none" : "block";
+      }
+      document.querySelectorAll("[data-device]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          device = button.getAttribute("data-device");
+          document.querySelectorAll("[data-device]").forEach(function (item) {
+            item.setAttribute("aria-pressed", String(item === button));
+          });
+          updateDemo();
+        });
+      });
+      document.querySelectorAll("[data-agent]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          agent = button.getAttribute("data-agent");
+          document.querySelectorAll("[data-agent]").forEach(function (item) {
+            item.setAttribute("aria-pressed", String(item === button));
+          });
+          updateDemo();
+        });
+      });
+
+      var reviewInputs = document.querySelectorAll(".review-gate input");
+      function updateReview() {
+        var checked = document.querySelectorAll(".review-gate input:checked").length;
+        document.getElementById("reviewCount").textContent = checked + " / " + reviewInputs.length;
+        document.getElementById("reviewBar").style.width = (checked / reviewInputs.length * 100) + "%";
+        document.getElementById("reviewText").textContent = checked === reviewInputs.length ? "五个方向已在本页标记确认" : "等待审阅";
+      }
+      reviewInputs.forEach(function (input) { input.addEventListener("change", updateReview); });
+
+      var navLinks = document.querySelectorAll(".rail nav a");
+      var sections = Array.prototype.map.call(navLinks, function (link) {
+        return document.querySelector(link.getAttribute("href"));
+      });
+      if ("IntersectionObserver" in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            navLinks.forEach(function (link) {
+              link.classList.toggle("active", link.getAttribute("href") === "#" + entry.target.id);
+            });
+          });
+        }, { rootMargin: "-30% 0px -60% 0px" });
+        sections.forEach(function (section) { if (section) observer.observe(section); });
+      }
+
+      document.getElementById("printBtn").addEventListener("click", function () { window.print(); });
+    }());
+  </script>
+</body>
+</html>

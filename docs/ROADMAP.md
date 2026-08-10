@@ -1,86 +1,108 @@
-# AgentDesk 演进路线（Roadmap）
+# AgentDesk 演进路线
 
-> 记录产品演进的分期计划与「当前在做的一期」详细设计。定位与产品边界见 [PRODUCT.md](PRODUCT.md)；本文只回答「接下来做什么、为什么、怎么验证」。
->
-> 依据：2026-07 竞品全景 + 用户需求两份独立调研（结论互相印证）。
+## 定位
 
-## 定位收敛（一句话）
+AgentDesk 以“单人 Personal Agent Mesh”为长期主轴：先把本机多账号、逻辑会话和工具维护做准，再扩展为同一个人在多台可信设备上的全局 Agent 目录、会话索引、显式发送和受限控制。它不扩张为团队平台、聊天壳或任务执行编排器。
 
-不做「全能 agent 管理器」，做 **「同时用多账号 × 多 agent 的人的横切指挥台」**。
+Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；单机双隔离端点和真实 Electron WebRTC 已完成配对、认证、库存、会话信息、文件及合成视频验证。Phase 1 的两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵仍未完成，所以公开 Beta 门禁尚未关闭。
 
-- **目标用户门槛 = 乱**：必须同时满足「多个官方账号」+「多 / 重度 agent」；只满足一个的人官方 CLI 已够，不是目标用户。
-- **护城河 = 全行业集体回避的一条轴**：多官方账号身份并发隔离 + 跨账号 session 元数据交接。
-- **不正面竞争的红海**：「真跑 runtime」「worktree 并行编排」是标配，不是差异化。
+## 当前基线
 
-## 分期总览
+- 多客户端账号槽位、身份归组与官方 App 启动；
+- Claude Desktop / CLI、Codex、Cursor、Kimi Code / Work 会话索引；
+- 当前/全部账号范围、搜索、排序、单选/多选统一定位与支持来源的单会话 Markdown 导出；
+- 活动聚合、Codex 额度总览、路径诊断；
+- 猫猫庭院与经典名册；
+- 桌面 App / CLI 发现、版本检查、打开和显式维护；
+- macOS / Windows 打包、更新与发布校验；
+- Personal Mesh 初始化、一次性加密配对、设备权限/撤销、全局 Agent 目录、设备 Lens 与可删到零语义；
+- Ed25519 成员证书/握手、Mesh 范围账号 HMAC、独立 `mesh.db`、OS 密钥保护和签名协议封装；
+- 来源单写的跨设备库存、强账号/强会话去重、离线快照与 tombstone；
+- 加密 SessionPointer、本机离线队列、目标端项目映射、选定文件分块/校验/续传；
+- 独立 Remote Console、目标端逐次同意、屏幕查看、固定键鼠输入协议和最多四路控制台；
+- 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
+- Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
 
-| 期 | 主题 | 目标 | 主要能力 |
-|---|---|---|---|
-| **一** | 加固账号轴 | 把「多账号」从隐性能力变成显性主场 | 跨账号额度总览 · 每项目默认账号 |
-| 二 | 从「在跑」到「能盯」 | 并行监督不漏人 | 「谁需要我」通知 / 收件箱 · 审计日志 · 庭院卡住可视化 |
-| 三 | session 连续性 | 跨账号接续不手打 | 跨账号搜索 · handoff 直接入队到就绪 runtime |
-| 四 | 基建 | 覆盖面与自适应 | PTY / ConPTY · 能力驱动 UI |
+## 近期优先级
 
-**拒绝清单（明确不做）**：provider / API key 路由（让给 cc-switch / CCR）、又一个 worktree 看板编排器、统一聊天壳（用户要原生 CLI）、20-agent 全自动舰队（真瓶颈是人的审阅带宽）、自动 transcript 迁移（保真度存疑）、跨机云同步（与「本地优先、不碰 token」立场冲突）。
+### 1. 物理设备与真实网络验收
 
----
+- 两台真实电脑完成加密配对、断网恢复、睡眠唤醒和撤销防重连；
+- macOS → macOS、macOS ↔ Windows、Windows → Windows 验证屏幕、键鼠、多显示器、DPI、布局和 IME；
+- 覆盖家庭 NAT、对称 NAT、CGNAT、IPv4/IPv6、UDP 禁用与网络切换；
+- 部署测试域名的 HTTPS Signaling 和 coturn，分别强制 UDP、TCP/TLS `relay`；
+- 记录失败原因、带宽、延迟和中继比例，校准规划中的容量预算。
 
-## 一期详细设计：加固账号轴
+### 2. 发布与运行加固
 
-### 为什么先做这个
-- 命中最痛需求：成本 / 额度不透明（需求 #1）+ 多账号切换（需求 #4，官方零解）。
-- 最干净的空白：没有竞品把「多账号额度并排」做进来。
-- 踩现有资产、风险最低：数据层大部分已就绪（见下）。
+- macOS Developer ID、公证、staple、Gatekeeper 全链验证，并确认通用 input helper 位于最终 DMG 且签名有效；
+- Windows CI/真机确认 MSVC helper 编译、portable 打包、checksum、升级回滚和 UIPI/UAC 降级；
+- 公网 Signaling Gateway 增加 TLS 入口、容量监控、短期状态存储方案和运维手册；
+- 打包后检查已退休模块、凭据和服务端源码没有错误进入桌面运行路径；
+- 完成物理验收前不把当前开发版标为公开稳定远控。
 
-### Feature A — 跨账号额度总览
+### 3. 扫描可靠性
 
-**现状（已核实代码，非推测）：**
-- `src/quota-service.js` 的 `getAll(profiles)` 已对**所有**账号槽位并发查询（并发上限 2）、分账号缓存（成功 5min / stale 1min / error 30s / unsupported 10min TTL）、失败降级。
-- IPC `quota:all`（preload 暴露为 `listQuotas`）已返回**全部**账号的额度快照。
-- `src/renderer.js` 的 `state.quotas` 已是 `{profileId: 额度}` 全量映射，每 `QUOTA_REFRESH_INTERVAL` 刷新。
-- **缺口只在 UI**：当前只渲染 `selectedQuota()`（选中账号那一个），`#quotaSummary / #quotaMeters` 是单账号视角。
+- Codex 按逻辑根 thread 去重，隐藏 guardian/subagent，确保上下文压缩不新增会话行；
+- 为大目录增加可观测的扫描耗时和错误摘要；
+- 对损坏 JSON/JSONL/SQLite 记录继续做局部降级；
+- 为新增客户端建立独立解析器和固定测试夹具；
+- 减少重复扫描，确保切换账号时 UI 不阻塞。
 
-**要做：** 一个「所有账号额度并排」的总览——复用已有全量 `state.quotas`，逐账号列出：最紧的百分比、重置时间、套餐、状态（ok / stale / error / unsupported），按「最紧程度」排序，一眼看出哪个号快没了、哪个号还能用。
+### 4. 路径与诊断
 
-**落点（预估，实现前以代码为准）：**
-- 纯函数：新增额度总览「聚合 + 排序」纯函数（可单测，`src/quota.js` 内或新建 `src/quota-overview.js`），输入 `state.quotas` + profiles，输出排序后的总览行。
-- UI：renderer 新增总览渲染 + 入口（经典视图信息轨顶部一栏 / 庭院一个「全院总览」面板）。
-- **不改**：`main.js`、`quota-service.js`、`codex-quota.js`。
+- 把“未安装、路径错误、权限不足、没有会话”区分得更清楚；
+- 扩充 Windows Store/MSIX 与 macOS 多版本安装识别；
+- 让诊断结果可复制，但默认隐藏不必要的个人路径片段。
 
-**边界 / 风险：**
-- 只有 Codex 有官方额度；Claude / Cursor 继续显式 `unsupported`，总览如实标注，绝不假装成 0 或错误。
-- 限流已由 quota-service 保证；总览只读 `state.quotas` 缓存，**不新增额度请求**。
+### 5. 工具维护可信度
 
-**验收：**
-- N 个 Codex 账号时，总览并排显示各自剩余 % / 重置 / 套餐，按最紧排序。
-- 非 Codex 账号显示 unsupported，不显示为 0 或报错。
-- 不增加额度请求量（复用缓存）；刷新仍走现有 `loadQuotas`。
+- 增加安装源识别测试和版本源失败说明；
+- 记录每次显式维护的本地结果摘要；
+- 对无稳定机器可读版本源的工具继续只提供官方入口；
+- 保持 renderer 只能提交 toolId/profileId。
 
-### Feature B — 每个项目记住默认账号
+### 6. 会话浏览体验
 
-**现状：** `profiles.json` 存账号槽位；起 runtime 时 `identityProfileId` 每次手选；workspace 是一次性 owner-bound grant，**renderer 不持有原始 cwd**（安全边界）。
+- 可配置列与更清晰的空状态；
+- 更快的跨账号筛选；
+- 改进键盘导航和无障碍标签；
+- 导出失败时给出来源级原因。
 
-**要做：** 让「某项目 / 工作区默认用某账号」可持久化，下次在该项目起 agent 自动预选身份。
+## Personal Mesh 阶段状态
 
-**关键设计点（需人工拍板，勿默选）：**
-1. **默认映射存哪？** 倾向 `settings.json`（偏好类）而非 `profiles.json`（身份本身）。
-2. **key 用什么？** 项目路径需规范化（大小写 / 软链 / 尾斜杠）；但 renderer 不持有原始 cwd，所以映射的建立与读取必须在 **main 侧**完成，renderer 只拿 grantId 与展示路径。**这条是硬约束，不能破。**
-3. **悬空清理**：账号被删除后，其默认映射跟随 profile 级联清除。
+| 阶段 | 代码状态 | 尚未关闭的门禁 |
+|---|---|---|
+| Phase 1 技术验证 | WebRTC 承载、设备认证、SQLite、签名信令、STUN/TURN 配置已实现 | 两台真机、真实 NAT、coturn、跨平台权限 |
+| Phase 2 设备与全局 Agent | 初始化、配对、权限、撤销、目录和可删到零已实现 | 多台物理设备长期运行与冲突验收 |
+| Phase 3 库存与会话身份 | 来源单写、revision、强标识折叠、设备 Lens 已实现 | 物理双机大库存、断网与 stale 验收 |
+| Phase 4 会话信息 | SessionPointer、本机离线队列、项目映射已实现 | macOS/Windows 不同项目根真机验收 |
+| Phase 5 文件 | 选择、确认、加密分块、哈希、续传已实现 | 大文件、磁盘不足和跨网络真机矩阵 |
+| Phase 6 仅查看 | 独立窗口、目标同意、显示器和画质已实现 | 真实桌面权限与多显示器矩阵 |
+| Phase 7 输入控制 | 固定键鼠协议、唯一 owner、helper 与紧急停止已实现 | Windows helper、UIPI、DPI、键盘和 IME |
+| Phase 8 多设备控制台 | 四路网格、活动画质和聚合统计已实现 | 四台真机与公网带宽矩阵 |
+| Phase 9 无人值守 | 未授权、未实现 | 必须单独进行产品和安全评审 |
 
-**落点（预估）：** `settings.js`（映射结构 + 迁移）、`main.js`（读写映射 IPC + 起 runtime 时按项目预选）、`renderer.js`（起 agent 面板提示「已按项目预选 X，可改」）。遵循 immutable + 原子写入（现有 `json-store`）。
+每一阶段仍按 `PERSONAL_AGENT_MESH_PLAN.md` 的退出条件验收。代码纵向链路完成不等于物理门禁关闭，不能用单机测试声称公开 P2P 已稳定。
 
-**风险：** 涉及新持久化 + 触及安全边界（路径规范化必须在 main），比 A 更需要先审设计再动手。
+## 长期可做
 
-**验收：** 在项目 X 用账号 A 起过 agent 后，下次在 X 起 agent 默认预选 A；可改、可清；profile 删除后映射不悬空；renderer 全程不接触原始 cwd。
+- 通过公开、稳定、只读格式增加新的会话来源；
+- 通过官方本机 API 增加新的额度提供方；
+- 可选的本地加密配置备份；
+- 更完整的庭院美术资产与低动态偏好。
 
-### 实现顺序（遵循 TDD + 分期验证）
-1. **先 A**（纯读、复用现有栈、风险低）：先写额度总览聚合纯函数 + 单测，再接 UI，可独立发一版验证。
-2. **后 B**（新持久化 + 安全边界）：先敲定上面三个设计点，再 TDD 落地。
+## 拒绝清单
 
----
+- 内嵌终端、聊天 transport 或 Agent 进程管理；
+- worktree/任务队列/多 Agent 流程编排；
+- 多会话交接清单或自动上下文拼接；
+- 规划文档和项目任务材料索引；
+- 任意可执行命令、自定义协议 Agent；
+- provider/API key 路由与凭据托管；
+- 未经用户明确触发的第三方工具更新；
+- 云端 transcript 同步或自动迁移。
+- 团队、组织和多人共享设备；
+- 通用远程 Shell、任意命令或云端凭据托管。
 
-## 决策（2026-07-20 已定）
-- [x] Feature B 默认映射存 **`settings.json`**（偏好类，不放进 `profiles.json`）。
-- [x] 额度总览入口：**经典视图信息轨 + 庭院面板都做**。
-- [x] 总览纳入**所有账号**：Codex 显示真实额度，Claude / Cursor 显式 `unsupported`（无官方 API，不抓 cookie/token）。
-- [x] **直接连做 A + B**，TDD 自测通过即提交，不停下等预览；UI 效果留待人工上手验证。
+若未来需求落入拒绝清单，应作为独立产品讨论，不能复用“工具发现”之名重新塞回 AgentDesk。

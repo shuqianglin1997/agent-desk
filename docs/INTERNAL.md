@@ -1,481 +1,307 @@
-# 内部实现说明
+# AgentDesk 内部结构
 
-## 项目定位
+## 1. 当前职责
 
-AgentDesk 是一个本地优先的多 Agent 工作空间，同时管理终端 Agent 运行实例、Claude / Codex 本地身份槽位和会话索引。
+AgentDesk 是本地优先的账号、会话历史与工具维护器。它负责：
 
-它不是密码管理器，也不只是一层聊天客户端。核心职责是：
+- 保存和启动受支持客户端的账号槽位；
+- 只读扫描本地会话元数据；
+- 定位或导出单个会话；
+- 聚合活动状态与 Codex 额度；
+- 诊断路径和安装；
+- 发现、打开并在用户确认后维护固定目录中的桌面 App / CLI。
 
-- 发现并管理本机终端 Agent，允许多个实例并行运行
-- 把 Agent、身份、工作区、运行实例和历史会话解耦
-- 管理本地账号槽位
-- 扫描本地会话元信息
-- 在 Agent 之间复制或排队交接信息
+Personal Agent Mesh 的有人值守代码链路已经接入运行时：设备证书和配对、全局 Agent/Binding/Slot、跨设备库存、SessionPointer、文件传输、远程查看/输入、多设备控制台，以及 LAN/签名信令/STUN/TURN。两台物理电脑、真实公网 NAT、coturn 强制中继和跨平台权限矩阵仍未通过，因此当前是开发完成态而不是公开稳定验收态。
 
-## 核心概念
+它不包含聊天 transport、Agent 进程生命周期、任务队列、多会话交接、规划资料索引或任意命令注册。
 
-### 账号槽位
-
-账号槽位是一个本地身份容器。每个槽位至少包含两个路径：
-
-- `profilePath`：官方 App 的本地数据目录，用于登录态、缓存、浏览器数据
-- `sessionRoot`：本工具扫描会话的根目录
-
-Claude 默认情况下这两个路径通常相同：
+## 2. 进程边界
 
 ```text
-~/Library/Application Support/Claude
+Renderer
+  └─ window.manager（preload 白名单）
+       └─ Electron IPC
+            └─ Main process
+                 ├─ profile/settings JSON store
+                 ├─ app/session scanners
+                 ├─ diagnostics and quota
+                 ├─ CLI discovery and tool maintenance
+                 ├─ MeshService / mesh.db / OS-protected key vault
+                 ├─ SignalingClient / PeerManager / TransferService
+                 ├─ RemoteControlService / OS input adapter
+                 └─ native shell/dialog/process APIs
+
+Sandboxed peer renderer
+  └─ RTCPeerConnection / fixed DataChannels
+
+Sandboxed Remote Console + Host renderer
+  ├─ WebRTC media and bounded input events
+  └─ dedicated fixed IPC to Main
+
+Optional Signaling Gateway
+  └─ signed leases / long poll / offer-answer / pairing relay / short TURN credentials
 ```
 
-Codex 默认情况下这两个路径通常不同：
+- Renderer 没有 Node 能力，不直接接触文件系统或进程。
+- BrowserWindow 使用 `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`。
+- Preload 只暴露明确的方法，不提供通用 `invoke(channel, payload)`。
+- Main 对 profile ID、session ID 和 tool ID 重新查表，不信任 renderer 提供的路径或命令。
+
+## 3. 主要源码
 
 ```text
-profilePath: ~/Library/Application Support/Codex
-sessionRoot: ~/.codex
+src/
+  main.js                 Electron 生命周期、IPC 与可信系统操作
+  preload.js              窄 IPC 桥
+  renderer.js             UI 状态与交互
+  index.html
+  styles.css
+
+  apps.js                 客户端目录、默认路径、扫描器与导出能力
+  sessions.js             Claude / Claude CLI / Codex / Kimi 会话扫描
+  mesh/domain/
+    session-identity.js   Codex 物理记录、用户根会话与内部子分支分类
+    device.js             Device 归一化与本机设备约束
+    identity-link.js      规范编码与 Mesh 范围账号 HMAC
+    agent-catalog.js      Agent/Binding/Slot 迁移、同步、换号和删到零
+    inventory.js          来源单写库存、强标识折叠与 tombstone
+    session-pointer.js    会话信息内部结构与有效期
+    project-mapping.js    目标端确认的项目根映射
+    file-transfer.js      文件 manifest、命名和路径边界
+    transfer-job.js       传输任务状态机
+    remote-input.js       有界键鼠/文本事件与限速
+    remote-stream-budget.js 多设备画质预算与公开统计
+  mesh/protocol/
+    handshake.js          成员证书和一次性设备握手证明
+    pairing.js            一次性邀请码、X25519/HKDF 加密配对
+    envelope.js           设备签名消息、TTL、sequence 与能力
+    inventory.js          库存分块、摘要与重组
+    secure-payload.js     SessionPointer/文件 payload 加密
+    membership-events.js  成员权限、撤销和 revision
+    signaling-auth.js     网关请求签名、TTL、nonce 与 URL 约束
+  mesh/network/
+    lan-endpoint.js       用户临时开放的 LAN 配对/连接端点
+    signaling-client.js   在线租约、长轮询、配对和 offer/answer 回退
+    ice-config.js         STUN/TURN 配置、合并与脱敏诊断
+  mesh/storage/
+    mesh-store.js         独立 SQLite 事务存储
+    migrations.js         Mesh schema 迁移
+    secure-keys.js        系统密钥保护的私钥封装
+  mesh/main/
+    mesh-service.js       初始化、配对、成员/目录、库存和公开投影
+    peer-manager.js       设备认证、WebRTC 控制通道和库存同步
+    transfer-service.js   SessionPointer、本机队列与文件传输
+    remote-control-service.js 远程查看、同意、媒体与输入会话
+    webrtc-probe.js       隐藏沙箱 Renderer 生命周期与自检结果校验
+  mesh/peer/
+    index.html/peer.js    隐藏沙箱 RTCPeerConnection 与固定 DataChannel
+  mesh/probe/
+    index.html/probe.js   WebRTC SDP/ICE/DataChannel 本机真实自检
+    preload.js            一次性固定结果通道
+  remote/
+    console.*             独立多设备控制台
+    host.*                目标端逐次同意与常驻停止条
+  cursor-sessions.js      Cursor SQLite 会话扫描
+  kimi-work-sessions.js   Kimi Work 会话索引
+  transcripts.js          支持来源的 Markdown 导出
+  session-table.js        过滤与排序纯函数
+  session-location.js     路径 + 坐标的最小剪贴板格式
+
+  cli-discovery.js        只读 CLI 启动器发现
+  tool-maintenance.js     固定工具目录、版本/安装源识别、安全更新计划
+
+  identity.js             登录指纹
+  identity-groups.js      同一身份的跨客户端归组
+  activity.js             活动聚合
+  quota.js                额度展示纯函数
+  codex-quota.js          Codex 本机官方 RPC
+  quota-service.js        并发、缓存和失败降级
+
+  json-store.js           原子 JSON 写入与备份
+  settings.js             设置归一化与迁移
+  updater.js              AgentDesk Release 解析与校验
+  windows.js              Windows 路径和安装发现
+
+  yard/                   猫状态、能量、场景、氛围、拖放意图
+  i18n/                   中文、英文、日文词表
+
+native/
+  macos/AgentDeskInputHelper.swift
+  windows/AgentDeskInputHelper.cpp
+
+services/signaling/       可自托管最小信令与 TURN REST 凭据服务
 ```
 
-这是产品里最容易误解的点，所以 UI 里必须同时显示两个路径，并提供「路径」配置入口。
+## 4. 数据模型
 
-### 会话记录
+### Profile
 
-会话记录是扫描本地文件得到的元信息，不是完整聊天内容。
+账号槽位保存在 `profiles.json`，主要字段包括：
 
-字段：
+- `id`、`appId`、`name`；
+- `profilePath`、`sessionRoot` 及其 auto/custom 模式；
+- 可选 `executablePath`、`identityKey`、`group`、`note`；
+- 猫外观与创建/最近打开时间。
 
-- `id`
-- `appId`
-- `title`
-- `createdAt`
-- `updatedAt`
-- `projectPath`
-- `source`
-- `status`
-- `model`
-- `filePath`
-- `address`
+归一化保留未知字段，方便未来版本向前兼容。局部更新合并猫外观，不回写过期整表快照。
 
-复制交接信息始终不复制完整对话内容。除会话元信息外，只同步资料索引中最终勾选的规划 / 任务文本；明确关联默认勾选，时间关联候选默认关闭。
+### Settings
 
-## 目录结构
+`settings.json` 保存主题、语言、视图、会话范围/列视图、庭院时间和天气、提醒、今日账本、猫位置、HTTPS 信令地址和 STUN 地址。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。
 
-```text
-agent-desk/
-  assets/              应用图标
-  docs/                产品、场景、Windows、内部说明
-  release/             打包产物
-  scripts/             维护脚本
-  src/
-    main.js            Electron 主进程，本地文件/启动/诊断/IPC
-    windows.js         Windows 启动器、MSIX 数据路径与迁移解析（纯 Node）
-    path-utils.js      打开文件前的存在性检查与上级目录回退（纯 Node）
-    json-store.js      配置原子写入、备份和恢复（纯 Node）
-    settings.js        稳定界面偏好结构与旧版迁移（纯 Node）
-    updater.js         GitHub Release 解析、资产选择与 portable 替换脚本（纯 Node）
-    quota.js           额度数据脱敏与统一结构（纯 Node）
-    codex-quota.js     Codex 官方 app-server 额度读取（纯 Node）
-    quota-service.js   分槽位缓存、限流和 provider 降级（纯 Node）
-    agent-registry.js  ACP 内置发现清单、自定义 Agent 归一化与跨平台 CLI 候选
-    acp-client.js      官方 ACP SDK 的 stdio 长连接、会话和更新映射
-    runtime.js         多 Agent 适配器、安全边界与实例生命周期（纯 Node）
-    tool-maintenance.js 桌面 App / CLI 目录、版本与安装来源检测、更新计划白名单（纯 Node）
-    sessions.js        会话扫描（纯 Node，可单元测试）
-    session-artifacts.js  会话规划资料索引、安全路径校验和内容限额（纯 Node）
-    activity.js        活跃度探测（stat-only，纯 Node，驱动庭院状态）
-    preload.js         安全桥接 IPC
-    renderer.js        UI 状态与交互（经典视图 + 庭院视图）
-    index.html         页面结构
-    styles.css         界面样式（经典 porcelain 皮肤）
-    yard/              猫猫庭院视图（见 docs/YARD.md）
-      cats.js          状态机 + 外观默认值（纯函数，可单测）
-      energy.js        与活动正交的额度能量轴（纯函数，可单测）
-      companion.js     陪伴账本 reducer（纯函数，可单测）
-      atmosphere.js    系统时段和自动天气（纯函数，可单测）
-      interactions.js  场景语义区域与拖放意图（纯函数，可单测）
-      sprites.js       像素猫资产与分层合成
-      scene.js         画布引擎（8fps、移动、命中、昼夜、fx）
-      yard.css         庭院布局与像素皮肤
-  test/                单元测试（sessions / activity / cats / companion）
-  package.json         npm 脚本和 electron-builder 配置
-```
+### Session
 
-猫猫庭院是账号槽位的像素化替代视图（默认），经典三栏视图完整保留、可一键切换。详见 [YARD.md](YARD.md)。
+不同扫描器统一输出：
 
-## 数据存储
-
-配置文件由 Electron 的 `app.getPath('userData')` 决定。
-
-macOS 当前示例：
-
-```text
-~/Library/Application Support/AgentDesk/profiles.json
-~/Library/Application Support/AgentDesk/settings.json
-~/Library/Application Support/AgentDesk/agent-adapters.json
-```
-
-配置结构：
-
-```json
+```js
 {
-  "version": 2,
-  "profiles": [
-    {
-      "id": "...",
-      "appId": "claude",
-      "name": "默认 Claude",
-      "profilePath": "...",
-      "sessionRoot": "...",
-      "profilePathMode": "auto",
-      "sessionRootMode": "auto",
-      "executablePath": null,
-      "isProtected": true,
-      "createdAt": "...",
-      "lastLaunchedAt": null,
-      "group": "",
-      "note": ""
-    }
-  ]
+  id,
+  title,
+  app,
+  projectPath,
+  filePath,
+  createdAt,
+  updatedAt,
+  status,
+  model
 }
 ```
 
-默认槽位 `isProtected: true`，不能从列表移除。`profilePathMode` / `sessionRootMode`：
+Renderer 会附加所属 profile 和账号组信息，但不会修改原始会话文件。
 
-- `auto`：每次启动重新解析当前系统的默认目录，Windows 可在传统目录和 MSIX LocalCache 间切换
-- `managed`：AgentDesk 创建并维护的独立槽位
-- `custom`：用户手动指定，不自动改写
+Codex 额外区分：
 
-账号外观、名称、路径等保存在 `profiles.json`；主题、庭院时间/天气、视图、提醒和今日账本保存在 `settings.json`；用户明确接入的 ACP Agent 定义保存在 `agent-adapters.json`。旧版仅存在 `localStorage` 的界面偏好会在首次启动时迁移到 `settings.json`。
+- `physicalRecordId`：扫描到的 rollout 物理记录；
+- `adapterConversationKey`：用户根 thread 的稳定适配器会话键；
+- `recordKind`：`conversation-root` 或内部 `internal-child`；
+- `internalBranchCount`：已归到根会话下的内部执行数量，仅供诊断；
+- `lifecycleConflict`：同一根会话同时在 active/archive 被观察到。
 
-三个文件写入时都先生成完整临时文件并 `fsync`，再替换主文件，同时保留 `.bak`。主文件损坏时会依次从常规备份和 `.pre-update.bak` 恢复，而不是静默清空或重置。Windows portable 真正替换 exe 前，还会为三者额外保存更新前快照。
+默认列表只接收 `conversation-root`。`id` 与 `address` 使用 `session_id || id` 得到的逻辑根键，active/archive 也按这个键去重。`parent_thread_id`、`thread_source === "subagent"` 或 `source.subagent` 任一成立时，该物理记录视为内部子分支；父记录缺失也不提升成列表行。扫描器仍只读文件首行，不为统计压缩事件遍历整份 JSONL。
 
-账号写回采用“重新读取最新配置，只修改目标字段”的方式。尤其 Windows 启动器发现和路径迁移可能耗时数秒，不能把异步操作开始前的整份旧快照写回，否则会覆盖用户同期修改的猫咪毛色、项圈、分组或备注。
+## 5. 客户端与会话扫描
 
-额度快照只保存在进程内缓存，不写入 `profiles.json` / `settings.json`。Codex 查询以槽位 `sessionRoot` 作为 `CODEX_HOME` 调官方 app-server；发送给 renderer 前会移除账号邮箱、token 和原始 provider 响应。Claude / Cursor 在没有稳定公开接口时返回结构化 `unsupported`，不尝试浏览器 Cookie。
+`apps.js` 是唯一客户端目录。每个条目声明：
 
-## 主进程职责
+- 平台启动信息与默认数据目录；
+- 默认会话根目录和诊断位置；
+- scan 函数、活动探针；
+- 是否允许启动与是否支持 Markdown 导出。
 
-文件：[main.js](../src/main.js)
+当前来源为 Claude Desktop、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work。新增来源时，在目录中增加条目和独立扫描器；不要把客户端分支散落到 renderer。会话适配器必须先把物理载体归一为用户逻辑会话，不能让文件数量直接决定表格行数。
 
-主进程负责所有本地能力：
+`sessions:list` 接收 profile 形状，但 main 会先规范化，再调用目录中的扫描器。会话定位和导出只接受 profile/session 标识，并从当前扫描结果重新找到可信文件。
 
-- 读写 `profiles.json`
-- 读写 `settings.json`，迁移旧版界面偏好
-- 创建新槽位目录
-- 启动 Claude / Codex 官方 App
-- 扫描 Claude / Codex 会话（逻辑在 `sessions.js`，主进程调用）
-- 打开 Finder / Explorer
-- 写入剪贴板
-- 选择目录
-- 生成诊断信息
-- 检查 GitHub Release，并在受支持的 Windows portable 环境执行校验更新
-- 扫描受管桌面 App / CLI 的安装、版本和来源；查询可信更新源并按原安装器执行显式更新
-- 读取、缓存并脱敏 Codex 各槽位官方额度
-- 发现 Shell、Codex、Claude Code、常用 ACP Agent 和用户接入的 ACP Agent
-- 启动、监管并停止最多 12 个相互独立的运行实例
-- 执行 ACP 握手、session、流更新、取消与原生权限选择
-- 通过一次性 owner grant 约束自定义可执行文件与任意工作目录
+## 6. 工具维护
 
-渲染进程不直接访问文件系统。
+工具维护分成两层：
 
-## IPC 接口
+1. `cli-discovery.js` 根据固定 CLI ID，从显式环境变量、PATH 和常见用户目录解析启动器。结果只有 command、参数前缀、环境补丁、可见路径和来源。
+2. `tool-maintenance.js` 持有固定工具目录，识别 npm/Homebrew/uv/自身更新器，构造远端版本请求和更新计划。
 
-暴露在 `window.manager`：
+安全约束：
 
-```js
-checkForUpdates()
-installUpdate()
-scanTools({ force })
-openTool({ toolId, profileId })
-updateTool(toolId)
-updateAllTools()
-listApps()
-getSettings(legacySettings)
-updateSettings(patch)
-listProfiles()
-addProfile(input)
-updateProfile(input)
-removeProfile(id)
-migrateWindowsProfilePath(id)
-launchProfile(id)
-listSessions(profile)
-revealSession(input)
-listActivity()
-listQuotas(options)
-getDiagnostics(profile)
-listTerminalAdapters(profileId)
-listTerminalRuntimes()
-listCustomAgents()
-pickAgentExecutable(options)
-addCustomAgent({ name, executableGrantId, arguments })
-removeCustomAgent(id)
-pickTerminalWorkspace(options)
-startTerminal({ adapterId, identityProfileId, workspaceProfileId, workspaceGrantId, sessionId })
-sendTerminal({ runtimeId, text })
-stopTerminal({ runtimeId })
-onTerminalEvent(callback)
-pickDirectory(options)
-pickFile(options)
-showItem(path)
-openPath(path)
-writeClipboard(value)
-```
+- discovery 不提供 Agent 模式参数，不启动进程，不创建会话；
+- renderer 只提交 `toolId` 和可选 `profileId`；
+- main 重新查目录并生成命令、参数、路径与官方 URL；
+- 自动维护只用于识别到且可写的安装来源；
+- 批量更新先显示原生确认；
+- 不调用 `sudo`，不执行 renderer 文本，不后台下载未知工具。
 
-运行 IPC 不接受 renderer 直接提供的 executable、argv、env 或 cwd。已保存 identity / workspace profile 会在 main 中重新读取；任意工作目录和自定义 ACP 可执行文件必须由原生选择器生成、且与 `webContents.id` 绑定的 grant。首次开启整个运行面还有原生系统确认，ACP 工具权限逐次通过默认取消的原生选择框决定。完整模型见 [AGENT_FLEET.md](AGENT_FLEET.md)。
-
-工具维护 IPC 同样不接受 renderer 提供的命令、参数、可执行路径或下载 URL。renderer 只提交 `toolId` 和可选 `profileId`；主进程从 `tool-maintenance.js` 的静态目录重新解析工具、安装来源、可信版本 API 与更新参数。批量更新在原生确认后串行执行，正在运行的对应 Agent 会阻止更新。
-
-## 会话扫描规则
-
-### Claude
-
-扫描根目录：
+## 7. IPC 清单
 
 ```text
-profile.sessionRoot
+apps:list
+settings:get / settings:update
+updates:check / updates:install
+tools:scan / tools:open / tools:update / tools:updateAll
+profiles:list / profiles:add / profiles:update / profiles:remove
+profiles:migrateWindowsPath / profiles:launch
+sessions:list / sessions:reveal / sessions:export
+activity:all
+quota:all
+diagnostics:get
+system:pickDirectory / system:pickFile / system:showItem / system:openPath
+clipboard:writeText
+devices:list / devices:initialize / devices:rename / devices:resetMesh / devices:probeTransport
+devices:createInvite / devices:cancelInvite / devices:join / devices:setReachable
+devices:connect / devices:disconnect / devices:updatePermissions / devices:revoke
+devices:getDiagnostics / devices:getNetworkConfig / devices:updateNetworkConfig
+transfers:createSessionPointer / transfers:chooseFiles / transfers:acceptFile
+transfers:list / transfers:cancel / transfers:retry / transfers:openReceivedFile
+projects:chooseBinding
+remoteControl:open / remoteControl:list / remoteControl:disconnect / remoteControl:stopAll
 ```
 
-扫描位置：
+设备与传输 IPC 只接受固定动作和稳定 ID。文件来源、保存目录和项目根都由 Main 的系统选择器产生；Renderer 不能取得 Root/设备私钥、Mesh 关联键、SDP、ICE 地址、TURN credential、任意路径、网络报文或通用远端命令。
 
-```text
-claude-code-sessions/**/local_*.json
-local-agent-mode-sessions/**/local_*.json
-```
+`devices:probeTransport` 只创建一次隐藏、沙箱化的 WebRTC Renderer，返回耗时、候选类型和协议，不返回 IP、SDP 或 ICE 原文。MVP 的 WebRTC 进程边界见 [ADR_PERSONAL_MESH_WEBRTC_PLACEMENT.md](ADR_PERSONAL_MESH_WEBRTC_PLACEMENT.md)。
 
-读取字段优先级：
+任何新增 IPC 都应同时回答：输入是否只包含 ID/受限值、路径由谁解析、是否产生外部副作用、是否需要原生确认。
 
-```text
-id: sessionId -> cliSessionId -> 文件名
-title: title -> Claude 会话 <id前8位>
-createdAt: createdAt -> 文件创建时间
-updatedAt: lastActivityAt -> lastFocusedAt -> 文件修改时间
-projectPath: cwd -> originCwd
-model: model -> effort
-status: isArchived ? 已归档 : 可用
-```
+## 8. Personal Mesh 连接与数据路径
 
-### Codex
+### 配对和成员关系
 
-扫描根目录：
+- LAN 端点默认关闭，只在创建邀请或用户显式开放时短时监听；
+- 邀请使用设备签名、32 字节 secret、十分钟 TTL 和单次消费；
+- 加入响应使用 X25519 + HKDF-SHA-256 + AES-256-GCM；
+- 新设备只取得自己的设备私钥、成员证书链和当前 Mesh 关联密钥，不取得 Root 私钥；
+- 权限更新和撤销使用有序签名成员事件，撤销后 Peer、传输和远控立即停止。
 
-```text
-profile.sessionRoot
-```
+### 会合和 WebRTC
 
-默认是：
+连接先尝试远端设备目录里的 LAN endpoint，再回退到双方共同登记的 Signaling Gateway。网关请求使用 Ed25519 签名、短 TTL、nonce、requestId 和重放表；只有持有有效租约的双方可以交换固定 `peer.offer` / `peer.answer`。回复固定走收到 offer 的服务，不能从消息指定任意 URL。
 
-```text
-~/.codex
-```
+`PeerManager` 在隐藏沙箱 Renderer 中建立 RTCPeerConnection。WebRTC DTLS 之后仍要验证成员证书、签名信封和双方 DeviceProof，认证完成才开放库存、传输或远控消息。ICE 配置合并用户 STUN、部署静态 TURN 与网关短期 TURN；公开状态只保留 `host/srflx/prflx/relay`、UDP/TCP 和 pair state。
 
-扫描位置：
+### 库存和传输
 
-```text
-session_index.jsonl
-sessions/**/*.jsonl
-archived_sessions/**/*.jsonl
-```
+- 每个设备只发布自己的 Slot 与 SessionReplica，快照有 16 MiB 上限、分块摘要、revision 和 tombstone；
+- 同一强账号键归到同一 AccountBinding，同一强会话键折叠为一个 ConversationIdentity，弱标识保持设备作用域；
+- SessionPointer 由 Main 根据 `conversationId + replicaId + targetDeviceId` 重新查表并加密，离线队列只存发送端；
+- 文件经私有暂存固定内容和 SHA-256，以 96 KiB 加密块发送，接收端从 `.part` 实际偏移恢复；
+- 项目映射只接受目标端系统选择器返回的本机根目录，来源绝对路径从不直接执行。
 
-读取字段优先级：
+### 远程查看和输入
 
-```text
-id: payload.id -> payload.session_id -> 文件名 UUID -> 文件名
-title: session_index.thread_name（按 session_id 关联）-> payload.title -> Codex 会话 <id前8位>
-createdAt: 第一行 timestamp -> 文件创建时间
-updatedAt: session_index.updated_at -> 文件修改时间
-projectPath: payload.cwd -> payload.current_dir
-model: payload.model -> payload.model_provider
-status: archived_sessions 内为已归档，否则可用
-```
+远程媒体使用第二条 WebRTC 连接，SDP 只经已认证设备通道交换。目标端 Host Renderer 枚举并采集显示器，控制端 Remote Console 只拿到安全显示信息和视频轨。查看与控制分别需要持久能力和目标端本次 consent；控制输入再经 Host Renderer 与 Main 双重规范化、速率限制，最后以固定 stdin 行协议交给平台 helper。
 
-注意：`session_index.jsonl` 用 `session_id` 做键，而它和 `payload.id` 在多数 rollout 里并不相同，所以关联标题必须用 `session_id`，否则大部分会话读不到标题。
+断线、失焦、暂停、目标切换、撤销、紧急停止和 helper 心跳超时都会释放按键。多设备控制台最多四路，只给当前目标活动画质，其余为低频缩略图。
 
-## 启动官方 App
+## 9. 庭院
 
-### macOS
+庭院是同一份 profile/session/activity/quota 数据的可视化，不是独立业务层。拖放只保留三类意图：
 
-优先查找：
+- `workshop`：确认后打开账号；已打开时聚焦状态；
+- `attention`：聚焦当前会话详情；
+- `meadow` 或普通地面：保存猫位置。
 
-```text
-/Applications/<App>.app/Contents/MacOS/<App>
-~/Applications/<App>.app/Contents/MacOS/<App>
-```
+详见 [YARD.md](YARD.md)。
 
-如果找不到，回退：
-
-```bash
-open -n -a <App> --args --user-data-dir=<profilePath>
-```
-
-Codex 启动时额外设置：
-
-```text
-CODEX_HOME=<sessionRoot>
-```
-
-### Windows
-
-Windows 适配集中在 [windows.js](../src/windows.js)。启动器依次覆盖：
-
-- 用户手动指定路径
-- `%LOCALAPPDATA%\Microsoft\WindowsApps\<App>.exe` Store 执行别名
-- `%LOCALAPPDATA%\Programs` / `Program Files` 等传统目录
-- Claude 旧版 Squirrel `AnthropicClaude\app-*`
-- `App Paths` 注册表
-- `Get-AppxPackage` 返回的当前 MSIX 包
-- 每用户 AppModel 包仓库注册表的 `PackageRootFolder`
-- 自动默认槽位的 `claude://` / `codex://` 协议回退
-
-npm / WinGet Links 中的同名 CLI shim 会被排除。启动是异步确认的：`spawn` 失败或进程立即非零退出时继续尝试下一个候选。
-
-MSIX 发现刻意保留两条互相独立的动态通道。包仓库注册表无需列举受 ACL 保护的 `WindowsApps`，并按 `<Name>_<Version>_<Architecture>_<ResourceId>_<PublisherId>` 解析包身份、数值比较四段版本；`Get-AppxPackage` 是受支持的系统查询，还会读取 manifest 中声明的非标准 executable。任一通道不可用都不会阻断另一条。
-
-处于 `auto` 路径模式的默认槽位不强制传 `--user-data-dir`，让 Store/MSIX 使用官方默认容器；独立槽位使用 `%USERPROFILE%\.agentdesk\profiles\<App>\<profile-id>` 下的稳定 ASCII ID 目录并传入隔离参数。手动修改过路径的默认槽位也按自定义目录启动。Windows 运行探测对自动默认槽位按无隔离参数的桌面进程判断，其余槽位仍按数据目录精确匹配。
-
-Windows 默认数据目录会在传统 `%APPDATA%\<App>` 与包私有 `LocalCache\Roaming\<App>` 中自动选择。旧版本位于 AppData 的独立槽位可通过诊断面板复制迁移到安全目录，旧数据不删除。
-
-打开会话位置前会按会话 ID 重新扫描并验证磁盘路径。失效或过长路径只打开最近可访问的上级目录，不再直接触发 Explorer 的“位置不可用”弹窗。
-
-### GitHub 更新
-
-更新逻辑分成两层：
-
-- [updater.js](../src/updater.js) 是纯 Node 安全边界：固定仓库、语义版本比较、平台/架构资产选择、URL 白名单、GitHub digest 解析和 Windows 替换脚本。
-- [main.js](../src/main.js) 使用 Electron `net.fetch` 查询 Release，再用 `net.request` 手动审核每次下载重定向；同时限制响应大小和超时，校验文件大小及 SHA-256，最后启动独立 PowerShell 进程完成替换。
-
-只有打包后的 Windows portable 进程、可写的 `PORTABLE_EXECUTABLE_FILE` 和带 SHA-256 digest 的匹配 `.exe` 同时成立时，`installSupported` 才为真。其余情况统一退化为打开该版本的 GitHub Release 页面。
-
-替换器先把下载文件复制为目标目录中的 `.update`，等待当前进程退出后把旧文件移动到 `.old`，再将 `.update` 放到原路径。中途失败会恢复 `.old` 并尝试重启原程序。这样 portable 文件即使被用户移动或改名，也更新当前实际启动的那一份。
-
-发布工作流先验证 tag 与 `package.json` 版本一致，再分别构建 macOS / Windows 产物、生成 `SHA256SUMS.txt` 并创建草稿 Release。正式发布后，GitHub `releases/latest` 才会把它暴露给客户端。
-
-## 诊断面板
-
-诊断面板用于解释为什么读不到会话或打不开 App。
-
-检查项：
-
-- 当前平台
-- 官方 App 是否可启动、使用哪种启动方式
-- 所有 executable / MSIX 数据目录候选
-- App Paths、MSIX 包仓库注册表和 `Get-AppxPackage` 各通道的返回数量
-- 账号目录是否存在、可读、可写
-- 会话根目录是否存在、可读、可写
-- AppData 虚拟化、非 ASCII 和长路径风险
-- 是否需要执行 Windows 路径迁移
-- 会话扫描位置是否存在
-- 当前扫描到的会话数量
-- 配置文件路径
-
-诊断结果可以复制，用于排查用户机器上的问题。
-
-## 交接信息格式
-
-复制交接信息输出：
-
-```text
-请帮我继续理解这个会话：
-
-应用：Codex
-账号槽位：默认 Codex
-标题：...
-新建时间：...
-最后活跃：...
-来源：...
-状态：...
-项目目录：...
-会话标识：...
-会话文件：...
-线程 ID：...
-
-请基于这些信息判断这个会话在做什么，并继续处理。
-
----
-
-### 随会话同步的交接资料（1 份）
-
-#### PLAN.md
-
-类型：规划
-位置：docs/PLAN.md
-关联度：明确
-
-````
-# 现有规划
-...
-````
-```
-
-资料索引的关联规则：
-
-- Claude CLI：解析会话 JSONL 中 `ExitPlanMode` 的 `planFilePath` 和规划快照。
-- Codex：解析 rollout JSONL 中最新的 `update_plan` 调用，生成会话内规划快照。
-- 通用项目候选：只检查项目根目录、明确的 plans / roadmaps 目录和 `docs` 下规划命名文本；mtime 落在会话时间窗内才展示，默认不勾选。
-- 渲染层只提交账号槽位 ID 和会话 ID；主进程重新扫描可信会话路径，不接受 renderer 提交任意文件路径。
-- 跳过符号链接、二进制文件和越出项目 / 会话根目录的路径。每会话最多 12 份、单文件最多 2 MB、单份正文最多 64 KB、单会话正文最多 192 KB，整次复制再限制为约 384 KB。
-
-## 测试
-
-会话扫描逻辑抽到 `sessions.js`（纯 Node，不依赖 Electron），可直接单元测试：
-
-```bash
-npm test
-```
-
-覆盖字段解析、Claude / Codex 夹具扫描、容错、Windows 启动器候选、MSIX 路径映射、失效路径回退、Windows 进程命令行匹配、Release 版本/资产/URL/摘要/替换脚本，以及一条针对真实 `~/.codex` 的冒烟测试（本机数据缺失时自动跳过）。
-
-## 打包
-
-语法检查：
+## 10. 测试与构建
 
 ```bash
 npm run check
+npm test
+npm run build:mac:dir
 ```
 
-macOS：
+测试除了扫描器和纯函数，还包含以下边界契约：
 
-```bash
-ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run build:mac
-```
+- preload/main 不出现会话执行 IPC；
+- 已退休的执行与交接模块不存在；轻量多选只持有临时 session key，并只调用最小定位格式；
+- 工具发现不携带协议或会话参数；
+- package 不包含会话协议 SDK；
+- 庭院只暴露三类核心意图。
+- Mesh 账号关联键在同 Mesh 内稳定、跨 Mesh 不可关联，成员证书和握手证明可检测篡改与过期；
+- 同账号跨形态只形成一个 Agent，同机多账号不误合并，换号不静默搬历史，最后 Slot 删除后目录可为空；
+- 设备入口位于工具之前且不改变七行骨架，设备 IPC 保持固定白名单；
+- 两个隔离数据目录完成加密配对、权限更新、撤销、库存归并、SessionPointer 与文件续传；
+- 真实 Electron 沙箱 WebRTC 完成设备认证、库存、会话信息、184,333 字节文件和合成屏幕媒体；
+- 信令请求拒绝篡改、过期、重放、无租约发送和任意回复地址，公开诊断不含 IP、SDP 或凭据；
+- Remote Console/Host 使用专用沙箱 IPC，输入只接受有界固定事件且始终只有一个 owner。
 
-Windows：
+这些自动化不能替代两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵；对应门禁见 `PERSONAL_AGENT_MESH_PLAN.md`。
 
-```bash
-ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run build:win
-```
-
-产物：
-
-```text
-release/AgentDesk-0.2.1-universal.dmg
-release/AgentDesk-0.2.1-portable-x64.exe
-```
-
-## 已验证
-
-在 macOS 上已验证：
-
-- 开发版可启动
-- 打包版可启动
-- Claude 默认槽位可扫描到本地会话
-- Codex 默认槽位可扫描到本地会话
-- 路径设置弹窗可打开
-- 诊断弹窗可显示真实路径和扫描数量
-- 复制交接信息可写入剪贴板
-
-## 尚未完成
-
-这些不影响内部使用，但影响正式对外发布：
-
-- Windows 真机发布矩阵验证（详见 [WINDOWS.md](WINDOWS.md)）
-- macOS Developer ID 签名与公证
-- Windows 代码签名
-- 对完整聊天内容的可选导出，目前刻意不做默认能力
-
-## 维护注意事项
-
-- 不要保存账号密码或 token。
-- 不要默认复制完整聊天内容。
-- 改扫描逻辑时优先保持容错，单个坏文件不能中断整个扫描。
-- Codex 的 `profilePath` 和 `sessionRoot` 要继续分开处理。
-- Windows 路径不要写死单一安装位置。
-- Windows 独立槽位不要重新放回 AppData；MSIX 会产生逻辑路径与物理路径分叉。
-- 不要把 npm / WinGet Links 中的 Claude/Codex CLI 当成桌面 App。
+发布要求见 [RELEASING.md](RELEASING.md)。

@@ -1,7 +1,8 @@
 name: Build & Release
 
-# Build macOS + Windows packages natively on each OS.
-# Push a version tag (e.g. v0.2.2) to build, verify, and publish installers.
+# Production artifacts are built natively on each OS. The macOS job refuses to
+# upload anything unless Developer ID signing, notarization, stapling, and
+# Gatekeeper verification all succeed.
 on:
   push:
     tags:
@@ -12,25 +13,15 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Pinned to macos-15 (Sequoia): macos-latest migrated to macOS 26
-          # (Tahoe), where electron-builder's DMG step fails in hdiutil with
-          # "no mountable file systems". macos-15 builds the universal dmg fine.
-          - os: macos-15
-            script: build:mac
-          - os: windows-latest
-            script: build:win
-    runs-on: ${{ matrix.os }}
+  build-macos:
+    # Keep Sequoia as the release baseline while macOS 26 DMG behavior settles.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - run: npm ci
@@ -52,36 +43,150 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build
+      - name: Require signing and notarization credentials
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "${CSC_LINK:-}" ] || [ -z "${CSC_KEY_PASSWORD:-}" ]; then
+            echo "::error::MAC_CSC_LINK and MAC_CSC_KEY_PASSWORD are required; unsigned macOS releases are forbidden."
+            exit 1
+          fi
+
+          api_key_ready=0
+          apple_id_ready=0
+          if [ -n "${APPLE_API_KEY_BASE64:-}" ] && [ -n "${APPLE_API_KEY_ID:-}" ] && [ -n "${APPLE_API_ISSUER:-}" ]; then
+            api_key_ready=1
+          fi
+          if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]; then
+            apple_id_ready=1
+          fi
+          if [ -z "${APPLE_TEAM_ID:-}" ] || { [ "$api_key_ready" -eq 0 ] && [ "$apple_id_ready" -eq 0 ]; }; then
+            echo "::error::Configure APPLE_TEAM_ID plus either App Store Connect API-key secrets or Apple-ID notarization secrets."
+            exit 1
+          fi
+
+      - name: Prepare App Store Connect API key
+        shell: bash
+        env:
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          if [ -z "${APPLE_API_KEY_BASE64:-}" ]; then
+            exit 0
+          fi
+
+          api_key_path="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "$APPLE_API_KEY_BASE64" | /usr/bin/base64 -D > "$api_key_path"
+          chmod 600 "$api_key_path"
+          openssl pkey -in "$api_key_path" -noout
+          printf 'APPLE_API_KEY=%s\n' "$api_key_path" >> "$GITHUB_ENV"
+
+      - name: Build, sign, and notarize macOS DMG
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          npm run build:mac 2>&1 | tee build.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Verify signed and notarized DMG
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run verify:mac-release
+
+      - name: Surface build error
+        if: failure()
         shell: bash
         run: |
-          npm run ${{ matrix.script }} 2>&1 | tee build.log
+          if [ -f build.log ]; then
+            echo '----- build.log (tail) -----'
+            tail -80 build.log || true
+            tail -10 build.log | while IFS= read -r line; do
+              clean=$(printf '%s' "$line" | tr -d '\r' | cut -c1-400)
+              [ -n "$clean" ] && printf '::error::%s\n' "$clean"
+            done || true
+          fi
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-macos-15
+          if-no-files-found: error
+          path: release/*.dmg
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "$tag_version" != "$package_version" ]; then
+            echo "::error::Tag v${tag_version} does not match package.json version ${package_version}."
+            exit 1
+          fi
+
+      - name: Syntax check
+        run: npm run check
+
+      - name: Test
+        run: npm test
+
+      - name: Build Windows portable
+        shell: bash
+        run: |
+          npm run build:win 2>&1 | tee build.log
           exit "${PIPESTATUS[0]}"
 
       - name: Surface build error
         if: failure()
         shell: bash
         run: |
-          echo '----- build.log (tail) -----'
-          tail -80 build.log || true
-          # Emit the last log lines as GitHub error annotations, visible on the
-          # public run summary without sign-in (so failures can be diagnosed).
-          tail -10 build.log | while IFS= read -r line; do
-            clean=$(printf '%s' "$line" | tr -d '\r' | cut -c1-400)
-            [ -n "$clean" ] && printf '::error::%s\n' "$clean"
-          done || true
+          if [ -f build.log ]; then
+            echo '----- build.log (tail) -----'
+            tail -80 build.log || true
+            tail -10 build.log | while IFS= read -r line; do
+              clean=$(printf '%s' "$line" | tr -d '\r' | cut -c1-400)
+              [ -n "$clean" ] && printf '::error::%s\n' "$clean"
+            done || true
+          fi
 
-      - name: Upload artifacts
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist-${{ matrix.os }}
+          name: dist-windows
           if-no-files-found: error
-          path: |
-            release/*.dmg
-            release/*.exe
+          path: release/*.exe
 
   release:
-    needs: build
+    needs:
+      - build-macos
+      - build-windows
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:

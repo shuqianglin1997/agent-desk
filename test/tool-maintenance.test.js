@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const maintenance = require('../src/tool-maintenance');
 
-test('工具目录覆盖桌面应用、终端 Agent 和系统终端，ID 与入口唯一', () => {
+test('工具目录覆盖桌面应用、CLI 工具和系统终端，ID 与入口唯一', () => {
   const ids = maintenance.TOOL_CATALOG.map((tool) => tool.id);
   assert.equal(new Set(ids).size, ids.length);
   assert.ok(maintenance.TOOL_CATALOG.some((tool) => tool.kind === 'desktop'));

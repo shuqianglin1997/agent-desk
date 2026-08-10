@@ -7,6 +7,8 @@
  */
 
 const { normalizePositions } = require('./yard/interactions');
+const { normalizeServiceUrls } = require('./mesh/protocol/signaling-auth');
+const { normalizeStunUrls } = require('./mesh/network/ice-config');
 
 const SETTINGS_VERSION = 2;
 const THEMES = new Set(['light', 'dark']);
@@ -24,13 +26,12 @@ const DEFAULT_SETTINGS = Object.freeze({
   sessionScope: 'current',
   sessionView: 'compact',
   remindersOn: true,
-  // 内嵌多 Agent 控制台默认收起：多数人用自己的终端跑 agent，
-  // AgentDesk 负责识别与索引；控制台按需在庭院账本行打开。
-  agentConsoleOn: false,
   atmosTime: 'auto',
   atmosWeather: 'auto',
   welcomed: false,
   ledger: null,
+  meshSignalingUrls: Object.freeze([]),
+  meshStunUrls: Object.freeze([]),
   yardPositions: Object.freeze({})
 });
 
@@ -94,15 +95,14 @@ function normalizeSettings(value) {
     remindersOn: typeof input.remindersOn === 'boolean'
       ? input.remindersOn
       : DEFAULT_SETTINGS.remindersOn,
-    agentConsoleOn: typeof input.agentConsoleOn === 'boolean'
-      ? input.agentConsoleOn
-      : DEFAULT_SETTINGS.agentConsoleOn,
     atmosTime: YARD_TIMES.has(input.atmosTime) ? input.atmosTime : DEFAULT_SETTINGS.atmosTime,
     atmosWeather: YARD_WEATHER.has(input.atmosWeather)
       ? input.atmosWeather
       : DEFAULT_SETTINGS.atmosWeather,
     welcomed: input.welcomed === true,
     ledger: normalizeLedger(input.ledger),
+    meshSignalingUrls: normalizeServiceUrls(input.meshSignalingUrls),
+    meshStunUrls: normalizeStunUrls(input.meshStunUrls),
     yardPositions: normalizePositions(input.yardPositions)
   };
 }

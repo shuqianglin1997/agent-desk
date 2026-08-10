@@ -1,5 +1,5 @@
 /*
- * AgentDesk i18n runtime —— 独立模块，无第三方依赖。
+ * AgentDesk i18n engine —— 独立模块，无第三方依赖。
  *
  * 词表在 src/i18n/{zh,en,ja}.js 里各自注册到 window.AgentDeskLocales.<code>。
  * 加一门语言 = 加一个 <code>.js（注册 { meta:{label}, ...keys }）+ 在 index.html 多引一行 <script>。
