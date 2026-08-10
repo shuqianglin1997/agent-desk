@@ -34,7 +34,7 @@ test('统一骨架：单列 顶栏/呈现层/账号控制条/工作区/状态栏
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.status-bar \{[^}]*grid-row:\s*3/);
 });
 
-test('庭院会话表恢复真表格（4 列：标题/活跃/项目/来源，「新建」进详情），删掉卡片式覆盖，表格为唯一滚动区', () => {
+test('庭院会话表保持真表格（选择列 + 标题/活跃/项目/来源，「新建」进详情），表格为唯一滚动区', () => {
   const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
   // 不再藏表头、不再把 tbody/行改成卡片网格、不再逐列 nth-child 隐藏
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] thead \{\s*display:\s*none/);
@@ -44,44 +44,44 @@ test('庭院会话表恢复真表格（4 列：标题/活跃/项目/来源，「
   assert.match(yardStyles, /body\[data-view="yard"\] \.table-wrap \{[^}]*max-height:\s*none/);
 });
 
-test('交接清单支持跨账号多选、筛选结果全选、顺序调整与批量复制', () => {
+test('会话浏览支持仅用于复制会话信息的轻量多选，主操作突出且不恢复交接编排', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
 
   assert.match(html, /id="sessionScopeCurrentBtn"[\s\S]*?id="sessionScopeAllBtn"/);
-  assert.match(html, /id="handoffBulkBar"[\s\S]*?id="copySelectedHandoffBtn"/);
-  assert.match(html, /id="handoffPlan"[\s\S]*?id="handoffPlanList"/);
-  // 全账号扫描给每条会话保留真实槽位和账号组，选择 Map 不因切账号而重置。
+  // 全账号扫描仍给每条会话保留真实槽位和账号组，供浏览与定位操作使用。
   assert.match(renderer, /state\.sessionScope === 'all'[\s\S]*?identityGroups\(\)/);
   assert.match(renderer, /_profileId:\s*member\.id/);
   assert.match(renderer, /_accountKey:\s*accountKey/);
-  assert.match(renderer, /handoffSelection:\s*new Map\(\)/);
-  assert.match(renderer, /function moveHandoffSelection\(/);
-  assert.match(renderer, /function makeHandoffPlanText\(/);
-  assert.match(styles, /\.handoff-plan[\s\S]*?\.handoff-plan-item/);
-  // 清单 hidden 时不参与 auto-placement，四块必须显式钉行，避免详情把操作按钮挤出窗口。
-  assert.match(styles, /\.handoff-plan \{[\s\S]*?grid-row:\s*2/);
-  assert.match(styles, /\.inspector-body \{[\s\S]*?grid-row:\s*3/);
-  assert.match(styles, /\.inspector-actions \{[\s\S]*?grid-row:\s*4/);
+  assert.match(html, /id="copySessionInfoBtn" class="session-copy-info"[^>]*data-i18n="session\.copyInfo">复制会话信息<\/button>/);
+  assert.match(styles, /\.session-copy-info \{[\s\S]*?min-width:\s*148px;[\s\S]*?height:\s*36px;[\s\S]*?background:\s*var\(--accent\)/);
+  assert.match(styles, /\.session-copy-info::before \{[\s\S]*?content:\s*"⧉"/);
+  assert.doesNotMatch(html, /copySessionLocationBtn|session-copy-location/);
+  assert.ok(html.indexOf('./session-location.js') < html.indexOf('./renderer.js'));
+  assert.match(renderer, /selectedSessionKeys:\s*new Set\(\)/);
+  assert.match(renderer, /selectAll\.id = 'sessionSelectAll'/);
+  assert.match(renderer, /window\.SessionLocation\.format\(sessions/);
+  assert.doesNotMatch(html, /handoffBulkBar|copySelectedHandoffBtn|handoffPlan/);
+  assert.doesNotMatch(renderer, /handoffSelection|moveHandoffSelection|makeHandoffPlanText/);
+  assert.doesNotMatch(styles, /handoff-plan|handoff-selected/);
 });
 
-test('会话交接资料区支持索引状态、逐项勾选和手动刷新', () => {
+test('会话复制收敛成路径加坐标，详情不再放重复复制按钮或重复 ID 字段', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
 
-  assert.match(html, /id="artifactIndex"[\s\S]*?id="artifactSummary"[\s\S]*?id="refreshArtifactsBtn"[\s\S]*?id="artifactList"/);
-  assert.match(renderer, /handoffArtifacts:\s*new Map\(\)/);
-  assert.match(renderer, /window\.manager\.listSessionArtifacts/);
-  assert.match(renderer, /function renderArtifactIndex\(/);
-  assert.match(renderer, /function makeHandoffArtifactText\(/);
-  assert.match(renderer, /await prepareHandoffArtifacts\(\[session\]\)/);
-  assert.match(styles, /\.artifact-index[\s\S]*?\.artifact-index-item/);
-  assert.match(
-    fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8'),
-    /body\[data-view="yard"\] \.handoff-plan \{[\s\S]*?max-height:\s*100px/
-  );
+  assert.match(html, /id="detailProject"[\s\S]*?id="detailCoordinate"[\s\S]*?id="openSessionFileBtn"[\s\S]*?id="exportSessionBtn"/);
+  assert.doesNotMatch(html, /copyAddressBtn|copyProjectBtn|detailAddress|detailFile|detailId/);
+  assert.match(renderer, /SessionLocation\.pathOf\(session\)/);
+  assert.match(renderer, /SessionLocation\.coordinateOf\(session\)/);
+  assert.doesNotMatch(html, /artifactIndex|artifactSummary|refreshArtifactsBtn|artifactList|copyHandoffBtn/);
+  assert.doesNotMatch(renderer, /listSessionArtifacts|renderArtifactIndex|makeHandoffArtifactText|prepareHandoffArtifacts/);
+  assert.doesNotMatch(styles, /artifact-index/);
+  assert.match(styles, /\.inspector \{[\s\S]*?grid-template-rows:\s*auto minmax\(0, 1fr\) auto/);
+  assert.match(styles, /\.inspector-body \{[\s\S]*?grid-row:\s*2/);
+  assert.match(styles, /\.inspector-actions \{[\s\S]*?grid-row:\s*3/);
 });
 
 test('会话详细列表提供完整属性列，精简/详细切换且每个表头可点击排序', () => {
@@ -117,7 +117,7 @@ test('猫猫庭院场景：满铺横带 + 裁掉底部空草坪（定高木框 o
 
 test('经典视图切换后庭院画布必须隐藏：[hidden] 要压过 display:grid', () => {
   const yardCss = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
-  // 与 .runtime-dock 同因：作者的 display:grid 会盖过 UA 的 [hidden]。缺这条兜底时，
+  // 作者的 display:grid 会盖过 UA 的 [hidden]。缺这条兜底时，
   // 切到经典视图后 .yard-stage 仍占第一行，把整个工作台挤出屏幕（实测 computed
   // display 从 none 退回 grid）。选择器特指度 (0,2,0) 高于 .yard-stage (0,1,0)。
   assert.match(yardCss, /\.yard-stage\[hidden\]\s*\{\s*display:\s*none/);
@@ -149,25 +149,21 @@ test('工作亭的猫、电脑和拖拽回位共用同一个座位锚点', () =>
   assert.doesNotMatch(scene, /drawDesk\(entry\.home\.x/);
 });
 
-test('多 Agent 运行时底层契约（IPC + 主进程安全约束）保留——控制台 UI 已移除但底层未破', () => {
+test('会话编排边界已从 UI、preload、主进程和依赖中完整移除', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
-  // 控制台 UI 已从界面移除（浮层 + 入口开关）
-  assert.doesNotMatch(html, /id="runtimeDock"/);
-  assert.doesNotMatch(html, /id="consoleToggle"/);
-  // 但底层 runtime IPC 契约与主进程安全约束保留（未接线、未破坏，后续可清理或复用）
-  assert.match(preload, /listTerminalAdapters:[\s\S]*?runtime:adapters/);
-  assert.match(preload, /listTerminalRuntimes:[\s\S]*?runtime:list/);
-  assert.match(preload, /pickTerminalWorkspace:[\s\S]*?runtime:pickWorkspace/);
-  assert.match(preload, /addCustomAgent:[\s\S]*?runtime:addCustomAdapter/);
-  assert.match(preload, /onTerminalEvent:[\s\S]*?runtime:event/);
-  assert.match(main, /confirmRuntimeAccess\(\)/);
-  assert.match(main, /workspaceGrant\.ownerId !== event\.sender\.id/);
-  assert.match(main, /source: 'explicit-grant'/);
-  assert.match(main, /resolveRuntimeCwd\([\s\S]{0,180}input\.sessionId/);
-  assert.match(main, /runtimeService\.start\(identityProfile/);
-  assert.doesNotMatch(main, /runtimeService\.start\([\s\S]{0,220}cwd:\s*input\.cwd/);
+  const packageJson = fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8');
+  const retiredFiles = ['runtime.js', 'acp-client.js', 'agent-registry.js', 'session-artifacts.js'];
+
+  assert.doesNotMatch(html, /runtimeDock|consoleToggle|custom-agent|handoff|artifactIndex/);
+  assert.doesNotMatch(preload, /runtime:|TerminalRuntime|CustomAgent|listSessionArtifacts/);
+  assert.doesNotMatch(main, /ipcMain\.handle\('runtime:|RuntimeService|customAgents|listSessionArtifacts/);
+  assert.doesNotMatch(packageJson, /agentclientprotocol/);
+  assert.match(main, /discoverCliInventory\(/);
+  for (const file of retiredFiles) {
+    assert.equal(fs.existsSync(path.join(__dirname, '..', 'src', file)), false, `${file} should stay retired`);
+  }
 });
 
 test('账号管理折叠为单一入口（管理菜单含编辑/移除），账号操作紧凑一行', () => {
@@ -203,15 +199,15 @@ test('账号 CRUD 按钮固定在控制条：新增紧跟打开账号、编辑/�
   assert.match(renderer, /dd\.hidden = empty;[\s\S]*?if \(dt && dt\.tagName === 'DT'\) dt\.hidden = empty/);
 });
 
-test('内嵌「多 Agent 控制台」UI 已移除——无浮层、无入口开关，移除后不白屏', () => {
+test('已退休的控制台设置和 renderer 事件状态不再保留', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const settings = fs.readFileSync(path.join(__dirname, '..', 'src', 'settings.js'), 'utf8');
   assert.doesNotMatch(html, /id="runtimeDock"/);
   assert.doesNotMatch(html, /id="consoleToggle"/);
   assert.doesNotMatch(html, /id="runtimeCloseBtn"/);
-  // 设置里不再开启控制台（恒关）+ 终端事件入口有 !els.runtimeDock 守卫（移除后不抛错）
-  assert.match(renderer, /state\.agentConsoleOn = false/);
-  assert.match(renderer, /function handleRuntimeEvent\(event\) \{\s*\n\s*if \(!els\.runtimeDock\) return/);
+  assert.doesNotMatch(renderer, /agentConsoleOn|handleRuntimeEvent|renderRuntimeDock/);
+  assert.doesNotMatch(settings, /agentConsoleOn/);
 });
 
 test('不可 launch 的 CLI 槽位禁用打开按钮，账号卡片展示并行会话与同账号徽章', () => {
@@ -285,19 +281,18 @@ test('庭院画布纵向扩展：前景草坪带同步到画布/交互/HTML 三�
   assert.match(scene, /drawGround\(P\);\s*drawForeground\(P\);/);
 });
 
-test('接入 Agent 入口在顶栏全局操作区（控制台移除后不丢失）+ 新增账号落盘链完整', () => {
+test('工具维护入口在顶栏全局操作区 + 新增账号落盘链完整', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
-  // 接入 Agent 入口在顶栏（原在已删的控制台里，移到 topbar-actions 恢复）
-  assert.match(html, /class="topbar-actions"[\s\S]*?id="agentRegistryBtn"[\s\S]*?id="helpBtn"/);
-  assert.match(renderer, /agentRegistryBtn\?\.addEventListener\('click'[\s\S]{0,180}?agentRegistryDialog\.showModal\(\)/);
+  assert.match(html, /class="topbar-actions"[\s\S]*?id="toolCenterBtn"[\s\S]*?id="helpBtn"/);
+  assert.match(renderer, /toolCenterBtn\?\.addEventListener\('click'[\s\S]{0,180}?toolCenterDialog\.showModal\(\)/);
   // 新增账号：表单 → addProfile → profiles:add → saveProfiles 落盘
   assert.match(renderer, /window\.manager\.addProfile\(\{[\s\S]{0,120}?name,/);
   assert.match(main, /ipcMain\.handle\('profiles:add'[\s\S]*?profiles\.push\(profile\);\s*\n\s*saveProfiles\(profiles\);/);
 });
 
-test('工具维护台覆盖桌面 App 与终端 Agent：检查、打开、单项/批量更新且 renderer 不提交命令', () => {
+test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项/批量更新且 renderer 不提交命令', () => {
   const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
@@ -307,11 +302,11 @@ test('工具维护台覆盖桌面 App 与终端 Agent：检查、打开、单项
   const styles = read('src/styles.css');
   const yardStyles = read('src/yard/yard.css');
 
-  assert.match(html, /id="agentRegistryBtn"[\s\S]*?data-i18n="topbar\.connect"/);
-  assert.match(html, /id="agentRegistryDialog"[^>]*tool-center-dialog/);
+  assert.match(html, /id="toolCenterBtn"[\s\S]*?data-i18n="topbar\.tools"/);
+  assert.match(html, /id="toolCenterDialog"[^>]*tool-center-dialog/);
   assert.match(html, /id="checkToolsBtn"[\s\S]*?id="updateAllToolsBtn"/);
   assert.match(html, /id="desktopToolList"[\s\S]*?id="cliToolList"/);
-  assert.match(html, /class="custom-agent-drawer"/);
+  assert.doesNotMatch(html, /custom-agent|addCustomAgent|customAgent/);
 
   assert.match(preload, /scanTools:[\s\S]*?tools:scan/);
   assert.match(preload, /openTool:[\s\S]*?tools:open/);
@@ -344,12 +339,12 @@ test('庭院猫位置越界兜底：旧拖拽位置落在被裁的前景草坪�
 test('i18n 独立模块：三语加载顺序 + 顶栏接线 + 语言持久化 + 词表核心 key 对齐', () => {
   const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
   const html = read('src/index.html'); const renderer = read('src/renderer.js'); const settings = read('src/settings.js');
-  // 独立模块，renderer 前按 runtime→zh→en→ja 顺序加载（加语言=加一行）
+  // 独立模块，renderer 前按核心模块→zh→en→ja 顺序加载（加语言=加一行）
   assert.match(html, /i18n\/i18n\.js"[\s\S]*?i18n\/zh\.js"[\s\S]*?i18n\/en\.js"[\s\S]*?i18n\/ja\.js"[\s\S]*?renderer\.js"/);
   // 顶栏语言切换按钮 + 静态文案挂 data-i18n
   assert.match(html, /id="langToggle"/);
   assert.match(html, /id="leaderboardBtn"[^>]*>[\s\S]*?data-i18n="topbar\.leaderboard"/);
-  // runtime 接线：跟随/存过的语言初始化 + 循环切换持久化
+  // 界面接线：跟随/存过的语言初始化 + 循环切换持久化
   assert.match(renderer, /window\.I18N\.init\(value\.lang\)/);
   assert.match(renderer, /window\.I18N\.setLang\(window\.I18N\.next\(\)/);
   assert.match(settings, /LANGS = new Set\(\['zh', 'en', 'ja'\]\)/);
@@ -357,8 +352,15 @@ test('i18n 独立模块：三语加载顺序 + 顶栏接线 + 语言持久化 + 
   // 三语词表都注册 meta.label，且核心 key 三语对齐
   for (const loc of [read('src/i18n/zh.js'), read('src/i18n/en.js'), read('src/i18n/ja.js')]) {
     assert.match(loc, /meta: \{ label:/);
-    for (const key of ['topbar.leaderboard', 'account.open', 'session.title', 'status.ready', 'tools.check', 'tools.updateAll', 'tools.manager.unknown', 'tools.source.catalog']) {
+    for (const key of ['topbar.leaderboard', 'topbar.tools', 'account.open', 'session.title', 'status.ready', 'tools.check', 'tools.updateAll', 'tools.manager.unknown', 'tools.source.catalog']) {
       assert.ok(loc.includes("'" + key + "'"), key + ' missing in a locale');
     }
   }
+});
+
+test('三语词表完整 key 集合一致', () => {
+  const locale = (lang) => require(`../src/i18n/${lang}.js`).AgentDeskLocales[lang];
+  const expected = Object.keys(locale('zh')).sort();
+  assert.deepEqual(Object.keys(locale('en')).sort(), expected);
+  assert.deepEqual(Object.keys(locale('ja')).sort(), expected);
 });

@@ -1,0 +1,5559 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>AgentDesk Personal Mesh · 完成态产品审阅</title>
+    <style>
+      :root {
+        --paper: #f3efe6;
+        --paper-deep: #e7e0d3;
+        --sheet: #fffdf8;
+        --ink: #142027;
+        --ink-soft: #546168;
+        --ink-faint: #7a8589;
+        --line: #cfc8bb;
+        --line-dark: #9e988d;
+        --blue: #145df6;
+        --blue-dark: #0d43b6;
+        --blue-wash: #e9f0ff;
+        --orange: #f15a2a;
+        --orange-wash: #fff0e9;
+        --green: #18845c;
+        --green-wash: #e7f6ef;
+        --yellow: #f6c84b;
+        --red: #c93e3e;
+        --red-wash: #fff0f0;
+        --night: #101a22;
+        --night-2: #1b2932;
+        --shadow: 0 16px 42px rgba(35, 40, 44, 0.11);
+        --shadow-tight: 0 7px 20px rgba(35, 40, 44, 0.09);
+        --radius: 18px;
+        --sans: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        --serif: "Songti SC", "STSong", "Noto Serif CJK SC", serif;
+        --mono: "SFMono-Regular", "JetBrains Mono", "Cascadia Code", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+        background: var(--paper);
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          linear-gradient(rgba(20, 32, 39, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(20, 32, 39, 0.035) 1px, transparent 1px),
+          var(--paper);
+        background-size: 28px 28px;
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button,
+      select,
+      input {
+        font: inherit;
+      }
+
+      button,
+      select {
+        cursor: pointer;
+      }
+
+      button:focus-visible,
+      select:focus-visible,
+      a:focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--blue) 34%, transparent);
+        outline-offset: 2px;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      code {
+        font-family: var(--mono);
+      }
+
+      .scroll-progress {
+        position: fixed;
+        z-index: 100;
+        top: 0;
+        left: 0;
+        width: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--orange), var(--blue));
+        box-shadow: 0 0 18px rgba(20, 93, 246, 0.35);
+      }
+
+      .review-header {
+        position: sticky;
+        z-index: 80;
+        top: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 64px;
+        padding: 10px 28px;
+        border-bottom: 1px solid rgba(158, 152, 141, 0.7);
+        background: rgba(243, 239, 230, 0.91);
+        backdrop-filter: blur(16px) saturate(1.2);
+      }
+
+      .review-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand-cat {
+        position: relative;
+        width: 34px;
+        height: 31px;
+        border: 2px solid var(--ink);
+        border-radius: 8px 8px 12px 12px;
+        background: var(--orange);
+        box-shadow: 3px 3px 0 var(--ink);
+      }
+
+      .brand-cat::before,
+      .brand-cat::after {
+        content: "";
+        position: absolute;
+        top: -8px;
+        width: 11px;
+        height: 11px;
+        border: 2px solid var(--ink);
+        background: var(--orange);
+        transform: rotate(45deg);
+      }
+
+      .brand-cat::before {
+        left: 2px;
+      }
+
+      .brand-cat::after {
+        right: 2px;
+      }
+
+      .brand-cat span {
+        position: absolute;
+        z-index: 2;
+        left: 8px;
+        top: 12px;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--ink);
+        box-shadow: 13px 0 0 var(--ink), 6px 7px 0 -1px var(--ink);
+      }
+
+      .review-brand strong {
+        display: block;
+        font-size: 14px;
+        line-height: 1.15;
+        letter-spacing: 0.02em;
+      }
+
+      .review-brand small {
+        display: block;
+        margin-top: 4px;
+        color: var(--ink-soft);
+        font-size: 10px;
+        line-height: 1;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .review-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+
+      .status-pill,
+      .tiny-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid var(--line-dark);
+        border-radius: 999px;
+        background: var(--sheet);
+        color: var(--ink-soft);
+        font-size: 11px;
+        line-height: 1;
+      }
+
+      .status-pill {
+        padding: 9px 12px;
+      }
+
+      .status-pill::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--orange);
+        box-shadow: 0 0 0 3px var(--orange-wash);
+      }
+
+      .tiny-pill {
+        padding: 6px 9px;
+      }
+
+      .header-button {
+        height: 36px;
+        padding: 0 13px;
+        border: 1px solid var(--line-dark);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .header-button:hover {
+        border-color: var(--ink);
+        background: var(--sheet);
+      }
+
+      .review-nav {
+        position: fixed;
+        z-index: 30;
+        top: 92px;
+        left: max(18px, calc(50vw - 760px));
+        width: 196px;
+        max-height: calc(100vh - 116px);
+        padding: 13px;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255, 253, 248, 0.88);
+        box-shadow: var(--shadow-tight);
+        backdrop-filter: blur(14px);
+      }
+
+      .review-nav b {
+        display: block;
+        padding: 5px 9px 10px;
+        font-size: 10px;
+        letter-spacing: 0.17em;
+        text-transform: uppercase;
+      }
+
+      .review-nav a {
+        display: grid;
+        grid-template-columns: 24px 1fr;
+        gap: 6px;
+        align-items: center;
+        padding: 7px 8px;
+        border-radius: 8px;
+        color: var(--ink-soft);
+        font-size: 11px;
+        line-height: 1.3;
+        text-decoration: none;
+      }
+
+      .review-nav a span {
+        color: var(--ink-faint);
+        font-family: var(--mono);
+        font-size: 9px;
+      }
+
+      .review-nav a:hover,
+      .review-nav a[aria-current="true"] {
+        background: var(--blue-wash);
+        color: var(--blue-dark);
+      }
+
+      .review-main {
+        width: min(1360px, calc(100% - 56px));
+        margin: 0 auto 100px;
+        padding-left: 210px;
+      }
+
+      .chapter {
+        position: relative;
+        scroll-margin-top: 82px;
+        margin: 30px 0;
+        padding: 54px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        background: rgba(255, 253, 248, 0.94);
+        box-shadow: var(--shadow);
+      }
+
+      .chapter::after {
+        content: attr(data-index);
+        position: absolute;
+        top: 20px;
+        right: 25px;
+        color: rgba(20, 32, 39, 0.06);
+        font-family: var(--mono);
+        font-size: 74px;
+        font-weight: 900;
+        line-height: 1;
+        pointer-events: none;
+      }
+
+      .chapter.dark {
+        border-color: #24343e;
+        color: #edf4f5;
+        background:
+          radial-gradient(circle at 85% 10%, rgba(20, 93, 246, 0.28), transparent 30%),
+          linear-gradient(145deg, var(--night), #15242d 58%, #0f171d);
+      }
+
+      .chapter.dark::after {
+        color: rgba(255, 255, 255, 0.055);
+      }
+
+      .chapter.orange {
+        background:
+          linear-gradient(135deg, rgba(241, 90, 42, 0.11), transparent 42%),
+          var(--sheet);
+      }
+
+      .chapter-kicker {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        margin-bottom: 17px;
+        color: var(--blue);
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .chapter-kicker::before {
+        content: "";
+        width: 30px;
+        height: 2px;
+        background: currentColor;
+      }
+
+      .dark .chapter-kicker {
+        color: #8db1ff;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1,
+      h2 {
+        font-family: var(--serif);
+        font-weight: 700;
+        letter-spacing: -0.035em;
+      }
+
+      h1 {
+        max-width: 830px;
+        margin-bottom: 22px;
+        font-size: clamp(44px, 6.2vw, 78px);
+        line-height: 1.04;
+      }
+
+      h1 em {
+        color: var(--orange);
+        font-style: normal;
+      }
+
+      h2 {
+        max-width: 820px;
+        margin-bottom: 16px;
+        font-size: clamp(32px, 4.2vw, 52px);
+        line-height: 1.13;
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 17px;
+        line-height: 1.35;
+      }
+
+      .lead {
+        max-width: 780px;
+        color: var(--ink-soft);
+        font-size: 18px;
+        line-height: 1.75;
+      }
+
+      .dark .lead,
+      .dark .muted {
+        color: #aebdc3;
+      }
+
+      .muted {
+        color: var(--ink-soft);
+      }
+
+      .small {
+        font-size: 12px;
+      }
+
+      .editor-note {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 13px;
+        align-items: start;
+        margin: 26px 0 36px;
+        padding: 16px 18px;
+        border: 1px solid #efb9a7;
+        border-radius: 12px;
+        background: var(--orange-wash);
+        color: var(--ink);
+        font-size: 13px;
+      }
+
+      .editor-note strong {
+        color: var(--orange);
+      }
+
+      .review-route {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+        margin-top: 34px;
+      }
+
+      .route-card {
+        min-height: 122px;
+        padding: 17px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--sheet);
+        color: var(--ink);
+      }
+
+      .route-card b {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 13px;
+      }
+
+      .route-card b span {
+        display: grid;
+        width: 23px;
+        height: 23px;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--ink);
+        color: white;
+        font-family: var(--mono);
+        font-size: 9px;
+      }
+
+      .route-card p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 11px;
+        line-height: 1.55;
+      }
+
+      .hero-map {
+        position: relative;
+        min-height: 410px;
+        margin: 44px 0 6px;
+        overflow: hidden;
+        border: 1px solid #293a44;
+        border-radius: 22px;
+        background:
+          radial-gradient(circle at center, rgba(20, 93, 246, 0.17), transparent 34%),
+          repeating-linear-gradient(0deg, transparent 0 27px, rgba(255, 255, 255, 0.035) 28px),
+          repeating-linear-gradient(90deg, transparent 0 27px, rgba(255, 255, 255, 0.035) 28px),
+          #111d25;
+      }
+
+      .hero-map svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .mesh-core {
+        position: absolute;
+        z-index: 3;
+        left: 50%;
+        top: 50%;
+        width: 198px;
+        padding: 22px 18px;
+        border: 1px solid #6c94ee;
+        border-radius: 20px;
+        color: #f2f6ff;
+        background: #17376f;
+        box-shadow: 0 22px 54px rgba(2, 9, 25, 0.4);
+        text-align: center;
+        transform: translate(-50%, -50%);
+      }
+
+      .mesh-core .core-cats {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        margin-bottom: 10px;
+        font-size: 25px;
+      }
+
+      .mesh-core strong {
+        display: block;
+        font-size: 15px;
+      }
+
+      .mesh-core small {
+        color: #aec3f2;
+        font-size: 10px;
+      }
+
+      .map-device {
+        position: absolute;
+        z-index: 3;
+        width: 188px;
+        padding: 15px;
+        border: 1px solid #40535e;
+        border-radius: 14px;
+        color: #eaf2f4;
+        background: rgba(25, 39, 48, 0.94);
+        box-shadow: 0 18px 34px rgba(0, 0, 0, 0.26);
+      }
+
+      .map-device b {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .map-device b::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #4ee29c;
+        box-shadow: 0 0 0 4px rgba(78, 226, 156, 0.1);
+      }
+
+      .map-device.offline b::before {
+        background: #79878c;
+      }
+
+      .map-device small {
+        display: block;
+        margin-top: 5px;
+        color: #9eb0b6;
+        font-size: 10px;
+      }
+
+      .map-device.one {
+        left: 5%;
+        top: 13%;
+      }
+
+      .map-device.two {
+        right: 5%;
+        top: 13%;
+      }
+
+      .map-device.three {
+        left: 8%;
+        bottom: 10%;
+      }
+
+      .map-device.four {
+        right: 8%;
+        bottom: 10%;
+      }
+
+      .hero-map-legend {
+        position: absolute;
+        z-index: 4;
+        left: 50%;
+        bottom: 14px;
+        padding: 7px 10px;
+        border: 1px solid #334853;
+        border-radius: 999px;
+        color: #9db0b7;
+        background: rgba(13, 23, 29, 0.9);
+        font-size: 9px;
+        transform: translateX(-50%);
+      }
+
+      .segment {
+        display: inline-flex;
+        gap: 3px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--paper-deep);
+      }
+
+      .segment button {
+        min-height: 34px;
+        padding: 0 13px;
+        border: 0;
+        border-radius: 7px;
+        color: var(--ink-soft);
+        background: transparent;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .segment button[aria-pressed="true"] {
+        color: var(--blue-dark);
+        background: var(--sheet);
+        box-shadow: 0 2px 8px rgba(28, 36, 43, 0.09);
+      }
+
+      .scenario-switch {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        margin: 28px 0 18px;
+      }
+
+      .scenario-switch p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 12px;
+      }
+
+      .scenario-panel[hidden] {
+        display: none;
+      }
+
+      .device-columns {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+
+      .machine-sheet {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 15px;
+        background: var(--sheet);
+      }
+
+      .machine-sheet header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        background: #f8f5ee;
+      }
+
+      .machine-sheet header b {
+        font-size: 12px;
+      }
+
+      .machine-sheet header small {
+        color: var(--green);
+        font-size: 9px;
+      }
+
+      .machine-accounts {
+        display: grid;
+        gap: 8px;
+        padding: 12px;
+      }
+
+      .raw-account {
+        display: grid;
+        grid-template-columns: 34px 1fr auto;
+        gap: 9px;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: white;
+      }
+
+      .raw-account.duplicate {
+        border-color: #efb9a7;
+        background: var(--orange-wash);
+      }
+
+      .raw-account.empty {
+        border-style: dashed;
+        color: var(--ink-faint);
+        background: #faf8f3;
+      }
+
+      .provider-mark {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border-radius: 9px;
+        color: white;
+        background: var(--ink);
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .provider-mark.codex {
+        background: #101b20;
+      }
+
+      .provider-mark.claude {
+        background: #cb603b;
+      }
+
+      .provider-mark.kimi {
+        background: #5355c9;
+      }
+
+      .raw-account b,
+      .raw-account small {
+        display: block;
+        line-height: 1.3;
+      }
+
+      .raw-account b {
+        font-size: 11px;
+      }
+
+      .raw-account small {
+        margin-top: 3px;
+        color: var(--ink-faint);
+        font-size: 9px;
+      }
+
+      .problem-tag {
+        padding: 4px 6px;
+        border: 1px solid #efb9a7;
+        border-radius: 6px;
+        color: #b6421f;
+        background: white;
+        font-size: 8px;
+        font-weight: 800;
+      }
+
+      .result-strip {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .metric {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--sheet);
+      }
+
+      .metric strong {
+        display: block;
+        font-family: var(--serif);
+        font-size: 26px;
+        line-height: 1;
+      }
+
+      .metric span {
+        display: block;
+        margin-top: 7px;
+        color: var(--ink-soft);
+        font-size: 10px;
+      }
+
+      .global-agents {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr;
+        gap: 15px;
+      }
+
+      .global-agent {
+        padding: 20px;
+        border: 1px solid var(--line-dark);
+        border-radius: 17px;
+        background: var(--sheet);
+        box-shadow: var(--shadow-tight);
+      }
+
+      .agent-heading {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .cat-avatar {
+        position: relative;
+        display: grid;
+        width: 52px;
+        height: 47px;
+        flex: none;
+        place-items: center;
+        border: 2px solid var(--ink);
+        border-radius: 14px 14px 18px 18px;
+        background: #e88e54;
+        box-shadow: 4px 4px 0 var(--ink);
+        font-size: 20px;
+      }
+
+      .cat-avatar.blue {
+        background: #7d9ee9;
+      }
+
+      .agent-heading h3,
+      .agent-heading p {
+        margin: 0;
+      }
+
+      .agent-heading p {
+        margin-top: 3px;
+        color: var(--ink-soft);
+        font-size: 10px;
+      }
+
+      .binding-tree {
+        display: grid;
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .binding {
+        padding-left: 13px;
+        border-left: 2px solid var(--blue);
+      }
+
+      .binding > b {
+        display: block;
+        font-size: 11px;
+      }
+
+      .slot-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 7px;
+      }
+
+      .slot {
+        padding: 5px 7px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: #f7f4ed;
+        color: var(--ink-soft);
+        font-size: 9px;
+      }
+
+      .slot.online::before,
+      .slot.offline::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        margin-right: 5px;
+        border-radius: 50%;
+        background: var(--green);
+      }
+
+      .slot.offline::before {
+        background: #929a9c;
+      }
+
+      .plain-rules {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .plain-rule {
+        padding: 16px;
+        border-top: 4px solid var(--blue);
+        background: var(--blue-wash);
+      }
+
+      .plain-rule:nth-child(2) {
+        border-top-color: var(--orange);
+        background: var(--orange-wash);
+      }
+
+      .plain-rule:nth-child(3) {
+        border-top-color: var(--green);
+        background: var(--green-wash);
+      }
+
+      .plain-rule b {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+
+      .plain-rule p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 11px;
+      }
+
+      .model-board {
+        position: relative;
+        display: grid;
+        grid-template-columns: 0.9fr 1fr 1.35fr;
+        gap: 42px;
+        align-items: stretch;
+        margin: 32px 0;
+      }
+
+      .model-board::before,
+      .model-board::after {
+        content: "→";
+        position: absolute;
+        top: 50%;
+        color: var(--orange);
+        font-family: var(--mono);
+        font-size: 28px;
+        transform: translateY(-50%);
+      }
+
+      .model-board::before {
+        left: 29%;
+      }
+
+      .model-board::after {
+        left: 61.7%;
+      }
+
+      .model-card {
+        min-height: 210px;
+        padding: 21px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--sheet);
+      }
+
+      .model-card .model-index {
+        display: inline-grid;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 16px;
+        place-items: center;
+        border-radius: 50%;
+        color: white;
+        background: var(--ink);
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      .model-card h3 {
+        font-family: var(--serif);
+        font-size: 23px;
+      }
+
+      .model-card p {
+        color: var(--ink-soft);
+        font-size: 11px;
+      }
+
+      .model-card .example {
+        margin-top: 14px;
+        padding-top: 11px;
+        border-top: 1px solid var(--line);
+        color: var(--blue-dark);
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .device-axis {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 7px;
+        margin-top: 13px;
+      }
+
+      .device-axis span {
+        padding: 8px 4px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #f6f3ec;
+        text-align: center;
+        font-size: 9px;
+      }
+
+      .case-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .case-card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--sheet);
+      }
+
+      .case-card .case-visual {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 78px;
+        margin-bottom: 13px;
+        border-radius: 10px;
+        background: #f3f0e9;
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+
+      .case-card h3 {
+        font-size: 13px;
+      }
+
+      .case-card p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 10px;
+      }
+
+      .case-equals {
+        padding: 3px 7px;
+        color: white;
+        background: var(--blue);
+      }
+
+      .case-plus {
+        padding: 0 8px;
+        color: var(--orange);
+        font-size: 18px;
+      }
+
+      .change-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 28px;
+      }
+
+      .change-row {
+        display: grid;
+        grid-template-columns: 36px 1.05fr 1.25fr 1fr;
+        gap: 12px;
+        align-items: stretch;
+      }
+
+      .change-no {
+        display: grid;
+        place-items: center;
+        border-radius: 11px;
+        color: white;
+        background: var(--ink);
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      .change-cell {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: var(--sheet);
+      }
+
+      .change-cell.before {
+        color: var(--ink-soft);
+        background: #f2efe8;
+      }
+
+      .change-cell.after {
+        border-color: #9fb7e9;
+        background: var(--blue-wash);
+      }
+
+      .change-cell.result {
+        border-color: #9fd2bc;
+        background: var(--green-wash);
+      }
+
+      .change-cell b {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 11px;
+      }
+
+      .change-cell span {
+        display: block;
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      .change-head {
+        color: var(--ink-faint);
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .scope-lanes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-top: 24px;
+      }
+
+      .scope-lane {
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 15px;
+      }
+
+      .scope-lane.front {
+        background: var(--blue-wash);
+      }
+
+      .scope-lane.back {
+        background: var(--orange-wash);
+      }
+
+      .scope-lane h3 {
+        margin-bottom: 14px;
+      }
+
+      .scope-lane ul {
+        display: grid;
+        gap: 7px;
+        margin: 0;
+        padding-left: 18px;
+        color: var(--ink-soft);
+        font-size: 11px;
+      }
+
+      .interface-wrap {
+        margin-top: 30px;
+        overflow-x: auto;
+        padding: 12px 12px 24px;
+        border-radius: 18px;
+        background: #d9dfe2;
+      }
+
+      .app-window {
+        width: 1040px;
+        min-height: 840px;
+        margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid #9da8ad;
+        border-radius: 15px;
+        color: #1e2b32;
+        background: #f1f3f4;
+        box-shadow: 0 22px 50px rgba(30, 43, 50, 0.2);
+        font-family: "Avenir Next", "PingFang SC", sans-serif;
+        font-size: 12px;
+      }
+
+      .ad-topbar {
+        display: grid;
+        grid-template-columns: 190px 1fr auto;
+        gap: 14px;
+        align-items: center;
+        height: 48px;
+        padding: 0 15px;
+        border-bottom: 1px solid #c8d0d4;
+        background: rgba(255, 255, 255, 0.9);
+      }
+
+      .ad-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+      }
+
+      .ad-mark {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border: 2px solid #4a2f20;
+        color: white;
+        background: #dc6b35;
+        box-shadow: 2px 2px 0 rgba(74, 47, 32, 0.35);
+        font-size: 14px;
+      }
+
+      .ad-context {
+        color: #68767c;
+        text-align: center;
+        font-size: 11px;
+      }
+
+      .ad-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .ad-button,
+      .ad-select {
+        height: 30px;
+        padding: 0 10px;
+        border: 1px solid #b8c2c7;
+        border-radius: 6px;
+        color: #324047;
+        background: white;
+        font-size: 10px;
+      }
+
+      .ad-select.device-lens {
+        min-width: 150px;
+        border-color: #87a9ee;
+        color: #154ebd;
+        background: #eef3ff;
+        font-weight: 800;
+      }
+
+      .ad-presenter {
+        height: 238px;
+        padding: 16px;
+        border-bottom: 1px solid #ccd3d7;
+        background:
+          linear-gradient(#dbeaf1 0 48%, #b5d3b6 48% 100%);
+      }
+
+      .yard-skyline {
+        position: relative;
+        height: 100%;
+        overflow: hidden;
+        border: 1px solid #9fb0b7;
+        border-radius: 12px;
+        background:
+          radial-gradient(circle at 75% 18%, #fff6c9 0 22px, transparent 23px),
+          linear-gradient(#cbe5f4 0 58%, #9fc49c 59%);
+      }
+
+      .yard-skyline::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 49px;
+        background: repeating-linear-gradient(90deg, #ad8765 0 45px, #997657 46px 48px);
+        opacity: 0.7;
+      }
+
+      .yard-agents {
+        position: absolute;
+        z-index: 2;
+        inset: 20px 28px 40px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-around;
+      }
+
+      .yard-agent {
+        position: relative;
+        width: 174px;
+        padding: 12px 11px 10px;
+        border: 1px solid rgba(43, 63, 70, 0.3);
+        border-radius: 12px;
+        background: rgba(255, 253, 247, 0.91);
+        box-shadow: 0 9px 20px rgba(38, 55, 62, 0.15);
+        text-align: center;
+        transition: opacity 160ms ease, transform 160ms ease;
+      }
+
+      .yard-agent[hidden] {
+        display: none;
+      }
+
+      .yard-agent.selected {
+        border: 2px solid #145df6;
+        box-shadow: 0 0 0 4px rgba(20, 93, 246, 0.14), 0 9px 20px rgba(38, 55, 62, 0.15);
+        transform: translateY(-4px);
+      }
+
+      .yard-agent .cat-face {
+        display: grid;
+        width: 54px;
+        height: 47px;
+        margin: -36px auto 7px;
+        place-items: center;
+        border: 2px solid #3f3027;
+        border-radius: 15px;
+        background: #e68a50;
+        box-shadow: 3px 3px 0 rgba(63, 48, 39, 0.35);
+        font-size: 22px;
+      }
+
+      .yard-agent:nth-child(2) .cat-face {
+        background: #687b8e;
+      }
+
+      .yard-agent:nth-child(3) .cat-face {
+        background: #d6c092;
+      }
+
+      .yard-agent b {
+        display: block;
+        font-size: 12px;
+      }
+
+      .yard-agent small {
+        display: block;
+        margin-top: 4px;
+        color: #69777c;
+        font-size: 9px;
+      }
+
+      .ad-accountbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 53px;
+        padding: 8px 15px;
+        border-bottom: 1px solid #c8d0d4;
+        background: rgba(255, 255, 255, 0.91);
+      }
+
+      .ad-accountname {
+        min-width: 122px;
+        font-weight: 800;
+      }
+
+      .ad-location {
+        min-width: 188px;
+        border-color: #87a9ee;
+      }
+
+      .ad-actions-group {
+        display: flex;
+        gap: 5px;
+      }
+
+      .ad-quota-chip {
+        margin-left: auto;
+        padding: 6px 9px;
+        border: 1px solid #b8c2c7;
+        border-radius: 999px;
+        background: white;
+        font-size: 9px;
+      }
+
+      .ad-attention,
+      .ad-quota {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 34px;
+        padding: 6px 16px;
+        border-bottom: 1px solid #c8d0d4;
+        font-size: 10px;
+      }
+
+      .ad-attention {
+        color: #8c4c22;
+        background: #fff4e9;
+      }
+
+      .ad-quota {
+        color: #3f545c;
+        background: #f7f9fa;
+      }
+
+      .ad-quota i {
+        width: 88px;
+        height: 6px;
+        overflow: hidden;
+        border-radius: 3px;
+        background: #d9e0e3;
+      }
+
+      .ad-quota i::after {
+        content: "";
+        display: block;
+        width: 62%;
+        height: 100%;
+        background: #32926d;
+      }
+
+      .ad-main {
+        display: grid;
+        grid-template-columns: 1fr 292px;
+        height: 385px;
+        min-height: 0;
+      }
+
+      .ad-sessions {
+        padding: 15px 17px;
+        overflow: hidden;
+      }
+
+      .ad-session-toolbar {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 11px;
+      }
+
+      .ad-session-toolbar h3 {
+        margin: 0;
+        font-size: 13px;
+      }
+
+      .ad-session-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 5px;
+        align-items: center;
+      }
+
+      .ad-segment {
+        display: inline-flex;
+        gap: 1px;
+        padding: 2px;
+        border: 1px solid #bbc4c8;
+        border-radius: 5px;
+        background: #e7ebed;
+      }
+
+      .ad-segment button {
+        height: 24px;
+        padding: 0 7px;
+        border: 0;
+        border-radius: 3px;
+        color: #68757a;
+        background: transparent;
+        font-size: 9px;
+      }
+
+      .ad-segment button[aria-pressed="true"] {
+        color: #164cb3;
+        background: white;
+        box-shadow: 0 1px 3px rgba(32, 43, 48, 0.12);
+      }
+
+      .ad-search {
+        width: 138px;
+        height: 30px;
+        padding: 0 9px;
+        border: 1px solid #bac3c7;
+        border-radius: 6px;
+        background: white;
+        font-size: 9px;
+      }
+
+      .ad-copy {
+        height: 36px;
+        padding: 0 15px;
+        border: 1px solid #0c45b8;
+        border-radius: 7px;
+        color: white;
+        background: #145df6;
+        box-shadow: 0 8px 16px -11px #145df6;
+        font-size: 10px;
+        font-weight: 900;
+      }
+
+      .ad-send {
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid #88a5dd;
+        border-radius: 7px;
+        color: #164cb3;
+        background: #edf3ff;
+        font-size: 9px;
+        font-weight: 800;
+      }
+
+      .ad-table {
+        overflow: hidden;
+        border: 1px solid #cbd2d5;
+        border-radius: 8px;
+        background: white;
+      }
+
+      .ad-table-head,
+      .ad-row {
+        display: grid;
+        grid-template-columns: 28px minmax(180px, 1.4fr) 92px 100px 90px;
+        align-items: center;
+        min-height: 44px;
+      }
+
+      .ad-table-head {
+        min-height: 34px;
+        border-bottom: 1px solid #d2d8da;
+        color: #748085;
+        background: #f6f8f9;
+        font-size: 8px;
+        font-weight: 800;
+      }
+
+      .ad-table-head span,
+      .ad-row > span {
+        min-width: 0;
+        padding: 0 8px;
+      }
+
+      .ad-row {
+        border-bottom: 1px solid #e0e5e7;
+        font-size: 9px;
+        cursor: pointer;
+      }
+
+      .ad-row:last-child {
+        border-bottom: 0;
+      }
+
+      .ad-row:hover {
+        background: #f4f7ff;
+      }
+
+      .ad-row.selected {
+        background: #e9f0ff;
+        box-shadow: inset 3px 0 0 #145df6;
+      }
+
+      .ad-row[hidden] {
+        display: none;
+      }
+
+      .ad-row input {
+        margin: 0 auto;
+      }
+
+      .ad-row b,
+      .ad-row small {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .ad-row b {
+        font-size: 10px;
+      }
+
+      .ad-row small {
+        margin-top: 2px;
+        color: #7d888d;
+        font-size: 8px;
+      }
+
+      .row-place {
+        display: inline-flex;
+        width: fit-content;
+        padding: 4px 6px;
+        border: 1px solid #bdc8cc;
+        border-radius: 999px;
+        background: #f7f9f9;
+      }
+
+      .ad-detail {
+        padding: 16px;
+        border-left: 1px solid #c8d0d4;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .ad-detail h3 {
+        margin-bottom: 13px;
+        font-size: 13px;
+      }
+
+      .detail-hero {
+        padding: 11px;
+        border: 1px solid #c8d0d4;
+        border-radius: 8px;
+        background: white;
+      }
+
+      .detail-hero b {
+        display: block;
+        font-size: 11px;
+      }
+
+      .detail-hero small {
+        color: #718086;
+        font-size: 8px;
+      }
+
+      .detail-grid {
+        display: grid;
+        grid-template-columns: 74px 1fr;
+        gap: 8px;
+        margin: 14px 0;
+        font-size: 9px;
+      }
+
+      .detail-grid dt {
+        color: #7b878c;
+      }
+
+      .detail-grid dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .replica-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .replica-pills button {
+        padding: 5px 6px;
+        border: 1px solid #bdc7cc;
+        border-radius: 6px;
+        background: white;
+        font-size: 8px;
+      }
+
+      .replica-pills button.active {
+        border-color: #145df6;
+        color: #145df6;
+        background: #edf3ff;
+      }
+
+      .ad-status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 28px;
+        padding: 0 16px;
+        border-top: 1px solid #c8d0d4;
+        color: #65747a;
+        background: white;
+        font-size: 9px;
+      }
+
+      .number-badge {
+        display: inline-grid;
+        width: 19px;
+        height: 19px;
+        margin-right: 4px;
+        place-items: center;
+        border-radius: 50%;
+        color: white;
+        background: var(--orange);
+        font-family: var(--mono);
+        font-size: 8px;
+        vertical-align: middle;
+      }
+
+      .interface-callouts {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .interface-callout {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--sheet);
+      }
+
+      .interface-callout b {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 11px;
+      }
+
+      .interface-callout p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 9px;
+        line-height: 1.5;
+      }
+
+      .classic-proof {
+        display: grid;
+        grid-template-columns: 0.55fr 1.45fr;
+        gap: 14px;
+        align-items: center;
+        margin-top: 18px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #f5f2eb;
+      }
+
+      .classic-proof h3,
+      .classic-proof p {
+        margin: 0;
+      }
+
+      .classic-proof p {
+        margin-top: 6px;
+        color: var(--ink-soft);
+        font-size: 10px;
+      }
+
+      .classic-roster {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .classic-agent-card {
+        display: grid;
+        grid-template-columns: 32px 1fr;
+        gap: 8px;
+        align-items: center;
+        min-height: 74px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: white;
+      }
+
+      .classic-agent-card.selected {
+        border: 2px solid var(--blue);
+        background: var(--blue-wash);
+      }
+
+      .classic-mini-cat {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        place-items: center;
+        border: 1px solid var(--ink);
+        border-radius: 9px;
+        background: #e68a50;
+        font-size: 12px;
+      }
+
+      .classic-agent-card:nth-child(2) .classic-mini-cat {
+        background: #71849a;
+      }
+
+      .classic-agent-card:nth-child(3) .classic-mini-cat {
+        background: #b8a6e5;
+      }
+
+      .classic-agent-card b,
+      .classic-agent-card small {
+        display: block;
+      }
+
+      .classic-agent-card b {
+        font-size: 9px;
+      }
+
+      .classic-agent-card small {
+        color: var(--ink-faint);
+        font-size: 7px;
+      }
+
+      .toast {
+        position: fixed;
+        z-index: 150;
+        left: 50%;
+        bottom: 28px;
+        max-width: min(520px, calc(100vw - 40px));
+        padding: 12px 17px;
+        border: 1px solid #34454d;
+        border-radius: 10px;
+        color: white;
+        background: #15242c;
+        box-shadow: 0 16px 40px rgba(10, 19, 24, 0.3);
+        font-size: 12px;
+        transform: translate(-50%, 130%);
+        transition: transform 180ms ease;
+      }
+
+      .toast.show {
+        transform: translate(-50%, 0);
+      }
+
+      .prototype-note {
+        margin-top: 12px;
+        color: var(--ink-faint);
+        font-size: 10px;
+        text-align: center;
+      }
+
+      .action-switch {
+        display: flex;
+        gap: 8px;
+        margin: 26px 0 16px;
+        padding-bottom: 12px;
+        overflow-x: auto;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .action-switch button {
+        flex: none;
+        min-height: 38px;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        color: var(--ink-soft);
+        background: var(--sheet);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .action-switch button[aria-pressed="true"] {
+        border-color: var(--blue);
+        color: white;
+        background: var(--blue);
+      }
+
+      .action-panel[hidden] {
+        display: none;
+      }
+
+      .dialog-stage {
+        padding: 32px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background:
+          radial-gradient(circle at 15% 0, rgba(20, 93, 246, 0.1), transparent 31%),
+          #e8ecee;
+      }
+
+      .review-dialog {
+        width: min(760px, 100%);
+        margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid #aab3b7;
+        border-radius: 15px;
+        background: white;
+        box-shadow: 0 20px 50px rgba(20, 32, 39, 0.2);
+      }
+
+      .review-dialog > header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 17px 20px;
+        border-bottom: 1px solid #d3d9dc;
+      }
+
+      .review-dialog > header h3,
+      .review-dialog > header p {
+        margin: 0;
+      }
+
+      .review-dialog > header p {
+        margin-top: 3px;
+        color: #6d7a80;
+        font-size: 10px;
+      }
+
+      .dialog-content {
+        padding: 20px;
+      }
+
+      .dialog-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 13px 20px;
+        border-top: 1px solid #d3d9dc;
+        background: #f7f9fa;
+      }
+
+      .dialog-footer p {
+        margin: 0;
+        color: #758187;
+        font-size: 9px;
+      }
+
+      .dialog-actions {
+        display: flex;
+        gap: 7px;
+      }
+
+      .dialog-button {
+        min-height: 34px;
+        padding: 0 13px;
+        border: 1px solid #b8c2c7;
+        border-radius: 7px;
+        background: white;
+        color: #334148;
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .dialog-button.primary {
+        border-color: var(--blue-dark);
+        color: white;
+        background: var(--blue);
+      }
+
+      .dialog-button.danger {
+        border-color: #a92c2c;
+        color: white;
+        background: var(--red);
+      }
+
+      .detected-slot {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+        padding: 13px;
+        border: 1px solid #cbd3d6;
+        border-radius: 10px;
+        background: #f8fafb;
+      }
+
+      .detected-slot b,
+      .detected-slot small {
+        display: block;
+      }
+
+      .detected-slot b {
+        font-size: 11px;
+      }
+
+      .detected-slot small {
+        color: #748187;
+        font-size: 9px;
+      }
+
+      .choice-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      .choice-card {
+        min-height: 180px;
+        padding: 16px;
+        border: 1px solid #c5ced2;
+        border-radius: 12px;
+        background: white;
+        text-align: left;
+      }
+
+      .choice-card.selected {
+        border: 2px solid var(--blue);
+        background: #edf3ff;
+        box-shadow: 0 0 0 4px rgba(20, 93, 246, 0.08);
+      }
+
+      .choice-card .choice-icon {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        margin-bottom: 14px;
+        place-items: center;
+        border-radius: 10px;
+        color: white;
+        background: var(--ink);
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+
+      .choice-card.selected .choice-icon {
+        background: var(--blue);
+      }
+
+      .choice-card b {
+        display: block;
+        margin-bottom: 7px;
+        font-size: 11px;
+      }
+
+      .choice-card p {
+        margin: 0;
+        color: #68767c;
+        font-size: 9px;
+        line-height: 1.55;
+      }
+
+      .manage-layout {
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        gap: 15px;
+      }
+
+      .manage-profile {
+        padding: 18px;
+        border: 1px solid #cbd3d6;
+        border-radius: 12px;
+        background: #f8fafb;
+      }
+
+      .manage-profile .cat-avatar {
+        margin-bottom: 15px;
+      }
+
+      .manage-profile h3 {
+        margin-bottom: 4px;
+      }
+
+      .manage-profile p {
+        color: #68767c;
+        font-size: 9px;
+      }
+
+      .manage-profile label {
+        display: block;
+        margin-top: 13px;
+        color: #6b777c;
+        font-size: 9px;
+      }
+
+      .manage-profile input {
+        width: 100%;
+        height: 34px;
+        margin-top: 4px;
+        padding: 0 9px;
+        border: 1px solid #bdc7cb;
+        border-radius: 7px;
+        background: white;
+        font-size: 10px;
+      }
+
+      .manage-tree {
+        display: grid;
+        gap: 9px;
+      }
+
+      .manage-binding {
+        padding: 13px;
+        border: 1px solid #cbd3d6;
+        border-radius: 10px;
+        background: white;
+      }
+
+      .manage-binding header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0;
+        border: 0;
+      }
+
+      .manage-binding b {
+        font-size: 10px;
+      }
+
+      .manage-binding small {
+        color: var(--green);
+        font-size: 8px;
+      }
+
+      .manage-slots {
+        display: grid;
+        gap: 6px;
+        margin-top: 9px;
+        padding-left: 11px;
+        border-left: 2px solid #9eb7ed;
+      }
+
+      .manage-slot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px;
+        border-radius: 7px;
+        background: #f4f6f7;
+        font-size: 9px;
+      }
+
+      .manage-slot button {
+        border: 0;
+        color: #647279;
+        background: transparent;
+        font-size: 8px;
+      }
+
+      .delete-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      .delete-option {
+        min-height: 220px;
+        padding: 17px;
+        border: 1px solid #c7d0d4;
+        border-radius: 12px;
+        background: white;
+      }
+
+      .delete-option:last-child {
+        border-color: #e4a4a4;
+        background: #fff6f6;
+      }
+
+      .delete-option .delete-scope {
+        display: inline-flex;
+        padding: 5px 7px;
+        border-radius: 6px;
+        color: white;
+        background: var(--ink);
+        font-family: var(--mono);
+        font-size: 8px;
+      }
+
+      .delete-option:last-child .delete-scope {
+        background: var(--red);
+      }
+
+      .delete-option h3 {
+        margin-top: 14px;
+        font-size: 13px;
+      }
+
+      .delete-option p,
+      .delete-option li {
+        color: #68767c;
+        font-size: 9px;
+      }
+
+      .delete-option ul {
+        margin: 11px 0 0;
+        padding-left: 16px;
+      }
+
+      .delete-zero {
+        margin-top: 15px;
+        padding: 13px;
+        border: 1px solid #e5b193;
+        border-radius: 10px;
+        color: #8b4829;
+        background: #fff1e8;
+        font-size: 10px;
+      }
+
+      .identity-funnel {
+        display: grid;
+        grid-template-columns: 1.1fr 52px 0.8fr 52px 1fr;
+        gap: 10px;
+        align-items: center;
+        margin: 30px 0 22px;
+      }
+
+      .record-stack {
+        position: relative;
+        min-height: 254px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #ede9e0;
+      }
+
+      .record-stack h3 {
+        margin-bottom: 13px;
+        font-size: 13px;
+      }
+
+      .record-file {
+        position: relative;
+        display: grid;
+        grid-template-columns: 28px 1fr auto;
+        gap: 8px;
+        align-items: center;
+        margin: 6px 0;
+        padding: 8px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: white;
+        font-size: 9px;
+      }
+
+      .record-file.internal {
+        margin-left: 18px;
+        border-style: dashed;
+        color: var(--ink-faint);
+      }
+
+      .record-file.compact {
+        margin-left: 9px;
+        border-color: #e4b28f;
+        background: #fff3eb;
+      }
+
+      .file-icon {
+        display: grid;
+        width: 26px;
+        height: 28px;
+        place-items: center;
+        border-radius: 5px;
+        color: white;
+        background: var(--ink);
+        font-family: var(--mono);
+        font-size: 7px;
+      }
+
+      .funnel-arrow {
+        color: var(--orange);
+        font-family: var(--mono);
+        font-size: 30px;
+        text-align: center;
+      }
+
+      .classifier {
+        padding: 20px;
+        border: 1px solid #e8a98d;
+        border-radius: 50%;
+        background: var(--orange-wash);
+        text-align: center;
+      }
+
+      .classifier b {
+        display: block;
+        font-size: 12px;
+      }
+
+      .classifier small {
+        color: #9c5538;
+        font-size: 8px;
+      }
+
+      .conversation-result {
+        padding: 20px;
+        border: 2px solid var(--blue);
+        border-radius: 16px;
+        background: var(--blue-wash);
+        box-shadow: var(--shadow-tight);
+      }
+
+      .conversation-result strong {
+        display: block;
+        font-family: var(--serif);
+        font-size: 31px;
+        line-height: 1.1;
+      }
+
+      .conversation-result p {
+        margin: 10px 0 0;
+        color: var(--ink-soft);
+        font-size: 10px;
+      }
+
+      .session-tools-grid {
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr;
+        gap: 14px;
+      }
+
+      .copy-card,
+      .send-card {
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 15px;
+        background: var(--sheet);
+      }
+
+      .copy-output {
+        margin-top: 14px;
+        padding: 15px;
+        overflow: auto;
+        border: 1px solid #2d3d45;
+        border-radius: 10px;
+        color: #ddedf2;
+        background: #14232b;
+        font-family: var(--mono);
+        font-size: 10px;
+        white-space: pre-wrap;
+      }
+
+      .forbidden-copy {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 12px;
+      }
+
+      .forbidden-copy span {
+        padding: 4px 7px;
+        border: 1px solid #e5a9a9;
+        border-radius: 999px;
+        color: #9d3838;
+        background: #fff3f3;
+        font-size: 8px;
+        text-decoration: line-through;
+      }
+
+      .send-flow {
+        display: grid;
+        grid-template-columns: 1fr 28px 1fr 28px 1fr;
+        gap: 5px;
+        align-items: center;
+        margin-top: 15px;
+      }
+
+      .send-node {
+        min-height: 88px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: #f6f3ec;
+        text-align: center;
+      }
+
+      .send-node b,
+      .send-node small {
+        display: block;
+      }
+
+      .send-node b {
+        font-size: 10px;
+      }
+
+      .send-node small {
+        margin-top: 4px;
+        color: var(--ink-faint);
+        font-size: 8px;
+      }
+
+      .send-arrow {
+        color: var(--blue);
+        font-size: 18px;
+        text-align: center;
+      }
+
+      .mapping-board {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 13px;
+        align-items: center;
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #f6f3ec;
+      }
+
+      .path-box {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+      }
+
+      .path-box b {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 10px;
+      }
+
+      .path-box code {
+        display: block;
+        overflow-wrap: anywhere;
+        color: var(--blue-dark);
+        font-size: 8px;
+      }
+
+      .device-center-shell {
+        padding: 19px;
+        border: 1px solid #aab5ba;
+        border-radius: 16px;
+        background: #e8edef;
+      }
+
+      .device-center-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+
+      .device-center-head h3,
+      .device-center-head p {
+        margin: 0;
+      }
+
+      .device-center-head p {
+        color: #69777d;
+        font-size: 9px;
+      }
+
+      .device-card-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      .device-card {
+        padding: 14px;
+        border: 1px solid #c3ccd0;
+        border-radius: 12px;
+        background: white;
+      }
+
+      .device-card.offline {
+        opacity: 0.72;
+      }
+
+      .device-card header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 0;
+        border: 0;
+      }
+
+      .device-card header b {
+        display: block;
+        font-size: 11px;
+      }
+
+      .device-card header small {
+        color: #748187;
+        font-size: 8px;
+      }
+
+      .online-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--green);
+        font-size: 8px;
+        font-weight: 800;
+      }
+
+      .online-label::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .device-card.offline .online-label {
+        color: #7f8a8e;
+      }
+
+      .device-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+        margin: 13px 0;
+      }
+
+      .device-stat {
+        padding: 7px 4px;
+        border-radius: 7px;
+        background: #f2f5f6;
+        text-align: center;
+      }
+
+      .device-stat b,
+      .device-stat small {
+        display: block;
+      }
+
+      .device-stat b {
+        font-size: 11px;
+      }
+
+      .device-stat small {
+        color: #7b878c;
+        font-size: 7px;
+      }
+
+      .resource-line {
+        display: grid;
+        grid-template-columns: 34px 1fr 30px;
+        gap: 6px;
+        align-items: center;
+        margin: 6px 0;
+        color: #647279;
+        font-size: 8px;
+      }
+
+      .resource-bar {
+        height: 5px;
+        overflow: hidden;
+        border-radius: 3px;
+        background: #dfe5e7;
+      }
+
+      .resource-bar i {
+        display: block;
+        height: 100%;
+        background: var(--blue);
+      }
+
+      .device-card-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 12px;
+      }
+
+      .device-card-actions button {
+        min-height: 27px;
+        padding: 0 8px;
+        border: 1px solid #bdc7cb;
+        border-radius: 6px;
+        background: white;
+        font-size: 8px;
+      }
+
+      .device-card-actions button.primary {
+        border-color: var(--blue);
+        color: white;
+        background: var(--blue);
+      }
+
+      .pairing-flow {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .pair-step {
+        position: relative;
+        min-height: 126px;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--sheet);
+      }
+
+      .pair-step:not(:last-child)::after {
+        content: "→";
+        position: absolute;
+        z-index: 2;
+        top: 48%;
+        right: -17px;
+        color: var(--orange);
+        font-family: var(--mono);
+        font-size: 18px;
+      }
+
+      .pair-step b {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 11px;
+      }
+
+      .pair-step p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 9px;
+      }
+
+      .permission-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .permission-item {
+        padding: 11px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--sheet);
+      }
+
+      .permission-item b {
+        display: block;
+        font-size: 9px;
+      }
+
+      .permission-item small {
+        color: var(--ink-faint);
+        font-size: 8px;
+      }
+
+      .permission-state {
+        float: right;
+        color: var(--green);
+        font-size: 8px;
+      }
+
+      .permission-state.off {
+        color: var(--red);
+      }
+
+      .diagnostic-strip {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-top: 14px;
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #f5f2eb;
+      }
+
+      .diagnostic-cell {
+        padding: 10px;
+        border-radius: 8px;
+        background: white;
+      }
+
+      .diagnostic-cell b,
+      .diagnostic-cell small {
+        display: block;
+      }
+
+      .diagnostic-cell b {
+        font-size: 9px;
+      }
+
+      .diagnostic-cell small {
+        margin-top: 4px;
+        color: var(--ink-faint);
+        font-size: 8px;
+      }
+
+      .remote-window {
+        overflow: hidden;
+        border: 1px solid #364852;
+        border-radius: 16px;
+        color: #e9f0f2;
+        background: #101a20;
+        box-shadow: 0 26px 60px rgba(4, 11, 15, 0.35);
+      }
+
+      .remote-topbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 48px;
+        padding: 0 14px;
+        border-bottom: 1px solid #31434d;
+        background: #17252d;
+      }
+
+      .remote-topbar b {
+        margin-right: auto;
+        font-size: 11px;
+      }
+
+      .remote-control-button {
+        height: 30px;
+        padding: 0 10px;
+        border: 1px solid #48606d;
+        border-radius: 6px;
+        color: #dce8eb;
+        background: #20323c;
+        font-size: 9px;
+      }
+
+      .remote-control-button.danger {
+        border-color: #933e3e;
+        color: #ffcaca;
+        background: #4c2424;
+      }
+
+      .remote-layout {
+        display: grid;
+        grid-template-columns: 1fr 215px;
+        min-height: 520px;
+      }
+
+      .remote-main {
+        position: relative;
+        padding: 17px;
+      }
+
+      .input-owner-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        padding: 9px 12px;
+        border: 1px solid #2a8b63;
+        border-radius: 8px;
+        color: #bff5db;
+        background: rgba(24, 132, 92, 0.18);
+        font-size: 9px;
+      }
+
+      .remote-screen {
+        position: relative;
+        min-height: 430px;
+        overflow: hidden;
+        border: 3px solid #36d38e;
+        border-radius: 10px;
+        background:
+          linear-gradient(90deg, #293d48 0 19%, #edf1f3 19% 100%);
+        box-shadow: 0 0 0 4px rgba(54, 211, 142, 0.12);
+      }
+
+      .fake-desktop-sidebar {
+        position: absolute;
+        left: 14px;
+        top: 20px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .fake-desktop-sidebar i {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.18);
+      }
+
+      .fake-agent-window {
+        position: absolute;
+        left: 24%;
+        right: 5%;
+        top: 8%;
+        bottom: 8%;
+        overflow: hidden;
+        border-radius: 10px;
+        color: #223038;
+        background: white;
+        box-shadow: 0 20px 45px rgba(7, 15, 19, 0.28);
+      }
+
+      .fake-agent-window header {
+        display: flex;
+        align-items: center;
+        height: 34px;
+        padding: 0 12px;
+        border-bottom: 1px solid #d6dcdf;
+        background: #f1f4f5;
+        font-size: 8px;
+      }
+
+      .fake-agent-body {
+        display: grid;
+        grid-template-columns: 0.4fr 1fr;
+        height: calc(100% - 34px);
+      }
+
+      .fake-agent-list {
+        border-right: 1px solid #dde2e4;
+        background: #f6f8f8;
+      }
+
+      .fake-agent-chat {
+        padding: 25px;
+      }
+
+      .fake-chat-line {
+        width: 75%;
+        height: 9px;
+        margin: 9px 0;
+        border-radius: 5px;
+        background: #dbe2e5;
+      }
+
+      .fake-chat-line.short {
+        width: 45%;
+      }
+
+      .remote-sidebar {
+        display: grid;
+        align-content: start;
+        gap: 9px;
+        padding: 14px;
+        border-left: 1px solid #31434d;
+        background: #142129;
+      }
+
+      .remote-sidebar h3 {
+        margin: 0 0 4px;
+        font-size: 10px;
+      }
+
+      .remote-device-tile {
+        padding: 10px;
+        border: 1px solid #40535d;
+        border-radius: 8px;
+        color: #b6c5ca;
+        background: #1c2c35;
+        text-align: left;
+      }
+
+      .remote-device-tile.active {
+        border: 2px solid #36d38e;
+        color: white;
+        background: #1f3b32;
+      }
+
+      .remote-device-tile b,
+      .remote-device-tile small {
+        display: block;
+      }
+
+      .remote-device-tile b {
+        font-size: 9px;
+      }
+
+      .remote-device-tile small {
+        margin-top: 3px;
+        font-size: 7px;
+      }
+
+      .remote-safety {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .safety-card {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: var(--sheet);
+        color: var(--ink);
+      }
+
+      .dark .plain-rule {
+        color: var(--ink);
+      }
+
+      .safety-card b {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 10px;
+      }
+
+      .safety-card p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 8px;
+      }
+
+      .transfer-tray {
+        margin-top: 16px;
+        overflow: hidden;
+        border: 1px solid #3a4f59;
+        border-radius: 12px;
+        background: #17262e;
+      }
+
+      .transfer-tray > header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 11px 13px;
+        border-bottom: 1px solid #344953;
+      }
+
+      .transfer-tray > header b {
+        font-size: 10px;
+      }
+
+      .transfer-tray > header small {
+        color: #91a6ae;
+        font-size: 8px;
+      }
+
+      .transfer-job {
+        display: grid;
+        grid-template-columns: 1.2fr 0.75fr 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 11px 13px;
+        border-bottom: 1px solid #2f424b;
+      }
+
+      .transfer-job:last-child {
+        border-bottom: 0;
+      }
+
+      .transfer-job b,
+      .transfer-job small {
+        display: block;
+      }
+
+      .transfer-job b {
+        color: #e6eff1;
+        font-size: 9px;
+      }
+
+      .transfer-job small {
+        color: #8ea1a8;
+        font-size: 7px;
+      }
+
+      .transfer-progress {
+        height: 6px;
+        overflow: hidden;
+        border-radius: 3px;
+        background: #344750;
+      }
+
+      .transfer-progress i {
+        display: block;
+        height: 100%;
+        background: #39d994;
+      }
+
+      .transfer-state {
+        color: #b8c8cc;
+        font-size: 8px;
+      }
+
+      .transfer-job button {
+        min-height: 27px;
+        padding: 0 8px;
+        border: 1px solid #4a606a;
+        border-radius: 6px;
+        color: #d6e2e5;
+        background: #21343d;
+        font-size: 8px;
+      }
+
+      .daily-timeline {
+        position: relative;
+        display: grid;
+        gap: 0;
+        margin-top: 30px;
+      }
+
+      .daily-timeline::before {
+        content: "";
+        position: absolute;
+        left: 29px;
+        top: 20px;
+        bottom: 20px;
+        width: 2px;
+        background: linear-gradient(var(--blue), var(--orange));
+      }
+
+      .timeline-step {
+        position: relative;
+        display: grid;
+        grid-template-columns: 60px 1fr 0.6fr;
+        gap: 16px;
+        align-items: center;
+        min-height: 116px;
+        padding: 12px 0;
+      }
+
+      .timeline-no {
+        z-index: 2;
+        display: grid;
+        width: 60px;
+        height: 60px;
+        place-items: center;
+        border: 2px solid var(--ink);
+        border-radius: 50%;
+        color: white;
+        background: var(--blue);
+        box-shadow: 4px 4px 0 var(--ink);
+        font-family: var(--mono);
+        font-weight: 900;
+      }
+
+      .timeline-step:nth-child(even) .timeline-no {
+        background: var(--orange);
+      }
+
+      .timeline-copy h3,
+      .timeline-copy p {
+        margin: 0;
+      }
+
+      .timeline-copy p {
+        margin-top: 5px;
+        color: var(--ink-soft);
+        font-size: 10px;
+      }
+
+      .timeline-result {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        color: var(--green);
+        background: var(--green-wash);
+        font-size: 9px;
+        font-weight: 800;
+      }
+
+      .exception-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 11px;
+        margin-top: 25px;
+      }
+
+      .exception-card {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        gap: 12px;
+        min-height: 144px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: var(--sheet);
+      }
+
+      .exception-icon {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border-radius: 11px;
+        color: white;
+        background: var(--ink);
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+
+      .exception-card h3 {
+        margin-bottom: 5px;
+        font-size: 12px;
+      }
+
+      .exception-card p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 9px;
+      }
+
+      .exception-answer {
+        display: block;
+        margin-top: 7px;
+        color: var(--blue-dark);
+        font-size: 9px;
+        font-weight: 800;
+      }
+
+      .boundary-zones {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0;
+        margin-top: 30px;
+        overflow: hidden;
+        border: 1px solid #32464f;
+        border-radius: 16px;
+      }
+
+      .boundary-zone {
+        min-height: 330px;
+        padding: 22px;
+        border-right: 1px solid #32464f;
+        background: #15232b;
+      }
+
+      .boundary-zone:last-child {
+        border-right: 0;
+      }
+
+      .boundary-zone:nth-child(2) {
+        background: #1c2d37;
+      }
+
+      .boundary-zone:nth-child(3) {
+        background: #20272a;
+      }
+
+      .boundary-zone h3 {
+        color: white;
+        font-size: 14px;
+      }
+
+      .boundary-zone > p {
+        color: #a8b7bd;
+        font-size: 9px;
+      }
+
+      .data-chip-list {
+        display: grid;
+        gap: 7px;
+        margin-top: 15px;
+      }
+
+      .data-chip {
+        padding: 9px;
+        border: 1px solid #3b515c;
+        border-radius: 8px;
+        color: #c9d8dc;
+        background: rgba(255, 255, 255, 0.035);
+        font-size: 9px;
+      }
+
+      .data-chip.stays::before,
+      .data-chip.moves::before,
+      .data-chip.server::before {
+        display: inline-block;
+        width: 16px;
+        margin-right: 6px;
+        color: #5ee2a4;
+        font-weight: 900;
+        text-align: center;
+      }
+
+      .data-chip.stays::before {
+        content: "■";
+      }
+
+      .data-chip.moves::before {
+        content: "↔";
+        color: #7ea6ff;
+      }
+
+      .data-chip.server::before {
+        content: "○";
+        color: #f0be55;
+      }
+
+      .architecture-flow {
+        display: grid;
+        grid-template-columns: 1fr 38px 0.85fr 38px 1fr;
+        gap: 8px;
+        align-items: center;
+        margin-top: 18px;
+      }
+
+      .architecture-node {
+        min-height: 126px;
+        padding: 15px;
+        border: 1px solid #405761;
+        border-radius: 11px;
+        color: #d8e4e7;
+        background: #172832;
+        text-align: center;
+      }
+
+      .architecture-node b,
+      .architecture-node small {
+        display: block;
+      }
+
+      .architecture-node b {
+        font-size: 11px;
+      }
+
+      .architecture-node small {
+        margin-top: 6px;
+        color: #91a6ae;
+        font-size: 8px;
+      }
+
+      .architecture-arrow {
+        color: #80a8ff;
+        font-size: 22px;
+        text-align: center;
+      }
+
+      .roadmap {
+        display: grid;
+        gap: 10px;
+        margin-top: 28px;
+      }
+
+      .phase {
+        display: grid;
+        grid-template-columns: 86px 1fr 1fr 0.7fr;
+        gap: 12px;
+        align-items: center;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--sheet);
+      }
+
+      .phase-id {
+        display: grid;
+        height: 48px;
+        place-items: center;
+        border-radius: 9px;
+        color: white;
+        background: var(--ink);
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 900;
+      }
+
+      .phase:nth-child(2) .phase-id,
+      .phase:nth-child(3) .phase-id,
+      .phase:nth-child(4) .phase-id {
+        background: var(--blue);
+      }
+
+      .phase:nth-child(5) .phase-id,
+      .phase:nth-child(6) .phase-id,
+      .phase:nth-child(7) .phase-id {
+        background: var(--orange);
+      }
+
+      .phase b {
+        display: block;
+        font-size: 11px;
+      }
+
+      .phase span,
+      .phase small {
+        color: var(--ink-soft);
+        font-size: 9px;
+      }
+
+      .phase-gate {
+        padding: 7px;
+        border-radius: 7px;
+        color: var(--green);
+        background: var(--green-wash);
+        font-size: 8px;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .decision-gates {
+        display: grid;
+        gap: 10px;
+        margin-top: 27px;
+      }
+
+      .gate-card {
+        display: grid;
+        grid-template-columns: 42px 1.2fr 1fr auto;
+        gap: 13px;
+        align-items: center;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--sheet);
+      }
+
+      .gate-letter {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border: 2px solid var(--ink);
+        border-radius: 50%;
+        background: var(--yellow);
+        font-family: var(--mono);
+        font-weight: 900;
+      }
+
+      .gate-card h3,
+      .gate-card p {
+        margin: 0;
+      }
+
+      .gate-card h3 {
+        font-size: 12px;
+      }
+
+      .gate-card p {
+        color: var(--ink-soft);
+        font-size: 9px;
+      }
+
+      .gate-impact {
+        padding: 9px;
+        border-left: 2px solid var(--orange);
+        color: var(--ink-soft);
+        font-size: 9px;
+      }
+
+      .gate-actions {
+        display: flex;
+        gap: 5px;
+      }
+
+      .gate-actions button {
+        min-height: 30px;
+        padding: 0 9px;
+        border: 1px solid var(--line-dark);
+        border-radius: 7px;
+        background: white;
+        font-size: 8px;
+        font-weight: 800;
+      }
+
+      .gate-actions button[data-selected="true"][data-choice="approve"] {
+        border-color: var(--green);
+        color: white;
+        background: var(--green);
+      }
+
+      .gate-actions button[data-selected="true"][data-choice="revise"] {
+        border-color: var(--orange);
+        color: white;
+        background: var(--orange);
+      }
+
+      .acceptance-groups {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .acceptance-group {
+        padding: 17px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--sheet);
+      }
+
+      .acceptance-group h3 {
+        margin-bottom: 11px;
+        font-size: 12px;
+      }
+
+      .acceptance-group ul {
+        display: grid;
+        gap: 7px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .acceptance-group li {
+        position: relative;
+        padding-left: 20px;
+        color: var(--ink-soft);
+        font-size: 9px;
+      }
+
+      .acceptance-group li::before {
+        content: "□";
+        position: absolute;
+        left: 0;
+        color: var(--blue);
+        font-family: var(--mono);
+      }
+
+      .review-summary {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        align-items: center;
+        margin-top: 22px;
+        padding: 20px;
+        border: 1px solid #6b8dd8;
+        border-radius: 14px;
+        background: var(--blue-wash);
+      }
+
+      .review-summary h3,
+      .review-summary p {
+        margin: 0;
+      }
+
+      .review-summary p {
+        margin-top: 5px;
+        color: var(--ink-soft);
+        font-size: 10px;
+      }
+
+      .review-summary-actions {
+        display: flex;
+        gap: 7px;
+      }
+
+      .review-summary button {
+        min-height: 36px;
+        padding: 0 13px;
+        border: 1px solid var(--blue);
+        border-radius: 8px;
+        color: white;
+        background: var(--blue);
+        font-size: 9px;
+        font-weight: 900;
+      }
+
+      .review-summary button.secondary {
+        color: var(--blue-dark);
+        background: white;
+      }
+
+      .review-footer {
+        margin-top: 30px;
+        padding: 25px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 253, 248, 0.9);
+        color: var(--ink-soft);
+        font-size: 11px;
+      }
+
+      .review-footer a {
+        color: var(--blue-dark);
+        font-weight: 800;
+      }
+
+      .review-sheet {
+        position: fixed;
+        z-index: 140;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        background: rgba(13, 22, 27, 0.56);
+        backdrop-filter: blur(8px);
+      }
+
+      .review-sheet[hidden] {
+        display: none;
+      }
+
+      .send-sheet-card {
+        width: min(520px, 100%);
+        overflow: hidden;
+        border-radius: 14px;
+        background: white;
+        box-shadow: 0 30px 70px rgba(10, 16, 20, 0.34);
+      }
+
+      .send-sheet-card header,
+      .send-sheet-card footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px 17px;
+        border-bottom: 1px solid #d4dade;
+      }
+
+      .send-sheet-card footer {
+        border-top: 1px solid #d4dade;
+        border-bottom: 0;
+        background: #f7f9fa;
+      }
+
+      .send-sheet-card header h3,
+      .send-sheet-card header p {
+        margin: 0;
+      }
+
+      .send-sheet-card header p {
+        color: #738086;
+        font-size: 9px;
+      }
+
+      .send-sheet-body {
+        display: grid;
+        gap: 8px;
+        padding: 16px;
+      }
+
+      .send-device-option {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 11px;
+        border: 1px solid #cbd3d7;
+        border-radius: 9px;
+        background: white;
+        text-align: left;
+      }
+
+      .send-device-option.selected {
+        border: 2px solid var(--blue);
+        background: var(--blue-wash);
+      }
+
+      .send-device-option b,
+      .send-device-option small {
+        display: block;
+      }
+
+      .send-device-option b {
+        font-size: 10px;
+      }
+
+      .send-device-option small {
+        color: #748187;
+        font-size: 8px;
+      }
+
+      .send-device-option em {
+        color: var(--green);
+        font-size: 8px;
+        font-style: normal;
+      }
+
+      @media (max-width: 1320px) {
+        .review-nav {
+          display: none;
+        }
+
+        .review-main {
+          padding-left: 0;
+        }
+      }
+
+      @media (max-width: 820px) {
+        .review-header {
+          padding: 10px 14px;
+        }
+
+        .status-pill,
+        .header-button.hide-mobile {
+          display: none;
+        }
+
+        .review-main {
+          width: min(100% - 22px, 1180px);
+        }
+
+        .chapter {
+          padding: 34px 22px;
+          border-radius: 19px;
+        }
+
+        .review-route,
+        .device-columns,
+        .global-agents,
+        .plain-rules,
+        .case-grid,
+        .result-strip,
+        .scope-lanes,
+        .interface-callouts,
+        .classic-proof,
+        .classic-roster,
+        .choice-list,
+        .manage-layout,
+        .delete-grid,
+        .identity-funnel,
+        .session-tools-grid,
+        .device-card-grid,
+        .pairing-flow,
+        .permission-grid,
+        .diagnostic-strip,
+        .remote-safety,
+        .exception-grid,
+        .boundary-zones,
+        .acceptance-groups,
+        .review-summary {
+          grid-template-columns: 1fr;
+        }
+
+        .transfer-job {
+          grid-template-columns: 1fr;
+        }
+
+        .model-board {
+          grid-template-columns: 1fr;
+        }
+
+        .model-board::before,
+        .model-board::after {
+          display: none;
+        }
+
+        .change-row {
+          grid-template-columns: 32px 1fr;
+        }
+
+        .change-cell {
+          grid-column: 2;
+        }
+
+        .funnel-arrow,
+        .architecture-arrow,
+        .send-arrow {
+          transform: rotate(90deg);
+        }
+
+        .send-flow,
+        .mapping-board,
+        .architecture-flow,
+        .remote-layout,
+        .phase,
+        .gate-card {
+          grid-template-columns: 1fr;
+        }
+
+        .remote-sidebar {
+          border-top: 1px solid #31434d;
+          border-left: 0;
+        }
+
+        .timeline-step {
+          grid-template-columns: 60px 1fr;
+        }
+
+        .timeline-result {
+          grid-column: 2;
+        }
+
+        .boundary-zone {
+          border-right: 0;
+          border-bottom: 1px solid #32464f;
+        }
+
+        .boundary-zone:last-child {
+          border-bottom: 0;
+        }
+
+        .pair-step:not(:last-child)::after {
+          top: auto;
+          right: 50%;
+          bottom: -20px;
+          transform: rotate(90deg) translateY(-50%);
+        }
+
+        .gate-card {
+          justify-items: start;
+        }
+
+        .review-summary-actions {
+          flex-wrap: wrap;
+        }
+
+        .hero-map {
+          min-height: 620px;
+        }
+
+        .map-device.one,
+        .map-device.two,
+        .map-device.three,
+        .map-device.four {
+          left: 50%;
+          right: auto;
+          transform: translateX(-50%);
+        }
+
+        .map-device.one { top: 4%; }
+        .map-device.two { top: 21%; }
+        .map-device.three { top: auto; bottom: 21%; }
+        .map-device.four { top: auto; bottom: 4%; }
+
+        .scenario-switch {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+
+      @media print {
+        body {
+          background: white;
+        }
+
+        .review-header,
+        .review-nav,
+        .scroll-progress,
+        .toast,
+        button {
+          display: none !important;
+        }
+
+        .review-main {
+          width: 100%;
+          margin: 0;
+          padding: 0;
+        }
+
+        .chapter {
+          break-inside: avoid;
+          box-shadow: none;
+        }
+
+        .interface-wrap {
+          zoom: 0.72;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scroll-progress" id="scrollProgress"></div>
+
+    <header class="review-header">
+      <div class="review-brand">
+        <div class="brand-cat" aria-hidden="true"><span></span></div>
+        <div>
+          <strong>AgentDesk · Personal Mesh</strong>
+          <small>Owner Review / 完成态界面稿</small>
+        </div>
+      </div>
+      <div class="review-header-actions">
+        <span class="status-pill">已批准实施 · 有人值守代码完成 · 物理矩阵待验收</span>
+        <button class="header-button hide-mobile" id="printReview" type="button">打印 / 存 PDF</button>
+        <a class="header-button" href="#final-review">跳到最终确认</a>
+      </div>
+    </header>
+
+    <nav class="review-nav" aria-label="审阅目录">
+      <b>从头到尾审阅</b>
+      <a href="#overview"><span>00</span>怎么审这份稿</a>
+      <a href="#real-situation"><span>01</span>真实工作状态</a>
+      <a href="#identity-model"><span>02</span>账号怎么归属</a>
+      <a href="#feature-changes"><span>03</span>需要增加什么</a>
+      <a href="#final-interface"><span>04</span>完成态主界面</a>
+      <a href="#account-actions"><span>05</span>新增、合并、删除</a>
+      <a href="#session-actions"><span>06</span>会话与复制发送</a>
+      <a href="#device-center"><span>07</span>设备中心</a>
+      <a href="#remote-console"><span>08</span>远控控制台</a>
+      <a href="#daily-flow"><span>09</span>完整日常流程</a>
+      <a href="#exceptions"><span>10</span>异常怎么处理</a>
+      <a href="#system-boundary"><span>11</span>后端与安全边界</a>
+      <a href="#delivery-order"><span>12</span>开发顺序</a>
+      <a href="#final-review"><span>13</span>最终确认</a>
+    </nav>
+
+    <main class="review-main">
+      <section class="chapter dark" id="overview" data-index="00">
+        <div class="chapter-kicker">Review entry</div>
+        <h1>一个人的所有 Agent，最后只需要<em>一张桌子</em>。</h1>
+        <p class="lead">
+          这份 HTML 不要求你先理解内部架构。它先把真实账号和设备关系画清楚，再展示需要增加的功能、现有界面怎么改、完成后每一步怎么操作，最后给出前后端边界和验收项。
+        </p>
+
+        <div class="editor-note">
+          <strong>当前事实</strong>
+          <span>本页是已经批准的产品基准。对应有人值守代码链路现已实现；下列界面仍保留为设计因果与验收对照，真实公网 NAT、coturn 和 macOS/Windows 物理矩阵尚待验收。</span>
+        </div>
+
+        <div class="review-route">
+          <article class="route-card">
+            <b><span>1</span>先看关系</b>
+            <p>确认同账号跨设备、同设备多账号、跨平台 Agent 的归属是否正确。</p>
+          </article>
+          <article class="route-card">
+            <b><span>2</span>再看主界面</b>
+            <p>七行骨架不动，只增加设备视角、运行位置和跨设备会话能力。</p>
+          </article>
+          <article class="route-card">
+            <b><span>3</span>逐项走操作</b>
+            <p>新增、纠错、删除、复制、发送、映射、控制都有明确结果。</p>
+          </article>
+          <article class="route-card">
+            <b><span>4</span>检查异常</b>
+            <p>离线、换号、压缩、路径不一致、权限不足不会被统一成一个错误。</p>
+          </article>
+          <article class="route-card">
+            <b><span>5</span>最后确认</b>
+            <p>五个产品决定和验收清单集中放在最后，不需要在正文里到处找。</p>
+          </article>
+        </div>
+
+        <div class="hero-map" aria-label="一个用户的 Personal Mesh 拓扑示意">
+          <svg viewBox="0 0 1000 410" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="beam" x1="0" x2="1">
+                <stop offset="0" stop-color="#4d6d7b" />
+                <stop offset="0.5" stop-color="#6b9cff" />
+                <stop offset="1" stop-color="#4d6d7b" />
+              </linearGradient>
+            </defs>
+            <path d="M185 90 C320 100 385 150 500 205" fill="none" stroke="url(#beam)" stroke-width="2" stroke-dasharray="7 8" />
+            <path d="M815 90 C680 100 615 150 500 205" fill="none" stroke="url(#beam)" stroke-width="2" stroke-dasharray="7 8" />
+            <path d="M205 326 C330 306 390 250 500 205" fill="none" stroke="url(#beam)" stroke-width="2" stroke-dasharray="7 8" />
+            <path d="M795 326 C670 306 610 250 500 205" fill="none" stroke="url(#beam)" stroke-width="2" stroke-dasharray="7 8" />
+          </svg>
+          <div class="map-device one">
+            <b>MacBook · 当前控制台</b>
+            <small>Codex 工作 / Codex 个人 / Claude · 3 个 Agent 位置</small>
+          </div>
+          <div class="map-device two">
+            <b>Mac Studio · 在线执行端</b>
+            <small>Codex 工作 Desktop + CLI · 资源充足</small>
+          </div>
+          <div class="map-device three">
+            <b>Windows GPU · 在线执行端</b>
+            <small>Claude 工作 / Kimi 素材 · GPU 任务</small>
+          </div>
+          <div class="map-device four offline">
+            <b>备用 Mac · 离线快照</b>
+            <small>仍可查看上次索引，不能执行副作用动作</small>
+          </div>
+          <div class="mesh-core">
+            <div class="core-cats" aria-hidden="true">🐈 🐈‍⬛ 🐈</div>
+            <strong>全局 Agent 目录</strong>
+            <small>同一个人 · 去重后的工作身份</small>
+          </div>
+          <div class="hero-map-legend">任意可信设备都能成为控制台 · 没有永久主机</div>
+        </div>
+      </section>
+
+      <section class="chapter orange" id="real-situation" data-index="01">
+        <div class="chapter-kicker">The actual situation</div>
+        <h2>先把三台电脑上的账号摆出来。</h2>
+        <p class="lead">下面使用同一组数据切换“按设备扫描”和“按 Agent 管理”。重点不是少画几张卡，而是让每张卡的身份、额度、会话和操作目标都稳定。</p>
+
+        <div class="scenario-switch">
+          <div class="segment" role="group" aria-label="查看整理前后">
+            <button type="button" data-scenario="raw" aria-pressed="true">现状：按设备看到</button>
+            <button type="button" data-scenario="resolved" aria-pressed="false">完成后：按 Agent 管理</button>
+          </div>
+          <p id="scenarioCaption">同一个 Codex 工作账号在两台设备出现两次，空的默认 Claude/Kimi 也占位置。</p>
+        </div>
+
+        <div class="scenario-panel" data-scenario-panel="raw">
+          <div class="device-columns">
+            <article class="machine-sheet">
+              <header><b>MacBook</b><small>在线 · 本机</small></header>
+              <div class="machine-accounts">
+                <div class="raw-account duplicate">
+                  <span class="provider-mark codex">CX</span>
+                  <span><b>Codex 工作账号</b><small>Desktop · 18 条会话</small></span>
+                  <span class="problem-tag">重复 1/2</span>
+                </div>
+                <div class="raw-account">
+                  <span class="provider-mark codex">CX</span>
+                  <span><b>Codex 个人账号</b><small>CLI · 7 条会话</small></span>
+                </div>
+                <div class="raw-account empty">
+                  <span class="provider-mark claude">CL</span>
+                  <span><b>Claude 默认项</b><small>没有账号、没有会话</small></span>
+                  <span class="problem-tag">不能删</span>
+                </div>
+              </div>
+            </article>
+            <article class="machine-sheet">
+              <header><b>Mac Studio</b><small>在线 · 直连</small></header>
+              <div class="machine-accounts">
+                <div class="raw-account duplicate">
+                  <span class="provider-mark codex">CX</span>
+                  <span><b>Codex 工作账号</b><small>CLI + Desktop · 23 条会话</small></span>
+                  <span class="problem-tag">重复 2/2</span>
+                </div>
+                <div class="raw-account">
+                  <span class="provider-mark kimi">KM</span>
+                  <span><b>Kimi 素材账号</b><small>Desktop · 11 条会话</small></span>
+                </div>
+              </div>
+            </article>
+            <article class="machine-sheet">
+              <header><b>Windows GPU</b><small>在线 · 中继</small></header>
+              <div class="machine-accounts">
+                <div class="raw-account">
+                  <span class="provider-mark claude">CL</span>
+                  <span><b>Claude 工作账号</b><small>Desktop · 14 条会话</small></span>
+                </div>
+                <div class="raw-account">
+                  <span class="provider-mark kimi">KM</span>
+                  <span><b>Kimi 素材账号</b><small>CLI · 9 条会话</small></span>
+                </div>
+                <div class="raw-account empty">
+                  <span class="provider-mark kimi">KM</span>
+                  <span><b>Kimi 默认项</b><small>没有账号、没有会话</small></span>
+                  <span class="problem-tag">不能删</span>
+                </div>
+              </div>
+            </article>
+          </div>
+          <div class="result-strip">
+            <div class="metric"><strong>8</strong><span>界面卡片，其中 2 个是空默认项</span></div>
+            <div class="metric"><strong>2×</strong><span>同一 Codex 工作账号被重复计算</span></div>
+            <div class="metric"><strong>?</strong><span>打开账号时不知道落到哪台设备</span></div>
+            <div class="metric"><strong>16→?</strong><span>物理会话文件可能被误当成列表行</span></div>
+          </div>
+        </div>
+
+        <div class="scenario-panel" data-scenario-panel="resolved" hidden>
+          <div class="global-agents">
+            <article class="global-agent">
+              <div class="agent-heading">
+                <div class="cat-avatar" aria-hidden="true">•ᴥ•</div>
+                <div>
+                  <h3>工作 Agent</h3>
+                  <p>2 个平台账号 · 4 个运行位置 · 3 个在线</p>
+                </div>
+              </div>
+              <div class="binding-tree">
+                <div class="binding">
+                  <b>Codex 工作账号</b>
+                  <div class="slot-list">
+                    <span class="slot online">MacBook / Desktop</span>
+                    <span class="slot online">Mac Studio / Desktop</span>
+                    <span class="slot online">Mac Studio / CLI</span>
+                  </div>
+                </div>
+                <div class="binding">
+                  <b>Claude 工作账号 · 用户显式关联</b>
+                  <div class="slot-list">
+                    <span class="slot online">Windows GPU / Desktop</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+            <article class="global-agent">
+              <div class="agent-heading">
+                <div class="cat-avatar blue" aria-hidden="true">•ᴥ•</div>
+                <div>
+                  <h3>个人 Agent</h3>
+                  <p>1 个平台账号 · 1 个运行位置</p>
+                </div>
+              </div>
+              <div class="binding-tree">
+                <div class="binding">
+                  <b>Codex 个人账号</b>
+                  <div class="slot-list">
+                    <span class="slot online">MacBook / CLI</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+          <div class="global-agent" style="margin-top: 15px">
+            <div class="agent-heading">
+              <div class="cat-avatar" style="background:#b7a7e8" aria-hidden="true">•ᴥ•</div>
+              <div>
+                <h3>素材 Agent</h3>
+                <p>同一个 Kimi 素材账号 · 2 台设备 · 2 个运行位置</p>
+              </div>
+            </div>
+            <div class="slot-list">
+              <span class="slot online">Mac Studio / Desktop</span>
+              <span class="slot online">Windows GPU / CLI</span>
+            </div>
+          </div>
+          <div class="result-strip">
+            <div class="metric"><strong>3</strong><span>真正的全局 Agent，一只猫一个身份</span></div>
+            <div class="metric"><strong>0</strong><span>空 Claude/Kimi 默认项；目录允许为空</span></div>
+            <div class="metric"><strong>5</strong><span>准确运行位置，不靠机器名定义账号</span></div>
+            <div class="metric"><strong>1 行</strong><span>一条逻辑会话无论压缩多少次仍是一行</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter" id="identity-model" data-index="02">
+        <div class="chapter-kicker">Plain-language model</div>
+        <h2>日常界面只需要理解三层。</h2>
+        <p class="lead">内部可以有稳定 ID 和关联记录，但用户不应该每天操作四套技术对象。主界面只暴露 Agent、平台账号和运行位置；设备是筛选视角。</p>
+
+        <div class="model-board">
+          <article class="model-card">
+            <span class="model-index">01</span>
+            <h3>Agent</h3>
+            <p>一个持续使用的工作身份。庭院的一只猫、经典名册的一张卡，都只代表它。</p>
+            <div class="example">例：工作 Agent</div>
+          </article>
+          <article class="model-card">
+            <span class="model-index">02</span>
+            <h3>平台账号</h3>
+            <p>实际登录和额度的边界。一个 Agent 可以由用户明确关联多个平台账号。</p>
+            <div class="example">例：Codex 工作号 + Claude 工作号</div>
+          </article>
+          <article class="model-card">
+            <span class="model-index">03</span>
+            <h3>运行位置</h3>
+            <p>动作最终落到的设备与客户端。打开、诊断、重扫、定位都必须选中一个准确位置。</p>
+            <div class="device-axis">
+              <span>MacBook<br />Desktop</span>
+              <span>Mac Studio<br />CLI</span>
+              <span>Windows<br />Desktop</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="plain-rules">
+          <div class="plain-rule">
+            <b>同一账号换设备</b>
+            <p>只增加运行位置，不增加 Agent，也不重复计算额度。</p>
+          </div>
+          <div class="plain-rule">
+            <b>同一设备有多个账号</b>
+            <p>分别保留，系统不能因为平台相同或名称相近而合并。</p>
+          </div>
+          <div class="plain-rule">
+            <b>不同平台属于同一工作身份</b>
+            <p>只能由用户明确关联；跨平台永远不靠名称自动猜。</p>
+          </div>
+        </div>
+
+        <div class="case-grid" style="margin-top: 20px">
+          <article class="case-card">
+            <div class="case-visual">工作号 <span class="case-plus">+</span> 新设备 <span class="case-equals">同一 Agent</span></div>
+            <h3>Mac Studio 登录已有 Codex 工作号</h3>
+            <p>系统识别到可靠账号标识，自动把它作为“工作 Agent”的新运行位置。</p>
+          </article>
+          <article class="case-card">
+            <div class="case-visual">设备 A <span class="case-plus">+</span> 账号 1 / 2 <span class="case-equals">两个 Agent</span></div>
+            <h3>MacBook 同时登录工作号和个人号</h3>
+            <p>两个实际账号分别存在；除非用户明确归组，否则不会因为都叫 Codex 就合并。</p>
+          </article>
+          <article class="case-card">
+            <div class="case-visual">Codex <span class="case-plus">+</span> Claude <span class="case-equals">用户决定</span></div>
+            <h3>跨平台共同承担“工作 Agent”</h3>
+            <p>在 Agent 管理中显式关联。系统保存目录关系，不改第三方账号和会话文件。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="chapter" id="feature-changes" data-index="03">
+        <div class="chapter-kicker">What has to change</div>
+        <h2>需要增加的功能，以及每一项改变什么。</h2>
+        <p class="lead">下面不是功能名罗列。每一行都从当前问题落到完成态界面和用户得到的结果。</p>
+
+        <div class="change-list">
+          <div class="change-row change-head" aria-hidden="true">
+            <span></span><span>当前</span><span>需要增加 / 改变</span><span>用户最终得到</span>
+          </div>
+          <div class="change-row">
+            <div class="change-no">01</div>
+            <div class="change-cell before"><b>账号以本机 Profile 为主</b><span>同账号跨设备会重复出现。</span></div>
+            <div class="change-cell after"><b>全局 Agent 目录</b><span>Agent、平台账号、运行位置分层；可靠标识自动归并，其他情况由用户确认。</span></div>
+            <div class="change-cell result"><b>一只猫一个 Agent</b><span>设备增加不会复制账号卡片。</span></div>
+          </div>
+          <div class="change-row">
+            <div class="change-no">02</div>
+            <div class="change-cell before"><b>只有本机视角</b><span>无法快速知道其他电脑有什么。</span></div>
+            <div class="change-cell after"><b>顶栏设备视角</b><span>增加“全部设备 / 某台设备”，并保留设备中心入口。</span></div>
+            <div class="change-cell result"><b>正交筛选</b><span>设备只筛选，不改变 Agent 身份。</span></div>
+          </div>
+          <div class="change-row">
+            <div class="change-no">03</div>
+            <div class="change-cell before"><b>形态选择只在本机</b><span>打开动作没有跨设备落点。</span></div>
+            <div class="change-cell after"><b>运行位置选择器</b><span>原“形态”位置扩展为“Mac Studio / Codex CLI”等确切槽位。</span></div>
+            <div class="change-cell result"><b>动作不再猜</b><span>打开、诊断、路径、重扫都有明确设备和客户端。</span></div>
+          </div>
+          <div class="change-row">
+            <div class="change-no">04</div>
+            <div class="change-cell before"><b>扫描文件直接变成会话</b><span>压缩和 guardian 记录可能制造重复行。</span></div>
+            <div class="change-cell after"><b>逻辑会话索引</b><span>用户根会话、压缩检查点、内部执行、设备副本分别建模。</span></div>
+            <div class="change-cell result"><b>一条对话始终一行</b><span>压缩不再生成项目或会话。</span></div>
+          </div>
+          <div class="change-row">
+            <div class="change-no">05</div>
+            <div class="change-cell before"><b>只会复制本机定位</b><span>另一台电脑不知道如何匹配项目。</span></div>
+            <div class="change-cell after"><b>复制 + 发送到设备</b><span>复制仍只有路径和坐标；设备间另发结构化 SessionPointer。</span></div>
+            <div class="change-cell result"><b>人话仍简单</b><span>不增加交接模板，目标设备可准确定位。</span></div>
+          </div>
+          <div class="change-row">
+            <div class="change-no">06</div>
+            <div class="change-cell before"><b>绝对路径只适合本机</b><span>macOS 与 Windows 路径不同。</span></div>
+            <div class="change-cell after"><b>项目身份与路径映射</b><span>同一项目在每台设备保存自己的根目录，传相对路径和稳定坐标。</span></div>
+            <div class="change-cell result"><b>跨系统继续工作</b><span>目标设备本地解析，不执行来源绝对路径。</span></div>
+          </div>
+          <div class="change-row">
+            <div class="change-no">07</div>
+            <div class="change-cell before"><b>没有个人设备管理</b><span>在线、资源、权限和撤销分散。</span></div>
+            <div class="change-cell after"><b>设备中心</b><span>配对、状态、权限、资源、诊断、撤销删除集中管理。</span></div>
+            <div class="change-cell result"><b>设备是可选端口</b><span>任意可信设备都能成为控制台，也都能被删除。</span></div>
+          </div>
+          <div class="change-row">
+            <div class="change-no">08</div>
+            <div class="change-cell before"><b>无法统一操作远端设备</b><span>需要在各电脑之间来回切换。</span></div>
+            <div class="change-cell after"><b>独立远控控制台</b><span>查看、多显示器、文件传输、输入控制分别授权；只允许一个输入目标。</span></div>
+            <div class="change-cell result"><b>能调动硬件但不误发</b><span>主窗口不变成远程桌面。</span></div>
+          </div>
+          <div class="change-row">
+            <div class="change-no">09</div>
+            <div class="change-cell before"><b>删除范围不清楚</b><span>空默认账号不能删，最后一个被强制保留。</span></div>
+            <div class="change-cell after"><b>位置 / 账号 / Agent 三种删除</b><span>确认页明确影响；允许删到零，离线库存也不能让它复活。</span></div>
+            <div class="change-cell result"><b>目录真正归用户</b><span>不自动补回 Claude、Kimi 等空项。</span></div>
+          </div>
+        </div>
+
+        <div class="scope-lanes">
+          <article class="scope-lane front">
+            <h3>前端需要增加</h3>
+            <ul>
+              <li>顶栏设备 Lens 与设备入口；不增加永久侧栏。</li>
+              <li>全局 Agent 呈现、运行位置选择器、账号归属确认。</li>
+              <li>跨设备会话位置列、复制主按钮、发送次按钮。</li>
+              <li>Agent 管理、三层删除、设备中心、项目映射弹层。</li>
+              <li>独立远控窗口、输入目标提示、被控端常驻停止条。</li>
+              <li>离线快照、权限缺失、版本不兼容等准确状态。</li>
+            </ul>
+          </article>
+          <article class="scope-lane back">
+            <h3>后端与本机能力需要增加</h3>
+            <ul>
+              <li>设备密钥、成员证书、配对与撤销事件。</li>
+              <li>Agent 目录、账号关联、会话身份和项目映射存储。</li>
+              <li>加密库存同步、SessionPointer、文件传输队列。</li>
+              <li>信令、STUN/TURN、P2P 连接和断线恢复。</li>
+              <li>macOS / Windows 屏幕采集、输入、权限与紧急停止。</li>
+              <li>严格语义 API；不接受远程 Shell、任意路径或命令。</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="chapter" id="final-interface" data-index="04">
+        <div class="chapter-kicker">Finished main window</div>
+        <h2>完成后的主界面：大布局不动，只把关系放到正确位置。</h2>
+        <p class="lead">下面是可操作的 1040×840 完成态示意。你可以切换设备、切换当前/全部 Agent、选择会话，并点击复制或发送。它验证的是信息位置和操作顺序，不是视觉成品的像素定稿。</p>
+
+        <div class="interface-wrap">
+          <div class="app-window" aria-label="AgentDesk 完成态主窗口交互原型">
+            <div class="ad-topbar">
+              <div class="ad-brand"><span class="ad-mark">猫</span>AgentDesk</div>
+              <div class="ad-context" id="demoContext">全部设备 · 猫猫庭院 · 索引刚刚更新</div>
+              <div class="ad-actions">
+                <span class="number-badge">1</span>
+                <select class="ad-select device-lens" id="demoDeviceLens" aria-label="设备视角">
+                  <option value="all">全部设备 · 3 在线 / 1 离线</option>
+                  <option value="macbook">MacBook · 本机</option>
+                  <option value="studio">Mac Studio · 直连</option>
+                  <option value="windows">Windows GPU · 中继</option>
+                  <option value="backup">备用 Mac · 离线快照</option>
+                </select>
+                <button class="ad-button" type="button">设备 ③</button>
+                <button class="ad-button" type="button">经典</button>
+                <button class="ad-button" type="button">工具</button>
+                <button class="ad-button" type="button">?</button>
+              </div>
+            </div>
+
+            <div class="ad-presenter">
+              <div class="yard-skyline">
+                <div class="yard-agents">
+                  <button class="yard-agent selected" type="button" data-demo-agent="work" data-devices="macbook studio windows">
+                    <span class="cat-face" aria-hidden="true">•ᴥ•</span>
+                    <b>工作 Agent</b>
+                    <small>4 个位置 · 3 在线 · 2 个账号</small>
+                  </button>
+                  <button class="yard-agent" type="button" data-demo-agent="personal" data-devices="macbook">
+                    <span class="cat-face" aria-hidden="true">•ᴥ•</span>
+                    <b>个人 Agent</b>
+                    <small>1 个位置 · 在线</small>
+                  </button>
+                  <button class="yard-agent" type="button" data-demo-agent="media" data-devices="studio windows">
+                    <span class="cat-face" aria-hidden="true">•ᴥ•</span>
+                    <b>素材 Agent</b>
+                    <small>2 个位置 · 2 在线</small>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="ad-accountbar">
+              <span class="number-badge">2</span>
+              <div class="ad-accountname" id="demoAgentName">工作 Agent</div>
+              <span class="number-badge">3</span>
+              <select class="ad-select ad-location" id="demoLocation" aria-label="运行位置">
+                <option data-device="macbook">MacBook / Codex Desktop</option>
+                <option data-device="studio">Mac Studio / Codex Desktop</option>
+                <option data-device="studio">Mac Studio / Codex CLI</option>
+                <option data-device="windows">Windows GPU / Claude Desktop</option>
+              </select>
+              <div class="ad-actions-group">
+                <button class="ad-button" type="button">打开账号</button>
+                <button class="ad-button" type="button">新增</button>
+                <button class="ad-button" type="button">路径</button>
+                <button class="ad-button" type="button">诊断</button>
+                <button class="ad-button" type="button">重扫</button>
+                <button class="ad-button" type="button">管理 ▾</button>
+              </div>
+              <div class="ad-quota-chip">本号额度 62% · MacBook 10:42</div>
+            </div>
+
+            <div class="ad-attention">
+              <span class="number-badge">4</span>
+              <b>需要留意</b>
+              <span>备用 Mac 已离线 2 天 · Windows 输入权限未开启</span>
+            </div>
+
+            <div class="ad-quota">
+              <b>全院额度</b>
+              <i aria-hidden="true"></i>
+              <span>Codex 工作号按账号去重 · 不是三台设备相加</span>
+            </div>
+
+            <div class="ad-main">
+              <section class="ad-sessions">
+                <div class="ad-session-toolbar">
+                  <h3>会话 <small id="demoSessionCount">3 个</small></h3>
+                  <div class="ad-session-actions">
+                    <span class="number-badge">5</span>
+                    <div class="ad-segment" role="group" aria-label="Agent 范围">
+                      <button type="button" data-demo-scope="current" aria-pressed="true">当前 Agent</button>
+                      <button type="button" data-demo-scope="all" aria-pressed="false">全部 Agent</button>
+                    </div>
+                    <input class="ad-search" type="search" placeholder="搜索会话、Agent 或 ID" />
+                    <span class="number-badge">6</span>
+                    <button class="ad-copy" id="demoCopy" type="button">⧉ 复制会话信息</button>
+                    <span class="number-badge">7</span>
+                    <button class="ad-send" id="demoSend" type="button">发送到设备</button>
+                  </div>
+                </div>
+                <div class="ad-table">
+                  <div class="ad-table-head">
+                    <span></span><span>标题 / 稳定会话</span><span>Agent</span><span>位置</span><span>项目</span>
+                  </div>
+                  <div class="ad-row selected" tabindex="0" data-session-id="C-01" data-devices="macbook studio" data-agent="work" data-title="AgentDesk Personal Mesh" data-place="2 个位置" data-project="AgentDesk" data-coordinate="rollout.jsonl#C-01">
+                    <input type="checkbox" checked aria-label="选择 AgentDesk Personal Mesh" />
+                    <span><b>AgentDesk Personal Mesh</b><small>C-01 · 5 次压缩 · 10 个内部分支已隐藏</small></span>
+                    <span>工作 Agent</span>
+                    <span><span class="row-place">2 个位置</span></span>
+                    <span>AgentDesk</span>
+                  </div>
+                  <div class="ad-row" tabindex="0" data-session-id="C-02" data-devices="studio windows" data-agent="work" data-title="GPU 批量素材处理" data-place="Windows GPU" data-project="MediaBatch" data-coordinate="sessions.db#C-02">
+                    <input type="checkbox" aria-label="选择 GPU 批量素材处理" />
+                    <span><b>GPU 批量素材处理</b><small>C-02 · 当前活跃 · Windows 来源</small></span>
+                    <span>工作 Agent</span>
+                    <span><span class="row-place">Windows GPU</span></span>
+                    <span>MediaBatch</span>
+                  </div>
+                  <div class="ad-row" tabindex="0" data-session-id="C-03" data-devices="studio windows" data-agent="media" data-title="素材标签整理" data-place="Mac Studio" data-project="AssetAtlas" data-coordinate="chat.jsonl#C-03">
+                    <input type="checkbox" aria-label="选择 素材标签整理" />
+                    <span><b>素材标签整理</b><small>C-03 · 2 个副本 · 直连</small></span>
+                    <span>素材 Agent</span>
+                    <span><span class="row-place">2 个位置</span></span>
+                    <span>AssetAtlas</span>
+                  </div>
+                  <div class="ad-row" tabindex="0" data-session-id="C-04" data-devices="macbook" data-agent="personal" data-title="个人知识库清理" data-place="MacBook" data-project="Notes" data-coordinate="session.jsonl#C-04">
+                    <input type="checkbox" aria-label="选择 个人知识库清理" />
+                    <span><b>个人知识库清理</b><small>C-04 · 本机副本</small></span>
+                    <span>个人 Agent</span>
+                    <span><span class="row-place">MacBook</span></span>
+                    <span>Notes</span>
+                  </div>
+                </div>
+              </section>
+
+              <aside class="ad-detail">
+                <h3>会话详情</h3>
+                <div class="detail-hero">
+                  <b id="demoDetailTitle">AgentDesk Personal Mesh</b>
+                  <small id="demoDetailSub">逻辑会话 C-01 · 当前副本可操作</small>
+                </div>
+                <dl class="detail-grid">
+                  <dt>Agent</dt><dd id="demoDetailAgent">工作 Agent</dd>
+                  <dt>项目</dt><dd id="demoDetailProject">AgentDesk</dd>
+                  <dt>当前位置</dt><dd id="demoDetailPlace">Mac Studio / Codex CLI</dd>
+                  <dt>坐标</dt><dd id="demoDetailCoord">rollout.jsonl#C-01</dd>
+                  <dt>内部记录</dt><dd>5 checkpoints · 10 branches（默认隐藏）</dd>
+                </dl>
+                <b style="display:block;margin-bottom:7px;font-size:9px">会话副本</b>
+                <div class="replica-pills">
+                  <button class="active" type="button">Mac Studio / CLI</button>
+                  <button type="button">MacBook / Desktop</button>
+                </div>
+              </aside>
+            </div>
+
+            <div class="ad-status">
+              <span><span class="number-badge">8</span>库存已同步 · 目录 revision 128 · 无待处理冲突</span>
+              <span>直连 2 · 中继 1 · 离线 1</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="prototype-note">交互提示：切换顶栏设备后，庭院和会话共同筛选；切换 Agent 范围不会改变设备视角。</p>
+
+        <div class="interface-callouts">
+          <article class="interface-callout"><b><span class="number-badge">1</span>设备视角</b><p>“全部设备/某台设备”只负责筛选，完整管理进入设备中心。</p></article>
+          <article class="interface-callout"><b><span class="number-badge">2</span>全局 Agent</b><p>猫和名册按 Agent 去重，不因机器或客户端增加而复制。</p></article>
+          <article class="interface-callout"><b><span class="number-badge">3</span>运行位置</b><p>所有副作用动作都落到设备 + 客户端的明确组合。</p></article>
+          <article class="interface-callout"><b><span class="number-badge">4</span>准确提醒</b><p>离线、权限、版本和传输问题分别显示，不统一叫“失败”。</p></article>
+          <article class="interface-callout"><b><span class="number-badge">5</span>Agent 范围</b><p>与设备视角正交，四种组合覆盖全局和局部查看。</p></article>
+          <article class="interface-callout"><b><span class="number-badge">6</span>复制主操作</b><p>按钮继续最明显，格式始终只有路径和坐标。</p></article>
+          <article class="interface-callout"><b><span class="number-badge">7</span>发送次操作</b><p>内部发送结构化定位，不制造第二种复制模板。</p></article>
+          <article class="interface-callout"><b><span class="number-badge">8</span>连接状态</b><p>展示直连、中继、同步和冲突摘要，但不抢占主工作区。</p></article>
+        </div>
+
+        <div class="classic-proof">
+          <div>
+            <h3>切到经典视图，只换呈现，不换业务状态</h3>
+            <p>同一批 Agent、同一个选中项、同一个运行位置和同一套会话筛选继续保留。庭院与经典不是两套账号系统。</p>
+          </div>
+          <div class="classic-roster" aria-label="经典视图账号名册示意">
+            <div class="classic-agent-card selected"><span class="classic-mini-cat">•ᴥ•</span><span><b>工作 Agent</b><small>4 个位置 · 3 在线</small></span></div>
+            <div class="classic-agent-card"><span class="classic-mini-cat">•ᴥ•</span><span><b>个人 Agent</b><small>1 个位置 · 在线</small></span></div>
+            <div class="classic-agent-card"><span class="classic-mini-cat">•ᴥ•</span><span><b>素材 Agent</b><small>2 个位置 · 2 在线</small></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter orange" id="account-actions" data-index="05">
+        <div class="chapter-kicker">Account decisions</div>
+        <h2>新增、纠错和删除，必须让用户知道自己在改哪一层。</h2>
+        <p class="lead">这里不要求用户理解 AccountBinding 或 AgentSlot。界面只问正常人能回答的问题，并提前展示结果。</p>
+
+        <div class="action-switch" role="group" aria-label="账号管理界面切换">
+          <button type="button" data-action-tab="assign" aria-pressed="true">新增位置时怎么归属</button>
+          <button type="button" data-action-tab="manage" aria-pressed="false">Agent 详情怎么管理</button>
+          <button type="button" data-action-tab="delete" aria-pressed="false">删除范围怎么选择</button>
+        </div>
+
+        <div class="action-panel" data-action-panel="assign">
+          <div class="dialog-stage">
+            <div class="review-dialog">
+              <header>
+                <div>
+                  <h3>这个登录与现有 Agent 是什么关系？</h3>
+                  <p>系统没有可靠标识时只问一次；不会按名称、路径或标题猜。</p>
+                </div>
+                <span class="tiny-pill">Mac Studio 新发现</span>
+              </header>
+              <div class="dialog-content">
+                <div class="detected-slot">
+                  <span class="provider-mark codex">CX</span>
+                  <span><b>Codex Desktop · 本地名称“work”</b><small>Mac Studio · 发现 23 条会话 · 尚未写入全局目录</small></span>
+                  <span class="tiny-pill">待归属</span>
+                </div>
+                <div class="choice-list">
+                  <button class="choice-card selected" type="button" data-assignment-choice>
+                    <span class="choice-icon">A</span>
+                    <b>已有登录的新位置</b>
+                    <p>这是已经存在的 Codex 工作账号，只是又登录在 Mac Studio。结果：工作 Agent 增加一个运行位置。</p>
+                  </button>
+                  <button class="choice-card" type="button" data-assignment-choice>
+                    <span class="choice-icon">B</span>
+                    <b>已有 Agent 的另一账号</b>
+                    <p>这是另一个平台或另一实际账号，但我希望它也属于“工作 Agent”。结果：增加账号绑定和位置。</p>
+                  </button>
+                  <button class="choice-card" type="button" data-assignment-choice>
+                    <span class="choice-icon">C</span>
+                    <b>一个全新的 Agent</b>
+                    <p>它与现有工作身份无关。结果：创建新 Agent、新账号关系和第一个运行位置。</p>
+                  </button>
+                </div>
+              </div>
+              <footer class="dialog-footer">
+                <p>不会移动会话文件，也不会修改第三方客户端登录。</p>
+                <div class="dialog-actions">
+                  <button class="dialog-button" type="button">稍后处理</button>
+                  <button class="dialog-button primary" type="button">继续选择账号</button>
+                </div>
+              </footer>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-panel" data-action-panel="manage" hidden>
+          <div class="dialog-stage">
+            <div class="review-dialog">
+              <header>
+                <div>
+                  <h3>管理 Agent · 工作 Agent</h3>
+                  <p>日常只看 Agent 与运行位置；账号绑定仅在管理和纠错时出现。</p>
+                </div>
+                <span class="tiny-pill">4 个位置 · 3 在线</span>
+              </header>
+              <div class="dialog-content manage-layout">
+                <div class="manage-profile">
+                  <div class="cat-avatar" aria-hidden="true">•ᴥ•</div>
+                  <h3>全局资料</h3>
+                  <p>这些信息在 Personal Mesh 内同步，不由任一设备上的 Profile 名称覆盖。</p>
+                  <label>Agent 名称<input value="工作 Agent" /></label>
+                  <label>分组<input value="主要工作" /></label>
+                  <label>备注<input value="开发与产品相关账号" /></label>
+                </div>
+                <div class="manage-tree">
+                  <article class="manage-binding">
+                    <header><b>Codex 工作账号</b><small>稳定标识已验证</small></header>
+                    <div class="manage-slots">
+                      <div class="manage-slot"><span>MacBook / Desktop · 在线</span><button type="button">管理</button></div>
+                      <div class="manage-slot"><span>Mac Studio / Desktop · 在线</span><button type="button">管理</button></div>
+                      <div class="manage-slot"><span>Mac Studio / CLI · 在线</span><button type="button">管理</button></div>
+                    </div>
+                  </article>
+                  <article class="manage-binding">
+                    <header><b>Claude 工作账号</b><small>用户显式关联</small></header>
+                    <div class="manage-slots">
+                      <div class="manage-slot"><span>Windows GPU / Desktop · 在线</span><button type="button">管理</button></div>
+                    </div>
+                  </article>
+                  <div class="dialog-actions">
+                    <button class="dialog-button" type="button">添加已有登录的位置</button>
+                    <button class="dialog-button" type="button">添加另一平台账号</button>
+                    <button class="dialog-button" type="button">拆分 / 合并</button>
+                  </div>
+                </div>
+              </div>
+              <footer class="dialog-footer">
+                <p>合并和拆分只改变 AgentDesk 目录关系，并保留可审计记录。</p>
+                <div class="dialog-actions">
+                  <button class="dialog-button" type="button">取消</button>
+                  <button class="dialog-button primary" type="button">保存</button>
+                </div>
+              </footer>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-panel" data-action-panel="delete" hidden>
+          <div class="dialog-stage">
+            <div class="review-dialog">
+              <header>
+                <div>
+                  <h3>你要移除什么？</h3>
+                  <p>三个范围互不替代。确认后默认都不注销第三方账号、不删除官方数据。</p>
+                </div>
+                <span class="tiny-pill">工作 Agent</span>
+              </header>
+              <div class="dialog-content">
+                <div class="delete-grid">
+                  <article class="delete-option">
+                    <span class="delete-scope">运行位置</span>
+                    <h3>只移除 Mac Studio / CLI</h3>
+                    <p>适合某个客户端槽位不再使用的情况。</p>
+                    <ul>
+                      <li>其他设备和客户端继续存在</li>
+                      <li>平台账号仍属于工作 Agent</li>
+                      <li>本机官方数据默认保留</li>
+                    </ul>
+                  </article>
+                  <article class="delete-option">
+                    <span class="delete-scope">平台账号</span>
+                    <h3>移除 Codex 工作账号</h3>
+                    <p>会同时移除它在三处的目录关系。</p>
+                    <ul>
+                      <li>Claude 工作账号不受影响</li>
+                      <li>相关历史索引从 Agent 目录移除</li>
+                      <li>不向 Codex 发起注销</li>
+                    </ul>
+                  </article>
+                  <article class="delete-option">
+                    <span class="delete-scope">整个 Agent</span>
+                    <h3>删除工作 Agent</h3>
+                    <p>删除全局目录对象及其所有关联关系。</p>
+                    <ul>
+                      <li>涉及 2 个账号、4 个位置</li>
+                      <li>离线设备上线后应用删除记录</li>
+                      <li>旧库存不能让 Agent 复活</li>
+                    </ul>
+                  </article>
+                </div>
+                <div class="delete-zero">
+                  最后一个 Agent 也可以删除。删除后界面展示真实空状态和“新增 Agent”，不会自动补回空的 Claude、Kimi 或任何平台默认项。
+                </div>
+              </div>
+              <footer class="dialog-footer">
+                <p>危险确认会列出账号、设备和会话索引数量。</p>
+                <div class="dialog-actions">
+                  <button class="dialog-button" type="button">取消</button>
+                  <button class="dialog-button danger" type="button">进入影响预览</button>
+                </div>
+              </footer>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter" id="session-actions" data-index="06">
+        <div class="chapter-kicker">Conversation identity</div>
+        <h2>会话列表展示对话，不展示扫描器碰到的文件。</h2>
+        <p class="lead">压缩、guardian、subagent 和跨设备副本都需要保存，但它们不能各自占一条用户会话。</p>
+
+        <div class="identity-funnel">
+          <div class="record-stack">
+            <h3>扫描器读到的物理记录</h3>
+            <div class="record-file">
+              <span class="file-icon">ROOT</span><span>用户根会话 C-01</span><b>1</b>
+            </div>
+            <div class="record-file compact">
+              <span class="file-icon">CP</span><span>context_compacted</span><b>5</b>
+            </div>
+            <div class="record-file internal">
+              <span class="file-icon">SUB</span><span>guardian / subagent</span><b>10</b>
+            </div>
+            <div class="record-file">
+              <span class="file-icon">REP</span><span>MacBook 与 Studio 副本</span><b>2</b>
+            </div>
+          </div>
+          <div class="funnel-arrow" aria-hidden="true">→</div>
+          <div class="classifier">
+            <b>身份分类</b>
+            <small>根会话 / 检查点 / 内部分支 / 副本</small>
+          </div>
+          <div class="funnel-arrow" aria-hidden="true">→</div>
+          <div class="conversation-result">
+            <strong>1 条会话</strong>
+            <p>C-01 始终是一行。详情显示 5 次压缩、10 个隐藏内部分支、2 个可选副本。</p>
+          </div>
+        </div>
+
+        <div class="result-strip">
+          <div class="metric"><strong>16</strong><span>本机样本中的物理 JSONL 总数</span></div>
+          <div class="metric"><strong>6</strong><span>真正的用户根会话，应显示 6 行</span></div>
+          <div class="metric"><strong>10</strong><span>guardian/subagent 内部记录，挂在父会话</span></div>
+          <div class="metric"><strong>0</strong><span>上下文压缩新增的项目或会话行</span></div>
+        </div>
+
+        <div class="session-tools-grid" style="margin-top:22px">
+          <article class="copy-card">
+            <h3>复制会话信息 · 面向人</h3>
+            <p class="muted small">单选或多选都只有一种格式，多选仅增加顺序编号。</p>
+            <div class="copy-output">路径: /Users/me/Documents/AgentDesk
+坐标: rollout.jsonl#C-01</div>
+            <div class="forbidden-copy" aria-label="复制内容不包含">
+              <span>设备说明</span><span>账号介绍</span><span>自动摘要</span><span>下一步</span><span>请接手</span><span>提示词模板</span>
+            </div>
+          </article>
+          <article class="send-card">
+            <h3>发送到设备 · 面向机器</h3>
+            <p class="muted small">它不是第二种复制文本，而是设备之间传递的结构化定位引用。</p>
+            <div class="send-flow">
+              <div class="send-node"><b>来源副本</b><small>Mac Studio / C-01</small></div>
+              <div class="send-arrow">→</div>
+              <div class="send-node"><b>SessionPointer</b><small>Agent、项目、坐标、来源链</small></div>
+              <div class="send-arrow">→</div>
+              <div class="send-node"><b>目标设备</b><small>本地映射项目并选择运行位置</small></div>
+            </div>
+            <div class="mapping-board">
+              <div class="path-box"><b>Mac Studio</b><code>/Users/me/Documents/AgentDesk</code></div>
+              <span class="send-arrow">⇄</span>
+              <div class="path-box"><b>Windows GPU</b><code>D:\Projects\AgentDesk</code></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="plain-rules">
+          <div class="plain-rule">
+            <b>有多个副本时</b>
+            <p>详情先选 MacBook 或 Mac Studio 的具体副本，再执行打开、复制或发送。</p>
+          </div>
+          <div class="plain-rule">
+            <b>没有可靠会话 ID 时</b>
+            <p>宁可显示两行，也不按标题、时间或目录名模糊合并。</p>
+          </div>
+          <div class="plain-rule">
+            <b>目标项目尚未映射时</b>
+            <p>让用户选择一次项目根；不把来源绝对路径直接当作目标端指令。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter" id="device-center" data-index="07">
+        <div class="chapter-kicker">Device center</div>
+        <h2>设备中心负责“有哪些电脑、能做什么、现在怎么样”。</h2>
+        <p class="lead">它使用宽对话框或独立管理窗口，不挤进庭院，也不把设备变成另一套 Agent 卡片。</p>
+
+        <div class="device-center-shell">
+          <div class="device-center-head">
+            <div>
+              <h3>我的设备 · 4 台</h3>
+              <p>任意可信设备都能成为控制台；全部远端设备均可撤销删除。</p>
+            </div>
+            <div class="dialog-actions">
+              <button class="dialog-button" type="button">按资源排序</button>
+              <button class="dialog-button primary" type="button">＋ 添加设备</button>
+            </div>
+          </div>
+          <div class="device-card-grid">
+            <article class="device-card">
+              <header>
+                <span><b>MacBook</b><small>macOS · 当前控制台</small></span>
+                <span class="online-label">本机</span>
+              </header>
+              <div class="device-stats">
+                <span class="device-stat"><b>3</b><small>Agent</small></span>
+                <span class="device-stat"><b>4</b><small>位置</small></span>
+                <span class="device-stat"><b>25</b><small>会话</small></span>
+              </div>
+              <div class="resource-line"><span>CPU</span><span class="resource-bar"><i style="width:34%"></i></span><span>34%</span></div>
+              <div class="resource-line"><span>内存</span><span class="resource-bar"><i style="width:62%"></i></span><span>62%</span></div>
+              <div class="device-card-actions">
+                <button type="button">设为视角</button><button type="button">权限</button><button type="button">诊断</button>
+              </div>
+            </article>
+            <article class="device-card">
+              <header>
+                <span><b>Mac Studio</b><small>macOS · LAN 直连 · 12ms</small></span>
+                <span class="online-label">在线</span>
+              </header>
+              <div class="device-stats">
+                <span class="device-stat"><b>2</b><small>Agent</small></span>
+                <span class="device-stat"><b>3</b><small>位置</small></span>
+                <span class="device-stat"><b>34</b><small>会话</small></span>
+              </div>
+              <div class="resource-line"><span>CPU</span><span class="resource-bar"><i style="width:18%"></i></span><span>18%</span></div>
+              <div class="resource-line"><span>内存</span><span class="resource-bar"><i style="width:41%"></i></span><span>41%</span></div>
+              <div class="device-card-actions">
+                <button class="primary" type="button">控制</button><button type="button">权限</button><button type="button">诊断</button><button type="button">撤销</button>
+              </div>
+            </article>
+            <article class="device-card">
+              <header>
+                <span><b>Windows GPU</b><small>Windows 11 · TURN 中继 · 78ms</small></span>
+                <span class="online-label">在线</span>
+              </header>
+              <div class="device-stats">
+                <span class="device-stat"><b>2</b><small>Agent</small></span>
+                <span class="device-stat"><b>2</b><small>位置</small></span>
+                <span class="device-stat"><b>23</b><small>会话</small></span>
+              </div>
+              <div class="resource-line"><span>GPU</span><span class="resource-bar"><i style="width:12%"></i></span><span>12%</span></div>
+              <div class="resource-line"><span>显存</span><span class="resource-bar"><i style="width:27%"></i></span><span>27%</span></div>
+              <div class="device-card-actions">
+                <button class="primary" type="button">控制</button><button type="button">权限</button><button type="button">诊断</button><button type="button">撤销</button>
+              </div>
+            </article>
+          </div>
+          <article class="device-card offline" style="margin-top:10px">
+            <header>
+              <span><b>备用 Mac</b><small>最后在线：2 天前 · 快照保留到 8 月 16 日</small></span>
+              <span class="online-label">离线</span>
+            </header>
+            <div class="device-card-actions">
+              <button type="button">查看离线快照</button><button type="button">重命名</button><button type="button">撤销并删除</button>
+            </div>
+          </article>
+        </div>
+
+        <h3 style="margin-top:24px">添加设备只需要四步</h3>
+        <div class="pairing-flow">
+          <article class="pair-step"><b>1. 生成短码 / 二维码</b><p>已加入设备生成一次性、高熵、短时有效的邀请。</p></article>
+          <article class="pair-step"><b>2. 双端核对设备</b><p>展示设备名、系统和安全指纹，用户在两边确认。</p></article>
+          <article class="pair-step"><b>3. 单独设置权限</b><p>目录索引默认可读；屏幕、输入、文件和无人值守分别决定。</p></article>
+          <article class="pair-step"><b>4. 整理本机账号</b><p>可靠标识自动归位，其余进入三选确认，不复制已有 Agent。</p></article>
+        </div>
+
+        <h3 style="margin-top:24px">权限不是一个“完全信任”开关</h3>
+        <div class="permission-grid">
+          <div class="permission-item"><span class="permission-state">开启</span><b>查看目录和会话</b><small>配对后默认</small></div>
+          <div class="permission-item"><span class="permission-state">开启</span><b>接收会话定位</b><small>配对后默认</small></div>
+          <div class="permission-item"><span class="permission-state off">关闭</span><b>接收文件</b><small>用户主动开启</small></div>
+          <div class="permission-item"><span class="permission-state off">关闭</span><b>远程打开账号</b><small>用户主动开启</small></div>
+          <div class="permission-item"><span class="permission-state off">关闭</span><b>查看屏幕</b><small>系统权限 + 用户允许</small></div>
+          <div class="permission-item"><span class="permission-state off">关闭</span><b>控制键鼠</b><small>独立于屏幕查看</small></div>
+          <div class="permission-item"><span class="permission-state off">关闭</span><b>接收剪贴板</b><small>只接受显式发送</small></div>
+          <div class="permission-item"><span class="permission-state off">关闭</span><b>无人值守</b><small>后续独立评审</small></div>
+        </div>
+
+        <div class="diagnostic-strip">
+          <div class="diagnostic-cell"><b>连接路径</b><small>LAN 直连 · RTT 12ms · 丢包 0.2%</small></div>
+          <div class="diagnostic-cell"><b>同步版本</b><small>inventory 314 · catalog 128 · 无缺口</small></div>
+          <div class="diagnostic-cell"><b>身份状态</b><small>0 个待归属 · 0 个换号冲突</small></div>
+          <div class="diagnostic-cell"><b>权限状态</b><small>屏幕允许 · 输入允许 · 无人值守关闭</small></div>
+        </div>
+      </section>
+
+      <section class="chapter dark" id="remote-console" data-index="08">
+        <div class="chapter-kicker">Remote console</div>
+        <h2>远控是独立窗口；主界面仍然负责 Agent 和会话。</h2>
+        <p class="lead">可以同时观察多台设备，但只有一台拥有当前键鼠。点击右侧设备卡可以体验“输入目标”切换。</p>
+
+        <div class="remote-window">
+          <div class="remote-topbar">
+            <b>AgentDesk Remote Console</b>
+            <span class="tiny-pill">LAN 直连 · 12ms</span>
+            <button class="remote-control-button" type="button">显示器 1 ▾</button>
+            <button class="remote-control-button" type="button">100%</button>
+            <button class="remote-control-button" type="button">发送文件</button>
+            <button class="remote-control-button" type="button">暂停输入</button>
+            <button class="remote-control-button danger" type="button">断开</button>
+          </div>
+          <div class="remote-layout">
+            <div class="remote-main">
+              <div class="input-owner-banner">
+                <strong id="inputOwnerText">当前输入目标：Mac Studio</strong>
+                <span>切换目标会先释放上一台设备的全部按键</span>
+              </div>
+              <div class="remote-screen">
+                <div class="fake-desktop-sidebar"><i></i><i></i><i></i><i></i></div>
+                <div class="fake-agent-window">
+                  <header>Mac Studio · Codex Desktop · 工作 Agent</header>
+                  <div class="fake-agent-body">
+                    <div class="fake-agent-list"></div>
+                    <div class="fake-agent-chat">
+                      <div class="fake-chat-line"></div><div class="fake-chat-line short"></div>
+                      <div class="fake-chat-line"></div><div class="fake-chat-line"></div>
+                      <div class="fake-chat-line short"></div><div class="fake-chat-line"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <aside class="remote-sidebar">
+              <h3>已连接设备</h3>
+              <button class="remote-device-tile active" type="button" data-remote-name="Mac Studio" data-remote-path="LAN 直连 · 12ms">
+                <b>Mac Studio · 当前输入</b><small>1080p / 30fps · Codex 活跃</small>
+              </button>
+              <button class="remote-device-tile" type="button" data-remote-name="Windows GPU" data-remote-path="TURN 中继 · 78ms">
+                <b>Windows GPU · 仅查看</b><small>缩略图 2fps · GPU 12%</small>
+              </button>
+              <button class="remote-device-tile" type="button" data-remote-name="MacBook" data-remote-path="本机 · 无网络输入">
+                <b>MacBook · 控制台</b><small>本机画面 · 不接收远端输入</small>
+              </button>
+              <h3 style="margin-top:10px">连接状态</h3>
+              <div class="data-chip">丢包 0.2% · 码率 5.4 Mbps</div>
+              <div class="data-chip">屏幕权限：允许</div>
+              <div class="data-chip">输入权限：允许</div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="remote-safety">
+          <article class="safety-card"><b>唯一输入目标</b><p>设备卡、文字和绿色边框同时标明；其他设备只能观察。</p></article>
+          <article class="safety-card"><b>被控端看得见</b><p>目标设备常驻“由设备 X 控制”提示，并可一键停止。</p></article>
+          <article class="safety-card"><b>断线立即释放</b><p>心跳中断、切换设备或崩溃都会释放全部远端按键。</p></article>
+          <article class="safety-card"><b>权限分开</b><p>屏幕查看不自动获得输入；文件接收和无人值守另行授权。</p></article>
+        </div>
+
+        <div class="transfer-tray">
+          <header><b>文件传输</b><small>只发送用户明确选择的文件 · 不同步整个项目</small></header>
+          <div class="transfer-job">
+            <span><b>reference-pack.zip</b><small>MacBook → Windows GPU · 384 MB</small></span>
+            <span class="transfer-progress"><i style="width:62%"></i></span>
+            <span class="transfer-state">62% · 正在校验第 18 / 29 块</span>
+            <button type="button">取消</button>
+          </div>
+          <div class="transfer-job">
+            <span><b>scene-config.json</b><small>MacBook → 备用 Mac · 18 KB</small></span>
+            <span class="transfer-progress"><i style="width:0%"></i></span>
+            <span class="transfer-state">设备离线 · 等待发送端再次在线</span>
+            <button type="button">移出队列</button>
+          </div>
+          <div class="transfer-job">
+            <span><b>textures-selected.zip</b><small>Mac Studio → Windows GPU · 1.2 GB</small></span>
+            <span class="transfer-progress"><i style="width:88%;background:#ef8464"></i></span>
+            <span class="transfer-state">校验失败 · 临时文件已清理</span>
+            <button type="button">重试</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter" id="daily-flow" data-index="09">
+        <div class="chapter-kicker">End-to-end workflow</div>
+        <h2>一个人从添加设备到继续会话，完整过程是这样的。</h2>
+        <p class="lead">这条路径把前面的模型和界面串起来。每一步只有一个明确目的，不把设备连接、账号整理和任务交接混成一件事。</p>
+
+        <div class="daily-timeline">
+          <article class="timeline-step">
+            <div class="timeline-no">01</div>
+            <div class="timeline-copy"><h3>在 MacBook 创建 Personal Mesh</h3><p>本机生成设备身份和恢复材料；现有本机账号按当前关系迁入全局目录，不移动任何文件。</p></div>
+            <div class="timeline-result">结果：本机继续可用，设备列表目前只有 MacBook</div>
+          </article>
+          <article class="timeline-step">
+            <div class="timeline-no">02</div>
+            <div class="timeline-copy"><h3>添加 Mac Studio 与 Windows GPU</h3><p>短码只帮助会合，双方核对安全指纹，并分别设置目录、文件、屏幕和输入权限。</p></div>
+            <div class="timeline-result">结果：两台设备成为可信执行端，但不会自动获得全部权限</div>
+          </article>
+          <article class="timeline-step">
+            <div class="timeline-no">03</div>
+            <div class="timeline-copy"><h3>确认新设备上的账号关系</h3><p>同一 Codex 工作号自动增加位置；无法确认的 Claude 账号选择“工作 Agent 的另一平台账号”。</p></div>
+            <div class="timeline-result">结果：庭院仍是 3 个 Agent，不因设备增加复制猫</div>
+          </article>
+          <article class="timeline-step">
+            <div class="timeline-no">04</div>
+            <div class="timeline-copy"><h3>从“全部设备”查看个人完整状态</h3><p>庭院展示去重 Agent；控制条显示运行位置；会话表汇总所有设备索引，离线记录标记采样时间。</p></div>
+            <div class="timeline-result">结果：从任意可信设备都能看见同一份个人工作目录</div>
+          </article>
+          <article class="timeline-step">
+            <div class="timeline-no">05</div>
+            <div class="timeline-copy"><h3>搜索并选择 AgentDesk 会话</h3><p>会话发生过 5 次压缩并产生 10 个 guardian/subagent 文件，列表仍只有一条 C-01。</p></div>
+            <div class="timeline-result">结果：用户选的是逻辑对话，不是内部物理文件</div>
+          </article>
+          <article class="timeline-step">
+            <div class="timeline-no">06</div>
+            <div class="timeline-copy"><h3>复制信息或发送到另一台设备</h3><p>发给人时复制路径与坐标；发给自己的设备时发送结构化 SessionPointer，不生成交接话术。</p></div>
+            <div class="timeline-result">结果：人能直接说明，机器能准确定位，两种语义不混淆</div>
+          </article>
+          <article class="timeline-step">
+            <div class="timeline-no">07</div>
+            <div class="timeline-copy"><h3>目标设备解析自己的项目路径</h3><p>Mac Studio 的 /Users 路径和 Windows 的 D:\Projects 路径都绑定到同一个项目身份。</p></div>
+            <div class="timeline-result">结果：目标端本地解析，不执行来源设备的绝对路径</div>
+          </article>
+          <article class="timeline-step">
+            <div class="timeline-no">08</div>
+            <div class="timeline-copy"><h3>需要时打开远控，结束后断开</h3><p>GPU 工作进入独立远控窗口；明确当前输入目标，发送选定文件，完成后停止输入或断开连接。</p></div>
+            <div class="timeline-result">结果：硬件可以被充分调动，主界面仍专注 Agent 与会话</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="chapter orange" id="exceptions" data-index="10">
+        <div class="chapter-kicker">When something changes</div>
+        <h2>常见异常不靠猜，系统直接给出对应处理。</h2>
+        <p class="lead">这些情况决定产品是否真的好用。每一项都要在界面中说明发生了什么、用户能做什么、系统绝不会偷偷做什么。</p>
+
+        <div class="exception-grid">
+          <article class="exception-card">
+            <div class="exception-icon">OFF</div>
+            <div><h3>目标设备离线</h3><p>继续展示最后会话索引和采样时间；打开、重扫、远控等副作用动作禁用。SessionPointer 可以进入本地等待队列。</p><span class="exception-answer">用户操作：仍可复制定位，或等待设备上线后发送。</span></div>
+          </article>
+          <article class="exception-card">
+            <div class="exception-icon">ID</div>
+            <div><h3>同一 Profile 退出旧号、登录新号</h3><p>运行位置进入“登录已变化”，暂停继续归入旧账号。历史会话不按当前登录批量改名。</p><span class="exception-answer">用户操作：选择已有登录、已有 Agent 的另一账号或全新 Agent。</span></div>
+          </article>
+          <article class="exception-card">
+            <div class="exception-icon">CP</div>
+            <div><h3>会话发生上下文压缩</h3><p>只增加内部 checkpoint 数量；项目、会话 ID、列表行和复制入口全部保持不变。</p><span class="exception-answer">用户操作：无需处理，继续使用原会话。</span></div>
+          </article>
+          <article class="exception-card">
+            <div class="exception-icon">SUB</div>
+            <div><h3>产生 guardian / subagent 文件</h3><p>内部记录挂到父会话的诊断谱系，默认搜索、计数和列表都不显示；父记录暂缺时也不提升成用户会话。</p><span class="exception-answer">用户操作：普通使用无需处理，诊断时再展开。</span></div>
+          </article>
+          <article class="exception-card">
+            <div class="exception-icon">MAP</div>
+            <div><h3>目标设备没有项目路径映射</h3><p>系统展示来源项目和候选仓库，要求用户选择一次本地项目根。目录同名不能直接算同一项目。</p><span class="exception-answer">用户操作：确认本地根目录；以后复用这条映射。</span></div>
+          </article>
+          <article class="exception-card">
+            <div class="exception-icon">DUP</div>
+            <div><h3>两个 Agent 被错误分开或合并</h3><p>合并 Agent 会预览账号、设备和会话数量；拆分则把指定账号或位置移到新 Agent。两者都不移动官方数据。</p><span class="exception-answer">用户操作：在 Agent 管理中显式合并或拆分，并可短期撤销。</span></div>
+          </article>
+          <article class="exception-card">
+            <div class="exception-icon">DEL</div>
+            <div><h3>已删除 Agent 被离线旧库存再次引用</h3><p>删除记录优先于旧库存，远端位置保持 suppressed / 待归属，不能自动让 Agent 复活。</p><span class="exception-answer">用户操作：只有主动重新添加时才重新决定归属。</span></div>
+          </article>
+          <article class="exception-card">
+            <div class="exception-icon">NET</div>
+            <div><h3>直连失败或网络切换</h3><p>先冻结输入，重新进行连接协商；可以安全回退 TURN 时明确标记“中继”，全部失败则显示具体原因。</p><span class="exception-answer">用户操作：选择继续中继、重试或断开，不会看到笼统“连接失败”。</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="chapter dark" id="system-boundary" data-index="11">
+        <div class="chapter-kicker">Backend &amp; data boundary</div>
+        <h2>跨设备连接不等于把个人数据搬到云端。</h2>
+        <p class="lead">后端只解决设备会合、短期在线状态和必要中继；设备授权、Agent 目录和业务内容仍由用户自己的设备控制。</p>
+
+        <div class="boundary-zones">
+          <article class="boundary-zone">
+            <h3>始终留在来源设备</h3>
+            <p>这些数据不因为加入 Personal Mesh 就自动同步。</p>
+            <div class="data-chip-list">
+              <div class="data-chip stays">第三方账号密码、Cookie、Token</div>
+              <div class="data-chip stays">官方客户端账号数据库</div>
+              <div class="data-chip stays">完整会话正文与原始 transcript</div>
+              <div class="data-chip stays">项目目录与未选择的文件</div>
+              <div class="data-chip stays">设备私钥和 Mesh 关联密钥</div>
+            </div>
+          </article>
+          <article class="boundary-zone">
+            <h3>可信设备间端到端传递</h3>
+            <p>只同步管理和定位所需的最小内容。</p>
+            <div class="data-chip-list">
+              <div class="data-chip moves">全局 Agent 目录与安全关联结果</div>
+              <div class="data-chip moves">设备状态、运行位置、额度来源快照</div>
+              <div class="data-chip moves">只读会话索引与项目映射</div>
+              <div class="data-chip moves">显式 SessionPointer 与选定文件</div>
+              <div class="data-chip moves">屏幕媒体与临时输入事件</div>
+            </div>
+          </article>
+          <article class="boundary-zone">
+            <h3>最小后端可见</h3>
+            <p>服务端帮助会合和中继，但不能成为设备授权者。</p>
+            <div class="data-chip-list">
+              <div class="data-chip server">设备公共标识与在线租约</div>
+              <div class="data-chip server">一次性邀请摘要与连接信令</div>
+              <div class="data-chip server">签名撤销事件与协议版本</div>
+              <div class="data-chip server">短期 TURN 凭据与使用量</div>
+              <div class="data-chip server">容量指标和不含业务内容的错误码</div>
+            </div>
+          </article>
+        </div>
+
+        <div class="architecture-flow">
+          <div class="architecture-node"><b>控制设备 A</b><small>界面、目录缓存、用户授权、当前操作目标</small></div>
+          <div class="architecture-arrow">⇄</div>
+          <div class="architecture-node"><b>信令 / STUN / TURN</b><small>帮助发现与连接；中继只转发加密包</small></div>
+          <div class="architecture-arrow">⇄</div>
+          <div class="architecture-node"><b>执行设备 B</b><small>本地重新查 ID、检查能力、解析路径、执行固定语义动作</small></div>
+        </div>
+
+        <div class="plain-rules">
+          <div class="plain-rule">
+            <b>允许的远端动作</b>
+            <p>打开已登记账号、聚焦已知会话、接收定位、接收文件、查看屏幕、控制输入。</p>
+          </div>
+          <div class="plain-rule">
+            <b>明确不允许</b>
+            <p>通用 Shell、任意命令、任意 URL、任意绝对路径、后台安装软件或修改系统权限。</p>
+          </div>
+          <div class="plain-rule">
+            <b>本机始终有最后决定权</b>
+            <p>权限不足、设备锁定、用户停止、证书撤销或版本不兼容时，危险能力直接失败关闭。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter" id="delivery-order" data-index="12">
+        <div class="chapter-kicker">Build order</div>
+        <h2>开发顺序必须先把身份和会话做对，再上远控。</h2>
+        <p class="lead">如果先做远程桌面，会得到一个能看屏幕但仍然管不清 Agent 的工具。下面每一阶段都有清楚的退出条件。</p>
+
+        <div class="roadmap">
+          <article class="phase">
+            <div class="phase-id">PHASE 1</div>
+            <div><b>技术验证与 ADR</b><span>Electron 中的 WebRTC 承载、两设备认证、STUN/TURN、系统权限、存储与打包。</span></div>
+            <small>隔离验证，不改主产品流程。</small>
+            <div class="phase-gate">两台真机认证数据通道成立</div>
+          </article>
+          <article class="phase">
+            <div class="phase-id">PHASE 2</div>
+            <div><b>全局 Agent 与设备中心</b><span>Device、Agent、平台账号、运行位置、关联纠错、删除记录、配对与撤销。</span></div>
+            <small>主界面增加设备 Lens，不改七行骨架。</small>
+            <div class="phase-gate">同账号跨设备只显示一次</div>
+          </article>
+          <article class="phase">
+            <div class="phase-id">PHASE 3</div>
+            <div><b>正确的会话身份与跨设备索引</b><span>先修 Codex/Claude 根会话、压缩、内部分支，再同步逻辑会话和副本。</span></div>
+            <small>全部设备 / 单设备 × 当前 / 全部 Agent。</small>
+            <div class="phase-gate">压缩不增加项目或会话行</div>
+          </article>
+          <article class="phase">
+            <div class="phase-id">PHASE 4</div>
+            <div><b>复制、发送与项目映射</b><span>SessionPointer、发送到设备、跨系统项目根、离线本地队列。</span></div>
+            <small>复制格式完全不变。</small>
+            <div class="phase-gate">不同根路径能安全定位</div>
+          </article>
+          <article class="phase">
+            <div class="phase-id">PHASE 5</div>
+            <div><b>选定文件传输</b><span>manifest、哈希、分块、背压、续传、磁盘检查、取消与安全清理。</span></div>
+            <small>不自动同步整个项目。</small>
+            <div class="phase-gate">失败可重试且不留残缺文件</div>
+          </article>
+          <article class="phase">
+            <div class="phase-id">PHASE 6</div>
+            <div><b>远程仅查看</b><span>独立窗口、屏幕权限、多显示器、自适应画质、直连/中继状态、被控端提示。</span></div>
+            <small>还不能注入键鼠。</small>
+            <div class="phase-gate">macOS / Windows 双向可看</div>
+          </article>
+          <article class="phase">
+            <div class="phase-id">PHASE 7–8</div>
+            <div><b>输入控制与多设备控制台</b><span>鼠标、键盘、IME、唯一输入目标、按键释放、紧急停止、低频缩略图。</span></div>
+            <small>一个高质量流，其他设备低频观察。</small>
+            <div class="phase-gate">切换设备不会误发输入</div>
+          </article>
+          <article class="phase">
+            <div class="phase-id">PHASE 9</div>
+            <div><b>无人值守独立评审</b><span>系统服务、开机启动、锁屏策略、安装版、恢复和更高安全标准。</span></div>
+            <small>不随前面阶段默认开启。</small>
+            <div class="phase-gate">必须再次由所有者批准</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="chapter orange" id="final-review" data-index="13">
+        <div class="chapter-kicker">Owner decision</div>
+        <h2>最后只需要确认五个会改变全局的决定。</h2>
+        <p class="lead">点击“同意方向”或“需要修改”可以在本页记录审阅结果。它只保存在当前浏览器本地，不会发送到任何服务器。</p>
+
+        <div class="decision-gates">
+          <article class="gate-card" data-gate="A">
+            <div class="gate-letter">A</div>
+            <div><h3>产品主轴</h3><p>单人 Personal Mesh；Agent 是全局管理对象，设备是筛选轴，运行位置是动作落点。</p></div>
+            <div class="gate-impact">决定同一账号跨设备是否只出现一只猫，以及所有动作是否能准确定位。</div>
+            <div class="gate-actions">
+              <button type="button" data-choice="approve">同意方向</button>
+              <button type="button" data-choice="revise">需要修改</button>
+            </div>
+          </article>
+          <article class="gate-card" data-gate="B">
+            <div class="gate-letter">B</div>
+            <div><h3>会话身份</h3><p>一行代表一条逻辑对话；压缩是内部检查点，guardian/subagent 是隐藏分支，项目独立解析。</p></div>
+            <div class="gate-impact">决定“压缩后多出会话/项目”的问题能否从根上消失。</div>
+            <div class="gate-actions">
+              <button type="button" data-choice="approve">同意方向</button>
+              <button type="button" data-choice="revise">需要修改</button>
+            </div>
+          </article>
+          <article class="gate-card" data-gate="C">
+            <div class="gate-letter">C</div>
+            <div><h3>第一阶段范围</h3><p>先做设备、全局 Agent、正确会话索引、复制/发送和路径映射，再做查看与控制。</p></div>
+            <div class="gate-impact">决定首个可用版本先解决工作连续性，还是先变成普通远程桌面。</div>
+            <div class="gate-actions">
+              <button type="button" data-choice="approve">同意方向</button>
+              <button type="button" data-choice="revise">需要修改</button>
+            </div>
+          </article>
+          <article class="gate-card" data-gate="D">
+            <div class="gate-letter">D</div>
+            <div><h3>权限与数据</h3><p>不跨设备同步凭据；目录索引、文件、屏幕、输入和无人值守分别授权；不提供任意命令。</p></div>
+            <div class="gate-impact">决定 P2P 协议、后端可见内容和产品整体安全边界。</div>
+            <div class="gate-actions">
+              <button type="button" data-choice="approve">同意方向</button>
+              <button type="button" data-choice="revise">需要修改</button>
+            </div>
+          </article>
+          <article class="gate-card" data-gate="E">
+            <div class="gate-letter">E</div>
+            <div><h3>主界面契约</h3><p>七行骨架不动；设备 Lens 与 Agent 范围独立；复制会话信息仍是唯一主按钮且只含路径/坐标。</p></div>
+            <div class="gate-impact">决定现有日常工作流是否保持稳定，以及新增能力会不会挤乱主界面。</div>
+            <div class="gate-actions">
+              <button type="button" data-choice="approve">同意方向</button>
+              <button type="button" data-choice="revise">需要修改</button>
+            </div>
+          </article>
+        </div>
+
+        <h3 style="margin-top:28px">完成版本的验收清单</h3>
+        <div class="acceptance-groups">
+          <article class="acceptance-group">
+            <h3>Agent、账号与删除</h3>
+            <ul>
+              <li>同一实际账号登录多台设备时，只出现一个 Agent、一只猫。</li>
+              <li>同一设备多个实际账号保持独立，不按名称或平台误合并。</li>
+              <li>跨平台账号只能由用户明确关联到同一 Agent。</li>
+              <li>所有动作都能回到一个准确设备和客户端位置。</li>
+              <li>位置、账号、Agent 三种删除范围清楚，均可删到零。</li>
+              <li>离线旧库存不能复活已删除 Agent，也不会自动补默认平台项。</li>
+              <li>同一账号额度不会因多设备快照重复相加。</li>
+            </ul>
+          </article>
+          <article class="acceptance-group">
+            <h3>会话、项目与复制</h3>
+            <ul>
+              <li>任意次数上下文压缩仍是一条逻辑会话和原项目。</li>
+              <li>guardian、subagent、sidechain 默认不进入列表和计数。</li>
+              <li>物理文件、逻辑会话和项目数量可以分别核对。</li>
+              <li>多设备副本只在有强标识或明确来源链时折叠。</li>
+              <li>打开、复制和发送前始终有明确会话副本。</li>
+              <li>复制会话信息始终只有路径和坐标。</li>
+              <li>跨系统项目路径在目标设备本地安全映射。</li>
+            </ul>
+          </article>
+          <article class="acceptance-group">
+            <h3>设备、连接与远控</h3>
+            <ul>
+              <li>用户可以添加、重命名、撤销和删除任意远端设备。</li>
+              <li>任意可信设备都可以成为当前控制台，没有永久主机。</li>
+              <li>离线设备只显示有时间的最后快照，不能执行副作用动作。</li>
+              <li>macOS 与 Windows 可以双向查看和控制。</li>
+              <li>直连失败时可以安全回退加密中继，并在界面明确标记。</li>
+              <li>同时观察多台设备时只有一个输入目标。</li>
+              <li>被控端始终可见并能立即停止；断线释放全部按键。</li>
+            </ul>
+          </article>
+          <article class="acceptance-group">
+            <h3>安全、兼容与恢复</h3>
+            <ul>
+              <li>密码、Token、Cookie、原始平台账号 ID 不跨设备同步。</li>
+              <li>信令与 TURN 不能解密目录、屏幕、文件或会话定位。</li>
+              <li>没有通用 Shell、任意命令、任意 URL 和远端绝对路径执行。</li>
+              <li>主窗口七行骨架、庭院/经典和账号基础工作流不被破坏。</li>
+              <li>禁用 Mesh 后，本地 AgentDesk 仍可独立使用。</li>
+              <li>配对撤销、网络切换、传输失败、权限撤销都有明确恢复路径。</li>
+              <li>版本不兼容时危险能力失败关闭，不静默降级授权。</li>
+            </ul>
+          </article>
+        </div>
+
+        <h3 style="margin-top:28px">不改变核心模型的四个可调参数</h3>
+        <div class="result-strip">
+          <div class="metric"><strong>离线投递</strong><span>先用发送端本地队列；之后再审是否增加短期端到端密文邮箱。</span></div>
+          <div class="metric"><strong>审计保留</strong><span>当前建议本机滚动 30 天，允许用户手动清空。</span></div>
+          <div class="metric"><strong>容量预算</strong><span>20 台配对、8 台在线、4 台远控、1 个高质量输入目标。</span></div>
+          <div class="metric"><strong>无人值守</strong><span>默认不做；安装版、系统服务和恢复方案成熟后独立批准。</span></div>
+        </div>
+
+        <div class="review-summary">
+          <div>
+            <h3 id="reviewSummaryTitle">实施基准已批准</h3>
+            <p id="reviewSummaryText">A–E 已于 2026-08-10 批准并进入实现；本页按钮保留给后续复核，新的方向修改仍需先写回规划。</p>
+          </div>
+          <div class="review-summary-actions">
+            <button class="secondary" id="resetReview" type="button">清空记录</button>
+            <button id="copyReview" type="button">复制审阅结果</button>
+          </div>
+        </div>
+      </section>
+
+      <footer class="review-footer">
+        <strong>文档关系：</strong>
+        本页负责从真实场景到完成态界面的所有者审阅；详细工程不变量仍以
+        <a href="./PERSONAL_AGENT_MESH_PLAN.md">PERSONAL_AGENT_MESH_PLAN.md</a>
+        为准；面向分享的 Markdown 文章位于
+        <a href="./AGENTDESK_MULTI_ACCOUNT_MANAGEMENT_ARTICLE.md">AGENTDESK_MULTI_ACCOUNT_MANAGEMENT_ARTICLE.md</a>。
+        当前 HTML 的交互原型最初基于规划 v0.4；实施状态已对齐规划 v1.6，日期 2026-08-10。
+      </footer>
+
+      <div class="review-sheet" id="sendSheet" hidden aria-modal="true" role="dialog" aria-labelledby="sendSheetTitle">
+        <div class="send-sheet-card">
+          <header>
+            <div><h3 id="sendSheetTitle">发送会话信息到设备</h3><p id="sendSheetSession">已选择：AgentDesk Personal Mesh · C-01</p></div>
+            <button class="dialog-button" id="closeSendSheet" type="button">关闭</button>
+          </header>
+          <div class="send-sheet-body">
+            <button class="send-device-option selected" type="button" data-send-device="MacBook">
+              <span class="provider-mark">MB</span><span><b>MacBook · 本机</b><small>AgentDesk 项目已映射 · 可直接接收</small></span><em>在线</em>
+            </button>
+            <button class="send-device-option" type="button" data-send-device="Mac Studio">
+              <span class="provider-mark">MS</span><span><b>Mac Studio</b><small>当前会话已有副本；不会重复发送</small></span><em>直连</em>
+            </button>
+            <button class="send-device-option" type="button" data-send-device="Windows GPU">
+              <span class="provider-mark">WG</span><span><b>Windows GPU</b><small>项目路径需首次确认</small></span><em>中继</em>
+            </button>
+            <button class="send-device-option" type="button" data-send-device="备用 Mac">
+              <span class="provider-mark">BM</span><span><b>备用 Mac</b><small>离线；将进入发送端本地等待队列</small></span><em style="color:#7f8a8e">离线</em>
+            </button>
+          </div>
+          <footer>
+            <span class="small muted">发送的是 SessionPointer，不包含会话正文或账号凭据。</span>
+            <button class="dialog-button primary" id="confirmDemoSend" type="button">发送到 MacBook</button>
+          </footer>
+        </div>
+      </div>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script>
+      (function () {
+        "use strict";
+
+        var toast = document.getElementById("toast");
+        var toastTimer = null;
+
+        function showToast(message) {
+          if (!toast) return;
+          toast.textContent = message;
+          toast.classList.add("show");
+          window.clearTimeout(toastTimer);
+          toastTimer = window.setTimeout(function () {
+            toast.classList.remove("show");
+          }, 2600);
+        }
+
+        function copyText(text, successMessage) {
+          function fallback() {
+            var area = document.createElement("textarea");
+            area.value = text;
+            area.setAttribute("readonly", "");
+            area.style.position = "fixed";
+            area.style.opacity = "0";
+            document.body.appendChild(area);
+            area.select();
+            try {
+              document.execCommand("copy");
+              showToast(successMessage);
+            } catch (error) {
+              showToast("当前浏览器未允许复制，请手动选择内容。");
+            }
+            area.remove();
+          }
+
+          if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(function () {
+              showToast(successMessage);
+            }).catch(fallback);
+          } else {
+            fallback();
+          }
+        }
+
+        var scenarioButtons = Array.prototype.slice.call(document.querySelectorAll("[data-scenario]"));
+        var scenarioPanels = Array.prototype.slice.call(document.querySelectorAll("[data-scenario-panel]"));
+        var scenarioCaption = document.getElementById("scenarioCaption");
+
+        scenarioButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            var mode = button.getAttribute("data-scenario");
+            scenarioButtons.forEach(function (item) {
+              item.setAttribute("aria-pressed", String(item === button));
+            });
+            scenarioPanels.forEach(function (panel) {
+              panel.hidden = panel.getAttribute("data-scenario-panel") !== mode;
+            });
+            scenarioCaption.textContent = mode === "raw"
+              ? "同一个 Codex 工作账号在两台设备出现两次，空的默认 Claude/Kimi 也占位置。"
+              : "完成后只剩真正的 Agent；同账号跨设备变成运行位置，空默认项彻底消失。";
+          });
+        });
+
+        var actionButtons = Array.prototype.slice.call(document.querySelectorAll("[data-action-tab]"));
+        var actionPanels = Array.prototype.slice.call(document.querySelectorAll("[data-action-panel]"));
+        actionButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            var tab = button.getAttribute("data-action-tab");
+            actionButtons.forEach(function (item) {
+              item.setAttribute("aria-pressed", String(item === button));
+            });
+            actionPanels.forEach(function (panel) {
+              panel.hidden = panel.getAttribute("data-action-panel") !== tab;
+            });
+          });
+        });
+
+        document.querySelectorAll("[data-assignment-choice]").forEach(function (choice) {
+          choice.addEventListener("click", function () {
+            document.querySelectorAll("[data-assignment-choice]").forEach(function (item) {
+              item.classList.toggle("selected", item === choice);
+            });
+          });
+        });
+
+        var demoDeviceLens = document.getElementById("demoDeviceLens");
+        var demoContext = document.getElementById("demoContext");
+        var demoAgentName = document.getElementById("demoAgentName");
+        var demoLocation = document.getElementById("demoLocation");
+        var demoSessionCount = document.getElementById("demoSessionCount");
+        var demoCopy = document.getElementById("demoCopy");
+        var demoSend = document.getElementById("demoSend");
+        var demoAgentButtons = Array.prototype.slice.call(document.querySelectorAll("[data-demo-agent]"));
+        var demoScopeButtons = Array.prototype.slice.call(document.querySelectorAll("[data-demo-scope]"));
+        var demoRows = Array.prototype.slice.call(document.querySelectorAll(".ad-row[data-session-id]"));
+        var currentAgent = "work";
+        var currentScope = "current";
+        var currentRow = demoRows[0];
+
+        var agentNames = {
+          work: "工作 Agent",
+          personal: "个人 Agent",
+          media: "素材 Agent"
+        };
+
+        var deviceNames = {
+          all: "全部设备",
+          macbook: "MacBook · 本机",
+          studio: "Mac Studio · 直连",
+          windows: "Windows GPU · 中继",
+          backup: "备用 Mac · 离线快照"
+        };
+
+        var locations = {
+          work: [
+            { device: "macbook", label: "MacBook / Codex Desktop" },
+            { device: "studio", label: "Mac Studio / Codex Desktop" },
+            { device: "studio", label: "Mac Studio / Codex CLI" },
+            { device: "windows", label: "Windows GPU / Claude Desktop" }
+          ],
+          personal: [
+            { device: "macbook", label: "MacBook / Codex CLI" }
+          ],
+          media: [
+            { device: "studio", label: "Mac Studio / Kimi Desktop" },
+            { device: "windows", label: "Windows GPU / Kimi CLI" }
+          ]
+        };
+
+        function listContains(value, target) {
+          return value.split(/\s+/).indexOf(target) >= 0;
+        }
+
+        function renderLocations(device) {
+          demoLocation.innerHTML = "";
+          if (!currentAgent) {
+            var empty = document.createElement("option");
+            empty.textContent = "该设备没有可用 Agent";
+            demoLocation.appendChild(empty);
+            demoLocation.disabled = true;
+            return;
+          }
+
+          var available = locations[currentAgent].filter(function (item) {
+            return device === "all" || item.device === device;
+          });
+          if (!available.length) {
+            var missing = document.createElement("option");
+            missing.textContent = "没有可用运行位置";
+            demoLocation.appendChild(missing);
+            demoLocation.disabled = true;
+            return;
+          }
+          available.forEach(function (item) {
+            var option = document.createElement("option");
+            option.value = item.device + ":" + item.label;
+            option.textContent = item.label;
+            demoLocation.appendChild(option);
+          });
+          demoLocation.disabled = false;
+        }
+
+        function updateDetails(row) {
+          currentRow = row || null;
+          demoRows.forEach(function (item) {
+            item.classList.toggle("selected", item === row);
+          });
+
+          var title = document.getElementById("demoDetailTitle");
+          var sub = document.getElementById("demoDetailSub");
+          var agent = document.getElementById("demoDetailAgent");
+          var project = document.getElementById("demoDetailProject");
+          var place = document.getElementById("demoDetailPlace");
+          var coord = document.getElementById("demoDetailCoord");
+
+          if (!row) {
+            title.textContent = "没有匹配的会话";
+            sub.textContent = "切换设备或 Agent 范围后再选择";
+            agent.textContent = "—";
+            project.textContent = "—";
+            place.textContent = "—";
+            coord.textContent = "—";
+            return;
+          }
+
+          title.textContent = row.getAttribute("data-title");
+          sub.textContent = "逻辑会话 " + row.getAttribute("data-session-id") + " · 当前副本可操作";
+          agent.textContent = agentNames[row.getAttribute("data-agent")];
+          project.textContent = row.getAttribute("data-project");
+          place.textContent = row.getAttribute("data-place");
+          coord.textContent = row.getAttribute("data-coordinate");
+        }
+
+        function filterDemo() {
+          var device = demoDeviceLens.value;
+          var visibleAgents = [];
+
+          demoAgentButtons.forEach(function (button) {
+            var visible = device === "all" || listContains(button.getAttribute("data-devices"), device);
+            button.hidden = !visible;
+            if (visible) visibleAgents.push(button.getAttribute("data-demo-agent"));
+          });
+
+          if (visibleAgents.indexOf(currentAgent) < 0) {
+            currentAgent = visibleAgents.length ? visibleAgents[0] : null;
+          }
+
+          demoAgentButtons.forEach(function (button) {
+            button.classList.toggle("selected", button.getAttribute("data-demo-agent") === currentAgent);
+          });
+
+          demoAgentName.textContent = currentAgent ? agentNames[currentAgent] : "该设备没有 Agent";
+          renderLocations(device);
+
+          var visibleRows = [];
+          demoRows.forEach(function (row) {
+            var deviceMatch = device === "all" || listContains(row.getAttribute("data-devices"), device);
+            var agentMatch = currentScope === "all" || (currentAgent && row.getAttribute("data-agent") === currentAgent);
+            var visible = deviceMatch && agentMatch;
+            row.hidden = !visible;
+            if (visible) visibleRows.push(row);
+          });
+
+          if (!currentRow || currentRow.hidden) {
+            updateDetails(visibleRows.length ? visibleRows[0] : null);
+          }
+
+          demoSessionCount.textContent = visibleRows.length + " 个";
+          demoCopy.disabled = !visibleRows.length;
+          demoSend.disabled = !visibleRows.length;
+          demoContext.textContent = deviceNames[device] + " · 猫猫庭院 · " + (device === "backup" ? "离线快照 2 天前" : "索引刚刚更新");
+
+          demoScopeButtons.forEach(function (button) {
+            if (button.getAttribute("data-demo-scope") === "current") {
+              button.disabled = !currentAgent;
+            }
+          });
+        }
+
+        demoDeviceLens.addEventListener("change", filterDemo);
+
+        demoAgentButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            currentAgent = button.getAttribute("data-demo-agent");
+            filterDemo();
+          });
+        });
+
+        demoScopeButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            currentScope = button.getAttribute("data-demo-scope");
+            demoScopeButtons.forEach(function (item) {
+              item.setAttribute("aria-pressed", String(item === button));
+            });
+            filterDemo();
+          });
+        });
+
+        demoRows.forEach(function (row) {
+          row.addEventListener("click", function (event) {
+            updateDetails(row);
+            if (event.target.tagName !== "INPUT") {
+              row.querySelector("input").checked = true;
+            }
+          });
+          row.addEventListener("keydown", function (event) {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              updateDetails(row);
+              row.querySelector("input").checked = true;
+            }
+          });
+        });
+
+        function selectedVisibleRows() {
+          var checked = demoRows.filter(function (row) {
+            return !row.hidden && row.querySelector("input").checked;
+          });
+          if (!checked.length && currentRow && !currentRow.hidden) checked.push(currentRow);
+          return checked;
+        }
+
+        demoCopy.addEventListener("click", function () {
+          var selected = selectedVisibleRows();
+          if (!selected.length) return;
+          var blocks = selected.map(function (row, index) {
+            var prefix = selected.length > 1 ? (index + 1) + ".\n" : "";
+            return prefix
+              + "路径: /Users/me/Documents/" + row.getAttribute("data-project") + "\n"
+              + "坐标: " + row.getAttribute("data-coordinate");
+          });
+          copyText(blocks.join("\n\n"), "已复制 " + selected.length + " 条会话信息：仅路径和坐标。");
+        });
+
+        var sendSheet = document.getElementById("sendSheet");
+        var closeSendSheet = document.getElementById("closeSendSheet");
+        var sendSheetSession = document.getElementById("sendSheetSession");
+        var confirmDemoSend = document.getElementById("confirmDemoSend");
+        var selectedSendDevice = "MacBook";
+
+        function openSendSheet() {
+          var selected = selectedVisibleRows();
+          if (!selected.length) return;
+          sendSheetSession.textContent = selected.length === 1
+            ? "已选择：" + selected[0].getAttribute("data-title") + " · " + selected[0].getAttribute("data-session-id")
+            : "已选择：" + selected.length + " 条逻辑会话";
+          sendSheet.hidden = false;
+          closeSendSheet.focus();
+        }
+
+        function closeSheet() {
+          sendSheet.hidden = true;
+          demoSend.focus();
+        }
+
+        demoSend.addEventListener("click", openSendSheet);
+        closeSendSheet.addEventListener("click", closeSheet);
+        sendSheet.addEventListener("click", function (event) {
+          if (event.target === sendSheet) closeSheet();
+        });
+
+        document.querySelectorAll("[data-send-device]").forEach(function (option) {
+          option.addEventListener("click", function () {
+            selectedSendDevice = option.getAttribute("data-send-device");
+            document.querySelectorAll("[data-send-device]").forEach(function (item) {
+              item.classList.toggle("selected", item === option);
+            });
+            confirmDemoSend.textContent = "发送到 " + selectedSendDevice;
+          });
+        });
+
+        confirmDemoSend.addEventListener("click", function () {
+          var selected = selectedVisibleRows();
+          sendSheet.hidden = true;
+          showToast("已创建 " + selected.length + " 条 SessionPointer，目标：" + selectedSendDevice + "。");
+        });
+
+        document.addEventListener("keydown", function (event) {
+          if (event.key === "Escape" && !sendSheet.hidden) closeSheet();
+        });
+
+        var inputOwnerText = document.getElementById("inputOwnerText");
+        document.querySelectorAll(".remote-device-tile").forEach(function (tile) {
+          tile.addEventListener("click", function () {
+            document.querySelectorAll(".remote-device-tile").forEach(function (item) {
+              item.classList.toggle("active", item === tile);
+              var label = item.querySelector("b");
+              label.textContent = label.textContent.replace(" · 当前输入", "").replace(" · 仅查看", "");
+              if (item !== tile) label.textContent += " · 仅查看";
+            });
+            var activeLabel = tile.querySelector("b");
+            activeLabel.textContent = activeLabel.textContent.replace(" · 仅查看", "") + " · 当前输入";
+            inputOwnerText.textContent = "当前输入目标：" + tile.getAttribute("data-remote-name");
+            showToast("已释放上一台设备的按键；输入目标切换为 " + tile.getAttribute("data-remote-name") + "。");
+          });
+        });
+
+        var reviewStorageKey = "agentdesk-personal-mesh-owner-review-v04";
+        var reviewState = {};
+
+        try {
+          reviewState = JSON.parse(localStorage.getItem(reviewStorageKey) || "{}");
+        } catch (error) {
+          reviewState = {};
+        }
+
+        function saveReview() {
+          try {
+            localStorage.setItem(reviewStorageKey, JSON.stringify(reviewState));
+          } catch (error) {
+            /* Local files can disable storage; the page still works for this session. */
+          }
+        }
+
+        function renderReview() {
+          var letters = ["A", "B", "C", "D", "E"];
+          var decided = 0;
+          var revisions = 0;
+
+          letters.forEach(function (letter) {
+            var card = document.querySelector('[data-gate="' + letter + '"]');
+            var value = reviewState[letter] || "";
+            if (value) decided += 1;
+            if (value === "revise") revisions += 1;
+            card.querySelectorAll("[data-choice]").forEach(function (button) {
+              button.setAttribute("data-selected", String(button.getAttribute("data-choice") === value));
+            });
+          });
+
+          var title = document.getElementById("reviewSummaryTitle");
+          var text = document.getElementById("reviewSummaryText");
+          if (!decided) {
+            title.textContent = "实施基准已批准";
+            text.textContent = "A–E 已于 2026-08-10 批准并进入实现；本页按钮保留给后续复核，新的方向修改仍需先写回规划。";
+          } else if (decided < 5) {
+            title.textContent = "已确认 " + decided + " / 5 项";
+            text.textContent = revisions
+              ? "其中 " + revisions + " 项需要修改；先完成剩余审阅，再统一修订。"
+              : "当前已确认项均同意方向，请继续完成剩余决定。";
+          } else if (revisions) {
+            title.textContent = "审阅完成 · " + revisions + " 项需要修改";
+            text.textContent = "规划门禁保持关闭。先把需要修改的方向写回基准，再重新确认。";
+          } else {
+            title.textContent = "五项方向全部通过";
+            text.textContent = "该方向已经写入规划并完成有人值守代码链路；继续按物理双机、真实网络和跨平台权限门禁验收。";
+          }
+        }
+
+        document.querySelectorAll(".gate-card [data-choice]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            var card = button.closest(".gate-card");
+            reviewState[card.getAttribute("data-gate")] = button.getAttribute("data-choice");
+            saveReview();
+            renderReview();
+          });
+        });
+
+        document.getElementById("resetReview").addEventListener("click", function () {
+          reviewState = {};
+          saveReview();
+          renderReview();
+          showToast("已清空本页审阅记录。");
+        });
+
+        document.getElementById("copyReview").addEventListener("click", function () {
+          var labels = {
+            approve: "同意方向",
+            revise: "需要修改"
+          };
+          var lines = ["AgentDesk Personal Mesh 审阅结果", ""];
+          ["A", "B", "C", "D", "E"].forEach(function (letter) {
+            lines.push(letter + ": " + (labels[reviewState[letter]] || "未确认"));
+          });
+          lines.push("");
+          lines.push("审阅页面：PERSONAL_AGENT_MESH_OWNER_REVIEW.html");
+          copyText(lines.join("\n"), "已复制审阅结果。");
+        });
+
+        document.getElementById("printReview").addEventListener("click", function () {
+          window.print();
+        });
+
+        var navLinks = Array.prototype.slice.call(document.querySelectorAll(".review-nav a"));
+        var sections = navLinks.map(function (link) {
+          return document.querySelector(link.getAttribute("href"));
+        }).filter(Boolean);
+
+        function updateScrollState() {
+          var root = document.documentElement;
+          var max = root.scrollHeight - window.innerHeight;
+          var percent = max > 0 ? (window.scrollY / max) * 100 : 0;
+          document.getElementById("scrollProgress").style.width = percent + "%";
+
+          var current = sections[0];
+          sections.forEach(function (section) {
+            if (section.getBoundingClientRect().top <= 110) current = section;
+          });
+          navLinks.forEach(function (link) {
+            link.setAttribute("aria-current", String(current && link.getAttribute("href") === "#" + current.id));
+          });
+        }
+
+        window.addEventListener("scroll", updateScrollState, { passive: true });
+        window.addEventListener("resize", updateScrollState);
+
+        renderReview();
+        filterDemo();
+        updateDetails(currentRow);
+        updateScrollState();
+      })();
+    </script>
+  </body>
+</html>

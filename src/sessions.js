@@ -9,6 +9,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { classifyCodexSessionMeta } = require('./mesh/domain/session-identity');
 
 // 按「最后活跃」新→旧排序（updatedAt 优先，退回 createdAt）。就地排序返回同一数组。
 function sortByRecency(records) {
@@ -74,16 +75,30 @@ function scanCodex(profile) {
     { dir: path.join(root, 'sessions'), source: 'Codex', archived: false },
     { dir: path.join(root, 'archived_sessions'), source: 'Codex 归档', archived: true }
   ];
-  const records = [];
-  const seen = new Set();
+  const rootsByConversation = new Map();
+  const internalBranchesByConversation = new Map();
 
   for (const area of dirs) {
     for (const filePath of walkFiles(area.dir, (entry) => entry.isFile() && entry.name.endsWith('.jsonl'))) {
       const first = readFirstJsonLine(filePath);
       const payload = first?.payload || {};
-      const id = text(payload.id) || text(payload.session_id) || uuidFromFilename(filePath) || path.basename(filePath, '.jsonl');
-      if (seen.has(id)) continue;
-      seen.add(id);
+      const fallbackPhysicalRecordId = uuidFromFilename(filePath) || path.basename(filePath, '.jsonl');
+      const identity = classifyCodexSessionMeta(payload, fallbackPhysicalRecordId);
+
+      // guardian/subagent rollouts are physical execution branches of the user
+      // root. They never become a default list row, even while the parent file
+      // is temporarily absent. Keep only a diagnostic count for a known root.
+      if (identity.recordKind === 'internal-child') {
+        if (identity.parentConversationKey) {
+          const branchKeys = internalBranchesByConversation.get(identity.parentConversationKey) || new Set();
+          branchKeys.add(identity.physicalRecordId || filePath);
+          internalBranchesByConversation.set(identity.parentConversationKey, branchKeys);
+        }
+        continue;
+      }
+
+      const id = identity.adapterConversationKey;
+      if (!id) continue;
 
       const stat = safeStat(filePath);
       // Codex keys session_index.jsonl by session_id, which differs from
@@ -93,10 +108,11 @@ function scanCodex(profile) {
       const title = cleanTitle(indexed?.title) || cleanTitle(payload.title) || `Codex 会话 ${id.slice(0, 8)}`;
       const createdAt = parseDate(first?.timestamp) || stat?.birthtime?.toISOString() || null;
       const updatedAt = indexed?.updatedAt || stat?.mtime?.toISOString() || createdAt;
+      const rootRevisionAt = stat?.mtime?.toISOString() || createdAt;
       const projectPath = text(payload.cwd) || text(payload.current_dir) || null;
       const model = text(payload.model) || text(payload.model_provider) || null;
 
-      records.push({
+      const record = {
         id,
         appId: 'codex',
         title,
@@ -107,12 +123,57 @@ function scanCodex(profile) {
         status: area.archived ? '已归档' : '可用',
         model,
         filePath,
-        address: id
-      });
+        address: id,
+        adapterConversationKey: id,
+        physicalRecordId: identity.physicalRecordId,
+        recordKind: identity.recordKind
+      };
+
+      const existing = rootsByConversation.get(id);
+      if (!existing) {
+        rootsByConversation.set(id, {
+          record,
+          rootRevisionAt,
+          lifecycleStates: new Set([record.status])
+        });
+        continue;
+      }
+
+      existing.lifecycleStates.add(record.status);
+      if (preferCodexRoot(record, rootRevisionAt, existing.record, existing.rootRevisionAt)) {
+        existing.record = record;
+        existing.rootRevisionAt = rootRevisionAt;
+      }
     }
   }
 
+  const records = [];
+  for (const [conversationKey, entry] of rootsByConversation) {
+    records.push({
+      ...entry.record,
+      internalBranchCount: internalBranchesByConversation.get(conversationKey)?.size || 0,
+      lifecycleConflict: entry.lifecycleStates.size > 1
+    });
+  }
+
   return sortByRecency(records);
+}
+
+function preferCodexRoot(candidate, candidateRevisionAt, current, currentRevisionAt) {
+  const candidateRevisionTime = dateMillis(candidateRevisionAt);
+  const currentRevisionTime = dateMillis(currentRevisionAt);
+  if (candidateRevisionTime !== currentRevisionTime) return candidateRevisionTime > currentRevisionTime;
+
+  const candidateTime = dateMillis(candidate.updatedAt || candidate.createdAt);
+  const currentTime = dateMillis(current.updatedAt || current.createdAt);
+  if (candidateTime !== currentTime) return candidateTime > currentTime;
+  if (candidate.status !== current.status) return candidate.status === '可用';
+  return candidate.filePath.localeCompare(current.filePath) < 0;
+}
+
+function dateMillis(value) {
+  const timestamp = new Date(value || 0).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 // Claude Code CLI（用户自己终端里跑的 claude）：<root>/projects/<路径slug>/<uuid>.jsonl，

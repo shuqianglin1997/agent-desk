@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'none'; media-src 'self' blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AgentDesk Remote Console</title>
+    <link rel="stylesheet" href="./console.css">
+  </head>
+  <body>
+    <div class="console-shell">
+      <header class="console-head">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <div>
+            <b>AgentDesk</b>
+            <small data-i18n="remote.console.kicker">REMOTE CONSOLE</small>
+          </div>
+        </div>
+        <div class="connection-cluster">
+          <div class="path-status">
+            <i id="pathDot"></i>
+            <span id="pathLabel" data-i18n="remote.path.authenticated">设备已认证</span>
+          </div>
+          <span id="networkMetrics" class="network-metrics" data-i18n="remote.metrics.waiting">等待媒体统计</span>
+        </div>
+        <div class="head-actions">
+          <button id="layoutBtn" type="button" aria-pressed="false" data-i18n-title="remote.layout.grid" title="多设备网格">▦</button>
+          <button id="fullscreenBtn" type="button" data-i18n-title="remote.fullscreen" title="全屏">⛶</button>
+        </div>
+      </header>
+
+      <section class="target-bar">
+        <nav id="targetTabs" class="target-tabs" aria-label="Remote devices"></nav>
+        <div class="stream-budget" data-i18n-title="remote.streams.hint" title="最多四路连接，只有当前设备保留交互画质">
+          <span class="budget-led" aria-hidden="true"></span>
+          <strong id="streamCount">0/4</strong>
+          <small id="streamBudget" data-i18n="remote.streams.none">暂无画面</small>
+        </div>
+      </section>
+
+      <main class="remote-stage">
+        <section id="emptyState" class="remote-empty">
+          <span class="empty-radar" aria-hidden="true"><i></i></span>
+          <h1 data-i18n="remote.empty.title">等待选择设备</h1>
+          <p data-i18n="remote.empty.body">回到 AgentDesk 的设备中心，选择一台设备开始查看。</p>
+        </section>
+        <div id="videoStack" class="video-stack"></div>
+        <div id="stageBadge" class="stage-badge" hidden>
+          <span data-i18n="remote.currentTarget">当前画面</span>
+          <strong id="stageDeviceName">—</strong>
+        </div>
+      </main>
+
+      <footer id="controlDeck" class="control-deck" hidden>
+        <div class="deck-identity">
+          <strong id="activeDeviceName">—</strong>
+          <span id="activeState" data-state="connecting" data-i18n="remote.state.connecting">连接中</span>
+        </div>
+        <label class="deck-select">
+          <span data-i18n="remote.display">显示器</span>
+          <select id="displaySelect"></select>
+        </label>
+        <label class="deck-select">
+          <span data-i18n="remote.quality">画质</span>
+          <select id="qualitySelect">
+            <option value="high" data-i18n="remote.quality.high">清晰</option>
+            <option value="balanced" data-i18n="remote.quality.balanced">均衡</option>
+            <option value="thumbnail" data-i18n="remote.quality.thumbnail">低频</option>
+          </select>
+        </label>
+        <button id="pauseBtn" type="button" data-i18n="remote.pause">暂停画面</button>
+        <button id="controlBtn" type="button" class="control-primary" data-i18n="remote.control.request">请求控制</button>
+        <button id="disconnectBtn" type="button" class="danger" data-i18n="remote.disconnect">断开</button>
+        <div class="view-lock">
+          <i aria-hidden="true"></i>
+          <span id="modeLabel" data-i18n="remote.viewOnly">仅查看</span>
+        </div>
+      </footer>
+      <textarea id="inputCapture" class="input-capture" aria-label="Remote input capture" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+    </div>
+
+    <script src="../i18n/zh.js"></script>
+    <script src="../i18n/en.js"></script>
+    <script src="../i18n/ja.js"></script>
+    <script src="../i18n/i18n.js"></script>
+    <script src="../mesh/domain/remote-stream-budget.js"></script>
+    <script src="./console.js"></script>
+  </body>
+</html>

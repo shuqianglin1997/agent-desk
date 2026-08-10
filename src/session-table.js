@@ -15,6 +15,7 @@
 
   function keyOf(session) {
     if (!session || typeof session !== 'object') return '';
+    if (session.conversationId) return `mesh::${String(session.conversationId)}`;
     const profileId = String(session._profileId || '');
     const identity = session.address || session.id || session.filePath || '';
     return `${profileId}::${String(identity)}`;

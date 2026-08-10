@@ -17,10 +17,7 @@
   const HEIGHT = 236; // 与 scene.js 的逻辑画布同步（前景草坪带）
   const ZONES = Object.freeze([
     Object.freeze({ id: 'workshop', label: '工作亭', hint: '打开账号', x0: 10, y0: 16, x1: 108, y1: 78, priority: 6 }),
-    Object.freeze({ id: 'mailbox', label: '邮筒', hint: '复制交接', x0: 104, y0: 40, x1: 132, y1: 76, priority: 8 }),
-    Object.freeze({ id: 'queue', label: '任务道', hint: '任务排队', x0: 50, y0: 78, x1: 194, y1: 111, priority: 3 }),
     Object.freeze({ id: 'attention', label: '池塘', hint: '查看会话', x0: 190, y0: 87, x1: 290, y1: 130, priority: 7 }),
-    Object.freeze({ id: 'remote', label: '瞭望点', hint: '打开终端', x0: 354, y0: 34, x1: 470, y1: 91, priority: 5 }),
     Object.freeze({ id: 'meadow', label: '树下草坪', hint: '保存位置', x0: 288, y0: 88, x1: 470, y1: 130, priority: 2 })
   ]);
 
@@ -70,28 +67,10 @@
       }
       return { ...base, action: 'launch-profile', enabled: true, requiresConfirmation: true, title: '打开这个账号' };
     }
-    if (zone.id === 'mailbox') {
-      return context.hasSession
-        ? { ...base, action: 'copy-handoff', enabled: true, requiresConfirmation: true, title: '复制当前会话的交接信息' }
-        : { ...base, action: 'copy-handoff', enabled: false, requiresConfirmation: false, title: '先选择一个会话' };
-    }
     if (zone.id === 'attention') {
       return context.hasSession
         ? { ...base, action: 'focus-session', enabled: true, requiresConfirmation: false, title: '查看当前会话详情' }
         : { ...base, action: 'focus-session', enabled: false, requiresConfirmation: false, title: '这个账号还没有可查看的会话' };
-    }
-    if (zone.id === 'remote') {
-      return context.terminalSupported
-        ? { ...base, action: 'open-terminal', enabled: true, requiresConfirmation: false, title: '在内置终端打开这个 Agent' }
-        : { ...base, action: 'open-terminal', enabled: false, requiresConfirmation: false, title: '该账号暂时没有可用的终端适配器' };
-    }
-    if (zone.id === 'queue') {
-      if (!context.hasSession) {
-        return { ...base, action: 'queue-task', enabled: false, requiresConfirmation: false, title: '先选择一个会话' };
-      }
-      return context.taskQueueSupported
-        ? { ...base, action: 'queue-task', enabled: true, requiresConfirmation: true, title: '把当前会话加入 Agent 待办' }
-        : { ...base, action: 'queue-task', enabled: false, requiresConfirmation: false, title: '需要先安装可用的 Agent CLI' };
     }
     return { ...base, action: 'save-position', enabled: true, requiresConfirmation: false, title: '把猫放在这里' };
   }

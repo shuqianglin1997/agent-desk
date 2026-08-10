@@ -57,7 +57,7 @@ body[data-view="yard"] .topbar-context::before {
 
 /* ── 庭院横带 ──
  * 第 1 行：场景木框（col1，宽度由封顶的画布高度决定）＋ 今日小账本（col2，
- * 吃掉场景用不到的横向空间）。第 2 行：内嵌控制台展开时整条铺满（收起时塌 0）。
+ * 吃掉场景用不到的横向空间）。
  * 横带自身永不滚动（overflow:visible），唯一滚动区是下方会话表。背景用草坪色，
  * 让场景两侧读作「越过草坪看院子」而不是空面板。 */
 .yard-stage {
@@ -74,24 +74,9 @@ body[data-view="yard"] .topbar-context::before {
 }
 
 /* hidden 属性必须压过上面的 display:grid（作者样式会盖过 UA 的 [hidden]）。
-   否则切到经典视图后画布仍占满第一行，把工作台挤出屏幕 —— 与 .runtime-dock
-   的 [hidden] 兜底同因。选择器特指度 (0,2,0) 高于 .yard-stage (0,1,0)，无需 !important。 */
+   否则切到经典视图后画布仍占满第一行，把工作台挤出屏幕。 */
 .yard-stage[hidden] {
   display: none;
-}
-
-/* 控制台展开时整条铺在横带第 2 行（收起时 [hidden] 塌 0）。它把业务区往下压，
- * 但横带本身仍不滚动 —— 展开是显式操作。 */
-/* 多 Agent 终端展开：浮层覆盖内容区（顶栏下 / 状态栏上），不打乱满铺横带布局 */
-.runtime-dock:not([hidden]) {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 48px;
-  bottom: 28px;
-  z-index: 40;
-  height: auto;
-  margin: 0;
 }
 
 /* 木框撑满整条横带（左右定满）；画布逻辑宽由 renderer 按木框宽度重算（像素方正）。 */
@@ -113,421 +98,6 @@ body[data-view="yard"] .topbar-context::before {
   top: 0;
   left: 0;
   width: 100%;
-}
-
-/* ── multi-Agent fleet: useful structure, independent from final yard art ── */
-.runtime-dock {
-  display: grid;
-  grid-template-rows: auto auto minmax(84px, 1fr) auto;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  border: 3px solid var(--yd-line);
-  background: #17201d;
-  color: #e9e3d3;
-  box-shadow: 0 4px 0 var(--yd-shadow);
-}
-
-/* hidden 属性必须压过上面的 display:grid（作者样式会盖过 UA 的 [hidden]）。
-   内嵌控制台默认收起就靠这条生效。 */
-.runtime-dock[hidden] {
-  display: none;
-}
-
-.runtime-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  padding: 8px 11px 7px;
-  border-bottom: 1px solid rgba(233, 227, 211, 0.17);
-}
-
-.runtime-head > div {
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-  min-width: 0;
-}
-
-.runtime-head .runtime-head-actions {
-  align-items: center;
-  gap: 7px;
-}
-
-body[data-view="yard"] .runtime-head-actions button {
-  height: 22px;
-  padding: 0 7px;
-  border: 1px solid #536159;
-  background: #26332e;
-  color: #c8d1cb;
-  box-shadow: none;
-  font-size: 8px;
-}
-
-.runtime-kicker {
-  color: #89ad97;
-  font-family: var(--font-mono);
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
-
-.runtime-head h2 {
-  margin: 0;
-  color: #f5efdf;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.runtime-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  color: #a7b0aa;
-  font-family: var(--font-mono);
-  font-size: 9px;
-}
-
-.runtime-status::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  background: #69756e;
-}
-
-.runtime-status[data-status="ready"]::before,
-.runtime-status[data-status="running"]::before {
-  background: #72b889;
-}
-
-.runtime-status[data-status="running"]::before {
-  box-shadow: 0 0 0 3px rgba(114, 184, 137, 0.15);
-}
-
-.runtime-status[data-status="error"]::before {
-  background: #e36f57;
-}
-
-.runtime-count {
-  color: #a7b0aa;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  white-space: nowrap;
-}
-
-.runtime-launcher {
-  display: grid;
-  grid-template-columns: minmax(118px, 0.72fr) minmax(145px, 0.86fr) minmax(250px, 1.7fr) auto;
-  align-items: end;
-  gap: 7px;
-  padding: 7px 9px;
-  border-bottom: 1px solid rgba(233, 227, 211, 0.12);
-  background: #1e2925;
-}
-
-.runtime-launcher label,
-.runtime-context {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.runtime-launcher label > span,
-.runtime-context > span {
-  color: #89968f;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-}
-
-.runtime-launcher select {
-  width: 100%;
-  height: 27px;
-  border: 1px solid #536159;
-  border-radius: 0;
-  padding: 0 8px;
-  background: #101714;
-  color: #ece6d7;
-  font-family: var(--font-mono);
-  font-size: 10px;
-}
-
-.runtime-workspace-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 4px;
-  min-width: 0;
-}
-
-.runtime-context code {
-  display: block;
-  overflow: hidden;
-  height: 27px;
-  padding: 5px 8px;
-  border: 1px solid #39463f;
-  color: #aeb9b2;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-body[data-view="yard"] .runtime-launcher button {
-  height: 27px;
-  padding: 0 10px;
-  border-width: 1px;
-  box-shadow: none;
-  font-size: 9.5px;
-}
-
-body[data-view="yard"] .runtime-workspace-control button {
-  padding-inline: 7px;
-  border-color: #536159;
-  background: #26332e;
-  color: #c8d1cb;
-}
-
-.runtime-fleet-body {
-  display: grid;
-  grid-template-columns: minmax(142px, 192px) minmax(0, 1fr);
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.runtime-list {
-  display: grid;
-  align-content: start;
-  gap: 5px;
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;
-  padding: 7px;
-  border-right: 1px solid rgba(233, 227, 211, 0.12);
-  background: #17201d;
-}
-
-.runtime-list-empty {
-  margin: 12px 5px;
-  color: #77837c;
-  font-size: 9px;
-  line-height: 1.45;
-}
-
-body[data-view="yard"] .runtime-card {
-  display: grid;
-  gap: 3px;
-  width: 100%;
-  height: auto;
-  min-height: 48px;
-  padding: 6px 7px;
-  border: 1px solid #39463f;
-  background: #101714;
-  color: #aeb9b2;
-  box-shadow: none;
-  text-align: left;
-  white-space: normal;
-}
-
-body[data-view="yard"] .runtime-card:hover:not(:disabled) {
-  border-color: #64756b;
-  background: #1b2722;
-  transform: none;
-}
-
-body[data-view="yard"] .runtime-card.selected {
-  border-color: #8db59b;
-  background: #24342d;
-  color: #f5efdf;
-  box-shadow: inset 3px 0 0 #8db59b;
-}
-
-.runtime-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 5px;
-  min-width: 0;
-}
-
-.runtime-card-top b {
-  overflow: hidden;
-  color: #d7ded9;
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.04em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.runtime-card-top em {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex: none;
-  color: #89968f;
-  font-size: 7.5px;
-  font-style: normal;
-}
-
-.runtime-card-top em::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  background: #69756e;
-}
-
-.runtime-card[data-status="running"] .runtime-card-top em::before,
-.runtime-card[data-status="ready"] .runtime-card-top em::before {
-  background: #72b889;
-}
-
-.runtime-card[data-status="error"] .runtime-card-top em::before {
-  background: #e36f57;
-}
-
-.runtime-card > strong,
-.runtime-card > small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.runtime-card > strong {
-  color: inherit;
-  font-size: 9.5px;
-}
-
-.runtime-card > small {
-  color: #77837c;
-  font-family: var(--font-mono);
-  font-size: 7.5px;
-}
-
-.runtime-console {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  background: #101714;
-}
-
-.runtime-console-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  padding: 6px 8px;
-  border-bottom: 1px solid rgba(233, 227, 211, 0.12);
-  background: #1e2925;
-}
-
-.runtime-console-head > div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.runtime-console-head strong,
-.runtime-console-head small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.runtime-console-head strong {
-  color: #f5efdf;
-  font-size: 10px;
-}
-
-.runtime-console-head small {
-  color: #77837c;
-  font-family: var(--font-mono);
-  font-size: 7.5px;
-}
-
-body[data-view="yard"] .runtime-console-head button {
-  height: 24px;
-  padding: 0 8px;
-  border-width: 1px;
-  box-shadow: none;
-  font-size: 8px;
-}
-
-.runtime-output {
-  min-height: 0;
-  overflow: auto;
-  padding: 9px 11px;
-  color: #d7ded9;
-  background: #101714;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  user-select: text;
-}
-
-.runtime-output > span {
-  display: inline;
-}
-
-.runtime-output [data-stream="input"] { color: #f0be7b; }
-.runtime-output [data-stream="agent"] { color: #b8dec5; }
-.runtime-output [data-stream="thought"] { color: #819a8a; font-style: italic; }
-.runtime-output [data-stream="tool"] { color: #9ab0c9; }
-.runtime-output [data-stream="stderr"] { color: #f19a87; }
-.runtime-output [data-stream="system"],
-.runtime-placeholder { color: #77837c; }
-
-.runtime-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 68px;
-  gap: 7px;
-  padding: 7px 9px;
-  border-top: 1px solid rgba(233, 227, 211, 0.12);
-  background: #1e2925;
-}
-
-.runtime-form textarea {
-  min-height: 42px;
-  max-height: 90px;
-  resize: none;
-  border: 1px solid #536159;
-  border-radius: 0;
-  padding: 7px 8px;
-  background: #101714;
-  color: #ece6d7;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 1.35;
-}
-
-.runtime-form textarea:focus {
-  border-color: #89ad97;
-  box-shadow: 0 0 0 2px rgba(137, 173, 151, 0.16);
-}
-
-body[data-view="yard"] .runtime-form button {
-  height: auto;
-  min-height: 42px;
-  border-width: 1px;
-  box-shadow: none;
-}
-
-.runtime-hint {
-  min-height: 22px;
-  margin: 0;
-  padding: 4px 10px;
-  color: #89968f;
-  background: #17201d;
-  font-size: 8.5px;
-  line-height: 1.4;
 }
 
 /* 画布左右定满木框（width:100%），高度封顶为横带高。逻辑宽由 renderer 的 ResizeObserver
@@ -1180,36 +750,9 @@ body[data-view="yard"] .app-shell .session-segment button[aria-pressed="true"] {
 }
 
 body[data-view="yard"] .app-shell .session-segment button:active:not(:disabled),
-body[data-view="yard"] .app-shell .session-table .sort-button:active:not(:disabled),
-body[data-view="yard"] .app-shell .handoff-plan-controls button:active:not(:disabled) {
+body[data-view="yard"] .app-shell .session-table .sort-button:active:not(:disabled) {
   transform: none;
   box-shadow: none;
-}
-
-body[data-view="yard"] .handoff-bulk-bar,
-body[data-view="yard"] .handoff-plan {
-  border: 2px solid var(--yd-line);
-  border-radius: 0;
-  background: var(--yd-panel2);
-}
-
-body[data-view="yard"] .handoff-plan-item {
-  border-color: color-mix(in srgb, var(--yd-line) 35%, transparent);
-  border-radius: 0;
-  background: var(--yd-panel);
-}
-
-body[data-view="yard"] .handoff-plan header span,
-body[data-view="yard"] .handoff-plan-index,
-body[data-view="yard"] .session-toolbar .handoff-bulk-summary span {
-  color: var(--yd-primary);
-}
-
-body[data-view="yard"] .app-shell .handoff-plan-controls button {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--yd-ink2);
 }
 
 /* 表格木框皮肤 + 唯一滚动区（高度由弹性行约束，无 380px 硬顶） */
@@ -1221,7 +764,7 @@ body[data-view="yard"] .table-wrap {
   max-height: none;
 }
 
-/* 会话主区用基础层真表格（5 列含来源、table-layout:fixed、sticky thead），只补庭院皮肤色。
+/* 会话主区用基础层真表格（选择列 + renderer 声明的数据列、table-layout:fixed、sticky thead），只补庭院皮肤色。
  * main-grid = 基础层 [会话表 | 会话详情] 两列（改动②的 display:contents 分屏已随统一重设计移除）。 */
 body[data-view="yard"] .session-pane {
   min-height: 0;
@@ -1258,10 +801,6 @@ body[data-view="yard"] .sort-indicator {
   color: var(--yd-primary);
 }
 
-body[data-view="yard"] .selection-col input {
-  accent-color: var(--yd-primary);
-}
-
 body[data-view="yard"] td {
   border-bottom-color: color-mix(in srgb, var(--yd-line) 22%, transparent);
 }
@@ -1272,12 +811,10 @@ body[data-view="yard"] .title-cell { color: var(--yd-ink); }
 
 body[data-view="yard"] tbody tr.selected {
   background: var(--yd-select-wash);
-  box-shadow: inset 3px 0 0 var(--yd-primary);
 }
 
-body[data-view="yard"] .session-table tbody tr.handoff-selected:not(.selected) {
-  background: color-mix(in srgb, var(--yd-select-wash) 58%, transparent);
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--yd-primary) 70%, transparent);
+body[data-view="yard"] tbody tr.session-active {
+  box-shadow: inset 3px 0 0 var(--yd-primary);
 }
 
 body[data-view="yard"] tbody tr.selected .title-cell {
@@ -1296,38 +833,15 @@ body[data-view="yard"] input:focus {
   box-shadow: 0 0 0 3px var(--yd-select-wash);
 }
 
+body[data-view="yard"] .session-select-box {
+  accent-color: var(--yd-primary);
+}
+
 /* 会话详情栏（工作区右列）：木框左分隔 + 庭院皮肤色 */
 body[data-view="yard"] .inspector {
   min-height: 0;
   border-left: 3px solid var(--yd-line);
   background: var(--yd-panel2);
-}
-
-/* 庭院的工作区比经典视图矮：交接清单自身滚动，给资料索引至少留出一条
- * 可见项；密集态省去已由「明确/候选」徽标表达的说明行。 */
-body[data-view="yard"] .handoff-plan {
-  gap: 4px;
-  max-height: 100px;
-  padding: 6px;
-}
-
-body[data-view="yard"] .handoff-plan ol {
-  gap: 2px;
-}
-
-body[data-view="yard"] .handoff-plan-item {
-  grid-template-columns: 16px minmax(0, 1fr) auto;
-  min-height: 25px;
-  padding: 1px 3px;
-}
-
-body[data-view="yard"] .handoff-plan-controls button {
-  width: 18px;
-  height: 18px;
-}
-
-body[data-view="yard"] .handoff-plan:not([hidden]) + .inspector-body .artifact-index > p {
-  display: none;
 }
 
 body[data-view="yard"] .inspector dl {
@@ -1638,8 +1152,7 @@ body[data-view="yard"] .tool-center-head {
 
 body[data-view="yard"] .tool-center-overview,
 body[data-view="yard"] .tool-center-status,
-body[data-view="yard"] .tool-card,
-body[data-view="yard"] .custom-agent-drawer {
+body[data-view="yard"] .tool-card {
   border-color: var(--yd-line);
   border-radius: 0;
   background-color: var(--yd-panel);
@@ -1650,8 +1163,7 @@ body[data-view="yard"] .tool-card {
 }
 
 body[data-view="yard"] .tool-card-actions button,
-body[data-view="yard"] .tool-center-head-actions button,
-body[data-view="yard"] .custom-agent-drawer button {
+body[data-view="yard"] .tool-center-head-actions button {
   border: 2px solid var(--yd-line);
   border-radius: 0;
   background: var(--yd-wood);
@@ -1660,8 +1172,7 @@ body[data-view="yard"] .custom-agent-drawer button {
 }
 
 body[data-view="yard"] .tool-card-actions button.primary,
-body[data-view="yard"] .tool-center-head-actions button.primary,
-body[data-view="yard"] .custom-agent-drawer button.primary {
+body[data-view="yard"] .tool-center-head-actions button.primary {
   background: var(--yd-primary);
   color: #fff7e8;
 }

@@ -4,9 +4,9 @@ const assert = require('node:assert');
 const interactions = require('../src/yard/interactions');
 
 test('语义区域只作为拖放命中层，重叠时优先具体设施', () => {
-  assert.equal(interactions.zoneAt(118, 52).id, 'mailbox');
+  assert.equal(interactions.zoneAt(50, 52).id, 'workshop');
   assert.equal(interactions.zoneAt(236, 104).id, 'attention');
-  assert.equal(interactions.zoneAt(420, 70).id, 'remote');
+  assert.equal(interactions.zoneAt(420, 104).id, 'meadow');
   assert.equal(interactions.zoneAt(250, 60), null);
 });
 
@@ -28,26 +28,10 @@ test('投到工作亭只生成需确认的打开意图，不直接执行', () =>
   assert.equal(intent.requiresConfirmation, true);
 });
 
-test('交接和远程区域会按真实能力禁用，不伪造成功', () => {
-  assert.equal(interactions.resolveDropIntent('mailbox', { hasSession: false }).enabled, false);
-  assert.equal(interactions.resolveDropIntent('mailbox', { hasSession: true }).action, 'copy-handoff');
-  assert.equal(interactions.resolveDropIntent('remote', { terminalSupported: false }).enabled, false);
-});
-
-test('任务道只在已选会话且 Agent 适配器可用时生成需确认的排队意图', () => {
-  assert.equal(interactions.resolveDropIntent('queue', {
-    hasSession: false,
-    taskQueueSupported: true
-  }).enabled, false);
-  assert.equal(interactions.resolveDropIntent('queue', {
-    hasSession: true,
-    taskQueueSupported: false
-  }).enabled, false);
-  const intent = interactions.resolveDropIntent('queue', {
-    hasSession: true,
-    taskQueueSupported: true
-  });
-  assert.equal(intent.enabled, true);
-  assert.equal(intent.action, 'queue-task');
-  assert.equal(intent.requiresConfirmation, true);
+test('庭院只保留账号打开、会话聚焦和位置保存三类核心意图', () => {
+  assert.deepEqual(interactions.ZONES.map((zone) => zone.id), ['workshop', 'attention', 'meadow']);
+  assert.equal(interactions.resolveDropIntent('attention', { hasSession: false }).enabled, false);
+  assert.equal(interactions.resolveDropIntent('attention', { hasSession: true }).action, 'focus-session');
+  assert.equal(interactions.resolveDropIntent('meadow').action, 'save-position');
+  assert.equal(interactions.resolveDropIntent('unknown').action, 'save-position');
 });

@@ -21,33 +21,66 @@ contextBridge.exposeInMainWorld('manager', {
     return () => ipcRenderer.removeListener('tools:progress', listener);
   },
   listProfiles: () => ipcRenderer.invoke('profiles:list'),
+  listDevices: () => ipcRenderer.invoke('devices:list'),
+  initializeMesh: (input = {}) => ipcRenderer.invoke('devices:initialize', input),
+  renameDevice: (input) => ipcRenderer.invoke('devices:rename', input),
+  resetMesh: () => ipcRenderer.invoke('devices:resetMesh'),
+  probeMeshTransport: () => ipcRenderer.invoke('devices:probeTransport'),
+  createDeviceInvite: () => ipcRenderer.invoke('devices:createInvite'),
+  cancelDeviceInvite: (inviteId) => ipcRenderer.invoke('devices:cancelInvite', { inviteId }),
+  joinDeviceMesh: (input) => ipcRenderer.invoke('devices:join', input),
+  setDeviceReachable: (enabled) => ipcRenderer.invoke('devices:setReachable', { enabled }),
+  connectDevice: (deviceId) => ipcRenderer.invoke('devices:connect', { deviceId }),
+  disconnectDevice: (deviceId) => ipcRenderer.invoke('devices:disconnect', { deviceId }),
+  getDeviceDiagnostics: (deviceId) => ipcRenderer.invoke('devices:getDiagnostics', { deviceId }),
+  getDeviceNetworkConfig: () => ipcRenderer.invoke('devices:getNetworkConfig'),
+  updateDeviceNetworkConfig: (input) => ipcRenderer.invoke('devices:updateNetworkConfig', input),
+  onDeviceConnectionState: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('devices:connectionState', listener);
+    return () => ipcRenderer.removeListener('devices:connectionState', listener);
+  },
+  onDeviceNetworkState: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('devices:networkState', listener);
+    return () => ipcRenderer.removeListener('devices:networkState', listener);
+  },
+  updateDevicePermissions: (input) => ipcRenderer.invoke('devices:updatePermissions', input),
+  revokeDevice: (input) => ipcRenderer.invoke('devices:revoke', input),
+  openRemoteControl: (deviceId) => ipcRenderer.invoke('remoteControl:open', { deviceId }),
+  listRemoteControls: () => ipcRenderer.invoke('remoteControl:list'),
+  disconnectRemoteControl: (sessionId) => ipcRenderer.invoke('remoteControl:disconnect', { sessionId }),
+  stopAllRemoteControls: () => ipcRenderer.invoke('remoteControl:stopAll'),
+  onRemoteControlsChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('remoteControl:changed', listener);
+    return () => ipcRenderer.removeListener('remoteControl:changed', listener);
+  },
+  listMeshSessions: () => ipcRenderer.invoke('remoteInventory:listSessions'),
+  createSessionPointerTransfer: (input) => ipcRenderer.invoke('transfers:createSessionPointer', input),
+  chooseFileTransfer: (input) => ipcRenderer.invoke('transfers:chooseFiles', input),
+  acceptFileTransfer: (transferId) => ipcRenderer.invoke('transfers:acceptFile', { transferId }),
+  openReceivedFile: (transferId) => ipcRenderer.invoke('transfers:openReceivedFile', { transferId }),
+  listTransfers: () => ipcRenderer.invoke('transfers:list'),
+  cancelTransfer: (transferId) => ipcRenderer.invoke('transfers:cancel', { transferId }),
+  retryTransfer: (transferId) => ipcRenderer.invoke('transfers:retry', { transferId }),
+  chooseProjectBinding: (input) => ipcRenderer.invoke('projects:chooseBinding', input),
+  onTransfersChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('transfers:changed', listener);
+    return () => ipcRenderer.removeListener('transfers:changed', listener);
+  },
   addProfile: (input) => ipcRenderer.invoke('profiles:add', input),
   updateProfile: (input) => ipcRenderer.invoke('profiles:update', input),
   removeProfile: (id) => ipcRenderer.invoke('profiles:remove', id),
   migrateWindowsProfilePath: (id) => ipcRenderer.invoke('profiles:migrateWindowsPath', id),
   launchProfile: (id) => ipcRenderer.invoke('profiles:launch', id),
   listSessions: (profile) => ipcRenderer.invoke('sessions:list', profile),
-  listSessionArtifacts: (input) => ipcRenderer.invoke('sessions:artifacts', input),
   revealSession: (input) => ipcRenderer.invoke('sessions:reveal', input),
   exportSession: (input) => ipcRenderer.invoke('sessions:export', input),
   listActivity: () => ipcRenderer.invoke('activity:all'),
   listQuotas: (options = {}) => ipcRenderer.invoke('quota:all', options),
   getDiagnostics: (profile) => ipcRenderer.invoke('diagnostics:get', profile),
-  listTerminalAdapters: (profileId = null) => ipcRenderer.invoke('runtime:adapters', { profileId }),
-  listTerminalRuntimes: () => ipcRenderer.invoke('runtime:list'),
-  listCustomAgents: () => ipcRenderer.invoke('runtime:customAdapters'),
-  pickAgentExecutable: (input = {}) => ipcRenderer.invoke('runtime:pickExecutable', input),
-  addCustomAgent: (input) => ipcRenderer.invoke('runtime:addCustomAdapter', input),
-  removeCustomAgent: (id) => ipcRenderer.invoke('runtime:removeCustomAdapter', id),
-  pickTerminalWorkspace: (input = {}) => ipcRenderer.invoke('runtime:pickWorkspace', input),
-  startTerminal: (input) => ipcRenderer.invoke('runtime:start', input),
-  sendTerminal: (input) => ipcRenderer.invoke('runtime:send', input),
-  stopTerminal: (input) => ipcRenderer.invoke('runtime:stop', input),
-  onTerminalEvent: (callback) => {
-    const listener = (_event, payload) => callback(payload);
-    ipcRenderer.on('runtime:event', listener);
-    return () => ipcRenderer.removeListener('runtime:event', listener);
-  },
   pickDirectory: (options) => ipcRenderer.invoke('system:pickDirectory', options),
   pickFile: (options) => ipcRenderer.invoke('system:pickFile', options),
   showItem: (path) => ipcRenderer.invoke('system:showItem', path),

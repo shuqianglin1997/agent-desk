@@ -1,11 +1,11 @@
 /*
- * AgentDesk — 受管客户端注册表（adapter registry）。
+ * AgentDesk — 受管客户端目录。
  *
- * 每个受管的 AI 客户端（Claude / Codex / 未来的 Cursor / CodeBuddy …）在这里注册
- * 一份适配器，集中它的全部差异：显示名与配色、可执行文件名、默认数据目录规则、
+ * 每个受管的 AI 客户端在这里注册一个条目，集中它的全部差异：
+ * 显示名与配色、可执行文件名、默认数据目录规则、
  * 会话根目录规则、启动环境、会话扫描器与扫描区域、诊断区域。
  *
- * 加一个新工具 = 在 APPS 里加一个条目 + 一个会话扫描器，其余代码（main / activity /
+ * 加一个新会话来源 = 在 APPS 里加一个条目 + 一个会话扫描器，其余代码（main / activity /
  * renderer / 猫庭院）都通过这张表取信息，不用再散落地写 `appId === 'codex' ? … : …`。
  *
  * 纯 Node（os/path + sessions.js），可单测，不依赖 Electron。

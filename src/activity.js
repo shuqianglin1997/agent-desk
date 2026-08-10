@@ -13,7 +13,7 @@ const apps = require('./apps');
 const WALK_LIMIT = 12000;
 const SKIP_DIRS = ['Cache', 'GPUCache', 'node_modules'];
 // 「此刻进行中」窗口：会话文件在这段时间内被写过就算一路并行的活。
-// 终端 agent 干活时逐事件追加记录，闲置的终端窗口不会更新文件。
+// CLI 会话工作时逐事件追加记录，闲置的终端窗口不会更新文件。
 const ACTIVE_NOW_MS = 5 * 60_000;
 
 function startOfDay(now) {

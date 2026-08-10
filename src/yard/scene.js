@@ -2,11 +2,11 @@
  * AgentDesk — 庭院场景引擎。
  *
  * 挂到 window.YardScene。职责：
- *  - 在 480×132 的逻辑画布上画庭院（天空/栅栏/工作亭/池塘/树/花圃/邮筒）
+ *  - 在 480×236 的逻辑画布上画庭院（天空/栅栏/工作亭/池塘/树/花圃）
  *  - 按分组把猫（账号槽位）排进各自的区域，干活的猫走到工作亭书桌
  *  - 角色化：每只猫有持续位置，会走路、散步、看锦鲤，状态变化时走去新岗位
  *  - 常驻名牌（DOM 覆盖层，名字 = 账号名称，中文清晰可点，跟随猫移动）
- *  - 8fps 心跳做环境动画；点击选中、按住撸猫；邮筒投信、摇铃等反馈
+ *  - 8fps 心跳做环境动画；点击选中、按住撸猫并提供轻量反馈
  * 数据从 renderer.js 喂入（update），本文件不碰 IPC、不碰业务状态。
  */
 (function (root) {
@@ -30,10 +30,9 @@
   const SEAT_FOOT_Y = 70;
   const GROUND_X0 = 14;
   let GROUND_X1 = W - GROUND_X0;   // 右缘跟随 W：猫横向摊满整条横带
-  const MAILBOX = { x: 117, y: 48 };
   let POND = { x0: 196, x1: 284, cx: 240 };   // 随 W 居中，见 recomputeDims
   const WALK_SPEED = 1.6;
-  // 道具水平分布偏移（随 W）：工作亭/邮筒守左，池塘居中，大树/花圃靠右，让宽横带左右都有内容。
+  // 道具水平分布偏移（随 W）：工作亭守左，池塘居中，大树/花圃靠右，让宽横带左右都有内容。
   let pondDX = 0, treeDX = 0, bedDX = 0;
 
   // ── 内部状态 ─────────────────────────────────────────
@@ -75,7 +74,6 @@
   let suppressClick = false;
   let activeDropZoneId = null;
   const speechById = new Map();
-  let mailboxFlagUntil = 0;
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // 确定性散点（草地噪点/星星/萤火虫）
@@ -624,18 +622,6 @@
     ctx.restore();
   }
 
-  function drawMailbox() {
-    rect(116, 54, 3, 16, WOODD);
-    frameRect(110, 46, 15, 9, '#c05a3a', LINE);
-    rect(111, 47, 4, 7, '#d97a52');
-    if (tick < mailboxFlagUntil) {
-      rect(123, 42, 1, 6, '#e8c04a');
-      rect(122, 42, 3, 2, '#e05a3a'); // 小旗升起：有信！
-    } else {
-      rect(123, 48, 1, 4, '#e8c04a');
-    }
-  }
-
   function drawPond(P) {
     ctx.save(); ctx.translate(pondDX, 0);   // 池塘居中（随 W）
     rect(198, 92, 84, 32, LINE); rect(196, 94, 88, 28, LINE);
@@ -887,15 +873,6 @@
     particles.forEach((p) => {
       p.age += 1;
       if (p.age < 0) return; // 错峰出场
-      if (p.kind === 'mail') {
-        const k = p.age / p.dur;
-        const mx = Math.round(p.sx + (MAILBOX.x - p.sx) * k);
-        const my = Math.round(p.sy + (MAILBOX.y - p.sy) * k - Math.sin(Math.PI * k) * 12);
-        ctx.globalAlpha = 1;
-        frameRect(mx, my, 8, 6, '#fdf8ec', LINE);
-        rect(mx + 1, my + 1, 6, 1, '#d9c9a8');
-        return;
-      }
       ctx.globalAlpha = Math.max(0, 1 - p.age / 24);
       if (p.kind === 'z') drawZ(Math.round(p.x + ((p.age >> 2) % 2)), Math.round(p.y - p.age * 0.5), '#faf5e6');
       if (p.kind === 'heart') drawHeart(Math.round(p.x + Math.sin(p.age * 0.4) * 2), Math.round(p.y - p.age * 0.8), '#e06a8a');
@@ -944,11 +921,9 @@
     const sleepAll = sleepAllNow();
     ctx.clearRect(0, 0, W, H);
     drawSky(P);
-    // 静态地形一次性 blit（先于邮筒/池塘）。不变式：地形层（工作亭/树）与逐帧的
-    // 邮筒/池塘在 x 上不重叠——否则调整坐标会静默改变遮挡关系。改坐标时留意。
+    // 静态地形一次性 blit（先于逐帧池塘和角色）。
     ctx.drawImage(ensureTerrain(P), 0, 0);
     drawButterfly();
-    drawMailbox();
     drawPond(P);
     zones.forEach((zone) => drawSign(zone.x));
     [...layout].sort((a, b) => a.actor.y - b.actor.y).forEach((entry) => drawYardCat(entry, sleepAll));
@@ -1226,15 +1201,8 @@
       syncSpeech();
       return true;
     },
-    // 场景反馈：handoff = 选中的猫把交接信投进邮筒；bell = 摇铃，全体猫头上冒音符
+    // 场景反馈：bell = 摇铃；stretch = 伸懒腰提醒。
     fx(kind) {
-      if (kind === 'handoff') {
-        const entry = layout.find((e) => e.profile.id === data.selectedId);
-        if (entry) {
-          particles.push({ kind: 'mail', sx: entry.actor.x, sy: entry.topY - 4, age: 0, dur: 22 });
-          mailboxFlagUntil = tick + 44;
-        }
-      }
       if (kind === 'bell') {
         layout.forEach((entry, i) => {
           if (particles.length < 48) particles.push({ kind: 'note', x: entry.actor.x + 6, y: entry.topY - 4, age: -i * 2 });

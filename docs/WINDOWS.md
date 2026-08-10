@@ -8,6 +8,21 @@ Windows 版使用 electron-builder 的 portable 目标：
 
 不需要安装。AgentDesk 自己的配置仍保存在稳定的 `%APPDATA%\AgentDesk`，不会跟随 portable exe 的临时解压目录。
 
+## Personal Mesh 与远控状态
+
+Windows 开发版已经包含有人值守 Personal Mesh 代码和固定协议的 `AgentDeskInputHelper.exe` 构建规则。electron-builder 在 Windows runner 上使用 MSVC 编译 helper，并把它作为固定 `extraResources` 放入 portable 包；Renderer 不能传命令、路径或参数给 helper。
+
+支持边界：
+
+- 设备配对、跨设备库存、SessionPointer、文件传输和 Remote Console 与 macOS 使用同一设备证书和 WebRTC 协议；
+- 查看屏幕使用 Electron/Chromium 的系统捕获能力，目标端每次同意后才开始；
+- 键鼠控制同时需要 `input.control` 权限、目标端本次同意和可用 helper；
+- helper 使用 `SendInput`，受 UIPI 完整性级别约束，普通 AgentDesk 不能控制更高权限窗口；
+- UAC 安全桌面、Windows 登录界面、锁屏控制、系统服务和无人值守不在当前范围；
+- 断线、失焦、切换目标、撤销和 3.5 秒 helper 心跳超时都会释放按键。
+
+当前源码/CI 规则不能替代 Windows 真机验收。发布前必须完成 Windows ↔ Windows、Windows ↔ macOS 的显示器、混合 DPI、键盘布局、IME、UIPI 和 portable 升级矩阵。
+
 ## GitHub 一键更新
 
 账号操作栏中常驻的「`↻ 更新`」会查询固定仓库 `shuqianglin1997/agent-desk` 的最新正式 GitHub Release，并按语义版本比较当前版本；猫猫庭院和经典视图都能看到。
@@ -144,6 +159,11 @@ CI 会在 `windows-latest` 执行纯 Node 的 Windows 路径、启动候选、MS
 8. 安装 Claude/Codex CLI 时，不会把 CLI shim 识别为桌面 App。
 9. 从可写目录运行旧 portable 版，点击账号操作栏中的「`↻ 更新`」能下载、校验、替换并重启到新版本。
 10. 从只读目录或非 portable 环境检查更新时，只打开 Release 页面，不覆盖本地文件。
+11. 两台设备能完成一次性加密配对；撤销后旧设备不能重新连接。
+12. Windows 作为目标端时，屏幕查看先显示同意窗口，停止条和紧急停止都能立即断开。
+13. 普通窗口的鼠标、按键、滚轮和文本输入可用；切换目标、断网和 helper 超时不会留下卡键。
+14. 混合 DPI、多显示器和旋转屏的归一化坐标正确；高权限窗口明确降级，不尝试绕过 UIPI/UAC。
+15. 在真实家庭 NAT 与强制 TURN/TCP/TLS 环境下连接诊断分别显示直连或中继，且不泄露 IP、SDP 或凭据。
 
 ## 构建命令
 

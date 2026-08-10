@@ -21,7 +21,10 @@ function writeJsonStore(storeFile, payload, options = {}) {
   const backupFile = options.backupFile || `${storeFile}.bak`;
   const tempFile = `${storeFile}.${process.pid}.${Date.now()}.tmp`;
   fs.mkdirSync(path.dirname(storeFile), { recursive: true });
-  const descriptor = fs.openSync(tempFile, 'wx');
+  // User settings and Mesh key envelopes can contain private local metadata.
+  // Create the temporary file owner-only from the first byte instead of
+  // tightening permissions only after the atomic rename.
+  const descriptor = fs.openSync(tempFile, 'wx', options.mode || 0o600);
   try {
     fs.writeFileSync(descriptor, JSON.stringify(payload, null, 2), 'utf8');
     fs.fsyncSync(descriptor);

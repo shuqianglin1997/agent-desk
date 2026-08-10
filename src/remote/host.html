@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'none'; media-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AgentDesk Remote View</title>
+    <link rel="stylesheet" href="./host.css">
+  </head>
+  <body>
+    <section id="consentView" class="consent-card">
+      <header>
+        <span class="host-signal" aria-hidden="true"><i></i></span>
+        <div>
+          <small data-i18n="remote.host.kicker">REMOTE VIEW REQUEST</small>
+          <h1 data-i18n="remote.host.title">有人想查看这台电脑</h1>
+        </div>
+      </header>
+      <p id="requestCopy"></p>
+      <label>
+        <span data-i18n="remote.display">显示器</span>
+        <select id="sourceSelect"></select>
+      </label>
+      <p id="permissionNote" class="permission-note"></p>
+      <p id="hostError" class="host-error" hidden></p>
+      <footer>
+        <button id="denyBtn" type="button" data-i18n="remote.deny">拒绝</button>
+        <button id="allowBtn" type="button" class="allow" data-i18n="remote.allowView">允许本次查看</button>
+      </footer>
+    </section>
+
+    <section id="indicatorView" class="live-indicator" hidden>
+      <div class="live-row">
+        <span class="live-dot" aria-hidden="true"></span>
+        <div>
+          <strong id="liveTitle" data-i18n="remote.host.viewing">正在共享屏幕</strong>
+          <small id="liveMeta"></small>
+        </div>
+        <button id="stopBtn" type="button" data-i18n="remote.stopNow">立即停止</button>
+      </div>
+      <div id="controlPrompt" class="control-prompt" hidden>
+        <strong data-i18n="remote.host.controlTitle">是否允许键盘和鼠标控制？</strong>
+        <p id="controlRequestCopy"></p>
+        <div>
+          <button id="denyControlBtn" type="button" data-i18n="remote.deny">拒绝</button>
+          <button id="allowControlBtn" type="button" class="allow-control" data-i18n="remote.host.allowControl">允许本次控制</button>
+        </div>
+      </div>
+    </section>
+
+    <script src="../i18n/zh.js"></script>
+    <script src="../i18n/en.js"></script>
+    <script src="../i18n/ja.js"></script>
+    <script src="../i18n/i18n.js"></script>
+    <script src="./host.js"></script>
+  </body>
+</html>

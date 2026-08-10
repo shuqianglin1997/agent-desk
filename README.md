@@ -4,320 +4,176 @@
 
 <h1 align="center">AgentDesk</h1>
 
-<p align="center"><strong>Every AI-coding account and its local sessions — signed in, indexed, and one keystroke from handoff, in a single local window.</strong></p>
+<p align="center"><strong>A local-first personal control plane for AI coding accounts, sessions, diagnostics, and trusted devices.</strong></p>
 
 <p align="center">
-  Keep every Claude / Codex account logged in at once — no collisions, no re-login.<br />
-  Find any account's old session in seconds, and hand it to the next chat with one click.
+  Keep separate account slots, find local sessions quickly, and open the official client you already use.<br />
+  No embedded chat, agent process runner, task queue, or cross-session orchestration.
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue" alt="Platform" />
-  <img src="https://img.shields.io/badge/local--first%20·%20explicit%20maintenance-2e7d4f" alt="Local-first, explicit maintenance" />
-</p>
-
-<p align="center">
-  <a href="#what-it-solves">Problem</a> ·
-  <a href="#what-agentdesk-does">Features</a> ·
-  <a href="#two-views">Views</a> ·
-  <a href="#the-cat-yard-">Cat yard</a> ·
-  <a href="#boundaries">Boundaries</a> ·
-  <a href="#install">Install</a> ·
-  <a href="#agentdesk-中文说明">中文</a>
+  <img src="https://img.shields.io/badge/local--first-2e7d4f" alt="Local-first" />
 </p>
 
 ![AgentDesk](assets/screenshots/app.png)
 
-<sub>Session titles and paths above are illustrative. A dark theme ships too — see [`assets/screenshots/app-dark.png`](assets/screenshots/app-dark.png).</sub>
-
----
-
-## In one line
-
-AgentDesk is a **local, read-only cockpit** for people who run more than one AI-coding account. It keeps every Claude / Codex login isolated and simultaneously online, scans each one's local sessions into a single searchable table, and lets you hand any session off to a new chat — **without storing a single password or reading the full transcript.** Authentication always stays inside the official apps; AgentDesk never signs in for you.
-
-> It **manages and indexes** accounts and sessions. It is deliberately **not** an embedded terminal or an agent-runner — see [Boundaries](#boundaries).
-
-<a id="what-it-solves"></a>
-
-## What it solves
-
-Add a few logins and a few tools, and the login identity, the project directory and the old session tangle into one object — scattered across terminals and desktop apps that each assume **one identity per machine**:
-
-- **Accounts collide.** Log into account B and it kicks account A offline. You can't keep a work login and a personal login open at once — you log out and back in all day.
-- **Old sessions get lost.** Every account quietly piles up local sessions (Claude Code, Codex, and more), across different data folders and file formats. *"I did that last week — but in which account? which session?"* There's no single place to look.
-- **Handing off context is manual.** To make a new chat continue an old one, you retype or copy-paste the context by hand — slow and easy to get wrong.
-- **Every OS hides things somewhere else.** Official apps and their data sit in different places on macOS vs. Windows, so finding anything by hand is painful.
-
-<a id="what-agentdesk-does"></a>
+> **Development status:** this branch contains the complete attended Personal Mesh code path: encrypted device pairing, cross-device Agent/session inventory, SessionPointer and selected-file transfer, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. Automated tests and a real Electron two-endpoint loop pass; physical computers, public NAT/coturn, and the macOS/Windows permission matrix are still release gates. Existing GitHub Releases may predate this branch.
 
 ## What AgentDesk does
 
-Each pain above maps to one thing it gives you:
+AgentDesk keeps a small, local index around the official AI coding clients already installed on your computer:
 
-- **Isolated account slots.** Each slot is its own local data directory; AgentDesk launches the official Claude / Codex app pointed at that directory, so **multiple accounts coexist — no collisions, no constant re-login.** This is the axis most tools skip.
-- **Automatic session index.** It scans every account's session files into one table. Switch between the current account and all accounts, open the detailed attribute view, and click any column header to sort. Search covers title, project, account and thread ID. **Find any old session in seconds.**
-- **Planned multi-session handoff.** Check sessions from one or many accounts, arrange their priority, then copy one consolidated brief into a new chat. AgentDesk also indexes exact Claude `ExitPlanMode` files, Codex `update_plan` snapshots, and time-related project planning docs. Exact matches are included by default; weaker candidates require a checkbox. **The full transcript is never copied.**
-- **Recognizes many agents.** Built-in adapters identify Codex and Claude Code sessions directly; Gemini CLI, OpenCode, Cursor Agent, GitHub Copilot CLI, goose, Kimi and Qwen Code are recognized as [Agent Client Protocol](https://agentclientprotocol.com/) tools. The **🔌 Connect** button in the top bar discovers installed agents and lets you register a custom ACP agent through a native file picker.
-- **Local tool bay.** The top-bar **🧰 Tools** panel inventories supported desktop apps and terminal agents, shows installed/latest versions and install source, opens each tool in one click, and updates one or all eligible CLIs through the same npm, Homebrew, uv or self-updater that installed them. Desktop apps without a stable public update feed open their official updater or download page.
-- **Notes & groups.** Give any slot a free-text note and drop it into a group (Work / Personal / Spare…). Accounts organize by group, like a contact list.
-- **Same account, one identity.** When one login shows up as several client slots (desktop + CLI, or Kimi Code + Kimi Work), AgentDesk merges them into **one account** — one cat, one card — with sessions and quota flowing together.
-- **Diagnostics.** A panel that explains *why* a session won't show up or an app won't launch: executable / Store candidates, MSIX-vs-legacy data paths, permissions, scanned locations, session count, and config location.
-- **Per-account quota (Beta).** Codex slots read their own official rate-limit windows through the local Codex app-server and show remaining %, reset time, and plan. Claude / Cursor clearly show *unsupported* instead of scraping cookies or tokens.
-- **Path control.** Set each slot's data directory, session root, and optional app executable. On Windows, old AppData slots copy to a stable non-virtualized location in one click.
-- **GitHub updates.** The always-visible **↻ Update** button checks the latest published Release. Windows portable builds download, verify GitHub's SHA-256, replace themselves, and restart; other environments open the exact Release page.
-- **macOS + Windows**, **light + dark** (follows your system theme; toggle with **◐**).
+- **Account slots.** Store separate local profile and session-root paths, launch supported desktop apps with the selected slot, and keep work/personal identities from colliding.
+- **Session browser.** Scan Claude Desktop, Claude CLI, Codex, Cursor, Kimi Code, and Kimi Work history into one searchable, sortable table. View the selected account or all accounts.
+- **Stable conversation identity.** Codex compaction checkpoints stay inside one user conversation; guardian/subagent rollouts remain hidden instead of appearing as new sessions or projects.
+- **Session location actions.** Select one or several sessions and copy one minimal location format containing only path and coordinate; reveal the active source file or export one supported transcript as Markdown.
+- **Identity grouping.** Merge multiple client forms of the same login into one account card and one yard cat while preserving the underlying slots.
+- **Personal device mesh.** Create an OS-protected device identity, pair another computer with a one-time code, revoke any device, and view one deduplicated global Agent catalog through an all-devices or single-device lens.
+- **Cross-device sessions and files.** Exchange source-owned session inventories, send encrypted SessionPointers without changing the minimal copy format, map projects locally on the target, and transfer explicitly selected files with confirmation, hashing, chunking, and resume.
+- **Attended remote control.** Open a separate sandboxed console, require target-side consent for screen view and input, switch displays, and monitor up to four devices while keeping exactly one input target.
+- **P2P rendezvous and diagnostics.** Prefer temporary LAN endpoints, fall back to signed HTTPS signaling, use STUN or short-lived TURN credentials, and show only sanitized LAN/direct/relay state.
+- **Diagnostics and paths.** Inspect launch candidates, data locations, permissions, scan roots, and Windows Store/MSIX versus traditional installs.
+- **Quota overview (Beta).** Show Codex rate-limit windows through the local official app-server. Unsupported clients are labeled honestly.
+- **Tool center.** Discover supported desktop apps and CLIs, show versions and install sources, open them, and explicitly update eligible CLIs through their existing npm, Homebrew, uv, or self-update mechanism.
+- **Two views.** Use the pixel cat yard or the compact classic roster; both render the same account and session data.
 
-<a id="two-views"></a>
+Supported tool discovery currently covers Claude Code, Codex CLI, Gemini CLI, OpenCode, Cursor Agent, GitHub Copilot CLI, goose, Kimi Code, and Qwen Code. Discovery only resolves installed launchers; it does not attach agent-mode arguments or create sessions.
 
-## Two views, one skeleton
+## Product boundary
 
-AgentDesk has one layout — **top bar · account presenter · account console · [ session table │ session detail ] · status bar** — worn two ways. The **⇄** button flips between them; it's the same data underneath, so nothing is lost either way.
+AgentDesk is an account and history manager, not an execution or orchestration layer.
 
-| | **🐈 Cat yard** (default) | **Classic** |
-|---|---|---|
-| Account presenter | a full-bleed pixel yard — one cat per account | a horizontal **roster band** of account cards (pixel cat avatars) |
-| Skin | pixel-wood | precision-porcelain |
-| Everything below | identical: console → session table │ detail → status bar |
+- It does not embed a terminal or chat surface.
+- It does not start or supervise agent conversations.
+- It does not maintain task queues, multi-session handoff plans, or planning-document indexes.
+- It does not register arbitrary commands or custom protocol agents.
+- It does not store passwords, tokens, or browser credentials.
+- Personal Mesh connections are restricted to authenticated devices, explicit capabilities, and fixed semantic actions; generic remote shell and arbitrary command execution remain out of scope.
+- Session discovery is local and read-only. Tool updates happen only after an explicit user action and come from a fixed main-process catalog; the renderer cannot submit commands, executables, or download URLs.
 
-The **account console** is one row: name plate + badges · **Open account** (primary) · Add / Path / Diagnostics / Refresh / Manage · quota chips (**self** / **all**). The **status bar** at the bottom gathers the quiet stuff into one line: today's companionship tally and a **⚠ needs-attention** count you can click open.
+Authentication stays inside the official applications. The renderer runs with context isolation, no Node integration, and Chromium sandboxing; filesystem and process access remain in the Electron main process.
 
-<a id="the-cat-yard-"></a>
+Personal Mesh is attended only. It does not control the login screen or Windows UAC secure desktop, does not run after the application exits, and does not provide an unattended service.
 
-## The cat yard 🐈
+## Cat yard
 
-By default AgentDesk greets you with a **pixel cat yard** — the same accounts and sessions, in a place you'll actually want to leave open. Every pixel is drawn from real local data; nothing is faked.
+The default view turns each account group into a pixel cat driven by local state:
 
-![The cat yard](assets/screenshots/yard.png)
+- recent session activity controls working, resting, sleeping, and attention states;
+- quota is shown as a separate energy signal and never overrides activity;
+- day, dusk, night, and weather are visual atmosphere only;
+- dragging a cat can open its account, focus its current session, or save its yard position.
 
-- **Every account is a cat.** The name plate *is* the account name — no separate pet name to sync. Coat, collar and accessory are yours to customize (Edit → dress it up); groups become fenced-off areas of the yard.
-- **Cats live your accounts' rhythm.** Behavior comes from the account's real state: it sits at a desk typing while the account is *actually working* (its session record moved within the last minute), waits at its spot when the app is open but quiet, plays in the grass if it was active earlier today, naps after a few quiet days, and hibernates in a box after a week. "Working" reads the last-activity timestamp inside the session record — not just whether the app is open — so a busy account and an idle-but-open one look different. A broken session path shows a **?** over the cat — click it to open diagnostics.
-- **Quota becomes energy, not activity.** Fresh / steady / tired / exhausted is a separate axis from the tightest current Codex limit. It nudges a tiny energy pip and typing pace without ever pretending a tired cat stopped working. Old or failed data never drives fatigue.
-- **Atmosphere.** *Follow* tracks the system clock; *auto weather* shifts on a deterministic 20–45-minute rhythm. Manual day / dusk / night and clear / cloudy / rain / snow stay available. It's atmosphere, not a claim about real weather.
-- **A gentle work/life balance.** A *today* ledger (in the status bar) tallies how many sessions wrapped and how long the cats kept you company. After 90 minutes of unbroken work a cat stretches and nudges you to do the same — a quiet status-bar note, never a popup, switchable off entirely.
-- **Prefer the plain table?** One **⇄** switches to the classic view. Same data, nothing lost.
-
-<a id="boundaries"></a>
-
-## What it deliberately does *not* do
-
-AgentDesk touches your accounts, so its boundaries matter. Account/session discovery is **local-only and read-only**; tool maintenance is separate and always user-initiated:
-
-- It **stores no passwords and no tokens**, and **never reads browser passwords** or saved credentials.
-- **No embedded terminal or silent updater.** Opening a CLI launches the user's system terminal. Maintenance commands run only after an explicit click, use fixed main-process allowlists, and never use `sudo`.
-- It **does not bypass official login** — authentication happens inside the official Claude / Codex app.
-- Quota checks **never read browser cookies or expose account e-mail / tokens**; only the sanitized result of Codex's official local RPC reaches the UI.
-- Handoff copy **always excludes the full conversation**. It contains metadata plus only the planning/task materials shown and selected in **Handoff materials**; time-based candidates are opt-in and content is size-limited.
-- In the account and session lists, your home directory is shortened to `~`. (The diagnostics panel shows full paths on purpose — it's a troubleshooting tool.)
-
-Account and session discovery remain local and read-only. Only explicit maintenance actions can change third-party tool installations.
-
----
-
-<a id="install"></a>
+Use **⇄** to switch to the classic roster without changing any data. See [docs/YARD.md](docs/YARD.md).
 
 ## Install
 
-### Download a prebuilt package
+Download a signed build from [GitHub Releases](https://github.com/shuqianglin1997/agent-desk/releases):
 
-Grab the latest from **[Releases](https://github.com/shuqianglin1997/agent-desk/releases)**:
+- macOS: `AgentDesk-<version>-universal.dmg`
+- Windows: `AgentDesk-<version>-portable-x64.exe`
 
-- **macOS** — `AgentDesk-<version>-universal.dmg` (Apple Silicon + Intel)
-- **Windows** — `AgentDesk-<version>-portable-x64.exe` (portable — no install, just run)
+> Security note: do not install the old v0.9.0 macOS image; Apple reports that unsigned package as revoked. Use a current signed and notarized release.
 
-> **Heads-up: the packages are not code-signed** (this is a free, open tool). Your OS warns you the first time. That's expected:
->
-> - **macOS** — move **AgentDesk.app** into `/Applications`, then clear the quarantine flag once (needed on recent macOS, where right-click → Open no longer bypasses Gatekeeper for unsigned apps):
->   ```bash
->   xattr -dr com.apple.quarantine "/Applications/AgentDesk.app"
->   ```
->   Or, after the first blocked launch: **System Settings → Privacy & Security → Open Anyway**.
-> - **Windows** — SmartScreen shows *"Windows protected your PC"* → **More info** → **Run anyway**.
+On macOS, move AgentDesk.app into `/Applications` and open it normally. Do not bypass Gatekeeper for an unsigned or revoked package. On Windows, see [docs/WINDOWS.md](docs/WINDOWS.md) for Store/MSIX path handling.
 
-On Windows, AgentDesk supports both traditional Win32 and current Store/MSIX installs. New isolated slots live under `%USERPROFILE%\.agentdesk\profiles` instead of AppData, avoiding MSIX path virtualization; see [`docs/WINDOWS.md`](docs/WINDOWS.md).
+### Run from source
 
-### Or run / build from source
-
-Requires [Node.js](https://nodejs.org/) 20+.
+Requires Node.js 22.12 or newer.
 
 ```bash
-npm install
-npm start              # run in dev mode
-npm test               # run the test suite
+npm ci
+npm start
+npm test
+npm run check
 
-npm run build:mac      # → universal .dmg in release/
-npm run build:win      # → portable .exe in release/
-npm run build:dir      # → unpacked .app/.exe for quick local testing
+npm run signaling:start # optional self-hosted rendezvous for development
+
+npm run build:mac:dir  # local ad-hoc test build
+npm run build:mac      # signed + notarized release; credentials required
+npm run build:win
 ```
 
-> Behind a slow mirror (e.g. mainland China), prefix installs and builds:
-> ```bash
-> ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install
-> ```
+Release signing and notarization are documented in [docs/RELEASING.md](docs/RELEASING.md).
 
-Cross-compiling Windows on macOS is fragile — build each platform on its own OS, or let CI do it.
+## Architecture
 
-## Releasing (maintainers)
+- `src/main.js`: trusted filesystem, app launch, diagnostics, quota, updates, and tool maintenance.
+- `src/preload.js`: narrow IPC bridge.
+- `src/renderer.js`, `src/index.html`, `src/styles.css`: UI.
+- `src/apps.js`: supported client catalog and session scanners.
+- `src/cli-discovery.js`: read-only CLI launcher discovery.
+- `src/tool-maintenance.js`: fixed tool catalog, version/source detection, and safe update plans.
+- `src/mesh/domain/session-identity.js`: pure Codex physical-record and logical-conversation classification.
+- `src/mesh/domain/agent-catalog.js`, `device.js`, `identity-link.js`: local global-Agent catalog and device invariants.
+- `src/mesh/protocol/`: membership, pairing, signed envelopes, inventory, encrypted payload, and signaling authentication.
+- `src/mesh/network/`: temporary LAN endpoints, signed rendezvous client, and ICE configuration.
+- `src/mesh/storage/`, `src/mesh/main/`: independent SQLite store, OS-protected keys, peer policy, transfers, and remote-control orchestration.
+- `src/mesh/peer/`, `src/remote/`: sandboxed WebRTC endpoint, Remote Console, and target consent/indicator windows.
+- `native/`: fixed-protocol macOS and Windows input helpers.
+- `services/signaling/`: optional self-hosted short-lived rendezvous and TURN REST credential service.
+- `src/mesh/probe/`, `src/mesh/main/webrtc-probe.js`: sandboxed WebRTC placement and local DataChannel acceptance probe.
+- `src/yard/`: cat state, scene, atmosphere, and the three core drag intents.
 
-CI ([`.github/workflows/release.yml`](.github/workflows/release.yml)) builds both platforms natively, generates `SHA256SUMS.txt`, and publishes the GitHub Release after both builds pass. Set `version` in `package.json` to match your tag first (electron-builder names artifacts from `package.json`, not the git tag), then:
-
-```bash
-git tag v0.2.2
-git push origin v0.2.2
-```
-
-## How it works
-
-AgentDesk is a small [Electron](https://www.electronjs.org/) app:
-
-- **Main process** (`src/main.js`) — all filesystem access, app launching, session scanning, diagnostics. The only place that touches disk.
-- **Preload** (`src/preload.js`) — a narrow, `contextIsolation`-safe IPC bridge.
-- **Renderer** (`src/renderer.js`, `src/index.html`, `src/styles.css`) — the UI. It never touches the filesystem directly.
-- **Cat yard** (`src/yard/`) — the default pixel-yard view: a canvas scene engine plus pure-function modules for cat state, energy, the companion ledger, and palettes. See [`docs/YARD.md`](docs/YARD.md).
-
-More detail (in Chinese) lives in [`docs/`](docs/): product notes, Windows specifics, internals, and the [cat yard](docs/YARD.md).
+See [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), and the [full function audit](docs/FUNCTION_AUDIT.md).
 
 ## License
 
 [MIT](LICENSE) © hupo
 
 ---
----
 
-<a id="agentdesk-中文说明"></a>
+# AgentDesk 中文说明
 
-# AgentDesk（中文说明）
+AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
-<p align="center"><strong>把你每一个 AI 编码账号和它的本地会话，收进一个本地窗口——全都在线、随手可查、一键交接。</strong></p>
+> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、跨设备 Agent/会话库存、SessionPointer 与选定文件传输、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。自动化和真实 Electron 双端点链路已通过；物理双机、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
 
-所有 Claude / Codex 账号同时在线、各自隔离、互不挤号；任何账号的本地旧会话几秒钟找回，一键交给下一个对话接着干。**不保存任何密码，也不复制完整对话。** 登录始终发生在官方 App 里，AgentDesk 从不替你登录。
+## 核心能力
 
-> 它负责**管理和索引**账号与会话，**刻意不做**内嵌终端、也不替你跑 Agent —— 见[安全边界](#安全边界)。
+- **账号槽位隔离。** 每个槽位保存独立的数据目录和会话根目录，打开受支持的官方桌面 App 时使用所选槽位，减少工作号、个人号互相覆盖。
+- **统一会话浏览。** 索引 Claude Desktop、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work 的本地会话，可查看本账号或全部账号，并按属性搜索、排序。
+- **稳定会话身份。** Codex 上下文压缩继续属于同一条用户会话，guardian/subagent 内部 rollout 不再冒充新会话或新项目。
+- **会话定位操作。** 单选或勾选多条会话后统一复制“路径 + 坐标”；当前会话可在系统中定位来源文件，支持的来源可导出 Markdown。
+- **同账号归组。** 桌面端与 CLI 等多个形态可以合并为一个账号、一张卡、一只猫，底层槽位仍各自保留。
+- **个人设备网。** 建立系统保护的设备身份，用一次性配对码加入另一台电脑；任意设备都可撤销删除，全局 Agent 按实际登录去重，设备只是筛选轴。
+- **跨设备会话与文件。** 同步来源设备只读库存，发送加密 SessionPointer，目标端确认项目映射；显式选取的文件经接收确认、分块、哈希和断点续传。
+- **有人值守远控。** 独立 Remote Console 查看或控制目标设备，屏幕与输入分别需要目标端本次同意；最多同时显示四台设备，但始终只有一个输入目标。
+- **P2P 会合与诊断。** 临时 LAN 优先，失败后回退签名 HTTPS 信令，使用 STUN/短期 TURN；界面只显示 LAN、直连或中继等脱敏状态。
+- **路径与诊断。** 展示启动候选、真实数据目录、权限、扫描位置，以及 Windows Store/MSIX 和传统安装差异。
+- **额度总览（Beta）。** 通过本机 Codex 官方 app-server 读取额度周期；不支持的客户端明确标注，不抓 Cookie 或 token。
+- **工具维护台。** 发现桌面 App 与常用 CLI，显示版本和安装来源；用户明确点击后，符合条件的 CLI 才会沿用 npm、Homebrew、uv 或自身更新器维护。
+- **猫猫庭院 / 经典名册。** 两种视图使用同一份账号和会话数据，可随时切换。
 
-## 它解决什么痛点
+工具发现覆盖 Claude Code、Codex CLI、Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi Code 和 Qwen Code。发现模块只定位本机启动器，不附加运行参数，也不创建会话。
 
-账号和工具一多，登录身份、项目目录和旧会话就绑成一团，散落在一堆终端和客户端里 —— 而官方 App 还默认**一台机器一个身份**：
+## 明确不做
 
-- **串号 —— 登录态互相覆盖。** 登进 B 号就把 A 号挤下线，工作号和个人号没法同时开着，只能一整天反复登出登入。
-- **旧会话找不回。** 每个账号本地悄悄攒下一堆会话（Claude Code、Codex 等），散在不同数据目录、不同格式里。「那个活儿上周做过——在哪个号？哪个会话？」没有统一入口。
-- **上下文交接全靠手打。** 想让新对话接着旧会话干，只能手动复述、复制，费劲又容易漏。
-- **每个系统藏东西的地方都不一样。** macOS 和 Windows 上官方 App 和数据目录位置各不相同，手动找很痛。
+AgentDesk 已收敛为账号与历史管理工具，不承担会话执行和编排：
 
-## AgentDesk 怎么解决
+- 不内嵌终端或聊天界面；
+- 不启动、托管或续接 Agent 会话；
+- 不提供任务队列、多会话交接清单或规划资料索引；
+- 不登记任意命令或自定义协议 Agent；
+- 不保存密码、token 或浏览器凭据；
+- Personal Mesh 只允许认证设备、明确能力和固定语义动作，不提供通用远程 Shell 或任意命令；
+- 不在后台静默更新第三方工具。
 
-上面每个痛点，都对应它给你的一样东西：
+会话扫描保持本地、只读。工具更新必须由用户明确触发，命令和官方 URL 由主进程固定目录生成，界面不能提交任意命令。
 
-- **独立账号槽位。** 每个槽位是一份独立本地数据目录，AgentDesk 用该目录启动官方 App —— **多号并存、不串号、不用反复登录。** 这正是大多数工具跳过的一条轴。
-- **自动会话索引。** 扫描每个账号的会话文件，可在「本账号 / 全部账号」间切换；详细列表展示完整属性，点击任一表头即可升降序排列。搜索覆盖标题、项目、账号和线程 ID。**几秒钟找到任何旧会话。**
-- **多会话交接规划。** 可跨账号勾选多个会话，在交接清单中调整优先级，再一次复制成合并交接说明。它还会索引 Claude `ExitPlanMode` 规划文件、Codex `update_plan` 快照，以及与会话时间相关的项目规划文档；明确关联默认带上，弱关联候选必须手动勾选。**始终不复制完整对话。**
-- **认识各种 Agent。** 内置适配器直接识别 Codex、Claude Code 的会话；Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi、Qwen Code 作为 [ACP](https://agentclientprotocol.com/) 工具被识别。顶栏「**🔌 接入**」会发现本机已装的 Agent，也能通过系统文件选择器登记自定义 ACP Agent。
-- **本机工具维护台。** 顶栏「**🧰 工具**」统一检查桌面 App 与终端 Agent，展示本地/最新版本和安装来源；每一项都能一键打开，可自动维护的 CLI 会继续使用原来的 npm、Homebrew、uv 或自身更新器进行单项/批量更新。没有稳定公开更新源的桌面 App 会打开官方更新入口或下载页。
-- **备注与分组。** 给任意槽位加自由备注、丢进分组（工作 / 个人 / 备用……），像通讯录一样按分组管理。
-- **同一账号只算一个。** 当一个登录以多个客户端形态出现（桌面 + CLI，或 Kimi Code + Kimi Work），AgentDesk 把它们合并成**一个账号** —— 一只猫、一张卡 —— 会话和额度一起合流。
-- **诊断面板。** 解释「为什么读不到会话 / 打不开 App」：传统安装与 Store/MSIX 启动候选、真实数据目录、权限、扫描位置、会话数量和配置文件。
-- **每账号额度（Beta）。** Codex 槽位通过本机 Codex 官方 app-server 读取各自真实额度周期，展示剩余百分比、重置时间和套餐；Claude / Cursor 明确显示暂不支持，不抓浏览器 Cookie 或 token。
-- **路径可配。** 手动设置数据目录、会话根目录和可选的官方 App 可执行文件；Windows 旧 AppData 槽位可一键复制迁移到稳定目录。
-- **GitHub 一键更新。** 常驻的「↻ 更新」检查正式 Release；Windows portable 会下载、核对 GitHub SHA-256、替换自身并重启，其他环境打开对应 Release 页面。
-- **macOS + Windows**，**深色 / 浅色**跟随系统（随时用 **◐** 切换）。
+Personal Mesh 当前只做有人值守：应用退出后不在线，不控制登录界面或 Windows UAC 安全桌面，也不安装无人值守系统服务。
 
-## 两种视图，一套骨架
+## 安装与开发
 
-AgentDesk 只有一套布局 —— **顶栏 · 账号呈现层 · 账号控制条 · [ 会话表 │ 会话详情 ] · 状态栏** —— 用两种皮肤呈现。**⇄** 在两者间切换，底层是同一份数据，两边都不丢东西。
-
-| | **🐈 猫猫庭院**（默认） | **经典** |
-|---|---|---|
-| 账号呈现层 | 满铺的像素庭院——一只猫 = 一个账号 | 顶部横向**名册带**（账号卡片 + 像素猫头像） |
-| 皮肤 | 像素木质 | 素纸瓷白 |
-| 往下 | 完全一致：控制条 → 会话表 │ 详情 → 状态栏 |
-
-**账号控制条**是一行：名牌 + 徽章 · **打开账号**（主操作） · 新增 / 路径 / 诊断 / 刷新 / 管理 · 额度 chips（**本号** / **全院**）。底部**状态栏**把零碎信息收进一条：今日陪伴统计，加一个可点开的 **⚠ 需要留意** 计数。
-
-## 猫猫庭院 🐈
-
-默认打开时，迎接你的是一片**像素猫庭院** —— 还是那些账号和会话，只是换到一个你愿意一直开着的地方。每一个像素都由真实本地数据驱动，没有一处是假的。
-
-![猫猫庭院](assets/screenshots/yard-dusk.png)
-
-- **每个账号是一只猫。** 名牌就是账号名，不用另记宠物名；毛色、项圈、配饰随你定制（编辑账号即可换装），分组变成庭院里一块块围起来的区域。
-- **猫跟着账号的节奏过日子。** 猫的行为由该账号真实状态决定：账号*真在干活*时（会话记录一分钟内还在动）它伏案打字，App 开着但会话安静时在自己地盘待命，今天早些时候活跃过就在草地玩耍，几天没动静就蜷着打盹，超过一周没碰就钻进纸箱冬眠。判「干活」看的是会话记录里的最后活跃时间戳，而不只是「App 开着」。会话路径失效的猫头顶挂个 **?**，点它直达诊断。
-- **额度是能量，不是活动状态。** 元气 / 稳定 / 疲劳 / 快没电由当前最紧的 Codex 额度周期决定，只改变能量格和打字节奏；「正在干活」仍由真实会话活动决定。旧数据或失败数据不会驱动疲劳。
-- **时间与天气。** 「跟随」按系统时钟变换昼夜，「自动天气」每 20–45 分钟按本地可复现节奏变化；也能手动锁定白天 / 黄昏 / 夜晚和晴 / 多云 / 雨 / 雪。它只是氛围，不冒充真实天气。
-- **不打扰的劳逸平衡。** 状态栏里的「今日小账本」记下今天有多少次收工、猫陪你干了多久。连续工作 90 分钟，猫会伸个懒腰提醒你也起来动动 —— 只在状态栏轻声提示，绝不弹窗，也能整个关掉。
-- **想要朴素的表格？** 点一下 **⇄** 切回经典视图，底层同一份数据，两边都不丢。
-
-## 安全边界
-
-它碰的是你的账号，所以边界很重要。账号与会话发现按设计是**纯本地、只读**的；工具维护与之分开，并且必须由用户显式触发：
-
-- **不保存任何密码、任何 token**，**不读取浏览器密码**或任何已存凭据。
-- **没有内嵌终端，也不会静默更新。** 打开 CLI 时只启动系统终端；维护命令必须由用户显式点击，并且只使用主进程固定白名单，不调用 `sudo`。
-- **不绕过官方登录** —— 鉴权始终发生在官方 Claude / Codex App 里。
-- 额度查询**不读浏览器 Cookie，也不向界面暴露账号邮箱 / token**；界面只收到 Codex 官方本机 RPC 的脱敏结果。
-- 交接复制**始终不含完整对话**。它只包含元信息，以及在「交接资料」里可见并已勾选的规划 / 任务文本；时间关联候选默认不勾选，内容也有大小上限。
-- 账号和会话列表里，你的用户主目录会被简写成 `~`。（诊断面板故意显示完整路径——它是排查工具。）
-
-账号与会话发现始终完全本地、只读；只有用户明确点击的维护操作会改变第三方工具安装。
-
-## 下载安装
-
-到 **[Releases](https://github.com/shuqianglin1997/agent-desk/releases)** 下载最新版：
-
-- **macOS** —— `AgentDesk-<版本>-universal.dmg`（Apple Silicon 和 Intel 都能跑）
-- **Windows** —— `AgentDesk-<版本>-portable-x64.exe`（便携版，免安装，双击即用）
-
-> **注意：安装包未做代码签名**（这是免费开源工具）。首次打开系统会拦一下，属正常：
->
-> - **macOS** —— 把 **AgentDesk.app** 拖进 `/Applications`，再执行一次去掉隔离标记（较新 macOS 上未签名 App 已不能靠右键「打开」绕过）：
->   ```bash
->   xattr -dr com.apple.quarantine "/Applications/AgentDesk.app"
->   ```
->   或首次被拦后，打开**系统设置 → 隐私与安全性 → 仍要打开**。
-> - **Windows** —— SmartScreen 弹「Windows 已保护你的电脑」→ **更多信息** → **仍要运行**。
-
-Windows 同时支持传统 Win32 与 Store/MSIX。新独立槽位放在 `%USERPROFILE%\.agentdesk\profiles`，避开 MSIX 的 AppData 路径虚拟化；完整说明见 [`docs/WINDOWS.md`](docs/WINDOWS.md)。
-
-### 或从源码运行 / 构建
-
-需要 [Node.js](https://nodejs.org/) 20+。
+正式安装包见 [Releases](https://github.com/shuqianglin1997/agent-desk/releases)。macOS 请正常拖入 `/Applications` 并通过 Gatekeeper 校验；Windows 的 Store/MSIX 与 portable 说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
 
 ```bash
-npm install
-npm start              # 开发模式运行
-npm test               # 跑测试套件
-
-npm run build:mac      # → release/ 下生成 universal .dmg
-npm run build:win      # → release/ 下生成便携版 .exe
-npm run build:dir      # → 未打包的 .app/.exe，本地快速验证用
+npm ci
+npm start
+npm test
+npm run check
 ```
 
-> 国内网络较慢时，给安装和构建加镜像前缀：
-> ```bash
-> ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install
-> ```
-
-在 macOS 上交叉编译 Windows 很脆弱 —— 尽量各平台在各自系统上构建，或交给 CI。
-
-## 发布（维护者）
-
-CI（[`.github/workflows/release.yml`](.github/workflows/release.yml)）在各自系统上原生构建两个平台，生成 `SHA256SUMS.txt`，两个构建都通过后自动发布 GitHub Release。先把 `package.json` 的 `version` 改成和 tag 一致（产物按 `package.json` 命名，不看 tag），再：
-
-```bash
-git tag v0.2.2
-git push origin v0.2.2
-```
-
-## 工作原理
-
-AgentDesk 是一个小型 [Electron](https://www.electronjs.org/) 应用：
-
-- **主进程**（`src/main.js`）—— 所有文件系统访问、App 启动、会话扫描、诊断。唯一碰磁盘的地方。
-- **预加载**（`src/preload.js`）—— 一层收窄的、`contextIsolation` 安全的 IPC 桥。
-- **渲染层**（`src/renderer.js`、`src/index.html`、`src/styles.css`）—— 界面，从不直接碰文件系统。
-- **猫猫庭院**（`src/yard/`）—— 默认像素庭院视图：canvas 场景引擎 + 猫状态 / 能量 / 陪伴账本 / 调色板等纯函数模块。见 [`docs/YARD.md`](docs/YARD.md)。
-
-更多细节见 [`docs/`](docs/)：产品说明、Windows 细节、内部实现和[猫猫庭院](docs/YARD.md)。
-
-## 许可证
-
-[MIT](LICENSE) © hupo
+产品边界见 [docs/PRODUCT.md](docs/PRODUCT.md)，完整功能梳理见 [docs/FUNCTION_AUDIT.md](docs/FUNCTION_AUDIT.md)，内部结构见 [docs/INTERNAL.md](docs/INTERNAL.md)，庭院语义见 [docs/YARD.md](docs/YARD.md)。
