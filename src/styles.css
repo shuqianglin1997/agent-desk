@@ -1217,6 +1217,41 @@ body[data-view="classic"] .account-manage {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 328px);
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
+}
+
+.main-grid[data-workspace="devices"] > .session-pane,
+.main-grid[data-workspace="devices"] > .inspector,
+.main-grid[data-workspace="remote"] > .session-pane,
+.main-grid[data-workspace="remote"] > .inspector {
+  display: none;
+}
+
+.remote-workspace-host {
+  grid-column: 1 / -1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  border-top: 1px solid var(--line-soft);
+  background: color-mix(in oklab, var(--surface-canvas) 78%, var(--ink-primary));
+  color: var(--ink-secondary);
+  text-align: center;
+}
+
+.remote-workspace-host[hidden] {
+  display: none;
+}
+
+.remote-workspace-host strong,
+.remote-workspace-host small {
+  display: block;
+}
+
+.remote-workspace-host small {
+  margin-top: 6px;
+  color: var(--ink-tertiary);
+  font-size: 10px;
 }
 
 /* ── session table ──────────────────────────────────── */
@@ -1787,11 +1822,39 @@ dialog::backdrop {
   width: min(780px, calc(100vw - 52px));
 }
 
+.main-grid > .device-center-dialog[open] {
+  position: static;
+  inset: auto;
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.main-grid > .device-center-dialog[open]::backdrop {
+  display: none;
+}
+
 .device-center-dialog .dialog-body {
   max-height: min(720px, calc(100vh - 64px));
   overflow-y: auto;
   gap: 16px;
   background: var(--surface-raised);
+}
+
+.main-grid > .device-center-dialog[open] .dialog-body {
+  height: 100%;
+  max-height: none;
+  padding: 14px 18px;
+  align-content: start;
 }
 
 .device-center-head {
@@ -1803,6 +1866,13 @@ dialog::backdrop {
 
 .device-center-head > div {
   min-width: 0;
+}
+
+.device-center-head-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .device-center-head span:first-child,

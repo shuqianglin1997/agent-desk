@@ -8,6 +8,7 @@ const {
   normalizeRemoteDescription,
   normalizeViewCommand,
   normalizePublicDisplays,
+  normalizeSurfaceBounds,
   publicRemoteSession,
   screenPermission
 } = require('../src/mesh/main/remote-control-service');
@@ -73,7 +74,7 @@ test('公开远控状态不泄露采集 source、SDP、屏幕内容或 TURN 凭�
   assert.equal(value.state, 'viewing');
 });
 
-test('远控使用独立沙箱窗口、目标端确认与常驻停止条', () => {
+test('远控使用主窗口内嵌沙箱 Surface、目标端确认与常驻停止条', () => {
   const service = read('src/mesh/main/remote-control-service.js');
   const consolePreload = read('src/remote/console-preload.js');
   const hostPreload = read('src/remote/host-preload.js');
@@ -81,7 +82,10 @@ test('远控使用独立沙箱窗口、目标端确认与常驻停止条', () =>
   const hostHtml = read('src/remote/host.html');
   const hostRenderer = read('src/remote/host.js');
 
-  assert.match(service, /title: 'AgentDesk Remote Console'[\s\S]*?contextIsolation: true[\s\S]*?nodeIntegration: false[\s\S]*?sandbox: true/);
+  assert.match(service, /new this\.WebContentsView\([\s\S]*?contextIsolation: true[\s\S]*?nodeIntegration: false[\s\S]*?sandbox: true/);
+  assert.match(service, /mainWindowProvider[\s\S]*?contentView\.addChildView\(view\)/);
+  assert.match(service, /setConsoleSurface\([\s\S]*?view\.setBounds\(bounds\)[\s\S]*?view\.setVisible\(true\)/);
+  assert.doesNotMatch(service, /title: 'AgentDesk Remote Console'/);
   assert.match(service, /alwaysOnTop: true[\s\S]*?title: 'AgentDesk Remote View'[\s\S]*?contextIsolation: true[\s\S]*?sandbox: true/);
   assert.match(service, /requireCapability\(peer\.remote, 'screen\.view'\)/);
   assert.match(service, /requireCapability\(context\.peer\.remote, 'screen\.view'\)/);
@@ -92,18 +96,38 @@ test('远控使用独立沙箱窗口、目标端确认与常驻停止条', () =>
   assert.doesNotMatch(`${consolePreload}\n${hostPreload}`, /ipcRenderer\.invoke\([^'\"]|remoteCommand|shell\.run|generic\.exec/);
 });
 
-test('主窗口只增加设备卡远控入口，控制台不侵入七行骨架', () => {
+test('主窗口第六行承载隔离远控 Surface，其他六行和普通 Renderer 安全边界不变', () => {
   const main = read('src/main.js');
   const preload = read('src/preload.js');
   const renderer = read('src/renderer.js');
   const styles = read('src/styles.css');
   assert.match(main, /ipcMain\.handle\('remoteControl:open'/);
+  assert.match(main, /ipcMain\.handle\('remoteControl:setSurface'[\s\S]*?event\.sender\.id !== mainWindow\.webContents\.id/);
   assert.match(main, /globalShortcut\.register\('CommandOrControl\+Shift\+Escape'/);
   assert.match(preload, /openRemoteControl: \(deviceId\) => ipcRenderer\.invoke\('remoteControl:open'/);
+  assert.match(preload, /setRemoteControlSurface: \(input = \{\}\) => ipcRenderer\.invoke\('remoteControl:setSurface'/);
   assert.match(renderer, /className = 'remote-control-action'/);
   assert.match(renderer, /openRemoteDevice\(device\)/);
+  assert.match(renderer, /setWorkspaceMode\('remote'\)/);
+  assert.match(renderer, /remoteWorkspaceHost\.getBoundingClientRect\(\)/);
   assert.match(styles, /\.app-shell \{[\s\S]*?grid-template-rows:\s*48px auto auto auto auto minmax\(0, 1fr\) 28px/);
+  assert.match(styles, /\.main-grid\[data-workspace="remote"\][\s\S]*?\.remote-workspace-host/);
   assert.doesNotMatch(read('src/index.html'), /<video|remote-stage|remote-console/);
+});
+
+test('嵌入式远控边界必须完全位于主窗口内容区内', () => {
+  const parentWindow = {
+    isDestroyed: () => false,
+    getContentBounds: () => ({ x: 100, y: 200, width: 1040, height: 812 })
+  };
+  assert.deepEqual(normalizeSurfaceBounds({ x: 0, y: 430, width: 1040, height: 382 }, parentWindow), {
+    x: 0,
+    y: 430,
+    width: 1040,
+    height: 382
+  });
+  assert.throws(() => normalizeSurfaceBounds({ x: 0, y: 700, width: 1040, height: 200 }, parentWindow), /outside-window/);
+  assert.throws(() => normalizeSurfaceBounds({ x: 0, y: 430, width: 200, height: 100 }, parentWindow), /too-small/);
 });
 
 test('macOS 屏幕权限状态被规范化，其他平台由系统捕获 API 决定', () => {

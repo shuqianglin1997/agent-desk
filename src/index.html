@@ -141,8 +141,8 @@
           <ul id="quotaOverviewList" class="quota-overview-list"></ul>
         </section>
 
-        <div class="main-grid">
-          <section class="session-pane">
+        <div id="mainGrid" class="main-grid" data-workspace="sessions">
+          <section id="sessionPane" class="session-pane">
             <div class="session-toolbar">
               <div class="session-toolbar-main">
                 <div class="session-heading">
@@ -181,7 +181,7 @@
             </div>
           </section>
 
-          <aside class="inspector">
+          <aside id="sessionInspector" class="inspector">
             <h3 data-i18n="detail.title">会话详情</h3>
             <div class="inspector-body">
               <dl>
@@ -207,6 +207,13 @@
               <button id="exportSessionBtn" data-i18n="detail.exportMd">导出当前 Markdown</button>
             </div>
           </aside>
+
+          <section id="remoteWorkspaceHost" class="remote-workspace-host" hidden aria-live="polite">
+            <div>
+              <strong data-i18n="remote.workspace.loading">正在准备远程画面</strong>
+              <small data-i18n="remote.workspace.isolated">画面由隔离的安全区域承载，原窗口其他功能保持不变。</small>
+            </div>
+          </section>
         </div>
 
       <footer id="statusBar" class="status-bar">
@@ -343,7 +350,10 @@
             <h3 data-i18n="devices.title">我的设备</h3>
             <p data-i18n="devices.lead">一份全局 Agent 目录管理这台电脑上的全部运行位置；账号凭据不会进入设备网。</p>
           </div>
-          <span id="meshStateBadge" class="mesh-state-badge" data-state="local" data-i18n="devices.state.local">纯本机</span>
+          <div class="device-center-head-actions">
+            <button id="closeDeviceCenterBtn" type="button" data-i18n="devices.workspace.back">← 返回会话</button>
+            <span id="meshStateBadge" class="mesh-state-badge" data-state="local" data-i18n="devices.state.local">纯本机</span>
+          </div>
         </header>
 
         <p id="deviceCenterStatus" class="device-center-status" data-state="idle" aria-live="polite" data-i18n="devices.status.ready">设备中心已就绪。</p>
@@ -408,7 +418,7 @@
         <div class="dialog-actions device-center-footer">
           <button id="resetMeshBtn" type="button" class="danger-text" hidden data-i18n="devices.reset">离开并重置设备网</button>
           <span></span>
-          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
+          <button id="closeDeviceCenterFooterBtn" value="default" class="primary" data-i18n="dialog.done">完成</button>
         </div>
       </form>
     </dialog>

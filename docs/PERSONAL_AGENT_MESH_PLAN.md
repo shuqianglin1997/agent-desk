@@ -2,9 +2,9 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.6
+> 版本：1.7
 >
-> 日期：2026-08-10
+> 日期：2026-08-11
 >
 > 工作分支：codex/agentdesk-personal-mesh-plan
 >
@@ -113,7 +113,7 @@ AgentDesk Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控�
 5. 第一版不做通用远程 Shell、不接受任意命令、不自动安排 Agent 任务。
 6. 多设备同时连接时，只允许一个明确的“当前输入目标”；其他设备可以监控或接收语义动作。
 7. 原始会话迁移必须由客户端专用适配器声明支持；默认只发送会话引用，不直接写官方数据库。
-8. 现有主窗口不改尺寸和七行骨架；设备中心使用对话框或独立窗口，远控使用独立可缩放窗口。
+8. 现有主窗口不改尺寸和七行骨架；设备管理与远控都在原窗口第 6 行工作区内切换，不创建新的顶级产品窗口。远控媒体仍由专用沙箱 WebContentsView 承载，普通 Main Renderer 不接触 SDP、媒体轨、采集源或 TURN 凭据。
 9. 当前本地 Identity Group 自动迁移为初始 AgentIdentity，Profile 成为本机 AgentSlot，会话保持原来源，无需用户重新配置路径。
 10. 无人值守能力单独分期，不与第一版远程查看/控制一起默认开启。
 11. 小型 SessionPointer 的离线投递需要在“只存发送端”和“服务端短期保存端到端密文”之间由所有者确认；文件与 transcript 不进入服务端邮箱。
@@ -219,7 +219,7 @@ Personal Agent Mesh 必须新增 PersonalMesh、Device、全局 AgentIdentity �
 - 搬动七个区域的顺序；
 - 把庭院和经典视图拆成两套业务状态；
 - 把设备卡片直接塞进庭院替代账号猫；
-- 把远程桌面硬塞进固定主工作区；
+- 把远程媒体直接塞进普通 Main Renderer，或让它接触 SDP、媒体轨、采集源和 TURN 凭据；
 - 降低“复制会话信息”的视觉权重；
 - 把会话表改成任务队列；
 - 重新引入已删除的 handoff、artifact 或 runtime 控制台结构。
@@ -959,7 +959,7 @@ Renderer 状态也必须拆开，不能继续让一个 `selectedProfileId` 同�
 
 ### 11.7 设备中心
 
-设备中心使用宽对话框或独立固定管理窗口，不侵占主骨架。
+设备管理使用主窗口第 6 行的内嵌工作区，不创建覆盖整窗的模态“第二界面”，也不侵占或重排其他六行。顶栏“设备”按钮在“会话工作区 / 设备工作区”之间切换；返回后恢复原会话列表、详情与选择状态。
 
 设备卡片显示：
 
@@ -978,7 +978,7 @@ Renderer 状态也必须拆开，不能继续让一个 `selectedProfileId` 同�
 
 ### 11.8 远控控制台
 
-远控必须使用独立、可缩放、可全屏的窗口。
+远控必须显示在主窗口第 6 行的内嵌工作区，不创建新的顶级窗口。媒体面使用专用沙箱 WebContentsView 覆盖该行的占位区域，继续使用专用窄 Preload，与普通 Main Renderer 隔离。
 
 建议结构：
 
@@ -990,7 +990,7 @@ Renderer 状态也必须拆开，不能继续让一个 `selectedProfileId` 同�
 - 明显的当前输入目标边框；
 - 被控端常驻“正在被设备 X 查看/控制”的提示与停止按钮。
 
-主窗口继续用于账号和会话管理，远控控制台只负责设备操作，不复制整个 AgentDesk 主界面。
+远控工作区只替换第 6 行的会话表与详情；顶栏、Presenter、账号控制条、提醒、额度与状态栏保持原位。返回会话或最后一路断开后恢复原会话工作区，不复制整套 AgentDesk 主界面，也不打开第二个顶级窗口。
 
 ### 11.9 交互状态与错误文案
 
@@ -1166,7 +1166,7 @@ flowchart LR
   LINK --> SIGNAL["信令与 P2P 协商"]
   MAIN --> OS["macOS / Windows 权限与系统适配"]
 
-  RC["独立 Remote Console Renderer"] --> RPRE["专用窄 Preload"]
+  RC["主窗口第 6 行的隔离 Remote Surface"] --> RPRE["专用窄 Preload"]
   RPRE --> MAIN
   RC --> MEDIA["WebRTC Media / Data Channels"]
 ```
@@ -1182,7 +1182,7 @@ flowchart LR
 - 是本机授权和副作用策略代理；
 - 对 renderer、Link Core 和远端请求都重新验证；
 - 只接受 ID、枚举和有界参数；
-- 负责创建独立远控窗口；
+- 负责把专用沙箱 WebContentsView 限定在主窗口第 6 行边界内，并在返回会话、断开和退出时隐藏或销毁；
 - 负责协调系统权限；
 - 不承担高频媒体编解码和大量传输循环。
 
@@ -1201,7 +1201,7 @@ flowchart LR
 
 Electron utility process 本身没有浏览器 DOM WebRTC API。Phase 1 技术验证必须在以下方案中做明确 ADR：
 
-1. MVP：独立沙箱 Remote Console Renderer 持有 RTCPeerConnection，Link Core 持有长期身份和策略；
+1. MVP：主窗口第 6 行的独立沙箱 Remote Surface Renderer 持有 RTCPeerConnection，Link Core 持有长期身份和策略；
 2. Production：使用经过签名的原生 helper 持有网络、采集和输入；
 3. 不采用未经维护、与 Electron ABI 不稳定的原生模块作为默认路径。
 
@@ -2150,9 +2150,9 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 6：远程仅查看
 
-当前状态：**代码纵向链路已实现，物理双机与系统权限矩阵待完成**。主窗口设备卡可打开独立可缩放 Remote Console；目标端在独立沙箱 Host 窗口中选择显示器并逐次同意，连接后该窗口缩为 always-on-top 常驻停止条。媒体使用第二条 WebRTC DTLS/SRTP 连接，SDP 只经已有设备认证通道交换；两端持久 `screen.view` 权限和本次目标端同意缺一不可。支持最多四个查看会话、显示器切换、暂停与三档画质，普通 Main Renderer 不获得 SDP、采集 source、画面或 TURN 凭据。详细边界见 `ADR_PERSONAL_MESH_REMOTE_VIEW.md`。双端沙箱自检已用真实 WebRTC 视频轨完成 `viewing`，但合成画面不替代两台物理电脑的 macOS/Windows 屏幕权限、显示器和公网测试。
+当前状态：**代码纵向链路和主窗口第 6 行承载已实现，物理双机与系统权限矩阵待完成**。主窗口设备卡把第 6 行切换为独立沙箱 Remote Surface；目标端仍在独立沙箱 Host 窗口中选择显示器并逐次同意，连接后该窗口缩为 always-on-top 常驻停止条。媒体使用第二条 WebRTC DTLS/SRTP 连接，SDP 只经已有设备认证通道交换；两端持久 `screen.view` 权限和本次目标端同意缺一不可。支持最多四个查看会话、显示器切换、暂停与三档画质，普通 Main Renderer 不获得 SDP、采集 source、画面或 TURN 凭据。详细边界见 `ADR_PERSONAL_MESH_REMOTE_VIEW.md` 与 `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md`。双端沙箱自检已用真实 WebRTC 视频轨完成 `viewing`，但合成画面不替代两台物理电脑的 macOS/Windows 屏幕权限、显示器和公网测试。
 
-- 独立远控窗口；
+- 主窗口第 6 行内嵌隔离远控工作区；
 - 屏幕权限；
 - 多显示器；
 - 自适应画质；
@@ -2171,7 +2171,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 8：多设备控制台
 
-当前状态：**代码纵向链路与本机窗口验收已完成，四台物理设备与公网带宽矩阵待完成**。独立 Remote Console 支持单屏和最多四路 2×2 网格；当前设备使用自己的活动画质偏好，所有后台画面自动收敛为 360p/2fps 低频缩略图。设备标签与画面标题均可快速切换，上一设备的待同意或已授权输入会先释放；控制按钮只有在两条输入 DataChannel 就绪后可请求。控制台每两秒读取 WebRTC 聚合统计，显示媒体直连/中继、延迟、接收码率、帧率和丢包，不保留候选地址、端口、SDP 或凭据。1180×760 与最小 780×520 的四设备实际窗口截图已验收。详细边界见 `ADR_PERSONAL_MESH_MULTI_DEVICE_CONSOLE.md`。
+当前状态：**代码纵向链路、单窗口第 6 行迁移与本机窗口验收已完成，四台物理设备与公网带宽矩阵待完成**。控制台支持单屏和最多四路 2×2 网格；当前设备使用自己的活动画质偏好，所有后台画面自动收敛为 360p/2fps 低频缩略图。设备标签与画面标题均可快速切换，上一设备的待同意或已授权输入会先释放；控制按钮只有在两条输入 DataChannel 就绪后可请求。控制台每两秒读取 WebRTC 聚合统计，显示媒体直连/中继、延迟、接收码率、帧率和丢包，不保留候选地址、端口、SDP 或凭据。真实 1040 × 840 Electron 窗口已验证切换设备工作区前后始终只有一个顶级窗口，第 6 行边界为 1040 × 347，返回后原会话表与详情恢复；双端沙箱自检也在 WebContentsView 承载下重新完成 `viewing`。详细边界见 `ADR_PERSONAL_MESH_MULTI_DEVICE_CONSOLE.md` 与 `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md`。
 
 - 多设备标签或网格；
 - 一个高质量活动流；
@@ -2317,6 +2317,14 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.7 — 2026-08-11
+
+- 所有者审阅真实原窗口结构后明确取消“设备中心整窗模态层 + Remote Console 新顶级窗口”的日常交互基线；设备管理与远控统一改为只切换固定主窗口第 6 行，其他六行、庭院/经典状态和账号控制条保持原位；
+- 设备仍是筛选轴，Agent 仍是展示主轴，运行位置仍是动作落点；顶栏设备 Lens、会话区 Agent 范围和“复制会话信息”契约不变；
+- 远控媒体不进入普通 Main Renderer，而由带专用窄 Preload 的沙箱 WebContentsView 覆盖第 6 行占位区域；返回会话或最后一路断开后隐藏该 Surface，避免为了单窗口体验牺牲现有进程与权限边界；
+- 设备管理主入口由覆盖整窗的模态界面改为第 6 行内嵌工作区；配对、权限、诊断和网络设置继续使用有界的原窗口子流程，不创建新的产品顶级窗口。
+- 真实 1040 × 840 Electron 窗口已验证设备工作区是非模态的第 6 行 1040 × 347 区域，切换前后顶级窗口数均为 1，返回后会话表和详情原样恢复；WebContentsView 双端自检继续完成认证、库存、SessionPointer、文件与合成屏幕媒体链路。
 
 ### 1.6 — 2026-08-10
 

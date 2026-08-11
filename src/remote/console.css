@@ -155,6 +155,15 @@ select:focus-visible {
   color: var(--paper);
   cursor: pointer;
 }
+.head-actions .back-action {
+  width: auto;
+  padding: 0 11px;
+  white-space: nowrap;
+}
+
+body[data-surface="embedded"] .console-head {
+  -webkit-app-region: no-drag;
+}
 
 .target-bar {
   display: flex;
@@ -424,6 +433,35 @@ select:focus-visible {
 @media (max-height: 620px) {
   .video-tile-head { padding: 6px 8px; }
   .video-tile-head small { display: none; }
+}
+
+@media (max-height: 480px) {
+  .console-shell { grid-template-rows: 42px 40px minmax(0, 1fr) 76px; }
+  .console-head { padding: 0 10px; }
+  .brand-lockup { gap: 7px; }
+  .brand-mark { width: 25px; height: 25px; border-radius: 6px; }
+  .brand-lockup b { font-size: 14px; }
+  .brand-lockup small,
+  .network-metrics { display: none; }
+  .connection-cluster { min-width: 150px; }
+  .head-actions button { height: 28px; }
+  .target-tabs { padding: 5px 8px; }
+  .target-tab { min-width: 150px; padding: 4px 8px; }
+  .stream-budget { min-width: 148px; }
+  .remote-stage { padding: 7px; }
+  .remote-stage::before { inset: 7px; }
+  .stage-badge { top: 15px; left: 15px; padding: 5px 8px; }
+  .control-deck { gap: 7px; padding: 7px 10px; }
+  .deck-identity { min-width: 125px; }
+  .deck-identity strong { font-size: 12px; }
+  .deck-identity span { margin-top: 1px; }
+  .deck-select { gap: 2px; }
+  .deck-select select,
+  .control-deck button { height: 30px; }
+  .deck-select select { min-width: 108px; max-width: 145px; }
+  #displaySelect { min-width: 145px; max-width: 180px; }
+  .control-deck button { padding: 0 10px; }
+  .view-lock { font-size: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

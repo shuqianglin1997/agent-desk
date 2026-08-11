@@ -34,7 +34,7 @@ Renderer
 Sandboxed peer renderer
   └─ RTCPeerConnection / fixed DataChannels
 
-Sandboxed Remote Console + Host renderer
+Sandboxed embedded Remote Surface + Host renderer
   ├─ WebRTC media and bounded input events
   └─ dedicated fixed IPC to Main
 
@@ -265,7 +265,7 @@ remoteControl:open / remoteControl:list / remoteControl:disconnect / remoteContr
 
 ### 远程查看和输入
 
-远程媒体使用第二条 WebRTC 连接，SDP 只经已认证设备通道交换。目标端 Host Renderer 枚举并采集显示器，控制端 Remote Console 只拿到安全显示信息和视频轨。查看与控制分别需要持久能力和目标端本次 consent；控制输入再经 Host Renderer 与 Main 双重规范化、速率限制，最后以固定 stdin 行协议交给平台 helper。
+远程媒体使用第二条 WebRTC 连接，SDP 只经已认证设备通道交换。目标端 Host Renderer 枚举并采集显示器，控制端使用附着在主窗口第 6 行的沙箱 WebContentsView，只拿到安全显示信息和视频轨；普通 Main Renderer 不接触这些数据。查看与控制分别需要持久能力和目标端本次 consent；控制输入再经 Host Renderer 与 Main 双重规范化、速率限制，最后以固定 stdin 行协议交给平台 helper。
 
 断线、失焦、暂停、目标切换、撤销、紧急停止和 helper 心跳超时都会释放按键。多设备控制台最多四路，只给当前目标活动画质，其余为低频缩略图。
 
@@ -300,7 +300,7 @@ npm run build:mac:dir
 - 两个隔离数据目录完成加密配对、权限更新、撤销、库存归并、SessionPointer 与文件续传；
 - 真实 Electron 沙箱 WebRTC 完成设备认证、库存、会话信息、184,333 字节文件和合成屏幕媒体；
 - 信令请求拒绝篡改、过期、重放、无租约发送和任意回复地址，公开诊断不含 IP、SDP 或凭据；
-- Remote Console/Host 使用专用沙箱 IPC，输入只接受有界固定事件且始终只有一个 owner。
+- 嵌入式 Remote Surface/Host 使用专用沙箱 IPC，输入只接受有界固定事件且始终只有一个 owner。
 
 这些自动化不能替代两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵；对应门禁见 `PERSONAL_AGENT_MESH_PLAN.md`。
 

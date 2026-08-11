@@ -9,6 +9,7 @@ const state = {
   selectedSessionId: null,
   selectedSessionKey: null,
   selectedSessionKeys: new Set(),
+  workspaceMode: 'sessions',
   sessionScope: 'current',
   sessionView: 'compact',
   sessionSort: { key: 'updatedAt', direction: 'desc' },
@@ -125,7 +126,13 @@ const els = {
   deviceCenterBtn: document.querySelector('#deviceCenterBtn'),
   deviceLensSelect: document.querySelector('#deviceLensSelect'),
   deviceCountBadge: document.querySelector('#deviceCountBadge'),
+  mainGrid: document.querySelector('#mainGrid'),
+  sessionPane: document.querySelector('#sessionPane'),
+  sessionInspector: document.querySelector('#sessionInspector'),
+  remoteWorkspaceHost: document.querySelector('#remoteWorkspaceHost'),
   deviceCenterDialog: document.querySelector('#deviceCenterDialog'),
+  closeDeviceCenterBtn: document.querySelector('#closeDeviceCenterBtn'),
+  closeDeviceCenterFooterBtn: document.querySelector('#closeDeviceCenterFooterBtn'),
   deviceCenterStatus: document.querySelector('#deviceCenterStatus'),
   meshStateBadge: document.querySelector('#meshStateBadge'),
   meshEmptyState: document.querySelector('#meshEmptyState'),
@@ -278,6 +285,7 @@ const QUOTA_REFRESH_INTERVAL = 5 * 60_000;
 window.addEventListener('DOMContentLoaded', async () => {
   await loadUserSettings();
   initTheme();
+  mountWorkspaceSurfaces();
   bindEvents();
   await loadApps();
   initYard();
@@ -601,9 +609,22 @@ function bindEvents() {
   });
 
   els.deviceCenterBtn?.addEventListener('click', async () => {
-    els.deviceCenterDialog.showModal();
+    if (state.workspaceMode === 'devices') {
+      setWorkspaceMode('sessions');
+      return;
+    }
+    setWorkspaceMode('devices');
     renderDeviceCenter();
     await loadDeviceOverview();
+  });
+
+  els.closeDeviceCenterBtn?.addEventListener('click', () => setWorkspaceMode('sessions'));
+  els.deviceCenterDialog?.addEventListener('close', () => {
+    if (state.workspaceMode === 'devices') setWorkspaceMode('sessions');
+  });
+  els.deviceCenterDialog?.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    setWorkspaceMode('sessions');
   });
 
   els.deviceLensSelect?.addEventListener('change', async () => {
@@ -778,6 +799,9 @@ function bindEvents() {
   if (window.manager.onRemoteControlsChanged) {
     window.manager.onRemoteControlsChanged((sessions) => {
       state.mesh.remoteSessions = Array.isArray(sessions) ? sessions : [];
+      if (state.workspaceMode === 'remote' && !state.mesh.remoteSessions.some((item) => item.direction === 'outgoing')) {
+        setWorkspaceMode('sessions');
+      }
       renderDeviceCenter();
     });
   }
@@ -1797,6 +1821,71 @@ function updateAtmosphereReadout() {
 }
 
 // ── Personal Agent Mesh / 设备中心 ──────────────────
+let remoteSurfaceLayoutFrame = null;
+let remoteSurfaceObserver = null;
+
+function mountWorkspaceSurfaces() {
+  if (!els.mainGrid) return;
+  if (els.deviceCenterDialog && els.deviceCenterDialog.parentElement !== els.mainGrid) {
+    els.mainGrid.append(els.deviceCenterDialog);
+  }
+  if (els.remoteWorkspaceHost && typeof ResizeObserver === 'function') {
+    remoteSurfaceObserver = new ResizeObserver(() => scheduleRemoteSurfaceLayout());
+    remoteSurfaceObserver.observe(els.remoteWorkspaceHost);
+  }
+  window.addEventListener('resize', scheduleRemoteSurfaceLayout);
+  setWorkspaceMode('sessions');
+}
+
+function setWorkspaceMode(mode) {
+  const next = ['sessions', 'devices', 'remote'].includes(mode) ? mode : 'sessions';
+  const wasRemote = state.workspaceMode === 'remote';
+  state.workspaceMode = next;
+  if (els.mainGrid) els.mainGrid.dataset.workspace = next;
+  if (els.remoteWorkspaceHost) els.remoteWorkspaceHost.hidden = next !== 'remote';
+  if (els.deviceCenterBtn) els.deviceCenterBtn.setAttribute('aria-pressed', String(next === 'devices'));
+
+  if (els.deviceCenterDialog) {
+    if (next === 'devices' && !els.deviceCenterDialog.open) els.deviceCenterDialog.show();
+    if (next !== 'devices' && els.deviceCenterDialog.open) els.deviceCenterDialog.close();
+  }
+
+  if (next === 'remote') scheduleRemoteSurfaceLayout();
+  else if (wasRemote && window.manager.setRemoteControlSurface) {
+    void window.manager.setRemoteControlSurface({ visible: false });
+  }
+  renderTopbarContext();
+}
+
+function scheduleRemoteSurfaceLayout() {
+  if (remoteSurfaceLayoutFrame) cancelAnimationFrame(remoteSurfaceLayoutFrame);
+  remoteSurfaceLayoutFrame = requestAnimationFrame(() => {
+    remoteSurfaceLayoutFrame = null;
+    void syncRemoteSurfaceLayout();
+  });
+}
+
+async function syncRemoteSurfaceLayout() {
+  if (!els.remoteWorkspaceHost || !window.manager.setRemoteControlSurface || state.workspaceMode !== 'remote') return;
+  const rect = els.remoteWorkspaceHost.getBoundingClientRect();
+  if (rect.width < 320 || rect.height < 160) return;
+  const x = Math.max(0, Math.floor(rect.left));
+  const y = Math.max(0, Math.floor(rect.top));
+  const result = await window.manager.setRemoteControlSurface({
+    visible: true,
+    bounds: {
+      x,
+      y,
+      width: Math.max(0, Math.floor(rect.right) - x),
+      height: Math.max(0, Math.floor(rect.bottom) - y)
+    }
+  });
+  if (!result?.ok) {
+    state.mesh.errorCode = result?.reasonCode || 'remote-surface-failed';
+    setStatus(meshErrorText(state.mesh.errorCode));
+  }
+}
+
 async function loadDeviceOverview(options = {}) {
   if (!window.manager.listDevices || state.mesh.loading) return;
   const silent = options.silent === true;
@@ -2062,7 +2151,7 @@ function renderDeviceList(overview) {
       transfer.textContent = tr('devices.transfer.action');
       transfer.disabled = state.mesh.loading;
       transfer.addEventListener('click', () => {
-        els.deviceCenterDialog?.close();
+        setWorkspaceMode('sessions');
         void openSessionSendDialog(device.deviceId);
       });
       const permissions = document.createElement('button');
@@ -2183,7 +2272,7 @@ async function openRemoteDevice(device) {
   } else {
     state.mesh.remoteSessions = Array.isArray(result.sessions) ? result.sessions : state.mesh.remoteSessions;
     state.mesh.message = tr('remote.action.waitingConsent', { name: device.name });
-    els.deviceCenterDialog?.close();
+    setWorkspaceMode('remote');
   }
   renderDeviceCenter();
 }
@@ -3392,6 +3481,17 @@ function renderTopbarContext() {
   if (!els.topbarContext) return;
   const ctx = tr(state.view === 'yard' ? 'ctx.yard' : 'ctx.classic');
   const deviceContext = selectedDeviceLensLabel();
+  if (state.workspaceMode === 'devices') {
+    els.topbarContext.textContent = [deviceContext, ctx, tr('devices.workspace.context')].filter(Boolean).join(' · ');
+    return;
+  }
+  if (state.workspaceMode === 'remote') {
+    const session = state.mesh.remoteSessions.find((item) => item.direction === 'outgoing');
+    els.topbarContext.textContent = [deviceContext, ctx, tr('remote.workspace.context', {
+      name: session?.deviceName || '-'
+    })].filter(Boolean).join(' · ');
+    return;
+  }
   const profile = selectedProfile();
   if (!profile) {
     els.topbarContext.textContent = [deviceContext, ctx, tr('ctx.noAccount')].filter(Boolean).join(' · ');
@@ -3530,6 +3630,10 @@ function populateGroupDatalist() {
 // 于是编辑/移除/打开/诊断/位置/额度刷新都作用到所选形态（它们本就读 selectedProfileId）。
 function renderFormSwitcher(profile, group) {
   if (!els.formSwitcher || !els.formSelect) return;
+  const meshMode = state.mesh.overview?.initialized === true;
+  const label = els.formSwitcher.querySelector('.form-switcher-label');
+  if (label) label.textContent = tr(meshMode ? 'devices.slot.label' : 'account.form');
+  els.formSelect.title = tr(meshMode ? 'devices.slot.title' : 'account.form.title');
   // 复用调用方已算好的组；缺省时才自己算一次，保持函数自足
   const grp = profile ? (group || groupOfProfile(profile.id)) : null;
   const members = grp ? grp.members : [];

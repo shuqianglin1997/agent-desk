@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain } = require('electron');
 
 const { MeshService } = require('../main/mesh-service');
 const { PeerManager } = require('../main/peer-manager');
@@ -21,6 +21,8 @@ app.whenReady().then(async () => {
   let leftSignal = null;
   let rightSignal = null;
   let signalingGateway = null;
+  let leftSurfaceWindow = null;
+  let rightSurfaceWindow = null;
   try {
     const useSignaling = process.env.AGENTDESK_E2E_SIGNALING === '1';
     let signalUrl = null;
@@ -98,10 +100,14 @@ app.whenReady().then(async () => {
         ? rightRemote.handleEnvelope(value)
         : rightTransfer.handleEnvelope(value)
     });
+    leftSurfaceWindow = new BrowserWindow({ width: 1040, height: 840, show: false });
+    rightSurfaceWindow = new BrowserWindow({ width: 1040, height: 840, show: false });
     leftRemote = new RemoteControlService({
       BrowserWindow,
+      WebContentsView,
       ipcMain,
       remoteDirectory: path.join(__dirname, '..', '..', 'remote'),
+      mainWindowProvider: () => leftSurfaceWindow,
       meshService: left.service,
       peerManagerProvider: () => leftManager,
       languageProvider: () => 'en',
@@ -110,8 +116,10 @@ app.whenReady().then(async () => {
     });
     rightRemote = new RemoteControlService({
       BrowserWindow,
+      WebContentsView,
       ipcMain,
       remoteDirectory: path.join(__dirname, '..', '..', 'remote'),
+      mainWindowProvider: () => rightSurfaceWindow,
       meshService: right.service,
       peerManagerProvider: () => rightManager,
       languageProvider: () => 'en',
@@ -165,6 +173,13 @@ app.whenReady().then(async () => {
     const receivedFile = fs.readFileSync(path.join(destination, 'selected-file.bin'));
     if (!receivedFile.equals(expectedFile)) throw new Error('peer-e2e-file-content-mismatch');
     const remoteSession = await leftRemote.openDevice(rightId);
+    const remoteSurface = leftRemote.setConsoleSurface({
+      visible: true,
+      bounds: { x: 0, y: 437, width: 1040, height: 347 }
+    });
+    if (!remoteSurface.visible || remoteSurface.bounds?.height !== 347) {
+      throw new Error('peer-e2e-remote-surface-missing');
+    }
     await waitUntil(() => (
       leftRemote.list().find((item) => item.sessionId === remoteSession.sessionId)?.state === 'viewing'
       && rightRemote.list().find((item) => item.sessionId === remoteSession.sessionId)?.state === 'viewing'
@@ -184,11 +199,14 @@ app.whenReady().then(async () => {
       receivedPointers: receivedPointer.items.length,
       fileState: leftTransfer.list().find((job) => job.transferId === fileJob.transferId)?.state,
       receivedFileBytes: receivedFile.length,
+      remoteSurfaceVisible: remoteSurface.visible,
       remoteViewState: leftRemote.list().find((item) => item.sessionId === remoteSession.sessionId)?.state,
       remoteDisplay: leftRemote.list().find((item) => item.sessionId === remoteSession.sessionId)?.displayName
     })}\n`);
     await leftRemote.stopAll('e2e-complete');
     await rightRemote.stopAll('e2e-complete');
+    leftSurfaceWindow.destroy();
+    rightSurfaceWindow.destroy();
     leftManager.disconnectAll('e2e-complete');
     rightManager.disconnectAll('e2e-complete');
     await leftSignal?.stop('e2e-complete');
@@ -199,6 +217,8 @@ app.whenReady().then(async () => {
   } catch (error) {
     await leftRemote?.stopAll('e2e-failed');
     await rightRemote?.stopAll('e2e-failed');
+    if (leftSurfaceWindow && !leftSurfaceWindow.isDestroyed()) leftSurfaceWindow.destroy();
+    if (rightSurfaceWindow && !rightSurfaceWindow.isDestroyed()) rightSurfaceWindow.destroy();
     leftManager?.disconnectAll('e2e-failed');
     rightManager?.disconnectAll('e2e-failed');
     await leftSignal?.stop('e2e-failed');
