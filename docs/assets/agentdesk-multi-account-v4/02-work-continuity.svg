@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">额度耗尽后，同一项工作中保持不变和发生变化的部分</title>
+  <desc id="desc">项目和来源会话保持不变，账号与运行位置可以切换到本机、另一台设备或继续留在来源设备。</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#222"/></marker></defs>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#151515}
+    .title{font-size:28px;font-weight:600}.sub{font-size:16px}.head{font-size:19px;font-weight:600}.body{font-size:16px}.small{font-size:14px;fill:#4b4b4b}
+    .band{fill:#f5f5f5;stroke:#666;stroke-width:1.5}.box{fill:#fff;stroke:#202020;stroke-width:1.7}.choice{fill:#fff;stroke:#202020;stroke-width:1.5}
+    .line{fill:none;stroke:#222;stroke-width:1.8;marker-end:url(#arrow)}.dash{fill:none;stroke:#555;stroke-width:1.5;stroke-dasharray:7 6;marker-end:url(#arrow)}
+  </style>
+  <rect width="1200" height="650" fill="#fff"/>
+  <text class="title" x="48" y="52">账号和电脑可以换，工作来源必须保留</text>
+  <text class="sub" x="48" y="82">同一项工作通过项目、来源会话和明确的来源关系保持连续。</text>
+
+  <rect class="band" x="48" y="112" width="1104" height="164" rx="14"/>
+  <text class="head" x="76" y="148">保持不变：原工作仍有明确来源</text>
+  <rect class="box" x="90" y="171" width="300" height="72" rx="9"/>
+  <text class="body" x="240" y="201" text-anchor="middle">项目：AgentDesk</text>
+  <text class="small" x="240" y="225" text-anchor="middle">文件、版本和本地修改</text>
+  <rect class="box" x="450" y="171" width="300" height="72" rx="9"/>
+  <text class="body" x="600" y="201" text-anchor="middle">来源会话 A</text>
+  <text class="small" x="600" y="225" text-anchor="middle">主账号 · MacBook</text>
+  <rect class="box" x="810" y="171" width="300" height="72" rx="9"/>
+  <text class="body" x="960" y="201" text-anchor="middle">正在完成的事情</text>
+  <text class="small" x="960" y="225" text-anchor="middle">不自动变成任务或模板</text>
+  <path class="line" d="M390 207H442"/><path class="line" d="M750 207H802"/>
+
+  <rect class="band" x="48" y="306" width="1104" height="278" rx="14"/>
+  <text class="head" x="76" y="342">可以变化：选择仍有额度的账号，再选择它的运行位置</text>
+  <rect class="box" x="82" y="380" width="220" height="92" rx="9"/>
+  <text class="body" x="192" y="414" text-anchor="middle">主账号 · MacBook</text>
+  <text class="small" x="192" y="441" text-anchor="middle">额度耗尽</text>
+  <text class="small" x="192" y="461" text-anchor="middle">来源会话 A 保留</text>
+
+  <rect class="choice" x="398" y="360" width="222" height="92" rx="9"/>
+  <text class="body" x="509" y="394" text-anchor="middle">备用账号 · MacBook</text>
+  <text class="small" x="509" y="419" text-anchor="middle">新会话 B，来源指向 A</text>
+  <text class="small" x="509" y="439" text-anchor="middle">单独一行</text>
+  <rect class="choice" x="398" y="472" width="222" height="92" rx="9"/>
+  <text class="body" x="509" y="506" text-anchor="middle">备用账号 · Mac Studio</text>
+  <text class="small" x="509" y="531" text-anchor="middle">先映射目标项目</text>
+  <text class="small" x="509" y="551" text-anchor="middle">再决定位置、内容或迁移</text>
+
+  <rect class="choice" x="760" y="360" width="310" height="92" rx="9"/>
+  <text class="body" x="915" y="394" text-anchor="middle">适配器支持会话包迁移</text>
+  <text class="small" x="915" y="419" text-anchor="middle">目标记录保留来源；分叉后不自动合并</text>
+  <rect class="choice" x="760" y="472" width="310" height="92" rx="9"/>
+  <text class="body" x="915" y="506" text-anchor="middle">工作依赖来源环境</text>
+  <text class="small" x="915" y="531" text-anchor="middle">远程操作 MacBook，继续来源会话 A</text>
+
+  <path class="line" d="M302 425H390"/>
+  <path class="line" d="M346 425V518H390"/>
+  <path class="dash" d="M620 518H704V406H752"/>
+  <path class="line" d="M620 518H752"/>
+  <text class="small" x="656" y="397">支持迁移</text>
+  <text class="small" x="656" y="541">依赖原环境</text>
+  <text class="small" x="48" y="624">“继续同一项工作”描述工作来源的连续性，不保证不同账号仍使用同一个官方会话。</text>
+</svg>

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 690" role="img" aria-labelledby="title desc">
+  <title id="title">一次发送会话位置如何穿过两台设备</title>
+  <desc id="desc">来源前端只提交稳定编号，本机主进程重新解析并生成加密位置包，目标主进程重新解析本地项目和客户端入口。</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#222"/></marker></defs>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#151515}
+    .title{font-size:28px;font-weight:600}.sub{font-size:16px}.head{font-size:18px;font-weight:600}.body{font-size:15px}.small{font-size:13px;fill:#4b4b4b}
+    .device{fill:#fafafa;stroke:#222;stroke-width:2}.layer{fill:#fff;stroke:#555;stroke-width:1.4}.safe{fill:#f2f2f2;stroke:#222;stroke-width:1.6}.server{fill:#fff;stroke:#777;stroke-width:1.4;stroke-dasharray:7 6}
+    .line{fill:none;stroke:#222;stroke-width:1.7;marker-end:url(#arrow)}.dash{fill:none;stroke:#666;stroke-width:1.3;stroke-dasharray:6 5;marker-end:url(#arrow)}
+  </style>
+  <rect width="1200" height="690" fill="#fff"/>
+  <text class="title" x="48" y="52">“发送到设备”传稳定编号，两个端点各自解析本地资源</text>
+  <text class="sub" x="48" y="82">远端不能把任意路径或命令塞给目标电脑；目标端只执行固定、已授权的动作。</text>
+
+  <rect class="server" x="470" y="106" width="260" height="72" rx="10"/>
+  <text class="head" x="600" y="136" text-anchor="middle">连接服务</text>
+  <text class="small" x="600" y="158" text-anchor="middle">发现、协商、撤销；不读取会话内容</text>
+
+  <rect class="device" x="42" y="118" width="430" height="504" rx="14"/>
+  <text class="head" x="66" y="154">来源设备：MacBook</text>
+  <rect class="layer" x="76" y="184" width="362" height="78" rx="9"/>
+  <text class="body" x="257" y="214" text-anchor="middle">主窗口前端</text>
+  <text class="small" x="257" y="238" text-anchor="middle">提交逻辑会话、副本和目标设备的稳定编号</text>
+  <rect class="safe" x="76" y="298" width="362" height="96" rx="9"/>
+  <text class="body" x="257" y="329" text-anchor="middle">本机主进程</text>
+  <text class="small" x="257" y="352" text-anchor="middle">重新查会话副本、权限、项目和来源文件</text>
+  <text class="small" x="257" y="374" text-anchor="middle">生成带期限的会话位置包</text>
+  <rect class="layer" x="76" y="430" width="170" height="92" rx="9"/>
+  <text class="body" x="161" y="461" text-anchor="middle">客户端适配器</text>
+  <text class="small" x="161" y="484" text-anchor="middle">只读索引 / 可选会话包</text>
+  <rect class="layer" x="268" y="430" width="170" height="92" rx="9"/>
+  <text class="body" x="353" y="461" text-anchor="middle">本地存储</text>
+  <text class="small" x="353" y="484" text-anchor="middle">目录、队列、项目映射</text>
+  <rect class="safe" x="150" y="550" width="214" height="48" rx="24"/>
+  <text class="body" x="257" y="580" text-anchor="middle">设备连接模块</text>
+  <path class="line" d="M257 262V290"/><path class="line" d="M257 394V422"/>
+  <path class="line" d="M161 522V542H224"/><path class="line" d="M353 522V542H290"/>
+
+  <rect class="device" x="728" y="118" width="430" height="504" rx="14"/>
+  <text class="head" x="752" y="154">目标设备：Mac Studio</text>
+  <rect class="safe" x="812" y="550" width="214" height="48" rx="24"/>
+  <text class="body" x="919" y="580" text-anchor="middle">设备连接模块</text>
+  <rect class="safe" x="762" y="386" width="362" height="126" rx="9"/>
+  <text class="body" x="943" y="418" text-anchor="middle">目标主进程</text>
+  <text class="small" x="943" y="442" text-anchor="middle">验证来源、权限、期限和固定动作</text>
+  <text class="small" x="943" y="464" text-anchor="middle">重新解析本地项目根、目标运行位置和会话能力</text>
+  <text class="small" x="943" y="486" text-anchor="middle">需要选择目录时调用目标端系统选择器</text>
+  <rect class="layer" x="762" y="230" width="170" height="100" rx="9"/>
+  <text class="body" x="847" y="262" text-anchor="middle">项目映射</text>
+  <text class="small" x="847" y="285" text-anchor="middle">项目编号 → 本地目录</text>
+  <text class="small" x="847" y="307" text-anchor="middle">检查版本差异</text>
+  <rect class="layer" x="954" y="230" width="170" height="100" rx="9"/>
+  <text class="body" x="1039" y="262" text-anchor="middle">客户端适配器</text>
+  <text class="small" x="1039" y="285" text-anchor="middle">位置 / 只读内容</text>
+  <text class="small" x="1039" y="307" text-anchor="middle">或受支持会话包</text>
+  <rect class="layer" x="818" y="184" width="250" height="36" rx="7"/>
+  <text class="body" x="943" y="207" text-anchor="middle">目标界面显示结果并等待确认</text>
+  <path class="line" d="M919 550V520"/><path class="line" d="M943 386V338"/>
+  <path class="line" d="M847 230V222"/><path class="line" d="M1039 230V222"/>
+
+  <path class="line" d="M364 574H804"/>
+  <text class="small" x="584" y="558" text-anchor="middle">端到端加密：会话位置包 / 明确选择的内容</text>
+  <path class="dash" d="M470 142H420V542H364"/>
+  <path class="dash" d="M730 142H780V542H812"/>
+  <text class="small" x="600" y="650" text-anchor="middle">关键边界：前端没有文件系统和通用进程能力；来源只提交稳定编号；目标只执行固定动作并重新查本地资源。</text>
+</svg>
