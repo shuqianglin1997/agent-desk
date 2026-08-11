@@ -62,7 +62,7 @@ test('WebRTC 统计只生成聚合码率、延迟、帧率、丢包和路径，�
   assert.equal(relay.bitrateKbps, null);
 });
 
-test('远控窗口提供单屏/网格、每设备指标与明确活动输入目标', () => {
+test('远控工作区提供单屏/网格、每设备指标与明确活动输入目标', () => {
   const html = read('src/remote/console.html');
   const css = read('src/remote/console.css');
   const renderer = read('src/remote/console.js');

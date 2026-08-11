@@ -1,6 +1,7 @@
 const {
   app,
   BrowserWindow,
+  WebContentsView,
   ipcMain,
   shell,
   clipboard,
@@ -144,6 +145,7 @@ function createWindow() {
     mainWindow.focus();
   });
   mainWindow.on('closed', () => {
+    void remoteControlService?.stopAll('main-window-closed');
     mainWindow = null;
   });
   // 开发期把渲染层的错误/警告转发到主进程 stdout，便于无 devtools 时自检渲染层健康。
@@ -470,6 +472,21 @@ function registerIpc() {
       return { ok: true, sessions: getRemoteControlService().list() };
     } catch (error) {
       return { ok: false, reasonCode: boundedText(error?.message || 'remote-list-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('remoteControl:setSurface', (event, input = {}) => {
+    try {
+      if (!mainWindow || mainWindow.isDestroyed() || event.sender.id !== mainWindow.webContents.id) {
+        throw new Error('remote-surface-source-invalid');
+      }
+      const surface = getRemoteControlService().setConsoleSurface({
+        visible: input.visible === true,
+        bounds: input.bounds
+      });
+      return { ok: true, surface };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'remote-surface-failed', 160) };
     }
   });
 
@@ -913,11 +930,13 @@ function getRemoteControlService() {
   if (remoteControlService) return remoteControlService;
   remoteControlService = new RemoteControlService({
     BrowserWindow,
+    WebContentsView,
     ipcMain,
     desktopCapturer,
     screen,
     systemPreferences,
     remoteDirectory: path.join(__dirname, 'remote'),
+    mainWindowProvider: () => mainWindow,
     meshService: getMeshService(),
     peerManagerProvider: () => getPeerManager(),
     iceServersProvider: () => publicIceServers(),

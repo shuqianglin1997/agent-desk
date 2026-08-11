@@ -10,11 +10,13 @@ const IPC_ROUTERS = new WeakMap();
 class RemoteControlService {
   constructor(options = {}) {
     this.BrowserWindow = options.BrowserWindow;
+    this.WebContentsView = options.WebContentsView;
     this.ipcMain = options.ipcMain;
     this.desktopCapturer = options.desktopCapturer;
     this.screen = options.screen;
     this.systemPreferences = options.systemPreferences;
     this.remoteDirectory = options.remoteDirectory;
+    this.mainWindowProvider = options.mainWindowProvider || (() => null);
     this.meshService = options.meshService;
     this.peerManagerProvider = options.peerManagerProvider;
     this.iceServersProvider = options.iceServersProvider || (() => []);
@@ -28,6 +30,7 @@ class RemoteControlService {
     this.outgoingByDevice = new Map();
     this.currentInputSessionId = null;
     this.pendingInputSessionId = null;
+    this.consoleSurface = { visible: false, bounds: null };
     this.inputRateGuard = new InputRateGuard();
     this.router = sharedRemoteIpcRouter(this.ipcMain);
   }
@@ -73,7 +76,7 @@ class RemoteControlService {
     this.sessions.set(session.sessionId, session);
     this.outgoingByDevice.set(session.deviceId, session.sessionId);
     const consoleContext = await this.ensureConsole();
-    consoleContext.window.webContents.send('remote-console:add-target', {
+    consoleContext.webContents.send('remote-console:add-target', {
       token: consoleContext.token,
       target: consoleTarget(session, this.iceServersProvider(session.deviceId))
     });
@@ -104,9 +107,13 @@ class RemoteControlService {
     const context = this.consoleContext;
     this.consoleContext = null;
     if (context) {
+      context.closed = true;
       this.router.consoleContexts.delete(context.token);
-      if (!context.window.isDestroyed()) context.window.destroy();
+      const parent = context.parentWindow;
+      if (context.view && parent && !parent.isDestroyed()) parent.contentView.removeChildView(context.view);
+      if (!context.webContents.isDestroyed()) context.webContents.close({ waitForBeforeUnload: false });
     }
+    this.consoleSurface = { visible: false, bounds: null };
     this.inputAdapter?.releaseAll();
   }
 
@@ -154,62 +161,83 @@ class RemoteControlService {
   }
 
   async ensureConsole() {
-    if (this.consoleContext && !this.consoleContext.window.isDestroyed()) return this.consoleContext;
+    if (this.consoleContext && !this.consoleContext.webContents.isDestroyed()) return this.consoleContext;
     this.assertRuntime();
+    const parentWindow = this.mainWindowProvider();
+    if (!parentWindow || parentWindow.isDestroyed()) throw new Error('remote-main-window-unavailable');
     const token = crypto.randomBytes(24).toString('hex');
-    const window = new this.BrowserWindow({
-      width: 1180,
-      height: 760,
-      minWidth: 780,
-      minHeight: 520,
-      show: false,
-      title: 'AgentDesk Remote Console',
-      backgroundColor: '#111716',
-      fullscreenable: true,
+    const view = new this.WebContentsView({
       webPreferences: {
         preload: path.join(this.remoteDirectory, 'console-preload.js'),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
         backgroundThrottling: false,
-        additionalArguments: [`--agentdesk-remote-console=${token}`]
+        additionalArguments: [
+          `--agentdesk-remote-console=${token}`,
+          '--agentdesk-remote-surface=embedded'
+        ]
       }
     });
-    const context = { token, window, service: this, loaded: false, closed: false };
+    view.setBackgroundColor('#111716');
+    view.setVisible(false);
+    parentWindow.contentView.addChildView(view);
+    const context = {
+      token,
+      view,
+      webContents: view.webContents,
+      parentWindow,
+      service: this,
+      loaded: false,
+      closed: false
+    };
     this.consoleContext = context;
     this.router.consoleContexts.set(token, context);
-    window.once('ready-to-show', () => {
-      if (!window.isDestroyed()) window.show();
-    });
-    window.on('closed', () => {
+    view.webContents.once('destroyed', () => {
       if (context.closed) return;
       context.closed = true;
       this.router.consoleContexts.delete(token);
       if (this.consoleContext === context) this.consoleContext = null;
       for (const session of [...this.sessions.values()].filter((item) => item.direction === 'outgoing')) {
-        void this.stopSession(session, 'console-closed', { notify: true });
+        void this.stopSession(session, 'console-surface-destroyed', { notify: true });
       }
     });
-    window.webContents.on('render-process-gone', (_event, details) => {
+    view.webContents.on('render-process-gone', (_event, details) => {
       for (const session of [...this.sessions.values()].filter((item) => item.direction === 'outgoing')) {
         void this.stopSession(session, `console-renderer-${details?.reason || 'gone'}`, { notify: true });
       }
     });
-    await window.loadFile(path.join(this.remoteDirectory, 'console.html'));
+    await view.webContents.loadFile(path.join(this.remoteDirectory, 'console.html'));
     context.loaded = true;
     return context;
   }
 
   focusConsole(sessionId) {
     const context = this.consoleContext;
-    if (!context || context.window.isDestroyed()) return;
-    if (context.window.isMinimized()) context.window.restore();
-    context.window.show();
-    context.window.focus();
-    context.window.webContents.send('remote-console:activate-target', {
+    if (!context || context.webContents.isDestroyed()) return;
+    context.webContents.send('remote-console:activate-target', {
       token: context.token,
       sessionId
     });
+  }
+
+  setConsoleSurface(input = {}) {
+    const context = this.consoleContext;
+    if (!context || context.webContents.isDestroyed()) {
+      this.consoleSurface = { visible: false, bounds: null };
+      return this.consoleSurface;
+    }
+    if (input.visible !== true) {
+      context.view.setVisible(false);
+      this.consoleSurface = { visible: false, bounds: this.consoleSurface.bounds };
+      return this.consoleSurface;
+    }
+    const bounds = normalizeSurfaceBounds(input.bounds, context.parentWindow);
+    context.view.setBounds(bounds);
+    context.view.setVisible(true);
+    context.webContents.focus();
+    this.consoleSurface = { visible: true, bounds };
+    return this.consoleSurface;
   }
 
   async receiveOffer(context, payload) {
@@ -466,6 +494,7 @@ class RemoteControlService {
     return {
       ok: true,
       lang: normalizeLanguage(this.languageProvider()),
+      surface: 'embedded',
       maxTargets: REMOTE_SESSION_LIMIT,
       targets: [...this.sessions.values()]
         .filter((item) => item.direction === 'outgoing' && !item.closed)
@@ -804,6 +833,9 @@ class RemoteControlService {
       }
     }
     this.sessions.delete(session.sessionId);
+    if (![...this.sessions.values()].some((item) => item.direction === 'outgoing' && !item.closed)) {
+      this.setConsoleSurface({ visible: false });
+    }
     this.emitChange();
   }
 
@@ -817,8 +849,8 @@ class RemoteControlService {
 
   sendConsole(channel, payload) {
     const context = this.consoleContext;
-    if (!context || context.window.isDestroyed()) return;
-    context.window.webContents.send(channel, { token: context.token, ...payload });
+    if (!context || context.webContents.isDestroyed()) return;
+    context.webContents.send(channel, { token: context.token, ...payload });
   }
 
   sendSemantic(deviceId, messageType, capability, payload) {
@@ -830,7 +862,13 @@ class RemoteControlService {
   }
 
   assertRuntime() {
-    if (typeof this.BrowserWindow !== 'function' || !this.ipcMain || !this.remoteDirectory) {
+    if (
+      typeof this.BrowserWindow !== 'function' ||
+      typeof this.WebContentsView !== 'function' ||
+      !this.ipcMain ||
+      !this.remoteDirectory ||
+      typeof this.mainWindowProvider !== 'function'
+    ) {
       throw new Error('remote-runtime-unavailable');
     }
   }
@@ -846,7 +884,8 @@ function sharedRemoteIpcRouter(ipcMain) {
       try {
         const contexts = type === 'console' ? router.consoleContexts : router.hostContexts;
         const context = contexts.get(String(input.token || ''));
-        if (!context || context.closed || context.window.isDestroyed() || event.sender.id !== context.window.webContents.id) {
+        const webContents = contextWebContents(context);
+        if (!context || context.closed || !webContents || webContents.isDestroyed() || event.sender.id !== webContents.id) {
           throw new Error('remote-ipc-source-invalid');
         }
         return await callback(context.service, context, input);
@@ -882,6 +921,13 @@ function sharedRemoteIpcRouter(ipcMain) {
     await service.stopSession(session, 'user-disconnect', { notify: true });
     return { ok: true };
   });
+  handle('remote-console:return', 'console', async (service, context) => {
+    if (service.consoleContext !== context) throw new Error('remote-console-context-invalid');
+    const sessions = [...service.sessions.values()].filter((item) => item.direction === 'outgoing' && !item.closed);
+    await Promise.all(sessions.map((item) => service.stopSession(item, 'return-to-sessions', { notify: true })));
+    service.setConsoleSurface({ visible: false });
+    return { ok: true };
+  });
   handle('remote-host:bootstrap', 'host', (service, context) => service.hostBootstrap(context));
   handle('remote-host:answer', 'host', async (service, context, input) => ({
     ok: true,
@@ -903,6 +949,34 @@ function sharedRemoteIpcRouter(ipcMain) {
   }));
   IPC_ROUTERS.set(ipcMain, router);
   return router;
+}
+
+function contextWebContents(context) {
+  return context?.webContents || context?.window?.webContents || null;
+}
+
+function normalizeSurfaceBounds(value, parentWindow) {
+  if (!value || typeof value !== 'object' || !parentWindow || parentWindow.isDestroyed()) {
+    throw new Error('remote-surface-bounds-invalid');
+  }
+  const content = parentWindow.getContentBounds();
+  const x = finiteSurfaceCoordinate(value.x, 'x');
+  const y = finiteSurfaceCoordinate(value.y, 'y');
+  const width = finiteSurfaceCoordinate(value.width, 'width');
+  const height = finiteSurfaceCoordinate(value.height, 'height');
+  if (width < 320 || height < 160) throw new Error('remote-surface-bounds-too-small');
+  if (x < 0 || y < 0 || x + width > content.width || y + height > content.height) {
+    throw new Error('remote-surface-bounds-outside-window');
+  }
+  return { x, y, width, height };
+}
+
+function finiteSurfaceCoordinate(value, field) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0 || number > 32768) {
+    throw new Error(`remote-surface-${field}-invalid`);
+  }
+  return Math.round(number);
 }
 
 function normalizeRemoteDescription(value, expectedType) {
@@ -1053,6 +1127,7 @@ module.exports = {
   normalizeRemoteDescription,
   normalizeViewCommand,
   normalizePublicDisplays,
+  normalizeSurfaceBounds,
   publicRemoteSession,
   screenPermission,
   sharedRemoteIpcRouter

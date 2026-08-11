@@ -49,6 +49,7 @@ contextBridge.exposeInMainWorld('manager', {
   revokeDevice: (input) => ipcRenderer.invoke('devices:revoke', input),
   openRemoteControl: (deviceId) => ipcRenderer.invoke('remoteControl:open', { deviceId }),
   listRemoteControls: () => ipcRenderer.invoke('remoteControl:list'),
+  setRemoteControlSurface: (input = {}) => ipcRenderer.invoke('remoteControl:setSurface', input),
   disconnectRemoteControl: (sessionId) => ipcRenderer.invoke('remoteControl:disconnect', { sessionId }),
   stopAllRemoteControls: () => ipcRenderer.invoke('remoteControl:stopAll'),
   onRemoteControlsChanged: (callback) => {

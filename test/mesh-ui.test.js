@@ -5,15 +5,21 @@ const path = require('node:path');
 
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
-test('设备入口位于工具之前，设备中心不改动主窗口七行骨架', () => {
+test('设备入口位于工具之前，设备中心只切换第六行且不改动七行骨架', () => {
   const html = read('src/index.html');
   const styles = read('src/styles.css');
+  const renderer = read('src/renderer.js');
   const navStart = html.indexOf('<nav class="topbar-actions"');
   const navEnd = html.indexOf('</nav>', navStart);
   const nav = html.slice(navStart, navEnd);
   assert.ok(nav.indexOf('id="deviceCenterBtn"') > 0);
   assert.ok(nav.indexOf('id="deviceCenterBtn"') < nav.indexOf('id="toolCenterBtn"'));
   assert.match(html, /id="deviceCenterDialog"[\s\S]*?id="meshEmptyState"[\s\S]*?id="meshReadyState"/);
+  assert.match(html, /id="mainGrid" class="main-grid" data-workspace="sessions"/);
+  assert.match(renderer, /mainGrid\.append\(els\.deviceCenterDialog\)/);
+  assert.match(renderer, /deviceCenterDialog\.show\(\)/);
+  assert.doesNotMatch(renderer, /deviceCenterDialog\.showModal\(\)/);
+  assert.match(styles, /\.main-grid > \.device-center-dialog\[open\][\s\S]*?grid-column:\s*1 \/ -1/);
   assert.match(styles, /\.app-shell \{[\s\S]*?grid-template-rows:\s*48px auto auto auto auto minmax\(0, 1fr\) 28px/);
   assert.match(styles, /\.mesh-ready-state\[hidden\],[\s\S]*?\.mesh-empty-state\[hidden\][\s\S]*?display:\s*none/);
 });

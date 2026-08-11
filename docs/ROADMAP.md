@@ -19,7 +19,7 @@ Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码
 - Ed25519 成员证书/握手、Mesh 范围账号 HMAC、独立 `mesh.db`、OS 密钥保护和签名协议封装；
 - 来源单写的跨设备库存、强账号/强会话去重、离线快照与 tombstone；
 - 加密 SessionPointer、本机离线队列、目标端项目映射、选定文件分块/校验/续传；
-- 独立 Remote Console、目标端逐次同意、屏幕查看、固定键鼠输入协议和最多四路控制台；
+- 主窗口第 6 行的隔离 Remote Surface、目标端逐次同意、屏幕查看、固定键鼠输入协议和最多四路控制台；
 - 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
 - Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
 

@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('remoteConsole', {
   requestControl: (sessionId) => ipcRenderer.invoke('remote-console:request-control', { token, sessionId }),
   releaseControl: (sessionId) => ipcRenderer.invoke('remote-console:release-control', { token, sessionId }),
   disconnect: (sessionId) => ipcRenderer.invoke('remote-console:disconnect', { token, sessionId }),
+  returnToSessions: () => ipcRenderer.invoke('remote-console:return', { token }),
   onAddTarget: (callback) => on('remote-console:add-target', callback),
   onActivateTarget: (callback) => on('remote-console:activate-target', callback),
   onAnswer: (callback) => on('remote-console:answer', callback),

@@ -20,11 +20,16 @@
       'targetTabs', 'emptyState', 'videoStack', 'stageBadge', 'stageDeviceName',
       'controlDeck', 'activeDeviceName', 'activeState', 'displaySelect',
       'qualitySelect', 'pauseBtn', 'controlBtn', 'disconnectBtn', 'fullscreenBtn', 'pathDot', 'pathLabel',
-      'layoutBtn', 'networkMetrics', 'streamCount', 'streamBudget', 'modeLabel', 'inputCapture'
+      'backBtn', 'layoutBtn', 'networkMetrics', 'streamCount', 'streamBudget', 'modeLabel', 'inputCapture'
     ]) els[id] = document.getElementById(id);
   }
 
   function bindEvents() {
+    els.backBtn.addEventListener('click', async () => {
+      releaseAllInput();
+      const result = await window.remoteConsole.returnToSessions();
+      if (!result?.ok) setPathError(result?.reasonCode || 'remote-return-failed');
+    });
     els.displaySelect.addEventListener('change', () => {
       const session = activeSession();
       if (!session || !els.displaySelect.value) return;
@@ -106,6 +111,7 @@
   async function bootstrap() {
     const result = await window.remoteConsole.bootstrap();
     if (!result?.ok) throw new Error(result?.reasonCode || 'remote-console-bootstrap');
+    document.body.dataset.surface = result.surface || 'window';
     window.I18N.init(result.lang);
     for (const target of result.targets || []) addTarget(target);
     statsTimer = setInterval(() => { void sampleMediaStats(); }, 2_000);

@@ -1,4 +1,4 @@
-# ADR：Personal Mesh 远程查看的窗口与媒体边界
+# ADR：Personal Mesh 远程查看的工作区与媒体边界
 
 状态：Accepted  
 日期：2026-08-10  
@@ -9,11 +9,11 @@
 远程查看使用两条职责不同的 WebRTC 连接：
 
 1. 现有隐藏沙箱 Peer Renderer 继续承载设备认证、签名语义消息、库存与传输；
-2. 独立 Remote Console Renderer 与目标端独立 Host Renderer 建立只含屏幕视频轨的媒体连接；
+2. 主窗口第 6 行内的独立沙箱 Remote Surface 与目标端独立 Host Renderer 建立只含屏幕视频轨的媒体连接；
 3. 媒体 SDP 只通过已经完成设备认证的 `control.reliable` 通道交换；信令服务不能单独发起屏幕查看；
 4. `screen.view` 在两台设备保存的权限都必须开启，目标端仍要对每次有人值守连接明确同意；
 5. `unattended` 不在本阶段实现，也不能借持久 `screen.view` 跳过本机确认；
-6. 主窗口只提供设备卡入口，画面不进入固定 1040 × 840 七行骨架；
+6. 控制端画面只进入固定 1040 × 840 主窗口第 6 行的隔离 Remote Surface，不覆盖其他六行，也不进入普通 Main Renderer；
 7. 被控端使用独立无 Node 沙箱窗口完成显示器选择和同意，连接后缩成 always-on-top 停止条；
 8. 控制端和被控端都只把固定 ID、枚举、有限 SDP 与状态交给 Main，不暴露通用 IPC、路径、命令或 URL。
 
@@ -72,7 +72,7 @@ Remote Console 可以同时保存最多四个目标会话，但一个目标在�
 
 ## 验证证据
 
-- 领域测试覆盖 SDP 大小、固定命令枚举、公开状态脱敏、沙箱窗口和主窗口骨架；
+- 领域测试覆盖 SDP 大小、固定命令枚举、公开状态脱敏、沙箱 Surface/Host 和主窗口骨架；
 - 双端 Electron 自检使用两套独立 Mesh 身份、真实设备认证 DataChannel 与第二条真实 WebRTC 视频连接；
 - 自检的目标端使用合成视频轨以避免自动化测试读取真实桌面，最终双方状态均为 `viewing`，显示器为 `Synthetic display`；
 - 合成媒体自检证明进程、SDP、SRTP 视频轨、授权状态和清理链路，不替代两台物理电脑的 macOS/Windows 屏幕权限与公网网络矩阵。
