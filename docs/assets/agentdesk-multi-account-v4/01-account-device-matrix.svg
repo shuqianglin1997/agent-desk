@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" role="img" aria-labelledby="title desc">
+  <title id="title">一个 Agent、多个实际账号和多台设备的关系矩阵</title>
+  <desc id="desc">行表示实际账号及各自额度，列表示设备，单元格表示具体运行位置。</desc>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#151515}
+    .title{font-size:28px;font-weight:600}.sub{font-size:16px}.head{font-size:18px;font-weight:600}.body{font-size:16px}.small{font-size:14px;fill:#4d4d4d}
+    .outer{fill:#fff;stroke:#171717;stroke-width:2}.soft{fill:#f4f4f4;stroke:#777;stroke-width:1.5}.cell{fill:#fff;stroke:#202020;stroke-width:1.5}
+    .grid{stroke:#aaa;stroke-width:1}.dash{stroke:#777;stroke-width:1.5;stroke-dasharray:7 6}
+  </style>
+  <rect width="1200" height="600" fill="#fff"/>
+  <text class="title" x="48" y="52">一个 Agent 只出现一次，账号与设备在下层交叉</text>
+  <text class="sub" x="48" y="82">行决定登录和额度；列决定机器；有内容的单元格才是可执行的运行位置。</text>
+
+  <rect class="outer" x="48" y="108" width="1104" height="420" rx="14"/>
+  <rect class="soft" x="68" y="128" width="1064" height="54" rx="8"/>
+  <text class="head" x="92" y="161">Agent：开发助手</text>
+  <text class="small" x="304" y="161">所有实际账号只能归入一个 Agent；跨平台归组由人确认</text>
+
+  <text class="head" x="86" y="226">实际账号与额度</text>
+  <text class="head" x="410" y="226" text-anchor="middle">MacBook</text>
+  <text class="head" x="680" y="226" text-anchor="middle">Mac Studio</text>
+  <text class="head" x="950" y="226" text-anchor="middle">Windows 工作站</text>
+
+  <line class="grid" x1="330" y1="198" x2="330" y2="470"/>
+  <line class="grid" x1="545" y1="198" x2="545" y2="470"/>
+  <line class="grid" x1="815" y1="198" x2="815" y2="470"/>
+  <line class="grid" x1="1085" y1="198" x2="1085" y2="470"/>
+  <line class="grid" x1="74" y1="244" x2="1126" y2="244"/>
+  <line class="grid" x1="74" y1="318" x2="1126" y2="318"/>
+  <line class="grid" x1="74" y1="392" x2="1126" y2="392"/>
+  <line class="grid" x1="74" y1="470" x2="1126" y2="470"/>
+
+  <text class="body" x="90" y="275">Codex 主账号</text>
+  <text class="small" x="90" y="299">一份额度 · 两个位置</text>
+  <rect class="cell" x="352" y="258" width="116" height="43" rx="7"/>
+  <text class="small" x="410" y="284" text-anchor="middle">桌面客户端</text>
+  <rect class="cell" x="620" y="258" width="120" height="43" rx="7"/>
+  <text class="small" x="680" y="284" text-anchor="middle">命令行</text>
+
+  <text class="body" x="90" y="349">Codex 备用账号</text>
+  <text class="small" x="90" y="373">另一份额度 · 一个位置</text>
+  <rect class="cell" x="352" y="332" width="116" height="43" rx="7"/>
+  <text class="small" x="410" y="358" text-anchor="middle">桌面客户端</text>
+
+  <text class="body" x="90" y="423">Claude 工作账号</text>
+  <text class="small" x="90" y="447">独立额度 · 一个位置</text>
+  <rect class="cell" x="889" y="406" width="122" height="43" rx="7"/>
+  <text class="small" x="950" y="432" text-anchor="middle">桌面客户端</text>
+
+  <line class="dash" x1="80" y1="555" x2="130" y2="555"/>
+  <text class="small" x="143" y="560">空单元格表示这个账号在该设备没有运行位置；设备增加不会复制额度。</text>
+</svg>

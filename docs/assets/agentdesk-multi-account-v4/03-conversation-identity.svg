@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">压缩、副本和新会话的区别</title>
+  <desc id="desc">压缩检查点和内部执行属于来源会话，准确副本仍是一行，新建目标会话是第二行并保留来源关系。</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#222"/></marker></defs>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#151515}
+    .title{font-size:28px;font-weight:600}.sub{font-size:16px}.head{font-size:19px;font-weight:600}.body{font-size:16px}.small{font-size:14px;fill:#4b4b4b}
+    .project{fill:#fafafa;stroke:#222;stroke-width:2}.conv{fill:#fff;stroke:#222;stroke-width:1.8}.inner{fill:#f3f3f3;stroke:#777;stroke-width:1.2}.hidden{fill:#fff;stroke:#777;stroke-width:1.2;stroke-dasharray:6 5}
+    .line{fill:none;stroke:#222;stroke-width:1.7;marker-end:url(#arrow)}.dash{fill:none;stroke:#666;stroke-width:1.4;stroke-dasharray:6 5;marker-end:url(#arrow)}
+  </style>
+  <rect width="1200" height="720" fill="#fff"/>
+  <text class="title" x="48" y="52">文件增加不等于会话增加，新建目标会话才会增加一行</text>
+  <text class="sub" x="48" y="82">一条逻辑会话可以有检查点、隐藏分支和准确副本；显式新建或分叉会形成另一条逻辑会话。</text>
+
+  <rect class="project" x="48" y="112" width="1104" height="534" rx="14"/>
+  <text class="head" x="74" y="148">项目：AgentDesk</text>
+
+  <rect class="conv" x="82" y="176" width="630" height="424" rx="12"/>
+  <text class="head" x="108" y="213">会话 A</text>
+  <text class="small" x="214" y="213">会话列表第 1 行 · 主账号创建</text>
+
+  <rect class="inner" x="112" y="242" width="164" height="62" rx="8"/>
+  <text class="body" x="194" y="269" text-anchor="middle">消息 1…40</text>
+  <text class="small" x="194" y="290" text-anchor="middle">同一根会话</text>
+  <rect class="inner" x="322" y="242" width="164" height="62" rx="8"/>
+  <text class="body" x="404" y="269" text-anchor="middle">压缩检查点</text>
+  <text class="small" x="404" y="290" text-anchor="middle">不增加列表行</text>
+  <rect class="inner" x="532" y="242" width="150" height="62" rx="8"/>
+  <text class="body" x="607" y="269" text-anchor="middle">继续交流</text>
+  <text class="small" x="607" y="290" text-anchor="middle">仍是会话 A</text>
+  <path class="line" d="M276 273H314"/><path class="line" d="M486 273H524"/>
+
+  <rect class="hidden" x="112" y="342" width="220" height="70" rx="8"/>
+  <text class="body" x="222" y="372" text-anchor="middle">内部检查 / 子任务</text>
+  <text class="small" x="222" y="395" text-anchor="middle">默认隐藏，只在 A 下诊断</text>
+  <path class="dash" d="M404 304V330H222V334"/>
+
+  <text class="body" x="112" y="459">准确副本</text>
+  <rect class="inner" x="112" y="480" width="238" height="70" rx="8"/>
+  <text class="body" x="231" y="510" text-anchor="middle">MacBook / Codex</text>
+  <text class="small" x="231" y="533" text-anchor="middle">副本 A-1</text>
+  <rect class="inner" x="392" y="480" width="238" height="70" rx="8"/>
+  <text class="body" x="511" y="510" text-anchor="middle">Mac Studio / Codex</text>
+  <text class="small" x="511" y="533" text-anchor="middle">副本 A-2</text>
+  <text class="small" x="112" y="570">只有强会话编号或经过验证的迁移关系，才折叠为会话 A 的另一位置。</text>
+  <text class="small" x="112" y="592">副本后来各自发展：同一行提示选择来源，不自动混合；显式分叉才增加一行。</text>
+
+  <rect class="conv" x="790" y="252" width="318" height="256" rx="12"/>
+  <text class="head" x="816" y="291">会话 B</text>
+  <text class="small" x="816" y="316">会话列表第 2 行 · 备用账号新建</text>
+  <rect class="inner" x="820" y="342" width="258" height="62" rx="8"/>
+  <text class="body" x="949" y="369" text-anchor="middle">来源会话：A</text>
+  <text class="small" x="949" y="390" text-anchor="middle">保留来源关系</text>
+  <rect class="inner" x="820" y="426" width="258" height="52" rx="8"/>
+  <text class="small" x="949" y="458" text-anchor="middle">后续独立发展，不自动并回 A</text>
+
+  <path class="line" d="M712 381H782"/>
+  <text class="small" x="747" y="365" text-anchor="middle">新建 / 显式分叉</text>
+  <text class="small" x="48" y="686">列表规则：压缩和隐藏分支不加行；准确副本不加行；用户新建的目标会话增加一行，并显示“来源于会话 A”。</text>
+</svg>

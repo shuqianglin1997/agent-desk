@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">个人设备网络的直连、信令、中继和离线信箱边界</title>
+  <desc id="desc">可信设备优先直接连接，信令和 STUN 帮助建立连接，TURN 只在直连失败时转发密文，可选离线信箱只保存短期加密会话位置。</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#222"/></marker></defs>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#151515}
+    .title{font-size:28px;font-weight:600}.sub{font-size:16px}.head{font-size:18px;font-weight:600}.body{font-size:15px}.small{font-size:13px;fill:#4b4b4b}
+    .trust{fill:#fafafa;stroke:#222;stroke-width:2}.device{fill:#fff;stroke:#222;stroke-width:1.7}.service{fill:#fff;stroke:#666;stroke-width:1.4;stroke-dasharray:7 6}.note{fill:#f4f4f4;stroke:#777;stroke-width:1.2}
+    .direct{fill:none;stroke:#222;stroke-width:3;marker-start:url(#arrow);marker-end:url(#arrow)}.line{fill:none;stroke:#444;stroke-width:1.6;marker-end:url(#arrow)}.dash{fill:none;stroke:#666;stroke-width:1.4;stroke-dasharray:7 6;marker-end:url(#arrow)}
+  </style>
+  <rect width="1200" height="700" fill="#fff"/>
+  <text class="title" x="48" y="52">P2P 表示内容尽量在设备之间直传，连接仍需要公共服务协助</text>
+  <text class="sub" x="48" y="82">公共服务没有设备秘密材料，不能解密内容，也不能替设备批准操作。</text>
+
+  <rect class="trust" x="48" y="118" width="1104" height="280" rx="14"/>
+  <text class="head" x="74" y="153">个人可信设备范围</text>
+  <rect class="device" x="92" y="196" width="250" height="118" rx="10"/>
+  <text class="head" x="217" y="230" text-anchor="middle">当前控制设备</text>
+  <text class="small" x="217" y="256" text-anchor="middle">设备密钥 · 本地目录 · 权限</text>
+  <text class="small" x="217" y="280" text-anchor="middle">加密后发送</text>
+  <rect class="device" x="858" y="196" width="250" height="118" rx="10"/>
+  <text class="head" x="983" y="230" text-anchor="middle">目标设备</text>
+  <text class="small" x="983" y="256" text-anchor="middle">验证身份 · 解密 · 本地执行</text>
+  <text class="small" x="983" y="280" text-anchor="middle">始终提供本机停止</text>
+  <path class="direct" d="M350 246H850"/>
+  <text class="body" x="600" y="228" text-anchor="middle">优先：端到端加密直连</text>
+
+  <rect class="service" x="92" y="446" width="290" height="120" rx="10"/>
+  <text class="head" x="237" y="479" text-anchor="middle">信令 + STUN</text>
+  <text class="small" x="237" y="506" text-anchor="middle">交换连接描述、在线状态和撤销信息</text>
+  <text class="small" x="237" y="530" text-anchor="middle">帮助设备尝试直连，不承载用户内容</text>
+  <rect class="service" x="455" y="446" width="290" height="120" rx="10"/>
+  <text class="head" x="600" y="479" text-anchor="middle">TURN 中继</text>
+  <text class="small" x="600" y="506" text-anchor="middle">只有直连失败时使用</text>
+  <text class="small" x="600" y="530" text-anchor="middle">转发密文，不能读取屏幕、文件和会话</text>
+  <rect class="service" x="818" y="446" width="290" height="120" rx="10"/>
+  <text class="head" x="963" y="479" text-anchor="middle">可选离线信箱</text>
+  <text class="small" x="963" y="506" text-anchor="middle">按次启用，最长保存 7 天</text>
+  <text class="small" x="963" y="530" text-anchor="middle">只收目标设备可解密的会话位置包</text>
+
+  <path class="dash" d="M217 314V438"/><path class="dash" d="M983 314V410H237V438"/>
+  <path class="dash" d="M342 300H410V506H447"/><path class="dash" d="M858 300H790V506H753"/>
+  <path class="dash" d="M342 280H414V606H963V574"/>
+
+  <rect class="note" x="92" y="614" width="1016" height="54" rx="8"/>
+  <line x1="620" y1="622" x2="620" y2="660" stroke="#999" stroke-width="1"/>
+  <text class="body" x="116" y="640">公共服务可见：</text><text class="small" x="248" y="640">设备公开标识、短期在线记录、连接错误、流量和加密信封投递状态。</text>
+  <text class="body" x="648" y="640">公共服务不可见：</text><text class="small" x="800" y="640">账号名、项目路径、会话正文、文件内容、屏幕和键盘输入。</text>
+</svg>
