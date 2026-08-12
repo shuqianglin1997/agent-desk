@@ -734,8 +734,7 @@ function bindEvents() {
   });
 
   els.helpBtn.addEventListener('click', () => {
-    closeUtilityDialog(els.settingsDialog);
-    els.welcomeDialog.showModal();
+    openChildDialog(els.welcomeDialog, els.helpBtn);
   });
 
   els.activityCenterBtn?.addEventListener('click', async () => {
@@ -759,8 +758,14 @@ function bindEvents() {
 
   for (const [kind, button, dialog] of utilityDialogEntries()) {
     dialog?.addEventListener('close', () => {
+      const wasCurrent = state.utilityDialog === kind;
       button?.setAttribute('aria-expanded', 'false');
       if (!dialog.open && state.utilityDialog === kind) state.utilityDialog = null;
+      if (wasCurrent) {
+        requestAnimationFrame(() => {
+          if (!document.querySelector('dialog:modal')) button?.focus({ preventScroll: true });
+        });
+      }
     });
   }
 
@@ -816,7 +821,7 @@ function bindEvents() {
   });
 
   els.networkSettingsBtn?.addEventListener('click', async () => {
-    await openMeshNetworkSettings();
+    await openMeshNetworkSettings(els.networkSettingsBtn);
   });
 
   els.saveMeshNetworkBtn?.addEventListener('click', async () => {
@@ -1141,7 +1146,7 @@ function bindEvents() {
   });
 
   els.sendSessionInfoBtn?.addEventListener('click', async () => {
-    await openSessionSendDialog();
+    await openSessionSendDialog(null, els.sendSessionInfoBtn);
   });
 
   els.clearSessionSelectionBtn?.addEventListener('click', () => {
@@ -1167,7 +1172,7 @@ function bindEvents() {
   });
 
   els.transferCenterBtn?.addEventListener('click', async () => {
-    await openTransferCenter();
+    await openTransferCenter(els.transferCenterBtn);
   });
 
   els.sessionSendDialog?.addEventListener('close', () => {
@@ -2668,6 +2673,46 @@ function updateAtmosphereReadout() {
 let remoteSurfaceLayoutFrame = null;
 let remoteSurfaceObserver = null;
 const DETAIL_MODES = new Set(['session', 'quota', 'remote']);
+const childDialogReturnFocus = new WeakMap();
+const childDialogFocusBound = new WeakSet();
+
+function captureChildDialogReturnFocus(trigger = document.activeElement) {
+  if (!(trigger instanceof HTMLElement)) return null;
+  const disclosure = trigger.closest('details');
+  return {
+    element: trigger,
+    disclosure,
+    disclosureWasOpen: disclosure?.open === true
+  };
+}
+
+function openChildDialog(dialog, trigger = document.activeElement) {
+  if (!dialog || dialog.open) return;
+  const focusContext = trigger?.element instanceof HTMLElement
+    ? trigger
+    : captureChildDialogReturnFocus(trigger);
+  if (focusContext) childDialogReturnFocus.set(dialog, focusContext);
+  if (!childDialogFocusBound.has(dialog)) {
+    childDialogFocusBound.add(dialog);
+    dialog.addEventListener('close', () => {
+      const focusContext = childDialogReturnFocus.get(dialog);
+      childDialogReturnFocus.delete(dialog);
+      requestAnimationFrame(() => {
+        const returnFocus = focusContext?.element;
+        if (!(returnFocus instanceof HTMLElement) || !returnFocus.isConnected || returnFocus.matches(':disabled')) return;
+        const ownerDialog = returnFocus.closest('dialog');
+        if (ownerDialog && !ownerDialog.open) return;
+        const topDialog = document.querySelector('dialog:modal');
+        if (topDialog && !topDialog.contains(returnFocus)) return;
+        if (focusContext.disclosureWasOpen && focusContext.disclosure && !focusContext.disclosure.open) {
+          focusContext.disclosure.open = true;
+        }
+        returnFocus.focus({ preventScroll: true });
+      });
+    });
+  }
+  dialog.showModal();
+}
 
 function utilityDialogEntries() {
   return [
@@ -2690,12 +2735,19 @@ function closeUtilityDialogs(exceptDialog = null) {
 function closeUtilityDialog(dialog) {
   if (!dialog) return;
   const entry = utilityDialogEntries().find(([, , candidate]) => candidate === dialog);
+  let returnFocus = null;
   if (entry) {
     const [kind, button] = entry;
+    returnFocus = button;
     button?.setAttribute('aria-expanded', 'false');
     if (state.utilityDialog === kind) state.utilityDialog = null;
   }
   if (dialog.open) dialog.close();
+  if (returnFocus) {
+    requestAnimationFrame(() => {
+      if (!document.querySelector('dialog:modal')) returnFocus.focus({ preventScroll: true });
+    });
+  }
 }
 
 function openUtilityDialog(kind) {
@@ -3165,7 +3217,7 @@ function renderSelectedDeviceActions(device, connection, overview) {
       { disabled: state.mesh.loading }
     );
     const diagnostics = deviceDiagnosticsButton(device);
-    const history = deviceActionButton(tr('transfers.center.action'), () => openTransferCenter());
+    const history = deviceActionButton(tr('transfers.center.action'), () => openTransferCenter(history));
     els.deviceDetailActions.append(viewSessions, rename, deviceMoreMenu([probe, diagnostics, history]));
     return;
   }
@@ -3198,18 +3250,18 @@ function renderSelectedDeviceActions(device, connection, overview) {
   );
   const transfer = deviceActionButton(
     tr('devices.transfer.files'),
-    () => void openFileSendDialog(device.deviceId),
+    () => void openFileSendDialog(device.deviceId, transfer),
     { disabled: state.mesh.loading }
   );
   const permissions = deviceActionButton(
     tr('devices.permissions.action'),
-    () => openDevicePermissions(device),
+    () => openDevicePermissions(device, permissions),
     { disabled: state.mesh.loading }
   );
   const diagnostics = deviceDiagnosticsButton(device);
   const revoke = deviceActionButton(
     tr('devices.revoke.short'),
-    () => openDevicePermissions(device),
+    () => openDevicePermissions(device, revoke),
     { className: 'danger-text', disabled: state.mesh.loading }
   );
   const connectionState = document.createElement('span');
@@ -3217,7 +3269,7 @@ function renderSelectedDeviceActions(device, connection, overview) {
   connectionState.textContent = connection?.authenticated
     ? tr('devices.connection.ready')
     : tr('devices.connection.onDemand');
-  const history = deviceActionButton(tr('transfers.center.action'), () => openTransferCenter());
+  const history = deviceActionButton(tr('transfers.center.action'), () => openTransferCenter(history));
   els.deviceDetailActions.append(remote, viewSessions, transfer, connectionState, deviceMoreMenu([
     connect,
     diagnostics,
@@ -3436,16 +3488,18 @@ function deviceDiagnosticsButton(device) {
   button.type = 'button';
   button.textContent = tr('devices.diagnostics.action');
   button.disabled = state.mesh.loading;
-  button.addEventListener('click', () => openDeviceDiagnostics(device));
+  button.addEventListener('click', () => openDeviceDiagnostics(device, button));
   return button;
 }
 
-async function openMeshNetworkSettings() {
+async function openMeshNetworkSettings(returnFocus = document.activeElement) {
   if (!els.meshNetworkDialog || state.mesh.networkLoading || !window.manager.getDeviceNetworkConfig) return;
+  const focusContext = captureChildDialogReturnFocus(returnFocus);
   state.mesh.networkLoading = true;
   els.networkSettingsBtn.disabled = true;
   const result = await window.manager.getDeviceNetworkConfig();
   state.mesh.networkLoading = false;
+  els.networkSettingsBtn.disabled = false;
   if (!result?.ok) {
     state.mesh.errorCode = result?.reasonCode || 'network-config-read-failed';
     renderDeviceCenter();
@@ -3455,7 +3509,7 @@ async function openMeshNetworkSettings() {
   els.meshStunUrls.value = (result.config?.stunUrls || []).join('\n');
   els.meshNetworkStatus.dataset.state = 'idle';
   els.meshNetworkStatus.textContent = tr('devices.network.ready');
-  els.meshNetworkDialog.showModal();
+  openChildDialog(els.meshNetworkDialog, focusContext);
 }
 
 async function saveMeshNetworkSettings() {
@@ -3505,7 +3559,7 @@ function connectionPathText(connection) {
   return tr(`devices.path.${path}`);
 }
 
-async function openDeviceDiagnostics(device) {
+async function openDeviceDiagnostics(device, returnFocus = document.activeElement) {
   if (!els.meshDiagnosticsDialog || !device?.deviceId) return;
   state.mesh.diagnosticDeviceId = device.deviceId;
   state.mesh.diagnostics = null;
@@ -3513,7 +3567,7 @@ async function openDeviceDiagnostics(device) {
   if (els.meshDiagnosticsTitle) {
     els.meshDiagnosticsTitle.textContent = tr('devices.diagnostics.named', { name: device.name });
   }
-  els.meshDiagnosticsDialog.showModal();
+  openChildDialog(els.meshDiagnosticsDialog, returnFocus);
   renderDeviceDiagnostics();
   await refreshDeviceDiagnostics();
 }
@@ -3638,7 +3692,7 @@ function diagnosticTime(value) {
   return Number.isFinite(date.getTime()) ? date.toLocaleString() : '-';
 }
 
-function openDevicePermissions(device) {
+function openDevicePermissions(device, returnFocus = document.activeElement) {
   if (!els.devicePermissionsDialog || device.isLocal) return;
   state.mesh.permissionDeviceId = device.deviceId;
   if (els.devicePermissionsTitle) {
@@ -3651,7 +3705,7 @@ function openDevicePermissions(device) {
     checkbox.checked = enabled.has(capability);
     checkbox.disabled = !supported.has(capability);
   }
-  els.devicePermissionsDialog.showModal();
+  openChildDialog(els.devicePermissionsDialog, returnFocus);
 }
 
 async function saveRemoteDevicePermissions() {
@@ -5096,7 +5150,7 @@ function renderSessionCopyControl() {
   }
 }
 
-async function openSessionSendDialog(preselectedDeviceId = null) {
+async function openSessionSendDialog(preselectedDeviceId = null, returnFocus = document.activeElement) {
   if (!els.sessionSendDialog) return;
   const sessions = resolvedActionSessions();
   const selections = sessions.map((session) => ({
@@ -5112,10 +5166,10 @@ async function openSessionSendDialog(preselectedDeviceId = null) {
     message: remotes.length ? tr('transfers.ready', { n: selections.length }) : tr('transfers.noDevice')
   });
   renderSessionSendStatus();
-  els.sessionSendDialog.showModal();
+  openChildDialog(els.sessionSendDialog, returnFocus);
 }
 
-async function openFileSendDialog(preselectedDeviceId = null) {
+async function openFileSendDialog(preselectedDeviceId = null, returnFocus = document.activeElement) {
   if (!els.fileSendDialog) return;
   const remotes = (state.mesh.overview?.devices || []).filter((device) => !device.isLocal);
   const targetDeviceId = populateTransferTargets(els.fileSendTarget, remotes, preselectedDeviceId);
@@ -5124,7 +5178,7 @@ async function openFileSendDialog(preselectedDeviceId = null) {
     message: remotes.length ? tr('transfers.filesReady') : tr('transfers.noDevice')
   });
   renderFileSendStatus();
-  els.fileSendDialog.showModal();
+  openChildDialog(els.fileSendDialog, returnFocus);
 }
 
 function populateTransferTargets(select, devices, preselectedDeviceId) {
@@ -5143,10 +5197,10 @@ function populateTransferTargets(select, devices, preselectedDeviceId) {
   return preferred || null;
 }
 
-async function openTransferCenter() {
-  closeUtilityDialogs();
+async function openTransferCenter(returnFocus = document.activeElement) {
+  const focusContext = captureChildDialogReturnFocus(returnFocus);
   await loadTransfers();
-  if (els.transferCenterDialog && !els.transferCenterDialog.open) els.transferCenterDialog.showModal();
+  openChildDialog(els.transferCenterDialog, focusContext);
 }
 
 async function chooseFilesForTransfer() {

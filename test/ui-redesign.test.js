@@ -96,6 +96,7 @@ test('设备中心是独立模态弹窗，采用设备列表加所选详情且�
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
   const styles = read('src/styles.css');
+  const workspaceStyles = read('src/workspace.css');
 
   assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?state\.utilityDialog = kind[\s\S]*?dialog\.showModal\(\)/);
   assert.match(renderer, /\['devices', els\.deviceCenterBtn, els\.deviceCenterDialog\]/);
@@ -110,8 +111,47 @@ test('设备中心是独立模态弹窗，采用设备列表加所选详情且�
   assert.match(renderer, /const deviceBindingIds = new Set\(deviceSlots\.map[\s\S]*?deviceBindingIds\.has\(binding\.accountBindingId\)/);
   assert.match(renderer, /function viewDeviceSessions[\s\S]*?closeUtilityDialog\(els\.deviceCenterDialog\)[\s\S]*?UiContext\.viewDeviceSessions\(state\.ui, device\.deviceId\)[\s\S]*?setWorkspaceMode\('sessions'\)/);
   assert.match(renderer, /function viewDeviceAgentSessions[\s\S]*?UiContext\.viewDeviceAgentSessions\(state\.ui,[\s\S]*?agentId: agent\.agentId[\s\S]*?closeUtilityDialog\(els\.deviceCenterDialog\)[\s\S]*?setWorkspaceMode\('sessions'\)/);
-  assert.match(styles, /\.device-center-dialog \.dialog-body\s*\{[\s\S]*?grid-template-rows:\s*auto auto minmax\(0, 1fr\)/);
+  assert.match(workspaceStyles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?overflow:\s*hidden/);
+  assert.match(workspaceStyles, /\.device-center-content\s*\{[\s\S]*?overflow:\s*hidden/);
+  assert.match(styles, /\.device-list\s*\{[\s\S]*?overflow-y:\s*auto/);
   assert.match(styles, /\.account-actions button\.primary:disabled\s*\{[\s\S]*?background:\s*var\(--surface-sunken\)/);
+});
+
+test('1.14 全局弹窗统一固定 Shell，关闭不伪装主操作，次级流程保留父层', () => {
+  const html = read('src/index.html');
+  const renderer = read('src/renderer.js');
+  const styles = read('src/workspace.css');
+  const dialogSlice = (id) => {
+    const start = html.indexOf(`id="${id}"`);
+    return html.slice(start, html.indexOf('</dialog>', start));
+  };
+
+  for (const id of ['deviceCenterDialog', 'toolCenterDialog', 'activityCenterDialog', 'settingsDialog']) {
+    const dialog = dialogSlice(id);
+    assert.match(dialog, /aria-labelledby="[^"]+"[^>]*aria-describedby="[^"]+"/);
+    assert.match(dialog, /class="dialog-body utility-dialog-shell"/);
+    assert.match(dialog, /utility-dialog-header[\s\S]*?utility-dialog-close[\s\S]*?utility-dialog-content/);
+    assert.doesNotMatch(dialog, /data-i18n="dialog\.done"/);
+  }
+
+  assert.match(dialogSlice('deviceCenterDialog'), /utility-dialog-commandbar device-center-commandbar/);
+  assert.match(dialogSlice('toolCenterDialog'), /utility-dialog-commandbar tool-center-commandbar[\s\S]*?utility-dialog-content tool-center-content[\s\S]*?utility-dialog-footer tool-center-footer/);
+  assert.match(dialogSlice('activityCenterDialog'), /utility-dialog-commandbar activity-center-commandbar/);
+  assert.doesNotMatch(dialogSlice('settingsDialog'), /utility-dialog-footer/);
+
+  assert.match(styles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?height:\s*min\([\s\S]*?100dvh[\s\S]*?overflow:\s*hidden/);
+  assert.match(styles, /\.utility-dialog-content\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(styles, /\.utility-dialog-header,[\s\S]*?\.utility-dialog-commandbar,[\s\S]*?\.utility-dialog-footer\s*\{[\s\S]*?flex:\s*none/);
+  assert.doesNotMatch(styles, /\.device-center-dialog \.dialog-body(?:\.utility-dialog-shell)?\s*\{[^}]*min-height:\s*610px/);
+
+  const helpHandler = renderer.slice(renderer.indexOf("els.helpBtn.addEventListener"), renderer.indexOf("els.activityCenterBtn", renderer.indexOf("els.helpBtn.addEventListener")));
+  assert.match(helpHandler, /openChildDialog\(els\.welcomeDialog, els\.helpBtn\)/);
+  assert.doesNotMatch(helpHandler, /closeUtilityDialog/);
+  const transferHandler = renderer.slice(renderer.indexOf('async function openTransferCenter'), renderer.indexOf('async function chooseFilesForTransfer'));
+  assert.match(transferHandler, /captureChildDialogReturnFocus\(returnFocus\)[\s\S]*?loadTransfers\(\)[\s\S]*?openChildDialog\(els\.transferCenterDialog, focusContext\)/);
+  assert.doesNotMatch(transferHandler, /closeUtilityDialogs/);
+  assert.match(renderer, /function openChildDialog\(dialog, trigger = document\.activeElement\)[\s\S]*?childDialogReturnFocus[\s\S]*?returnFocus\.focus/);
+  assert.match(renderer, /disclosureWasOpen[\s\S]*?focusContext\.disclosure\.open = true/);
 });
 
 test('内嵌远控只保留紧凑设备工具条、画面和控制区，不重复产品品牌层', () => {

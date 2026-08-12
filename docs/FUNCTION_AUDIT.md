@@ -10,7 +10,7 @@
 
 | 区域 | 用户入口 | 实际作用 | 当前决定 |
 |---|---|---|---|
-| Header | Device Lens、设备、工具、活动、设置 | 选择全部设备/某台设备；四个入口各自打开独立弹窗，更新/帮助/语言/主题归设置弹窗 | 已收敛；弹窗不替换右下详情，无“更多”杂物菜单、无来源不明状态点 |
+| Header | Device Lens、设备、工具、活动、设置 | 选择全部设备/某台设备；四个入口各自打开独立弹窗，更新/帮助/语言/主题归设置弹窗 | 已收敛；弹窗不替换右下详情，无“更多”杂物菜单、无来源不明状态点；四个弹窗统一固定 Header/Command/Footer 与单一 Content 滚动区 |
 | 固定页面骨架 | 顶部 Agent、左下会话、右下详情、Footer | 庭院/卡片与 Agent/Slot 操作归顶部，会话浏览归左下；右下只承载会话、额度、远控，Footer 只保留全局状态 | 已实现；58px Header、244px Agent、316px 详情、38px Footer，主区恰好三个面板且 Compact 无横滚 |
 | Agent 与运行位置 | 打开账号、新增运行位置、运行位置选择、管理 Agent | 新建 Agent/账号绑定/本机 Slot，并把打开、路径、诊断、重扫等动作落到确切 Slot | 已实现；运行位置始终可见，“全局 Agent / 当前运行位置”在对象 Dialog 中分区，均可删到零 |
 | 目录纠错 | 合并 Agent、拆分绑定、移除运行位置/登录账号/Agent | 修改 AgentIdentity、AccountBinding、AgentSlot 目录关系并预览影响 | 已实现；固定 IPC、base revision 与审计，不触碰官方客户端数据 |
@@ -35,7 +35,7 @@
 | 多设备控制台 | 右下 Remote Surface 单屏/网格 | 最多四路、一个活动画质、唯一输入目标和公开网络统计 | 代码已实现；切换/断线/撤销均释放按键 |
 | 公网会合与诊断 | 设备“网络设置”“连接诊断” | HTTPS 信令、STUN、短期 TURN、LAN/直连/中继状态 | 代码已实现；服务端可自托管，不接收业务内容；真实 NAT/coturn 待物理验收 |
 | UI 上下文 | Device Lens、Agent、Slot、focus/checked、副本、设备详情、全局弹窗、远控、传输草稿 | 保持每种对象和动作目标独立，并提供原子导航 | 已实现；`utilityDialog` 不写入 workspace/detail，render/filter 无选择副作用 |
-| 真实窗口验收 | `npm run accept:ui` | 在临时 userData 的 1040 × 840 Electron 窗口执行 15 条任务路径 | 已通过；覆盖固定几何、Compact 无横滚、Top Layer、四个 Header 入口、三语、主题、庭院/卡片、对象管理、多副本、远控和 reduced-motion |
+| 真实窗口验收 | `npm run accept:ui` | 在临时 userData 的真实 Electron 窗口执行 17 条任务路径 | 已通过；覆盖固定几何、Compact 无横滚、Top Layer、四个 Header 入口、固定区不随内容滚动、父子 Esc/焦点栈、760 × 560 小视口、三语、主题、庭院/卡片、对象管理、多副本、远控和 reduced-motion |
 
 ## 3. 会话复制的唯一契约
 
@@ -81,6 +81,8 @@
 - 远控媒体独立于普通 Main Renderer，视觉上只替换右下详情；目标端持续可见并可立即停止，多设备模式始终只有一个输入目标。
 - 公网信令只转发固定配对和 offer/answer，TURN 凭据短期存在内存，诊断不显示 IP、SDP 或凭据。
 - Agent、Device Lens、Slot、Conversation、SessionReplica 与 `utilityDialog` 的 UI 上下文已经拆开；四个全局弹窗和设备详情导航都不会再用旧 Profile 状态静默改写底层工作台或动作目标。
+- 设备、工具、活动、设置的 Shell 已统一：关闭始终在顶部且为中性操作，工具/活动/设置不再用底部“完成”；Content 是唯一普通纵向滚动区，设备仅保留两个命名窗格滚动例外。
+- 帮助、传输记录、网络、权限与诊断使用父子弹窗栈；Esc 只关闭最上层，返回时恢复父层滚动、菜单和触发焦点。网络设置读取结束后入口恢复 enabled。
 - Agent/Binding/Slot 对象管理、焦点/勾选生命周期、多副本显式来源、独立传输草稿和远控返回/断开语义已经通过行为测试与真实窗口任务验收。
 
 ### 后续仍值得逐项处理

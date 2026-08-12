@@ -454,10 +454,24 @@
   dialog .dialog-body {
     display: grid;
     gap: 13px;
-    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
     margin: 0;
     padding: 18px;
     overflow: auto;
+    background: var(--surface-float);
+  }
+
+  dialog .dialog-body.utility-dialog-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    height: min(var(--dialog-preferred-height, 560px), calc(100dvh - var(--dialog-safe-margin, 48px)));
+    min-height: 0;
+    max-height: calc(100dvh - var(--dialog-safe-margin, 48px));
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
     background: var(--surface-float);
   }
 
@@ -501,6 +515,59 @@
   .utility-dialog-head h3 { margin: 4px 0 0; font-size: 19px; letter-spacing: -0.015em; }
   .utility-dialog-head p { margin: 5px 0 0; color: var(--ink-secondary); font-size: 10.5px; line-height: 1.45; }
   .utility-dialog-head > button { flex: none; height: 30px; }
+
+  .utility-dialog-header,
+  .utility-dialog-commandbar,
+  .utility-dialog-footer {
+    position: relative;
+    z-index: 2;
+    flex: none;
+  }
+
+  .utility-dialog-close {
+    min-width: 58px;
+    border-color: var(--line-soft);
+    color: var(--ink-secondary);
+    background: var(--surface-raised);
+    box-shadow: none;
+    font-weight: 620;
+  }
+
+  .utility-dialog-commandbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 48px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--surface-float);
+  }
+
+  .utility-dialog-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    padding: 13px 14px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    background: var(--surface-canvas);
+  }
+
+  .utility-dialog-footer,
+  dialog .dialog-actions.utility-dialog-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-height: 48px;
+    margin: 0;
+    padding: 9px 14px;
+    border-top: 1px solid var(--line-soft);
+    background: var(--surface-raised);
+  }
 }
 
 @layer features {
@@ -1614,12 +1681,194 @@
 
   /* Global utility dialogs -------------------------------------------- */
   .device-center-dialog { width: min(760px, calc(100vw - 48px)); }
-  .device-center-dialog .dialog-body { min-height: 610px; max-height: calc(100vh - 42px); }
+  .device-center-dialog .dialog-body.utility-dialog-shell {
+    --dialog-preferred-height: 680px;
+    --dialog-safe-margin: 42px;
+  }
   .tool-center-dialog { width: min(720px, calc(100vw - 48px)); }
-  .tool-center-dialog .dialog-body { min-height: 560px; max-height: calc(100vh - 54px); }
+  .tool-center-dialog .dialog-body.utility-dialog-shell {
+    --dialog-preferred-height: 650px;
+    --dialog-safe-margin: 54px;
+  }
   .activity-center-dialog { width: min(620px, calc(100vw - 52px)); }
-  .activity-center-dialog .dialog-body { min-height: 480px; max-height: calc(100vh - 64px); }
+  .activity-center-dialog .dialog-body.utility-dialog-shell {
+    --dialog-preferred-height: 380px;
+    --dialog-safe-margin: 64px;
+  }
   .settings-dialog { width: min(520px, calc(100vw - 52px)); }
+  .settings-dialog .dialog-body.utility-dialog-shell {
+    --dialog-preferred-height: 280px;
+    --dialog-safe-margin: 64px;
+  }
+
+  .child-dialog-shell {
+    --dialog-preferred-height: 540px;
+    --dialog-safe-margin: 64px;
+  }
+
+  .device-center-head {
+    align-items: flex-start;
+  }
+
+  .device-center-commandbar {
+    z-index: 4;
+  }
+
+  .device-center-commandbar .device-center-status {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .device-center-head-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .device-center-content {
+    padding: 10px 12px 12px;
+    overflow: hidden;
+  }
+
+  .device-center-content > .mesh-empty-state {
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .device-center-content > .mesh-ready-state {
+    height: 100%;
+  }
+
+  .tool-center-head {
+    display: flex;
+    align-items: flex-start;
+    padding: 16px 17px;
+    border: 0;
+    border-bottom: 1px solid var(--line-soft);
+    box-shadow: none;
+  }
+
+  .tool-center-commandbar {
+    display: grid;
+    grid-template-columns: minmax(290px, 0.9fr) minmax(0, 1.1fr);
+    align-items: stretch;
+  }
+
+  .tool-center-commandbar .tool-center-overview {
+    min-width: 0;
+    padding: 7px 9px;
+  }
+
+  .tool-center-commandbar .tool-center-status {
+    align-self: stretch;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .tool-center-content {
+    display: grid;
+    align-content: start;
+    gap: 13px;
+  }
+
+  .tool-center-footer {
+    justify-content: flex-start;
+  }
+
+  .tool-center-footer small {
+    max-width: none;
+    color: var(--ink-tertiary);
+    font-size: 8.5px;
+    line-height: 1.45;
+  }
+
+  .activity-center-commandbar {
+    justify-content: flex-end;
+  }
+
+  .activity-center-content {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
+
+  .activity-center-dialog .attention-inbox {
+    overflow: visible;
+  }
+
+  .settings-dialog-content,
+  .welcome-dialog-content,
+  .network-settings-content,
+  .diagnostics-content {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+  }
+
+  .device-permissions-dialog .utility-dialog-content {
+    padding: 13px 14px;
+  }
+
+  .device-permissions-actions > span,
+  .utility-dialog-footer > span {
+    flex: 1;
+  }
+
+  .device-diagnostics-dialog {
+    width: min(760px, calc(100vw - 64px));
+  }
+
+  .device-diagnostics-dialog .dialog-body.utility-dialog-shell {
+    --dialog-preferred-height: 620px;
+  }
+
+  .diagnostics-commandbar {
+    justify-content: flex-end;
+  }
+
+  .diagnostics-content .device-diagnostics-body {
+    overflow: visible;
+  }
+
+  .device-network-dialog {
+    width: min(640px, calc(100vw - 64px));
+  }
+
+  .device-network-dialog .dialog-body.utility-dialog-shell {
+    --dialog-preferred-height: 560px;
+  }
+
+  .transfer-center-dialog .dialog-body.utility-dialog-shell {
+    --dialog-preferred-height: 600px;
+  }
+
+  .transfer-center-commandbar strong {
+    color: var(--ink-secondary);
+    font-size: 10.5px;
+  }
+
+  .transfer-center-content.transfer-history {
+    display: block;
+  }
+
+  .transfer-center-content .transfer-list {
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .welcome-dialog .dialog-body.utility-dialog-shell {
+    --dialog-preferred-height: 500px;
+  }
+
+  .welcome-dialog-content .welcome-steps,
+  .welcome-dialog-content .welcome-tip {
+    flex: none;
+  }
 
   body[data-view="yard"] dialog button,
   body[data-view="yard"] dialog .dialog-actions button,
@@ -1639,6 +1888,12 @@
     border-color: var(--accent);
     color: var(--ink-on-accent);
     background: var(--accent);
+  }
+
+  body[data-view="yard"] dialog button.utility-dialog-close {
+    border-color: var(--line-soft);
+    color: var(--ink-secondary);
+    background: var(--surface-raised);
   }
 
   @keyframes popover-in {

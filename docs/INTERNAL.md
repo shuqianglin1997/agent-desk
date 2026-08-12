@@ -57,7 +57,7 @@ src/
   ui-context.js           独立 UI 上下文与无副作用状态迁移
   index.html
   styles.css              低优先级 legacy 兼容样式
-  workspace.css           1.13 固定工作台的 canonical 分层样式
+  workspace.css           1.14 固定工作台与全局弹窗 Shell 的 canonical 分层样式
 
   apps.js                 客户端目录、默认路径、扫描器与导出能力
   sessions.js             Claude / Claude CLI / Codex / Kimi 会话扫描
@@ -197,11 +197,13 @@ Codex 额外区分：
 
 ### 固定工作台与 CSS 层级
 
-`src/workspace.css` 是 1.13 主窗口的唯一 canonical 表现层，按 `reset / tokens / shell / components / features / themes` 组织；旧 `styles.css` 与 `yard/yard.css` 被放入低优先级 `legacy` 层，不能再通过文件尾覆盖改变三面板几何。最高主题层保留语义 `[hidden]` 规则，避免后写的 `display:grid` 把已隐藏视图重新显示。
+`src/workspace.css` 是 1.14 主窗口与全局弹窗的唯一 canonical 表现层，按 `reset / tokens / shell / components / features / themes` 组织；旧 `styles.css` 与 `yard/yard.css` 被放入低优先级 `legacy` 层，不能再通过文件尾覆盖改变三面板几何或弹窗滚动归属。最高主题层保留语义 `[hidden]` 规则，避免后写的 `display:grid` 把已隐藏视图重新显示。
 
 - Renderer 内容区按 58px Header、38px Footer、12px 横向 padding、10px 纵向 padding、10px gap、244px Agent 面板和 316px 详情宽度布局；Compact 表 `min-width: 0` 且没有水平滚动。
 - “庭院 / 卡片”是共用业务状态的当前模式分段；运行位置始终渲染，即使当前 Agent 只有一个 Slot。
 - 场景时间/天气使用原生 Top Layer Popover；Agent 与运行位置管理使用原生对象 Dialog；设备、工具、活动、设置分别使用四个全局 Dialog。
+- 四个全局 Dialog 使用 `utility-dialog-shell`：Shell 自身 `overflow: hidden`，Header/Command Bar/Footer 固定，只有 `utility-dialog-content` 纵向滚动；设备中心外层 Content 不滚动，只允许设备列表与设备 Agent 列表两个命名窗格独立滚动。
+- `openChildDialog()` 为帮助、传输记录、网络、权限、诊断等次级流程记录触发控件和所属 disclosure；关闭或 Esc 只移除最上层，恢复父弹窗原滚动、菜单展开和焦点。只有明确导航工作台的动作才关闭根层。
 - 像素样式只保留在 Canvas、猫、紧凑名牌等 Agent Presenter 内。应用按钮、表格、Footer 和弹窗统一使用组件 token。
 - 会话行的 focused 与 checked 视觉落在真实 table cell 上，不向 `<tr>` 注入会被 Chromium 当作匿名单元格的伪元素。
 
@@ -320,7 +322,7 @@ npm run accept:ui
 npm run build:mac:dir
 ```
 
-`npm run accept:ui` 使用临时 userData 启动真实 1040 × 840 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 15 条任务路径：58/244/316/38 固定几何与 Compact 无横滚、focus/checked/隐藏选择、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、本机新增、四个 Header 入口、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销后详情清理和 reduced-motion。
+`npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 17 条任务路径：58/244/316/38 固定几何与 Compact 无横滚、focus/checked/隐藏选择、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、本机新增、四个 Header 入口、固定区矩形与单一滚动所有者、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销后详情清理和 reduced-motion。
 
 测试除了扫描器和纯函数，还包含以下边界契约：
 
@@ -332,6 +334,7 @@ npm run build:mac:dir
 - Mesh 账号关联键在同 Mesh 内稳定、跨 Mesh 不可关联，成员证书和握手证明可检测篡改与过期；
 - 同账号跨形态只形成一个 Agent，同机多账号不误合并，换号不静默搬历史，最后 Slot 删除后目录可为空；
 - Header 直接提供设备、工具、活动和设置，四个入口各开独立模态弹窗且不改变底层工作台或三个固定面板，设备 IPC 保持固定白名单；
+- 四个全局弹窗的 Header/关闭/全局命令/Footer 不随内容滚动；工具、活动、设置不保留底部“完成”，父子弹窗关闭后恢复准确焦点和 disclosure 状态；
 - 两个隔离数据目录完成加密配对、权限更新、撤销、库存归并、SessionPointer 与文件续传；
 - 真实 Electron 沙箱 WebRTC 完成设备认证、库存、会话信息、184,333 字节文件和合成屏幕媒体；
 - 信令请求拒绝篡改、过期、重放、无租约发送和任意回复地址，公开诊断不含 IP、SDP 或凭据；

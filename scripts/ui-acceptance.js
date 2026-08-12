@@ -398,6 +398,85 @@ async function dialogSnapshot(client, selector) {
   })()`);
 }
 
+async function utilityDialogShellSnapshot(client, selector) {
+  return client.evaluate(`(() => {
+    const dialog = document.querySelector(${JSON.stringify(selector)});
+    const shell = dialog.querySelector('.utility-dialog-shell');
+    const header = shell?.querySelector('.utility-dialog-header');
+    const commandbar = shell?.querySelector('.utility-dialog-commandbar');
+    const content = shell?.querySelector('.utility-dialog-content');
+    const footer = shell?.querySelector('.utility-dialog-footer');
+    const close = header?.querySelector('.utility-dialog-close');
+    const rectOf = (node) => {
+      if (!node) return null;
+      const rect = node.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    const styleOf = (node) => node ? getComputedStyle(node) : null;
+    const shellStyle = styleOf(shell);
+    const contentStyle = styleOf(content);
+    return {
+      shell: rectOf(shell),
+      header: rectOf(header),
+      commandbar: rectOf(commandbar),
+      content: rectOf(content),
+      footer: rectOf(footer),
+      close: rectOf(close),
+      shellOverflowY: shellStyle?.overflowY || '',
+      shellScrollTop: shell?.scrollTop || 0,
+      shellClientHeight: shell?.clientHeight || 0,
+      shellScrollHeight: shell?.scrollHeight || 0,
+      contentOverflowY: contentStyle?.overflowY || '',
+      contentScrollTop: content?.scrollTop || 0,
+      contentClientHeight: content?.clientHeight || 0,
+      contentScrollHeight: content?.scrollHeight || 0
+    };
+  })()`);
+}
+
+function assertRectStable(before, after, key) {
+  if (!before[key] && !after[key]) return;
+  assert.ok(before[key] && after[key], `${key} must remain mounted while content scrolls`);
+  for (const field of ['x', 'y', 'right', 'bottom', 'width', 'height']) {
+    assert.ok(
+      Math.abs(before[key][field] - after[key][field]) <= 0.5,
+      `${key}.${field} moved while content scrolled: ${before[key][field]} -> ${after[key][field]}`
+    );
+  }
+}
+
+async function forceUtilityContentScroll(client, selector) {
+  await client.evaluate(`(() => {
+    const content = document.querySelector(${JSON.stringify(selector)})?.querySelector('.utility-dialog-content');
+    if (!content) throw new Error('utility content not found');
+    const fixture = document.createElement('div');
+    fixture.dataset.acceptanceScrollFixture = 'true';
+    fixture.style.cssText = 'height:1200px;min-height:1200px;pointer-events:none;visibility:hidden;';
+    content.append(fixture);
+    content.scrollTop = content.scrollHeight;
+  })()`);
+}
+
+async function clearUtilityContentScrollFixture(client, selector) {
+  await client.evaluate(`(() => {
+    const dialog = document.querySelector(${JSON.stringify(selector)});
+    dialog?.querySelector('[data-acceptance-scroll-fixture]')?.remove();
+    const content = dialog?.querySelector('.utility-dialog-content');
+    if (content) content.scrollTop = 0;
+  })()`);
+}
+
+async function pressEscape(client) {
+  const key = {
+    key: 'Escape',
+    code: 'Escape',
+    windowsVirtualKeyCode: 27,
+    nativeVirtualKeyCode: 27
+  };
+  await client.call('Input.dispatchKeyEvent', { type: 'keyDown', ...key });
+  await client.call('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+}
+
 function assertDialogFits(snapshot, options = {}) {
   assert.equal(snapshot.open, true, 'dialog must be open');
   assert.ok(snapshot.rect.x >= -1 && snapshot.rect.y >= -1, 'dialog must start inside the viewport');
@@ -653,8 +732,20 @@ async function runAcceptance(client, artifactDir) {
       })()`);
       assert.deepEqual(current, baseline, `${kind} must not mutate or move the underlying workspace`);
       await capture(client, artifactDir, `06-${kind}-dialog`);
+
+      const shellBefore = await utilityDialogShellSnapshot(client, dialog);
+      assert.equal(shellBefore.shellOverflowY, 'hidden', `${kind} shell must own no scroll`);
+      await forceUtilityContentScroll(client, dialog);
+      const shellAfter = await utilityDialogShellSnapshot(client, dialog);
+      assert.ok(shellAfter.contentScrollTop > 0, `${kind} content must be the scroll owner`);
+      assert.ok(['auto', 'scroll'].includes(shellAfter.contentOverflowY), `${kind} content must allow vertical scrolling`);
+      assert.equal(shellAfter.shellScrollTop, 0, `${kind} shell must stay at scrollTop 0`);
+      for (const key of ['header', 'close', 'commandbar', 'footer']) assertRectStable(shellBefore, shellAfter, key);
+      await clearUtilityContentScrollFixture(client, dialog);
+
       await client.evaluate(`document.querySelector(${JSON.stringify(dialog)}).close()`);
       await waitFor(client, `state.utilityDialog === null && !document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal close`);
+      await waitFor(client, `document.activeElement === document.querySelector(${JSON.stringify(button)})`, `${kind} trigger focus return`);
     }
 
     await client.evaluate(`document.querySelector('#quotaChipSelf').click()`);
@@ -668,6 +759,87 @@ async function runAcceptance(client, artifactDir) {
     })()`);
     assert.deepEqual(quotaGeometry, baseline.geometry, 'quota must not insert a new row');
     await client.evaluate(`setWorkspaceMode('sessions')`);
+  });
+
+  await run('settings/help and activity/history keep a real parent-child modal stack with layered Escape', async () => {
+    await client.evaluate(`document.querySelector('#settingsBtn').click()`);
+    await waitFor(client, `state.utilityDialog === 'settings' && document.querySelector('#settingsDialog').open`, 'settings parent');
+    await client.evaluate(`(() => {
+      const content = document.querySelector('#settingsDialog .utility-dialog-content');
+      const fixture = document.createElement('div');
+      fixture.dataset.acceptanceParentScrollFixture = 'true';
+      fixture.style.cssText = 'height:700px;min-height:700px;visibility:hidden;';
+      content.append(fixture);
+      content.scrollTop = 37;
+      document.querySelector('#helpBtn').click();
+    })()`);
+    await waitFor(client, `document.querySelector('#settingsDialog').open && document.querySelector('#welcomeDialog').open`, 'help child over settings');
+    assert.equal(await client.evaluate(`state.utilityDialog`), 'settings');
+    await pressEscape(client);
+    await waitFor(client, `document.querySelector('#settingsDialog').open && !document.querySelector('#welcomeDialog').open`, 'Escape closes help only');
+    await waitFor(client, `document.activeElement?.id === 'helpBtn'`, 'help trigger focus return');
+    const settingsReturn = await client.evaluate(`({
+      focus: document.activeElement?.id,
+      scrollTop: document.querySelector('#settingsDialog .utility-dialog-content').scrollTop
+    })`);
+    assert.equal(settingsReturn.focus, 'helpBtn');
+    assert.equal(settingsReturn.scrollTop, 37);
+    await client.evaluate(`document.querySelector('#settingsDialog [data-acceptance-parent-scroll-fixture]').remove()`);
+    await pressEscape(client);
+    await waitFor(client, `!document.querySelector('#settingsDialog').open && state.utilityDialog === null`, 'Escape closes settings root');
+    await waitFor(client, `document.activeElement?.id === 'settingsBtn'`, 'settings trigger focus');
+
+    await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
+    await waitFor(client, `state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'activity parent');
+    await client.evaluate(`document.querySelector('#transferCenterBtn').click()`);
+    await waitFor(client, `document.querySelector('#activityCenterDialog').open && document.querySelector('#transferCenterDialog').open`, 'history child over activity');
+    assert.equal(await client.evaluate(`state.utilityDialog`), 'activity');
+    await pressEscape(client);
+    await waitFor(client, `document.querySelector('#activityCenterDialog').open && !document.querySelector('#transferCenterDialog').open`, 'Escape closes history only');
+    await waitFor(client, `document.activeElement?.id === 'transferCenterBtn'`, 'history trigger focus return');
+    assert.equal(await client.evaluate(`document.activeElement?.id`), 'transferCenterBtn');
+    await pressEscape(client);
+    await waitFor(client, `!document.querySelector('#activityCenterDialog').open && state.utilityDialog === null`, 'Escape closes activity root');
+    await waitFor(client, `document.activeElement?.id === 'activityCenterBtn'`, 'activity trigger focus');
+  });
+
+  await run('all four utility dialogs stay bounded in a 760×560 renderer viewport', async () => {
+    await client.call('Emulation.setDeviceMetricsOverride', {
+      width: 760,
+      height: 560,
+      deviceScaleFactor: 1,
+      mobile: false,
+      screenWidth: 760,
+      screenHeight: 560
+    });
+    try {
+      await client.evaluate(`(() => {
+        window.I18N.setLang('en');
+        updateLangToggle();
+        applyView();
+        rerenderLocalizedText();
+      })()`);
+      for (const [kind, dialog] of [
+        ['devices', '#deviceCenterDialog'],
+        ['tools', '#toolCenterDialog'],
+        ['activity', '#activityCenterDialog'],
+        ['settings', '#settingsDialog']
+      ]) {
+        await client.evaluate(`openUtilityDialog(${JSON.stringify(kind)})`);
+        const snapshot = await dialogSnapshot(client, dialog);
+        assert.deepEqual(snapshot.viewport, { width: 760, height: 560 });
+        assertDialogFits(snapshot);
+        const shell = await utilityDialogShellSnapshot(client, dialog);
+        assert.equal(shell.shellOverflowY, 'hidden');
+        assert.ok(shell.content && shell.content.height > 0, `${kind} content must retain usable height`);
+        await client.evaluate(`document.querySelector(${JSON.stringify(dialog)}).close()`);
+        await waitFor(client, `state.utilityDialog === null`, `${kind} small viewport close`);
+      }
+    } finally {
+      await client.evaluate(`document.querySelectorAll('dialog[open]').forEach((dialog) => dialog.close())`);
+      await client.call('Emulation.clearDeviceMetricsOverride');
+    }
+    await waitFor(client, `innerWidth === 1040`, 'fixed renderer viewport restore');
   });
 
   await run('modal Device Center preserves the underlying workspace during isolated Mesh initialization', async () => {
@@ -756,6 +928,40 @@ async function runAcceptance(client, artifactDir) {
     assert.ok(independence.detail);
     assert.equal(independence.lens, 'all', 'left-side device selection must not change the topbar Lens');
     assert.ok(independence.detailName.length > 0 && independence.actionCount >= 3);
+
+    const deviceShellBefore = await utilityDialogShellSnapshot(client, '#deviceCenterDialog');
+    assert.equal(deviceShellBefore.shellOverflowY, 'hidden');
+    assert.equal(deviceShellBefore.contentOverflowY, 'hidden', 'Device Center outer content must not compete with its named panes');
+    await client.evaluate(`(() => {
+      const list = document.querySelector('#deviceList');
+      const fixture = document.createElement('div');
+      fixture.dataset.acceptanceDeviceScrollFixture = 'true';
+      fixture.style.cssText = 'height:1000px;min-height:1000px;visibility:hidden;';
+      list.append(fixture);
+      list.scrollTop = list.scrollHeight;
+    })()`);
+    const devicePaneScroll = await client.evaluate(`(() => {
+      const list = document.querySelector('#deviceList');
+      return { scrollTop: list.scrollTop, overflowY: getComputedStyle(list).overflowY };
+    })()`);
+    assert.ok(devicePaneScroll.scrollTop > 0, 'Device Center device list must be a named pane scroll owner');
+    assert.ok(['auto', 'scroll'].includes(devicePaneScroll.overflowY));
+    const deviceShellAfter = await utilityDialogShellSnapshot(client, '#deviceCenterDialog');
+    assert.equal(deviceShellAfter.shellScrollTop, 0);
+    for (const key of ['header', 'close', 'commandbar']) assertRectStable(deviceShellBefore, deviceShellAfter, key);
+    await client.evaluate(`document.querySelector('#deviceList [data-acceptance-device-scroll-fixture]').remove()`);
+
+    await client.evaluate(`(() => {
+      document.querySelector('#deviceCenterMoreMenu').open = true;
+      document.querySelector('#networkSettingsBtn').click();
+    })()`);
+    await waitFor(client, `document.querySelector('#deviceCenterDialog').open && document.querySelector('#meshNetworkDialog').open`, 'network child over Device Center');
+    assert.equal(await client.evaluate(`state.utilityDialog`), 'devices');
+    await pressEscape(client);
+    await waitFor(client, `document.querySelector('#deviceCenterDialog').open && !document.querySelector('#meshNetworkDialog').open`, 'Escape closes network child only');
+    await waitFor(client, `document.activeElement?.id === 'networkSettingsBtn'`, 'network trigger focus return');
+    assert.equal(await client.evaluate(`document.activeElement?.id`), 'networkSettingsBtn');
+
     snapshot = await dialogSnapshot(client, '#deviceCenterDialog');
     assertDialogFits(snapshot);
   });
