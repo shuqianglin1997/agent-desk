@@ -18,6 +18,22 @@ const { MeshStore } = require('../src/mesh/storage/mesh-store');
 const { MeshService } = require('../src/mesh/main/mesh-service');
 const { TransferService } = require('../src/mesh/main/transfer-service');
 
+test('纯本地模式查看活动不会提前创建不完整 Mesh 数据库', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-transfer-local-'));
+  const databasePath = path.join(directory, 'mesh.db');
+  try {
+    const service = new TransferService({
+      databasePath,
+      meshService: {},
+      peerManagerProvider: () => null
+    });
+    assert.deepEqual(service.list(), []);
+    assert.equal(fs.existsSync(databasePath), false);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('安全 payload 绑定 Mesh、传输、来源和目标，篡改后不能解密', () => {
   const context = {
     meshId: 'mesh-a',

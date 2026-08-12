@@ -8,6 +8,9 @@ const state = {
   query: '',
   theme: null,
   view: 'classic',
+  detailMode: 'session',
+  detailBeforeRemote: 'session',
+  utilityDialog: null,
   activity: {},
   quotas: {},
   quotaError: null,
@@ -155,10 +158,15 @@ const els = {
   atmosTime: document.querySelector('#atmosTime'),
   atmosWeather: document.querySelector('#atmosWeather'),
   toolCenterBtn: document.querySelector('#toolCenterBtn'),
+  activityCenterBtn: document.querySelector('#activityCenterBtn'),
+  activityCountBadge: document.querySelector('#activityCountBadge'),
+  settingsBtn: document.querySelector('#settingsBtn'),
   deviceCenterBtn: document.querySelector('#deviceCenterBtn'),
   deviceLensSelect: document.querySelector('#deviceLensSelect'),
   deviceCountBadge: document.querySelector('#deviceCountBadge'),
   mainGrid: document.querySelector('#mainGrid'),
+  detailPanel: document.querySelector('#detailPanel'),
+  detailSurfaceQuota: document.querySelector('#detailSurfaceQuota'),
   sessionPane: document.querySelector('#sessionPane'),
   sessionInspector: document.querySelector('#sessionInspector'),
   remoteWorkspaceHost: document.querySelector('#remoteWorkspaceHost'),
@@ -222,6 +230,8 @@ const els = {
   sessionSendStatus: document.querySelector('#sessionSendStatus'),
   transferCenterBtn: document.querySelector('#transferCenterBtn'),
   transferCenterDialog: document.querySelector('#transferCenterDialog'),
+  activityCenterDialog: document.querySelector('#activityCenterDialog'),
+  settingsDialog: document.querySelector('#settingsDialog'),
   refreshTransfersBtn: document.querySelector('#refreshTransfersBtn'),
   transferList: document.querySelector('#transferList'),
   toolCenterDialog: document.querySelector('#toolCenterDialog'),
@@ -235,6 +245,7 @@ const els = {
   attentionInbox: document.querySelector('#attentionInbox'),
   attentionCount: document.querySelector('#attentionCount'),
   attentionItems: document.querySelector('#attentionItems'),
+  attentionEmpty: document.querySelector('#attentionEmpty'),
   leaderboardBtn: document.querySelector('#leaderboardBtn'),
   leaderboardDialog: document.querySelector('#leaderboardDialog'),
   leaderboardBody: document.querySelector('#leaderboardBody'),
@@ -271,10 +282,12 @@ const els = {
   sessionDetailBtn: document.querySelector('#sessionDetailBtn'),
   sessionDisplayMenu: document.querySelector('#sessionDisplayMenu'),
   sessionDisplayLabel: document.querySelector('#sessionDisplayLabel'),
+  sessionActionDock: document.querySelector('#sessionActionDock'),
   sessionSelectionBar: document.querySelector('#sessionSelectionBar'),
   sessionSelectionCount: document.querySelector('#sessionSelectionCount'),
   sessionSelectionIssue: document.querySelector('#sessionSelectionIssue'),
   clearSessionSelectionBtn: document.querySelector('#clearSessionSelectionBtn'),
+  sessionFocusedActions: document.querySelector('#sessionFocusedActions'),
   sessionTable: document.querySelector('#sessionTable'),
   sessionHead: document.querySelector('#sessionHead'),
   sessionRows: document.querySelector('#sessionRows'),
@@ -282,7 +295,6 @@ const els = {
   sendSessionInfoBtn: document.querySelector('#sendSessionInfoBtn'),
   statusBar: document.querySelector('#statusBar'),
   statusText: document.querySelector('#statusText'),
-  statusMeta: document.querySelector('#statusMeta'),
   detailTitle: document.querySelector('#detailTitle'),
   detailAccount: document.querySelector('#detailAccount'),
   detailLocation: document.querySelector('#detailLocation'),
@@ -294,7 +306,6 @@ const els = {
   sessionReplicaPicker: document.querySelector('#sessionReplicaPicker'),
   sessionReplicaOptions: document.querySelector('#sessionReplicaOptions'),
   sessionTechnicalDetails: document.querySelector('#sessionTechnicalDetails'),
-  inspectorMoreMenu: document.querySelector('#inspectorMoreMenu'),
   openSessionFileBtn: document.querySelector('#openSessionFileBtn'),
   exportSessionBtn: document.querySelector('#exportSessionBtn'),
   profileDialog: document.querySelector('#profileDialog'),
@@ -675,32 +686,35 @@ function bindEvents() {
   });
 
   els.helpBtn.addEventListener('click', () => {
+    closeUtilityDialog(els.settingsDialog);
     els.welcomeDialog.showModal();
   });
 
+  els.activityCenterBtn?.addEventListener('click', async () => {
+    openUtilityDialog('activity');
+    renderAttentionInbox();
+    await loadTransfers();
+  });
+
+  els.settingsBtn?.addEventListener('click', () => {
+    openUtilityDialog('settings');
+  });
+
   els.deviceCenterBtn?.addEventListener('click', async () => {
-    if (state.ui.workspaceMode === 'devices') {
-      setWorkspaceMode('sessions');
-      return;
-    }
-    setWorkspaceMode('devices');
+    openUtilityDialog('devices');
     await loadDeviceOverview();
     ensureDeviceDetailForEntry();
     renderDeviceCenter();
   });
 
-  els.closeDeviceCenterBtn?.addEventListener('click', () => setWorkspaceMode('sessions'));
-  els.deviceCenterDialog?.addEventListener('close', () => {
-    // close is queued as an event. If the user has already reopened the
-    // embedded workspace, this belongs to the previous programmatic close and
-    // must not undo the newer explicit navigation.
-    if (els.deviceCenterDialog.open) return;
-    if (state.ui.workspaceMode === 'devices') setWorkspaceMode('sessions');
-  });
-  els.deviceCenterDialog?.addEventListener('cancel', (event) => {
-    event.preventDefault();
-    setWorkspaceMode('sessions');
-  });
+  els.closeDeviceCenterBtn?.addEventListener('click', () => closeUtilityDialog(els.deviceCenterDialog));
+
+  for (const [kind, button, dialog] of utilityDialogEntries()) {
+    dialog?.addEventListener('close', () => {
+      button?.setAttribute('aria-expanded', 'false');
+      if (!dialog.open && state.utilityDialog === kind) state.utilityDialog = null;
+    });
+  }
 
   els.deviceLensSelect?.addEventListener('change', async () => {
     await selectDeviceLens(els.deviceLensSelect.value || 'all');
@@ -812,7 +826,7 @@ function bindEvents() {
 
   // 「工具」入口：统一维护桌面 App 与终端工具。
   els.toolCenterBtn?.addEventListener('click', async () => {
-    els.toolCenterDialog.showModal();
+    openUtilityDialog('tools');
     renderToolCenter();
     await refreshToolInventory(false);
   });
@@ -895,7 +909,9 @@ function bindEvents() {
 
   if (window.manager.onRemoteControlReturn) {
     window.manager.onRemoteControlReturn((value = {}) => {
-      const destination = state.ui.workspaceMode === 'remote' ? 'sessions' : state.ui.workspaceMode;
+      const destination = state.ui.workspaceMode === 'remote'
+        ? (state.detailBeforeRemote || 'sessions')
+        : state.detailMode;
       state.ui = window.UiContext.returnFromRemote(state.ui, value.activeSessionId);
       setWorkspaceMode(destination, { remoteAlreadyReleased: true });
       renderRemoteActivity();
@@ -982,13 +998,20 @@ function bindEvents() {
     setStatus(isYardView() ? tr('status.refreshBell') : tr('status.refreshList'));
   });
 
-  // 额度 chips：本号 chip 开合额度 Beta 详情；全院 chip 开合跨账号总览带（原型交互）
+  // 额度 chips 只切换右下详情，不再在 Agent 面板下方插入新行。
   els.quotaChipSelf?.addEventListener('click', () => {
-    state.quotaSelfOpen = !state.quotaSelfOpen;
+    const opening = state.detailMode !== 'quota' || !state.quotaSelfOpen;
+    state.quotaSelfOpen = opening;
+    state.quotaOverviewOpen = false;
+    setWorkspaceMode(opening ? 'quota' : 'sessions');
     renderQuotaSummary();
   });
   els.quotaChipAll?.addEventListener('click', () => {
-    state.quotaOverviewOpen = !state.quotaOverviewOpen;
+    const opening = state.detailMode !== 'quota' || !state.quotaOverviewOpen;
+    state.quotaSelfOpen = false;
+    state.quotaOverviewOpen = opening;
+    setWorkspaceMode(opening ? 'quota' : 'sessions');
+    renderQuotaSummary();
     renderQuotaOverview();
   });
 
@@ -1096,8 +1119,7 @@ function bindEvents() {
   });
 
   els.transferCenterBtn?.addEventListener('click', async () => {
-    els.transferCenterDialog?.showModal();
-    await loadTransfers();
+    await openTransferCenter();
   });
 
   els.sessionSendDialog?.addEventListener('close', () => {
@@ -2363,9 +2385,9 @@ function renderQuotaChips(groups, rows) {
   setQuotaChip(els.quotaChipAll, allRow, tr('quota.chip.allHint'), allRow ? tr('quota.chip.allPrefix', { name: allRow.name }) : null);
 
   // 可展开控件惯例：aria-expanded 反映面板实际可见态；单账号没有总览可展，置灰
-  els.quotaChipSelf.setAttribute('aria-expanded', String(Boolean(selectedGroup) && state.quotaSelfOpen));
+  els.quotaChipSelf.setAttribute('aria-expanded', String(Boolean(selectedGroup) && state.detailMode === 'quota' && state.quotaSelfOpen));
   els.quotaChipAll.disabled = groups.length < 2;
-  els.quotaChipAll.setAttribute('aria-expanded', String(groups.length >= 2 && state.quotaOverviewOpen));
+  els.quotaChipAll.setAttribute('aria-expanded', String(groups.length >= 2 && state.detailMode === 'quota' && state.quotaOverviewOpen));
   if (els.quotaChipAll.disabled) els.quotaChipAll.title = tr('quota.chip.noAll');
 }
 
@@ -2593,12 +2615,50 @@ function updateAtmosphereReadout() {
 // ── Personal Agent Mesh / 设备中心 ──────────────────
 let remoteSurfaceLayoutFrame = null;
 let remoteSurfaceObserver = null;
+const DETAIL_MODES = new Set(['session', 'quota', 'remote']);
+
+function utilityDialogEntries() {
+  return [
+    ['devices', els.deviceCenterBtn, els.deviceCenterDialog],
+    ['tools', els.toolCenterBtn, els.toolCenterDialog],
+    ['activity', els.activityCenterBtn, els.activityCenterDialog],
+    ['settings', els.settingsBtn, els.settingsDialog]
+  ];
+}
+
+function closeUtilityDialogs(exceptDialog = null) {
+  for (const [kind, button, dialog] of utilityDialogEntries()) {
+    if (!dialog || dialog === exceptDialog) continue;
+    if (dialog.open) dialog.close();
+    button?.setAttribute('aria-expanded', 'false');
+    if (state.utilityDialog === kind) state.utilityDialog = null;
+  }
+}
+
+function closeUtilityDialog(dialog) {
+  if (!dialog) return;
+  const entry = utilityDialogEntries().find(([, , candidate]) => candidate === dialog);
+  if (entry) {
+    const [kind, button] = entry;
+    button?.setAttribute('aria-expanded', 'false');
+    if (state.utilityDialog === kind) state.utilityDialog = null;
+  }
+  if (dialog.open) dialog.close();
+}
+
+function openUtilityDialog(kind) {
+  const entry = utilityDialogEntries().find(([name]) => name === kind);
+  if (!entry) return;
+  const [, button, dialog] = entry;
+  if (!dialog) return;
+  closeUtilityDialogs(dialog);
+  state.utilityDialog = kind;
+  button?.setAttribute('aria-expanded', 'true');
+  if (!dialog.open) dialog.showModal();
+}
 
 function mountWorkspaceSurfaces() {
   if (!els.mainGrid) return;
-  if (els.deviceCenterDialog && els.deviceCenterDialog.parentElement !== els.mainGrid) {
-    els.mainGrid.append(els.deviceCenterDialog);
-  }
   if (els.remoteWorkspaceHost && typeof ResizeObserver === 'function') {
     remoteSurfaceObserver = new ResizeObserver(() => scheduleRemoteSurfaceLayout());
     remoteSurfaceObserver.observe(els.remoteWorkspaceHost);
@@ -2607,18 +2667,39 @@ function mountWorkspaceSurfaces() {
   setWorkspaceMode('sessions');
 }
 
+function detailSurfaceEntries() {
+  return [
+    ['session', els.sessionInspector],
+    ['quota', els.detailSurfaceQuota],
+    ['remote', els.remoteWorkspaceHost]
+  ];
+}
+
+function setDetailMode(mode) {
+  const next = DETAIL_MODES.has(mode) ? mode : 'session';
+  state.detailMode = next;
+  if (els.mainGrid) els.mainGrid.dataset.detail = next;
+  if (els.detailPanel) els.detailPanel.dataset.detail = next;
+  for (const [name, surface] of detailSurfaceEntries()) {
+    if (surface) surface.hidden = name !== next;
+  }
+
+  if (els.quotaChipSelf) els.quotaChipSelf.setAttribute('aria-expanded', String(next === 'quota' && state.quotaSelfOpen));
+  if (els.quotaChipAll) els.quotaChipAll.setAttribute('aria-expanded', String(next === 'quota' && state.quotaOverviewOpen));
+
+  if (next === 'remote') scheduleRemoteSurfaceLayout();
+}
+
 function setWorkspaceMode(mode, options = {}) {
-  const next = ['sessions', 'devices', 'remote'].includes(mode) ? mode : 'sessions';
+  const requested = mode === 'sessions' ? 'session' : mode;
+  const detail = DETAIL_MODES.has(requested) ? requested : 'session';
+  const next = detail === 'remote' ? 'remote' : 'sessions';
   const wasRemote = state.ui.workspaceMode === 'remote';
+  if (detail === 'remote' && !wasRemote) state.detailBeforeRemote = state.detailMode || 'session';
+  if (detail === 'remote') closeUtilityDialogs();
   state.ui = window.UiContext.setWorkspace(state.ui, next);
   if (els.mainGrid) els.mainGrid.dataset.workspace = next;
-  if (els.remoteWorkspaceHost) els.remoteWorkspaceHost.hidden = next !== 'remote';
-  if (els.deviceCenterBtn) els.deviceCenterBtn.setAttribute('aria-pressed', String(next === 'devices'));
-
-  if (els.deviceCenterDialog) {
-    if (next === 'devices' && !els.deviceCenterDialog.open) els.deviceCenterDialog.show();
-    if (next !== 'devices' && els.deviceCenterDialog.open) els.deviceCenterDialog.close();
-  }
+  setDetailMode(detail);
 
   if (next === 'remote') scheduleRemoteSurfaceLayout();
   else if (wasRemote && options.remoteAlreadyReleased !== true) {
@@ -2984,6 +3065,7 @@ function deviceMoreMenu(buttons) {
 }
 
 async function viewDeviceSessions(device, overview) {
+  closeUtilityDialog(els.deviceCenterDialog);
   updateUi(window.UiContext.viewDeviceSessions(state.ui, device.deviceId));
   setWorkspaceMode('sessions');
   renderDeviceLens(overview);
@@ -3002,6 +3084,7 @@ async function viewDeviceAgentSessions(device, agent, overview) {
     agentId: agent.agentId,
     slotKey: slot?._meshSlotKey || slot?.id
   }));
+  closeUtilityDialog(els.deviceCenterDialog);
   setWorkspaceMode('sessions');
   renderDeviceLens(overview);
   if (els.searchInput) els.searchInput.value = state.query;
@@ -3247,6 +3330,7 @@ async function openRemoteDevice(device) {
     state.mesh.remoteSessions = Array.isArray(result.sessions) ? result.sessions : state.mesh.remoteSessions;
     state.mesh.message = tr('remote.action.waitingConsent', { name: device.name });
     state.ui = window.UiContext.openRemote(state.ui, result.session?.sessionId);
+    closeUtilityDialog(els.deviceCenterDialog);
     setWorkspaceMode('remote');
   }
   renderDeviceCenter();
@@ -4000,7 +4084,12 @@ function collectAttentionItems() {
 function renderAttentionInbox() {
   if (!els.attentionInbox) return;
   const items = collectAttentionItems();
-  if (items.length === 0) els.attentionInbox.hidden = true; // 常驻 banner 改由状态栏 ⚠ 展开的 popover
+  els.attentionInbox.hidden = items.length === 0;
+  if (els.attentionEmpty) els.attentionEmpty.hidden = items.length > 0;
+  if (els.activityCountBadge) {
+    els.activityCountBadge.hidden = items.length === 0;
+    els.activityCountBadge.textContent = String(items.length);
+  }
   els.attentionCount.textContent = String(items.length);
   els.attentionItems.replaceChildren();
   for (const item of items) {
@@ -4016,44 +4105,18 @@ function renderAttentionInbox() {
     button.addEventListener('click', async () => {
       if (item.profileId && item.profileId !== currentProfileId()) await selectProfile(item.profileId);
       if (item.action === 'diagnostics') await showDiagnostics();
-      else if (item.action === 'quota') els.quotaSummary.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      else if (item.action === 'quota') {
+        closeUtilityDialog(els.activityCenterDialog);
+        state.quotaSelfOpen = true;
+        state.quotaOverviewOpen = false;
+        setWorkspaceMode('quota');
+        renderQuotaSummary();
+        els.quotaSummary.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
       else if (item.action === 'update') await handleUpdateClick();
       else if (item.action === 'assign-slot') openSlotAssignmentDialog(catalogSlotByKey(item.slotKey));
     });
     els.attentionItems.append(button);
-  }
-  renderStatusMeta();
-}
-
-// 碎块归一：今日陪伴（原小账本）+ 需要留意 收进底部状态栏一条集中显示；⚠ 点开 attention popover
-function renderStatusMeta() {
-  if (!els.statusMeta) return;
-  els.statusMeta.replaceChildren();
-
-  const life = document.createElement('span');
-  life.className = 'status-life';
-  const bDone = document.createElement('b');
-  bDone.textContent = els.ledgerDone?.textContent || '0';
-  const bMin = document.createElement('b');
-  bMin.textContent = els.ledgerMin?.textContent || '0';
-  life.append(tr('status.life.prefix'), bDone, tr('status.life.mid'), bMin, tr('status.life.suffix'));
-  els.statusMeta.append(life);
-
-  const items = collectAttentionItems();
-  if (items.length) {
-    const warn = document.createElement('button');
-    warn.type = 'button';
-    warn.className = 'status-warn';
-    warn.setAttribute('aria-expanded', String(els.attentionInbox && !els.attentionInbox.hidden));
-    warn.textContent = `⚠ ${tr('status.attention', { n: items.length })}`;
-    warn.addEventListener('click', () => {
-      if (!els.attentionInbox) return;
-      els.attentionInbox.hidden = !els.attentionInbox.hidden;
-      warn.setAttribute('aria-expanded', String(!els.attentionInbox.hidden));
-    });
-    els.statusMeta.append(warn);
-  } else if (els.attentionInbox) {
-    els.attentionInbox.hidden = true;
   }
 }
 
@@ -4211,7 +4274,7 @@ async function loadActivity() {
   syncYard();
 }
 
-// ── 陪伴账本 ─────────────────────────────────────────
+// ── 全局陪伴状态（固定进入 Footer，不在庭院内占行） ───────
 function initCompanion() {
   els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
   els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
@@ -4257,7 +4320,6 @@ function renderLedger() {
   if (!state.ledger) return;
   els.ledgerDone.textContent = String(state.ledger.completed);
   els.ledgerMin.textContent = String(Math.round(state.ledger.workedMs / 60000));
-  renderStatusMeta(); // 今日陪伴同步到底部状态栏集中条
 }
 
 function syncYard() {
@@ -4511,10 +4573,6 @@ function renderTopbarContext() {
   if (!els.topbarContext) return;
   const ctx = tr(state.view === 'yard' ? 'ctx.yard' : 'ctx.classic');
   const deviceContext = selectedDeviceLensLabel();
-  if (state.ui.workspaceMode === 'devices') {
-    els.topbarContext.textContent = [deviceContext, ctx, tr('devices.workspace.context')].filter(Boolean).join(' · ');
-    return;
-  }
   if (state.ui.workspaceMode === 'remote') {
     const session = state.mesh.remoteSessions.find((item) => item.sessionId === state.ui.activeRemoteSessionId)
       || state.mesh.remoteSessions.find((item) => item.direction === 'outgoing');
@@ -4949,11 +5007,16 @@ function renderSessionCopyControl() {
   if (!els.copySessionInfoBtn) return;
   const count = actionSessions().length;
   const unresolved = unresolvedActionSessions();
+  const hasExplicitChecks = state.ui.checkedConversationIds.size > 0;
   const visibility = window.UiContext.actionVisibility(
     state.ui,
     state.filteredSessions.map(sessionKey)
   );
+  if (els.sessionActionDock) els.sessionActionDock.hidden = count === 0;
   if (els.sessionSelectionBar) els.sessionSelectionBar.hidden = count === 0;
+  if (els.sessionFocusedActions) {
+    els.sessionFocusedActions.hidden = count === 0 || hasExplicitChecks || !selectedSession();
+  }
   if (els.sessionSelectionCount) {
     els.sessionSelectionCount.textContent = tr('session.selection.count', { n: count });
   }
@@ -5032,8 +5095,9 @@ function populateTransferTargets(select, devices, preselectedDeviceId) {
 }
 
 async function openTransferCenter() {
-  els.transferCenterDialog?.showModal();
+  closeUtilityDialogs();
   await loadTransfers();
+  if (els.transferCenterDialog && !els.transferCenterDialog.open) els.transferCenterDialog.showModal();
 }
 
 async function chooseFilesForTransfer() {
@@ -5329,6 +5393,7 @@ function setSessionChecked(session, checked) {
 
 function focusSession(session) {
   state.ui = window.UiContext.focusConversation(state.ui, session ? sessionKey(session) : null);
+  if (session) setWorkspaceMode('sessions');
 }
 
 function renderSessionHead() {

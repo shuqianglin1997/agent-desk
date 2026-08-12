@@ -36,7 +36,7 @@ test('能量模块在 scene 前加载，活动状态和疲劳状态分别传入�
 
 test('额度慢轮询不混进 8 秒 activity IPC', () => {
   assert.match(renderer, /const QUOTA_REFRESH_INTERVAL = 5 \* 60_000/);
-  const activity = between(renderer, 'async function loadActivity()', '// ── 陪伴账本');
+  const activity = between(renderer, 'async function loadActivity()', '// ── 全局陪伴状态');
   assert.doesNotMatch(activity, /listQuotas|loadQuotas/);
   const quota = between(renderer, 'async function loadQuotas', 'function selectedQuota');
   assert.doesNotMatch(quota, /listActivity/);
@@ -49,11 +49,12 @@ test('stale 缓存可以展示但不会驱动疲劳，猫动作状态保持正�
   assert.match(scene, /额度疲劳只调节动作节奏，不改变 working\/onduty/);
 });
 
-test('经典视图在 1080 最小窗口下允许主列和详情列收缩', () => {
-  assert.match(styles, /\.main-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) minmax\(280px, 328px\)/);
+test('经典视图固定三面板下允许会话主列收缩，详情列保持可用宽度', () => {
+  assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 340px/);
 });
 
-test('跨账号额度总览挂在信息轨上，聚合模块在 renderer 前加载', () => {
+test('跨账号额度总览挂在右下额度详情，聚合模块在 renderer 前加载', () => {
+  assert.match(html, /id="detailSurfaceQuota"[\s\S]*?id="quotaOverview"/);
   assert.match(html, /id="quotaOverview"[^>]*hidden/);
   assert.match(html, /id="quotaOverviewMeta"/);
   assert.match(html, /id="quotaOverviewList"/);

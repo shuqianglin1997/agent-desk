@@ -14,6 +14,8 @@
     'topbar.toYard': '庭',
     'topbar.devices': 'デバイス',
     'topbar.tools': 'ツール',
+    'topbar.activity': 'アクティビティ',
+    'topbar.settings': '設定',
     'topbar.more': 'その他',
     'topbar.help': '使い方',
     'topbar.theme': '外観',
@@ -22,6 +24,8 @@
     'topbar.view.title': 'にゃんこ庭 / クラシック 表示を切り替え',
     'topbar.devices.title': 'このデバイスの識別情報、グローバル Agent カタログ、状態を表示',
     'topbar.tools.title': 'デスクトップアプリ / CLI ツールの確認・更新・起動',
+    'topbar.activity.title': '要確認項目と転送履歴を表示',
+    'topbar.settings.title': '更新、ヘルプ、言語、外観の設定を表示',
     'topbar.help.title': '使い方',
     'topbar.theme.title': 'ダーク / ライト を切り替え',
     'topbar.lang.title': '表示言語を切り替え（中 / EN / 日）',
@@ -416,6 +420,7 @@
 
     // アカウント操作バー
     'account.none': 'アカウント未選択',
+    'account.current': 'CURRENT AGENT',
     'account.form': '形態',
     'account.form.title': 'このアカウントには複数のクライアント形態があります。切り替えると 開く / 編集 / 削除 / 診断 / パス / クォータ が選択した形態に適用されます',
     'account.open': 'アカウントを開く',
@@ -543,6 +548,16 @@
 
     // セッション詳細
     'detail.title': 'セッション詳細',
+    'detail.activity.kicker': 'ACTIVITY',
+    'detail.activity.title': 'アクティビティと転送',
+    'detail.activity.lead': '要確認項目とデバイス転送をここで確認できます。',
+    'detail.activity.empty': '現在、確認が必要な項目はありません。',
+    'detail.settings.kicker': 'SETTINGS',
+    'detail.settings.title': 'アプリ設定',
+    'detail.settings.lead': '更新、ヘルプ、言語、外観をここにまとめています。',
+    'detail.quota.kicker': 'QUOTA',
+    'detail.quota.title': 'クォータ詳細',
+    'detail.quota.lead': '現在の Agent または全 Agent のクォータを確認します。',
     'detail.field.title': 'タイトル',
     'detail.field.account': 'アカウント',
     'detail.field.agent': 'Agent',
@@ -830,6 +845,7 @@
 
     // ── 領域の aria-label ──
     'aria.topbarActions': 'グローバル操作',
+    'aria.footerGlobal': '今日の作業記録とリマインダーの状態',
     'aria.yardCanvas': 'にゃんこ庭：各ねこが 1 アカウント、クリックで選択',
     'aria.roster': 'アカウント名簿（クラシック表示）',
     'aria.quotaSummary': 'アカウントのクォータ',

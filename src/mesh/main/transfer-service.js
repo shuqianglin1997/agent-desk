@@ -991,16 +991,19 @@ class TransferService {
   }
 
   projectBindings() {
+    if (!fs.existsSync(this.databasePath)) return [];
     const store = new MeshStore(this.databasePath);
     try { return store.readProjectBindings(); } finally { store.close(); }
   }
 
   listRaw() {
+    if (!fs.existsSync(this.databasePath)) return [];
     const store = new MeshStore(this.databasePath);
     try { return store.readTransferJobs({ limit: 200 }).map(normalizeTransferJob); } finally { store.close(); }
   }
 
   read(transferId) {
+    if (!fs.existsSync(this.databasePath)) return null;
     const store = new MeshStore(this.databasePath);
     try {
       const value = store.readTransferJob(transferId);

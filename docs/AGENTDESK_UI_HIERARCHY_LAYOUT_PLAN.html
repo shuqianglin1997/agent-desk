@@ -1,0 +1,1786 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AgentDesk · UI 层级与排版重构规划</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4efe3;
+      --paper-deep: #e9dfca;
+      --sheet: #fffaf0;
+      --sheet-2: #f9f2e4;
+      --ink: #26241f;
+      --ink-2: #59554b;
+      --ink-3: #817a6c;
+      --line: #cbc0ab;
+      --line-strong: #3b342a;
+      --orange: #d65f2d;
+      --orange-deep: #9e3f1e;
+      --orange-wash: #f5ddd0;
+      --blue: #176f9f;
+      --blue-wash: #dcecf4;
+      --green: #2d7654;
+      --green-wash: #dceadf;
+      --gold: #a46c18;
+      --gold-wash: #f0e2bd;
+      --red: #b43e32;
+      --red-wash: #f4dad4;
+      --shadow: 0 24px 70px rgba(53, 43, 29, .14);
+      --shadow-small: 0 8px 24px rgba(53, 43, 29, .09);
+      --radius: 18px;
+      --display: "Iowan Old Style", "Baskerville", "Songti SC", "STSong", serif;
+      --body: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      --mono: "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      background: var(--paper);
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(71, 60, 43, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(71, 60, 43, .035) 1px, transparent 1px),
+        var(--paper);
+      background-size: 24px 24px;
+      font-family: var(--body);
+      font-size: 15px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input { font: inherit; }
+
+    button { cursor: pointer; }
+
+    a { color: inherit; }
+
+    code,
+    pre { font-family: var(--mono); }
+
+    .progress {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 100;
+      height: 4px;
+      background: transparent;
+      pointer-events: none;
+    }
+
+    .progress > i {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--orange), var(--gold));
+      box-shadow: 0 1px 8px rgba(214, 95, 45, .45);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 72px max(28px, calc((100vw - 1480px) / 2)) 64px;
+      color: #fff9eb;
+      background:
+        radial-gradient(circle at 78% 18%, rgba(234, 155, 87, .2), transparent 30%),
+        linear-gradient(112deg, #29251f 0 58%, #3a3026 58% 100%);
+      border-bottom: 8px solid var(--orange);
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      pointer-events: none;
+    }
+
+    .hero::before {
+      width: 430px;
+      height: 430px;
+      right: -90px;
+      top: -190px;
+      border: 1px solid rgba(255, 249, 235, .16);
+      border-radius: 50%;
+      box-shadow: 0 0 0 56px rgba(255, 249, 235, .025), 0 0 0 112px rgba(255, 249, 235, .018);
+    }
+
+    .hero::after {
+      right: 5vw;
+      bottom: -12px;
+      width: 290px;
+      height: 84px;
+      background:
+        linear-gradient(135deg, transparent 40%, rgba(255, 249, 235, .08) 40% 43%, transparent 43%),
+        linear-gradient(45deg, transparent 40%, rgba(255, 249, 235, .06) 40% 43%, transparent 43%);
+      background-size: 26px 26px;
+      transform: skewX(-12deg);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--orange);
+      font: 800 11px/1 var(--mono);
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    .hero .eyebrow { color: #f5a06d; }
+
+    .eyebrow::before {
+      content: "";
+      width: 22px;
+      height: 2px;
+      background: currentColor;
+    }
+
+    .hero h1 {
+      max-width: 890px;
+      margin: 22px 0 18px;
+      font: 700 clamp(46px, 6vw, 82px)/.98 var(--display);
+      letter-spacing: -.055em;
+    }
+
+    .hero h1 em {
+      color: #f29a64;
+      font-style: normal;
+    }
+
+    .hero-lead {
+      max-width: 930px;
+      margin: 0;
+      color: rgba(255, 249, 235, .78);
+      font-size: 18px;
+      line-height: 1.75;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 30px;
+    }
+
+    .hero-meta span {
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 249, 235, .16);
+      border-radius: 999px;
+      background: rgba(255, 249, 235, .06);
+      color: rgba(255, 249, 235, .76);
+      font-size: 12px;
+      backdrop-filter: blur(10px);
+    }
+
+    .page {
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+      gap: 32px;
+      width: min(1480px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 42px 0 96px;
+    }
+
+    .toc {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 250, 240, .88);
+      box-shadow: var(--shadow-small);
+      backdrop-filter: blur(16px);
+    }
+
+    .toc strong {
+      display: block;
+      margin: 2px 8px 12px;
+      color: var(--ink-3);
+      font: 800 10px/1 var(--mono);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .toc a {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      min-height: 36px;
+      padding: 5px 8px;
+      border-radius: 7px;
+      color: var(--ink-2);
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    .toc a span {
+      color: var(--ink-3);
+      font: 700 9px/1 var(--mono);
+    }
+
+    .toc a:hover,
+    .toc a.is-active {
+      color: var(--orange-deep);
+      background: var(--orange-wash);
+    }
+
+    .toc-note {
+      margin: 14px 8px 4px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      color: var(--ink-3);
+      font-size: 10px;
+      line-height: 1.55;
+    }
+
+    main { min-width: 0; }
+
+    .section {
+      scroll-margin-top: 26px;
+      margin-bottom: 30px;
+      padding: clamp(26px, 4vw, 52px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 250, 240, .94);
+      box-shadow: var(--shadow-small);
+    }
+
+    .section-number {
+      color: var(--orange);
+      font: 800 11px/1 var(--mono);
+      letter-spacing: .14em;
+    }
+
+    .section h2 {
+      margin: 12px 0 12px;
+      font: 700 clamp(30px, 4vw, 48px)/1.08 var(--display);
+      letter-spacing: -.035em;
+    }
+
+    .section > .lead {
+      max-width: 900px;
+      margin: 0 0 28px;
+      color: var(--ink-2);
+      font-size: 16px;
+    }
+
+    .summary-grid,
+    .card-grid,
+    .rule-grid,
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .summary-card,
+    .card,
+    .rule-card,
+    .phase-card {
+      position: relative;
+      min-width: 0;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--sheet);
+    }
+
+    .summary-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 18px;
+      bottom: 18px;
+      width: 4px;
+      border-radius: 0 4px 4px 0;
+      background: var(--orange);
+    }
+
+    .summary-card.good::before { background: var(--green); }
+    .summary-card.blue::before { background: var(--blue); }
+
+    .summary-card small,
+    .card small,
+    .rule-card small,
+    .phase-card small {
+      display: block;
+      color: var(--ink-3);
+      font: 800 9px/1 var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .summary-card b,
+    .card b,
+    .rule-card b,
+    .phase-card b {
+      display: block;
+      margin-top: 9px;
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .summary-card p,
+    .card p,
+    .rule-card p,
+    .phase-card p {
+      margin: 8px 0 0;
+      color: var(--ink-2);
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .verdict {
+      margin-top: 24px;
+      padding: 24px;
+      border: 1px solid #b9a47e;
+      border-left: 7px solid var(--orange);
+      border-radius: 10px;
+      background: linear-gradient(90deg, var(--orange-wash), var(--sheet));
+    }
+
+    .verdict strong {
+      display: block;
+      font: 700 24px/1.25 var(--display);
+    }
+
+    .verdict p { margin: 8px 0 0; color: var(--ink-2); }
+
+    .evidence-frame {
+      position: relative;
+      overflow: hidden;
+      border: 2px solid var(--line-strong);
+      border-radius: 14px;
+      background: #ded7c8;
+      box-shadow: var(--shadow);
+    }
+
+    .evidence-frame img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .evidence-frame button {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 2px solid #fff9eb;
+      border-radius: 50%;
+      color: white;
+      background: var(--red);
+      box-shadow: 0 4px 14px rgba(38, 36, 31, .34);
+      font: 800 11px/1 var(--mono);
+      transform: translate(-50%, -50%);
+    }
+
+    .evidence-frame button:hover,
+    .evidence-frame button:focus-visible {
+      z-index: 3;
+      background: var(--orange-deep);
+      transform: translate(-50%, -50%) scale(1.12);
+      outline: 3px solid rgba(255, 255, 255, .6);
+    }
+
+    .evidence-frame button::after {
+      content: attr(data-label);
+      position: absolute;
+      left: calc(100% + 9px);
+      top: 50%;
+      width: max-content;
+      max-width: 260px;
+      padding: 6px 8px;
+      border-radius: 5px;
+      color: #fff9eb;
+      background: rgba(38, 36, 31, .94);
+      font: 600 10px/1.4 var(--body);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-50%) translateX(-4px);
+      transition: opacity .14s ease, transform .14s ease;
+    }
+
+    .evidence-frame button:hover::after,
+    .evidence-frame button:focus-visible::after {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+    }
+
+    .evidence-caption {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 12px;
+      color: var(--ink-3);
+      font-size: 11px;
+    }
+
+    .annotation-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .annotation {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 11px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--sheet-2);
+    }
+
+    .annotation > b {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      color: white;
+      background: var(--red);
+      font: 800 10px/1 var(--mono);
+    }
+
+    .annotation strong { display: block; font-size: 13px; }
+    .annotation p { margin: 3px 0 0; color: var(--ink-2); font-size: 11px; line-height: 1.55; }
+
+    .audit-table,
+    .spec-table,
+    .state-table {
+      width: 100%;
+      margin-top: 22px;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 12px;
+    }
+
+    .audit-table th,
+    .audit-table td,
+    .spec-table th,
+    .spec-table td,
+    .state-table th,
+    .state-table td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+
+    .audit-table th,
+    .spec-table th,
+    .state-table th {
+      color: var(--ink-3);
+      background: var(--sheet-2);
+      font: 800 9px/1.3 var(--mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .priority {
+      display: inline-block;
+      min-width: 34px;
+      padding: 3px 6px;
+      border-radius: 999px;
+      text-align: center;
+      font: 800 9px/1 var(--mono);
+    }
+
+    .p0 { color: #fff; background: var(--red); }
+    .p1 { color: #6d3519; background: #f0bd91; }
+    .p2 { color: #355465; background: var(--blue-wash); }
+
+    .math-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 24px 0;
+    }
+
+    .equation {
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #292720;
+      color: #fbf2df;
+      box-shadow: var(--shadow-small);
+    }
+
+    .equation small {
+      color: #e9a779;
+      font: 800 9px/1 var(--mono);
+      letter-spacing: .11em;
+    }
+
+    .equation code {
+      display: block;
+      margin-top: 12px;
+      color: #fff8e8;
+      font-size: 15px;
+      line-height: 1.65;
+      white-space: normal;
+    }
+
+    .equation strong {
+      display: block;
+      margin-top: 10px;
+      color: #f49a67;
+      font-size: 13px;
+    }
+
+    .dimension-strip {
+      display: grid;
+      grid-template-columns: 58fr 1fr 38fr;
+      min-height: 62px;
+      margin-top: 18px;
+      overflow: hidden;
+      border: 2px solid var(--line-strong);
+      border-radius: 9px;
+      color: #fff;
+      font: 700 10px/1.3 var(--mono);
+    }
+
+    .dimension-strip > div { display: grid; place-items: center; padding: 8px; text-align: center; }
+
+    .dimension-strip .header-dim { background: var(--blue); }
+    .dimension-strip .main-dim { background: var(--green); writing-mode: vertical-rl; }
+    .dimension-strip .footer-dim { background: var(--orange); }
+
+    .target-math {
+      margin-top: 12px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--green);
+      background: var(--green-wash);
+      color: #274b38;
+      font-size: 12px;
+    }
+
+    .layer-ladder {
+      display: grid;
+      gap: 8px;
+      margin: 26px 0;
+    }
+
+    .layer {
+      display: grid;
+      grid-template-columns: 72px 190px minmax(0, 1fr);
+      gap: 15px;
+      align-items: center;
+      min-height: 62px;
+      padding: 10px 16px;
+      border: 1px solid var(--line);
+      border-left-width: 7px;
+      border-radius: 9px;
+      background: var(--sheet);
+    }
+
+    .layer:nth-child(1) { border-left-color: #3e494f; }
+    .layer:nth-child(2) { border-left-color: var(--blue); margin-left: 18px; }
+    .layer:nth-child(3) { border-left-color: var(--green); margin-left: 36px; }
+    .layer:nth-child(4) { border-left-color: var(--orange); margin-left: 54px; }
+    .layer:nth-child(5) { border-left-color: var(--red); margin-left: 72px; }
+
+    .layer > span {
+      color: var(--ink-3);
+      font: 800 10px/1 var(--mono);
+    }
+
+    .layer strong { font-size: 14px; }
+    .layer p { margin: 0; color: var(--ink-2); font-size: 11px; }
+
+    .move-map {
+      display: grid;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .move-row {
+      display: grid;
+      grid-template-columns: minmax(150px, .85fr) 42px minmax(220px, 1.3fr);
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--sheet);
+    }
+
+    .move-row > b { font-size: 12px; }
+    .move-row > i { color: var(--orange); font-style: normal; text-align: center; }
+    .move-row > span { color: var(--ink-2); font-size: 11px; }
+
+    .mock-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 24px 0 14px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--sheet-2);
+    }
+
+    .mock-toolbar > div { display: flex; gap: 6px; }
+
+    .mock-toolbar button {
+      min-height: 30px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink-2);
+      background: var(--sheet);
+      font-size: 11px;
+    }
+
+    .mock-toolbar button[aria-pressed="true"] {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: var(--blue-wash);
+      font-weight: 700;
+    }
+
+    .mock-stage {
+      position: relative;
+      overflow: auto;
+      padding: 18px;
+      border: 2px solid var(--line-strong);
+      border-radius: 14px;
+      background: #d8d3c8;
+      box-shadow: var(--shadow);
+    }
+
+    .mock-window {
+      display: grid;
+      grid-template-rows: 58fr 716fr 38fr;
+      width: 1040px;
+      height: 812px;
+      overflow: hidden;
+      color: #312d27;
+      background: #edf0f1;
+      border: 1px solid #8c887e;
+      border-radius: 14px;
+      box-shadow: 0 28px 54px rgba(41, 37, 31, .22);
+      font-family: "PingFang SC", "Avenir Next", sans-serif;
+      transform-origin: top left;
+    }
+
+    .mock-app-header {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      background: #fffaf0;
+      border-bottom: 1px solid #a99d88;
+    }
+
+    .mock-brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .mock-brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      color: white;
+      background: var(--orange);
+      border: 2px solid #4d3427;
+      font-size: 18px;
+      box-shadow: 2px 2px 0 #cbbda6;
+    }
+
+    .mock-brand b { display: block; font-size: 15px; line-height: 1; }
+    .mock-brand small { display: block; margin-top: 5px; color: #7c7468; font: 700 7px/1 var(--mono); letter-spacing: .12em; }
+
+    .mock-lens {
+      justify-self: center;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 190px;
+      height: 34px;
+      padding: 0 11px;
+      border: 1px solid #c8bda8;
+      border-radius: 7px;
+      background: #f4eddf;
+      font-size: 11px;
+    }
+
+    .mock-lens small { color: #847a69; font-size: 8px; }
+    .mock-lens b { flex: 1; font-size: 11px; }
+
+    .mock-global-actions { display: flex; align-items: center; gap: 4px; }
+    .mock-global-actions span { padding: 7px 8px; color: #655e53; font-size: 10px; }
+    .mock-global-actions b { display: inline-grid; place-items: center; min-width: 16px; height: 16px; margin-left: 3px; border-radius: 8px; color: white; background: var(--blue); font-size: 8px; }
+
+    .mock-board {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 316px;
+      grid-template-rows: 244px minmax(0, 1fr);
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+      padding: 10px 12px;
+      background: #edf0f1;
+    }
+
+    .mock-panel {
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      border: 1px solid #c8c2b6;
+      border-radius: 10px;
+      background: #fffaf0;
+      box-shadow: 0 3px 10px rgba(53, 43, 29, .07);
+    }
+
+    .mock-agent-panel { grid-column: 1 / -1; display: grid; grid-template-rows: 38px minmax(0, 1fr); }
+
+    .mock-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+      padding: 0 13px;
+      border-bottom: 1px solid #ddd5c6;
+      background: #fbf5e9;
+    }
+
+    .mock-panel-head strong { font-size: 11px; }
+    .mock-panel-head strong b { margin-left: 5px; color: #847a69; font-weight: 500; }
+    .mock-head-tools { display: flex; align-items: center; gap: 7px; font-size: 9px; color: #6f675b; }
+
+    .mock-segment {
+      display: inline-flex;
+      padding: 2px;
+      border: 1px solid #cfc4b0;
+      border-radius: 6px;
+      background: #eee6d7;
+    }
+
+    .mock-segment i {
+      padding: 3px 7px;
+      border-radius: 4px;
+      font-style: normal;
+    }
+
+    .mock-segment i.active { color: #9d3e1e; background: #fffaf0; box-shadow: 0 1px 2px rgba(53, 43, 29, .12); }
+
+    .mock-agent-body { display: grid; grid-template-columns: minmax(0, 1fr) 314px; min-width: 0; min-height: 0; }
+
+    .mock-scene,
+    .mock-card-stage {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      border-right: 1px solid #cfc4b0;
+    }
+
+    .mock-scene {
+      background:
+        linear-gradient(#86c5dc 0 33%, #b6d7cf 33% 40%, #76af5c 40% 100%);
+    }
+
+    .mock-scene::before {
+      content: "";
+      position: absolute;
+      left: 28px;
+      bottom: 28px;
+      width: 140px;
+      height: 92px;
+      background: #76533b;
+      border: 5px solid #4b382d;
+      box-shadow: inset 0 30px #8f694a, 20px -28px 0 -3px #a26e44;
+    }
+
+    .mock-scene::after {
+      content: "";
+      position: absolute;
+      right: 76px;
+      bottom: 28px;
+      width: 18px;
+      height: 112px;
+      background: #745137;
+      box-shadow: -42px 22px 0 -4px #5d8f48, 42px 16px 0 26px #568a45;
+    }
+
+    .mock-cat {
+      position: absolute;
+      left: 78px;
+      bottom: 38px;
+      width: 26px;
+      height: 25px;
+      background: #9eafbd;
+      border: 3px solid #4d4a48;
+      box-shadow: -5px -8px 0 -2px #9eafbd, 5px -8px 0 -2px #9eafbd;
+    }
+
+    .mock-nameplate {
+      position: absolute;
+      left: 54px;
+      bottom: 94px;
+      padding: 4px 8px;
+      border: 2px solid #4d382a;
+      background: #ebc66f;
+      font: 700 9px/1 var(--mono);
+    }
+
+    .mock-atmos-chip {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      padding: 5px 8px;
+      border: 1px solid #5c4938;
+      border-radius: 5px;
+      color: #fff4df;
+      background: rgba(80, 57, 39, .9);
+      font-size: 8px;
+    }
+
+    .mock-card-stage {
+      display: none;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 9px;
+      padding: 12px;
+      background: #f8f3e9;
+    }
+
+    .mock-window[data-view="cards"] .mock-scene { display: none; }
+    .mock-window[data-view="cards"] .mock-card-stage { display: grid; }
+
+    .mock-agent-card {
+      padding: 11px;
+      border: 1px solid #cec5b5;
+      border-radius: 8px;
+      background: #fffdf7;
+    }
+
+    .mock-agent-card.selected { border-color: var(--blue); box-shadow: inset 3px 0 var(--blue); }
+    .mock-agent-card b { display: block; font-size: 11px; }
+    .mock-agent-card span { display: block; margin-top: 5px; color: #7c7468; font-size: 8px; }
+
+    .mock-agent-console {
+      display: grid;
+      align-content: start;
+      gap: 9px;
+      padding: 13px 14px;
+      background: #f7efd9;
+    }
+
+    .mock-agent-title small { display: block; color: #847966; font: 800 7px/1 var(--mono); letter-spacing: .12em; }
+    .mock-agent-title b { display: block; margin-top: 6px; overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+    .mock-agent-meta { display: flex; gap: 5px; color: #665d50; font-size: 8px; }
+    .mock-agent-meta span { padding: 3px 6px; border-radius: 999px; background: #eadfc7; }
+
+    .mock-slot {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr);
+      gap: 7px;
+      align-items: center;
+      font-size: 9px;
+    }
+
+    .mock-slot span:last-child { overflow: hidden; padding: 6px 8px; border: 1px solid #c9bda8; border-radius: 5px; background: #fffaf0; text-overflow: ellipsis; white-space: nowrap; }
+
+    .mock-agent-actions { display: grid; grid-template-columns: 1.15fr 1fr auto; gap: 6px; }
+    .mock-agent-actions span { display: grid; place-items: center; min-height: 31px; padding: 0 7px; border: 1px solid #c7baa5; border-radius: 5px; background: #fffaf0; font-size: 9px; }
+    .mock-agent-actions .primary { color: white; border-color: #a74420; background: var(--orange); font-weight: 700; }
+
+    .mock-quota-line {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding-top: 8px;
+      border-top: 1px solid #d8ccb7;
+      color: #756b5c;
+      font-size: 8px;
+    }
+
+    .mock-meter { height: 5px; overflow: hidden; border-radius: 3px; background: #dfd6c6; }
+    .mock-meter i { display: block; width: 47%; height: 100%; background: var(--blue); }
+
+    .mock-session-panel { grid-column: 1; display: grid; grid-template-rows: 48px minmax(0, 1fr); }
+
+    .mock-session-toolbar {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      border-bottom: 1px solid #ddd5c6;
+      background: #fffaf0;
+    }
+
+    .mock-session-toolbar strong { font-size: 12px; }
+    .mock-session-toolbar strong b { margin-left: 4px; color: #847a69; font-size: 9px; font-weight: 500; }
+    .mock-session-controls { display: flex; justify-content: flex-end; gap: 6px; min-width: 0; }
+    .mock-session-controls span { display: grid; place-items: center; height: 30px; padding: 0 9px; border: 1px solid #c9bfaf; border-radius: 5px; background: #f8f2e7; color: #6d6558; font-size: 8px; }
+    .mock-session-controls .mock-search { width: 204px; justify-content: start; color: #958c7e; }
+
+    .mock-table { display: grid; grid-template-rows: 36px repeat(6, 46px); min-width: 0; overflow: hidden; }
+    .mock-tr {
+      display: grid;
+      grid-template-columns: 36px minmax(210px, 1fr) 72px 145px 64px 88px;
+      align-items: center;
+      min-width: 0;
+      border-bottom: 1px solid #e1d9cc;
+      font-size: 9px;
+    }
+
+    .mock-tr.head { color: #82796b; background: #f7f0e4; font-size: 8px; }
+    .mock-tr.focused { box-shadow: inset 3px 0 var(--blue); background: #eaf2f5; }
+    .mock-tr > span { min-width: 0; overflow: hidden; padding: 0 7px; text-overflow: ellipsis; white-space: nowrap; }
+    .mock-check { justify-self: center; width: 12px; height: 12px; padding: 0 !important; border: 1px solid #8c867d; border-radius: 3px; background: white; }
+    .mock-tr .title { color: #332f29; font-weight: 650; }
+    .mock-tr .muted { color: #867e72; }
+
+    .mock-detail-panel { grid-column: 2; position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+    .mock-detail-head { padding: 14px 14px 11px; border-bottom: 1px solid #ddd5c6; background: #fbf5e9; }
+    .mock-detail-head small { color: #847a69; font: 800 7px/1 var(--mono); letter-spacing: .1em; }
+    .mock-detail-head b { display: block; margin-top: 6px; font-size: 13px; line-height: 1.3; }
+
+    .mock-detail-body { padding: 13px 14px; overflow: hidden; }
+    .mock-detail-empty { display: none; height: 100%; place-items: center; color: #81786b; text-align: center; }
+    .mock-detail-empty b { display: block; color: #4c463e; font-size: 12px; }
+    .mock-detail-empty span { display: block; max-width: 200px; margin-top: 6px; font-size: 8px; line-height: 1.6; }
+
+    .mock-window[data-detail="empty"] .mock-detail-content,
+    .mock-window[data-detail="empty"] .mock-action-dock { display: none; }
+    .mock-window[data-detail="empty"] .mock-detail-empty { display: grid; }
+    .mock-window[data-detail="empty"] .mock-detail-head b { color: #81786b; }
+
+    .mock-field { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-bottom: 1px solid #e3dbce; font-size: 8px; }
+    .mock-field span:first-child { color: #8a8173; }
+    .mock-field span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mock-tech { margin-top: 12px; padding: 8px 0; border-top: 1px solid #d9d0c1; color: #71695e; font-size: 8px; }
+
+    .mock-action-dock { display: grid; gap: 6px; padding: 10px 12px; border-top: 1px solid #d9d0c1; background: #fbf5e9; }
+    .mock-action-row { display: grid; grid-template-columns: minmax(0, 1fr) 102px; gap: 6px; }
+    .mock-action-row span { display: grid; place-items: center; min-height: 31px; border: 1px solid #c9bfaf; border-radius: 5px; background: #fffaf0; font-size: 8px; }
+    .mock-action-row .primary { color: white; border-color: #175d84; background: var(--blue); font-weight: 700; }
+
+    .mock-footer {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 0 14px;
+      border-top: 1px solid #a99d88;
+      background: #fffaf0;
+      color: #71695d;
+      font-size: 8px;
+    }
+
+    .mock-footer div:last-child { display: flex; align-items: center; gap: 8px; }
+    .mock-footer b { color: #3b352e; }
+    .mock-reminder { padding: 4px 7px; border: 1px solid #c7bba7; border-radius: 4px; color: #9b421f; background: #f6e2d6; }
+
+    .mock-note {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .mock-note div { padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--sheet-2); }
+    .mock-note b { display: block; color: var(--orange-deep); font: 800 9px/1 var(--mono); }
+    .mock-note span { display: block; margin-top: 5px; color: var(--ink-2); font-size: 10px; line-height: 1.5; }
+
+    .area-spec {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      gap: 22px;
+      padding: 22px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .area-spec:first-of-type { border-top: 0; }
+    .area-spec h3 { margin: 0; font: 700 24px/1.15 var(--display); }
+    .area-spec h3 small { display: block; margin-top: 7px; color: var(--ink-3); font: 700 9px/1.4 var(--mono); letter-spacing: .08em; }
+    .area-spec ul { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 12px; }
+    .area-spec li + li { margin-top: 6px; }
+
+    .token-board {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .token-panel { padding: 20px; border: 1px solid var(--line); border-radius: 11px; background: var(--sheet); }
+    .token-panel h3 { margin: 0 0 16px; font-size: 14px; }
+
+    .space-ruler { display: flex; align-items: end; gap: 10px; min-height: 90px; }
+    .space-ruler div { display: grid; place-items: end center; width: 58px; color: var(--ink-3); font: 700 9px/1 var(--mono); }
+    .space-ruler i { display: block; width: 100%; margin-bottom: 8px; background: var(--blue); opacity: .82; }
+
+    .type-stack { display: grid; gap: 10px; }
+    .type-stack div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+    .type-stack span { color: var(--ink-3); font: 700 9px/1 var(--mono); }
+
+    .swatches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .swatch { min-height: 72px; padding: 10px; border: 1px solid rgba(38, 36, 31, .16); border-radius: 8px; color: #fff; font-size: 10px; }
+    .swatch b { display: block; margin-top: 24px; }
+
+    .control-demo { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+    .control-demo button { min-height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink-2); background: var(--sheet); }
+    .control-demo .primary { min-height: 36px; color: white; border-color: var(--orange-deep); background: var(--orange); font-weight: 700; }
+    .control-demo .secondary { color: var(--blue); border-color: #92b8ca; background: var(--blue-wash); }
+    .control-demo .quiet { border-color: transparent; background: transparent; }
+
+    pre {
+      overflow: auto;
+      margin: 20px 0 0;
+      padding: 18px;
+      border-radius: 10px;
+      color: #f7ead4;
+      background: #27251f;
+      font-size: 11px;
+      line-height: 1.7;
+    }
+
+    pre .code-warn { color: #ef9a67; }
+    pre .code-good { color: #9bd4ae; }
+
+    .overlay-map {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .overlay-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--sheet);
+    }
+
+    .overlay-card header { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .overlay-card h3 { margin: 0; font-size: 14px; }
+    .overlay-card .kind { padding: 4px 7px; border-radius: 999px; color: var(--blue); background: var(--blue-wash); font: 800 8px/1 var(--mono); }
+    .overlay-card p { margin: 9px 0 0; color: var(--ink-2); font-size: 11px; }
+
+    .phase-card { counter-increment: phase; }
+    .phase-grid { counter-reset: phase; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .phase-card::before { content: "0" counter(phase); position: absolute; right: 16px; top: 14px; color: var(--paper-deep); font: 800 34px/1 var(--mono); }
+    .phase-card ul { margin: 10px 0 0; padding-left: 16px; color: var(--ink-2); font-size: 11px; }
+
+    .gate {
+      margin-top: 20px;
+      padding: 18px;
+      border: 1px solid #ac9470;
+      border-radius: 10px;
+      color: #5d4325;
+      background: var(--gold-wash);
+    }
+
+    .gate strong { display: block; }
+    .gate p { margin: 6px 0 0; font-size: 12px; }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .checklist label {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr);
+      gap: 9px;
+      align-items: start;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--sheet);
+      color: var(--ink-2);
+      font-size: 11px;
+    }
+
+    .checklist input { margin: 3px 0 0; accent-color: var(--green); }
+
+    .final-callout {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+      margin-top: 26px;
+      padding: 22px;
+      border-radius: 12px;
+      color: #fff8e8;
+      background: #2c2922;
+    }
+
+    .final-callout > b { color: #f49a67; font: 800 42px/1 var(--display); }
+    .final-callout strong { display: block; font-size: 15px; }
+    .final-callout p { margin: 5px 0 0; color: rgba(255, 248, 232, .7); font-size: 11px; }
+
+    .zoom-dialog {
+      width: min(94vw, 1500px);
+      max-height: 92vh;
+      padding: 10px;
+      border: 0;
+      border-radius: 14px;
+      background: #24221d;
+      box-shadow: 0 30px 90px rgba(0, 0, 0, .4);
+    }
+
+    .zoom-dialog::backdrop { background: rgba(23, 20, 16, .72); backdrop-filter: blur(5px); }
+    .zoom-dialog img { display: block; width: 100%; height: auto; border-radius: 8px; }
+    .zoom-dialog button { position: sticky; top: 0; float: right; z-index: 2; margin: 4px; min-height: 30px; border: 1px solid rgba(255,255,255,.22); border-radius: 6px; color: white; background: rgba(25,24,21,.78); }
+
+    @media (max-width: 1080px) {
+      .page { grid-template-columns: 1fr; }
+      .toc { position: static; display: flex; gap: 4px; max-height: none; overflow-x: auto; }
+      .toc strong, .toc-note { display: none; }
+      .toc a { grid-template-columns: auto; min-width: max-content; }
+      .toc a span { display: none; }
+      .summary-grid, .card-grid, .rule-grid { grid-template-columns: 1fr; }
+      .token-board { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .hero { padding: 54px 24px 46px; }
+      .page { width: min(100% - 24px, 1480px); padding-top: 20px; }
+      .section { padding: 24px 18px; }
+      .annotation-grid, .math-grid, .overlay-map, .phase-grid, .checklist { grid-template-columns: 1fr; }
+      .layer { grid-template-columns: 54px 1fr; margin-left: 0 !important; }
+      .layer p { grid-column: 2; }
+      .move-row { grid-template-columns: 1fr; }
+      .move-row > i { text-align: left; transform: rotate(90deg); }
+      .area-spec { grid-template-columns: 1fr; gap: 10px; }
+      .mock-note { grid-template-columns: 1fr 1fr; }
+      .audit-table, .spec-table, .state-table { display: block; overflow-x: auto; white-space: nowrap; }
+      .evidence-frame button::after { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+
+    @media print {
+      .progress, .toc, .mock-toolbar { display: none; }
+      .page { display: block; width: 100%; padding: 0; }
+      .hero { break-after: page; }
+      .section { break-inside: avoid; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" aria-hidden="true"><i id="readingProgress"></i></div>
+
+  <header class="hero">
+    <span class="eyebrow">UI hierarchy review · draft for owner</span>
+    <h1>结构保留，<em>层级重做。</em></h1>
+    <p class="hero-lead">一个 Header、一个 Footer、顶部 Agent、左下会话、右下详情——这个大结构成立。当前不合格的是结构内部：尺寸互相打架、控件权重失控、浮层被裁切、庭院皮肤越界、空白与拥挤分配颠倒。本稿只做审查与规划，不修改应用。</p>
+    <div class="hero-meta">
+      <span>固定外窗 1040 × 840</span>
+      <span>三面板契约不变</span>
+      <span>四个全局入口仍为独立弹窗</span>
+      <span>OWNER APPROVED · IMPLEMENTATION AUTHORIZED</span>
+    </div>
+  </header>
+
+  <div class="page">
+    <aside class="toc" aria-label="规划目录">
+      <strong>Review map</strong>
+      <a href="#verdict"><span>00</span>审查结论</a>
+      <a href="#evidence"><span>01</span>现状标注</a>
+      <a href="#geometry"><span>02</span>尺寸冲突</a>
+      <a href="#hierarchy"><span>03</span>目标层级</a>
+      <a href="#blueprint"><span>04</span>整页蓝图</a>
+      <a href="#areas"><span>05</span>逐区排版</a>
+      <a href="#overlays"><span>06</span>弹窗与浮层</a>
+      <a href="#system"><span>07</span>设计系统</a>
+      <a href="#states"><span>08</span>状态矩阵</a>
+      <a href="#delivery"><span>09</span>实施顺序</a>
+      <a href="#approval"><span>10</span>审阅清单</a>
+      <p class="toc-note">本页已于 2026-08-12 获所有者批准；推荐尺寸与组件规则已写回 1.13 产品基准。</p>
+    </aside>
+
+    <main>
+      <section class="section" id="verdict">
+        <span class="section-number">00 / VERDICT</span>
+        <h2>不是换皮问题，是层级系统没有建立。</h2>
+        <p class="lead">当前实现把“固定三面板”误当成完成了信息架构。实际上，面板只是盒子；盒子内部仍然沿用旧控件、旧样式覆盖和旧尺寸假设，所以视觉上有大体结构，使用时却没有清楚的主次和稳定节奏。</p>
+
+        <div class="summary-grid">
+          <article class="summary-card good">
+            <small>保留</small>
+            <b>宏观页面骨架</b>
+            <p>Header、顶部 Agent、左下会话、右下详情、Footer；庭院/卡片共用业务状态。</p>
+          </article>
+          <article class="summary-card">
+            <small>推倒重排</small>
+            <b>面板内部层级</b>
+            <p>标题、筛选、当前对象、主操作、状态、低频管理需要重新分级和排序。</p>
+          </article>
+          <article class="summary-card blue">
+            <small>先治理</small>
+            <b>CSS 与浮层架构</b>
+            <p>先消除相互覆盖的样式代际和裁切根因，否则任何细节润色都会再次走样。</p>
+          </article>
+        </div>
+
+        <div class="verdict">
+          <strong>核心结论：不增加任何区域，只重新分配现有区域里的注意力。</strong>
+          <p>顶部 Agent 面板负责“选谁、在哪里运行、现在能做什么”；左下负责“找会话”；右下负责“理解并操作当前会话”；Footer 只负责全局状态。设备、工具、活动、设置继续各自使用独立弹窗。</p>
+        </div>
+      </section>
+
+      <section class="section" id="evidence">
+        <span class="section-number">01 / CURRENT EVIDENCE</span>
+        <h2>这张图里，十个问题同时发生。</h2>
+        <p class="lead">下面的红点不是审美偏好，而是可以从 DOM、尺寸和交互边界直接证明的问题。点击图片可放大，悬停数字可看摘要。</p>
+
+        <div class="evidence-frame" id="evidenceFrame">
+          <img id="currentScreenshot" src="file:///private/var/folders/_8/8pc0zl392d7645hhkl3b2lh80000gn/T/codex-clipboard-d388f6b9-19ee-4c45-b408-b66c5076f6c9.png" alt="当前 AgentDesk 1040×840 界面截图">
+          <button style="left:49%;top:7%" data-label="Device Lens 像一只悬空表单，没有明确上下文层级">1</button>
+          <button style="left:86%;top:7%" data-label="四个全局入口方向正确，但图标、文字、徽章基线不统一">2</button>
+          <button style="left:92%;top:13%" data-label="排行和视图切换权重接近，当前模式不够直接">3</button>
+          <button style="left:56%;top:17%" data-label="四段时间按钮常驻并压在场景上，抢走 Agent 主体注意力">4</button>
+          <button style="left:74%;top:18%" data-label="当前 Agent 名称、状态、操作、额度全部挤在同一个强层级">5</button>
+          <button style="left:83%;top:31%" data-label="管理菜单被顶部面板 overflow:hidden 裁切；z-index 无法修复">6</button>
+          <button style="left:48%;top:38%" data-label="会话标题、范围、搜索、显示四组控件缺乏主次与统一基线">7</button>
+          <button style="left:54%;top:77%" data-label="紧凑表格仍产生横向滚动，是固定宽度数学冲突">8</button>
+          <button style="left:77%;top:52%" data-label="右下空状态过弱，巨大空白没有解释点击与勾选的区别">9</button>
+          <button style="left:89%;top:96%" data-label="Footer 功能方向正确，但提醒按钮过重、左侧状态仍混入当前选择">10</button>
+        </div>
+        <div class="evidence-caption"><span>来源：当前安装版实拍 · 2080 × 1680 Retina（对应 1040 × 840 外窗）</span><span>点击图片放大</span></div>
+
+        <div class="annotation-grid">
+          <article class="annotation"><b>1</b><div><strong>Header 不是同一条基线</strong><p>品牌、Lens、全局入口在视觉上像三套独立组件，而不是一条全局导航。</p></div></article>
+          <article class="annotation"><b>2</b><div><strong>图标语言混杂</strong><p>⌁、◇、◎、⚙、🏆、⇄ 同时出现，线宽、语义和文字间距均不一致。</p></div></article>
+          <article class="annotation"><b>3</b><div><strong>模式状态表达反了</strong><p>“⇄经典”表达下一步动作，而不是当前模式；用户需要先推理现在在哪里。</p></div></article>
+          <article class="annotation"><b>4</b><div><strong>场景设置压过主体</strong><p>跟随/白天/黄昏/夜晚常驻四按钮，场景设置比猫和 Agent 选择更醒目。</p></div></article>
+          <article class="annotation"><b>5</b><div><strong>当前 Agent 侧栏过载</strong><p>对象标题、并行状态、三个动作、两个额度入口都使用粗边框或强色块。</p></div></article>
+          <article class="annotation"><b>6</b><div><strong>浮层边界错误</strong><p>菜单是绝对定位，但祖先面板裁切；提高 z-index 也无法逃出裁切上下文。</p></div></article>
+          <article class="annotation"><b>7</b><div><strong>工具栏像控件拼盘</strong><p>分段、搜索和显示菜单高度、边框、字体和选中方式不属于同一系统。</p></div></article>
+          <article class="annotation"><b>8</b><div><strong>紧凑模式仍横滚</strong><p>左面板的真实内宽小于表格硬最小宽度，横向滚动不是偶发，而是必然。</p></div></article>
+          <article class="annotation"><b>9</b><div><strong>空状态没有任务说明</strong><p>只写“未选择”，没有说明单击看详情、勾选做批量操作，也没有视觉锚点。</p></div></article>
+          <article class="annotation"><b>10</b><div><strong>Footer 权重失衡</strong><p>提醒是全局开关没错，但橙色木牌像主操作；左侧又出现当前 Agent 瞬时说明。</p></div></article>
+        </div>
+
+        <table class="audit-table">
+          <thead><tr><th style="width:70px">等级</th><th style="width:24%">问题</th><th>直接证据</th><th style="width:27%">造成的结果</th></tr></thead>
+          <tbody>
+            <tr><td><span class="priority p0">P0</span></td><td><b>管理菜单被裁切</b></td><td><code>.workspace-panel { overflow:hidden }</code> 内嵌绝对定位菜单。</td><td>关键管理项不可见、不可达，属于功能缺陷。</td></tr>
+            <tr><td><span class="priority p0">P0</span></td><td><b>紧凑表格横向滚动</b></td><td>表格 <code>min-width:720px</code>，实际内容宽约 640px。</td><td>标题、项目、来源无法在一屏同时阅读。</td></tr>
+            <tr><td><span class="priority p0">P0</span></td><td><b>CSS 代际叠加</b></td><td>基础层、v2、v3、1.11 与 yard 高特异度规则连续覆盖。</td><td>同一控件在庭院/卡片、弹窗/主界面中出现不同权重。</td></tr>
+            <tr><td><span class="priority p1">P1</span></td><td><b>当前 Agent 无主次</b></td><td>标题、状态、动作和额度都在 186px 左右的高度内竞争。</td><td>用户无法一眼回答“我现在要点哪个”。</td></tr>
+            <tr><td><span class="priority p1">P1</span></td><td><b>庭院皮肤越界</b></td><td><code>body[data-view="yard"] .app-shell button</code> 改写全站按钮。</td><td>像素场景风格侵入表格、Footer、弹窗和通用控件。</td></tr>
+            <tr><td><span class="priority p1">P1</span></td><td><b>空白与密度倒置</b></td><td>右详情长期大片空白，顶部操作侧却拥挤溢出。</td><td>信息空间没有按任务重要性分配。</td></tr>
+            <tr><td><span class="priority p2">P2</span></td><td><b>文字与图标基线不统一</b></td><td>8px mono 标签、15px 标题、粗木牌按钮和 Unicode 图标并存。</td><td>扫描节奏断裂，三语长度更容易破版。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section" id="geometry">
+        <span class="section-number">02 / GEOMETRY</span>
+        <h2>先把算不通的尺寸算通。</h2>
+        <p class="lead">当前外窗 1040 × 840，macOS 原生标题栏约 28px，Renderer 内容区约 1040 × 812。布局问题不是“再缩小一点字体”能解决，而是固定值之间本身矛盾。</p>
+
+        <div class="math-grid">
+          <div class="equation">
+            <small>当前 · 左下会话宽度</small>
+            <code>1040 − 24（Board 横向 padding）<br>− 10（列间距）− 340（详情）<br>= 666px 面板宽<br>666 − 26（面板 padding）≈ 640px 内容宽</code>
+            <strong>但紧凑表格 min-width = 720px → 至少多出约 80px。</strong>
+          </div>
+          <div class="equation">
+            <small>当前 · 顶部 Agent 高度</small>
+            <code>220 − 34（面板标题）= 186px<br>186 − 24（上下 padding）<br>− 24（三段 gap）≈ 138px<br>留给标题、位置、动作、额度四组内容</code>
+            <strong>菜单再向下展开时，必然越过面板底边并被裁切。</strong>
+          </div>
+        </div>
+
+        <div class="card-grid">
+          <article class="card"><small>裁切根因</small><b>z-index 不是解法</b><p>子元素无法越过祖先的裁切边界。菜单必须进入浏览器 Top Layer，或由根级 Overlay Portal 承载。</p></article>
+          <article class="card"><small>滚动根因</small><b>Compact 不能有硬最小宽</b><p>紧凑模式必须在左面板内完成列预算；只有详细模式允许明确的水平滚动。</p></article>
+          <article class="card"><small>密度根因</small><b>顶部面板太矮且动作太多</b><p>不是简单加高，而是同时减少常驻控件、提升顶部面板高度、收窄右侧 Agent 控制宽度。</p></article>
+        </div>
+
+        <h3 style="margin:30px 0 8px">批准尺寸预算（已冻结，尚未实施）</h3>
+        <div class="dimension-strip" aria-label="推荐 Header 主区 Footer 高度示意">
+          <div class="header-dim">HEADER<br>58px</div>
+          <div class="main-dim">WORKSPACE<br>716px</div>
+          <div class="footer-dim">FOOTER<br>38px</div>
+        </div>
+        <div class="target-math"><b>工作区：</b>横向 padding 12px、纵向 padding 10px、面板 gap 10px；顶部 Agent 244px；右下详情 316px；左下会话约 690px；下半区约 442px。顶部 Agent 内容高约 206px，当前 Agent 控制区宽约 314px。</div>
+
+        <table class="spec-table">
+          <thead><tr><th>对象</th><th>当前</th><th>推荐</th><th>目的</th></tr></thead>
+          <tbody>
+            <tr><td>Header</td><td>60px</td><td><b>58px</b></td><td>维持品牌识别，减少空高，统一控件 32px。</td></tr>
+            <tr><td>顶部 Agent</td><td>220px</td><td><b>244px</b></td><td>给庭院构图和当前 Agent 五级信息足够呼吸。</td></tr>
+            <tr><td>右下详情宽</td><td>340px</td><td><b>316px</b></td><td>详情仍可读，同时把 24px 还给主会话表。</td></tr>
+            <tr><td>左下会话宽</td><td>约 666px</td><td><b>约 690px</b></td><td>紧凑表五/六列在一屏成立。</td></tr>
+            <tr><td>Footer</td><td>42px</td><td><b>38px</b></td><td>全局状态清楚但不抢主工作区。</td></tr>
+            <tr><td>Compact table</td><td>min 720px</td><td><b>min-width: 0</b></td><td>紧凑模式禁止水平滚动。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section" id="hierarchy">
+        <span class="section-number">03 / INFORMATION HIERARCHY</span>
+        <h2>每层只回答一个问题。</h2>
+        <p class="lead">页面不是把功能全摆出来，而是让用户从全局上下文逐层落到当前对象。以下五层冻结后，任何按钮都必须能解释自己属于哪一层。</p>
+
+        <div class="layer-ladder">
+          <div class="layer"><span>LEVEL 0</span><strong>应用外壳</strong><p>我在哪个设备视角？有哪些全局中心？——Header 与 Footer。</p></div>
+          <div class="layer"><span>LEVEL 1</span><strong>面板标题</strong><p>这一块是什么？数量和视图模式是什么？——每个面板唯一标题行。</p></div>
+          <div class="layer"><span>LEVEL 2</span><strong>主要工作对象</strong><p>我正在看哪个 Agent、哪条会话？——庭院/卡片、会话表、详情正文。</p></div>
+          <div class="layer"><span>LEVEL 3</span><strong>上下文动作</strong><p>对当前对象最常做什么？——打开账号、复制会话信息；每区只允许一个填充主按钮。</p></div>
+          <div class="layer"><span>LEVEL 4</span><strong>临时浮层</strong><p>低频设置或复杂管理去哪里？——Popover / Dialog / 独立全局弹窗，不改变底层工作台。</p></div>
+        </div>
+
+        <div class="rule-grid">
+          <article class="rule-card"><small>规则 01</small><b>一块区域，一个主任务</b><p>当前 Agent 的主任务是打开账号；会话详情的主任务是复制会话信息。其他动作降级。</p></article>
+          <article class="rule-card"><small>规则 02</small><b>状态不伪装成按钮</b><p>“3 并行”“稳定”“在线”属于信息标签，不使用按钮边框、阴影或高饱和底色。</p></article>
+          <article class="rule-card"><small>规则 03</small><b>模式显示当前值</b><p>直接显示“庭院 / 卡片”两段，不再用“⇄经典”让用户猜当前状态。</p></article>
+          <article class="rule-card"><small>规则 04</small><b>短命令才用 Popover</b><p>最多五项、无表单、无危险确认。七项管理菜单不符合，必须进入对象管理 Dialog。</p></article>
+          <article class="rule-card"><small>规则 05</small><b>皮肤不改变语义</b><p>庭院和卡片只改变 Agent 呈现，不改变按钮、表格、详情和弹窗的控件体系。</p></article>
+          <article class="rule-card"><small>规则 06</small><b>空状态也是任务说明</b><p>明确告诉用户：单击查看详情，勾选建立批量集合；不能只留下“未选择”。</p></article>
+        </div>
+
+        <h3 style="margin:30px 0 8px">移走的内容到底放哪里</h3>
+        <div class="move-map">
+          <div class="move-row"><b>跟随 / 白天 / 黄昏 / 夜晚 + 天气</b><i>→</i><span>庭院画面右上只留一个“场景 · 跟随 / 晴”按钮，打开 Top Layer 小浮层。</span></div>
+          <div class="move-row"><b>路径 / 诊断 / 重扫 / 位置</b><i>→</i><span>“管理 Agent”对象弹窗中的“当前运行位置”分区，不再用会被裁切的七项菜单。</span></div>
+          <div class="move-row"><b>编辑 / Agent 关系 / 移除</b><i>→</i><span>同一对象弹窗的“全局 Agent”分区；危险动作放最底部并先做影响预览。</span></div>
+          <div class="move-row"><b>本号 / 全院两个大额度胶囊</b><i>→</i><span>当前 Agent 控制区只留一条紧凑额度摘要；点击本号或“查看全院”进入右下额度详情。</span></div>
+          <div class="move-row"><b>显示 · 精简 / 详细</b><i>→</i><span>会话工具栏保留一个“显示”Popover，当前模式以勾选显示，不再做双重文字按钮。</span></div>
+          <div class="move-row"><b>当前选择提示</b><i>→</i><span>归当前 Agent 标题区或会话详情；Footer 只显示 Mesh 同步、账本与提醒总开关。</span></div>
+          <div class="move-row"><b>设备 / 工具 / 活动 / 设置</b><i>→</i><span>维持四个独立有界弹窗；不进右下详情，也不塞入“更多”。</span></div>
+        </div>
+      </section>
+
+      <section class="section" id="blueprint">
+        <span class="section-number">04 / FULL-PAGE BLUEPRINT</span>
+        <h2>推荐完成态：同一个骨架，重新建立节奏。</h2>
+        <p class="lead">下面是按 1040 × 812 Renderer 内容区绘制的比例蓝图。它不是产品实现，只用于审阅区域关系、尺寸和内容顺序。可切换庭院/卡片以及空详情/已选详情。</p>
+
+        <div class="mock-toolbar">
+          <div role="group" aria-label="Agent 视图示意">
+            <button type="button" data-mock-view="yard" aria-pressed="true">庭院</button>
+            <button type="button" data-mock-view="cards" aria-pressed="false">卡片</button>
+          </div>
+          <div role="group" aria-label="详情状态示意">
+            <button type="button" data-mock-detail="selected" aria-pressed="true">已选择会话</button>
+            <button type="button" data-mock-detail="empty" aria-pressed="false">空详情</button>
+          </div>
+        </div>
+
+        <div class="mock-stage" id="mockStage">
+          <div class="mock-window" id="mockWindow" data-view="yard" data-detail="selected">
+            <header class="mock-app-header">
+              <div class="mock-brand"><span class="mock-brand-mark">▰</span><span><b>AgentDesk</b><small>LOCAL ACCOUNT DESK</small></span></div>
+              <div class="mock-lens"><small>设备视角</small><b>全部设备</b><span>⌄</span></div>
+              <div class="mock-global-actions"><span>设备 <b>2</b></span><span>工具</span><span>活动</span><span>设置</span></div>
+            </header>
+
+            <main class="mock-board">
+              <section class="mock-panel mock-agent-panel">
+                <header class="mock-panel-head">
+                  <strong>Agent <b>1</b></strong>
+                  <div class="mock-head-tools"><span>排行</span><span class="mock-segment"><i class="active">庭院</i><i>卡片</i></span></div>
+                </header>
+                <div class="mock-agent-body">
+                  <div class="mock-scene"><span class="mock-nameplate">● peter</span><span class="mock-cat"></span><span class="mock-atmos-chip">☀ 场景 · 跟随</span></div>
+                  <div class="mock-card-stage">
+                    <div class="mock-agent-card selected"><b>peter · Codex</b><span>3 个位置 · 2 在线</span><span>工作中 · 3 路并行</span></div>
+                    <div class="mock-agent-card"><b>Claude 工作号</b><span>2 个位置 · 1 在线</span><span>14 分钟前</span></div>
+                    <div class="mock-agent-card"><b>Kimi 素材号</b><span>1 个位置 · 在线</span><span>正在生成</span></div>
+                  </div>
+                  <aside class="mock-agent-console">
+                    <div class="mock-agent-title"><small>当前 Agent</small><b>peter · Codex</b></div>
+                    <div class="mock-agent-meta"><span>工作中</span><span>3 个位置 · 2 在线</span><span>3 路并行</span></div>
+                    <div class="mock-slot"><span>运行位置</span><span>MacBook Air · Codex Desktop⌄</span></div>
+                    <div class="mock-agent-actions"><span class="primary">打开账号</span><span>新增运行位置</span><span>管理 Agent</span></div>
+                    <div class="mock-quota-line"><span>本号额度 47%</span><span class="mock-meter"><i></i></span><span>查看全院 ›</span></div>
+                  </aside>
+                </div>
+              </section>
+
+              <section class="mock-panel mock-session-panel">
+                <header class="mock-session-toolbar">
+                  <strong>会话 <b>15</b></strong>
+                  <div class="mock-session-controls"><span>当前 Agent｜全部 Agent</span><span class="mock-search">搜索会话、账号或 ID</span><span>显示⌄</span></div>
+                </header>
+                <div class="mock-table">
+                  <div class="mock-tr head"><span></span><span>标题</span><span>活跃</span><span>项目</span><span>来源</span><span>位置</span></div>
+                  <div class="mock-tr focused"><span class="mock-check"></span><span class="title">查找视频格式尺寸转换 Skill</span><span>11:28</span><span class="muted">~/.codex/skills</span><span>Codex</span><span>本机</span></div>
+                  <div class="mock-tr"><span class="mock-check"></span><span class="title">总结 AI 辅助开发技巧</span><span>14:13</span><span class="muted">~/Documents/Books</span><span>Codex</span><span>本机</span></div>
+                  <div class="mock-tr"><span class="mock-check"></span><span class="title">Locate project repository</span><span>10:44</span><span class="muted">~/Documents/AgentDesk</span><span>Codex</span><span>2 个位置</span></div>
+                  <div class="mock-tr"><span class="mock-check"></span><span class="title">比较远程与本地 main</span><span>8/11</span><span class="muted">~/.codex/skills</span><span>Codex</span><span>远端</span></div>
+                  <div class="mock-tr"><span class="mock-check"></span><span class="title">制定规模化前的质量应对方案</span><span>8/11</span><span class="muted">~/.codex/skills</span><span>Codex</span><span>本机</span></div>
+                  <div class="mock-tr"><span class="mock-check"></span><span class="title">研究 AI 工具纵深现状</span><span>8/11</span><span class="muted">~/Documents/Books</span><span>Codex</span><span>本机</span></div>
+                </div>
+              </section>
+
+              <aside class="mock-panel mock-detail-panel">
+                <header class="mock-detail-head"><small>会话详情</small><b>查找视频格式尺寸转换 Skill</b></header>
+                <div class="mock-detail-body">
+                  <div class="mock-detail-empty"><div><b>选择一条会话</b><span>单击行查看详情；勾选复选框建立批量操作集合。</span></div></div>
+                  <div class="mock-detail-content">
+                    <div class="mock-field"><span>Agent</span><span>peter</span></div>
+                    <div class="mock-field"><span>运行位置</span><span>MacBook Air · Codex</span></div>
+                    <div class="mock-field"><span>项目</span><span>~/.codex/skills</span></div>
+                    <div class="mock-field"><span>活跃</span><span>今天 11:28</span></div>
+                    <div class="mock-tech">▸ 技术信息</div>
+                  </div>
+                </div>
+                <div class="mock-action-dock">
+                  <div class="mock-action-row"><span class="primary">复制会话信息</span><span>发送到设备</span></div>
+                  <div class="mock-action-row"><span>打开当前位置</span><span>导出</span></div>
+                </div>
+              </aside>
+            </main>
+
+            <footer class="mock-footer"><div>● Mesh 已同步 · 2 / 3 设备在线</div><div><span>今日收工 <b>1</b> 次</span><span>陪伴 <b>56</b> 分钟</span><span class="mock-reminder">提醒 开</span></div></footer>
+          </div>
+        </div>
+
+        <div class="mock-note">
+          <div><b>01</b><span>Panel Header 统一 38–48px，只包含标题、数量和本面板视图控制。</span></div>
+          <div><b>02</b><span>当前 Agent 按“对象 → 状态 → 运行位置 → 动作 → 额度”自上而下。</span></div>
+          <div><b>03</b><span>紧凑表格完整适配 690px；Panel 自己就是边界，不再套粗重表格框。</span></div>
+          <div><b>04</b><span>详情动作固定在底部；空状态居中说明交互，不显示无意义字段占位。</span></div>
+        </div>
+      </section>
+
+      <section class="section" id="areas">
+        <span class="section-number">05 / AREA-BY-AREA SPEC</span>
+        <h2>逐区排版与内容顺序。</h2>
+        <p class="lead">下面不是“有哪些按钮”的排列组合，而是每一区域先回答什么、后回答什么，以及任何被移走的内容最终落在哪里。</p>
+
+        <article class="area-spec">
+          <h3>Header<small>全局上下文 · 58px</small></h3>
+          <ul>
+            <li><b>左：</b>品牌，固定约 210px；不重复当前 Agent、在线长句或模式信息。</li>
+            <li><b>中：</b>Device Lens，组件内明确显示“设备视角 / 全部设备”，不是一只裸 Select。</li>
+            <li><b>右：</b>设备、工具、活动、设置四个直接入口；统一 16px 图标、32px 点击高度和同一文字基线。</li>
+            <li>设备徽章只表示在线数；活动徽章只表示待处理数。没有数据时隐藏，不显示 0。</li>
+            <li>远控后台安全提示出现在四入口之前，颜色只用于风险状态，不与普通导航同色。</li>
+          </ul>
+        </article>
+
+        <article class="area-spec">
+          <h3>Agent 面板<small>选择 Agent + 明确 Slot · 244px</small></h3>
+          <ul>
+            <li><b>标题行：</b>左“Agent + 数量”；右“排行”与“庭院 / 卡片”直接分段，始终显示当前模式。</li>
+            <li><b>左舞台：</b>庭院或卡片只负责选择 Agent；两种视图共用同一选中、状态和数据。</li>
+            <li><b>庭院场景：</b>时间和天气合成一个“场景 · 跟随 / 晴”按钮，Popover 内再展开，不常驻四段按钮。</li>
+            <li><b>右控制区顺序：</b>当前 Agent → 轻量状态 → 运行位置 → 主/次动作 → 一条额度摘要。</li>
+            <li><b>动作：</b>“打开账号”为唯一填充主按钮；“新增运行位置”明确对象；“管理 Agent”打开对象 Dialog，不再展开七项菜单。</li>
+            <li><b>长名称：</b>最多两行；状态标签自动换行但不挤压运行位置和主操作。</li>
+          </ul>
+        </article>
+
+        <article class="area-spec">
+          <h3>会话面板<small>查找与选择会话 · 约 690 × 442px</small></h3>
+          <ul>
+            <li><b>工具栏：</b>标题/数量在左；Agent 范围、搜索、显示在右，所有控件统一 30–32px。</li>
+            <li><b>紧凑列：</b>选择 36、标题弹性、活跃 72、项目约 145、来源 64、位置 88；全部设备视角才显示位置。</li>
+            <li><b>Compact：</b>禁止横向滚动；长路径和标题省略并提供 tooltip。Detail 模式才允许水平滚动。</li>
+            <li><b>表格边界：</b>去掉粗木框、双重圆角和内阴影；面板是唯一外框，表头 sticky、行只用 1px 分隔。</li>
+            <li><b>选择语义：</b>单击行只聚焦，左侧蓝线；复选框才进入批量，勾选背景使用浅蓝。两种状态不能共用同一种底色。</li>
+          </ul>
+        </article>
+
+        <article class="area-spec">
+          <h3>详情面板<small>理解并操作当前对象 · 316px</small></h3>
+          <ul>
+            <li><b>空状态：</b>标题行仍是“会话详情”；正文在约 40% 高度居中，说明“单击查看 / 勾选批量”。</li>
+            <li><b>已聚焦：</b>会话标题最多两行；正文先 Agent、运行位置、项目、活跃，再折叠技术信息。</li>
+            <li><b>多副本：</b>来源选择是正文顶部的紧凑警示区，不把整个详情变成另一张卡片墙。</li>
+            <li><b>动作坞：</b>固定底部；复制会话信息是唯一填充主按钮，发送紧邻；打开与导出在次级行。</li>
+            <li><b>批量：</b>同一动作坞原位切换为数量、取消、复制、发送；不在会话表上方新增区域。</li>
+            <li><b>额度 / Remote：</b>仍然是右下详情的另外两种当前对象 Surface，不影响其余三块。</li>
+          </ul>
+        </article>
+
+        <article class="area-spec">
+          <h3>Footer<small>全局状态 · 38px</small></h3>
+          <ul>
+            <li><b>左：</b>Mesh/本机同步状态、设备在线摘要或全局错误；不得写“已选择 peter”。</li>
+            <li><b>右：</b>今日收工次数、陪伴分钟、提醒总开关；保持一行且全部属于全局状态。</li>
+            <li>提醒开关使用安静的有/无状态样式，不再使用橙色木牌和 2px 黑边伪装成页面主操作。</li>
+            <li>瞬时成功提示可以短暂替换左侧全局状态，2–3 秒后恢复；不改变布局宽度。</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="section" id="overlays">
+        <span class="section-number">06 / OVERLAYS & DIALOGS</span>
+        <h2>弹窗独立，浮层也必须有边界。</h2>
+        <p class="lead">当前问题不是弹窗太多，而是没有区分 Select、Popover、Dialog 和全局中心。选择正确的承载层，才能既不硬塞页面，也不再出现被裁切的大菜单。</p>
+
+        <div class="overlay-map">
+          <article class="overlay-card"><header><h3>设备</h3><span class="kind">GLOBAL DIALOG</span></header><p>建议 760 × 620；左设备列表、右目标详情。查看会话/屏幕后关闭弹窗再原子导航。</p></article>
+          <article class="overlay-card"><header><h3>工具</h3><span class="kind">GLOBAL DIALOG</span></header><p>建议 760 × 640；工具状态、路径、更新与动作。长清单只滚动 Body。</p></article>
+          <article class="overlay-card"><header><h3>活动</h3><span class="kind">GLOBAL DIALOG</span></header><p>建议 620 × 520；待处理优先、历史次级，传输历史进入受控次级弹窗。</p></article>
+          <article class="overlay-card"><header><h3>设置</h3><span class="kind">GLOBAL DIALOG</span></header><p>建议 520 × 420；语言、主题、更新、帮助四组设置，不复制工具或设备功能。</p></article>
+          <article class="overlay-card"><header><h3>管理 Agent</h3><span class="kind">CONTEXT DIALOG</span></header><p>建议 620 × 560；分“全局 Agent / 当前运行位置”。承接原七项菜单及影响预览。</p></article>
+          <article class="overlay-card"><header><h3>场景 / 显示</h3><span class="kind">TOP-LAYER POPOVER</span></header><p>最多五个轻量选项，无表单、无危险动作；使用 Popover API/根 Overlay，绝不留在裁切面板内。</p></article>
+        </div>
+
+        <table class="spec-table">
+          <thead><tr><th>承载</th><th>何时使用</th><th>禁止内容</th><th>关闭语义</th></tr></thead>
+          <tbody>
+            <tr><td><b>Select</b></td><td>单一维度、单一值，例如 Device Lens、运行位置。</td><td>命令、诊断、危险操作。</td><td>选定即关闭。</td></tr>
+            <tr><td><b>Popover</b></td><td>≤5 个轻命令或视图选项，例如场景、显示。</td><td>表单、多步骤、删除、七项杂物。</td><td>点外、Esc、执行后关闭。</td></tr>
+            <tr><td><b>Context Dialog</b></td><td>管理当前 Agent/Slot、需要分区或影响预览。</td><td>其他全局中心。</td><td>关闭后底层对象状态不变。</td></tr>
+            <tr><td><b>Global Dialog</b></td><td>设备、工具、活动、设置。</td><td>右下详情状态、会话动作集合。</td><td>Esc/关闭；不改底层 Lens、Agent、会话。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section" id="system">
+        <span class="section-number">07 / DESIGN SYSTEM</span>
+        <h2>一套控件系统，两种 Agent 呈现。</h2>
+        <p class="lead">庭院可以继续有像素世界的记忆点，但应用控件不能跟着全部木质化。场景是内容皮肤，按钮、表格、弹窗是产品语言；两者必须分层。</p>
+
+        <div class="token-board">
+          <div class="token-panel">
+            <h3>间距只用 4 / 8 / 12 / 16 / 24</h3>
+            <div class="space-ruler">
+              <div><i style="height:12px"></i>4</div>
+              <div><i style="height:24px"></i>8</div>
+              <div><i style="height:36px"></i>12</div>
+              <div><i style="height:52px"></i>16</div>
+              <div><i style="height:78px"></i>24</div>
+            </div>
+          </div>
+          <div class="token-panel">
+            <h3>文字层级</h3>
+            <div class="type-stack">
+              <div><b style="font-size:20px">对象标题</b><span>18–20 / 700</span></div>
+              <div><b style="font-size:15px">面板标题</b><span>14–15 / 650</span></div>
+              <div><b style="font-size:13px">正文与控件</b><span>12–13 / 500</span></div>
+              <div><b style="font-size:11px;color:var(--ink-2)">辅助信息</b><span>10–11 / 500</span></div>
+              <div><b style="font:800 10px var(--mono);letter-spacing:.1em">TECH LABEL</b><span>9–10 mono</span></div>
+            </div>
+          </div>
+          <div class="token-panel">
+            <h3>颜色按语义独占</h3>
+            <div class="swatches">
+              <div class="swatch" style="background:var(--orange)"><b>橙 · 主操作</b></div>
+              <div class="swatch" style="background:var(--blue)"><b>蓝 · 选择/导航</b></div>
+              <div class="swatch" style="background:var(--green)"><b>绿 · 在线/成功</b></div>
+              <div class="swatch" style="background:var(--gold)"><b>金 · 排行/成就</b></div>
+              <div class="swatch" style="background:var(--red)"><b>红 · 风险/删除</b></div>
+              <div class="swatch" style="background:#7b7468"><b>灰 · 元数据</b></div>
+            </div>
+          </div>
+          <div class="token-panel">
+            <h3>动作权重只分三级</h3>
+            <div class="control-demo">
+              <button class="primary">主操作 · 打开账号</button>
+              <button class="secondary">次操作 · 新增位置</button>
+              <button class="quiet">工具 · 管理 Agent</button>
+            </div>
+            <p style="margin:16px 0 0;color:var(--ink-2);font-size:11px">同一区域最多一个填充主按钮。状态标签不使用按钮样式；危险操作只在确认流程中变红。</p>
+          </div>
+        </div>
+
+        <h3 style="margin:30px 0 8px">CSS 结构必须先重建</h3>
+        <pre><span class="code-good">@layer reset, tokens, shell, components, views, states, utilities;</span>
+
+/* shell 只定义 Header / Board / Footer 与三个面板几何 */
+@layer shell { .app-shell { … } .workspace-board { … } }
+
+/* components 定义 Button / PanelHeader / Table / Dialog */
+@layer components { .button[data-variant="primary"] { … } }
+
+/* views 只允许改变 Agent 呈现，不得改写全站控件 */
+@layer views { body[data-view="yard"] .yard-stage { … } }
+
+<span class="code-warn">/* 禁止继续存在 */
+body[data-view="yard"] .app-shell button { … }
+在文件末尾追加 v2 / v3 / 1.11 覆盖层</span></pre>
+
+        <div class="card-grid" style="margin-top:18px">
+          <article class="card"><small>边框</small><b>应用 UI 只用 1px</b><p>2–3px 深色边只属于像素画框和品牌符号，不进入表格、Footer、输入框和普通按钮。</p></article>
+          <article class="card"><small>圆角</small><b>控件 6 / 面板 10 / Dialog 12</b><p>不再同屏混用方木牌、999px 胶囊、12px 面板和 3px 输入框。</p></article>
+          <article class="card"><small>阴影</small><b>只给层级，不给每个按钮</b><p>Panel 轻影、Dialog 强影、Popover 中影；普通按钮靠边框和底色表达。</p></article>
+        </div>
+      </section>
+
+      <section class="section" id="states">
+        <span class="section-number">08 / STATE MATRIX</span>
+        <h2>不是静态一张图，要把所有状态一起设计。</h2>
+        <p class="lead">当前 UI 容易在真实数据下破版，是因为只验证了“有几个短名字的默认状态”。实施前需要把下面这些状态作为同一套布局的硬验收。</p>
+
+        <table class="state-table">
+          <thead><tr><th style="width:22%">状态</th><th>顶部 Agent</th><th>会话 / 详情</th><th style="width:25%">验收重点</th></tr></thead>
+          <tbody>
+            <tr><td><b>初次加载</b></td><td>恢复 Lens 的 Agent 记忆；没有则不自动选第一只。</td><td>详情空状态，不自动聚焦/勾选。</td><td>没有隐式选择副作用。</td></tr>
+            <tr><td><b>庭院 / 卡片</b></td><td>只替换左舞台，右控制区完全不动。</td><td>搜索、聚焦、勾选保持。</td><td>控件皮肤和几何不改变。</td></tr>
+            <tr><td><b>超长 Agent 名称</b></td><td>最多两行；状态折行但不挤掉动作。</td><td>Agent 列省略并有 tooltip。</td><td>中/英/日均不溢出。</td></tr>
+            <tr><td><b>单击会话</b></td><td>不变。</td><td>蓝色 focus 线；详情与单条动作坞出现。</td><td>复选框仍未勾选。</td></tr>
+            <tr><td><b>勾选 1 / N 条</b></td><td>不变。</td><td>动作坞原位切批量；focused 专属动作隐藏。</td><td>页面不新增选择条。</td></tr>
+            <tr><td><b>多副本未解决</b></td><td>运行位置不替会话猜副本。</td><td>详情顶部选择来源；复制/发送/打开禁用。</td><td>同一修复入口，不随机选择。</td></tr>
+            <tr><td><b>设备离线</b></td><td>Presence 标离线快照；副作用禁用。</td><td>缓存会话仍可复制。</td><td>时间与数据新鲜度可见。</td></tr>
+            <tr><td><b>Popover / Dialog 开启</b></td><td>底层状态原样保留。</td><td>底层详情与动作集合不变。</td><td>不裁切、焦点圈定、Esc 正确。</td></tr>
+            <tr><td><b>Dark / reduced motion</b></td><td>语义颜色保持；场景可换调色板。</td><td>焦点、选择、离线不只靠颜色。</td><td>无闪烁依赖，无低对比文字。</td></tr>
+          </tbody>
+        </table>
+
+        <div class="gate"><strong>固定截图矩阵</strong><p>1040×840 外窗下至少覆盖：中文/英文/日文 × 明/暗 × 庭院/卡片；另加空详情、单条 focused、批量、未解决副本、管理 Dialog、四个全局 Dialog 和最长真实字符串。</p></div>
+      </section>
+
+      <section class="section" id="delivery">
+        <span class="section-number">09 / DELIVERY PLAN</span>
+        <h2>实施必须分层推进，不能继续在文件末尾补样式。</h2>
+        <p class="lead">顺序决定结果。先修 CSS 与几何，再调排版；先完成主窗口，再逐个统一弹窗。每个阶段都只改变表现层，不触碰 Agent、Mesh、会话和远控安全语义。</p>
+
+        <div class="phase-grid">
+          <article class="phase-card"><small>基础治理</small><b>冻结内容地图与基线截图</b><p>确认本稿后，把推荐尺寸与内容去向写回产品基准。</p><ul><li>保存当前三语/双主题/双视图截图</li><li>记录所有可见控件与状态</li><li>禁止边改边新增入口</li></ul></article>
+          <article class="phase-card"><small>CSS 架构</small><b>拆掉代际覆盖</b><p>建立 @layer、语义 token 与统一组件，不先追求最终颜色。</p><ul><li>去除 v2/v3/1.11 尾部覆盖</li><li>yard 皮肤限制在场景</li><li>Overlay 进入 Top Layer</li></ul></article>
+          <article class="phase-card"><small>几何</small><b>重做固定尺寸预算</b><p>调整 58/244/316/38 等推荐值，并消灭紧凑横滚。</p><ul><li>Panel Header 尺寸统一</li><li>Compact 表列预算</li><li>长文本和三语压力测试</li></ul></article>
+          <article class="phase-card"><small>主层级</small><b>Header + Agent 面板</b><p>重排当前 Agent 五级内容，替换歧义模式按钮和裁切菜单。</p><ul><li>庭院场景单一 Popover</li><li>管理 Agent 对象 Dialog</li><li>一条额度摘要</li></ul></article>
+          <article class="phase-card"><small>工作区</small><b>会话 + 详情 + Footer</b><p>表格边到边、空状态、焦点/勾选区分、动作坞与全局 Footer。</p><ul><li>Compact 无横滚</li><li>详情空/单条/批量/副本</li><li>Footer 去瞬时选择文案</li></ul></article>
+          <article class="phase-card"><small>临时层</small><b>四弹窗与状态矩阵</b><p>统一 Dialog 头、Body 滚动、关闭语义、焦点和主题。</p><ul><li>设备/工具/活动/设置逐个验收</li><li>管理 Agent 与小 Popover</li><li>视觉回归 + 真实任务路径</li></ul></article>
+        </div>
+
+        <div class="gate"><strong>每阶段退出条件</strong><p>源代码中不得新增另一层临时覆盖；Compact 不横滚；所有浮层不裁切；三语与双主题截图通过；原有状态迁移和安全测试保持绿色。任何层级方向变化先回到本稿审阅，不边做边猜。</p></div>
+      </section>
+
+      <section class="section" id="approval">
+        <span class="section-number">10 / OWNER CHECK</span>
+        <h2>需要审的是这些决定，不是按钮排列组合。</h2>
+        <p class="lead">以下十条已于 2026-08-12 获所有者整体批准。勾选仍只保存在本浏览器本地，用于逐项实施验收。</p>
+
+        <div class="checklist" id="approvalChecklist">
+          <label><input type="checkbox"><span>保持 Header / Footer / 三面板宏观骨架，不新增区域。</span></label>
+          <label><input type="checkbox"><span>采用推荐几何方向：顶部加高、详情收窄、Footer 降高。</span></label>
+          <label><input type="checkbox"><span>庭院/卡片使用同一应用控件系统，像素皮肤只留在 Agent 呈现。</span></label>
+          <label><input type="checkbox"><span>时间与天气收为庭院场景 Popover，不再四按钮常驻。</span></label>
+          <label><input type="checkbox"><span>原七项管理菜单改为“管理 Agent”对象 Dialog。</span></label>
+          <label><input type="checkbox"><span>紧凑会话表必须单屏完整，不允许水平滚动。</span></label>
+          <label><input type="checkbox"><span>详情空状态说明单击与勾选语义，动作坞固定底部。</span></label>
+          <label><input type="checkbox"><span>Footer 只保留 Mesh/全局状态、账本和提醒总开关。</span></label>
+          <label><input type="checkbox"><span>设备、工具、活动、设置继续四个独立有界 Dialog。</span></label>
+          <label><input type="checkbox"><span>先完成 CSS 架构和状态矩阵，再开始视觉细节打磨。</span></label>
+        </div>
+
+        <div class="final-callout"><b>做</b><div><strong>本稿已批准，按 1.13 基准分阶段实施。</strong><p>任何新的层级、尺寸或内容去向变化仍须先写回权威计划；实现不得用临时覆盖替代已批准结构。</p></div></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="zoom-dialog" id="zoomDialog">
+    <button type="button" id="closeZoom">关闭</button>
+    <img src="file:///private/var/folders/_8/8pc0zl392d7645hhkl3b2lh80000gn/T/codex-clipboard-d388f6b9-19ee-4c45-b408-b66c5076f6c9.png" alt="当前 AgentDesk 界面放大图">
+  </dialog>
+
+  <script>
+    const progress = document.querySelector('#readingProgress');
+    const navLinks = [...document.querySelectorAll('.toc a')];
+    const sections = [...document.querySelectorAll('main > section[id]')];
+
+    function updateProgress() {
+      const max = document.documentElement.scrollHeight - innerHeight;
+      const ratio = max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 0;
+      progress.style.width = `${ratio * 100}%`;
+    }
+
+    addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+
+    addEventListener('load', () => {
+      const requested = new URLSearchParams(location.search).get('section');
+      const selector = requested ? `#${CSS.escape(requested)}` : location.hash;
+      if (!selector) return;
+      const target = document.querySelector(selector);
+      if (!target) return;
+      requestAnimationFrame(() => target.scrollIntoView({ behavior: 'instant', block: 'start' }));
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      navLinks.forEach((link) => link.classList.toggle('is-active', link.hash === `#${visible.target.id}`));
+    }, { rootMargin: '-18% 0px -68% 0px', threshold: [0, .2, .6] });
+    sections.forEach((section) => observer.observe(section));
+
+    const mockWindow = document.querySelector('#mockWindow');
+    const mockStage = document.querySelector('#mockStage');
+
+    function fitMock() {
+      const available = Math.max(320, mockStage.clientWidth - 36);
+      const scale = Math.min(1, available / 1040);
+      mockWindow.style.transform = `scale(${scale})`;
+      mockStage.style.height = `${812 * scale + 36}px`;
+    }
+
+    new ResizeObserver(fitMock).observe(mockStage);
+    fitMock();
+
+    document.querySelectorAll('[data-mock-view]').forEach((button) => {
+      button.addEventListener('click', () => {
+        mockWindow.dataset.view = button.dataset.mockView;
+        document.querySelectorAll('[data-mock-view]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+        const items = mockWindow.querySelectorAll('.mock-panel-head .mock-segment i');
+        items.forEach((item, index) => item.classList.toggle('active', index === (button.dataset.mockView === 'yard' ? 0 : 1)));
+      });
+    });
+
+    document.querySelectorAll('[data-mock-detail]').forEach((button) => {
+      button.addEventListener('click', () => {
+        mockWindow.dataset.detail = button.dataset.mockDetail;
+        document.querySelectorAll('[data-mock-detail]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+        mockWindow.querySelector('.mock-detail-head b').textContent = button.dataset.mockDetail === 'empty'
+          ? '未选择'
+          : '查找视频格式尺寸转换 Skill';
+      });
+    });
+
+    const zoomDialog = document.querySelector('#zoomDialog');
+    document.querySelector('#currentScreenshot').addEventListener('click', () => zoomDialog.showModal());
+    document.querySelector('#closeZoom').addEventListener('click', () => zoomDialog.close());
+    zoomDialog.addEventListener('click', (event) => {
+      if (event.target === zoomDialog) zoomDialog.close();
+    });
+
+    const checklist = [...document.querySelectorAll('#approvalChecklist input')];
+    try {
+      const saved = JSON.parse(localStorage.getItem('agentdesk-ui-plan-checks') || '[]');
+      checklist.forEach((input, index) => { input.checked = Boolean(saved[index]); });
+    } catch (_error) {}
+
+    checklist.forEach((input) => input.addEventListener('change', () => {
+      try {
+        localStorage.setItem('agentdesk-ui-plan-checks', JSON.stringify(checklist.map((item) => item.checked)));
+      } catch (_error) {}
+    }));
+  </script>
+</body>
+</html>

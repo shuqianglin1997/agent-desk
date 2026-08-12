@@ -96,7 +96,7 @@ test('远控使用主窗口内嵌沙箱 Surface、目标端确认与常驻停止
   assert.doesNotMatch(`${consolePreload}\n${hostPreload}`, /ipcRenderer\.invoke\([^'\"]|remoteCommand|shell\.run|generic\.exec/);
 });
 
-test('主窗口第六行承载隔离远控 Surface，其他六行和普通 Renderer 安全边界不变', () => {
+test('右下详情面板承载隔离远控 Surface，其他两个面板和普通 Renderer 安全边界不变', () => {
   const main = read('src/main.js');
   const preload = read('src/preload.js');
   const renderer = read('src/renderer.js');
@@ -110,8 +110,9 @@ test('主窗口第六行承载隔离远控 Surface，其他六行和普通 Rende
   assert.match(renderer, /openRemoteDevice\(device\)/);
   assert.match(renderer, /setWorkspaceMode\('remote'\)/);
   assert.match(renderer, /remoteWorkspaceHost\.getBoundingClientRect\(\)/);
-  assert.match(styles, /\.app-shell \{[\s\S]*?grid-template-rows:\s*48px auto auto auto auto minmax\(0, 1fr\) 28px/);
-  assert.match(styles, /\.main-grid\[data-workspace="remote"\][\s\S]*?\.remote-workspace-host/);
+  assert.match(read('src/index.html'), /id="detailPanel"[\s\S]*?id="remoteWorkspaceHost"[^>]*data-detail-surface="remote"/);
+  assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 340px/);
+  assert.match(styles, /\.detail-panel > \.remote-workspace-host\s*\{[\s\S]*?display:\s*grid/);
   assert.doesNotMatch(read('src/index.html'), /<video|remote-stage|remote-console/);
 });
 

@@ -19,7 +19,7 @@
 
 ![AgentDesk](assets/screenshots/app.png)
 
-> **Development status:** this branch contains the complete attended Personal Mesh code path: encrypted device pairing, cross-device Agent/session inventory, explicit Agent/AccountBinding/AgentSlot management, SessionPointer and selected-file transfer, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. The independent UI-context model and 13-task acceptance suite pass in a real 1040 × 840 Electron window, alongside the automated two-endpoint loop. Physical computers, public NAT/coturn, and the macOS/Windows permission matrix are still release gates. Existing GitHub Releases may predate this branch.
+> **Development status:** this branch contains the complete attended Personal Mesh code path: encrypted device pairing, cross-device Agent/session inventory, explicit Agent/AccountBinding/AgentSlot management, SessionPointer and selected-file transfer, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. The fixed Header / three-panel / Footer shell, four independent Devices/Tools/Activity/Settings dialogs, independent UI-context model, and real-window acceptance suite pass in a 1040 × 840 Electron window, alongside the automated two-endpoint loop. Physical computers, public NAT/coturn, and the macOS/Windows permission matrix are still release gates. Existing GitHub Releases may predate this branch.
 
 ## What AgentDesk does
 
@@ -32,7 +32,8 @@ AgentDesk keeps a small, local index around the official AI coding clients alrea
 - **Identity grouping.** Merge multiple client forms of the same login into one account card and one yard cat while preserving the underlying slots.
 - **Personal device mesh.** Create an OS-protected device identity, pair another computer with a one-time code, revoke any device, and view one deduplicated global Agent catalog through an all-devices or single-device lens.
 - **Cross-device sessions and files.** Exchange source-owned session inventories, send encrypted SessionPointers without changing the minimal copy format, map projects locally on the target, and transfer explicitly selected files with confirmation, hashing, chunking, and resume.
-- **Attended remote control.** Open an isolated Remote Surface inside row 6 of the existing window, require target-side consent for screen view and input, switch displays, and monitor up to four devices while keeping exactly one input target.
+- **Independent global dialogs.** Open Devices, Tools, Activity, and Settings in four bounded dialogs without replacing the current session detail or mutating the device lens, Agent/slot, or session selection.
+- **Attended remote control.** Open an isolated Remote Surface inside the fixed right-detail panel while the Header, Agent panel, session list, and Footer stay in place; require target-side consent for screen view and input, switch displays, and monitor up to four devices while keeping exactly one input target.
 - **P2P rendezvous and diagnostics.** Prefer temporary LAN endpoints, fall back to signed HTTPS signaling, use STUN or short-lived TURN credentials, and show only sanitized LAN/direct/relay state.
 - **Diagnostics and paths.** Inspect launch candidates, data locations, permissions, scan roots, and Windows Store/MSIX versus traditional installs.
 - **Quota overview (Beta).** Show Codex rate-limit windows through the local official app-server. Unsupported clients are labeled honestly.
@@ -132,7 +133,7 @@ See [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), an
 
 AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
-> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、跨设备 Agent/会话库存、明确的 Agent/账号绑定/运行位置管理、SessionPointer 与选定文件传输、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。独立 UI 上下文与 13 条真实 1040 × 840 Electron 任务路径已经验收通过，自动化双端点链路也保持通过；物理双机、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
+> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、跨设备 Agent/会话库存、明确的 Agent/账号绑定/运行位置管理、SessionPointer 与选定文件传输、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。固定 Header / 三面板 / Footer 骨架、设备/工具/活动/设置四个独立弹窗、独立 UI 上下文与真实 1040 × 840 Electron 任务路径已经验收通过，自动化双端点链路也保持通过；物理双机、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
 
 ## 核心能力
 
@@ -143,11 +144,12 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 - **同账号归组。** 桌面端与 CLI 等多个形态可以合并为一个账号、一张卡、一只猫，底层槽位仍各自保留。
 - **个人设备网。** 建立系统保护的设备身份，用一次性配对码加入另一台电脑；任意设备都可撤销删除，全局 Agent 按实际登录去重，设备只是筛选轴。
 - **跨设备会话与文件。** 同步来源设备只读库存，发送加密 SessionPointer，目标端确认项目映射；显式选取的文件经接收确认、分块、哈希和断点续传。
-- **有人值守远控。** 在原主窗口第 6 行的隔离 Remote Surface 查看或控制目标设备，屏幕与输入分别需要目标端本次同意；最多同时显示四台设备，但始终只有一个输入目标。
+- **有人值守远控。** 在固定右下详情面板的隔离 Remote Surface 查看或控制目标设备，Header、顶部 Agent、左下会话和 Footer 保持原位；屏幕与输入分别需要目标端本次同意，最多同时显示四台设备，但始终只有一个输入目标。
 - **P2P 会合与诊断。** 临时 LAN 优先，失败后回退签名 HTTPS 信令，使用 STUN/短期 TURN；界面只显示 LAN、直连或中继等脱敏状态。
 - **路径与诊断。** 展示启动候选、真实数据目录、权限、扫描位置，以及 Windows Store/MSIX 和传统安装差异。
 - **额度总览（Beta）。** 通过本机 Codex 官方 app-server 读取额度周期；不支持的客户端明确标注，不抓 Cookie 或 token。
-- **工具维护台。** 发现桌面 App 与常用 CLI，显示版本和安装来源；用户明确点击后，符合条件的 CLI 才会沿用 npm、Homebrew、uv 或自身更新器维护。
+- **独立全局弹窗。** 设备、工具、活动、设置从 Header 各自打开有界弹窗，不替换右下会话详情，也不改变 Device Lens、Agent/Slot 或会话选择。
+- **工具维护台。** 在独立工具弹窗发现桌面 App 与常用 CLI，显示版本和安装来源；用户明确点击后，符合条件的 CLI 才会沿用 npm、Homebrew、uv 或自身更新器维护。
 - **猫猫庭院 / 经典名册。** 两种视图使用同一份账号和会话数据，可随时切换。
 
 工具发现覆盖 Claude Code、Codex CLI、Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi Code 和 Qwen Code。发现模块只定位本机启动器，不附加运行参数，也不创建会话。
