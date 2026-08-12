@@ -44,14 +44,14 @@ test('庭院会话表保持真表格（选择列 + 标题/活跃/项目/来源�
   assert.match(yardStyles, /body\[data-view="yard"\] \.table-wrap \{[^}]*max-height:\s*none/);
 });
 
-test('会话浏览支持仅用于复制会话信息的轻量多选，主操作突出且不恢复交接编排', () => {
+test('会话浏览支持只用于明确定位动作的轻量选择，复制主操作突出且不恢复交接编排', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
 
   assert.match(html, /id="sessionScopeCurrentBtn"[\s\S]*?id="sessionScopeAllBtn"/);
-  // 全账号扫描仍给每条会话保留真实槽位和账号组，供浏览与定位操作使用。
-  assert.match(renderer, /state\.sessionScope === 'all'[\s\S]*?identityGroups\(\)/);
+  // 全 Agent 扫描仍给每条会话保留真实槽位和账号组，供浏览与定位操作使用。
+  assert.match(renderer, /state\.ui\.agentScope === 'all'[\s\S]*?identityGroups\(\)/);
   assert.match(renderer, /_profileId:\s*member\.id/);
   assert.match(renderer, /_accountKey:\s*accountKey/);
   assert.match(html, /id="copySessionInfoBtn" class="session-copy-info"[^>]*data-i18n="session\.copyInfo">复制会话信息<\/button>/);
@@ -59,7 +59,12 @@ test('会话浏览支持仅用于复制会话信息的轻量多选，主操作�
   assert.match(styles, /\.session-copy-info::before \{[\s\S]*?content:\s*"⧉"/);
   assert.doesNotMatch(html, /copySessionLocationBtn|session-copy-location/);
   assert.ok(html.indexOf('./session-location.js') < html.indexOf('./renderer.js'));
-  assert.match(renderer, /selectedSessionKeys:\s*new Set\(\)/);
+  assert.match(renderer, /ui:\s*window\.UiContext\.create\(\)/);
+  assert.match(renderer, /state\.ui\.checkedConversationIds/);
+  assert.match(renderer, /state\.ui\.focusedConversationId/);
+  assert.match(renderer, /function setSessionChecked\(session, checked\)[\s\S]*?UiContext\.checkConversation/);
+  assert.match(renderer, /function focusSession\(session\)[\s\S]*?UiContext\.focusConversation/);
+  assert.match(renderer, /UiContext\.actionConversationIds\(state\.ui\)/);
   assert.match(renderer, /selectAll\.id = 'sessionSelectAll'/);
   assert.match(renderer, /window\.SessionLocation\.format\(sessions/);
   assert.doesNotMatch(html, /handoffBulkBar|copySelectedHandoffBtn|handoffPlan/);
@@ -245,7 +250,7 @@ test('账号为轴：庭院一只猫=一个账号组，会话合流并记录归�
   assert.ok(groupsIndex > 0 && groupsIndex < rendererIndex);
   // 庭院吃组代表而不是全部槽位；选中任一成员都高亮同一只猫
   assert.match(renderer, /profiles: groups\.map\(\(group\) => group\.primary\)/);
-  assert.match(renderer, /selectedId: selectedGroup \? selectedGroup\.primary\.id : state\.selectedProfileId/);
+  assert.match(renderer, /selectedId: selectedGroup \? selectedGroup\.primary\.id : currentProfileId\(\)/);
   // 会话合流：组内所有槽位一起列，每条带归属槽位 id，操作按归属槽位走
   assert.match(renderer, /record\) => \(\{ \.\.\.record, _profileId: member\.id \}\)/);
   assert.match(renderer, /sessionOwnerProfile\(session\)\.id/);
@@ -254,7 +259,7 @@ test('账号为轴：庭院一只猫=一个账号组，会话合流并记录归�
   assert.match(renderer, /for \(const group of identityGroups\(\)\) \{/);
 });
 
-test('组内非主形态可单独管理：控制条形态切换器把 selectedProfileId 落到具体槽位（两视图共用）', () => {
+test('运行位置可单独管理：控制条切换 AgentSlot 且不重载会话或清空用户上下文', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
@@ -262,12 +267,15 @@ test('组内非主形态可单独管理：控制条形态切换器把 selectedPr
   assert.match(html, /id="accountId"[\s\S]*?id="formSwitcher"[\s\S]*?id="formSelect"[\s\S]*?id="accountActions"/);
   // 记取旧坑：inline-flex 会盖过 UA 的 [hidden]，必须显式补 [hidden]{display:none}
   assert.match(styles, /\.form-switcher\[hidden\]\s*\{\s*display:\s*none/);
-  // 切换器只在账号有 ≥2 形态时出现，列组内各成员（复用调用方算好的组，缺省才自算）
-  assert.match(renderer, /function renderFormSwitcher\(profile, group\)[\s\S]*?group \|\| groupOfProfile\(profile\.id\)[\s\S]*?members\.length < 2/);
-  // change 事件把选中切到该槽位；账号头两条路径都渲染切换器（有账号时传入已算的组，无账号时隐藏）
-  assert.match(renderer, /els\.formSelect\?\.addEventListener\('change'[\s\S]{0,160}?selectProfile\(id\)/);
+  // Agent 可以存在但当前 Slot 为空，此时必须给出明确占位，不自动选第一项。
+  assert.match(renderer, /function renderFormSwitcher\(profile, group\)[\s\S]*?const grp = group \|\| \(profile \? groupOfProfile\(profile\.id\) : null\)[\s\S]*?if \(!profile\)[\s\S]*?devices\.slot\.choose/);
+  // change 事件只写 UiContext 的 Slot 记忆，不重新加载会话，也不清空搜索或动作选择。
+  assert.match(renderer, /els\.formSelect\?\.addEventListener\('change'[\s\S]{0,180}?selectSlot\(id\)/);
+  const selectSlot = renderer.slice(renderer.indexOf('function selectSlot('), renderer.indexOf('function populateGroupDatalist('));
+  assert.match(selectSlot, /UiContext\.setSlot\(state\.ui/);
+  assert.doesNotMatch(selectSlot, /loadSessions|state\.query\s*=|clearConversationActions/);
   assert.match(renderer, /renderFormSwitcher\(profile, identityGroup\)/);
-  assert.match(renderer, /renderFormSwitcher\(null\)/);
+  assert.match(renderer, /renderFormSwitcher\(null, selectedGroup\)/);
 });
 
 test('庭院画布纵向扩展：前景草坪带同步到画布/交互/HTML 三处', () => {

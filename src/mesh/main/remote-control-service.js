@@ -52,6 +52,9 @@ class RemoteControlService {
       this.focusConsole(existing.sessionId);
       return publicRemoteSession(existing);
     }
+    if (existing && isTerminal(existing.state)) {
+      await this.stopSession(existing, 'retry-after-terminal', { notify: false });
+    }
     if ([...this.sessions.values()].filter((item) => item.direction === 'outgoing' && !isTerminal(item.state)).length >= REMOTE_SESSION_LIMIT) {
       throw new Error('remote-session-limit');
     }

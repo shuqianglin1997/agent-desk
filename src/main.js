@@ -281,6 +281,128 @@ function registerIpc() {
     }));
   });
 
+  ipcMain.handle('agentCatalog:list', () => meshCall(() => getMeshService().getOverview()));
+
+  ipcMain.handle('agentCatalog:get', (_event, input = {}) => {
+    return meshCall(() => {
+      const overview = getMeshService().getOverview();
+      const agentId = boundedText(input.agentId, 128);
+      const agent = overview.agents.find((item) => item.agentId === agentId);
+      if (!agent) throw new Error('agent-not-found');
+      return {
+        agent,
+        accountBindings: overview.accountBindings.filter((item) => item.agentId === agentId),
+        slots: overview.slots.filter((item) => item.agentId === agentId)
+      };
+    }, 'catalog');
+  });
+
+  ipcMain.handle('agentCatalog:rename', (_event, input = {}) => {
+    return meshCall(() => getMeshService().updateAgent({
+      agentId: boundedText(input.agentId, 128),
+      displayName: boundedText(input.displayName, 80),
+      group: boundedText(input.group, 80),
+      note: boundedText(input.note, 1000),
+      catAppearance: input.catAppearance && typeof input.catAppearance === 'object'
+        ? normalizeCat(input.catAppearance, boundedText(input.agentId, 128))
+        : undefined,
+      baseRevision: finiteRevision(input.baseRevision)
+    }));
+  });
+
+  ipcMain.handle('agentCatalog:merge', (_event, input = {}) => {
+    return meshCall(() => getMeshService().mergeAgents({
+      sourceAgentId: boundedText(input.sourceAgentId, 128),
+      targetAgentId: boundedText(input.targetAgentId, 128),
+      baseRevision: finiteRevision(input.baseRevision)
+    }));
+  });
+
+  ipcMain.handle('agentCatalog:split', (_event, input = {}) => {
+    return meshCall(() => getMeshService().splitAccountBinding({
+      accountBindingId: boundedText(input.accountBindingId, 128),
+      displayName: boundedText(input.displayName, 80),
+      group: boundedText(input.group, 80),
+      note: boundedText(input.note, 1000),
+      baseRevision: finiteRevision(input.baseRevision)
+    }));
+  });
+
+  ipcMain.handle('agentCatalog:delete', (_event, input = {}) => {
+    return meshCall(() => getMeshService().removeCatalogObject({
+      scope: 'agent',
+      agentId: boundedText(input.agentId, 128),
+      baseRevision: finiteRevision(input.baseRevision)
+    }));
+  });
+
+  ipcMain.handle('agentCatalog:removeBinding', (_event, input = {}) => {
+    return meshCall(() => getMeshService().removeCatalogObject({
+      scope: 'account-binding',
+      accountBindingId: boundedText(input.accountBindingId, 128),
+      baseRevision: finiteRevision(input.baseRevision)
+    }));
+  });
+
+  ipcMain.handle('agentSlots:list', () => meshCall(() => getMeshService().getOverview().slots, 'slots'));
+
+  ipcMain.handle('agentSlots:addLocal', (_event, input = {}) => {
+    let profile = null;
+    try {
+      const before = getMeshService().getOverview();
+      if (!before.initialized) throw new Error('mesh-not-initialized');
+      profile = createStoredProfile({
+        appId: boundedText(input.appId, 80),
+        name: boundedText(input.name, 80),
+        group: boundedText(input.group, 80),
+        note: boundedText(input.note, 1000)
+      });
+      const overview = getMeshService().assignSlot({
+        mode: boundedText(input.mode, 40),
+        reuseProvisional: true,
+        deviceId: before.localDeviceId,
+        profileId: profile.id,
+        agentId: boundedText(input.agentId, 128),
+        accountBindingId: boundedText(input.accountBindingId, 128),
+        displayName: boundedText(input.name, 80),
+        displayAlias: boundedText(input.name, 80),
+        group: boundedText(input.group, 80),
+        note: boundedText(input.note, 1000)
+      });
+      return { ok: true, profile, overview: withMeshRuntime(overview) };
+    } catch (error) {
+      if (profile) {
+        removeStoredProfileRegistration(profile.id);
+        try { getMeshService().getOverview(); } catch (_cleanupError) { /* original error wins */ }
+      }
+      return { ok: false, reasonCode: boundedText(error?.message || 'slot-add-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('agentSlots:assign', (_event, input = {}) => {
+    return meshCall(() => getMeshService().assignSlot({
+      mode: boundedText(input.mode, 40),
+      deviceId: boundedText(input.deviceId, 128),
+      profileId: boundedText(input.profileId, 128),
+      agentId: boundedText(input.agentId, 128),
+      accountBindingId: boundedText(input.accountBindingId, 128),
+      displayName: boundedText(input.displayName, 80),
+      displayAlias: boundedText(input.displayAlias, 80),
+      group: boundedText(input.group, 80),
+      note: boundedText(input.note, 1000),
+      baseRevision: finiteRevision(input.baseRevision)
+    }));
+  });
+
+  ipcMain.handle('agentSlots:removeLocal', (_event, input = {}) => {
+    return meshCall(() => getMeshService().removeCatalogObject({
+      scope: 'slot',
+      deviceId: boundedText(input.deviceId, 128),
+      profileId: boundedText(input.profileId, 128),
+      baseRevision: finiteRevision(input.baseRevision)
+    }));
+  });
+
   ipcMain.handle('devices:resetMesh', async () => {
     await remoteControlService?.stopAll('mesh-reset');
     peerManager?.disconnectAll('mesh-reset');
@@ -621,31 +743,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('profiles:add', (_event, input) => {
-    const profiles = loadProfiles();
-    const appId = apps.isKnownApp(input.appId) ? input.appId : apps.DEFAULT_APP;
-    const name = String(input.name || '').trim() || `${apps.getApp(appId).label} 账号`;
-    const id = crypto.randomUUID();
-    const profilePath = makeIsolatedProfilePath(appId, name, id);
-    const profile = normalizeProfile({
-      id,
-      appId,
-      name,
-      profilePath,
-      sessionRoot: defaultSessionRoot(appId, profilePath, false),
-      profilePathMode: 'managed',
-      sessionRootMode: 'managed',
-      isProtected: false,
-      createdAt: new Date().toISOString(),
-      lastLaunchedAt: null,
-      group: input.group,
-      note: input.note
-    });
-
-    ensureDir(profile.profilePath);
-    ensureDir(profile.sessionRoot);
-    profiles.push(profile);
-    saveProfiles(profiles);
-    return profile;
+    return createStoredProfile(input);
   });
 
   ipcMain.handle('profiles:update', (_event, input) => {
@@ -785,6 +883,52 @@ function registerIpc() {
     clipboard.writeText(String(value || ''));
     return true;
   });
+}
+
+function finiteRevision(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const revision = Number(value);
+  if (!Number.isSafeInteger(revision) || revision < 0) {
+    throw new Error('catalog-revision-invalid');
+  }
+  return revision;
+}
+
+function createStoredProfile(input = {}) {
+  const profiles = loadProfiles();
+  const appId = apps.isKnownApp(input.appId) ? input.appId : apps.DEFAULT_APP;
+  const name = String(input.name || '').trim() || `${apps.getApp(appId).label} 账号`;
+  const id = crypto.randomUUID();
+  const profilePath = makeIsolatedProfilePath(appId, name, id);
+  const profile = normalizeProfile({
+    id,
+    appId,
+    name,
+    profilePath,
+    sessionRoot: defaultSessionRoot(appId, profilePath, false),
+    profilePathMode: 'managed',
+    sessionRootMode: 'managed',
+    isProtected: false,
+    createdAt: new Date().toISOString(),
+    lastLaunchedAt: null,
+    group: input.group,
+    note: input.note
+  });
+
+  ensureDir(profile.profilePath);
+  ensureDir(profile.sessionRoot);
+  profiles.push(profile);
+  saveProfiles(profiles);
+  return profile;
+}
+
+function removeStoredProfileRegistration(id) {
+  const profiles = loadProfiles();
+  const next = profiles.filter((profile) => profile.id !== id);
+  if (next.length === profiles.length) return false;
+  saveProfiles(next);
+  quotaService.invalidate(id);
+  return true;
 }
 
 function getMeshService() {

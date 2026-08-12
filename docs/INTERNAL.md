@@ -11,7 +11,7 @@ AgentDesk 是本地优先的账号、会话历史与工具维护器。它负责�
 - 诊断路径和安装；
 - 发现、打开并在用户确认后维护固定目录中的桌面 App / CLI。
 
-Personal Agent Mesh 的有人值守代码链路已经接入运行时：设备证书和配对、全局 Agent/Binding/Slot、跨设备库存、SessionPointer、文件传输、远程查看/输入、多设备控制台，以及 LAN/签名信令/STUN/TURN。两台物理电脑、真实公网 NAT、coturn 强制中继和跨平台权限矩阵仍未通过，因此当前是开发完成态而不是公开稳定验收态。
+Personal Agent Mesh 的有人值守代码链路已经接入运行时：设备证书和配对、全局 Agent/Binding/Slot、跨设备库存、SessionPointer、文件传输、远程查看/输入、多设备控制台，以及 LAN/签名信令/STUN/TURN。独立 UI 上下文、目录对象管理和真实 1040 × 840 Electron 任务路径已经本机验收；两台物理电脑、真实公网 NAT、coturn 强制中继和跨平台权限矩阵仍未通过，因此当前是本机代码完成态而不是公开稳定验收态。
 
 它不包含聊天 transport、Agent 进程生命周期、任务队列、多会话交接、规划资料索引或任意命令注册。
 
@@ -54,6 +54,7 @@ src/
   main.js                 Electron 生命周期、IPC 与可信系统操作
   preload.js              窄 IPC 桥
   renderer.js             UI 状态与交互
+  ui-context.js           独立 UI 上下文与无副作用状态迁移
   index.html
   styles.css
 
@@ -130,6 +131,9 @@ native/
   windows/AgentDeskInputHelper.cpp
 
 services/signaling/       可自托管最小信令与 TURN REST 凭据服务
+
+scripts/
+  ui-acceptance.js        临时 userData 下的真实 1040 × 840 Electron 任务验收
 ```
 
 ## 4. 数据模型
@@ -179,6 +183,17 @@ Codex 额外区分：
 
 默认列表只接收 `conversation-root`。`id` 与 `address` 使用 `session_id || id` 得到的逻辑根键，active/archive 也按这个键去重。`parent_thread_id`、`thread_source === "subagent"` 或 `source.subagent` 任一成立时，该物理记录视为内部子分支；父记录缺失也不提升成列表行。扫描器仍只读文件首行，不为统计压缩事件遍历整份 JSONL。
 
+### UI Context
+
+`src/ui-context.js` 是 Renderer 的用户选择真相源，分别保存 workspace、Device Lens、每个 Lens 的 Agent 记忆、Agent scope、AgentSlot、focused/checked conversation、SessionReplica、设备详情、活动远控会话和 transfer draft。它不保存 `selectedProfileId` 兼容影子，也不在 render、filter 或 reconcile 中选择第一项。
+
+- 行点击只更新 `focusedConversationId`，复选框只更新 `checkedConversationIds`；有勾选时动作集合使用勾选项，否则使用焦点。
+- Device Lens、Agent 和 Slot 各自迁移；Slot 只决定副作用落点，不清空搜索或有效会话选择。
+- 多副本在全部设备视角要求明确来源；具体设备 Lens 收敛为唯一副本时才可直接解析。
+- SessionPointer 与文件发送使用按 kind 分离的草稿；关闭只清理对应 kind。
+- 设备中心进入会话工作台使用原子迁移；设备详情选择不等于顶栏 Device Lens。
+- 远控返回释放输入并保留 viewing 会话，disconnect 才终止媒体。
+
 ## 5. 客户端与会话扫描
 
 `apps.js` 是唯一客户端目录。每个条目声明：
@@ -217,6 +232,9 @@ updates:check / updates:install
 tools:scan / tools:open / tools:update / tools:updateAll
 profiles:list / profiles:add / profiles:update / profiles:remove
 profiles:migrateWindowsPath / profiles:launch
+agentCatalog:list / agentCatalog:get / agentCatalog:rename
+agentCatalog:merge / agentCatalog:split / agentCatalog:delete / agentCatalog:removeBinding
+agentSlots:list / agentSlots:addLocal / agentSlots:assign / agentSlots:removeLocal
 sessions:list / sessions:reveal / sessions:export
 activity:all
 quota:all
@@ -230,10 +248,11 @@ devices:getDiagnostics / devices:getNetworkConfig / devices:updateNetworkConfig
 transfers:createSessionPointer / transfers:chooseFiles / transfers:acceptFile
 transfers:list / transfers:cancel / transfers:retry / transfers:openReceivedFile
 projects:chooseBinding
-remoteControl:open / remoteControl:list / remoteControl:disconnect / remoteControl:stopAll
+remoteControl:open / remoteControl:list / remoteControl:setSurface
+remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
 ```
 
-设备与传输 IPC 只接受固定动作和稳定 ID。文件来源、保存目录和项目根都由 Main 的系统选择器产生；Renderer 不能取得 Root/设备私钥、Mesh 关联键、SDP、ICE 地址、TURN credential、任意路径、网络报文或通用远端命令。
+目录、设备与传输 IPC 只接受固定动作、稳定 ID、受限枚举和有界元数据。合并、拆分与删除由 Main 重新读取 catalog revision；文件来源、保存目录和项目根都由 Main 的系统选择器产生。Renderer 不能取得 Root/设备私钥、Mesh 关联键、SDP、ICE 地址、TURN credential、任意路径、网络报文或通用远端命令。
 
 `devices:probeTransport` 只创建一次隐藏、沙箱化的 WebRTC Renderer，返回耗时、候选类型和协议，不返回 IP、SDP 或 ICE 原文。MVP 的 WebRTC 进程边界见 [ADR_PERSONAL_MESH_WEBRTC_PLACEMENT.md](ADR_PERSONAL_MESH_WEBRTC_PLACEMENT.md)。
 
@@ -267,7 +286,7 @@ remoteControl:open / remoteControl:list / remoteControl:disconnect / remoteContr
 
 远程媒体使用第二条 WebRTC 连接，SDP 只经已认证设备通道交换。目标端 Host Renderer 枚举并采集显示器，控制端使用附着在主窗口第 6 行的沙箱 WebContentsView，只拿到安全显示信息和视频轨；普通 Main Renderer 不接触这些数据。查看与控制分别需要持久能力和目标端本次 consent；控制输入再经 Host Renderer 与 Main 双重规范化、速率限制，最后以固定 stdin 行协议交给平台 helper。
 
-断线、失焦、暂停、目标切换、撤销、紧急停止和 helper 心跳超时都会释放按键。多设备控制台最多四路，只给当前目标活动画质，其余为低频缩略图。
+断线、失焦、暂停、目标切换、撤销、紧急停止和 helper 心跳超时都会释放按键。多设备控制台最多四路，只给当前目标活动画质，其余为低频缩略图。返回会话工作台会先释放输入、降为仅查看并隐藏 Surface，仍在 viewing 的会话由主 Renderer 顶栏提示；只有 disconnect/stopAll、撤销或终止路径才结束媒体。
 
 ## 9. 庭院
 
@@ -284,13 +303,16 @@ remoteControl:open / remoteControl:list / remoteControl:disconnect / remoteContr
 ```bash
 npm run check
 npm test
+npm run accept:ui
 npm run build:mac:dir
 ```
+
+`npm run accept:ui` 使用临时 userData 启动真实 1040 × 840 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 13 条任务路径：七行骨架、focus/checked/隐藏选择、双 Presenter、三语/明暗主题、本机新增、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销后详情清理和 reduced-motion。
 
 测试除了扫描器和纯函数，还包含以下边界契约：
 
 - preload/main 不出现会话执行 IPC；
-- 已退休的执行与交接模块不存在；轻量多选只持有临时 session key，并只调用最小定位格式；
+- 已退休的执行与交接模块不存在；focused/checked 会话只形成临时动作集合，并只调用最小定位格式；
 - 工具发现不携带协议或会话参数；
 - package 不包含会话协议 SDK；
 - 庭院只暴露三类核心意图。
@@ -301,6 +323,8 @@ npm run build:mac:dir
 - 真实 Electron 沙箱 WebRTC 完成设备认证、库存、会话信息、184,333 字节文件和合成屏幕媒体；
 - 信令请求拒绝篡改、过期、重放、无租约发送和任意回复地址，公开诊断不含 IP、SDP 或凭据；
 - 嵌入式 Remote Surface/Host 使用专用沙箱 IPC，输入只接受有界固定事件且始终只有一个 owner。
+- Agent/AccountBinding/AgentSlot 的新增、归属、合并、拆分和三种删除范围走固定目录 IPC，均可删到零且不触碰官方客户端数据。
+- Renderer 任务结果测试和真实窗口验收共同证明 UI 上下文互不覆盖，render/filter 不自动制造选择。
 
 这些自动化不能替代两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵；对应门禁见 `PERSONAL_AGENT_MESH_PLAN.md`。
 

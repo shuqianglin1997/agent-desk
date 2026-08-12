@@ -152,6 +152,18 @@
     return focused ? [focused] : [];
   }
 
+  function actionVisibility(context, visibleConversationIds = []) {
+    const actionIds = actionConversationIds(context);
+    const visible = new Set((visibleConversationIds || []).map(cleanId).filter(Boolean));
+    const hiddenIds = actionIds.filter((id) => !visible.has(id));
+    return {
+      total: actionIds.length,
+      visible: actionIds.length - hiddenIds.length,
+      hidden: hiddenIds.length,
+      hiddenIds
+    };
+  }
+
   function selectReplica(context, conversationId, replicaId) {
     const next = clone(context);
     const conversation = cleanId(conversationId);
@@ -247,15 +259,18 @@
   function updateTransferDraft(context, patch = {}) {
     const next = clone(context);
     if (!next.transferDraft) return next;
+    const kind = next.transferDraft.kind;
+    const { kind: _ignoredKind, ...safePatch } = patch;
     next.transferDraft = {
       ...next.transferDraft,
-      ...patch,
+      ...safePatch,
+      kind,
       targetDeviceId: Object.prototype.hasOwnProperty.call(patch, 'targetDeviceId')
         ? cleanId(patch.targetDeviceId)
         : next.transferDraft.targetDeviceId,
-      selections: Array.isArray(patch.selections)
+      selections: kind === 'session-pointer' && Array.isArray(patch.selections)
         ? patch.selections.map((item) => ({ ...item }))
-        : next.transferDraft.selections
+        : (kind === 'session-pointer' ? next.transferDraft.selections : [])
     };
     return next;
   }
@@ -283,7 +298,7 @@
     const disconnected = cleanId(sessionId);
     const remaining = new Set((remainingSessionIds || []).map(cleanId).filter(Boolean));
     if (!next.activeRemoteSessionId || next.activeRemoteSessionId === disconnected || !remaining.has(next.activeRemoteSessionId)) {
-      next.activeRemoteSessionId = null;
+      next.activeRemoteSessionId = remaining.values().next().value || null;
     }
     if (!remaining.size && next.workspaceMode === 'remote') next.workspaceMode = 'sessions';
     return next;
@@ -306,7 +321,9 @@
     if (validity.validSlotKeysByAgentAndLens) {
       for (const [key, slot] of Object.entries(next.selectedSlotKeyByAgentAndLens)) {
         const ids = validity.validSlotKeysByAgentAndLens[key];
-        if (ids && !new Set(ids).has(slot)) delete next.selectedSlotKeyByAgentAndLens[key];
+        if (!Array.isArray(ids) || !new Set(ids).has(slot)) {
+          delete next.selectedSlotKeyByAgentAndLens[key];
+        }
       }
     }
 
@@ -354,6 +371,7 @@
     setCheckedConversations,
     clearConversationActions,
     actionConversationIds,
+    actionVisibility,
     selectReplica,
     resolveReplica,
     viewDeviceSessions,

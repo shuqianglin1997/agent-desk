@@ -19,20 +19,20 @@
 
 ![AgentDesk](assets/screenshots/app.png)
 
-> **Development status:** this branch contains the complete attended Personal Mesh code path: encrypted device pairing, cross-device Agent/session inventory, SessionPointer and selected-file transfer, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. Automated tests and a real Electron two-endpoint loop pass; physical computers, public NAT/coturn, and the macOS/Windows permission matrix are still release gates. Existing GitHub Releases may predate this branch.
+> **Development status:** this branch contains the complete attended Personal Mesh code path: encrypted device pairing, cross-device Agent/session inventory, explicit Agent/AccountBinding/AgentSlot management, SessionPointer and selected-file transfer, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. The independent UI-context model and 13-task acceptance suite pass in a real 1040 × 840 Electron window, alongside the automated two-endpoint loop. Physical computers, public NAT/coturn, and the macOS/Windows permission matrix are still release gates. Existing GitHub Releases may predate this branch.
 
 ## What AgentDesk does
 
 AgentDesk keeps a small, local index around the official AI coding clients already installed on your computer:
 
 - **Account slots.** Store separate local profile and session-root paths, launch supported desktop apps with the selected slot, and keep work/personal identities from colliding.
-- **Session browser.** Scan Claude Desktop, Claude CLI, Codex, Cursor, Kimi Code, and Kimi Work history into one searchable, sortable table. View the selected account or all accounts.
+- **Session browser.** Scan Claude Desktop, Claude CLI, Codex, Cursor, Kimi Code, and Kimi Work history into one searchable, sortable table. View the current Agent or all Agents under the active device lens.
 - **Stable conversation identity.** Codex compaction checkpoints stay inside one user conversation; guardian/subagent rollouts remain hidden instead of appearing as new sessions or projects.
 - **Session location actions.** Select one or several sessions and copy one minimal location format containing only path and coordinate; reveal the active source file or export one supported transcript as Markdown.
 - **Identity grouping.** Merge multiple client forms of the same login into one account card and one yard cat while preserving the underlying slots.
 - **Personal device mesh.** Create an OS-protected device identity, pair another computer with a one-time code, revoke any device, and view one deduplicated global Agent catalog through an all-devices or single-device lens.
 - **Cross-device sessions and files.** Exchange source-owned session inventories, send encrypted SessionPointers without changing the minimal copy format, map projects locally on the target, and transfer explicitly selected files with confirmation, hashing, chunking, and resume.
-- **Attended remote control.** Open a separate sandboxed console, require target-side consent for screen view and input, switch displays, and monitor up to four devices while keeping exactly one input target.
+- **Attended remote control.** Open an isolated Remote Surface inside row 6 of the existing window, require target-side consent for screen view and input, switch displays, and monitor up to four devices while keeping exactly one input target.
 - **P2P rendezvous and diagnostics.** Prefer temporary LAN endpoints, fall back to signed HTTPS signaling, use STUN or short-lived TURN credentials, and show only sanitized LAN/direct/relay state.
 - **Diagnostics and paths.** Inspect launch candidates, data locations, permissions, scan roots, and Windows Store/MSIX versus traditional installs.
 - **Quota overview (Beta).** Show Codex rate-limit windows through the local official app-server. Unsupported clients are labeled honestly.
@@ -59,7 +59,7 @@ Personal Mesh is attended only. It does not control the login screen or Windows 
 
 ## Cat yard
 
-The default view turns each account group into a pixel cat driven by local state:
+The optional yard view turns each Agent/account group into a pixel cat driven by local state:
 
 - recent session activity controls working, resting, sleeping, and attention states;
 - quota is shown as a separate energy signal and never overrides activity;
@@ -88,6 +88,7 @@ npm ci
 npm start
 npm test
 npm run check
+npm run accept:ui # temporary userData; requires a desktop session
 
 npm run signaling:start # optional self-hosted rendezvous for development
 
@@ -103,6 +104,8 @@ Release signing and notarization are documented in [docs/RELEASING.md](docs/RELE
 - `src/main.js`: trusted filesystem, app launch, diagnostics, quota, updates, and tool maintenance.
 - `src/preload.js`: narrow IPC bridge.
 - `src/renderer.js`, `src/index.html`, `src/styles.css`: UI.
+- `src/ui-context.js`: independent Device Lens, Agent, Slot, conversation, replica, remote-session, and transfer-draft state transitions.
+- `scripts/ui-acceptance.js`: real 1040 × 840 Electron task-path acceptance using temporary user data.
 - `src/apps.js`: supported client catalog and session scanners.
 - `src/cli-discovery.js`: read-only CLI launcher discovery.
 - `src/tool-maintenance.js`: fixed tool catalog, version/source detection, and safe update plans.
@@ -129,12 +132,12 @@ See [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), an
 
 AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
-> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、跨设备 Agent/会话库存、SessionPointer 与选定文件传输、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。自动化和真实 Electron 双端点链路已通过；物理双机、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
+> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、跨设备 Agent/会话库存、明确的 Agent/账号绑定/运行位置管理、SessionPointer 与选定文件传输、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。独立 UI 上下文与 13 条真实 1040 × 840 Electron 任务路径已经验收通过，自动化双端点链路也保持通过；物理双机、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
 
 ## 核心能力
 
 - **账号槽位隔离。** 每个槽位保存独立的数据目录和会话根目录，打开受支持的官方桌面 App 时使用所选槽位，减少工作号、个人号互相覆盖。
-- **统一会话浏览。** 索引 Claude Desktop、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work 的本地会话，可查看本账号或全部账号，并按属性搜索、排序。
+- **统一会话浏览。** 索引 Claude Desktop、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work 的本地会话，可在当前设备 Lens 下查看当前 Agent 或全部 Agent，并按属性搜索、排序。
 - **稳定会话身份。** Codex 上下文压缩继续属于同一条用户会话，guardian/subagent 内部 rollout 不再冒充新会话或新项目。
 - **会话定位操作。** 单选或勾选多条会话后统一复制“路径 + 坐标”；当前会话可在系统中定位来源文件，支持的来源可导出 Markdown。
 - **同账号归组。** 桌面端与 CLI 等多个形态可以合并为一个账号、一张卡、一只猫，底层槽位仍各自保留。
@@ -174,6 +177,7 @@ npm ci
 npm start
 npm test
 npm run check
+npm run accept:ui # 使用临时 userData，需要可用桌面会话
 ```
 
 产品边界见 [docs/PRODUCT.md](docs/PRODUCT.md)，完整功能梳理见 [docs/FUNCTION_AUDIT.md](docs/FUNCTION_AUDIT.md)，内部结构见 [docs/INTERNAL.md](docs/INTERNAL.md)，庭院语义见 [docs/YARD.md](docs/YARD.md)。

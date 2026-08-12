@@ -68,6 +68,21 @@ test('行聚焦与显式批量勾选互不覆盖，批量集合优先于聚焦�
   assert.deepEqual(UiContext.actionConversationIds(context), ['conversation-a']);
 });
 
+test('搜索隐藏已选会话时保留动作集合，并准确报告隐藏数量', () => {
+  let context = UiContext.focusConversation(UiContext.create(), 'conversation-focus');
+  context = UiContext.checkConversation(context, 'conversation-a', true);
+  context = UiContext.checkConversation(context, 'conversation-b', true);
+  const visibility = UiContext.actionVisibility(context, ['conversation-b', 'conversation-c']);
+  assert.deepEqual(visibility, {
+    total: 2,
+    visible: 1,
+    hidden: 1,
+    hiddenIds: ['conversation-a']
+  });
+  assert.equal(context.focusedConversationId, 'conversation-focus');
+  assert.deepEqual([...context.checkedConversationIds], ['conversation-a', 'conversation-b']);
+});
+
 test('刷新只清理已失效对象，不为用户补选任何会话、Agent 或 Slot', () => {
   const context = UiContext.create({
     selectedDeviceLensId: 'device-b',
@@ -83,7 +98,6 @@ test('刷新只清理已失效对象，不为用户补选任何会话、Agent �
     validLensIds: ['all', 'device-b'],
     validAgentIdsByLens: { 'device-b': ['agent-b'], all: ['agent-a'] },
     validSlotKeysByAgentAndLens: {
-      'device-b::agent-gone': [],
       'all::agent-a': ['slot-a']
     },
     validConversationIds: ['conversation-live']
@@ -140,5 +154,76 @@ test('远控返回保留查看会话，断开才清除活动提示', () => {
   assert.equal(context.activeRemoteSessionId, 'remote-1');
 
   context = UiContext.disconnectRemote(context, 'remote-1', []);
+  assert.equal(context.activeRemoteSessionId, null);
+});
+
+test('切换 Agent 和 Slot 只改变动作落点，保留焦点、勾选、副本与传输草稿', () => {
+  const original = UiContext.createSessionPointerDraft(UiContext.create({
+    selectedDeviceLensId: 'device-a',
+    selectedAgentIdByDeviceLens: { 'device-a': 'agent-a' },
+    selectedSlotKeyByAgentAndLens: { 'device-a::agent-a': 'slot-a' },
+    focusedConversationId: 'conversation-a',
+    checkedConversationIds: ['conversation-b'],
+    selectedReplicaKeyByConversation: { 'conversation-a': 'replica-a' }
+  }), {
+    targetDeviceId: 'device-b',
+    selections: [{ conversationId: 'conversation-a', replicaId: 'replica-a' }]
+  });
+
+  let next = UiContext.setAgent(original, 'agent-b');
+  next = UiContext.setSlot(next, 'slot-b');
+
+  assert.equal(UiContext.selectedAgentId(next), 'agent-b');
+  assert.equal(UiContext.selectedSlotKey(next), 'slot-b');
+  assert.equal(next.focusedConversationId, 'conversation-a');
+  assert.deepEqual([...next.checkedConversationIds], ['conversation-b']);
+  assert.equal(next.selectedReplicaKeyByConversation['conversation-a'], 'replica-a');
+  assert.equal(next.transferDraft.kind, 'session-pointer');
+});
+
+test('设备详情选择与顶栏 Device Lens 独立，任一方向切换都不覆盖另一方', () => {
+  let context = UiContext.create({
+    selectedDeviceLensId: 'device-a',
+    selectedDeviceDetailId: 'device-b'
+  });
+  context = UiContext.selectDeviceDetail(context, 'device-c');
+  assert.equal(context.selectedDeviceLensId, 'device-a');
+  assert.equal(context.selectedDeviceDetailId, 'device-c');
+
+  context = UiContext.setDeviceLens(context, 'device-d');
+  assert.equal(context.selectedDeviceLensId, 'device-d');
+  assert.equal(context.selectedDeviceDetailId, 'device-c');
+});
+
+test('传输草稿的 kind 不可被补丁改写，文件草稿永远不继承会话选择', () => {
+  let context = UiContext.createSessionPointerDraft(UiContext.create(), {
+    targetDeviceId: 'device-a',
+    selections: [{ conversationId: 'conversation-a', replicaId: 'replica-a' }]
+  });
+  context = UiContext.updateTransferDraft(context, {
+    kind: 'files',
+    targetDeviceId: 'device-b'
+  });
+  assert.equal(context.transferDraft.kind, 'session-pointer');
+  assert.equal(context.transferDraft.targetDeviceId, 'device-b');
+  assert.equal(context.transferDraft.selections.length, 1);
+
+  context = UiContext.createFileDraft(context, { targetDeviceId: 'device-c' });
+  context = UiContext.updateTransferDraft(context, {
+    kind: 'session-pointer',
+    selections: [{ conversationId: 'conversation-b', replicaId: 'replica-b' }]
+  });
+  assert.equal(context.transferDraft.kind, 'files');
+  assert.deepEqual(context.transferDraft.selections, []);
+});
+
+test('断开当前远控时显式切到剩余 viewing，会话全部结束才清除提示', () => {
+  let context = UiContext.openRemote(UiContext.create(), 'remote-a');
+  context = UiContext.returnFromRemote(context, 'remote-a');
+  context = UiContext.disconnectRemote(context, 'remote-a', ['remote-b']);
+  assert.equal(context.workspaceMode, 'sessions');
+  assert.equal(context.activeRemoteSessionId, 'remote-b');
+
+  context = UiContext.disconnectRemote(context, 'remote-b', []);
   assert.equal(context.activeRemoteSessionId, null);
 });

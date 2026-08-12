@@ -52,6 +52,32 @@ test('设备 IPC 只暴露固定语义，不提供通用 channel、命令、路�
   assert.match(main, /path\.join\(userData, 'mesh-keys\.json'\)/);
 });
 
+test('Agent 目录与 Slot 管理只通过固定语义 IPC 暴露', () => {
+  const preload = read('src/preload.js');
+  const main = read('src/main.js');
+  for (const channel of [
+    'agentCatalog:list',
+    'agentCatalog:get',
+    'agentCatalog:rename',
+    'agentCatalog:merge',
+    'agentCatalog:split',
+    'agentCatalog:delete',
+    'agentCatalog:removeBinding',
+    'agentSlots:list',
+    'agentSlots:addLocal',
+    'agentSlots:assign',
+    'agentSlots:removeLocal'
+  ]) {
+    assert.ok(main.includes(`ipcMain.handle('${channel}'`), `${channel} missing in main`);
+    assert.ok(preload.includes(`ipcRenderer.invoke('${channel}'`), `${channel} missing in preload`);
+  }
+  assert.doesNotMatch(preload, /agentCatalog:[^'"\n]*(command|path|exec)|agentSlots:[^'"\n]*(command|path|exec)/i);
+  assert.match(main, /ipcMain\.handle\('agentSlots:addLocal'[\s\S]*?createStoredProfile\([\s\S]*?assignSlot\(/);
+  assert.match(main, /ipcMain\.handle\('agentSlots:removeLocal'[\s\S]*?scope:\s*'slot'/);
+  assert.match(main, /function removeStoredProfileRegistration[\s\S]*?saveProfiles\(next\)/);
+  assert.doesNotMatch(main, /function removeStoredProfileRegistration[\s\S]{0,500}(rmSync|unlinkSync|rmdirSync)/);
+});
+
 test('公网会合设置与诊断使用固定 IPC，界面不接收 TURN 长期凭据或连接原文', () => {
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
@@ -82,8 +108,61 @@ test('设备中心明确保留账号删到零与不补默认账号的空状态',
   const zh = read('src/i18n/zh.js');
   const renderer = read('src/renderer.js');
   assert.match(zh, /当前没有 Agent。账号槽位可以删到零，不会自动补回默认平台账号/);
-  assert.match(renderer, /if \(!overview\.agents\.length\)[\s\S]*?devices\.agents\.empty/);
+  assert.match(renderer, /if \(!deviceAgents\.length && !unassignedSlots\.length\)[\s\S]*?devices\.agents\.empty/);
+  assert.match(renderer, /unassignedSlots[\s\S]*?catalog\.unassigned\.title[\s\S]*?openSlotAssignmentDialog\(slot\)/);
   assert.match(renderer, /overview\.slots\.filter\(\(slot\) => slot\.agentId === agent\.agentId\)/);
+});
+
+test('Agent 管理明确区分新 Agent、新账号绑定、新运行位置和三种移除范围', () => {
+  const html = read('src/index.html');
+  const renderer = read('src/renderer.js');
+  for (const mode of ['new-agent', 'existing-agent', 'existing-binding']) {
+    assert.match(html, new RegExp(`value="${mode}"`));
+  }
+  for (const scope of ['slot', 'account-binding', 'agent']) {
+    assert.match(html, new RegExp(`name="catalogRemoveScope" value="${scope}"`));
+  }
+  assert.match(html, /id="agentRelationsDialog"[\s\S]*?id="mergeAgentTarget"[\s\S]*?id="splitAccountBinding"/);
+  assert.match(renderer, /addLocalAgentSlot\(\{[\s\S]*?mode,[\s\S]*?accountBindingId/);
+  assert.match(renderer, /removeLocalAgentSlot\(\{[\s\S]*?deviceId:[\s\S]*?profileId:/);
+  assert.match(renderer, /removeAccountBinding\(\{[\s\S]*?accountBindingId:/);
+  assert.match(renderer, /deleteAgent\(\{[\s\S]*?agentId:/);
+  assert.match(renderer, /baseRevision:\s*currentCatalogRevision\(\)/);
+  assert.match(html, /<label id="editIdentityField">[\s\S]*?id="editIdentity"/);
+  assert.doesNotMatch(html, /<label id="editIdentityField">[\s\S]{0,160}id="editName"/);
+  assert.match(renderer, /function fillAgentAssignmentSelect[\s\S]*?catalog\.assignment\.choose[\s\S]*?\? previous : ''/);
+  assert.match(renderer, /newProfileAgent\?\.addEventListener\('change'[\s\S]*?syncProfileAssignmentControls/);
+  assert.match(renderer, /slotAssignmentAgent\?\.addEventListener\('change'[\s\S]*?syncSlotAssignmentControls/);
+  assert.match(renderer, /mergeAgentTarget\?\.addEventListener\('change'[\s\S]*?confirmMergeAgentBtn\.disabled/);
+  assert.match(renderer, /function openAgentOrProfileEditor\(\)[\s\S]*?if \(meshMode\)[\s\S]*?const profile = selectedProfile\(\)/);
+  assert.match(renderer, /function openAgentOrProfileRemoval\(\)[\s\S]*?if \(!agent\) return;[\s\S]*?const slot = catalogSlotByKey\(profile\?\._meshSlotKey/);
+  assert.match(renderer, /removeProfileBtn\.disabled = meshMode \? !selectedAgent/);
+  assert.match(renderer, /if \(scope !== 'agent' && !context\.slot\) return/);
+  assert.doesNotMatch(renderer, /remove(Profile|LocalAgentSlot)\([^)]*(filePath|profilePath|sessionRoot)/);
+});
+
+test('远控返回保留后台查看提示，断开才移除；错误按真实原因分类', () => {
+  const html = read('src/index.html');
+  const renderer = read('src/renderer.js');
+  const main = read('src/main.js');
+  const service = read('src/mesh/main/remote-control-service.js');
+  assert.match(html, /id="remoteActivityBtn"[^>]*aria-live="polite"/);
+  assert.match(renderer, /function activeOutgoingRemoteSessions[\s\S]*?direction === 'outgoing'[\s\S]*?error', 'rejected', 'disconnected/);
+  assert.match(renderer, /function renderRemoteActivity[\s\S]*?activeOutgoingRemoteSessions\(\)[\s\S]*?remote\.background\.button/);
+  assert.match(renderer, /returnRemoteControl\(state\.ui\.activeRemoteSessionId\)/);
+  assert.match(renderer, /onRemoteControlReturn[\s\S]*?returnFromRemote[\s\S]*?remoteAlreadyReleased:\s*true/);
+  assert.match(main, /ipcMain\.handle\('remoteControl:return'[\s\S]*?returnToWorkspace/);
+  assert.match(service, /async returnToWorkspace[\s\S]*?releaseControl[\s\S]*?visible:\s*false[\s\S]*?sessions:\s*this\.list\(\)/);
+  for (const category of [
+    'offline', 'revoked', 'version', 'screenPermission', 'inputPermission',
+    'rejected', 'exclusive', 'directFailedRelay', 'relayUnavailable', 'unreachable'
+  ]) {
+    assert.ok(renderer.includes(`remote.error.${category}`), `remote error category ${category} missing`);
+  }
+  assert.match(renderer, /capability-denied:screen\\\.view/);
+  assert.match(renderer, /input-busy\|input-target-conflict/);
+  assert.match(renderer, /const canReachRemote = Boolean\(remoteSession\)[\s\S]*?device\.status === 'online'/);
+  assert.match(renderer, /disabled: state\.mesh\.loading \|\| !canView \|\| !canReachRemote/);
 });
 
 test('会话发送是复制主按钮旁的次级动作，只提交稳定 ID，项目根由 Main 选择', () => {
@@ -105,7 +184,19 @@ test('文件传输路径只来自 Main 系统选择器，Renderer 只提交设�
   const renderer = read('src/renderer.js');
   const preload = read('src/preload.js');
   const main = read('src/main.js');
-  assert.match(html, /id="chooseFilesBtn"[\s\S]{0,180}id="confirmSessionSendBtn"/);
+  const sessionDialog = html.slice(
+    html.indexOf('id="sessionSendDialog"'),
+    html.indexOf('</dialog>', html.indexOf('id="sessionSendDialog"'))
+  );
+  const fileDialog = html.slice(
+    html.indexOf('id="fileSendDialog"'),
+    html.indexOf('</dialog>', html.indexOf('id="fileSendDialog"'))
+  );
+  assert.match(sessionDialog, /id="sessionSendTarget"[\s\S]*?id="confirmSessionSendBtn"/);
+  assert.doesNotMatch(sessionDialog, /id="fileSendTarget"|id="chooseFilesBtn"/);
+  assert.match(fileDialog, /id="fileSendTarget"[\s\S]*?id="chooseFilesBtn"/);
+  assert.doesNotMatch(fileDialog, /id="sessionSendTarget"|id="confirmSessionSendBtn"/);
+  assert.match(renderer, /function openFileSendDialog[\s\S]*?UiContext\.createFileDraft\(/);
   assert.match(renderer, /chooseFileTransfer\(\{ targetDeviceId \}\)/);
   assert.match(renderer, /acceptFileTransfer\(transfer\.transferId\)/);
   assert.doesNotMatch(renderer, /chooseFileTransfer\(\{[^}]*filePaths|acceptFileTransfer\([^)]*,/);

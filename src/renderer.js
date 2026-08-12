@@ -3,9 +3,6 @@ const state = {
   sessions: [],
   filteredSessions: [],
   ui: window.UiContext.create(),
-  // Compatibility cache for existing local Profile actions. The authoritative
-  // selection is ui.selectedSlotKeyByAgentAndLens, never this field.
-  selectedProfileId: null,
   sessionView: 'compact',
   sessionSort: { key: 'updatedAt', direction: 'desc' },
   query: '',
@@ -44,6 +41,11 @@ const state = {
     diagnosticsLoading: false,
     diagnosticsError: null,
     networkLoading: false,
+    editingAgentId: null,
+    removingAgentId: null,
+    removingSlotKey: null,
+    relationAgentId: null,
+    assigningSlotKey: null,
     remoteSessions: [],
     transfers: [],
     transferLoading: false,
@@ -64,18 +66,24 @@ function currentSlotKey() {
   return window.UiContext.selectedSlotKey(state.ui);
 }
 
-function syncDerivedProfileSelection() {
+function activeOutgoingRemoteSessions() {
+  return state.mesh.remoteSessions.filter((item) => (
+    item.direction === 'outgoing'
+    && !['error', 'rejected', 'disconnected'].includes(item.state)
+  ));
+}
+
+function currentProfileId() {
   const agentId = currentAgentId();
   const slotKey = currentSlotKey();
   const group = identityGroups().find((item) => item.key === agentId);
   const member = group?.members.find((item) => item._meshSlotKey === slotKey || item.id === slotKey)
     || (group?.members.length === 1 ? group.members[0] : null);
-  state.selectedProfileId = member?.id || null;
+  return member?.id || null;
 }
 
 function updateUi(next) {
   state.ui = next;
-  syncDerivedProfileSelection();
 }
 
 // 受管客户端元数据（label / 配色）由主进程注册表提供，UI 不再写死 claude/codex
@@ -130,6 +138,7 @@ const els = {
   quotaChipAll: document.querySelector('#quotaChipAll'),
   atmosWeatherToggle: document.querySelector('#atmosWeatherToggle'),
   topbarContext: document.querySelector('#topbarContext'),
+  remoteActivityBtn: document.querySelector('#remoteActivityBtn'),
   yardStage: document.querySelector('#yardStage'),
   yardCanvas: document.querySelector('#yardCanvas'),
   yardOverlay: document.querySelector('#yardOverlay'),
@@ -235,6 +244,7 @@ const els = {
   addProfileBtn: document.querySelector('#addProfileBtn'),
   editProfileBtn: document.querySelector('#editProfileBtn'),
   removeProfileBtn: document.querySelector('#removeProfileBtn'),
+  manageAgentRelationsBtn: document.querySelector('#manageAgentRelationsBtn'),
   launchBtn: document.querySelector('#launchBtn'),
   pathConfigBtn: document.querySelector('#pathConfigBtn'),
   diagnosticsBtn: document.querySelector('#diagnosticsBtn'),
@@ -289,12 +299,22 @@ const els = {
   exportSessionBtn: document.querySelector('#exportSessionBtn'),
   profileDialog: document.querySelector('#profileDialog'),
   profileDialogTitle: document.querySelector('#profileDialogTitle'),
+  newProfileMeshAssignment: document.querySelector('#newProfileMeshAssignment'),
+  newProfileMode: document.querySelector('#newProfileMode'),
+  newProfileAgentField: document.querySelector('#newProfileAgentField'),
+  newProfileAgent: document.querySelector('#newProfileAgent'),
+  newProfileBindingField: document.querySelector('#newProfileBindingField'),
+  newProfileBinding: document.querySelector('#newProfileBinding'),
+  newProfileAssignmentHint: document.querySelector('#newProfileAssignmentHint'),
   newProfileApp: document.querySelector('#newProfileApp'),
   newProfileName: document.querySelector('#newProfileName'),
   newProfileGroup: document.querySelector('#newProfileGroup'),
   newProfileNote: document.querySelector('#newProfileNote'),
   confirmAddProfileBtn: document.querySelector('#confirmAddProfileBtn'),
   editDialog: document.querySelector('#editDialog'),
+  editDialogTitle: document.querySelector('#editDialogTitle'),
+  editAgentHint: document.querySelector('#editAgentHint'),
+  editIdentityField: document.querySelector('#editIdentityField'),
   editName: document.querySelector('#editName'),
   editIdentity: document.querySelector('#editIdentity'),
   editGroup: document.querySelector('#editGroup'),
@@ -305,6 +325,32 @@ const els = {
   editBreedSwatches: document.querySelector('#editBreedSwatches'),
   editCollarSwatches: document.querySelector('#editCollarSwatches'),
   editAccSwatches: document.querySelector('#editAccSwatches'),
+  removeCatalogDialog: document.querySelector('#removeCatalogDialog'),
+  removeCatalogIntro: document.querySelector('#removeCatalogIntro'),
+  removeCatalogImpact: document.querySelector('#removeCatalogImpact'),
+  removeLocalRegistrationField: document.querySelector('#removeLocalRegistrationField'),
+  removeLocalRegistration: document.querySelector('#removeLocalRegistration'),
+  confirmRemoveCatalogBtn: document.querySelector('#confirmRemoveCatalogBtn'),
+  agentRelationsDialog: document.querySelector('#agentRelationsDialog'),
+  agentRelationsSummary: document.querySelector('#agentRelationsSummary'),
+  mergeAgentTarget: document.querySelector('#mergeAgentTarget'),
+  confirmMergeAgentBtn: document.querySelector('#confirmMergeAgentBtn'),
+  splitAccountBinding: document.querySelector('#splitAccountBinding'),
+  splitAgentName: document.querySelector('#splitAgentName'),
+  confirmSplitBindingBtn: document.querySelector('#confirmSplitBindingBtn'),
+  agentRelationsStatus: document.querySelector('#agentRelationsStatus'),
+  slotAssignmentDialog: document.querySelector('#slotAssignmentDialog'),
+  slotAssignmentSummary: document.querySelector('#slotAssignmentSummary'),
+  slotAssignmentMode: document.querySelector('#slotAssignmentMode'),
+  slotAssignmentAgentField: document.querySelector('#slotAssignmentAgentField'),
+  slotAssignmentAgent: document.querySelector('#slotAssignmentAgent'),
+  slotAssignmentBindingField: document.querySelector('#slotAssignmentBindingField'),
+  slotAssignmentBinding: document.querySelector('#slotAssignmentBinding'),
+  slotAssignmentName: document.querySelector('#slotAssignmentName'),
+  slotAssignmentGroup: document.querySelector('#slotAssignmentGroup'),
+  slotAssignmentNote: document.querySelector('#slotAssignmentNote'),
+  slotAssignmentStatus: document.querySelector('#slotAssignmentStatus'),
+  confirmSlotAssignmentBtn: document.querySelector('#confirmSlotAssignmentBtn'),
   groupOptions: document.querySelector('#groupOptions'),
   welcomeDialog: document.querySelector('#welcomeDialog'),
   pathDialog: document.querySelector('#pathDialog'),
@@ -505,73 +551,27 @@ function maybeShowWelcome() {
 }
 
 function bindEvents() {
-  els.addProfileBtn.addEventListener('click', () => {
-    els.accountManage.open = false;
-    if (els.profileDialogTitle) {
-      els.profileDialogTitle.textContent = tr(state.mesh.overview?.initialized
-        ? 'dialog.addProfile.slotTitle'
-        : 'dialog.addProfile.title');
-    }
-    els.newProfileApp.value = els.newProfileApp.options[0] ? els.newProfileApp.options[0].value : 'claude';
-    els.newProfileName.value = '';
-    els.newProfileGroup.value = '';
-    els.newProfileNote.value = '';
-    els.profileDialog.showModal();
-    els.newProfileName.focus();
+  els.remoteActivityBtn?.addEventListener('click', () => {
+    const sessions = activeOutgoingRemoteSessions();
+    if (!sessions.length) return;
+    const active = sessions.find((item) => item.sessionId === state.ui.activeRemoteSessionId) || sessions[0];
+    state.ui = window.UiContext.openRemote(state.ui, active.sessionId);
+    setWorkspaceMode('remote');
   });
-
-  els.confirmAddProfileBtn.addEventListener('click', async (event) => {
+  els.addProfileBtn.addEventListener('click', () => openProfileCreationDialog());
+  els.newProfileMode?.addEventListener('change', () => syncProfileAssignmentControls());
+  els.newProfileApp?.addEventListener('change', () => syncProfileAssignmentControls());
+  els.newProfileAgent?.addEventListener('change', () => syncProfileAssignmentControls());
+  els.newProfileBinding?.addEventListener('change', () => syncProfileAssignmentControls());
+  els.confirmAddProfileBtn.addEventListener('click', (event) => {
     event.preventDefault();
-    const name = els.newProfileName.value.trim();
-    if (!name) {
-      setStatus(tr('status.nameFirst'));
-      return;
-    }
-    const profile = await window.manager.addProfile({
-      appId: els.newProfileApp.value,
-      name,
-      group: els.newProfileGroup.value,
-      note: els.newProfileNote.value
-    });
-    els.profileDialog.close();
-    await loadProfiles(profile.id);
-    setStatus(tr('status.created', { name: profile.name }));
+    void confirmProfileCreation();
   });
 
-  els.editProfileBtn.addEventListener('click', () => {
-    els.accountManage.open = false;
-    const profile = selectedProfile();
-    if (!profile) return;
-    els.editName.value = profile.name;
-    els.editGroup.value = profile.group || '';
-    els.editIdentity.value = profile.identityKey || '';
-    els.editNote.value = profile.note || '';
-    populateIdentityDatalist();
-    openCatCustomizer(profile);
-    els.editDialog.showModal();
-    els.editName.focus();
-  });
-
-  els.confirmEditBtn.addEventListener('click', async (event) => {
+  els.editProfileBtn.addEventListener('click', () => openAgentOrProfileEditor());
+  els.confirmEditBtn.addEventListener('click', (event) => {
     event.preventDefault();
-    const profile = selectedProfile();
-    if (!profile) return;
-    const name = els.editName.value.trim();
-    if (!name) {
-      setStatus(tr('status.nameEmpty'));
-      return;
-    }
-    await window.manager.updateProfile({
-      id: profile.id,
-      name,
-      group: els.editGroup.value,
-      identityKey: els.editIdentity.value,
-      note: els.editNote.value,
-      cat: { ...catDraft }
-    });
-    els.editDialog.close();
-    await loadProfiles(profile.id);
-    setStatus(tr('status.savedProfileCat'));
+    void confirmAgentOrProfileEdit();
   });
 
   els.editCatRandom.addEventListener('click', () => {
@@ -584,18 +584,35 @@ function bindEvents() {
     renderCatPreview();
   });
 
-  els.removeProfileBtn.addEventListener('click', async () => {
-    els.accountManage.open = false;
-    const profile = selectedProfile();
-    if (!profile) return;
-    if (!window.confirm(tr('status.removeConfirm', { name: profile.name }))) return;
-    const result = await window.manager.removeProfile(profile.id);
-    if (!result.ok) {
-      setStatus(result.reason || tr('status.removeFail'));
-      return;
-    }
-    await loadProfiles();
-    setStatus(tr('status.removedSlot'));
+  els.manageAgentRelationsBtn?.addEventListener('click', () => openAgentRelationsDialog());
+  els.removeProfileBtn.addEventListener('click', () => void openAgentOrProfileRemoval());
+  els.removeCatalogDialog?.querySelectorAll('input[name="catalogRemoveScope"]').forEach((radio) => {
+    radio.addEventListener('change', () => renderCatalogRemovalImpact());
+  });
+  els.confirmRemoveCatalogBtn?.addEventListener('click', () => void confirmCatalogRemoval());
+  els.removeCatalogDialog?.addEventListener('close', () => {
+    state.mesh.removingAgentId = null;
+    state.mesh.removingSlotKey = null;
+  });
+  els.mergeAgentTarget?.addEventListener('change', () => {
+    els.confirmMergeAgentBtn.disabled = !catalogAgentById(els.mergeAgentTarget.value);
+  });
+  els.confirmMergeAgentBtn?.addEventListener('click', () => void confirmAgentMerge());
+  els.splitAccountBinding?.addEventListener('change', () => syncSplitAgentName());
+  els.splitAgentName?.addEventListener('input', () => syncSplitConfirmState());
+  els.confirmSplitBindingBtn?.addEventListener('click', () => void confirmBindingSplit());
+  els.agentRelationsDialog?.addEventListener('close', () => {
+    state.mesh.relationAgentId = null;
+  });
+  els.slotAssignmentMode?.addEventListener('change', () => syncSlotAssignmentControls());
+  els.slotAssignmentAgent?.addEventListener('change', () => syncSlotAssignmentControls());
+  els.slotAssignmentBinding?.addEventListener('change', () => syncSlotAssignmentControls());
+  els.confirmSlotAssignmentBtn?.addEventListener('click', () => void confirmSlotAssignment());
+  els.slotAssignmentDialog?.addEventListener('close', () => {
+    state.mesh.assigningSlotKey = null;
+  });
+  els.editDialog?.addEventListener('close', () => {
+    state.mesh.editingAgentId = null;
   });
 
   els.launchBtn.addEventListener('click', async () => {
@@ -613,7 +630,7 @@ function bindEvents() {
   // 运行位置切换只改变副作用落点；不重新加载会话，也不清空搜索或会话选择。
   els.formSelect?.addEventListener('change', () => {
     const id = els.formSelect.value;
-    if (id && id !== state.selectedProfileId) selectSlot(id);
+    if (id && id !== currentProfileId()) selectSlot(id);
   });
 
   els.updateBtn.addEventListener('click', async () => {
@@ -674,6 +691,10 @@ function bindEvents() {
 
   els.closeDeviceCenterBtn?.addEventListener('click', () => setWorkspaceMode('sessions'));
   els.deviceCenterDialog?.addEventListener('close', () => {
+    // close is queued as an event. If the user has already reopened the
+    // embedded workspace, this belongs to the previous programmatic close and
+    // must not undo the newer explicit navigation.
+    if (els.deviceCenterDialog.open) return;
     if (state.ui.workspaceMode === 'devices') setWorkspaceMode('sessions');
   });
   els.deviceCenterDialog?.addEventListener('cancel', (event) => {
@@ -849,23 +870,35 @@ function bindEvents() {
 
   if (window.manager.onRemoteControlsChanged) {
     window.manager.onRemoteControlsChanged((sessions) => {
+      const previousActiveSessionId = state.ui.activeRemoteSessionId;
       state.mesh.remoteSessions = Array.isArray(sessions) ? sessions : [];
       const outgoingIds = state.mesh.remoteSessions
         .filter((item) => item.direction === 'outgoing')
         .map((item) => item.sessionId);
-      state.ui = window.UiContext.clearInvalid(state.ui, { validRemoteSessionIds: outgoingIds });
+      state.ui = previousActiveSessionId && !outgoingIds.includes(previousActiveSessionId)
+        ? window.UiContext.disconnectRemote(state.ui, previousActiveSessionId, outgoingIds)
+        : window.UiContext.clearInvalid(state.ui, { validRemoteSessionIds: outgoingIds });
       if (state.ui.workspaceMode === 'remote' && !outgoingIds.length) {
         setWorkspaceMode('sessions', { remoteAlreadyReleased: true });
       }
+      const failed = state.mesh.remoteSessions.find((item) => (
+        item.direction === 'outgoing'
+        && ['error', 'rejected'].includes(item.state)
+        && item.reason
+      ));
+      if (failed) setStatus(remoteErrorText(failed.reason, failed.deviceName));
       renderDeviceCenter();
+      renderRemoteActivity();
       renderTopbarContext();
     });
   }
 
   if (window.manager.onRemoteControlReturn) {
     window.manager.onRemoteControlReturn((value = {}) => {
+      const destination = state.ui.workspaceMode === 'remote' ? 'sessions' : state.ui.workspaceMode;
       state.ui = window.UiContext.returnFromRemote(state.ui, value.activeSessionId);
-      setWorkspaceMode('sessions', { remoteAlreadyReleased: true });
+      setWorkspaceMode(destination, { remoteAlreadyReleased: true });
+      renderRemoteActivity();
       renderTopbarContext();
     });
   }
@@ -1107,6 +1140,630 @@ function bindEvents() {
     if (result?.canceled) return;
     setStatus(result?.message || result?.reason || (result?.ok ? tr('status.exportOk') : tr('status.exportFail')));
   });
+}
+
+function catalogProviderForApp(appId) {
+  const value = String(appId || '').trim().toLowerCase();
+  if (value === 'claude' || value === 'claude-cli') return 'claude';
+  if (value === 'kimi' || value === 'kimi-work') return 'kimi';
+  return value || 'unknown';
+}
+
+function catalogSlotKey(slot) {
+  return slot ? `${slot.deviceId}:${slot.profileId}` : '';
+}
+
+function catalogSlotByKey(slotKey) {
+  return (state.mesh.overview?.slots || []).find((slot) => catalogSlotKey(slot) === slotKey) || null;
+}
+
+function catalogAgentById(agentId) {
+  return (state.mesh.overview?.agents || []).find((agent) => agent.agentId === agentId) || null;
+}
+
+function catalogBindingById(accountBindingId) {
+  return (state.mesh.overview?.accountBindings || []).find((binding) => (
+    binding.accountBindingId === accountBindingId
+  )) || null;
+}
+
+function currentCatalogRevision() {
+  return Number(state.mesh.overview?.mesh?.catalogRevision) || 0;
+}
+
+function appendSelectOption(select, value, label, options = {}) {
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = label;
+  option.disabled = options.disabled === true;
+  select.append(option);
+  return option;
+}
+
+function fillAgentAssignmentSelect(select, preferredAgentId = null, excludeAgentId = null) {
+  if (!select) return [];
+  const previous = preferredAgentId || select.value;
+  const agents = (state.mesh.overview?.agents || []).filter((agent) => agent.agentId !== excludeAgentId);
+  select.replaceChildren();
+  appendSelectOption(select, '', tr('catalog.assignment.choose'), { disabled: true });
+  for (const agent of agents) appendSelectOption(select, agent.agentId, agent.displayName);
+  if (!agents.length) {
+    select.options[0].textContent = tr('catalog.assignment.noAgent');
+    select.value = '';
+    return agents;
+  }
+  select.value = agents.some((agent) => agent.agentId === previous) ? previous : '';
+  return agents;
+}
+
+function bindingOptionLabel(binding) {
+  const agent = catalogAgentById(binding.agentId);
+  return [agent?.displayName, binding.providerNamespace, binding.displayAlias].filter(Boolean).join(' · ');
+}
+
+function fillBindingAssignmentSelect(select, appId, preferredBindingId = null) {
+  if (!select) return [];
+  const previous = preferredBindingId || select.value;
+  const provider = catalogProviderForApp(appId);
+  const bindings = (state.mesh.overview?.accountBindings || []).filter((binding) => (
+    binding.providerNamespace === provider
+  ));
+  select.replaceChildren();
+  appendSelectOption(select, '', tr('catalog.assignment.choose'), { disabled: true });
+  for (const binding of bindings) {
+    appendSelectOption(select, binding.accountBindingId, bindingOptionLabel(binding));
+  }
+  if (!bindings.length) {
+    select.options[0].textContent = tr('catalog.assignment.noCompatibleBinding');
+    select.value = '';
+    return bindings;
+  }
+  select.value = bindings.some((binding) => binding.accountBindingId === previous)
+    ? previous
+    : '';
+  return bindings;
+}
+
+function openProfileCreationDialog() {
+  els.accountManage.open = false;
+  const meshMode = state.mesh.overview?.initialized === true;
+  els.profileDialogTitle.textContent = tr(meshMode ? 'dialog.addProfile.slotTitle' : 'dialog.addProfile.title');
+  els.newProfileMeshAssignment.hidden = !meshMode;
+  els.newProfileApp.value = selectedProfile()?.appId
+    || (els.newProfileApp.options[0] ? els.newProfileApp.options[0].value : 'claude');
+  els.newProfileName.value = '';
+  els.newProfileGroup.value = '';
+  els.newProfileNote.value = '';
+  if (meshMode) {
+    els.newProfileMode.value = '';
+    els.newProfileAgent.value = '';
+    els.newProfileBinding.value = '';
+  }
+  syncProfileAssignmentControls();
+  els.profileDialog.showModal();
+  (meshMode ? els.newProfileMode : els.newProfileName).focus();
+}
+
+function syncProfileAssignmentControls() {
+  const meshMode = state.mesh.overview?.initialized === true;
+  if (!meshMode) {
+    els.newProfileMeshAssignment.hidden = true;
+    els.confirmAddProfileBtn.disabled = false;
+    return;
+  }
+  els.newProfileMeshAssignment.hidden = false;
+  const mode = els.newProfileMode.value;
+  const agents = fillAgentAssignmentSelect(els.newProfileAgent);
+  const bindings = fillBindingAssignmentSelect(els.newProfileBinding, els.newProfileApp.value);
+  els.newProfileAgentField.hidden = mode !== 'existing-agent';
+  els.newProfileBindingField.hidden = mode !== 'existing-binding';
+  const hintKey = {
+    'new-agent': 'catalog.assignment.hintNew',
+    'existing-agent': agents.length ? 'catalog.assignment.hintExistingAgent' : 'catalog.assignment.noAgent',
+    'existing-binding': bindings.length
+      ? 'catalog.assignment.hintExistingBinding'
+      : 'catalog.assignment.noCompatibleBinding'
+  }[mode];
+  els.newProfileAssignmentHint.textContent = hintKey ? tr(hintKey) : '';
+  els.confirmAddProfileBtn.disabled = !mode
+    || (mode === 'existing-agent' && !els.newProfileAgent.value)
+    || (mode === 'existing-binding' && !els.newProfileBinding.value);
+}
+
+async function confirmProfileCreation() {
+  const name = els.newProfileName.value.trim();
+  if (!name) {
+    setStatus(tr('status.nameFirst'));
+    els.newProfileName.focus();
+    return;
+  }
+  const meshMode = state.mesh.overview?.initialized === true;
+  const mode = els.newProfileMode.value;
+  if (meshMode && !mode) {
+    setStatus(tr('catalog.add.choiceTitle'));
+    els.newProfileMode.focus();
+    return;
+  }
+  els.confirmAddProfileBtn.disabled = true;
+  try {
+    if (!meshMode) {
+      const profile = await window.manager.addProfile({
+        appId: els.newProfileApp.value,
+        name,
+        group: els.newProfileGroup.value,
+        note: els.newProfileNote.value
+      });
+      els.profileDialog.close();
+      await loadProfiles(profile.id);
+      setStatus(tr('status.created', { name: profile.name }));
+      return;
+    }
+
+    const result = await window.manager.addLocalAgentSlot({
+      appId: els.newProfileApp.value,
+      name,
+      group: els.newProfileGroup.value,
+      note: els.newProfileNote.value,
+      mode,
+      agentId: mode === 'existing-agent' ? els.newProfileAgent.value : undefined,
+      accountBindingId: mode === 'existing-binding' ? els.newProfileBinding.value : undefined
+    });
+    if (!result?.ok) throw new Error(result?.reasonCode || 'slot-add-failed');
+    state.mesh.overview = result.overview;
+    els.profileDialog.close();
+    await loadProfiles(result.profile.id);
+    setStatus(tr('catalog.status.created'));
+  } catch (error) {
+    setStatus(tr('catalog.error.generic', { code: error?.message || 'slot-add-failed' }));
+  } finally {
+    if (els.profileDialog.open) syncProfileAssignmentControls();
+  }
+}
+
+function openAgentOrProfileEditor() {
+  els.accountManage.open = false;
+  const meshMode = state.mesh.overview?.initialized === true;
+  if (meshMode) {
+    const agent = catalogAgentById(currentAgentId());
+    if (!agent) return;
+    const profile = selectedProfile();
+    const group = identityGroups().find((item) => item.key === agent.agentId);
+    state.mesh.editingAgentId = agent.agentId;
+    els.editDialogTitle.textContent = tr('catalog.edit.title');
+    els.editAgentHint.hidden = false;
+    els.editAgentHint.textContent = tr('catalog.edit.hint');
+    els.editIdentityField.hidden = true;
+    els.editName.value = agent.displayName;
+    els.editGroup.value = agent.group || '';
+    els.editIdentity.value = '';
+    els.editNote.value = agent.note || '';
+    openCatCustomizer({
+      id: agent.agentId,
+      appId: profile?.appId || group?.primary?.appId || 'unknown',
+      cat: agent.catAppearance,
+      isProtected: false
+    });
+  } else {
+    const profile = selectedProfile();
+    if (!profile) return;
+    state.mesh.editingAgentId = null;
+    els.editDialogTitle.textContent = tr('dialog.editProfile.title');
+    els.editAgentHint.hidden = true;
+    els.editIdentityField.hidden = false;
+    els.editName.value = profile.name;
+    els.editGroup.value = profile.group || '';
+    els.editIdentity.value = profile.identityKey || '';
+    els.editNote.value = profile.note || '';
+    populateIdentityDatalist();
+    openCatCustomizer(profile);
+  }
+  els.editDialog.showModal();
+  els.editName.focus();
+}
+
+async function confirmAgentOrProfileEdit() {
+  const name = els.editName.value.trim();
+  if (!name) {
+    setStatus(tr('status.nameEmpty'));
+    els.editName.focus();
+    return;
+  }
+  if (state.mesh.overview?.initialized && state.mesh.editingAgentId) {
+    const result = await window.manager.renameAgent({
+      agentId: state.mesh.editingAgentId,
+      displayName: name,
+      group: els.editGroup.value,
+      note: els.editNote.value,
+      catAppearance: { ...catDraft },
+      baseRevision: currentCatalogRevision()
+    });
+    if (!result?.ok) {
+      setStatus(tr('catalog.error.generic', { code: result?.reasonCode || 'agent-update-failed' }));
+      return;
+    }
+    const agentId = state.mesh.editingAgentId;
+    state.mesh.editingAgentId = null;
+    els.editDialog.close();
+    await refreshCatalogWorkspace(result.overview, { agentId });
+    setStatus(tr('catalog.status.saved'));
+    return;
+  }
+
+  const profile = selectedProfile();
+  if (!profile) return;
+  await window.manager.updateProfile({
+    id: profile.id,
+    name,
+    group: els.editGroup.value,
+    identityKey: els.editIdentity.value,
+    note: els.editNote.value,
+    cat: { ...catDraft }
+  });
+  els.editDialog.close();
+  await loadProfiles(profile.id);
+  setStatus(tr('status.savedProfileCat'));
+}
+
+async function refreshCatalogWorkspace(overview, options = {}) {
+  state.mesh.overview = overview;
+  if (options.agentId && catalogAgentById(options.agentId)) {
+    const group = identityGroupsForLens(currentDeviceLensId()).find((item) => item.key === options.agentId);
+    const member = (group?.members || []).find((item) => item._meshSlotKey === options.slotKey)
+      || preferredSlot(group?.members || []);
+    if (group) {
+      state.ui = window.UiContext.setAgent(state.ui, group.key, {
+        slotKey: member?._meshSlotKey || member?.id
+      });
+    }
+  }
+  validateUiContext();
+  renderDeviceCenter();
+  renderAccounts();
+  renderAccountHeader();
+  renderSessionControls();
+  await loadSessions();
+  renderAttentionInbox();
+}
+
+async function openAgentOrProfileRemoval() {
+  els.accountManage.open = false;
+  const profile = selectedProfile();
+  if (!state.mesh.overview?.initialized) {
+    if (!profile) return;
+    if (!window.confirm(tr('status.removeConfirm', { name: profile.name }))) return;
+    const result = await window.manager.removeProfile(profile.id);
+    if (!result.ok) {
+      setStatus(result.reason || tr('status.removeFail'));
+      return;
+    }
+    await loadProfiles();
+    setStatus(tr('status.removedSlot'));
+    return;
+  }
+
+  const agent = catalogAgentById(currentAgentId());
+  if (!agent) return;
+  const slot = catalogSlotByKey(profile?._meshSlotKey || currentSlotKey());
+  state.mesh.removingAgentId = agent.agentId;
+  state.mesh.removingSlotKey = slot ? catalogSlotKey(slot) : null;
+  els.removeCatalogIntro.textContent = tr('catalog.remove.intro', { name: agent.displayName });
+  const radios = [...els.removeCatalogDialog.querySelectorAll('input[name="catalogRemoveScope"]')];
+  const bindingRadio = radios.find((radio) => radio.value === 'account-binding');
+  if (bindingRadio) bindingRadio.disabled = !slot?.accountBindingId;
+  const slotRadio = radios.find((radio) => radio.value === 'slot');
+  if (slotRadio) slotRadio.disabled = !slot;
+  const agentRadio = radios.find((radio) => radio.value === 'agent');
+  if (slotRadio && slot) slotRadio.checked = true;
+  else if (agentRadio) agentRadio.checked = true;
+  els.removeLocalRegistration.checked = false;
+  renderCatalogRemovalImpact();
+  els.removeCatalogDialog.showModal();
+}
+
+function catalogRemovalContext() {
+  const overview = state.mesh.overview;
+  const agent = catalogAgentById(state.mesh.removingAgentId);
+  const slot = catalogSlotByKey(state.mesh.removingSlotKey);
+  const binding = catalogBindingById(slot?.accountBindingId);
+  const agentSlots = (overview?.slots || []).filter((item) => item.agentId === agent?.agentId);
+  const bindingSlots = (overview?.slots || []).filter((item) => item.accountBindingId === binding?.accountBindingId);
+  const bindings = (overview?.accountBindings || []).filter((item) => item.agentId === agent?.agentId);
+  return { overview, agent, slot, binding, agentSlots, bindingSlots, bindings };
+}
+
+function renderCatalogRemovalImpact() {
+  const context = catalogRemovalContext();
+  if (!context.agent) return;
+  let scope = els.removeCatalogDialog.querySelector('input[name="catalogRemoveScope"]:checked')?.value || 'agent';
+  if (!context.slot && scope !== 'agent') {
+    scope = 'agent';
+    const agentRadio = els.removeCatalogDialog.querySelector('input[name="catalogRemoveScope"][value="agent"]');
+    if (agentRadio) agentRadio.checked = true;
+  }
+  const devices = new Map((context.overview.devices || []).map((device) => [device.deviceId, device]));
+  const affectedSlots = scope === 'agent'
+    ? context.agentSlots
+    : (scope === 'account-binding' ? context.bindingSlots : [context.slot]);
+  const deviceCount = new Set(affectedSlots.map((slot) => slot.deviceId)).size;
+  const sessionCount = affectedSlots.reduce((sum, slot) => sum + (Number(slot.sessionCount) || 0), 0);
+  let message;
+  if (scope === 'agent') {
+    message = tr('catalog.remove.impactAgent', {
+      name: context.agent.displayName,
+      bindings: context.bindings.length,
+      devices: deviceCount,
+      slots: affectedSlots.length,
+      sessions: sessionCount
+    });
+  } else if (scope === 'account-binding') {
+    message = tr('catalog.remove.impactBinding', {
+      binding: context.binding?.displayAlias || context.binding?.providerNamespace || '-',
+      devices: deviceCount,
+      slots: affectedSlots.length,
+      sessions: sessionCount
+    });
+  } else {
+    message = tr('catalog.remove.impactSlot', {
+      device: devices.get(context.slot.deviceId)?.name || context.slot.deviceId,
+      app: appLabel(context.slot.appId)
+    });
+  }
+  const remaining = context.agentSlots.filter((slot) => !affectedSlots.includes(slot));
+  if (scope !== 'agent' && remaining.length === 0) message += ` ${tr('catalog.remove.disappear')}`;
+  els.removeCatalogImpact.dataset.state = 'idle';
+  els.removeCatalogImpact.textContent = message;
+  const localSlot = context.slot?.deviceId === context.overview.localDeviceId;
+  els.removeLocalRegistrationField.hidden = !(scope === 'slot' && localSlot);
+  if (scope !== 'slot') els.removeLocalRegistration.checked = false;
+}
+
+async function confirmCatalogRemoval() {
+  const context = catalogRemovalContext();
+  if (!context.agent) return;
+  const scope = els.removeCatalogDialog.querySelector('input[name="catalogRemoveScope"]:checked')?.value || 'slot';
+  if (scope !== 'agent' && !context.slot) return;
+  els.confirmRemoveCatalogBtn.disabled = true;
+  try {
+    let result;
+    if (scope === 'agent') {
+      result = await window.manager.deleteAgent({
+        agentId: context.agent.agentId,
+        baseRevision: currentCatalogRevision()
+      });
+    } else if (scope === 'account-binding') {
+      result = await window.manager.removeAccountBinding({
+        accountBindingId: context.binding?.accountBindingId,
+        baseRevision: currentCatalogRevision()
+      });
+    } else {
+      result = await window.manager.removeLocalAgentSlot({
+        deviceId: context.slot.deviceId,
+        profileId: context.slot.profileId,
+        baseRevision: currentCatalogRevision()
+      });
+    }
+    if (!result?.ok) throw new Error(result?.reasonCode || 'catalog-remove-failed');
+    state.mesh.overview = result.overview;
+    let registrationError = null;
+    const removeRegistration = scope === 'slot'
+      && context.slot.deviceId === context.overview.localDeviceId
+      && els.removeLocalRegistration.checked;
+    if (removeRegistration) {
+      const localResult = await window.manager.removeProfile(context.slot.profileId);
+      if (!localResult?.ok) registrationError = localResult?.reason || 'profile-remove-failed';
+    }
+    state.mesh.removingAgentId = null;
+    state.mesh.removingSlotKey = null;
+    els.removeCatalogDialog.close();
+    if (removeRegistration) {
+      await loadProfiles();
+    } else {
+      await refreshCatalogWorkspace(result.overview);
+    }
+    setStatus(registrationError
+      ? tr('catalog.error.generic', { code: registrationError })
+      : tr('catalog.status.removed'));
+  } catch (error) {
+    els.removeCatalogImpact.dataset.state = 'error';
+    els.removeCatalogImpact.textContent = tr('catalog.error.generic', {
+      code: error?.message || 'catalog-remove-failed'
+    });
+  } finally {
+    els.confirmRemoveCatalogBtn.disabled = false;
+  }
+}
+
+function openAgentRelationsDialog() {
+  els.accountManage.open = false;
+  const agent = catalogAgentById(currentAgentId());
+  if (!agent || !state.mesh.overview?.initialized) return;
+  state.mesh.relationAgentId = agent.agentId;
+  const bindings = state.mesh.overview.accountBindings.filter((binding) => binding.agentId === agent.agentId);
+  const slots = state.mesh.overview.slots.filter((slot) => slot.agentId === agent.agentId);
+  els.agentRelationsSummary.textContent = tr('catalog.relations.summary', {
+    name: agent.displayName,
+    bindings: bindings.length,
+    slots: slots.length
+  });
+  els.mergeAgentTarget.value = '';
+  const targets = fillAgentAssignmentSelect(els.mergeAgentTarget, null, agent.agentId);
+  els.confirmMergeAgentBtn.disabled = true;
+  if (!targets.length) els.mergeAgentTarget.title = tr('catalog.merge.noTarget');
+  else els.mergeAgentTarget.title = '';
+  els.splitAccountBinding.replaceChildren();
+  appendSelectOption(els.splitAccountBinding, '', tr('catalog.assignment.choose'), { disabled: true });
+  for (const binding of bindings) {
+    appendSelectOption(els.splitAccountBinding, binding.accountBindingId, bindingOptionLabel(binding));
+  }
+  if (!bindings.length) {
+    els.splitAccountBinding.options[0].textContent = tr('catalog.split.noBinding');
+  }
+  els.splitAccountBinding.value = '';
+  els.confirmSplitBindingBtn.disabled = true;
+  syncSplitAgentName();
+  els.agentRelationsStatus.dataset.state = 'idle';
+  els.agentRelationsStatus.textContent = tr('catalog.remove.safety');
+  els.agentRelationsDialog.showModal();
+}
+
+function syncSplitAgentName() {
+  const binding = catalogBindingById(els.splitAccountBinding?.value);
+  if (els.splitAgentName) {
+    if (binding) els.splitAgentName.value = binding.displayAlias || binding.providerNamespace || '';
+    else els.splitAgentName.value = '';
+  }
+  syncSplitConfirmState();
+}
+
+function syncSplitConfirmState() {
+  const binding = catalogBindingById(els.splitAccountBinding?.value);
+  if (els.confirmSplitBindingBtn) {
+    els.confirmSplitBindingBtn.disabled = !binding || !els.splitAgentName?.value.trim();
+  }
+}
+
+async function confirmAgentMerge() {
+  const source = catalogAgentById(state.mesh.relationAgentId);
+  const target = catalogAgentById(els.mergeAgentTarget.value);
+  if (!source || !target) return;
+  const bindings = state.mesh.overview.accountBindings.filter((binding) => binding.agentId === source.agentId);
+  const slots = state.mesh.overview.slots.filter((slot) => slot.agentId === source.agentId);
+  const confirmed = window.confirm(tr('catalog.merge.prompt', {
+    source: source.displayName,
+    target: target.displayName,
+    bindings: bindings.length,
+    slots: slots.length
+  }));
+  if (!confirmed) return;
+  els.confirmMergeAgentBtn.disabled = true;
+  const result = await window.manager.mergeAgents({
+    sourceAgentId: source.agentId,
+    targetAgentId: target.agentId,
+    baseRevision: currentCatalogRevision()
+  });
+  if (!result?.ok) {
+    els.agentRelationsStatus.dataset.state = 'error';
+    els.agentRelationsStatus.textContent = tr('catalog.error.generic', {
+      code: result?.reasonCode || 'agent-merge-failed'
+    });
+    els.confirmMergeAgentBtn.disabled = false;
+    return;
+  }
+  state.mesh.relationAgentId = null;
+  els.agentRelationsDialog.close();
+  await refreshCatalogWorkspace(result.overview, { agentId: target.agentId });
+  setStatus(tr('catalog.status.merged'));
+}
+
+async function confirmBindingSplit() {
+  const binding = catalogBindingById(els.splitAccountBinding.value);
+  const name = els.splitAgentName.value.trim();
+  if (!binding || !name) {
+    els.splitAgentName.focus();
+    return;
+  }
+  const slots = state.mesh.overview.slots.filter((slot) => slot.accountBindingId === binding.accountBindingId);
+  if (!window.confirm(tr('catalog.split.prompt', {
+    binding: binding.displayAlias || binding.providerNamespace,
+    slots: slots.length,
+    name
+  }))) return;
+  els.confirmSplitBindingBtn.disabled = true;
+  const previousAgentIds = new Set(state.mesh.overview.agents.map((agent) => agent.agentId));
+  const result = await window.manager.splitAccountBinding({
+    accountBindingId: binding.accountBindingId,
+    displayName: name,
+    baseRevision: currentCatalogRevision()
+  });
+  if (!result?.ok) {
+    els.agentRelationsStatus.dataset.state = 'error';
+    els.agentRelationsStatus.textContent = tr('catalog.error.generic', {
+      code: result?.reasonCode || 'binding-split-failed'
+    });
+    els.confirmSplitBindingBtn.disabled = false;
+    return;
+  }
+  const nextBinding = result.overview.accountBindings.find((item) => item.accountBindingId === binding.accountBindingId);
+  const newAgent = result.overview.agents.find((agent) => !previousAgentIds.has(agent.agentId))
+    || result.overview.agents.find((agent) => agent.agentId === nextBinding?.agentId);
+  state.mesh.relationAgentId = null;
+  els.agentRelationsDialog.close();
+  await refreshCatalogWorkspace(result.overview, { agentId: newAgent?.agentId });
+  setStatus(tr('catalog.status.split'));
+}
+
+function openSlotAssignmentDialog(slot) {
+  const overview = state.mesh.overview;
+  if (!overview?.initialized || !slot) return;
+  state.mesh.assigningSlotKey = catalogSlotKey(slot);
+  const device = overview.devices.find((item) => item.deviceId === slot.deviceId);
+  els.slotAssignmentSummary.textContent = tr('catalog.assign.summary', {
+    device: device?.name || slot.deviceId,
+    app: appLabel(slot.appId),
+    label: slot.localLabel || slot.profileId,
+    state: slot.assignmentState || 'pending'
+  });
+  els.slotAssignmentName.value = slot.localLabel || appLabel(slot.appId);
+  els.slotAssignmentGroup.value = '';
+  els.slotAssignmentNote.value = '';
+  els.slotAssignmentMode.value = '';
+  els.slotAssignmentAgent.value = '';
+  els.slotAssignmentBinding.value = '';
+  els.slotAssignmentStatus.dataset.state = 'idle';
+  els.slotAssignmentStatus.textContent = tr('catalog.remove.safety');
+  syncSlotAssignmentControls();
+  els.slotAssignmentDialog.showModal();
+  els.slotAssignmentMode.focus();
+}
+
+function syncSlotAssignmentControls() {
+  const slot = catalogSlotByKey(state.mesh.assigningSlotKey);
+  const mode = els.slotAssignmentMode?.value || '';
+  const agents = fillAgentAssignmentSelect(els.slotAssignmentAgent);
+  const bindings = fillBindingAssignmentSelect(els.slotAssignmentBinding, slot?.appId);
+  els.slotAssignmentAgentField.hidden = mode !== 'existing-agent';
+  els.slotAssignmentBindingField.hidden = mode !== 'existing-binding';
+  els.confirmSlotAssignmentBtn.disabled = !slot || !mode
+    || (mode === 'existing-agent' && (!agents.length || !els.slotAssignmentAgent.value))
+    || (mode === 'existing-binding' && (!bindings.length || !els.slotAssignmentBinding.value));
+}
+
+async function confirmSlotAssignment() {
+  const slot = catalogSlotByKey(state.mesh.assigningSlotKey);
+  const mode = els.slotAssignmentMode.value;
+  const name = els.slotAssignmentName.value.trim();
+  if (!slot || !mode || !name) return;
+  els.confirmSlotAssignmentBtn.disabled = true;
+  const result = await window.manager.assignAgentSlot({
+    deviceId: slot.deviceId,
+    profileId: slot.profileId,
+    mode,
+    agentId: mode === 'existing-agent' ? els.slotAssignmentAgent.value : undefined,
+    accountBindingId: mode === 'existing-binding' ? els.slotAssignmentBinding.value : undefined,
+    displayName: name,
+    displayAlias: name,
+    group: els.slotAssignmentGroup.value,
+    note: els.slotAssignmentNote.value,
+    baseRevision: currentCatalogRevision()
+  });
+  if (!result?.ok) {
+    els.slotAssignmentStatus.dataset.state = 'error';
+    els.slotAssignmentStatus.textContent = tr('catalog.error.generic', {
+      code: result?.reasonCode || 'slot-assignment-failed'
+    });
+    syncSlotAssignmentControls();
+    return;
+  }
+  const assigned = result.overview.slots.find((item) => (
+    item.deviceId === slot.deviceId && item.profileId === slot.profileId
+  ));
+  state.mesh.assigningSlotKey = null;
+  els.slotAssignmentDialog.close();
+  await refreshCatalogWorkspace(result.overview, {
+    agentId: assigned?.agentId,
+    slotKey: catalogSlotKey(assigned)
+  });
+  setStatus(tr('catalog.status.assigned'));
 }
 
 async function handleUpdateClick() {
@@ -1462,7 +2119,8 @@ async function loadQuotas(force = false) {
 }
 
 function selectedQuota() {
-  return state.selectedProfileId ? state.quotas[state.selectedProfileId] || null : null;
+  const profileId = currentProfileId();
+  return profileId ? state.quotas[profileId] || null : null;
 }
 
 function quotaPlanLabel(value) {
@@ -1970,7 +2628,31 @@ function setWorkspaceMode(mode, options = {}) {
       void window.manager.returnRemoteControl(state.ui.activeRemoteSessionId);
     }
   }
+  renderRemoteActivity();
   renderTopbarContext();
+}
+
+function renderRemoteActivity() {
+  if (!els.remoteActivityBtn) return;
+  const sessions = activeOutgoingRemoteSessions();
+  const background = state.ui.workspaceMode !== 'remote' && sessions.length > 0;
+  els.remoteActivityBtn.hidden = !background;
+  if (!background) {
+    els.remoteActivityBtn.textContent = '';
+    els.remoteActivityBtn.removeAttribute('title');
+    els.remoteActivityBtn.removeAttribute('aria-label');
+    return;
+  }
+  const active = sessions.find((item) => item.sessionId === state.ui.activeRemoteSessionId) || sessions[0];
+  els.remoteActivityBtn.textContent = tr('remote.background.button', { n: sessions.length });
+  els.remoteActivityBtn.title = tr('remote.background.hint', {
+    name: active?.deviceName || '-',
+    n: sessions.length
+  });
+  els.remoteActivityBtn.setAttribute('aria-label', els.remoteActivityBtn.title);
+  els.remoteActivityBtn.dataset.state = sessions.some((item) => item.state === 'error' || item.state === 'rejected')
+    ? 'error'
+    : 'viewing';
 }
 
 function scheduleRemoteSurfaceLayout() {
@@ -2227,8 +2909,13 @@ function renderSelectedDeviceDetail(overview) {
   const device = selectedDeviceDetail(overview);
   if (!els.deviceDetail) return;
   if (!device) {
+    if (els.deviceDetailKind) els.deviceDetailKind.textContent = '';
     if (els.deviceDetailName) els.deviceDetailName.textContent = tr('devices.detail.unselected');
     if (els.deviceDetailMeta) els.deviceDetailMeta.textContent = tr('devices.detail.unselectedHint');
+    if (els.deviceDetailStatus) {
+      els.deviceDetailStatus.textContent = '';
+      els.deviceDetailStatus.removeAttribute('data-state');
+    }
     if (els.deviceDetailStats) els.deviceDetailStats.replaceChildren();
     if (els.deviceDetailActions) els.deviceDetailActions.replaceChildren();
     return;
@@ -2298,6 +2985,7 @@ function deviceMoreMenu(buttons) {
 
 async function viewDeviceSessions(device, overview) {
   updateUi(window.UiContext.viewDeviceSessions(state.ui, device.deviceId));
+  setWorkspaceMode('sessions');
   renderDeviceLens(overview);
   if (els.searchInput) els.searchInput.value = state.query;
   renderAccounts();
@@ -2314,6 +3002,7 @@ async function viewDeviceAgentSessions(device, agent, overview) {
     agentId: agent.agentId,
     slotKey: slot?._meshSlotKey || slot?.id
   }));
+  setWorkspaceMode('sessions');
   renderDeviceLens(overview);
   if (els.searchInput) els.searchInput.value = state.query;
   renderAccounts();
@@ -2345,14 +3034,22 @@ function renderSelectedDeviceActions(device, connection, overview) {
     return;
   }
 
-  const remoteSession = state.mesh.remoteSessions.find((item) => item.deviceId === device.deviceId);
+  const remoteSession = state.mesh.remoteSessions.find((item) => (
+    item.deviceId === device.deviceId
+    && !['error', 'rejected', 'disconnected'].includes(item.state)
+  ));
   const canView = (device.permissions || []).includes('screen.view');
+  const canReachRemote = Boolean(remoteSession)
+    || connection?.authenticated === true
+    || device.status === 'online';
   const remote = deviceActionButton(
     tr(remoteSession ? 'remote.action.focus' : 'remote.action.view'),
     () => openRemoteDevice(device),
     {
-      disabled: state.mesh.loading || !canView,
-      title: canView ? tr('remote.action.hint') : tr('remote.action.permissionRequired')
+      disabled: state.mesh.loading || !canView || !canReachRemote,
+      title: !canView
+        ? tr('remote.action.permissionRequired')
+        : (canReachRemote ? tr('remote.action.hint') : remoteErrorText('offline', device.name))
     }
   );
   remote.className = 'remote-control-action';
@@ -2397,18 +3094,19 @@ function renderSelectedDeviceActions(device, connection, overview) {
 function renderMeshAgentList(overview) {
   if (!els.meshAgentList) return;
   els.meshAgentList.replaceChildren();
-  if (!overview.agents.length) {
-    const empty = document.createElement('p');
-    empty.className = 'mesh-catalog-empty';
-    empty.textContent = tr('devices.agents.empty');
-    els.meshAgentList.append(empty);
-    return;
-  }
+  if (els.agentCatalogMeta) els.agentCatalogMeta.textContent = '';
   const selectedDevice = selectedDeviceDetail(overview);
   if (!selectedDevice) return;
   const deviceAgents = overview.agents.filter((agent) => overview.slots.some((slot) => (
-    slot.agentId === agent.agentId && slot.deviceId === selectedDevice?.deviceId
+    slot.agentId === agent.agentId
+    && slot.accountBindingId
+    && slot.assignmentState === 'linked'
+    && slot.deviceId === selectedDevice.deviceId
   )));
+  const unassignedSlots = overview.slots.filter((slot) => (
+    slot.deviceId === selectedDevice.deviceId
+    && (slot.assignmentState !== 'linked' || !slot.agentId || !slot.accountBindingId)
+  ));
   if (els.agentCatalogMeta) {
     const slotCount = overview.slots.filter((slot) => slot.deviceId === selectedDevice?.deviceId).length;
     els.agentCatalogMeta.textContent = tr('devices.meta.deviceAgentSlotCount', {
@@ -2416,17 +3114,26 @@ function renderMeshAgentList(overview) {
       slots: slotCount
     });
   }
-  if (!deviceAgents.length) {
+  if (!deviceAgents.length && !unassignedSlots.length) {
     const empty = document.createElement('p');
     empty.className = 'mesh-catalog-empty';
-    empty.textContent = tr('devices.agents.emptyOnDevice');
+    empty.textContent = overview.agents.length
+      ? tr('devices.agents.emptyOnDevice')
+      : tr('devices.agents.empty');
     els.meshAgentList.append(empty);
     return;
   }
   for (const agent of deviceAgents) {
-    const slots = overview.slots.filter((slot) => slot.agentId === agent.agentId);
+    const slots = overview.slots.filter((slot) => (
+      slot.agentId === agent.agentId
+      && slot.accountBindingId
+      && slot.assignmentState === 'linked'
+    ));
     const deviceSlots = slots.filter((slot) => slot.deviceId === selectedDevice.deviceId);
-    const bindings = overview.accountBindings.filter((binding) => binding.agentId === agent.agentId);
+    const deviceBindingIds = new Set(deviceSlots.map((slot) => slot.accountBindingId));
+    const bindings = overview.accountBindings.filter((binding) => (
+      binding.agentId === agent.agentId && deviceBindingIds.has(binding.accountBindingId)
+    ));
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'mesh-agent-card';
@@ -2441,6 +3148,30 @@ function renderMeshAgentList(overview) {
     card.append(name, count, providers);
     card.addEventListener('click', () => void viewDeviceAgentSessions(selectedDevice, agent, overview));
     els.meshAgentList.append(card);
+  }
+  if (unassignedSlots.length) {
+    const heading = document.createElement('div');
+    heading.className = 'mesh-unassigned-heading';
+    const title = document.createElement('span');
+    title.textContent = tr('catalog.unassigned.title');
+    const count = document.createElement('span');
+    count.textContent = tr('catalog.unassigned.count', { n: unassignedSlots.length });
+    heading.append(title, count);
+    els.meshAgentList.append(heading);
+    for (const slot of unassignedSlots) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'mesh-agent-card is-unassigned';
+      const name = document.createElement('strong');
+      name.textContent = slot.localLabel || slot.profileId;
+      const action = document.createElement('span');
+      action.textContent = tr('catalog.unassigned.action');
+      const meta = document.createElement('small');
+      meta.textContent = `${appLabel(slot.appId)} · ${slot.assignmentState || 'pending'}`;
+      card.append(name, action, meta);
+      card.addEventListener('click', () => openSlotAssignmentDialog(slot));
+      els.meshAgentList.append(card);
+    }
   }
 }
 
@@ -2511,6 +3242,7 @@ async function openRemoteDevice(device) {
   if (!result?.ok) {
     state.mesh.errorCode = result?.reasonCode || 'remote-open-failed';
     state.mesh.message = '';
+    setStatus(remoteErrorText(state.mesh.errorCode, device.name));
   } else {
     state.mesh.remoteSessions = Array.isArray(result.sessions) ? result.sessions : state.mesh.remoteSessions;
     state.mesh.message = tr('remote.action.waitingConsent', { name: device.name });
@@ -2559,7 +3291,7 @@ async function joinExistingMesh() {
   }
   renderDeviceCenter();
   renderTopbarContext();
-  if (result?.ok) await loadProfiles(state.selectedProfileId);
+  if (result?.ok) await loadProfiles(currentProfileId());
 }
 
 function deviceDiagnosticsButton(device) {
@@ -2904,6 +3636,26 @@ function meshErrorText(code) {
   return tr('devices.error.generic', { code: code || '-' });
 }
 
+function remoteErrorText(code, deviceName = '-') {
+  const value = String(code || 'remote-failed');
+  const rules = [
+    [/revoked|device-not-found/, 'remote.error.revoked'],
+    [/protocol|version|incompatible/, 'remote.error.version'],
+    [/capability-denied:screen\.view|screen.*(permission|denied|restricted)|permission.*screen|display-unavailable|desktop-capturer-unavailable|media-not-allowed/, 'remote.error.screenPermission'],
+    [/capability-denied:input\.control|input.*(permission|denied|restricted)|permission.*input/, 'remote.error.inputPermission'],
+    [/rejected|user-denied|consent-denied/, 'remote.error.rejected'],
+    [/input-owner|input-busy|input-target-conflict|exclusive|already-control/, 'remote.error.exclusive'],
+    [/relay-unavailable|turn-unavailable/, 'remote.error.relayUnavailable'],
+    [/direct-failed.*relay|relay-available/, 'remote.error.directFailedRelay'],
+    [/offline|peer-not-connected|device-unavailable|peer-route-unavailable|signal.*unavailable/, 'remote.error.offline'],
+    [/timeout|ice-failed|connect-failed|peer-disconnected|peer-not-authenticated|media-failed/, 'remote.error.unreachable']
+  ];
+  const matched = rules.find(([pattern]) => pattern.test(value));
+  return matched
+    ? tr(matched[1], { name: deviceName, code: value })
+    : tr('remote.error.generic', { code: value });
+}
+
 function platformLabel(platform) {
   const key = `devices.platform.${platform}`;
   const label = tr(key);
@@ -3109,7 +3861,7 @@ async function openManagedTool(item) {
   try {
     const result = await window.manager.openTool({
       toolId: item.id,
-      profileId: state.selectedProfileId || null
+      profileId: currentProfileId()
     });
     state.tools.statusTone = result?.ok ? 'idle' : 'error';
     state.tools.message = result?.ok
@@ -3226,6 +3978,22 @@ function collectAttentionItems() {
       action: 'update'
     });
   }
+  if (state.mesh.overview?.initialized) {
+    for (const slot of state.mesh.overview.slots || []) {
+      if (slot.assignmentState === 'linked' && slot.agentId && slot.accountBindingId) continue;
+      const device = state.mesh.overview.devices.find((item) => item.deviceId === slot.deviceId);
+      items.push({
+        kind: slot.assignmentState === 'identity-changed' ? 'error' : 'warning',
+        title: tr('attention.catalog.title', { name: slot.localLabel || appLabel(slot.appId) }),
+        detail: tr('attention.catalog.detail', {
+          device: device?.name || slot.deviceId,
+          state: slot.assignmentState || 'pending'
+        }),
+        slotKey: catalogSlotKey(slot),
+        action: 'assign-slot'
+      });
+    }
+  }
   return items.slice(0, 8);
 }
 
@@ -3246,10 +4014,11 @@ function renderAttentionInbox() {
     detail.textContent = item.detail || tr('attention.detail.fallback');
     button.append(title, detail);
     button.addEventListener('click', async () => {
-      if (item.profileId && item.profileId !== state.selectedProfileId) await selectProfile(item.profileId);
+      if (item.profileId && item.profileId !== currentProfileId()) await selectProfile(item.profileId);
       if (item.action === 'diagnostics') await showDiagnostics();
       else if (item.action === 'quota') els.quotaSummary.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       else if (item.action === 'update') await handleUpdateClick();
+      else if (item.action === 'assign-slot') openSlotAssignmentDialog(catalogSlotByKey(item.slotKey));
     });
     els.attentionItems.append(button);
   }
@@ -3303,7 +4072,7 @@ function saveYardPosition(profileId, point, zoneId = 'ground') {
 function handleYardDrop({ profile, state: activityState, point, zone }) {
   if (!profile || !window.YardInteractions) return false;
   const zoneId = zone?.id || 'ground';
-  const hasSelectedSession = profile.id === state.selectedProfileId && Boolean(sessionForProfile(profile.id));
+  const hasSelectedSession = profile.id === currentProfileId() && Boolean(sessionForProfile(profile.id));
   const intent = window.YardInteractions.resolveDropIntent(zoneId, {
     activityState,
     hasSession: hasSelectedSession
@@ -3528,7 +4297,7 @@ function syncYard() {
       energyById,
       positionsById: state.yardPositions,
       attentionById,
-      selectedId: selectedGroup ? selectedGroup.primary.id : state.selectedProfileId,
+      selectedId: selectedGroup ? selectedGroup.primary.id : currentProfileId(),
       night: document.documentElement.dataset.theme === 'dark'
     });
   }
@@ -3756,7 +4525,7 @@ function renderTopbarContext() {
   }
   const profile = selectedProfile();
   if (!profile) {
-    const remoteCount = state.mesh.remoteSessions.filter((item) => item.direction === 'outgoing').length;
+    const remoteCount = activeOutgoingRemoteSessions().length;
     els.topbarContext.textContent = [
       deviceContext,
       ctx,
@@ -3768,7 +4537,7 @@ function renderTopbarContext() {
   const activityState = window.YardCats
     ? window.YardCats.deriveState(Date.now(), profile, state.activity[profile.id])
     : 'rest';
-  const remoteCount = state.mesh.remoteSessions.filter((item) => item.direction === 'outgoing').length;
+  const remoteCount = activeOutgoingRemoteSessions().length;
   els.topbarContext.textContent = [
     deviceContext,
     ctx,
@@ -3796,6 +4565,8 @@ function identityGroupsForLens(lensId = 'all') {
     for (const agent of overview.agents || []) {
       const slots = (overview.slots || []).filter((slot) => (
         slot.agentId === agent.agentId
+        && slot.accountBindingId
+        && slot.assignmentState === 'linked'
         && (lens === 'all' || slot.deviceId === lens)
       ));
       if (!slots.length) continue;
@@ -3856,7 +4627,6 @@ function setProfileContext(profileId) {
   state.ui = window.UiContext.setAgent(state.ui, group.key, {
     slotKey: member._meshSlotKey || member.id
   });
-  syncDerivedProfileSelection();
   return true;
 }
 
@@ -3876,7 +4646,6 @@ function validateUiContext() {
       validDeviceDetailIds: [],
       validRemoteSessionIds: []
     });
-    syncDerivedProfileSelection();
     return;
   }
 
@@ -3901,7 +4670,6 @@ function validateUiContext() {
       .filter((session) => session.direction === 'outgoing')
       .map((session) => session.sessionId)
   });
-  syncDerivedProfileSelection();
 }
 
 function validateSessionContext() {
@@ -3977,8 +4745,8 @@ function populateGroupDatalist() {
 }
 
 // 组内形态切换器：账号(组)有多个客户端形态时，在控制条列出各形态供切换。
-// 卡片/猫只负责选中整组(primary)；这里把 selectedProfileId 落到具体槽位，
-// 于是编辑/移除/打开/诊断/位置/额度刷新都作用到所选形态（它们本就读 selectedProfileId）。
+// 卡片/猫只负责选中 Agent；运行位置选择器只更新 UiContext 中的 Slot，
+// 编辑、移除、打开、诊断、位置和额度均通过该 Slot 即时解析本地 Profile。
 function renderFormSwitcher(profile, group) {
   if (!els.formSwitcher || !els.formSelect) return;
   const meshMode = state.mesh.overview?.initialized === true;
@@ -4025,10 +4793,20 @@ function renderAccountHeader() {
   const disabled = !profile;
   const remote = profile?._remote === true;
   const meshMode = state.mesh.overview?.initialized === true;
+  const selectedAgent = catalogAgentById(currentAgentId());
+  const localLens = !meshMode
+    || currentDeviceLensId() === 'all'
+    || currentDeviceLensId() === state.mesh.overview.localDeviceId;
 
   els.addProfileBtn.textContent = tr(meshMode ? 'account.addSlot' : 'account.add');
-  els.editProfileBtn.textContent = tr(meshMode ? 'account.editSlot' : 'account.edit');
-  els.removeProfileBtn.textContent = tr(meshMode ? 'account.removeSlot' : 'account.remove');
+  els.editProfileBtn.textContent = tr(meshMode ? 'account.editAgent' : 'account.edit');
+  els.removeProfileBtn.textContent = tr(meshMode ? 'account.removeCatalog' : 'account.remove');
+  els.addProfileBtn.disabled = !localLens;
+  els.addProfileBtn.title = localLens ? '' : tr('account.addRemoteDisabled');
+  if (els.manageAgentRelationsBtn) {
+    els.manageAgentRelationsBtn.hidden = !meshMode;
+    els.manageAgentRelationsBtn.disabled = !selectedAgent;
+  }
 
   const canLaunch = !profile || state.appMeta[profile.appId]?.canLaunch !== false;
   els.launchBtn.disabled = disabled || !canLaunch || remote;
@@ -4039,8 +4817,8 @@ function renderAccountHeader() {
   els.diagnosticsBtn.disabled = disabled || remote;
   els.profileFolderBtn.disabled = disabled || remote;
   els.refreshBtn.disabled = disabled || remote;
-  els.editProfileBtn.disabled = disabled || remote;
-  els.removeProfileBtn.disabled = disabled || remote;
+  els.editProfileBtn.disabled = meshMode ? !selectedAgent : (disabled || remote);
+  els.removeProfileBtn.disabled = meshMode ? !selectedAgent : (disabled || remote);
 
   if (!profile) {
     els.accountTitle.textContent = selectedGroup?.agent?.displayName
@@ -4171,15 +4949,21 @@ function renderSessionCopyControl() {
   if (!els.copySessionInfoBtn) return;
   const count = actionSessions().length;
   const unresolved = unresolvedActionSessions();
+  const visibility = window.UiContext.actionVisibility(
+    state.ui,
+    state.filteredSessions.map(sessionKey)
+  );
   if (els.sessionSelectionBar) els.sessionSelectionBar.hidden = count === 0;
   if (els.sessionSelectionCount) {
     els.sessionSelectionCount.textContent = tr('session.selection.count', { n: count });
   }
   if (els.sessionSelectionIssue) {
-    els.sessionSelectionIssue.hidden = unresolved.length === 0;
-    els.sessionSelectionIssue.textContent = unresolved.length
-      ? tr('session.replica.requiredCount', { n: unresolved.length })
-      : '';
+    const issues = [
+      visibility.hidden ? tr('session.selection.hiddenCount', { n: visibility.hidden }) : null,
+      unresolved.length ? tr('session.replica.requiredCount', { n: unresolved.length }) : null
+    ].filter(Boolean);
+    els.sessionSelectionIssue.hidden = issues.length === 0;
+    els.sessionSelectionIssue.textContent = issues.join(' · ');
   }
   els.copySessionInfoBtn.disabled = count === 0 || unresolved.length > 0;
   els.copySessionInfoBtn.textContent = count > 1
@@ -5009,8 +5793,9 @@ function formatDiagnosticsText(diagnostics) {
 }
 
 function selectedProfile() {
+  const profileId = currentProfileId();
   for (const group of identityGroups()) {
-    const profile = group.members.find((member) => member.id === state.selectedProfileId);
+    const profile = group.members.find((member) => member.id === profileId);
     if (profile) return profile;
   }
   return null;

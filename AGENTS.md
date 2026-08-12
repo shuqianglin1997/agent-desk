@@ -10,7 +10,7 @@
 
 ## Durable GitHub authentication and push continuity
 
-- The owner has already established that `shuqianglin1997/Skills` is their repository and has explicitly authorized AgentDesk development pushes. Do not repeatedly question repository ownership.
+- The owner has already established that `shuqianglin1997/agent-desk` is their repository and has explicitly authorized AgentDesk development pushes. Do not repeatedly question repository ownership.
 - Before starting any new GitHub verification flow, inspect and reuse the previously successful Git transport, credential helper, GitHub CLI login, SSH agent, or repository-specific key.
 - Never leave a successful push dependent on a temporary GitHub CLI directory or an in-memory credential. Persist the working authentication in the macOS Keychain or a repository-scoped SSH key, then verify it with a non-mutating remote check before ending the task.
 - If persistent authentication is genuinely absent or expired, state the exact missing mechanism once and restore a durable path. Do not send the owner through repeated email/device verification as the default response on later pushes.
