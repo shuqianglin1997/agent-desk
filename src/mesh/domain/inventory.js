@@ -212,6 +212,7 @@ function unifiedConversations(inventories, devices = [], options = {}) {
 
 function sessionReplica(record, slot, context) {
   if (!record || typeof record !== 'object') return null;
+  if (slot.assignmentState !== 'linked' || !slot.agentId || !slot.accountBindingId) return null;
   const stableProviderThreadId = cleanText(
     record.stableProviderThreadId || record.adapterConversationKey,
     '',

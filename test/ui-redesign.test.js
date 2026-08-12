@@ -35,7 +35,10 @@ test('批准后的 Agent 与会话操作层级：日常动作常驻，管理和�
   assert.match(html, /<details id="sessionDisplayMenu"[\s\S]*?id="sessionCompactBtn"[\s\S]*?id="sessionDetailBtn"/);
   assert.match(html, /id="sessionSelectionBar"[^>]*hidden[\s\S]*?id="clearSessionSelectionBtn"[\s\S]*?id="copySessionInfoBtn"[\s\S]*?id="sendSessionInfoBtn"/);
   assert.match(renderer, /sessionSelectionBar\.hidden = count === 0/);
-  assert.match(renderer, /clearSessionSelectionBtn\?\.addEventListener\('click'[\s\S]*?setAllVisibleSessionsSelected\(false\)/);
+  assert.match(renderer, /clearSessionSelectionBtn\?\.addEventListener\('click'[\s\S]*?clearSessionActionSelection\(\)/);
+  assert.match(renderer, /function clearSessionActionSelection\(\)[\s\S]*?UiContext\.clearConversationActions\(state\.ui\)/);
+  assert.match(renderer, /function focusSession\(session\)[\s\S]*?UiContext\.focusConversation/);
+  assert.match(renderer, /function setSessionChecked\(session, checked\)[\s\S]*?UiContext\.checkConversation/);
   assert.match(renderer, /querySelectorAll\('details\.context-menu\[open\]'\)/);
 });
 
@@ -62,10 +65,16 @@ test('设备中心在第六行采用设备列表加所选详情，只列所选�
   assert.match(renderer, /mainGrid\.append\(els\.deviceCenterDialog\)/);
   assert.match(renderer, /next === 'devices'[\s\S]*?deviceCenterDialog\.show\(\)/);
   assert.match(html, /class="device-center-layout"[\s\S]*?id="deviceList"[\s\S]*?id="deviceDetail"[\s\S]*?id="meshAgentList"/);
-  assert.match(renderer, /selectedDeviceId:\s*null/);
-  assert.match(renderer, /overview\.agents\.filter\(\(agent\) => overview\.slots\.some[\s\S]*?slot\.deviceId === selectedDevice\?\.deviceId/);
-  assert.match(renderer, /state\.selectedAgentId = agent\.agentId[\s\S]*?setWorkspaceMode\('sessions'\)/);
+  assert.match(renderer, /ui:\s*window\.UiContext\.create\(\)/);
+  assert.match(renderer, /state\.ui\.selectedDeviceDetailId/);
+  assert.match(renderer, /UiContext\.selectDeviceDetail\(state\.ui/);
+  assert.match(renderer, /deviceCenterDialog\?\.addEventListener\('close'[\s\S]*?if \(els\.deviceCenterDialog\.open\) return/);
+  assert.match(renderer, /overview\.agents\.filter\(\(agent\) => overview\.slots\.some[\s\S]*?slot\.deviceId === selectedDevice\.deviceId/);
+  assert.match(renderer, /const deviceBindingIds = new Set\(deviceSlots\.map[\s\S]*?deviceBindingIds\.has\(binding\.accountBindingId\)/);
+  assert.match(renderer, /function viewDeviceSessions[\s\S]*?UiContext\.viewDeviceSessions\(state\.ui, device\.deviceId\)[\s\S]*?setWorkspaceMode\('sessions'\)/);
+  assert.match(renderer, /function viewDeviceAgentSessions[\s\S]*?UiContext\.viewDeviceAgentSessions\(state\.ui,[\s\S]*?agentId: agent\.agentId[\s\S]*?setWorkspaceMode\('sessions'\)/);
   assert.match(styles, /\.device-center-layout\s*\{[\s\S]*?grid-template-columns:\s*minmax\(220px, 0\.78fr\) minmax\(0, 1\.72fr\)/);
+  assert.match(styles, /\.account-actions button\.primary:disabled\s*\{[\s\S]*?background:\s*var\(--surface-sunken\)/);
 });
 
 test('内嵌远控只保留紧凑设备工具条、画面和控制区，不重复产品品牌层', () => {

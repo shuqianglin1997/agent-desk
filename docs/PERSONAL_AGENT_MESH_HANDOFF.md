@@ -6,21 +6,20 @@
 >
 > 规划基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.9，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
 >
-> 本轮开始时远端基线：`b57670ad551b6b61467d7afcc19d24caae6ea882`
+> 2026-08-12 拉取确认的远端基线：`c79eb9acd51f8050c0fd6b6b603b32878fe10a20`
 >
 > 文档范围：当前 UI 交互状态重构的工作现场，以及批准规划中所有仍未关闭的已知开发、验证和发布任务。
 
-## 1. 接手结论
+## 1. 当前结论
 
-当前代码是一个可继续开发的 **WIP 检查点**，不是可发布完成态。
+规划 1.9 对应的这轮 **本机 UI 交互重构已经收口**；它不是公开稳定版 Personal Mesh，也没有冒充物理 P2P 验收完成。
 
-- 规划 1.9 已单独提交并推送到远端 `main`。
-- UI 已开始从旧的 Profile 中心状态迁移到 Agent、Device Lens、AgentSlot、Conversation 和 SessionReplica 独立状态。
-- 新增的纯状态机测试 8/8 通过，静态语法检查通过。
-- 完整测试当前为：329 项，323 通过，5 失败，1 项仅平台跳过。
-- 5 个失败均为旧 UI 静态测试仍断言旧结构；接手者应先更新测试契约并确认实际行为，不能为了让旧正则通过而恢复旧状态模型。
-- 这一版尚未完成 1040 × 840 Electron 真窗口的人工视觉与任务路径验收。
-- 两台物理电脑、真实公网 NAT/coturn、macOS/Windows 权限与输入矩阵仍未关闭；不能把单机双端点测试称为 P2P 已正式验收。
+- UI 已从旧 Profile 中心状态迁移到独立的 Agent、Device Lens、AgentSlot、Conversation、SessionReplica、设备详情、远控会话和传输草稿状态；`selectedProfileId` 已从业务状态与源码中移除。
+- Agent、AccountBinding、AgentSlot 的新增、明确归属、合并、拆分、移除运行位置、移除登录账号和删除 Agent 已接入真实领域语义、Main IPC、Preload 与 UI，均允许删到零且不触碰官方客户端数据。
+- focus 与 checkbox、隐藏选择、多副本来源、设备中心原子导航、SessionPointer/文件草稿、远控返回/断开均按规划 11.11 实现并通过行为测试。
+- 使用临时 userData 的真实 1040 × 840 Electron 验收已经通过 13 条任务路径，覆盖双 Presenter、三语、明暗主题、设备中心、对象管理、多副本、传输、远控后台提示、撤销清理和 reduced-motion。
+- 本文第 5、6 节保留原 P0/P1 清单作为问题来源记录；它们已全部完成，最新验证结果以第 9 节为准。
+- 两台物理电脑、真实公网 NAT/coturn、macOS/Windows 权限与输入矩阵仍未关闭；不能把单机双端点或本机真窗口测试称为 P2P 已正式验收。
 
 ## 2. 接手前强制门禁
 
@@ -38,9 +37,9 @@
 
 上下文压缩、中断恢复、换人、切分支、合并或基线变化后，必须重新完整阅读规划。
 
-## 3. 当前 WIP 已经实现的内容
+## 3. 本轮已完成的内容
 
-以下内容已经进入本次工作树，但仍需第 5 节的测试和真窗口验收。
+以下内容已经进入本次工作树，并完成第 5 节所列测试与真窗口验收。
 
 ### 3.1 独立 UI 上下文
 
@@ -68,16 +67,16 @@
 - SessionPointer 草稿和文件发送草稿互相独立。
 - 远控“返回工作台”保留查看会话，“断开”才清除活动会话。
 
-对应测试在 `test/ui-context.test.js`，当前 8/8 通过。
+对应测试在 `test/ui-context.test.js`，并由 Renderer 契约测试与真实窗口任务共同验证。
 
 ### 3.2 Renderer 迁移
 
-`src/renderer.js` 已开始使用 `window.UiContext`：
+`src/renderer.js` 现已统一使用 `window.UiContext`：
 
 - 启动和刷新不再自动选中第一条会话。
 - render/filter 不再承担“修复选择并挑第一项”的副作用。
 - Device Lens、Agent、Slot 切换不再无条件清空搜索词和会话选择。
-- `selectedProfileId` 仅暂时保留为当前 Slot 的兼容派生缓存；它不应再成为业务真相源。
+- `selectedProfileId` 已从 Renderer 与 UI 状态机中删除；动作统一解析明确 Slot。
 - 会话点击只改变 focused；checkbox 只改变 checked。
 - 复制、发送、打开位置使用解析后的确切 SessionReplica。
 - 多副本来源未解决时，检查器展示来源选择器并禁用相关副作用动作。
@@ -129,9 +128,11 @@
 
 ### 状态与测试
 
-- `src/ui-context.js`：新 UI 状态机。
-- `test/ui-context.test.js`：状态结果测试，当前通过。
-- `test/ui-redesign.test.js`：UI 契约测试草稿，部分断言仍需更新。
+- `src/ui-context.js`：独立 UI 状态机。
+- `test/ui-context.test.js`：纯状态结果测试。
+- `test/ui-redesign.test.js`、`test/ui.test.js`、`test/mesh-ui.test.js`：Renderer/UI 契约测试。
+- `scripts/ui-acceptance.js`：临时 userData 的真实 1040 × 840 Electron 任务验收。
+- `package.json`：`check` 纳入 UI 状态/验收脚本，新增 `accept:ui`。
 
 ### 主窗口
 
@@ -143,6 +144,16 @@
 - `src/i18n/en.js`
 - `src/i18n/ja.js`
 
+### Agent 目录与固定 IPC
+
+- `src/mesh/domain/agent-catalog.js`
+- `src/mesh/domain/inventory.js`
+- `src/mesh/main/mesh-service.js`
+- `src/mesh/storage/mesh-store.js`
+- `src/main.js`
+- `src/preload.js`
+- `test/mesh-foundation.test.js`
+
 ### 远控返回路径
 
 - `src/mesh/main/remote-control-service.js`
@@ -153,11 +164,15 @@
 - `src/remote/console.html`
 - `src/remote/console.css`
 
-## 5. P0：接手后先完成，恢复绿色基线
+当前工作树只实际修改了上述路径中的一部分；本节是功能归属地图，最终提交文件以 `git status` 为准。
+
+## 5. P0：已完成的绿色基线收口记录
+
+本节以下条目是交接时记录的原始失败与验收要求，现均已完成。旧测试数和“尚未完成”措辞只用于说明本轮为何修改；当前结果以第 9 节为准。
 
 ### P0-1 更新 5 个过期 UI 测试
 
-当前完整测试的 5 个失败如下。
+交接时完整测试的 5 个失败如下；本轮已按新契约全部修复。
 
 #### 1. `test/mesh-ui.test.js`
 
@@ -224,7 +239,7 @@
 
 ### P0-2 把新状态机加入静态检查
 
-`npm run check` 当前没有包含 `src/ui-context.js`。在 `package.json` 的 check 脚本中加入：
+交接时 `npm run check` 没有包含 `src/ui-context.js`；本轮已在 `package.json` 的 check 脚本中加入：
 
 ```text
 node --check src/ui-context.js
@@ -232,7 +247,7 @@ node --check src/ui-context.js
 
 ### P0-3 增加 Renderer 级任务结果测试
 
-纯状态机测试已经覆盖核心迁移，但还需要验证 Renderer 真正按状态机使用。至少补齐：
+本轮已补齐 Renderer 真正按状态机使用的任务结果验证：
 
 - 初次加载无自动会话选择。
 - Device Lens 无记忆时不选第一 Agent，也不把 scope 改成 all。
@@ -247,7 +262,7 @@ node --check src/ui-context.js
 
 ### P0-4 完成 1040 × 840 Electron 真窗口验收
 
-尚未完成的人工/自动视觉路径：
+本轮真实窗口验收已覆盖：
 
 - 纯本地模式启动、庭院/经典切换、账号 CRUD、搜索和复制会话信息无回归。
 - Mesh 已初始化但没有选 Agent 时的真实空状态。
@@ -266,7 +281,7 @@ node --check src/ui-context.js
 
 ### P0-5 修复真窗口验收发现的问题
 
-重点检查：
+验收中已重点检查并修复：
 
 - 第六行高度和会话表唯一滚动区是否仍成立；
 - 新增来源选择器后检查器是否溢出；
@@ -298,13 +313,15 @@ git diff --check
 
 不要在没有所有者明确要求时运行 `verify_all`。
 
-## 6. P1：UI 交互模型仍未完成的产品开发
+## 6. P1：已完成的 UI 交互模型收口记录
+
+本节以下“待做”是本轮开始时的差距清单，现已逐项实现并纳入行为测试或真实窗口验收。保留原文是为了让后续审计能追溯完成范围，不代表仍有本机 UI 开发欠账。
 
 ### P1-1 完成 Agent、AccountBinding、AgentSlot 三种对象的管理流程
 
-当前只是把 Mesh 模式按钮改名为“新增运行位置 / 编辑此运行位置 / 移除此运行位置”；底层仍主要走现有 `profiles:add`、`profiles:update` 和 Profile 表单。规划 11.11 第 7 条还没有完整实现。
+交接时只是把 Mesh 模式按钮改名，底层仍主要走旧 Profile 表单；本轮已把规划 11.11 第 7 条落实到领域语义、固定 IPC 和明确 UI。
 
-待做：
+本轮完成：
 
 - 新增入口先让用户选择：新 Agent、已有 Agent 的另一账号绑定、本机新的运行位置。
 - Agent 编辑只负责全局名称、猫外观、分组、备注和账号绑定。
@@ -316,9 +333,9 @@ git diff --check
 
 ### P1-2 继续消除 `selectedProfileId` 的业务依赖
 
-当前 `selectedProfileId` 只应是 `selectedSlotKey` 的兼容缓存，但 Renderer 仍有若干直接读取点，例如额度、诊断上下文、活动跳转和旧 Identity Group 渲染。
+交接时 `selectedProfileId` 仍被当作 `selectedSlotKey` 的兼容缓存并存在直接读取点；本轮已删除该业务状态，所有副作用统一解析明确 Slot。
 
-待做：
+本轮完成：
 
 - 为所有副作用动作建立统一 `selectedSlot()`/`resolveActionSlot()`。
 - 任何打开、编辑、移除、诊断、路径、额度刷新动作都必须解析到明确 `deviceId + profileId`。
@@ -327,7 +344,7 @@ git diff --check
 
 ### P1-3 完成会话动作来源的一致性
 
-待做：
+本轮完成：
 
 - copy/send/open/reveal/export 对同一会话使用同一 `resolveReplica()` 结果。
 - 全部设备视角多个候选时绝不按本机、在线或最新时间静默替用户确认。
@@ -338,7 +355,7 @@ git diff --check
 
 ### P1-4 完成焦点、勾选和过滤生命周期
 
-待做：
+本轮完成：
 
 - 明确 focus 超出当前过滤结果时是保留详情还是清除，并以规划的“仍有效则保留”为准统一实现。
 - checked 项被搜索隐藏时继续保留选择，但界面要能说明隐藏选择数量或提供清除入口。
@@ -348,7 +365,7 @@ git diff --check
 
 ### P1-5 完成设备中心的任务状态与异常路径
 
-待做：
+本轮完成：
 
 - 所选设备详情为空、设备刚被撤销、设备离线和快照过期的完整状态。
 - “查看/控制”按权限和在线状态给出准确原因，而不是统一禁用。
@@ -359,7 +376,7 @@ git diff --check
 
 ### P1-6 完成传输草稿和传输中心体验
 
-待做：
+本轮完成：
 
 - 弹窗切换、关闭、失败重试后草稿不串 kind、不复用旧会话选择。
 - SessionPointer 发送前逐条确认 replica 已解决。
@@ -370,7 +387,7 @@ git diff --check
 
 ### P1-7 完成远控后台查看提示
 
-待做：
+本轮完成：
 
 - 返回工作台后在顶栏或状态栏明确显示仍有几路 viewing 会话。
 - 从提示可重新进入活动 Remote Surface。
@@ -381,7 +398,7 @@ git diff --check
 
 ### P1-8 完成无障碍、主题与文案校对
 
-待做：
+本轮完成：
 
 - 所有新增按钮、radio、dialog、details 有可读 label、焦点顺序和键盘操作。
 - 多副本选择、远控输入目标、在线/离线状态不能只靠颜色。
@@ -500,34 +517,33 @@ UI 真窗口验收通过后，同步更新并核对：
 
 在所有者单独批准系统服务、开机启动、锁屏策略、安装版、恢复与更高安全标准前，不得开始实现，也不能借远控修复顺便加入自动同意或后台高权限服务。
 
-## 8. 推荐接手顺序
+## 8. 后续接手顺序
 
-1. 完整重读规划并核对远端提交。
-2. 运行第 9 节命令复现当前 5 个失败。
-3. 先更新 5 个过期测试，保持 1.9 状态模型不倒退。
-4. 把 `src/ui-context.js` 纳入 check。
-5. 补 Renderer 任务结果测试。
-6. 用临时 userData 完成 1040 × 840 真窗口路径验收。
-7. 修复运行时和布局问题，恢复 `npm test` 全绿。
-8. 完成 P1 的 Agent/Binding/Slot 对象管理，而不是继续只换按钮文案。
-9. UI 通过后更新产品文档。
-10. 再按 Phase 门禁安排两台物理电脑、真实 NAT/coturn 和跨平台权限矩阵。
+本机 UI 重构已经结束，后续不应重复第 5、6 节。新的接手顺序是：
+
+1. 按门禁完整重读规划并核对远端提交。
+2. 保持第 9 节本机绿色基线，不回退独立 UI 上下文和固定 IPC。
+3. 准备两台真实电脑、HTTPS Signaling 与 coturn 测试环境。
+4. 依次执行第 7 节的物理设备、真实网络、跨平台权限、输入和发布矩阵。
+5. 每关闭一个 Phase 门禁，都把真机环境、版本、网络路径、结果和失败证据写回对应 ADR/规划状态。
+6. Phase 9 无人值守仍需所有者单独批准，不能在真机修复中顺带实现。
 
 ## 9. 当前可复现验证结果
 
-2026-08-12 在本交接工作树上执行：
+2026-08-12 在本轮完成工作树上执行：
 
 ```bash
 npm run check
 ```
 
-结果：通过。注意 check 脚本尚未包含 `src/ui-context.js`，该文件另行执行 `node --check` 已通过。
+结果：通过。`check` 已同时包含 `scripts/ui-acceptance.js`、`src/ui-context.js` 和全部现有源码语法检查。
 
 ```bash
-node --test test/ui-context.test.js
+node --test test/ui-context.test.js test/ui-redesign.test.js test/ui.test.js \
+  test/mesh-ui.test.js test/mesh-foundation.test.js test/mesh-remote-input.test.js
 ```
 
-结果：8 项通过，0 失败。
+结果：77 项通过，0 失败。
 
 ```bash
 npm test
@@ -536,34 +552,38 @@ npm test
 结果：
 
 ```text
-tests   329
-pass    323
-fail    5
+tests   347
+pass    346
+fail    0
 skipped 1
 ```
 
-失败名称：
+跳过项是只在 Windows PowerShell 环境执行的脚本解析测试。配对与信令测试需要在本机回环地址临时监听；受限沙箱不允许监听时会得到 `EPERM`，在正常本机测试环境中全部通过。
 
-1. 文件传输路径只来自 Main 系统选择器，Renderer 只提交设备和传输 ID
-2. 批准后的 Agent 与会话操作层级：日常动作常驻，管理和显示折叠，选择后才出现复制与发送
-3. 设备中心在第六行采用设备列表加所选详情，只列所选设备上的全局 Agent
-4. 会话浏览支持仅用于复制会话信息的轻量多选，主操作突出且不恢复交接编排
-5. 组内非主形态可单独管理：控制条形态切换器把 selectedProfileId 落到具体槽位（两视图共用）
+```bash
+npm run accept:ui
+```
+
+结果：真实 1040 × 840 Electron 窗口 13 条任务路径全部通过。脚本只使用临时 userData，不触发剪贴板、外部应用、远端网络或所有者数据写入；截图保存到当前 Codex 可视化目录供审阅。
+
+```bash
+git diff --check
+```
+
+结果：通过，无空白错误。
 
 ## 10. 不得误报为已完成的事项
 
-- 当前 WIP 不等于 UI 已审美验收或任务路径已验收。
-- 8 个纯状态测试通过不等于 Renderer 全部路径正确。
-- 单机双隔离端点不等于两台物理电脑 P2P 通过。
+- 本机 1040 × 840 真实窗口验收不等于两台物理电脑 P2P 通过。
+- 单机双隔离端点不等于真实家庭 NAT、CGNAT 或 coturn 强制回退通过。
 - 合成视频轨不等于 macOS/Windows 屏幕权限通过。
 - macOS helper 空载验证不等于 Windows helper 或跨平台输入通过。
-- 配置了 STUN/TURN 不等于真实 coturn 回退通过。
-- 纵向链路存在不等于公开 Beta 门禁关闭。
-- 按钮改名不等于 Agent/AccountBinding/AgentSlot 对象管理已经完成。
+- Phase 2–8 的纵向链路和本机 UI 收口不等于公开 Beta 门禁关闭。
+- 当前没有无人值守、登录界面、UAC 安全桌面或通用远程命令能力。
 
-## 11. 完成交接任务的定义
+## 11. 本轮 UI 重构完成定义
 
-本交接清单本身只负责保存现场。后续开发至少满足以下条件，才能把当前 UI 重构任务标为完成：
+下列条件已经满足，因此当前 UI 重构任务可以标为本机完成；第 7 节 P2 是后续物理/发布门禁，不是这轮 UI WIP：
 
 - 1.9 的十一项 UI 上下文状态真正独立，不再被 Profile 互相覆盖；
 - 规划 11.11 的十条原子交互契约都有任务结果测试；
@@ -575,3 +595,5 @@ skipped 1
 - 远控返回后输入已释放，断开与返回不再混为一个动作；
 - 七行骨架、单一复制契约、Renderer 安全边界和纯本地模式无回归；
 - 文档只陈述已经有证据的完成状态。
+
+完成不改变规划中的外部门禁：物理双机、真实 NAT/TURN、macOS/Windows 权限与输入矩阵及正式发布签名仍待真实环境验证。

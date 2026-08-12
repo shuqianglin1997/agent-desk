@@ -86,7 +86,7 @@ class MeshStore {
     };
   }
 
-  saveCatalog(catalog, now) {
+  saveCatalog(catalog, now, options = {}) {
     const current = this.database.prepare('SELECT catalog_revision FROM mesh_config WHERE singleton = 1').get();
     if (!current) throw new Error('mesh-not-initialized');
     const changed = Number(current.catalog_revision) !== Number(catalog.catalogRevision);
@@ -95,10 +95,11 @@ class MeshStore {
       this.replaceCatalogRows(catalog);
       this.database.prepare('UPDATE mesh_config SET catalog_revision = ? WHERE singleton = 1')
         .run(catalog.catalogRevision);
-      this.writeAudit('catalog.local-synced', now, {
+      this.writeAudit(options.eventType || 'catalog.local-synced', now, {
         revision: catalog.catalogRevision,
         agentCount: catalog.agents.length,
-        slotCount: catalog.slots.length
+        slotCount: catalog.slots.length,
+        sourceDeviceId: options.sourceDeviceId || null
       });
     });
     return true;

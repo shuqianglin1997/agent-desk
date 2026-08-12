@@ -3,7 +3,15 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { groupProfilesByIdentity } = require('../../identity-groups');
 const { createLocalDevice, normalizeDevice, renameDevice } = require('../domain/device');
-const { normalizeCatalog, reconcileLocalCatalog } = require('../domain/agent-catalog');
+const {
+  normalizeCatalog,
+  reconcileLocalCatalog,
+  updateAgentMetadata,
+  assignSlot,
+  mergeAgents,
+  splitAccountBinding,
+  removeCatalogObject
+} = require('../domain/agent-catalog');
 const {
   buildLocalInventory,
   normalizeInventory,
@@ -412,6 +420,72 @@ class MeshService {
     return this.getOverview();
   }
 
+  updateAgent(input = {}) {
+    return this.mutateCatalog(input, 'catalog.agent-updated', (catalog) => updateAgentMetadata(catalog, input, {
+      now: this.now()
+    }));
+  }
+
+  assignSlot(input = {}) {
+    // Reconcile first so a just-created local Profile has a stable Slot before
+    // the explicit user choice replaces its provisional catalog relation.
+    this.getOverview();
+    return this.mutateCatalog(input, 'catalog.slot-assigned', (catalog) => assignSlot(catalog, input, {
+      now: this.now(),
+      randomUUID: this.randomUUID,
+      reuseProvisional: input.reuseProvisional === true
+    }));
+  }
+
+  mergeAgents(input = {}) {
+    return this.mutateCatalog(input, 'catalog.agents-merged', (catalog) => mergeAgents(catalog, input, {
+      now: this.now()
+    }));
+  }
+
+  splitAccountBinding(input = {}) {
+    return this.mutateCatalog(input, 'catalog.binding-split', (catalog) => splitAccountBinding(catalog, input, {
+      now: this.now(),
+      randomUUID: this.randomUUID
+    }));
+  }
+
+  removeCatalogObject(input = {}) {
+    return this.mutateCatalog(input, `catalog.${input.scope || 'slot'}-removed`, (catalog) => removeCatalogObject(catalog, input, {
+      now: this.now()
+    }));
+  }
+
+  mutateCatalog(input, eventType, mutation) {
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      const local = snapshot.devices.find((device) => device.deviceId === snapshot.mesh.localDeviceId);
+      if (!local) throw new Error('local-device-not-found');
+      const membership = verifyMembershipChain(
+        local.membershipCertificate,
+        local.membershipChain,
+        snapshot.mesh.rootPublicKey,
+        { now: this.now() }
+      );
+      if (!membership.ok || !membership.payload.roles.includes('catalog.manage')) {
+        throw new Error('catalog-manage-required');
+      }
+      if (input.baseRevision !== undefined && Number(input.baseRevision) !== snapshot.catalogRevision) {
+        throw new Error('catalog-revision-conflict');
+      }
+      const next = mutation(normalizeCatalog(snapshot));
+      store.saveCatalog(next, this.now(), {
+        eventType,
+        sourceDeviceId: snapshot.mesh.localDeviceId
+      });
+    } finally {
+      store.close();
+    }
+    return this.getOverview();
+  }
+
   updatePermissions(input = {}) {
     const store = new MeshStore(this.databasePath);
     try {
@@ -790,9 +864,11 @@ class MeshService {
         fingerprint: publicKeyFingerprint(device.devicePublicKey),
         endpointCount: Array.isArray(device.endpoints) ? device.endpoints.length : 0,
         signalServiceCount: Array.isArray(device.signalUrls) ? device.signalUrls.length : 0,
-        agentCount: new Set(deviceSlots.map((slot) => slot.agentId)).size,
+        agentCount: new Set(deviceSlots.map((slot) => slot.agentId).filter(Boolean)).size,
         slotCount: deviceSlots.length,
-        sessionCount: deviceSlots.reduce((sum, slot) => sum + (Number(slot.sessionCount) || 0), 0)
+        sessionCount: deviceSlots
+          .filter((slot) => slot.assignmentState === 'linked' && slot.agentId)
+          .reduce((sum, slot) => sum + (Number(slot.sessionCount) || 0), 0)
       };
     });
     return {

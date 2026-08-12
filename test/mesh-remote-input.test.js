@@ -207,3 +207,86 @@ test('目标端只有在 input.control 权限与本次同意都成立后才注�
   assert.equal(service.currentInputSessionId, null);
   assert.ok(releases >= 1);
 });
+
+test('返回工作台释放所有远端输入但保留查看会话，断开才结束连接', async () => {
+  const semantic = [];
+  const returned = [];
+  const service = new RemoteControlService({
+    ipcMain: { handle: () => {} },
+    meshService: {},
+    peerManagerProvider: () => ({
+      sendSemantic: async (...args) => { semantic.push(args); }
+    }),
+    onReturnToWorkspace: (value) => returned.push(value)
+  });
+  const makeSession = (sessionId, mode, controlState) => ({
+    sessionId,
+    deviceId: `device-${sessionId}`,
+    deviceName: sessionId,
+    direction: 'outgoing',
+    state: 'viewing',
+    mode,
+    controlState,
+    displays: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    closed: false
+  });
+  const first = makeSession('one', 'control', 'granted');
+  const second = makeSession('two', 'view', 'waiting-consent');
+  service.sessions.set(first.sessionId, first);
+  service.sessions.set(second.sessionId, second);
+
+  const result = await service.returnToWorkspace('two');
+  assert.equal(result.activeSessionId, 'two');
+  assert.equal(service.list().length, 2);
+  assert.ok(service.list().every((session) => session.mode === 'view' && session.controlState === 'idle'));
+  assert.equal(service.consoleSurface.visible, false);
+  assert.equal(semantic.filter((item) => item[1] === 'remote.control.release').length, 2);
+  assert.equal(returned.length, 1);
+
+  await service.disconnect('two');
+  assert.deepEqual(service.list().map((session) => session.sessionId), ['one']);
+});
+
+test('终态远控重试会先清理旧会话，不累积伪造的后台查看数量', async () => {
+  const service = new RemoteControlService({
+    ipcMain: { handle: () => {} },
+    meshService: {
+      getPeerContext: () => ({
+        remote: {
+          deviceId: 'device-a',
+          name: 'Device A',
+          status: 'online',
+          permissions: ['screen.view']
+        }
+      })
+    },
+    peerManagerProvider: () => ({
+      listConnections: () => [{ deviceId: 'device-a', authenticated: true, transport: { networkPath: 'direct' } }]
+    })
+  });
+  const old = {
+    sessionId: 'old-session',
+    deviceId: 'device-a',
+    deviceName: 'Device A',
+    direction: 'outgoing',
+    state: 'error',
+    mode: 'view',
+    controlState: 'idle',
+    displays: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    closed: false
+  };
+  service.sessions.set(old.sessionId, old);
+  service.outgoingByDevice.set(old.deviceId, old.sessionId);
+  service.ensureConsole = async () => ({ webContents: { send: () => {} } });
+  service.focusConsole = () => {};
+
+  const next = await service.openDevice('device-a');
+  assert.notEqual(next.sessionId, old.sessionId);
+  assert.equal(next.state, 'connecting');
+  assert.equal(service.sessions.has(old.sessionId), false);
+  assert.deepEqual(service.list().map((session) => session.sessionId), [next.sessionId]);
+});

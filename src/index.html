@@ -16,6 +16,7 @@
         </div>
         <p id="topbarContext" class="topbar-context">猫猫庭院 · 本地账号与会话</p>
         <nav class="topbar-actions" data-i18n-aria="aria.topbarActions" aria-label="全局操作">
+          <button id="remoteActivityBtn" class="remote-activity-btn" type="button" hidden aria-live="polite"></button>
           <select id="deviceLensSelect" class="device-lens-select" data-i18n-aria="devices.lens.label" aria-label="设备视角" hidden></select>
           <button id="deviceCenterBtn" type="button" data-i18n-title="topbar.devices.title">⌁ <span data-i18n="topbar.devices">设备</span><b id="deviceCountBadge" class="device-count-badge" hidden>0</b></button>
           <details id="globalMoreMenu" class="global-more context-menu">
@@ -86,9 +87,9 @@
             <span id="accountBadge" class="account-badge" hidden></span>
           </div>
 
-          <!-- 组内形态切换：一个账号(组)有多个客户端形态(桌面/CLI、Kimi Code/Work)时，
-               卡片/猫只选中整组(primary)；这里把 selectedProfileId 切到具体槽位，
-               编辑/移除/打开/诊断/位置/额度刷新自然作用到所选形态。两视图共用这条控制条。 -->
+          <!-- 组内形态切换：一个 Agent 有多个客户端形态或设备位置时，
+               卡片/猫只选中全局 Agent；这里把 UiContext 的 selectedSlotKey 切到确切运行位置，
+               打开/诊断/路径/位置/额度刷新再由该 Slot 解析。两视图共用这条控制条。 -->
           <label id="formSwitcher" class="form-switcher" hidden>
             <span class="form-switcher-label" data-i18n="account.form">形态</span>
             <select id="formSelect" data-i18n-title="account.form.title" title="这个账号有多个客户端形态；切换后 打开 / 编辑 / 移除 / 诊断 / 位置 / 额度 都作用于所选形态"></select>
@@ -104,6 +105,7 @@
                 <button id="diagnosticsBtn" data-i18n="account.diagnostics">诊断</button>
                 <button id="refreshBtn" data-i18n="account.refresh">重扫</button>
                 <span class="context-menu-divider" aria-hidden="true"></span>
+                <button id="manageAgentRelationsBtn" data-i18n="account.relations" hidden>Agent 关系</button>
                 <button id="editProfileBtn" data-i18n="account.edit">编辑</button>
                 <button id="removeProfileBtn" data-i18n="account.remove">移除</button>
                 <button id="profileFolderBtn" data-i18n="account.folder">位置</button>
@@ -268,6 +270,27 @@
     <dialog id="profileDialog">
       <form method="dialog" class="dialog-body">
         <h3 id="profileDialogTitle" data-i18n="dialog.addProfile.title">新增账号槽位</h3>
+        <fieldset id="newProfileMeshAssignment" class="catalog-choice" hidden>
+          <legend data-i18n="catalog.add.choiceTitle">这个本机位置属于谁？</legend>
+          <label>
+            <span data-i18n="catalog.add.choice">归属方式</span>
+            <select id="newProfileMode">
+              <option value="" data-i18n="catalog.assignment.choose">请选择…</option>
+              <option value="new-agent" data-i18n="catalog.assignment.newAgent">新的 Agent</option>
+              <option value="existing-agent" data-i18n="catalog.assignment.existingAgent">已有 Agent 的另一个账号</option>
+              <option value="existing-binding" data-i18n="catalog.assignment.existingBinding">已有登录的新位置</option>
+            </select>
+          </label>
+          <label id="newProfileAgentField" hidden>
+            <span data-i18n="catalog.field.agent">Agent</span>
+            <select id="newProfileAgent"></select>
+          </label>
+          <label id="newProfileBindingField" hidden>
+            <span data-i18n="catalog.field.binding">登录账号</span>
+            <select id="newProfileBinding"></select>
+          </label>
+          <p id="newProfileAssignmentHint" class="field-hint"></p>
+        </fieldset>
         <label>
           <span data-i18n="dialog.field.app">应用</span>
           <!-- 选项由注册表动态填充（src/apps.js → loadApps）；这里放兜底默认 -->
@@ -297,7 +320,8 @@
 
     <dialog id="editDialog">
       <form method="dialog" class="dialog-body">
-        <h3 data-i18n="dialog.editProfile.title">编辑账号槽位</h3>
+        <h3 id="editDialogTitle" data-i18n="dialog.editProfile.title">编辑账号槽位</h3>
+        <p id="editAgentHint" class="field-hint" hidden></p>
         <label>
           <span data-i18n="dialog.field.name">名称</span>
           <input id="editName" type="text" />
@@ -306,7 +330,7 @@
           <span data-i18n="dialog.field.group">分组</span>
           <input id="editGroup" type="text" list="groupOptions" data-i18n-placeholder="dialog.ph.groupEmpty" placeholder="留空 = 未分组" />
         </label>
-        <label>
+        <label id="editIdentityField">
           <span data-i18n="dialog.field.identity">同账号标识</span>
           <span class="field-hint" data-i18n="dialog.hint.identity">同一个登录身份的多个客户端槽位填同一个词（如 Kimi Code 与 Kimi Work 同填「Kimi」），列表会用 ⛓ 标出关联。</span>
           <input id="editIdentity" type="text" list="identityOptions" data-i18n-placeholder="dialog.ph.identityEmpty" placeholder="留空 = 不关联" />
@@ -338,6 +362,112 @@
         <div class="dialog-actions">
           <button value="cancel" data-i18n="dialog.cancel">取消</button>
           <button id="confirmEditBtn" value="default" class="primary" data-i18n="dialog.save">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="removeCatalogDialog" class="catalog-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3 data-i18n="catalog.remove.title">从 AgentDesk 移除</h3>
+        <p id="removeCatalogIntro" class="field-hint"></p>
+        <fieldset class="catalog-scope-list">
+          <legend data-i18n="catalog.remove.scope">选择作用范围</legend>
+          <label>
+            <input type="radio" name="catalogRemoveScope" value="slot" checked>
+            <span><b data-i18n="catalog.remove.slot">移除此运行位置</b><small data-i18n="catalog.remove.slotHint">只取消当前设备和客户端位置的目录关系。</small></span>
+          </label>
+          <label>
+            <input type="radio" name="catalogRemoveScope" value="account-binding">
+            <span><b data-i18n="catalog.remove.binding">移除此登录账号</b><small data-i18n="catalog.remove.bindingHint">移除这个平台登录及它在所有设备上的位置关系。</small></span>
+          </label>
+          <label>
+            <input type="radio" name="catalogRemoveScope" value="agent">
+            <span><b data-i18n="catalog.remove.agent">删除整个 Agent</b><small data-i18n="catalog.remove.agentHint">删除 Agent、它的账号绑定和所有位置关系。</small></span>
+          </label>
+        </fieldset>
+        <label id="removeLocalRegistrationField" class="catalog-local-registration" hidden>
+          <input id="removeLocalRegistration" type="checkbox">
+          <span data-i18n="catalog.remove.localRegistration">同时从本机 AgentDesk 删除这个槽位登记（不删除官方客户端数据）</span>
+        </label>
+        <div id="removeCatalogImpact" class="catalog-impact" aria-live="polite"></div>
+        <p class="catalog-data-safety" data-i18n="catalog.remove.safety">不会注销第三方账号，不会删除官方客户端目录、凭据、项目或云端内容。</p>
+        <div class="dialog-actions">
+          <button value="cancel" data-i18n="dialog.cancel">取消</button>
+          <button id="confirmRemoveCatalogBtn" type="button" class="danger-button" data-i18n="catalog.remove.confirm">确认移除</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="agentRelationsDialog" class="wide-dialog catalog-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3 data-i18n="catalog.relations.title">Agent 关系</h3>
+        <p id="agentRelationsSummary" class="field-hint"></p>
+        <section class="catalog-operation">
+          <h4 data-i18n="catalog.merge.title">合并 Agent</h4>
+          <p data-i18n="catalog.merge.hint">当前 Agent 作为来源；目标 Agent 的名称和猫咪外观保留。只改变 AgentDesk 目录关系。</p>
+          <label>
+            <span data-i18n="catalog.merge.target">合并到</span>
+            <select id="mergeAgentTarget"></select>
+          </label>
+          <button id="confirmMergeAgentBtn" type="button" data-i18n="catalog.merge.confirm">预览并合并</button>
+        </section>
+        <section class="catalog-operation">
+          <h4 data-i18n="catalog.split.title">拆分登录账号</h4>
+          <p data-i18n="catalog.split.hint">把选定的平台登录和它的全部运行位置移到一个新 Agent。</p>
+          <label>
+            <span data-i18n="catalog.field.binding">登录账号</span>
+            <select id="splitAccountBinding"></select>
+          </label>
+          <label>
+            <span data-i18n="catalog.split.newName">新 Agent 名称</span>
+            <input id="splitAgentName" type="text">
+          </label>
+          <button id="confirmSplitBindingBtn" type="button" data-i18n="catalog.split.confirm">预览并拆分</button>
+        </section>
+        <div id="agentRelationsStatus" class="catalog-impact" aria-live="polite"></div>
+        <div class="dialog-actions">
+          <button value="cancel" data-i18n="dialog.close">关闭</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="slotAssignmentDialog" class="catalog-dialog">
+      <form method="dialog" class="dialog-body">
+        <h3 data-i18n="catalog.assign.title">归属待处理运行位置</h3>
+        <p id="slotAssignmentSummary" class="field-hint"></p>
+        <label>
+          <span data-i18n="catalog.add.choice">归属方式</span>
+          <select id="slotAssignmentMode">
+            <option value="" data-i18n="catalog.assignment.choose">请选择…</option>
+            <option value="new-agent" data-i18n="catalog.assignment.newAgent">新的 Agent</option>
+            <option value="existing-agent" data-i18n="catalog.assignment.existingAgent">已有 Agent 的另一个账号</option>
+            <option value="existing-binding" data-i18n="catalog.assignment.existingBinding">已有登录的新位置</option>
+          </select>
+        </label>
+        <label id="slotAssignmentAgentField" hidden>
+          <span data-i18n="catalog.field.agent">Agent</span>
+          <select id="slotAssignmentAgent"></select>
+        </label>
+        <label id="slotAssignmentBindingField" hidden>
+          <span data-i18n="catalog.field.binding">登录账号</span>
+          <select id="slotAssignmentBinding"></select>
+        </label>
+        <label>
+          <span data-i18n="dialog.field.name">名称</span>
+          <input id="slotAssignmentName" type="text">
+        </label>
+        <label>
+          <span data-i18n="dialog.field.group">分组</span>
+          <input id="slotAssignmentGroup" type="text" list="groupOptions">
+        </label>
+        <label>
+          <span data-i18n="dialog.field.note">备注</span>
+          <textarea id="slotAssignmentNote" rows="2"></textarea>
+        </label>
+        <div id="slotAssignmentStatus" class="catalog-impact" aria-live="polite"></div>
+        <div class="dialog-actions">
+          <button value="cancel" data-i18n="dialog.cancel">取消</button>
+          <button id="confirmSlotAssignmentBtn" type="button" class="primary" data-i18n="catalog.assign.confirm">确认归属</button>
         </div>
       </form>
     </dialog>

@@ -1818,6 +1818,143 @@ dialog::backdrop {
   letter-spacing: normal;
 }
 
+.catalog-choice,
+.catalog-scope-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.catalog-choice[hidden],
+.catalog-scope-list[hidden] {
+  display: none;
+}
+
+.catalog-choice legend,
+.catalog-scope-list legend {
+  padding: 0 5px;
+  color: var(--ink-secondary);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.catalog-choice > p {
+  margin: 0;
+}
+
+.catalog-scope-list label {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  padding: 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink-primary);
+  background: var(--surface-raised);
+  text-transform: none;
+  cursor: pointer;
+}
+
+.catalog-scope-list label:has(input:checked) {
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
+}
+
+.catalog-scope-list input,
+.catalog-local-registration input {
+  margin-top: 2px;
+}
+
+.catalog-scope-list label > span {
+  display: grid;
+  gap: 3px;
+}
+
+.catalog-scope-list b {
+  font-size: 11.5px;
+}
+
+.catalog-scope-list small {
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.catalog-local-registration {
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  align-items: start;
+  text-transform: none !important;
+}
+
+.catalog-impact {
+  min-height: 34px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink-secondary);
+  background: var(--surface-sunken);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.catalog-impact[data-state="error"] {
+  border-color: color-mix(in oklab, var(--danger) 45%, var(--line-mid));
+  color: var(--danger);
+}
+
+.catalog-data-safety {
+  margin: 0;
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.catalog-dialog .dialog-body {
+  max-height: min(700px, calc(100vh - 64px));
+  overflow: auto;
+}
+
+.catalog-operation {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.catalog-operation h4,
+.catalog-operation p {
+  margin: 0;
+}
+
+.catalog-operation h4 {
+  font-size: 12px;
+}
+
+.catalog-operation p {
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+button.danger-button {
+  border-color: transparent;
+  color: var(--ink-on-accent);
+  background: var(--danger);
+  font-weight: 650;
+}
+
+button.danger-button:hover:not(:disabled) {
+  color: var(--ink-on-accent);
+  background: color-mix(in oklab, var(--danger) 88%, black);
+}
+
 .device-center-dialog {
   width: min(780px, calc(100vw - 52px));
 }
@@ -2571,6 +2708,31 @@ dialog::backdrop {
   text-align: center;
 }
 
+.mesh-unassigned-heading {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--warn);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.mesh-agent-card.is-unassigned {
+  border-style: dashed;
+  border-color: var(--warn-line);
+  background: var(--warn-wash);
+}
+
+.mesh-agent-card.is-unassigned > span {
+  color: var(--warn);
+  font-weight: 700;
+}
+
 .device-center-footer {
   align-items: center;
 }
@@ -3184,6 +3346,7 @@ dialog::backdrop {
 .account-actions button:hover:not(:disabled) { background: var(--hover-wash); }
 .account-actions button.primary { height: var(--ctl-lg); padding: 0 14px; background: var(--accent); color: var(--ink-on-accent, #fff); font-weight: 650; font-size: 13px; }
 .account-actions button.primary:hover:not(:disabled) { background: var(--accent-700); }
+.account-actions button.primary:disabled { background: var(--surface-sunken); color: var(--ink-disabled); box-shadow: none; }
 .account-actions #pathConfigBtn, .account-actions #diagnosticsBtn, .account-actions #refreshBtn { height: var(--ctl-sm); background: transparent; color: var(--ink-tertiary); font-size: 11px; padding: 0 8px; }
 .account-actions #pathConfigBtn { margin-left: 8px; position: relative; }
 .account-actions #pathConfigBtn::before { content: ""; position: absolute; left: -7px; top: 4px; bottom: 4px; width: 1px; background: var(--line-soft); }
@@ -3273,6 +3436,26 @@ button:focus-visible, .quota-chip:focus-visible, input:focus-visible, .account-c
 /* Global chrome: device context stays direct; everything else is one menu. */
 .topbar-actions { gap: 7px; }
 .topbar-actions > button { height: 30px; padding: 0 11px; }
+.remote-activity-btn {
+  border-color: var(--success-line);
+  color: var(--success);
+  background: var(--success-wash);
+  font-size: 10px;
+  font-weight: 700;
+}
+.remote-activity-btn::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 15%, transparent);
+}
+.remote-activity-btn[data-state="error"] {
+  border-color: color-mix(in oklab, var(--danger) 45%, var(--line-mid));
+  color: var(--danger);
+  background: color-mix(in oklab, var(--danger) 10%, var(--surface-raised));
+}
 .global-more > summary {
   height: 30px;
   min-width: 66px;
