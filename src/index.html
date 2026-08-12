@@ -16,19 +16,29 @@
         </div>
         <p id="topbarContext" class="topbar-context">猫猫庭院 · 本地账号与会话</p>
         <nav class="topbar-actions" data-i18n-aria="aria.topbarActions" aria-label="全局操作">
-          <button id="leaderboardBtn" type="button" data-i18n-title="topbar.leaderboard.title">🏆 <span data-i18n="topbar.leaderboard">排行</span></button>
-          <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">更新</span></button>
-          <button id="viewToggle" type="button" data-i18n-title="topbar.view.title">⇄ <span id="viewToggleLabel" data-i18n="topbar.toClassic">经典</span></button>
           <select id="deviceLensSelect" class="device-lens-select" data-i18n-aria="devices.lens.label" aria-label="设备视角" hidden></select>
           <button id="deviceCenterBtn" type="button" data-i18n-title="topbar.devices.title">⌁ <span data-i18n="topbar.devices">设备</span><b id="deviceCountBadge" class="device-count-badge" hidden>0</b></button>
-          <button id="toolCenterBtn" type="button" data-i18n-title="topbar.tools.title">🧰 <span data-i18n="topbar.tools">工具</span></button>
-          <button id="helpBtn" class="icon-toggle" type="button" data-i18n-title="topbar.help.title">?</button>
-          <button id="langToggle" class="icon-toggle" type="button" data-i18n-title="topbar.lang.title">文</button>
-          <button id="themeToggle" class="icon-toggle" type="button" data-i18n-title="topbar.theme.title">◐</button>
+          <details id="globalMoreMenu" class="global-more context-menu">
+            <summary data-i18n-title="topbar.more.title"><span aria-hidden="true">•••</span><span data-i18n="topbar.more">更多</span></summary>
+            <div class="topbar-more-menu context-menu-panel">
+              <button id="leaderboardBtn" type="button" data-i18n-title="topbar.leaderboard.title">🏆 <span data-i18n="topbar.leaderboard">排行</span></button>
+              <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">更新</span></button>
+              <button id="toolCenterBtn" type="button" data-i18n-title="topbar.tools.title">🧰 <span data-i18n="topbar.tools">工具</span></button>
+              <button id="transferCenterBtn" type="button">⇄ <span data-i18n="transfers.center.action">传输记录</span></button>
+              <span class="context-menu-divider" aria-hidden="true"></span>
+              <button id="helpBtn" type="button" data-i18n-title="topbar.help.title">? <span data-i18n="topbar.help">使用说明</span></button>
+              <button id="langToggle" type="button" data-i18n-title="topbar.lang.title">文</button>
+              <button id="themeToggle" type="button" data-i18n-title="topbar.theme.title">◐ <span data-i18n="topbar.theme">外观</span></button>
+            </div>
+          </details>
         </nav>
       </header>
 
       <section class="presenter">
+        <header class="presenter-head">
+          <div><span data-i18n="presenter.title">AGENTS</span><b id="presenterCount">0</b></div>
+          <button id="viewToggle" type="button" data-i18n-title="topbar.view.title">⇄ <span id="viewToggleLabel" data-i18n="topbar.toYard">庭院</span></button>
+        </header>
         <section id="yardStage" class="yard-stage" hidden>
           <div class="yard-frame">
             <div class="yard-scene">
@@ -87,12 +97,13 @@
           <div class="account-actions" id="accountActions">
             <button id="launchBtn" class="primary" data-i18n="account.open">打开账号</button>
             <button id="addProfileBtn" data-i18n="account.add">新增</button>
-            <button id="pathConfigBtn" data-i18n="account.path">路径</button>
-            <button id="diagnosticsBtn" data-i18n="account.diagnostics">诊断</button>
-            <button id="refreshBtn" data-i18n="account.refresh">重扫</button>
-            <details id="accountManage" class="account-manage">
-              <summary data-i18n="account.manage">管理</summary>
-              <div id="yardManageActions" class="account-manage-menu">
+            <details id="accountManage" class="account-manage context-menu">
+              <summary data-i18n="common.more">更多</summary>
+              <div id="yardManageActions" class="account-manage-menu context-menu-panel">
+                <button id="pathConfigBtn" data-i18n="account.path">路径</button>
+                <button id="diagnosticsBtn" data-i18n="account.diagnostics">诊断</button>
+                <button id="refreshBtn" data-i18n="account.refresh">重扫</button>
+                <span class="context-menu-divider" aria-hidden="true"></span>
                 <button id="editProfileBtn" data-i18n="account.edit">编辑</button>
                 <button id="removeProfileBtn" data-i18n="account.remove">移除</button>
                 <button id="profileFolderBtn" data-i18n="account.folder">位置</button>
@@ -154,11 +165,23 @@
                     <button id="sessionScopeCurrentBtn" type="button" aria-pressed="true" data-i18n="session.scope.current">本账号</button>
                     <button id="sessionScopeAllBtn" type="button" aria-pressed="false" data-i18n="session.scope.all">全部账号</button>
                   </div>
-                  <div class="session-segment" role="group" data-i18n-aria="aria.sessionView" aria-label="会话列表视图">
-                    <button id="sessionCompactBtn" type="button" aria-pressed="true" data-i18n="session.view.compact">精简</button>
-                    <button id="sessionDetailBtn" type="button" aria-pressed="false" data-i18n="session.view.detail">详细</button>
-                  </div>
                   <input id="searchInput" type="search" data-i18n-placeholder="session.search" placeholder="搜索会话、账号或 ID" />
+                  <details id="sessionDisplayMenu" class="session-display-menu context-menu">
+                    <summary><span data-i18n="session.display">显示</span><b id="sessionDisplayLabel" data-i18n="session.view.compact">精简</b></summary>
+                    <div class="session-display-options context-menu-panel" role="group" data-i18n-aria="aria.sessionView" aria-label="会话列表视图">
+                      <button id="sessionCompactBtn" type="button" aria-pressed="true" data-i18n="session.view.compact">精简</button>
+                      <button id="sessionDetailBtn" type="button" aria-pressed="false" data-i18n="session.view.detail">详细</button>
+                    </div>
+                  </details>
+                </div>
+              </div>
+              <div id="sessionSelectionBar" class="session-selection-bar" hidden>
+                <div class="session-selection-summary">
+                  <strong id="sessionSelectionCount">已选择 0 项</strong>
+                  <button id="clearSessionSelectionBtn" type="button" data-i18n="session.selection.clear">取消选择</button>
+                </div>
+                <p id="sessionSelectionIssue" class="session-selection-issue" hidden></p>
+                <div class="session-selection-actions">
                   <button id="copySessionInfoBtn" class="session-copy-info" type="button" disabled data-i18n="session.copyInfo">复制会话信息</button>
                   <button id="sendSessionInfoBtn" class="session-send-info" type="button" disabled data-i18n="session.sendInfo">发送到设备</button>
                 </div>
@@ -182,29 +205,49 @@
           </section>
 
           <aside id="sessionInspector" class="inspector">
-            <h3 data-i18n="detail.title">会话详情</h3>
+            <header class="inspector-head">
+              <span data-i18n="detail.title">会话详情</span>
+              <h3 id="detailTitle">未选择</h3>
+            </header>
             <div class="inspector-body">
-              <dl>
-                <dt data-i18n="detail.field.title">标题</dt>
-                <dd id="detailTitle">未选择</dd>
-                <dt data-i18n="detail.field.account">账号</dt>
+              <section id="sessionReplicaPicker" class="session-replica-picker" hidden>
+                <header>
+                  <strong data-i18n="session.replica.title">选择操作来源</strong>
+                  <small data-i18n="session.replica.hint">这条会话存在于多个位置。复制、发送或打开前，请确认使用哪一个副本。</small>
+                </header>
+                <div id="sessionReplicaOptions" class="session-replica-options"></div>
+              </section>
+              <dl class="inspector-primary-fields">
+                <dt data-i18n="detail.field.agent">Agent</dt>
                 <dd id="detailAccount">-</dd>
-                <dt data-i18n="detail.field.created">新建</dt>
-                <dd id="detailCreated">-</dd>
-                <dt data-i18n="detail.field.active">活跃</dt>
-                <dd id="detailUpdated">-</dd>
-                <dt data-i18n="detail.field.source">来源</dt>
-                <dd id="detailSource">-</dd>
+                <dt data-i18n="detail.field.location">运行位置</dt>
+                <dd id="detailLocation">-</dd>
                 <dt data-i18n="detail.field.project">项目</dt>
                 <dd id="detailProject">-</dd>
-                <dt data-i18n="detail.field.coordinate">坐标</dt>
-                <dd id="detailCoordinate">-</dd>
+                <dt data-i18n="detail.field.active">活跃</dt>
+                <dd id="detailUpdated">-</dd>
               </dl>
+              <details id="sessionTechnicalDetails" class="session-technical-details">
+                <summary data-i18n="detail.technical">技术信息</summary>
+                <dl>
+                  <dt data-i18n="detail.field.created">新建</dt>
+                  <dd id="detailCreated">-</dd>
+                  <dt data-i18n="detail.field.source">来源</dt>
+                  <dd id="detailSource">-</dd>
+                  <dt data-i18n="detail.field.coordinate">坐标</dt>
+                  <dd id="detailCoordinate">-</dd>
+                </dl>
+              </details>
             </div>
 
             <div class="inspector-actions">
               <button id="openSessionFileBtn" data-i18n="detail.reveal">打开当前位置</button>
-              <button id="exportSessionBtn" data-i18n="detail.exportMd">导出当前 Markdown</button>
+              <details id="inspectorMoreMenu" class="inspector-more context-menu">
+                <summary data-i18n="common.more">更多</summary>
+                <div class="context-menu-panel">
+                  <button id="exportSessionBtn" data-i18n="detail.exportMd">导出当前 Markdown</button>
+                </div>
+              </details>
             </div>
           </aside>
 
@@ -224,7 +267,7 @@
 
     <dialog id="profileDialog">
       <form method="dialog" class="dialog-body">
-        <h3 data-i18n="dialog.addProfile.title">新增账号槽位</h3>
+        <h3 id="profileDialogTitle" data-i18n="dialog.addProfile.title">新增账号槽位</h3>
         <label>
           <span data-i18n="dialog.field.app">应用</span>
           <!-- 选项由注册表动态填充（src/apps.js → loadApps）；这里放兜底默认 -->
@@ -348,11 +391,20 @@
           <div>
             <span data-i18n="devices.kicker">PERSONAL AGENT MESH</span>
             <h3 data-i18n="devices.title">我的设备</h3>
-            <p data-i18n="devices.lead">一份全局 Agent 目录管理这台电脑上的全部运行位置；账号凭据不会进入设备网。</p>
+            <p data-i18n="devices.lead.compact">选择设备查看连接、权限、运行位置与会话概况。</p>
           </div>
           <div class="device-center-head-actions">
             <button id="closeDeviceCenterBtn" type="button" data-i18n="devices.workspace.back">← 返回会话</button>
             <span id="meshStateBadge" class="mesh-state-badge" data-state="local" data-i18n="devices.state.local">纯本机</span>
+            <details id="deviceCenterMoreMenu" class="device-center-more context-menu">
+              <summary data-i18n="common.more">更多</summary>
+              <div class="context-menu-panel">
+                <button id="networkSettingsBtn" type="button" data-i18n="devices.network.action">网络设置</button>
+                <button id="receiveConnectionsBtn" type="button" data-i18n="devices.reachability.enable">接收连接 30 分钟</button>
+                <span class="context-menu-divider" aria-hidden="true"></span>
+                <button id="resetMeshBtn" type="button" class="danger-text" hidden data-i18n="devices.reset">离开并重置设备网</button>
+              </div>
+            </details>
           </div>
         </header>
 
@@ -394,32 +446,35 @@
               <button id="copyDeviceInviteBtn" type="button" class="primary" data-i18n="devices.invite.copy">复制配对码</button>
             </div>
           </section>
-          <section class="device-shelf">
-            <header>
-              <span data-i18n="devices.section.devices">DEVICES</span>
-              <div class="device-shelf-tools">
-                <small id="deviceShelfMeta"></small>
-                <button id="networkSettingsBtn" type="button" data-i18n="devices.network.action">网络设置</button>
-                <button id="receiveConnectionsBtn" type="button" data-i18n="devices.reachability.enable">接收连接 30 分钟</button>
-                <button id="createDeviceInviteBtn" type="button" data-i18n="devices.invite.action">添加设备</button>
-              </div>
-            </header>
-            <div id="deviceList" class="device-list"></div>
-          </section>
-          <section class="device-shelf agent-catalog-shelf">
-            <header>
-              <span data-i18n="devices.section.agents">GLOBAL AGENTS</span>
-              <small id="agentCatalogMeta"></small>
-            </header>
-            <div id="meshAgentList" class="mesh-agent-list"></div>
-          </section>
+          <div class="device-center-layout">
+            <aside class="device-list-pane">
+              <header>
+                <div><span data-i18n="devices.section.devices">DEVICES</span><small id="deviceShelfMeta"></small></div>
+                <button id="createDeviceInviteBtn" type="button" class="primary" data-i18n="devices.invite.action">添加设备</button>
+              </header>
+              <div id="deviceList" class="device-list"></div>
+            </aside>
+            <section id="deviceDetail" class="device-detail-pane">
+              <header class="device-detail-head">
+                <div>
+                  <span id="deviceDetailKind"></span>
+                  <h4 id="deviceDetailName">—</h4>
+                  <p id="deviceDetailMeta"></p>
+                </div>
+                <span id="deviceDetailStatus" class="mesh-state-badge">—</span>
+              </header>
+              <div id="deviceDetailStats" class="device-detail-stats"></div>
+              <div id="deviceDetailActions" class="device-detail-actions"></div>
+              <section class="device-agent-section">
+                <header>
+                  <span data-i18n="devices.section.deviceAgents">AGENTS ON THIS DEVICE</span>
+                  <small id="agentCatalogMeta"></small>
+                </header>
+                <div id="meshAgentList" class="mesh-agent-list"></div>
+              </section>
+            </section>
+          </div>
         </section>
-
-        <div class="dialog-actions device-center-footer">
-          <button id="resetMeshBtn" type="button" class="danger-text" hidden data-i18n="devices.reset">离开并重置设备网</button>
-          <span></span>
-          <button id="closeDeviceCenterFooterBtn" value="default" class="primary" data-i18n="dialog.done">完成</button>
-        </div>
       </form>
     </dialog>
 
@@ -497,17 +552,50 @@
         <header>
           <span data-i18n="transfers.kicker">SESSION POINTER</span>
           <h3 data-i18n="transfers.title">发送到设备</h3>
-          <p data-i18n="transfers.body">可以发送会话定位或明确选择的文件；不生成交接模板，也不自动同步目录。</p>
+          <p data-i18n="transfers.pointerBody">只发送所选会话的路径与稳定坐标，不生成交接模板，也不自动同步目录。</p>
         </header>
         <div class="session-send-controls">
           <label>
             <span data-i18n="transfers.target">目标设备</span>
             <select id="sessionSendTarget"></select>
           </label>
-          <button id="chooseFilesBtn" type="button" data-i18n="transfers.chooseFiles">选择文件</button>
           <button id="confirmSessionSendBtn" type="button" class="primary" data-i18n="transfers.sendSessions">发送会话信息</button>
         </div>
         <p id="sessionSendStatus" class="device-center-status" data-state="idle" aria-live="polite"></p>
+        <div class="dialog-actions">
+          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="fileSendDialog" class="wide-dialog file-send-dialog">
+      <form method="dialog" class="dialog-body">
+        <header>
+          <span data-i18n="transfers.fileKicker">SELECTED FILES</span>
+          <h3 data-i18n="transfers.fileTitle">发送文件</h3>
+          <p data-i18n="transfers.fileBody">文件由系统选择器单独选取；不会读取当前会话选择，也不会自动同步项目目录。</p>
+        </header>
+        <div class="session-send-controls">
+          <label>
+            <span data-i18n="transfers.target">目标设备</span>
+            <select id="fileSendTarget"></select>
+          </label>
+          <button id="chooseFilesBtn" type="button" class="primary" data-i18n="transfers.chooseFiles">选择文件并发送</button>
+        </div>
+        <p id="fileSendStatus" class="device-center-status" data-state="idle" aria-live="polite"></p>
+        <div class="dialog-actions">
+          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="transferCenterDialog" class="wide-dialog transfer-center-dialog">
+      <form method="dialog" class="dialog-body">
+        <header>
+          <span data-i18n="transfers.center.kicker">TRANSFER CENTER</span>
+          <h3 data-i18n="transfers.center.title">传输记录</h3>
+          <p data-i18n="transfers.center.body">查看会话信息与文件的发送、接收、等待和失败状态。</p>
+        </header>
         <section class="transfer-history">
           <header>
             <strong data-i18n="transfers.recent">最近发送与接收</strong>
@@ -596,6 +684,7 @@
     <script src="./identity-groups.js"></script>
     <script src="./session-table.js"></script>
     <script src="./session-location.js"></script>
+    <script src="./ui-context.js"></script>
     <script src="./yard/companion.js"></script>
     <script src="./yard/workload.js"></script>
     <script src="./yard/palettes.js"></script>

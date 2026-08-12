@@ -10,13 +10,8 @@
   <body>
     <div class="console-shell">
       <header class="console-head">
-        <div class="brand-lockup">
-          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-          <div>
-            <b>AgentDesk</b>
-            <small data-i18n="remote.console.kicker">REMOTE CONSOLE</small>
-          </div>
-        </div>
+        <button id="backBtn" class="back-action" type="button" data-i18n-title="remote.back" title="返回会话" aria-label="返回会话">←</button>
+        <nav id="targetTabs" class="target-tabs" aria-label="Remote devices"></nav>
         <div class="connection-cluster">
           <div class="path-status">
             <i id="pathDot"></i>
@@ -24,21 +19,16 @@
           </div>
           <span id="networkMetrics" class="network-metrics" data-i18n="remote.metrics.waiting">等待媒体统计</span>
         </div>
-        <div class="head-actions">
-          <button id="backBtn" class="back-action" type="button" data-i18n="remote.back">← 返回会话</button>
-          <button id="layoutBtn" type="button" aria-pressed="false" data-i18n-title="remote.layout.grid" title="多设备网格">▦</button>
-          <button id="fullscreenBtn" type="button" data-i18n-title="remote.fullscreen" title="全屏">⛶</button>
-        </div>
-      </header>
-
-      <section class="target-bar">
-        <nav id="targetTabs" class="target-tabs" aria-label="Remote devices"></nav>
         <div class="stream-budget" data-i18n-title="remote.streams.hint" title="最多四路连接，只有当前设备保留交互画质">
           <span class="budget-led" aria-hidden="true"></span>
           <strong id="streamCount">0/4</strong>
           <small id="streamBudget" data-i18n="remote.streams.none">暂无画面</small>
         </div>
-      </section>
+        <div class="head-actions">
+          <button id="layoutBtn" type="button" aria-pressed="false" data-i18n-title="remote.layout.grid" title="多设备网格">▦</button>
+          <button id="fullscreenBtn" type="button" data-i18n-title="remote.fullscreen" title="全屏">⛶</button>
+        </div>
+      </header>
 
       <main class="remote-stage">
         <section id="emptyState" class="remote-empty">

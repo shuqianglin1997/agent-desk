@@ -23,6 +23,7 @@ class RemoteControlService {
     this.languageProvider = options.languageProvider || (() => 'zh');
     this.inputAdapter = options.inputAdapter || null;
     this.onChange = options.onChange || (() => {});
+    this.onReturnToWorkspace = options.onReturnToWorkspace || (() => {});
     this.autoAccept = options.autoAccept === true;
     this.syntheticCapture = options.syntheticCapture === true;
     this.consoleContext = null;
@@ -115,6 +116,19 @@ class RemoteControlService {
     }
     this.consoleSurface = { visible: false, bounds: null };
     this.inputAdapter?.releaseAll();
+  }
+
+  async returnToWorkspace(activeSessionId = null) {
+    const sessions = [...this.sessions.values()].filter((item) => item.direction === 'outgoing' && !item.closed);
+    await Promise.all(sessions.map((item) => this.releaseControl(item, 'return-to-workspace', { notify: true })));
+    this.setConsoleSurface({ visible: false });
+    const active = sessions.find((item) => item.sessionId === String(activeSessionId || '')) || sessions[0] || null;
+    const payload = {
+      activeSessionId: active?.sessionId || null,
+      sessions: this.list()
+    };
+    this.onReturnToWorkspace(payload);
+    return payload;
   }
 
   handlePeerState(value = {}) {
@@ -921,12 +935,10 @@ function sharedRemoteIpcRouter(ipcMain) {
     await service.stopSession(session, 'user-disconnect', { notify: true });
     return { ok: true };
   });
-  handle('remote-console:return', 'console', async (service, context) => {
+  handle('remote-console:return', 'console', async (service, context, input) => {
     if (service.consoleContext !== context) throw new Error('remote-console-context-invalid');
-    const sessions = [...service.sessions.values()].filter((item) => item.direction === 'outgoing' && !item.closed);
-    await Promise.all(sessions.map((item) => service.stopSession(item, 'return-to-sessions', { notify: true })));
-    service.setConsoleSurface({ visible: false });
-    return { ok: true };
+    const result = await service.returnToWorkspace(input.sessionId);
+    return { ok: true, ...result };
   });
   handle('remote-host:bootstrap', 'host', (service, context) => service.hostBootstrap(context));
   handle('remote-host:answer', 'host', async (service, context, input) => ({
