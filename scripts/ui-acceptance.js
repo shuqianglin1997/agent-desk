@@ -312,7 +312,7 @@ async function layoutSnapshot(client) {
       && left.y < right.bottom && left.bottom > right.y;
     const shell = document.querySelector('.app-shell');
     const brand = rect('.topbar-brand');
-    const context = rect('.topbar-context');
+    const lens = rect('.topbar-lens');
     const actions = rect('.topbar-actions');
     return {
       outerWidth,
@@ -320,12 +320,17 @@ async function layoutSnapshot(client) {
       innerWidth,
       innerHeight,
       shell: rect('.app-shell'),
+      header: rect('.app-topbar'),
       main: rect('#mainGrid'),
+      agent: rect('#agentPanel'),
+      sessions: rect('#sessionPane'),
+      detail: rect('#detailPanel'),
       status: rect('#statusBar'),
       rows: getComputedStyle(shell).gridTemplateRows.trim().split(/\\s+/),
+      boardPanels: document.querySelectorAll('#mainGrid > .workspace-panel').length,
       documentOverflow: document.documentElement.scrollWidth - innerWidth,
       bodyOverflow: document.body.scrollWidth - innerWidth,
-      topbarOverlap: overlaps(brand, context) || overlaps(context, actions) || overlaps(brand, actions),
+      topbarOverlap: overlaps(brand, lens) || overlaps(lens, actions) || overlaps(brand, actions),
       bodyView: document.body.dataset.view,
       theme: document.documentElement.dataset.theme,
       lang: document.documentElement.lang
@@ -338,9 +343,16 @@ function assertFixedShell(layout) {
   assert.equal(layout.outerHeight, 840, 'BrowserWindow outer height must stay fixed at 840');
   assert.equal(layout.shell.width, layout.innerWidth, 'app-shell must fill the renderer width');
   assert.equal(layout.shell.height, layout.innerHeight, 'app-shell must fill the renderer height');
-  assert.equal(layout.rows.length, 7, 'app-shell must keep seven grid rows');
-  assert.ok(layout.main.height >= 240, `row 6 is too short: ${layout.main.height}px`);
-  assert.ok(layout.status.y >= layout.main.bottom - 1, 'status row must remain below the workspace');
+  assert.equal(layout.rows.length, 3, 'app-shell must contain Header, board, and Footer rows only');
+  assert.equal(layout.boardPanels, 3, 'workspace board must contain exactly three fixed panels');
+  assert.ok(Math.abs(layout.header.height - 60) <= 1, `Header must be 60px, got ${layout.header.height}px`);
+  assert.ok(Math.abs(layout.status.height - 42) <= 1, `Footer must be 42px, got ${layout.status.height}px`);
+  assert.ok(Math.abs(layout.agent.height - 220) <= 1, `Agent panel must be 220px, got ${layout.agent.height}px`);
+  assert.ok(layout.agent.x <= layout.sessions.x + 1 && layout.agent.right >= layout.detail.right - 1, 'Agent panel must span the board');
+  assert.ok(layout.sessions.y >= layout.agent.bottom + 8, 'sessions must stay below the Agent panel');
+  assert.ok(layout.detail.y >= layout.agent.bottom + 8, 'detail must stay below the Agent panel');
+  assert.ok(layout.sessions.right <= layout.detail.x - 8, 'sessions and detail must remain separate lower panels');
+  assert.ok(layout.status.y >= layout.main.bottom - 1, 'Footer must remain below the board');
   assert.ok(layout.documentOverflow <= 1 && layout.bodyOverflow <= 1, 'the fixed shell must not overflow horizontally');
   assert.equal(layout.topbarOverlap, false, 'topbar regions must not overlap');
 }
@@ -393,7 +405,7 @@ async function runAcceptance(client, artifactDir) {
     'the seeded local workspace'
   );
 
-  await run('1040×840 seven-row shell', async () => {
+  await run('1040×840 Header / three-panel board / Footer shell', async () => {
     assertFixedShell(await layoutSnapshot(client));
     const initial = await client.evaluate(`({
       profiles: state.profiles.length,
@@ -407,6 +419,20 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(initial.checked, 0, 'initial render must not auto-check a session');
     assert.equal(initial.workspace, 'sessions');
     assert.equal(initial.mesh, false);
+    const placement = await client.evaluate(`({
+      detailOwnsActions: document.querySelector('#sessionInspector').contains(document.querySelector('#sessionSelectionBar')),
+      footerOwnsActions: document.querySelector('#statusBar').contains(document.querySelector('#sessionSelectionBar')),
+      footerHasGlobalState: ['ledgerDone', 'ledgerMin', 'reminderToggle'].every(id => document.querySelector('#statusBar').contains(document.getElementById(id))),
+      yardLedger: Boolean(document.querySelector('#yardLedger')),
+      dockHidden: document.querySelector('#sessionActionDock').hidden
+    })`);
+    assert.deepEqual(placement, {
+      detailOwnsActions: true,
+      footerOwnsActions: false,
+      footerHasGlobalState: true,
+      yardLedger: false,
+      dockHidden: true
+    });
   });
   await capture(client, artifactDir, '01-local-zh-light');
 
@@ -416,20 +442,24 @@ async function runAcceptance(client, artifactDir) {
     assert.ok(focused);
     let action = await client.evaluate(`({
       checked: state.ui.checkedConversationIds.size,
+      dockHidden: document.querySelector('#sessionActionDock').hidden,
       barHidden: document.querySelector('#sessionSelectionBar').hidden,
+      focusedActionsHidden: document.querySelector('#sessionFocusedActions').hidden,
       copyDisabled: document.querySelector('#copySessionInfoBtn').disabled
     })`);
-    assert.deepEqual(action, { checked: 0, barHidden: false, copyDisabled: false });
+    assert.deepEqual(action, { checked: 0, dockHidden: false, barHidden: false, focusedActionsHidden: false, copyDisabled: false });
 
     await client.evaluate(`document.querySelectorAll('#sessionRows .session-select-box')[1].click()`);
     action = await client.evaluate(`({
       focused: state.ui.focusedConversationId,
       checked: state.ui.checkedConversationIds.size,
-      actionIds: window.UiContext.actionConversationIds(state.ui).length
+      actionIds: window.UiContext.actionConversationIds(state.ui).length,
+      focusedActionsHidden: document.querySelector('#sessionFocusedActions').hidden
     })`);
     assert.equal(action.focused, focused, 'checking another row must not steal focus');
     assert.equal(action.checked, 1);
     assert.equal(action.actionIds, 1, 'checked rows become the explicit batch action set');
+    assert.equal(action.focusedActionsHidden, true, 'explicit batch actions must hide focused-session-only actions');
 
     await client.evaluate(`(() => {
       const input = document.querySelector('#searchInput');
@@ -451,9 +481,10 @@ async function runAcceptance(client, artifactDir) {
     action = await client.evaluate(`({
       focused: state.ui.focusedConversationId,
       checked: state.ui.checkedConversationIds.size,
-      barHidden: document.querySelector('#sessionSelectionBar').hidden
+      barHidden: document.querySelector('#sessionSelectionBar').hidden,
+      dockHidden: document.querySelector('#sessionActionDock').hidden
     })`);
-    assert.deepEqual(action, { focused: null, checked: 0, barHidden: true });
+    assert.deepEqual(action, { focused: null, checked: 0, barHidden: true, dockHidden: true });
     await client.evaluate(`(() => {
       const input = document.querySelector('#searchInput');
       input.value = '';
@@ -491,23 +522,126 @@ async function runAcceptance(client, artifactDir) {
     await client.evaluate(`document.querySelector('#profileDialog').close()`);
   });
 
-  await run('non-modal row-6 Device Center and isolated Mesh initialization', async () => {
+  await run('Header opens tools, activity, and settings as independent modals without mutating the workspace', async () => {
+    const baseline = await client.evaluate(`(() => {
+      const pick = (selector) => {
+        const rect = document.querySelector(selector).getBoundingClientRect();
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      };
+      return {
+        geometry: { agent: pick('#agentPanel'), sessions: pick('#sessionPane'), detail: pick('#detailPanel') },
+        workspace: state.ui.workspaceMode,
+        detailMode: state.detailMode,
+        lens: state.ui.selectedDeviceLensId,
+        scope: state.ui.agentScope,
+        agent: currentAgentId(),
+        slot: currentSlotKey(),
+        focused: state.ui.focusedConversationId,
+        checked: [...state.ui.checkedConversationIds]
+      };
+    })()`);
+    assert.equal(await client.evaluate(`document.querySelector('#globalMoreMenu')`), null);
+
+    for (const [button, kind, dialog] of [
+      ['#toolCenterBtn', 'tools', '#toolCenterDialog'],
+      ['#activityCenterBtn', 'activity', '#activityCenterDialog'],
+      ['#settingsBtn', 'settings', '#settingsDialog']
+    ]) {
+      await client.evaluate(`document.querySelector(${JSON.stringify(button)}).click()`);
+      await waitFor(client, `state.utilityDialog === ${JSON.stringify(kind)} && document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal`);
+      const snapshot = await dialogSnapshot(client, dialog);
+      assertDialogFits(snapshot);
+      assert.equal(snapshot.modal, true, `${kind} must be a modal dialog`);
+      const current = await client.evaluate(`(() => {
+        const pick = (selector) => {
+          const rect = document.querySelector(selector).getBoundingClientRect();
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        };
+        return {
+          geometry: { agent: pick('#agentPanel'), sessions: pick('#sessionPane'), detail: pick('#detailPanel') },
+          workspace: state.ui.workspaceMode,
+          detailMode: state.detailMode,
+          lens: state.ui.selectedDeviceLensId,
+          scope: state.ui.agentScope,
+          agent: currentAgentId(),
+          slot: currentSlotKey(),
+          focused: state.ui.focusedConversationId,
+          checked: [...state.ui.checkedConversationIds]
+        };
+      })()`);
+      assert.deepEqual(current, baseline, `${kind} must not mutate or move the underlying workspace`);
+      await capture(client, artifactDir, `03-${kind}-dialog`);
+      await client.evaluate(`document.querySelector(${JSON.stringify(dialog)}).close()`);
+      await waitFor(client, `state.utilityDialog === null && !document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal close`);
+    }
+
+    await client.evaluate(`document.querySelector('#quotaChipSelf').click()`);
+    await waitFor(client, `state.detailMode === 'quota' && !document.querySelector('#detailSurfaceQuota').hidden`, 'quota detail');
+    const quotaGeometry = await client.evaluate(`(() => {
+      const pick = (selector) => {
+        const rect = document.querySelector(selector).getBoundingClientRect();
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      };
+      return { agent: pick('#agentPanel'), sessions: pick('#sessionPane'), detail: pick('#detailPanel') };
+    })()`);
+    assert.deepEqual(quotaGeometry, baseline.geometry, 'quota must not insert a new row');
+    await client.evaluate(`setWorkspaceMode('sessions')`);
+  });
+
+  await run('modal Device Center preserves the underlying workspace during isolated Mesh initialization', async () => {
+    const baseline = await client.evaluate(`({
+      workspace: state.ui.workspaceMode,
+      detailMode: state.detailMode,
+      lens: state.ui.selectedDeviceLensId,
+      scope: state.ui.agentScope,
+      agent: currentAgentId(),
+      slot: currentSlotKey(),
+      focused: state.ui.focusedConversationId,
+      checked: [...state.ui.checkedConversationIds]
+    })`);
     await client.evaluate(`(() => {
       window.I18N.setLang('zh');
       rerenderLocalizedText();
       if (document.documentElement.dataset.theme === 'dark') document.querySelector('#themeToggle').click();
       document.querySelector('#deviceCenterBtn').click();
     })()`);
-    await waitFor(client, `state.ui.workspaceMode === 'devices' && document.querySelector('#deviceCenterDialog').open`, 'Device Center');
+    await waitFor(
+      client,
+      `state.utilityDialog === 'devices' && document.querySelector('#deviceCenterDialog').open && state.mesh.loading === false`,
+      'Device Center inventory'
+    );
     let snapshot = await dialogSnapshot(client, '#deviceCenterDialog');
-    assertDialogFits(snapshot, { noScroll: true });
-    assert.equal(snapshot.modal, false, 'Device Center must use show(), not showModal()');
-    const geometry = await client.evaluate(`(() => {
-      const workspace = document.querySelector('#mainGrid').getBoundingClientRect();
-      const dialog = document.querySelector('#deviceCenterDialog').getBoundingClientRect();
-      return { workspace: { x: workspace.x, y: workspace.y, width: workspace.width, height: workspace.height }, dialog: { x: dialog.x, y: dialog.y, width: dialog.width, height: dialog.height } };
+    assertDialogFits(snapshot);
+    assert.equal(snapshot.modal, true, 'Device Center must use showModal()');
+    const underlying = await client.evaluate(`({
+      workspace: state.ui.workspaceMode,
+      detailMode: state.detailMode,
+      lens: state.ui.selectedDeviceLensId,
+      scope: state.ui.agentScope,
+      agent: currentAgentId(),
+      slot: currentSlotKey(),
+      focused: state.ui.focusedConversationId,
+      checked: [...state.ui.checkedConversationIds]
+    })`);
+    assert.deepEqual(underlying, baseline, 'opening Device Center must not change the underlying workspace');
+
+    const initializeGate = await client.evaluate(`(() => {
+      const button = document.querySelector('#initializeMeshBtn');
+      const emptyState = document.querySelector('#meshEmptyState');
+      return {
+        buttonDisabled: button.disabled,
+        buttonHidden: button.hidden,
+        emptyStateHidden: emptyState.hidden,
+        loading: state.mesh.loading,
+        initialized: state.mesh.overview?.initialized === true,
+        storageIncomplete: state.mesh.overview?.storageIncomplete === true,
+        keyState: state.mesh.overview?.keyState || null,
+        initializeApi: typeof window.manager.initializeMesh
+      };
     })()`);
-    assert.deepEqual(geometry.dialog, geometry.workspace, 'Device Center must occupy only row 6');
+    assert.equal(initializeGate.initializeApi, 'function', `Mesh initialize API unavailable: ${JSON.stringify(initializeGate)}`);
+    assert.equal(initializeGate.buttonDisabled, false, `Mesh initialize button unexpectedly gated: ${JSON.stringify(initializeGate)}`);
+    assert.equal(initializeGate.emptyStateHidden, false, `Mesh empty state unexpectedly hidden: ${JSON.stringify(initializeGate)}`);
 
     await client.evaluate(`document.querySelector('#initializeMeshBtn').click()`);
     await waitFor(
@@ -541,9 +675,9 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(independence.lens, 'all', 'left-side device selection must not change the topbar Lens');
     assert.ok(independence.detailName.length > 0 && independence.actionCount >= 3);
     snapshot = await dialogSnapshot(client, '#deviceCenterDialog');
-    assertDialogFits(snapshot, { noScroll: true });
+    assertDialogFits(snapshot);
   });
-  await capture(client, artifactDir, '03-mesh-device-center');
+  await capture(client, artifactDir, '04-devices-dialog');
 
   await run('device task navigation applies an atomic Lens/Agent/scope transition', async () => {
     await client.evaluate(`(() => {
@@ -569,7 +703,7 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(result.scope, 'all');
 
     await client.evaluate(`document.querySelector('#deviceCenterBtn').click()`);
-    await waitFor(client, `state.ui.workspaceMode === 'devices'`, 'Device Center re-entry');
+    await waitFor(client, `state.utilityDialog === 'devices' && document.querySelector('#deviceCenterDialog').open`, 'Device Center re-entry');
     const expectedAgent = await client.evaluate(`(() => {
       const overview = state.mesh.overview;
       const deviceId = state.ui.selectedDeviceDetailId;

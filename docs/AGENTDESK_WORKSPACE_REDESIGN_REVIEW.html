@@ -1,0 +1,1612 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AgentDesk · 1.12 三面板与独立弹窗审阅稿</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #202827;
+      --muted: #68726e;
+      --paper: #f1eee5;
+      --panel: #fffdf7;
+      --panel-muted: #f7f4ec;
+      --line: #d0d2ca;
+      --line-strong: #aeb3ac;
+      --blue: #0a6fa9;
+      --blue-soft: #e6f1f7;
+      --orange: #c55b2d;
+      --orange-soft: #f7e8dc;
+      --green: #267257;
+      --green-soft: #e2efe8;
+      --red: #a84239;
+      --red-soft: #f7e6e2;
+      --yellow-soft: #f4ead3;
+      --shadow: 0 18px 50px rgba(31, 39, 38, .16);
+      --header: 60px;
+      --footer: 42px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #d9dcd6;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      font-size: 13px;
+    }
+
+    button,
+    input,
+    select { font: inherit; }
+
+    button {
+      border: 0;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    button:disabled { cursor: not-allowed; opacity: .42; }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 3px solid rgba(10, 111, 169, .25);
+      outline-offset: 2px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p { margin: 0; }
+
+    .app {
+      display: grid;
+      grid-template-rows: var(--header) minmax(0, 1fr) var(--footer);
+      width: min(1040px, 100vw);
+      height: min(840px, 100vh);
+      margin: max(0px, calc((100vh - 840px) / 2)) auto 0;
+      overflow: hidden;
+      background: var(--paper);
+      border: 1px solid #a9aea7;
+      box-shadow: var(--shadow);
+    }
+
+    /* 唯一 Header */
+    .app-header {
+      display: grid;
+      grid-template-columns: 225px minmax(185px, 1fr) auto;
+      align-items: center;
+      gap: 13px;
+      min-width: 0;
+      padding: 0 14px 0 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line-strong);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0;
+      background: transparent;
+      text-align: left;
+    }
+
+    .brand-mark {
+      position: relative;
+      width: 37px;
+      height: 37px;
+      flex: 0 0 auto;
+      background: var(--orange);
+      border: 3px solid #623821;
+      box-shadow: 2px 2px 0 #d7cbbb;
+    }
+
+    .brand-mark::before,
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      top: 10px;
+      width: 7px;
+      height: 7px;
+      background: #fff7e8;
+    }
+
+    .brand-mark::before { left: 6px; }
+    .brand-mark::after { right: 6px; }
+
+    .brand-mouth {
+      position: absolute;
+      left: 11px;
+      bottom: 6px;
+      width: 10px;
+      height: 4px;
+      background: #fff7e8;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: -.035em;
+    }
+
+    .brand small {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font: 700 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .14em;
+    }
+
+    .header-context {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .lens {
+      display: inline-flex;
+      align-items: center;
+      max-width: 235px;
+      height: 35px;
+      padding: 0 9px 0 10px;
+      background: #f4f1e9;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .lens span {
+      margin-right: 7px;
+      color: var(--muted);
+      font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }
+
+    .lens select {
+      min-width: 0;
+      max-width: 150px;
+      color: var(--ink);
+      background: transparent;
+      border: 0;
+      font-weight: 700;
+      outline: 0;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 5px;
+    }
+
+    .header-button,
+    .remote-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 35px;
+      padding: 0 10px;
+      color: #4b5552;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      font-weight: 680;
+      white-space: nowrap;
+    }
+
+    .header-button:hover,
+    .header-button[aria-expanded="true"] { color: var(--ink); background: #eeece5; border-color: var(--line); }
+
+    .count {
+      display: inline-grid;
+      place-items: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      color: white;
+      background: var(--blue);
+      border-radius: 9px;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .remote-chip {
+      color: #8a342a;
+      background: var(--red-soft);
+      border-color: #e5bbb4;
+    }
+
+    .remote-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 0 3px rgba(168, 66, 57, .12);
+    }
+
+    /* 唯一 Main：固定三面板 */
+    .board {
+      display: grid;
+      grid-template-columns: minmax(0, 1.62fr) minmax(315px, .82fr);
+      grid-template-rows: 220px minmax(0, 1fr);
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+      padding: 10px;
+      background:
+        radial-gradient(circle at 88% 5%, rgba(10, 111, 169, .07), transparent 26%),
+        var(--paper);
+    }
+
+    .panel {
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--panel);
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      box-shadow: 0 2px 0 rgba(31, 39, 38, .045);
+    }
+
+    .agents-panel { grid-column: 1 / -1; }
+    .sessions-panel { grid-column: 1; }
+    .detail-panel { grid-column: 2; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+
+    .panel-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+      height: 43px;
+      padding: 0 11px 0 13px;
+      background: #f7f4ec;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-heading {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .panel-heading h1,
+    .panel-heading h2 { font-size: 14px; letter-spacing: -.015em; white-space: nowrap; }
+    .panel-heading span { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+
+    .bar-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .segmented {
+      display: inline-flex;
+      gap: 2px;
+      padding: 2px;
+      background: #e9e7df;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+    }
+
+    .segmented button {
+      min-height: 26px;
+      padding: 0 9px;
+      color: var(--muted);
+      background: transparent;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 680;
+    }
+
+    .segmented button.is-active {
+      color: var(--ink);
+      background: var(--panel);
+      box-shadow: 0 1px 3px rgba(31, 39, 38, .13);
+    }
+
+    .btn,
+    .btn-primary,
+    .btn-danger,
+    .btn-quiet {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-weight: 680;
+      white-space: nowrap;
+    }
+
+    .btn { background: var(--panel); border: 1px solid var(--line-strong); }
+    .btn:hover { background: #efede6; }
+    .btn-primary { color: white; background: var(--blue); border: 1px solid #075f92; }
+    .btn-primary:hover { background: #075f92; }
+    .btn-danger { color: white; background: var(--red); border: 1px solid #8f302a; }
+    .btn-quiet { padding: 0 7px; color: var(--muted); background: transparent; }
+    .btn-quiet:hover { color: var(--ink); background: rgba(31,39,38,.06); }
+
+    /* 顶部面板：庭院/卡片 + Agent 动作，始终在同一面板内 */
+    .agents-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 286px;
+      height: calc(100% - 43px);
+      min-height: 0;
+    }
+
+    .agent-stage {
+      min-width: 0;
+      min-height: 0;
+      padding: 10px 12px;
+      overflow: hidden;
+      border-right: 1px solid var(--line);
+    }
+
+    .agent-cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 9px;
+      height: 100%;
+    }
+
+    .agent-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      padding: 11px 10px;
+      overflow: hidden;
+      background: #f7f4eb;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-align: left;
+    }
+
+    .agent-card:hover { border-color: #829da3; }
+
+    .agent-card.is-selected {
+      background: var(--blue-soft);
+      border-color: var(--blue);
+      box-shadow: inset 3px 0 0 var(--blue);
+    }
+
+    .rank {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      color: #818985;
+      font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .cat {
+      --cat: #ca6437;
+      --cat-dark: #70402b;
+      position: relative;
+      width: 42px;
+      height: 37px;
+      margin-top: 5px;
+      background: var(--cat);
+      border: 2px solid var(--cat-dark);
+      border-radius: 7px 7px 10px 10px;
+      box-shadow: inset 0 -5px 0 rgba(255,255,255,.12), 2px 3px 0 rgba(31,39,38,.08);
+    }
+
+    .cat::before,
+    .cat::after {
+      content: "";
+      position: absolute;
+      top: -10px;
+      width: 12px;
+      height: 14px;
+      background: var(--cat);
+      border: 2px solid var(--cat-dark);
+      border-bottom: 0;
+    }
+
+    .cat::before { left: 2px; clip-path: polygon(0 100%, 18% 0, 100% 72%, 100% 100%); }
+    .cat::after { right: 2px; clip-path: polygon(0 72%, 82% 0, 100% 100%, 0 100%); }
+    .cat.slate { --cat: #758d94; --cat-dark: #364d52; }
+    .cat.gold { --cat: #d3a446; --cat-dark: #725723; }
+
+    .cat-face {
+      position: absolute;
+      z-index: 2;
+      left: 9px;
+      top: 11px;
+      width: 4px;
+      height: 4px;
+      background: var(--cat-dark);
+      box-shadow: 17px 0 0 var(--cat-dark), 8px 10px 0 -1px #fff6e8;
+    }
+
+    .agent-copy { min-width: 0; }
+    .agent-copy strong { display: block; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+    .agent-copy span { display: block; margin-top: 6px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .agent-copy em { display: inline-block; margin-top: 10px; color: var(--green); font-size: 10px; font-style: normal; font-weight: 720; }
+
+    .yard {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background:
+        linear-gradient(174deg, transparent 0 57%, rgba(255,255,255,.5) 58% 62%, transparent 63%),
+        repeating-linear-gradient(90deg, transparent 0 58px, rgba(38,91,65,.06) 59px 60px),
+        #dce9d5;
+      border: 1px solid #bac9b2;
+      border-radius: 8px;
+    }
+
+    .yard::before {
+      content: "";
+      position: absolute;
+      left: -20px;
+      right: -20px;
+      bottom: -43px;
+      height: 105px;
+      background: #c7d8b7;
+      border-top: 2px solid #9eb48f;
+      transform: rotate(-2deg);
+    }
+
+    .yard-house {
+      position: absolute;
+      right: 32px;
+      top: 38px;
+      width: 86px;
+      height: 66px;
+      background: #eadfc7;
+      border: 2px solid #83644b;
+      box-shadow: 4px 5px 0 rgba(74,69,49,.12);
+    }
+
+    .yard-house::before {
+      content: "";
+      position: absolute;
+      left: -11px;
+      top: -26px;
+      width: 104px;
+      height: 33px;
+      background: var(--orange);
+      border: 2px solid #764227;
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    }
+
+    .yard-agent {
+      position: absolute;
+      z-index: 3;
+      display: flex;
+      align-items: flex-end;
+      gap: 5px;
+      padding: 3px 7px 5px;
+      background: rgba(255,253,247,.86);
+      border: 1px solid transparent;
+      border-radius: 7px;
+    }
+
+    .yard-agent:hover,
+    .yard-agent.is-selected { border-color: var(--blue); }
+    .yard-agent .cat { margin-right: -10px; transform: scale(.68); transform-origin: bottom left; }
+    .yard-agent span:last-child { font-size: 10px; font-weight: 720; white-space: nowrap; }
+    .yard-agent[data-agent="peter"] { left: 42px; top: 66px; }
+    .yard-agent[data-agent="claude"] { left: 235px; top: 27px; }
+    .yard-agent[data-agent="kimi"] { left: 400px; top: 88px; }
+
+    .agent-command {
+      min-width: 0;
+      min-height: 0;
+      padding: 10px 12px;
+      background: #f2eee4;
+    }
+
+    .eyebrow {
+      color: var(--muted);
+      font: 720 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .agent-command-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 7px;
+    }
+
+    .agent-command-title strong { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+
+    .state-pill,
+    .mini-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 21px;
+      padding: 0 7px;
+      color: var(--green);
+      background: var(--green-soft);
+      border: 1px solid #bdd8ca;
+      border-radius: 11px;
+      font-size: 9px;
+      font-weight: 720;
+      white-space: nowrap;
+    }
+
+    .slot-select {
+      width: 100%;
+      height: 31px;
+      margin-top: 8px;
+      padding: 0 8px;
+      color: var(--ink);
+      background: var(--panel);
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      font-weight: 650;
+    }
+
+    .agent-actions {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 5px;
+      margin-top: 7px;
+    }
+
+    .quota {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 7px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .quota-track { height: 5px; overflow: hidden; background: #d7d5cc; border-radius: 3px; }
+    .quota-track i { display: block; width: 72%; height: 100%; background: var(--green); border-radius: inherit; }
+
+    /* 左下：固定会话列表 */
+    .session-bar-tools {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
+      justify-content: flex-end;
+    }
+
+    .search {
+      position: relative;
+      flex: 1 1 155px;
+      max-width: 230px;
+      min-width: 105px;
+    }
+
+    .search::before {
+      content: "⌕";
+      position: absolute;
+      left: 8px;
+      top: 6px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .search input {
+      width: 100%;
+      height: 29px;
+      padding: 0 8px 0 27px;
+      color: var(--ink);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      outline: 0;
+    }
+
+    .session-list {
+      height: calc(100% - 43px);
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .table-head,
+    .session-row {
+      display: grid;
+      grid-template-columns: 28px minmax(185px, 1fr) 110px 116px 62px;
+      align-items: center;
+      min-width: 580px;
+    }
+
+    .table-head {
+      position: sticky;
+      z-index: 2;
+      top: 0;
+      height: 32px;
+      padding: 0 9px;
+      color: var(--muted);
+      background: #efede6;
+      border-bottom: 1px solid var(--line);
+      font: 680 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .08em;
+    }
+
+    .session-row {
+      min-height: 56px;
+      padding: 0 9px;
+      background: var(--panel);
+      border-bottom: 1px solid #e2e2dc;
+      cursor: pointer;
+    }
+
+    .session-row:hover { background: #f8f6ef; }
+    .session-row.is-focused { background: var(--blue-soft); box-shadow: inset 3px 0 0 var(--blue); }
+    .session-row.is-checked { background: #edf5f1; }
+    .session-row input { width: 14px; height: 14px; accent-color: var(--blue); }
+
+    .conversation { min-width: 0; }
+    .conversation strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .conversation small { display: block; margin-top: 5px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .muted-cell { color: var(--muted); font-size: 10px; }
+
+    .location {
+      display: inline-flex;
+      align-items: center;
+      max-width: 108px;
+      min-height: 21px;
+      padding: 0 6px;
+      overflow: hidden;
+      color: #42504d;
+      background: #efeee8;
+      border: 1px solid #d6d7d0;
+      border-radius: 5px;
+      font-size: 9px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .empty-list {
+      display: grid;
+      place-items: center;
+      height: 220px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* 右下：固定详情，所有低频功能在这里切换 */
+    .detail-body {
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+      background: #faf8f2;
+    }
+
+    .detail-action-dock {
+      display: grid;
+      gap: 6px;
+      padding: 9px 11px;
+      background: #f7f4ec;
+      border-top: 1px solid var(--line);
+    }
+
+    .detail-action-dock[hidden] { display: none; }
+    .detail-action-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 9px; }
+    .detail-action-primary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+    .detail-action-secondary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+    .detail-action-dock button { min-height: 29px; }
+
+    .detail-empty {
+      display: grid;
+      place-items: center;
+      height: 100%;
+      min-height: 230px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .empty-sheet {
+      width: 42px;
+      height: 50px;
+      margin: 0 auto 10px;
+      background: linear-gradient(135deg, #fff 0 76%, #d8d7d0 77%);
+      border: 1px solid var(--line-strong);
+      border-radius: 5px;
+      box-shadow: 3px 3px 0 #e1dfd7;
+    }
+
+    .detail-empty strong { display: block; color: #4b5552; }
+    .detail-empty span { display: block; max-width: 220px; margin-top: 6px; font-size: 10px; line-height: 1.55; }
+
+    .detail-eyebrow { color: var(--muted); font: 720 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; }
+    .detail-body h3 { margin-top: 7px; font-size: 17px; line-height: 1.32; letter-spacing: -.02em; }
+    .detail-body > p { margin-top: 8px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+
+    .meta-list { display: grid; gap: 8px; margin: 14px 0; }
+    .meta-row { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 8px; color: #44504c; font-size: 10px; }
+    .meta-row > span:first-child { color: var(--muted); }
+
+    .detail-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 13px 0;
+    }
+
+    details.tech {
+      margin-top: 13px;
+      padding-top: 10px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      font-size: 9px;
+    }
+
+    details.tech summary { cursor: pointer; font-weight: 680; }
+    details.tech p { margin-top: 8px; word-break: break-all; line-height: 1.5; }
+
+    .device-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 5px;
+      margin: 12px 0 14px;
+    }
+
+    .device-mini {
+      position: relative;
+      min-width: 0;
+      min-height: 54px;
+      padding: 8px 7px;
+      color: #48524f;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      text-align: left;
+    }
+
+    .device-mini:hover,
+    .device-mini.is-selected { border-color: var(--blue); background: var(--blue-soft); }
+    .device-mini strong { display: block; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .device-mini span { display: block; margin-top: 5px; color: var(--muted); font-size: 8px; }
+
+    .online-dot {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .online-dot.offline { background: #929995; }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin: 12px 0;
+    }
+
+    .metric { padding: 8px; background: #f0ede5; border: 1px solid var(--line); border-radius: 6px; }
+    .metric span { display: block; color: var(--muted); font-size: 8px; }
+    .metric strong { display: block; margin-top: 5px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+
+    .line-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 38px;
+      padding: 7px 0;
+      border-top: 1px solid #dfdfd9;
+      font-size: 10px;
+    }
+
+    .line-item strong { display: block; }
+    .line-item small { display: block; margin-top: 3px; color: var(--muted); }
+    .good { color: var(--green); font-weight: 700; }
+    .warn { color: var(--orange); font-weight: 700; }
+
+    .activity-item {
+      margin-top: 8px;
+      padding: 10px;
+      background: #f3f0e8;
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--orange);
+      border-radius: 6px;
+    }
+
+    .activity-item.info { border-left-color: var(--blue); }
+    .activity-item.done { border-left-color: var(--green); }
+    .activity-item strong { font-size: 10px; }
+    .activity-item p { margin-top: 5px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+
+    .progress { height: 5px; margin-top: 8px; overflow: hidden; background: #dbdad4; border-radius: 3px; }
+    .progress i { display: block; width: 64%; height: 100%; background: var(--blue); }
+
+    .choice {
+      display: block;
+      width: 100%;
+      margin-top: 7px;
+      padding: 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      text-align: left;
+    }
+
+    .choice:hover { border-color: var(--blue); background: var(--blue-soft); }
+    .choice strong { display: block; font-size: 10px; }
+    .choice span { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+
+    .pair-code {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 15px 0;
+      padding: 12px;
+      background: white;
+      border: 1px dashed #82918c;
+      border-radius: 7px;
+      font: 780 18px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .14em;
+    }
+
+    .remote-view {
+      overflow: hidden;
+      background: #151c1e;
+      border: 1px solid #445054;
+      border-radius: 7px;
+    }
+
+    .remote-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      min-height: 35px;
+      padding: 5px 6px;
+      color: #e8eeee;
+      background: #222b2d;
+      border-bottom: 1px solid #414c4f;
+    }
+
+    .remote-toolbar span { font-size: 9px; }
+    .remote-toolbar button { min-height: 25px; padding: 0 7px; color: #e8eeee; background: #303a3d; border: 1px solid #536064; border-radius: 5px; font-size: 9px; }
+
+    .remote-screen {
+      position: relative;
+      height: 192px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #9ab4c1, #e2d0b2 62%, #a88369);
+      border: 2px solid #53b5e1;
+    }
+
+    .fake-menu { display: flex; justify-content: space-between; height: 20px; padding: 0 7px; color: #273437; background: rgba(246,249,248,.78); font-size: 8px; line-height: 20px; }
+
+    .fake-window {
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      top: 20%;
+      bottom: 9%;
+      display: grid;
+      grid-template-columns: 31% 1fr;
+      overflow: hidden;
+      background: #f6f6f3;
+      border: 1px solid rgba(31,43,45,.45);
+      border-radius: 6px;
+      box-shadow: 0 12px 25px rgba(31,43,45,.23);
+    }
+
+    .fake-side { padding: 10px 8px; background: #e4e8e5; border-right: 1px solid #c5cdca; }
+    .fake-line { height: 6px; margin: 7px 0; background: #bdc6c2; border-radius: 3px; }
+    .fake-line.short { width: 62%; }
+    .fake-main { padding: 12px; }
+    .fake-main strong { font-size: 10px; }
+    .fake-code { height: 6px; margin-top: 10px; background: #b6ccd5; border-radius: 3px; box-shadow: 0 14px 0 #d2d6d2, 0 28px 0 #d5b89c, 0 42px 0 #d2d6d2; }
+
+    .input-label {
+      position: absolute;
+      top: 27px;
+      left: 50%;
+      padding: 4px 7px;
+      color: white;
+      background: rgba(8,101,154,.92);
+      border-radius: 4px;
+      font-size: 8px;
+      font-weight: 700;
+      transform: translateX(-50%);
+    }
+
+    /* 唯一 Footer：只承担全局状态、今日账本和提醒总开关 */
+    .app-footer {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      padding: 0 11px 0 14px;
+      color: #525c58;
+      background: #e9e6dd;
+      border-top: 1px solid var(--line-strong);
+      font-size: 10px;
+    }
+
+    .footer-state {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .mesh-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--green); }
+    .footer-state span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .footer-global {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .footer-global b { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .footer-reminder { min-height: 27px; padding: 0 8px; color: var(--accent); background: var(--blue-soft); border: 1px solid #9cc8df; border-radius: 5px; }
+
+    /* 四个全局入口各自使用真正的模态弹窗，不占用右下详情。 */
+    .utility-dialog {
+      width: min(650px, calc(100vw - 48px));
+      max-height: min(680px, calc(100vh - 56px));
+      margin: auto;
+      padding: 0;
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--panel);
+      border: 1px solid var(--line-strong);
+      border-radius: 11px;
+      box-shadow: 0 24px 70px rgba(24, 31, 30, .28);
+    }
+
+    .utility-dialog.device-dialog { width: min(760px, calc(100vw - 48px)); }
+    .utility-dialog.settings-dialog { width: min(540px, calc(100vw - 48px)); }
+
+    .utility-dialog[open] {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+
+    .utility-dialog::backdrop {
+      background: rgba(31, 39, 38, .42);
+      backdrop-filter: blur(3px);
+    }
+
+    .utility-dialog-head,
+    .utility-dialog-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 13px 15px;
+      background: var(--panel-muted);
+    }
+
+    .utility-dialog-head { border-bottom: 1px solid var(--line); }
+    .utility-dialog-foot { border-top: 1px solid var(--line); justify-content: flex-end; }
+    .utility-dialog-head h2 { margin-top: 2px; font-size: 17px; }
+    .utility-dialog-head p { margin-top: 4px; color: var(--muted); font-size: 10px; }
+
+    .utility-dialog-body {
+      min-height: 0;
+      padding: 15px;
+      overflow: auto;
+    }
+
+    .utility-dialog-body > h3,
+    #modalDeviceDetail h3 { margin-bottom: 4px; font-size: 14px; }
+    .utility-dialog-body > p,
+    #modalDeviceDetail > p { margin-bottom: 12px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .settings-grid .choice { margin: 0; min-height: 76px; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 920px) {
+      .app-header { grid-template-columns: 190px minmax(155px, 1fr) auto; gap: 7px; padding-right: 8px; }
+      .brand small { display: none; }
+      .header-button { padding: 0 7px; }
+      .header-button .label { display: none; }
+      .board { grid-template-columns: minmax(0, 1.5fr) 300px; }
+      .agents-body { grid-template-columns: minmax(0, 1fr) 265px; }
+      .table-head, .session-row { grid-template-columns: 27px minmax(175px,1fr) 95px 102px 58px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <button class="brand" id="brandButton" aria-label="回到会话详情">
+        <span class="brand-mark"><span class="brand-mouth"></span></span>
+        <span><strong>AgentDesk</strong><small>PERSONAL AGENT MESH</small></span>
+      </button>
+
+      <div class="header-context">
+        <label class="lens">
+          <span>设备视角</span>
+          <select id="deviceLens" aria-label="设备视角">
+            <option value="all">全部设备</option>
+            <option value="macbook">MacBook Pro · 本机</option>
+            <option value="studio">Mac Studio</option>
+            <option value="windows">Windows GPU · 离线</option>
+          </select>
+        </label>
+      </div>
+
+      <nav class="header-actions" aria-label="打开全局功能弹窗">
+        <button class="remote-chip hidden" id="remoteChip"><span class="remote-dot"></span><span>查看中</span></button>
+        <button class="header-button" data-dialog-target="deviceDialog" aria-haspopup="dialog" aria-controls="deviceDialog" aria-expanded="false"><span class="label">设备</span><span class="count">2</span></button>
+        <button class="header-button" data-dialog-target="toolDialog" aria-haspopup="dialog" aria-controls="toolDialog" aria-expanded="false"><span class="label">工具</span></button>
+        <button class="header-button" data-dialog-target="activityDialog" aria-haspopup="dialog" aria-controls="activityDialog" aria-expanded="false"><span class="label">活动</span><span class="count">3</span></button>
+        <button class="header-button" data-dialog-target="settingsDialog" aria-haspopup="dialog" aria-controls="settingsDialog" aria-expanded="false" aria-label="设置">⚙</button>
+      </nav>
+    </header>
+
+    <main class="board">
+      <section class="panel agents-panel" aria-label="Agent 庭院或卡片">
+        <div class="panel-bar">
+          <div class="panel-heading"><h1>全部 Agent</h1><span id="agentSummary">3 个 Agent · 2 台设备在线</span></div>
+          <div class="bar-actions">
+            <div class="segmented" aria-label="Agent 展示模式">
+              <button class="is-active" data-agent-view="cards">卡片</button>
+              <button data-agent-view="yard">庭院</button>
+            </div>
+            <button class="btn" id="newAgentButton">＋ Agent</button>
+          </div>
+        </div>
+
+        <div class="agents-body">
+          <div class="agent-stage">
+            <div class="agent-cards" id="agentCards">
+              <button class="agent-card is-selected" data-agent="peter">
+                <span class="rank">今日 1</span>
+                <span class="cat"><span class="cat-face"></span></span>
+                <span class="agent-copy"><strong>Peter</strong><span>3 个位置 · 2 在线</span><em>工作中 · 2 路并行</em></span>
+              </button>
+              <button class="agent-card" data-agent="claude">
+                <span class="rank">今日 2</span>
+                <span class="cat slate"><span class="cat-face"></span></span>
+                <span class="agent-copy"><strong>Claude 工作号</strong><span>2 个位置 · 1 在线</span><em style="color:var(--muted)">空闲 · 14 分钟前</em></span>
+              </button>
+              <button class="agent-card" data-agent="kimi">
+                <span class="rank">今日 3</span>
+                <span class="cat gold"><span class="cat-face"></span></span>
+                <span class="agent-copy"><strong>Kimi 素材号</strong><span>1 个位置 · 1 在线</span><em>生成中 · 8 分钟</em></span>
+              </button>
+            </div>
+
+            <div class="yard hidden" id="yardView">
+              <div class="yard-house"></div>
+              <button class="yard-agent is-selected" data-agent="peter"><span class="cat"><span class="cat-face"></span></span><span>Peter</span></button>
+              <button class="yard-agent" data-agent="claude"><span class="cat slate"><span class="cat-face"></span></span><span>Claude 工作号</span></button>
+              <button class="yard-agent" data-agent="kimi"><span class="cat gold"><span class="cat-face"></span></span><span>Kimi 素材号</span></button>
+            </div>
+          </div>
+
+          <aside class="agent-command" aria-label="当前 Agent 操作">
+            <div class="eyebrow">当前 Agent · 动作落到明确运行位置</div>
+            <div class="agent-command-title"><strong id="selectedAgentName">Peter</strong><span class="state-pill" id="selectedAgentState">● 工作中</span></div>
+            <select class="slot-select" id="slotSelect" aria-label="运行位置"></select>
+            <div class="agent-actions">
+              <button class="btn-primary" id="openAgentButton">打开账号</button>
+              <button class="btn" id="manageAgentButton">管理</button>
+              <button class="btn" id="refreshAgentButton">重扫</button>
+            </div>
+            <div class="quota"><span>额度</span><span class="quota-track"><i id="quotaFill"></i></span><strong id="quotaText">72%</strong></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="panel sessions-panel" aria-label="会话列表">
+        <div class="panel-bar">
+          <div class="panel-heading"><h2>会话</h2><span id="sessionCount">5</span></div>
+          <div class="session-bar-tools">
+            <div class="segmented" aria-label="Agent 范围">
+              <button class="is-active" data-scope="current">当前</button>
+              <button data-scope="all">全部</button>
+            </div>
+            <label class="search"><input id="sessionSearch" type="search" placeholder="搜索会话" aria-label="搜索会话"></label>
+            <button class="btn" id="displayButton">显示</button>
+          </div>
+        </div>
+        <div class="session-list" role="table" aria-label="会话列表">
+          <div class="table-head" role="row"><span></span><span>会话 / 项目</span><span>AGENT</span><span>位置</span><span>活跃</span></div>
+          <div id="sessionRows"></div>
+        </div>
+      </section>
+
+      <aside class="panel detail-panel" aria-label="详情">
+        <div class="panel-bar">
+          <div class="panel-heading"><h2 id="detailTitle">详情</h2><span id="detailSubtitle">未选择会话</span></div>
+          <button class="btn-quiet hidden" id="detailBackButton">← 返回</button>
+        </div>
+        <div class="detail-body" id="detailBody"></div>
+        <div class="detail-action-dock" id="detailActionDock" hidden></div>
+      </aside>
+    </main>
+
+    <footer class="app-footer">
+      <div class="footer-state"><span class="mesh-dot"></span><span id="footerStatus">Mesh 已同步 · 2 / 3 设备在线</span></div>
+      <div class="footer-global"><span>今日小账本</span><span>收工 <b>2</b> 次</span><span>·</span><span>陪你干活 <b>116</b> 分钟</span><button class="footer-reminder">🔔 提醒 开</button></div>
+    </footer>
+  </div>
+
+  <dialog class="utility-dialog device-dialog" id="deviceDialog" aria-labelledby="deviceDialogTitle">
+    <header class="utility-dialog-head">
+      <div><small class="detail-eyebrow">PERSONAL MESH</small><h2 id="deviceDialogTitle">设备</h2><p>设备状态、权限与跨设备动作集中在这里。</p></div>
+      <button class="btn" data-dialog-close>关闭</button>
+    </header>
+    <div class="utility-dialog-body">
+      <div class="device-strip" id="modalDeviceStrip"></div>
+      <div id="modalDeviceDetail"></div>
+    </div>
+    <footer class="utility-dialog-foot"><button class="btn" data-dialog-close>完成</button></footer>
+  </dialog>
+
+  <dialog class="utility-dialog" id="toolDialog" aria-labelledby="toolDialogTitle">
+    <header class="utility-dialog-head">
+      <div><small class="detail-eyebrow">LOCAL TOOL CENTER</small><h2 id="toolDialogTitle">工具</h2><p>当前电脑上的工具、版本、路径与更新。</p></div>
+      <button class="btn" data-dialog-close>关闭</button>
+    </header>
+    <div class="utility-dialog-body">
+      <div class="line-item"><span><strong>Codex Desktop</strong><small>1.11.4 · 最新</small></span><button class="btn" data-tool-action>打开</button></div>
+      <div class="line-item"><span><strong>Claude Desktop</strong><small class="warn">0.12.8 可更新</small></span><button class="btn" data-tool-action>更新</button></div>
+      <div class="line-item"><span><strong>GitHub CLI</strong><small>2.78.0 · /opt/homebrew/bin/gh</small></span><button class="btn" data-tool-action>查看</button></div>
+      <div class="line-item"><span><strong>uv</strong><small>0.8.12 · ~/.local/bin/uv</small></span><button class="btn" data-tool-action>查看</button></div>
+    </div>
+    <footer class="utility-dialog-foot"><button class="btn" data-dialog-close>完成</button></footer>
+  </dialog>
+
+  <dialog class="utility-dialog" id="activityDialog" aria-labelledby="activityDialogTitle">
+    <header class="utility-dialog-head">
+      <div><small class="detail-eyebrow">ACTIVITY CENTER</small><h2 id="activityDialogTitle">活动</h2><p>需要处理的提醒和跨设备传输记录。</p></div>
+      <button class="btn" data-dialog-close>关闭</button>
+    </header>
+    <div class="utility-dialog-body">
+      <article class="activity-item"><strong>Peter 的本机登录发生变化</strong><p>Codex CLI 槽位需要确认归属。</p></article>
+      <article class="activity-item"><strong>Windows GPU 已离线 2 天</strong><p>会话仍可查看快照；远端动作已停用。</p><div class="detail-actions"><button class="btn" id="activityOpenDevice">查看设备</button></div></article>
+      <article class="activity-item info"><strong>素材包.zip → Mac Studio</strong><p>正在直连传输 · 384 MB / 600 MB</p><div class="progress"><i></i></div></article>
+      <article class="activity-item done"><strong>2 条会话信息已送达</strong><p>Mac Studio · 今天 10:31 · 目标设备已确认</p></article>
+    </div>
+    <footer class="utility-dialog-foot"><button class="btn" data-dialog-close>完成</button></footer>
+  </dialog>
+
+  <dialog class="utility-dialog settings-dialog" id="settingsDialog" aria-labelledby="settingsDialogTitle">
+    <header class="utility-dialog-head">
+      <div><small class="detail-eyebrow">APPLICATION SETTINGS</small><h2 id="settingsDialogTitle">设置</h2><p>只放应用级偏好，不挤占工作区。</p></div>
+      <button class="btn" data-dialog-close>关闭</button>
+    </header>
+    <div class="utility-dialog-body settings-grid">
+      <button class="choice" data-setting-action><strong>语言</strong><span>中文 / English / 日本語</span></button>
+      <button class="choice" data-setting-action><strong>主题</strong><span>跟随系统 / 浅色 / 深色</span></button>
+      <button class="choice" data-setting-action><strong>应用更新</strong><span>检查 AgentDesk 新版本</span></button>
+      <button class="choice" data-setting-action><strong>帮助与快捷键</strong><span>⌘K 搜索 · Esc 释放输入</span></button>
+    </div>
+    <footer class="utility-dialog-foot"><button class="btn" data-dialog-close>完成</button></footer>
+  </dialog>
+
+  <script>
+    const agents = {
+      peter: {
+        name: "Peter",
+        state: "● 工作中",
+        quota: 72,
+        slots: [
+          "MacBook Pro · Codex Desktop",
+          "Mac Studio · Codex CLI",
+          "Windows GPU · Codex CLI（离线）"
+        ]
+      },
+      claude: {
+        name: "Claude 工作号",
+        state: "● 空闲",
+        quota: 46,
+        slots: ["MacBook Pro · Claude Desktop", "Mac Studio · Claude CLI"]
+      },
+      kimi: {
+        name: "Kimi 素材号",
+        state: "● 生成中",
+        quota: 84,
+        slots: ["MacBook Pro · Kimi Desktop"]
+      }
+    };
+
+    const sessions = [
+      { id: "s1", agent: "peter", title: "AgentDesk 整页工作区重构", project: "AgentDesk", location: "2 个位置", device: "all", time: "刚刚", path: "/Users/hupo/Documents/Skills-AgentDesk/AgentDesk", coordinate: "rollout-019ff3db#L487", slot: "", replicas: 2 },
+      { id: "s2", agent: "peter", title: "Personal Mesh 双端验证", project: "AgentDesk", location: "Mac Studio", device: "studio", time: "18 分", path: "/Users/peter/Projects/AgentDesk", coordinate: "mesh-e2e-31#L204", slot: "Mac Studio · Codex CLI", replicas: 1 },
+      { id: "s3", agent: "claude", title: "检查设备权限与诊断文案", project: "AgentDesk", location: "MacBook Pro", device: "macbook", time: "1 小时", path: "/Users/hupo/Documents/Skills-AgentDesk/AgentDesk", coordinate: "claude-8ad2#L92", slot: "MacBook Pro · Claude Desktop", replicas: 1 },
+      { id: "s4", agent: "kimi", title: "整理产品截图与素材命名", project: "Launch Assets", location: "MacBook Pro", device: "macbook", time: "昨天", path: "/Users/hupo/Documents/LaunchAssets", coordinate: "kimi-assets-114#L18", slot: "MacBook Pro · Kimi Desktop", replicas: 1 },
+      { id: "s5", agent: "peter", title: "Windows 输入 helper 真机清单", project: "AgentDesk", location: "Windows GPU · 快照", device: "windows", time: "2 天", path: "D:\\Projects\\AgentDesk", coordinate: "win-helper-703#L55", slot: "Windows GPU · Codex CLI", replicas: 1, stale: true }
+    ];
+
+    const devices = {
+      macbook: { name: "MacBook Pro", meta: "macOS · 本机", online: true, agents: 3, sessions: 18, load: "34%", memory: "18 / 32 GB", last: "实时" },
+      studio: { name: "Mac Studio", meta: "macOS · 直连", online: true, agents: 2, sessions: 11, load: "18%", memory: "41 / 64 GB", last: "刚刚" },
+      windows: { name: "Windows GPU", meta: "Windows · 离线", online: false, agents: 1, sessions: 7, load: "—", memory: "21 / 64 GB", last: "2 天前" }
+    };
+
+    const state = {
+      agentView: "cards",
+      selectedAgent: "peter",
+      agentScope: "current",
+      deviceLens: "all",
+      focusedSession: null,
+      checkedSessions: new Set(),
+      detailMode: "empty",
+      previousDetailMode: "empty",
+      utilityDialog: null,
+      selectedDevice: "studio",
+      remoteActive: false,
+      remoteControl: false
+    };
+
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+
+    function announce(message) {
+      $("#footerStatus").textContent = message;
+      clearTimeout(announce.timer);
+      announce.timer = setTimeout(() => {
+        $("#footerStatus").textContent = state.remoteActive ? "正在查看 Mac Studio · 输入状态在右侧详情可见" : "Mesh 已同步 · 2 / 3 设备在线";
+      }, 2400);
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
+    }
+
+    function setDetail(mode, remember = true) {
+      if (remember && state.detailMode !== mode) state.previousDetailMode = state.detailMode;
+      state.detailMode = mode;
+      renderDetail();
+    }
+
+    function closeUtilityDialog(dialog) {
+      if (!dialog) return;
+      if (dialog.open) dialog.close();
+      const trigger = $(`[data-dialog-target="${dialog.id}"]`);
+      trigger?.setAttribute("aria-expanded", "false");
+      if (state.utilityDialog === dialog.id) state.utilityDialog = null;
+    }
+
+    function openUtilityDialog(dialogId) {
+      const next = document.getElementById(dialogId);
+      if (!next) return;
+      $$('dialog.utility-dialog[open]').forEach(dialog => closeUtilityDialog(dialog));
+      if (dialogId === "deviceDialog") renderDeviceDialog();
+      next.showModal();
+      state.utilityDialog = dialogId;
+      $(`[data-dialog-target="${dialogId}"]`)?.setAttribute("aria-expanded", "true");
+    }
+
+    function renderDeviceDialog() {
+      const device = devices[state.selectedDevice];
+      $("#modalDeviceStrip").innerHTML = Object.entries(devices).map(([id, item]) => `<button class="device-mini${id === state.selectedDevice ? " is-selected" : ""}" data-modal-device="${id}"><span class="online-dot${item.online ? "" : " offline"}"></span><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.meta)}</span></button>`).join("");
+      $("#modalDeviceDetail").innerHTML = `<h3>${escapeHtml(device.name)}</h3><p>${escapeHtml(device.meta)} · 最近状态 ${escapeHtml(device.last)}</p>
+        <div class="detail-actions"><button class="btn-primary" id="modalDeviceSessions">查看全部会话</button><button class="btn" id="modalDeviceScreen" ${device.online && state.selectedDevice !== "macbook" ? "" : "disabled"}>查看屏幕</button><button class="btn" id="modalDeviceFile" ${device.online && state.selectedDevice !== "macbook" ? "" : "disabled"}>发送文件</button></div>
+        <div class="metric-grid"><div class="metric"><span>AGENT</span><strong>${device.agents}</strong></div><div class="metric"><span>会话</span><strong>${device.sessions}</strong></div><div class="metric"><span>CPU</span><strong>${device.load}</strong></div></div>
+        <div class="line-item"><span><strong>内存</strong><small>${escapeHtml(device.memory)}</small></span><span class="good">${device.online ? "实时" : "快照"}</span></div>
+        <div class="line-item"><span><strong>屏幕与输入</strong><small>分项授权 · 逐次同意</small></span><button class="btn-quiet" data-device-action>权限</button></div>
+        <div class="line-item"><span><strong>添加另一台设备</strong><small>一次性配对短码</small></span><button class="btn-quiet" data-device-action>添加</button></div>`;
+      $$('[data-modal-device]').forEach(button => button.addEventListener("click", () => {
+        state.selectedDevice = button.dataset.modalDevice;
+        renderDeviceDialog();
+      }));
+      $("#modalDeviceSessions").addEventListener("click", () => {
+        state.deviceLens = state.selectedDevice;
+        state.agentScope = "all";
+        state.focusedSession = null;
+        state.checkedSessions.clear();
+        closeUtilityDialog($("#deviceDialog"));
+        renderSessions();
+        announce(`左下已切到 ${device.name} · 全部 Agent 会话`);
+      });
+      $("#modalDeviceScreen").addEventListener("click", () => {
+        state.remoteActive = true;
+        $("#remoteChip").classList.remove("hidden");
+        closeUtilityDialog($("#deviceDialog"));
+        setDetail("remote");
+      });
+      $("#modalDeviceFile").addEventListener("click", () => announce(`已为 ${device.name} 打开发送文件流程`));
+      $$('[data-device-action]', $("#modalDeviceDetail")).forEach(button => button.addEventListener("click", () => announce(`${device.name} · ${button.textContent}`)));
+    }
+
+    function setAgent(agentId) {
+      state.selectedAgent = agentId;
+      $$('[data-agent]').forEach(button => button.classList.toggle("is-selected", button.dataset.agent === agentId));
+      const agent = agents[agentId];
+      $("#selectedAgentName").textContent = agent.name;
+      $("#selectedAgentState").textContent = agent.state;
+      $("#slotSelect").innerHTML = agent.slots.map(slot => `<option>${escapeHtml(slot)}</option>`).join("");
+      $("#quotaText").textContent = `${agent.quota}%`;
+      $("#quotaFill").style.width = `${agent.quota}%`;
+      renderSessions();
+    }
+
+    function visibleSessions() {
+      const query = $("#sessionSearch").value.trim().toLowerCase();
+      return sessions.filter(session => {
+        const scopeMatch = state.agentScope === "all" || session.agent === state.selectedAgent;
+        const lensMatch = state.deviceLens === "all" || session.device === state.deviceLens || session.device === "all";
+        const queryMatch = !query || `${session.title} ${session.project} ${session.coordinate}`.toLowerCase().includes(query);
+        return scopeMatch && lensMatch && queryMatch;
+      });
+    }
+
+    function actionSessionIds() {
+      return state.checkedSessions.size ? [...state.checkedSessions] : state.focusedSession ? [state.focusedSession] : [];
+    }
+
+    function renderSessions() {
+      const rows = visibleSessions();
+      $("#sessionCount").textContent = rows.length;
+      $("#deviceLens").value = state.deviceLens;
+      $$('[data-scope]').forEach(button => button.classList.toggle("is-active", button.dataset.scope === state.agentScope));
+      $("#sessionRows").innerHTML = rows.map(session => {
+        const checked = state.checkedSessions.has(session.id);
+        const focused = state.focusedSession === session.id;
+        return `<div class="session-row${checked ? " is-checked" : ""}${focused ? " is-focused" : ""}" data-session="${session.id}" tabindex="0" role="row">
+          <span><input type="checkbox" data-check="${session.id}" aria-label="选择 ${escapeHtml(session.title)}" ${checked ? "checked" : ""}></span>
+          <span class="conversation"><strong>${escapeHtml(session.title)}</strong><small>${escapeHtml(session.project)}${session.stale ? " · 离线快照" : ""}</small></span>
+          <span class="muted-cell">${escapeHtml(agents[session.agent].name)}</span>
+          <span><span class="location">${escapeHtml(session.location)}</span></span>
+          <span class="muted-cell">${escapeHtml(session.time)}</span>
+        </div>`;
+      }).join("") || `<div class="empty-list"><div><strong>没有匹配会话</strong><br><small>调整设备视角、Agent 范围或搜索词</small></div></div>`;
+      renderSessionActions();
+      if (state.detailMode === "session") renderDetail();
+    }
+
+    function renderSessionActions() {
+      const ids = actionSessionIds();
+      const dock = $("#detailActionDock");
+      if (!ids.length || state.detailMode !== "session") {
+        dock.hidden = true;
+        dock.innerHTML = "";
+        return;
+      }
+      dock.hidden = false;
+      const focused = sessions.find(session => session.id === state.focusedSession);
+      const unresolved = ids.length === 1 && focused?.replicas > 1 && !focused.slot;
+      dock.innerHTML = `<div class="detail-action-summary"><strong>${state.checkedSessions.size ? `已勾选 ${ids.length} 条` : "当前会话"}</strong><button class="btn-quiet" id="detailClear">取消</button></div><div class="detail-action-primary"><button class="btn-primary" id="detailCopy" ${unresolved ? "disabled" : ""}>复制会话信息</button><button class="btn" id="detailSend" ${unresolved ? "disabled" : ""}>发送到设备</button></div>${state.checkedSessions.size ? "" : `<div class="detail-action-secondary"><button class="btn" id="detailReveal" ${unresolved ? "disabled" : ""}>打开当前位置</button><button class="btn-quiet">导出 Markdown</button></div>`}`;
+      $("#detailCopy").addEventListener("click", copySessions);
+      $("#detailSend").addEventListener("click", () => {
+        setDetail("send");
+        announce("发送草稿已在右侧详情打开");
+      });
+      $("#detailClear").addEventListener("click", clearSessionSelection);
+      $("#detailReveal")?.addEventListener("click", () => announce(`将在 ${focused.slot} 打开当前位置`));
+    }
+
+    function copySessions() {
+      const selected = sessions.filter(session => actionSessionIds().includes(session.id));
+      const text = selected.map((session, index) => `${selected.length > 1 ? `${index + 1}.\n` : ""}路径: ${session.path}\n坐标: ${session.path}#${session.coordinate}`).join("\n\n");
+      navigator.clipboard?.writeText(text).catch(() => {});
+      announce(`已复制 ${selected.length} 条会话信息 · 仅路径和坐标`);
+    }
+
+    function clearSessionSelection() {
+      state.focusedSession = null;
+      state.checkedSessions.clear();
+      if (state.detailMode === "session" || state.detailMode === "send") setDetail("empty", false);
+      renderSessions();
+    }
+
+    function setDetailHeader(title, subtitle = "", back = false) {
+      $("#detailTitle").textContent = title;
+      $("#detailSubtitle").textContent = subtitle;
+      $("#detailBackButton").classList.toggle("hidden", !back);
+    }
+
+    function renderDetail() {
+      const body = $("#detailBody");
+      const mode = state.detailMode;
+      renderSessionActions();
+
+      if (mode === "empty") {
+        setDetailHeader("详情", "未选择会话");
+        body.innerHTML = `<div class="detail-empty"><div><div class="empty-sheet"></div><strong>详情只服务当前对象</strong><span>选择会话后显示会话详情；额度与远程画面也只在这里切换。设备、工具、活动和设置使用各自弹窗。</span></div></div>`;
+        return;
+      }
+
+      if (mode === "session") {
+        const session = sessions.find(item => item.id === state.focusedSession);
+        if (!session) { setDetail("empty", false); return; }
+        const unresolved = session.replicas > 1 && !session.slot;
+        setDetailHeader("会话详情", agents[session.agent].name);
+        body.innerHTML = `<div class="detail-eyebrow">CONVERSATION</div><h3>${escapeHtml(session.title)}</h3><div class="meta-list">
+          <div class="meta-row"><span>Agent</span><strong>${escapeHtml(agents[session.agent].name)}</strong></div>
+          <div class="meta-row"><span>运行位置</span>${unresolved ? `<select class="slot-select" id="replicaSelect" style="margin:0"><option value="">选择动作来源…</option><option>MacBook Pro · Codex Desktop</option><option>Mac Studio · Codex CLI</option></select>` : `<span>${escapeHtml(session.slot)}</span>`}</div>
+          <div class="meta-row"><span>项目</span><span>${escapeHtml(session.project)}</span></div>
+          <div class="meta-row"><span>最后活跃</span><span>${escapeHtml(session.time)}</span></div>
+        </div>${unresolved ? `<p class="warn">这条会话有两个副本。先明确来源，底部动作坞中的复制、发送和打开才可用。</p>` : ""}
+        <details class="tech"><summary>技术信息</summary><p>路径：${escapeHtml(session.path)}<br>坐标：${escapeHtml(session.coordinate)}<br>ConversationIdentity：conversation://${session.id}</p></details>`;
+        $("#replicaSelect")?.addEventListener("change", event => {
+          if (!event.target.value) return;
+          session.slot = event.target.value;
+          session.location = event.target.value.startsWith("Mac Studio") ? "Mac Studio" : "MacBook Pro";
+          renderSessions();
+          renderDetail();
+          announce("已明确该会话的动作来源");
+        });
+        return;
+      }
+
+      if (mode === "newAgent") {
+        setDetailHeader("新增", "先明确新增对象", true);
+        body.innerHTML = `<div class="detail-eyebrow">CREATE</div><h3>你要新增什么？</h3><p>三种对象不再混成“新增账号”一个入口。</p><button class="choice" data-create><strong>新建 Agent</strong><span>新的全局身份 / 一只新猫</span></button><button class="choice" data-create><strong>给当前 Agent 关联账号</strong><span>显式添加另一平台 AccountBinding</span></button><button class="choice" data-create><strong>添加本机运行位置</strong><span>为已有登录增加 Desktop / CLI Slot</span></button>`;
+        $$('[data-create]', body).forEach(button => button.addEventListener("click", () => announce(`${button.querySelector("strong").textContent} · 已进入对应流程`)));
+        return;
+      }
+
+      if (mode === "agentManage") {
+        setDetailHeader("Agent 管理", agents[state.selectedAgent].name, true);
+        body.innerHTML = `<div class="detail-eyebrow">GLOBAL AGENT</div><h3>${escapeHtml(agents[state.selectedAgent].name)}</h3><p>名称、猫外观、分组和账号绑定属于全局 Agent；路径、重扫和诊断属于顶部选中的运行位置。</p><div class="line-item"><span><strong>全局名称与外观</strong><small>所有设备共用</small></span><button class="btn">编辑</button></div><div class="line-item"><span><strong>账号绑定</strong><small>${agents[state.selectedAgent].slots.length} 个运行位置</small></span><button class="btn">查看</button></div><div class="line-item"><span><strong>当前运行位置</strong><small>${escapeHtml($("#slotSelect").value)}</small></span><button class="btn">诊断</button></div><div class="line-item"><span><strong>移除或删除</strong><small>位置 / 登录账号 / 整个 Agent 分开</small></span><button class="btn-danger">管理</button></div>`;
+        return;
+      }
+
+      if (mode === "send") {
+        setDetailHeader("发送会话信息", `${actionSessionIds().length} 条`, true);
+        body.innerHTML = `<div class="detail-eyebrow">SESSION POINTER</div><h3>发送到哪台设备？</h3><p>只读取右下动作坞当前集合及其明确副本；不会生成交接话术。</p><button class="choice" data-send-device="studio"><strong>Mac Studio · 在线</strong><span>认证直连 · 立即送达</span></button><button class="choice" data-send-device="windows"><strong>Windows GPU · 离线</strong><span>保存在发送端队列，目标上线后重试</span></button>`;
+        $$('[data-send-device]', body).forEach(button => button.addEventListener("click", () => announce(`会话信息已发送到 ${button.querySelector("strong").textContent.split(" · ")[0]}`)));
+        return;
+      }
+
+      if (mode === "file") {
+        setDetailHeader("发送文件", devices[state.selectedDevice].name, true);
+        body.innerHTML = `<div class="detail-eyebrow">FILE TRANSFER</div><h3>选择本机文件</h3><p>文件草稿独立于会话选择；来源和保存位置都由两端系统选择器确认。</p><div class="detail-actions"><button class="btn-primary" id="chooseFile">选择文件…</button></div><div class="line-item"><span><strong>目标设备</strong><small>不会从 Device Lens 猜测</small></span><span>${escapeHtml(devices[state.selectedDevice].name)}</span></div><div class="line-item"><span><strong>覆盖策略</strong><small>同名文件安全追加序号</small></span><span class="good">不覆盖</span></div>`;
+        $("#chooseFile").addEventListener("click", () => announce("文件选择器将在真实应用中由 Main 打开"));
+        return;
+      }
+
+      if (mode === "remote") {
+        setDetailHeader("远程画面", "Mac Studio · 直连 42 ms", true);
+        body.innerHTML = `<div class="remote-view"><div class="remote-toolbar"><span>Mac Studio · 当前画面</span><div><button id="remoteMode">${state.remoteControl ? "降为查看" : "请求控制"}</button><button id="disconnectRemote">断开</button></div></div><div class="remote-screen"><div class="fake-menu"><strong>Mac Studio</strong><span>AgentDesk · 10:42</span></div><div class="fake-window"><div class="fake-side"><div class="fake-line"></div><div class="fake-line short"></div><div class="fake-line"></div></div><div class="fake-main"><strong>继续 AgentDesk Mesh 实现</strong><div class="fake-code"></div></div></div>${state.remoteControl ? `<div class="input-label">唯一输入目标：Mac Studio · Esc 释放</div>` : ""}</div></div><div class="detail-actions"><button class="btn" id="returnRemote">返回详情并保持查看</button></div><p>“返回”先释放输入但保留画面连接；只有“断开”才结束连接。后台查看会在 Header 直接显示。</p>`;
+        $("#remoteMode").addEventListener("click", () => {
+          state.remoteControl = !state.remoteControl;
+          renderDetail();
+          announce(state.remoteControl ? "Mac Studio 已成为唯一输入目标" : "已释放全部按键，保持仅查看");
+        });
+        $("#returnRemote").addEventListener("click", () => {
+          state.remoteControl = false;
+          setDetail(state.focusedSession ? "session" : "empty", false);
+          announce("已释放输入；画面仍在后台，可从 Header 恢复");
+        });
+        $("#disconnectRemote").addEventListener("click", disconnectRemote);
+      }
+    }
+
+    function disconnectRemote() {
+      state.remoteActive = false;
+      state.remoteControl = false;
+      $("#remoteChip").classList.add("hidden");
+      setDetail(state.focusedSession ? "session" : "empty", false);
+      announce("Mac Studio 远控连接已断开");
+    }
+
+    $$('[data-agent-view]').forEach(button => button.addEventListener("click", () => {
+      state.agentView = button.dataset.agentView;
+      $$('[data-agent-view]').forEach(item => item.classList.toggle("is-active", item === button));
+      $("#agentCards").classList.toggle("hidden", state.agentView !== "cards");
+      $("#yardView").classList.toggle("hidden", state.agentView !== "yard");
+    }));
+
+    $$('[data-agent]').forEach(button => button.addEventListener("click", () => setAgent(button.dataset.agent)));
+    $$('[data-scope]').forEach(button => button.addEventListener("click", () => {
+      state.agentScope = button.dataset.scope;
+      state.focusedSession = null;
+      state.checkedSessions.clear();
+      if (state.detailMode === "session") setDetail("empty", false);
+      renderSessions();
+    }));
+
+    $("#deviceLens").addEventListener("change", event => {
+      state.deviceLens = event.target.value;
+      state.focusedSession = null;
+      state.checkedSessions.clear();
+      if (state.detailMode === "session") setDetail("empty", false);
+      renderSessions();
+      announce(`设备视角：${event.target.selectedOptions[0].text}`);
+    });
+
+    $("#sessionSearch").addEventListener("input", renderSessions);
+    $("#sessionRows").addEventListener("click", event => {
+      const checkbox = event.target.closest('[data-check]');
+      if (checkbox) {
+        event.stopPropagation();
+        checkbox.checked ? state.checkedSessions.add(checkbox.dataset.check) : state.checkedSessions.delete(checkbox.dataset.check);
+        renderSessions();
+        return;
+      }
+      const row = event.target.closest('[data-session]');
+      if (!row) return;
+      state.focusedSession = row.dataset.session;
+      setDetail("session");
+      renderSessions();
+    });
+
+    $("#sessionRows").addEventListener("keydown", event => {
+      if ((event.key === "Enter" || event.key === " ") && event.target.matches('[data-session]')) {
+        event.preventDefault();
+        state.focusedSession = event.target.dataset.session;
+        setDetail("session");
+        renderSessions();
+      }
+    });
+
+    $$('[data-dialog-target]').forEach(button => button.addEventListener("click", () => openUtilityDialog(button.dataset.dialogTarget)));
+    $$('[data-dialog-close]').forEach(button => button.addEventListener("click", () => closeUtilityDialog(button.closest("dialog"))));
+    $$('dialog.utility-dialog').forEach(dialog => {
+      dialog.addEventListener("close", () => {
+        $(`[data-dialog-target="${dialog.id}"]`)?.setAttribute("aria-expanded", "false");
+        if (state.utilityDialog === dialog.id) state.utilityDialog = null;
+      });
+      dialog.addEventListener("click", event => {
+        if (event.target === dialog) closeUtilityDialog(dialog);
+      });
+    });
+    $$('[data-tool-action]').forEach(button => button.addEventListener("click", () => announce(`${button.textContent} · 已调用本机工具动作`)));
+    $$('[data-setting-action]').forEach(button => button.addEventListener("click", () => announce(`${button.querySelector("strong").textContent} · 设置流程已打开`)));
+    $("#activityOpenDevice").addEventListener("click", () => {
+      state.selectedDevice = "windows";
+      closeUtilityDialog($("#activityDialog"));
+      openUtilityDialog("deviceDialog");
+    });
+    $("#detailBackButton").addEventListener("click", () => {
+      const fallback = state.previousDetailMode && state.previousDetailMode !== state.detailMode ? state.previousDetailMode : "empty";
+      setDetail(fallback, false);
+    });
+    $("#brandButton").addEventListener("click", () => setDetail(state.focusedSession ? "session" : "empty"));
+    $("#remoteChip").addEventListener("click", () => setDetail("remote"));
+
+    $("#newAgentButton").addEventListener("click", () => setDetail("newAgent"));
+    $("#openAgentButton").addEventListener("click", () => announce(`将在 ${$("#slotSelect").value} 打开账号`));
+    $("#manageAgentButton").addEventListener("click", () => setDetail("agentManage"));
+    $("#refreshAgentButton").addEventListener("click", () => announce(`已请求重扫 ${$("#slotSelect").value}`));
+    $("#displayButton").addEventListener("click", () => announce("显示设置属于会话面板，不会新增一行"));
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && state.remoteControl) {
+        state.remoteControl = false;
+        if (state.detailMode === "remote") renderDetail();
+        announce("已释放全部远端输入，画面保持连接");
+      }
+    });
+
+    setAgent("peter");
+    renderSessions();
+    renderDetail();
+  </script>
+</body>
+</html>

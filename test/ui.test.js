@@ -3,34 +3,36 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-test('更新按钮位于两种视图都可见的全局命令栏', () => {
+test('更新按钮归入独立设置弹窗，Header 只保留四个直接入口', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const toolbarStart = html.indexOf('<nav class="topbar-actions"');
   const toolbarEnd = html.indexOf('</nav>', toolbarStart);
+  const settingsStart = html.indexOf('id="settingsDialog"');
+  const settingsEnd = html.indexOf('</dialog>', settingsStart);
   const updateButton = html.indexOf('id="updateBtn"');
 
   assert.notEqual(toolbarStart, -1);
   assert.notEqual(toolbarEnd, -1);
-  assert.ok(updateButton > toolbarStart && updateButton < toolbarEnd);
-  assert.match(html.slice(toolbarStart, toolbarEnd), /id="updateBtn"[^>]*>↻ <span data-i18n="topbar\.update">更新<\/span><\/button>/);
+  assert.match(html.slice(toolbarStart, toolbarEnd), /id="deviceCenterBtn"[\s\S]*?id="toolCenterBtn"[\s\S]*?id="activityCenterBtn"[\s\S]*?id="settingsBtn"/);
+  assert.doesNotMatch(html.slice(toolbarStart, toolbarEnd), /id="updateBtn"|globalMoreMenu/);
+  assert.ok(updateButton > settingsStart && updateButton < settingsEnd);
 });
 
-test('统一骨架：单列 顶栏/呈现层/账号控制条/工作区/状态栏，两视图共用（侧栏与 workspace 包裹层已移除）', () => {
+test('1.11 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下会话/右下详情三个面板', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
   const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
-  // 旧侧栏 + workspace / workspace-panel 包裹层移除
+  // 旧侧栏和七行信息轨移除；主区只保留三个固定面板。
   assert.doesNotMatch(html, /class="sidebar"/);
-  assert.doesNotMatch(html, /class="workspace-panel"/);
-  // 账号呈现层：庭院场景 + 经典账号名册同处一个 presenter 槽
-  assert.match(html, /<section class="presenter">[\s\S]*?id="yardStage"[\s\S]*?id="accountRoster"[\s\S]*?<\/section>/);
-  // app-shell 单列 7 行骨架（顶栏/呈现层/控制条/需要留意/全院额度/工作区/状态栏）
-  assert.match(styles, /\.app-shell \{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*48px auto auto auto auto minmax\(0, 1fr\) 28px/);
+  assert.match(html, /<header class="app-topbar">[\s\S]*?<main id="mainGrid" class="workspace-board"[\s\S]*?id="agentPanel" class="workspace-panel agent-panel"[\s\S]*?id="sessionPane" class="workspace-panel session-pane"[\s\S]*?id="detailPanel" class="workspace-panel detail-panel"[\s\S]*?<footer id="statusBar"/);
+  const board = html.slice(html.indexOf('<main id="mainGrid"'), html.indexOf('</main>'));
+  assert.equal((board.match(/class="workspace-panel /g) || []).length, 3);
+  assert.match(html, /id="agentPanel"[\s\S]*?<section class="presenter">[\s\S]*?id="yardStage"[\s\S]*?id="accountRoster"[\s\S]*?class="account-bar"/);
+  assert.match(styles, /\.app-shell\s*\{[\s\S]*?grid-template:\s*60px minmax\(0, 1fr\) 42px \/ minmax\(0, 1fr\)/);
+  assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 340px;[\s\S]*?grid-template-rows:\s*220px minmax\(0, 1fr\)/);
   // 经典视图显示账号名册（庭院视图隐藏、由场景呈现）
   assert.match(styles, /body\[data-view="classic"\] \.account-roster \{[\s\S]*?display:\s*grid/);
-  // main-grid 回到基础层 [会话表 | 会话详情]，不再 display:contents 解包
-  assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.main-grid \{\s*display: contents/);
-  // 状态栏由统一骨架固定在第 7 行；庭院皮肤不能再把它拉回第 3 行盖住账号控制条。
+  assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.workspace-board \{\s*display: contents/);
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.status-bar \{[^}]*grid-row:\s*3/);
 });
 
@@ -54,7 +56,7 @@ test('会话浏览支持只用于明确定位动作的轻量选择，复制主�
   assert.match(renderer, /state\.ui\.agentScope === 'all'[\s\S]*?identityGroups\(\)/);
   assert.match(renderer, /_profileId:\s*member\.id/);
   assert.match(renderer, /_accountKey:\s*accountKey/);
-  assert.match(html, /id="copySessionInfoBtn" class="session-copy-info"[^>]*data-i18n="session\.copyInfo">复制会话信息<\/button>/);
+  assert.match(html, /id="copySessionInfoBtn" class="session-copy-info primary"[^>]*data-i18n="session\.copyInfo">复制会话信息<\/button>/);
   assert.match(styles, /\.session-copy-info \{[\s\S]*?min-width:\s*148px;[\s\S]*?height:\s*36px;[\s\S]*?background:\s*var\(--accent\)/);
   assert.match(styles, /\.session-copy-info::before \{[\s\S]*?content:\s*"⧉"/);
   assert.doesNotMatch(html, /copySessionLocationBtn|session-copy-location/);
@@ -128,13 +130,19 @@ test('经典视图切换后庭院画布必须隐藏：[hidden] 要压过 display
   assert.match(yardCss, /\.yard-stage\[hidden\]\s*\{\s*display:\s*none/);
 });
 
-test('经典工作台信息轨四个子块：会话主区固定占弹性行，不与全院额度叠格', () => {
+test('右下只留会话、额度与远控；活动独立弹窗，Footer 只保留全局陪伴状态', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
-  // 账号条 / 需要留意 / 全院额度 / 会话主区 = 四个子块。只给三行时 main-grid 掉进
-  // 隐式 auto 行，1fr 行被算成 0px，全院额度直接压在会话表头上（实测两者 top 同为 305）。
-  assert.match(styles, /\.workspace-panel\s*\{[\s\S]*?grid-template-rows:\s*repeat\(3, auto\) minmax\(0, 1fr\)/);
-  // main-grid pin 到第 4 行：attention/quota 任一收起（display:none）时会话主区仍拿弹性行。
-  assert.match(styles, /\.workspace-panel > \.main-grid\s*\{\s*grid-row:\s*4/);
+  const detail = html.slice(html.indexOf('id="detailPanel"'), html.indexOf('</main>'));
+  const footer = html.slice(html.indexOf('<footer id="statusBar"'), html.indexOf('</footer>'));
+  assert.doesNotMatch(detail, /detailSurfaceDevices|detailSurfaceTools|detailSurfaceActivity|detailSurfaceSettings|attentionInbox/);
+  assert.match(detail, /id="detailSurfaceQuota"[\s\S]*?id="quotaSummary"[\s\S]*?id="quotaOverview"/);
+  assert.match(html, /id="activityCenterDialog"[\s\S]*?id="attentionInbox"[\s\S]*?id="attentionItems"/);
+  assert.match(detail, /id="sessionActionDock"[\s\S]*?id="sessionSelectionBar"[\s\S]*?id="copySessionInfoBtn"[\s\S]*?id="sendSessionInfoBtn"[\s\S]*?id="sessionFocusedActions"[\s\S]*?id="openSessionFileBtn"[\s\S]*?id="exportSessionBtn"/);
+  assert.match(footer, /id="statusText"[\s\S]*?id="ledgerDone"[\s\S]*?id="ledgerMin"[\s\S]*?id="reminderToggle"/);
+  assert.doesNotMatch(footer, /sessionSelectionBar|copySessionInfoBtn|sendSessionInfoBtn/);
+  assert.doesNotMatch(html, /id="yardLedger"/);
+  assert.match(styles, /\.detail-surface\[hidden\]\s*\{\s*display:\s*none !important/);
 });
 
 test('自动氛围和语义拖放模块都在 scene 前加载', () => {
@@ -289,12 +297,16 @@ test('庭院画布纵向扩展：前景草坪带同步到画布/交互/HTML 三�
   assert.match(scene, /drawGround\(P\);\s*drawForeground\(P\);/);
 });
 
-test('工具维护入口在顶栏全局操作区 + 新增账号落盘链完整', () => {
+test('工具入口打开独立模态弹窗 + 新增账号落盘链完整', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
-  assert.match(html, /class="topbar-actions"[\s\S]*?id="toolCenterBtn"[\s\S]*?id="helpBtn"/);
-  assert.match(renderer, /toolCenterBtn\?\.addEventListener\('click'[\s\S]{0,180}?toolCenterDialog\.showModal\(\)/);
+  assert.match(html, /class="topbar-actions"[\s\S]*?id="toolCenterBtn"[\s\S]*?id="activityCenterBtn"[\s\S]*?id="settingsBtn"/);
+  assert.match(html, /id="toolCenterBtn"[^>]*aria-controls="toolCenterDialog"/);
+  assert.doesNotMatch(html, /id="detailSurfaceTools"/);
+  assert.match(renderer, /toolCenterBtn\?\.addEventListener\('click'[\s\S]{0,220}?openUtilityDialog\('tools'\)/);
+  assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?dialog\.showModal\(\)/);
+  assert.doesNotMatch(renderer, /detailSurfaceTools|toolCenterDialog\.show\(\)/);
   // 新增账号：表单 → addProfile → profiles:add → saveProfiles 落盘
   assert.match(renderer, /window\.manager\.addProfile\(\{[\s\S]{0,120}?name,/);
   assert.match(main, /ipcMain\.handle\('profiles:add'[\s\S]*?profiles\.push\(profile\);\s*\n\s*saveProfiles\(profiles\);/);

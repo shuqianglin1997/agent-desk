@@ -14,256 +14,208 @@
           <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
           <span><b>AgentDesk</b><small data-i18n="app.tagline">LOCAL ACCOUNT DESK</small></span>
         </div>
-        <p id="topbarContext" class="topbar-context">猫猫庭院 · 本地账号与会话</p>
+        <div class="topbar-lens">
+          <span id="topbarContext" class="visually-hidden" aria-live="polite"></span>
+          <select id="deviceLensSelect" class="device-lens-select" data-i18n-aria="devices.lens.label" aria-label="设备视角" hidden></select>
+        </div>
         <nav class="topbar-actions" data-i18n-aria="aria.topbarActions" aria-label="全局操作">
           <button id="remoteActivityBtn" class="remote-activity-btn" type="button" hidden aria-live="polite"></button>
-          <select id="deviceLensSelect" class="device-lens-select" data-i18n-aria="devices.lens.label" aria-label="设备视角" hidden></select>
-          <button id="deviceCenterBtn" type="button" data-i18n-title="topbar.devices.title">⌁ <span data-i18n="topbar.devices">设备</span><b id="deviceCountBadge" class="device-count-badge" hidden>0</b></button>
-          <details id="globalMoreMenu" class="global-more context-menu">
-            <summary data-i18n-title="topbar.more.title"><span aria-hidden="true">•••</span><span data-i18n="topbar.more">更多</span></summary>
-            <div class="topbar-more-menu context-menu-panel">
-              <button id="leaderboardBtn" type="button" data-i18n-title="topbar.leaderboard.title">🏆 <span data-i18n="topbar.leaderboard">排行</span></button>
-              <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">更新</span></button>
-              <button id="toolCenterBtn" type="button" data-i18n-title="topbar.tools.title">🧰 <span data-i18n="topbar.tools">工具</span></button>
-              <button id="transferCenterBtn" type="button">⇄ <span data-i18n="transfers.center.action">传输记录</span></button>
-              <span class="context-menu-divider" aria-hidden="true"></span>
-              <button id="helpBtn" type="button" data-i18n-title="topbar.help.title">? <span data-i18n="topbar.help">使用说明</span></button>
-              <button id="langToggle" type="button" data-i18n-title="topbar.lang.title">文</button>
-              <button id="themeToggle" type="button" data-i18n-title="topbar.theme.title">◐ <span data-i18n="topbar.theme">外观</span></button>
-            </div>
-          </details>
+          <button id="deviceCenterBtn" class="topbar-nav-button" type="button" data-dialog-target="devices" aria-haspopup="dialog" aria-controls="deviceCenterDialog" aria-expanded="false" data-i18n-title="topbar.devices.title">⌁ <span data-i18n="topbar.devices">设备</span><b id="deviceCountBadge" class="device-count-badge" hidden>0</b></button>
+          <button id="toolCenterBtn" class="topbar-nav-button" type="button" data-dialog-target="tools" aria-haspopup="dialog" aria-controls="toolCenterDialog" aria-expanded="false" data-i18n-title="topbar.tools.title">◇ <span data-i18n="topbar.tools">工具</span></button>
+          <button id="activityCenterBtn" class="topbar-nav-button" type="button" data-dialog-target="activity" aria-haspopup="dialog" aria-controls="activityCenterDialog" aria-expanded="false" data-i18n-title="topbar.activity.title">◎ <span data-i18n="topbar.activity">活动</span><b id="activityCountBadge" class="activity-count-badge" hidden>0</b></button>
+          <button id="settingsBtn" class="topbar-nav-button" type="button" data-dialog-target="settings" aria-haspopup="dialog" aria-controls="settingsDialog" aria-expanded="false" data-i18n-title="topbar.settings.title">⚙ <span data-i18n="topbar.settings">设置</span></button>
         </nav>
       </header>
 
-      <section class="presenter">
-        <header class="presenter-head">
-          <div><span data-i18n="presenter.title">AGENTS</span><b id="presenterCount">0</b></div>
-          <button id="viewToggle" type="button" data-i18n-title="topbar.view.title">⇄ <span id="viewToggleLabel" data-i18n="topbar.toYard">庭院</span></button>
-        </header>
-        <section id="yardStage" class="yard-stage" hidden>
-          <div class="yard-frame">
-            <div class="yard-scene">
-              <canvas id="yardCanvas" width="480" height="236" data-i18n-aria="aria.yardCanvas" aria-label="猫猫庭院：每只猫是一个账号，点击选中"></canvas>
-              <div id="yardOverlay" class="yard-overlay"></div>
+      <main id="mainGrid" class="workspace-board" data-workspace="sessions" data-detail="session">
+        <section id="agentPanel" class="workspace-panel agent-panel">
+          <header class="presenter-head">
+            <div><span data-i18n="presenter.title">AGENTS</span><b id="presenterCount">0</b></div>
+            <div class="agent-panel-tools">
+              <button id="leaderboardBtn" type="button" data-i18n-title="topbar.leaderboard.title">🏆 <span data-i18n="topbar.leaderboard">排行</span></button>
+              <button id="viewToggle" type="button" data-i18n-title="topbar.view.title">⇄ <span id="viewToggleLabel" data-i18n="topbar.toYard">庭院</span></button>
             </div>
-            <!-- 时间行常驻（原型单行）；天气行默认收起，⛅ 展开 -->
-            <div class="yard-atmos">
-              <div class="atmos-line">
-                <div class="atmos-row" id="atmosTime" role="group" data-i18n-aria="yard.atmos.time" aria-label="时间">
-                  <button type="button" data-time="auto" data-i18n="yard.time.auto">跟随</button>
-                  <button type="button" data-time="day" data-i18n="yard.time.day">白天</button>
-                  <button type="button" data-time="dusk" data-i18n="yard.time.dusk">黄昏</button>
-                  <button type="button" data-time="night" data-i18n="yard.time.night">夜晚</button>
+          </header>
+          <div class="agent-panel-body">
+            <section class="presenter">
+              <section id="yardStage" class="yard-stage" hidden>
+                <div class="yard-frame">
+                  <div class="yard-scene">
+                    <canvas id="yardCanvas" width="480" height="236" data-i18n-aria="aria.yardCanvas" aria-label="猫猫庭院：每只猫是一个账号，点击选中"></canvas>
+                    <div id="yardOverlay" class="yard-overlay"></div>
+                  </div>
+                  <div class="yard-atmos">
+                    <div class="atmos-line">
+                      <div class="atmos-row" id="atmosTime" role="group" data-i18n-aria="yard.atmos.time" aria-label="时间">
+                        <button type="button" data-time="auto" data-i18n="yard.time.auto">跟随</button>
+                        <button type="button" data-time="day" data-i18n="yard.time.day">白天</button>
+                        <button type="button" data-time="dusk" data-i18n="yard.time.dusk">黄昏</button>
+                        <button type="button" data-time="night" data-i18n="yard.time.night">夜晚</button>
+                      </div>
+                      <button type="button" id="atmosWeatherToggle" class="atmos-more" aria-expanded="false" data-i18n-title="yard.weather.title" title="天气设置">⛅</button>
+                    </div>
+                    <div class="atmos-row" id="atmosWeather" role="group" data-i18n-aria="yard.atmos.weather" aria-label="天气" hidden>
+                      <button type="button" data-weather="auto" data-i18n="yard.weather.auto">自动</button>
+                      <button type="button" data-weather="clear" data-i18n="yard.weather.clear">晴</button>
+                      <button type="button" data-weather="cloudy" data-i18n="yard.weather.cloudy">多云</button>
+                      <button type="button" data-weather="rain" data-i18n="yard.weather.rain">雨</button>
+                      <button type="button" data-weather="snow" data-i18n="yard.weather.snow">雪</button>
+                    </div>
+                  </div>
                 </div>
-                <button type="button" id="atmosWeatherToggle" class="atmos-more" aria-expanded="false" data-i18n-title="yard.weather.title" title="天气设置">⛅</button>
+              </section>
+              <div id="accountRoster" class="account-roster" data-i18n-aria="aria.roster" aria-label="账号名册（经典视图）"></div>
+            </section>
+
+            <section class="account-bar" aria-label="当前 Agent 操作">
+              <div class="account-id" id="accountId">
+                <span class="account-control-kicker" data-i18n="account.current">CURRENT AGENT</span>
+                <h2 id="accountTitle">未选择账号</h2>
+                <span id="accountBadge" class="account-badge" hidden></span>
               </div>
-              <div class="atmos-row" id="atmosWeather" role="group" data-i18n-aria="yard.atmos.weather" aria-label="天气" hidden>
-                <button type="button" data-weather="auto" data-i18n="yard.weather.auto">自动</button>
-                <button type="button" data-weather="clear" data-i18n="yard.weather.clear">晴</button>
-                <button type="button" data-weather="cloudy" data-i18n="yard.weather.cloudy">多云</button>
-                <button type="button" data-weather="rain" data-i18n="yard.weather.rain">雨</button>
-                <button type="button" data-weather="snow" data-i18n="yard.weather.snow">雪</button>
+              <label id="formSwitcher" class="form-switcher" hidden>
+                <span class="form-switcher-label" data-i18n="account.form">形态</span>
+                <select id="formSelect" data-i18n-title="account.form.title" title="这个账号有多个客户端形态；切换后 打开 / 编辑 / 移除 / 诊断 / 位置 / 额度 都作用于所选形态"></select>
+              </label>
+              <div class="account-actions" id="accountActions">
+                <button id="launchBtn" class="primary" data-i18n="account.open">打开账号</button>
+                <button id="addProfileBtn" data-i18n="account.add">新增</button>
+                <details id="accountManage" class="account-manage context-menu">
+                  <summary data-i18n="account.manage">管理</summary>
+                  <div id="yardManageActions" class="account-manage-menu context-menu-panel">
+                    <button id="pathConfigBtn" data-i18n="account.path">路径</button>
+                    <button id="diagnosticsBtn" data-i18n="account.diagnostics">诊断</button>
+                    <button id="refreshBtn" data-i18n="account.refresh">重扫</button>
+                    <span class="context-menu-divider" aria-hidden="true"></span>
+                    <button id="manageAgentRelationsBtn" data-i18n="account.relations" hidden>Agent 关系</button>
+                    <button id="editProfileBtn" data-i18n="account.edit">编辑</button>
+                    <button id="removeProfileBtn" data-i18n="account.remove">移除</button>
+                    <button id="profileFolderBtn" data-i18n="account.folder">位置</button>
+                  </div>
+                </details>
               </div>
-            </div>
-            <div class="yard-ledger" id="yardLedger">
-              <span class="ledger-title" data-i18n="ledger.title">今日小账本</span>
-              <span class="ledger-stat"><span data-i18n="ledger.donePre">收工 </span><b id="ledgerDone">0</b><span data-i18n="ledger.doneSuf"> 次</span></span>
-              <span class="ledger-sep">·</span>
-              <span class="ledger-stat"><span data-i18n="ledger.minPre">陪你干活 </span><b id="ledgerMin">0</b><span data-i18n="ledger.minSuf"> 分钟</span></span>
-              <span class="ledger-spacer"></span>
-              <button id="reminderToggle" class="ledger-toggle" type="button" aria-pressed="true" data-i18n-title="reminder.title" title="休息提醒（伸懒腰 / 收工播报）总开关">🔔 提醒 开</button>
-            </div>
-          </div>
-        </section>
-        <div id="accountRoster" class="account-roster" data-i18n-aria="aria.roster" aria-label="账号名册（经典视图）"></div>
-      </section>
-
-      <!-- 账号控制条（统一设计）：单行 = 名牌+徽章 ｜ 操作 ｜ 额度 chips。
-           长路径 / 备注 / 上次打开收进名牌 tooltip 与「路径/诊断」弹窗；
-           额度 Beta 详情块与全院总览默认收起，点击对应 chip 展开。 -->
-      <section class="account-bar">
-          <div class="account-id" id="accountId">
-            <h2 id="accountTitle">未选择账号</h2>
-            <span id="accountBadge" class="account-badge" hidden></span>
-          </div>
-
-          <!-- 组内形态切换：一个 Agent 有多个客户端形态或设备位置时，
-               卡片/猫只选中全局 Agent；这里把 UiContext 的 selectedSlotKey 切到确切运行位置，
-               打开/诊断/路径/位置/额度刷新再由该 Slot 解析。两视图共用这条控制条。 -->
-          <label id="formSwitcher" class="form-switcher" hidden>
-            <span class="form-switcher-label" data-i18n="account.form">形态</span>
-            <select id="formSelect" data-i18n-title="account.form.title" title="这个账号有多个客户端形态；切换后 打开 / 编辑 / 移除 / 诊断 / 位置 / 额度 都作用于所选形态"></select>
-          </label>
-
-          <div class="account-actions" id="accountActions">
-            <button id="launchBtn" class="primary" data-i18n="account.open">打开账号</button>
-            <button id="addProfileBtn" data-i18n="account.add">新增</button>
-            <details id="accountManage" class="account-manage context-menu">
-              <summary data-i18n="common.more">更多</summary>
-              <div id="yardManageActions" class="account-manage-menu context-menu-panel">
-                <button id="pathConfigBtn" data-i18n="account.path">路径</button>
-                <button id="diagnosticsBtn" data-i18n="account.diagnostics">诊断</button>
-                <button id="refreshBtn" data-i18n="account.refresh">重扫</button>
-                <span class="context-menu-divider" aria-hidden="true"></span>
-                <button id="manageAgentRelationsBtn" data-i18n="account.relations" hidden>Agent 关系</button>
-                <button id="editProfileBtn" data-i18n="account.edit">编辑</button>
-                <button id="removeProfileBtn" data-i18n="account.remove">移除</button>
-                <button id="profileFolderBtn" data-i18n="account.folder">位置</button>
+              <div class="quota-chips">
+                <button id="quotaChipSelf" class="quota-chip" type="button" aria-controls="quotaSummary" aria-expanded="false" data-i18n-title="quota.self.title"><span data-i18n="quota.self">本号</span> <span class="mtr"><i></i></span><b>—</b></button>
+                <button id="quotaChipAll" class="quota-chip" type="button" aria-controls="quotaOverview" aria-expanded="false" data-i18n-title="quota.all.title"><span data-i18n="quota.all">全院</span> <span class="mtr"><i></i></span><b>—</b></button>
               </div>
-            </details>
-          </div>
-
-          <div class="quota-chips">
-            <button id="quotaChipSelf" class="quota-chip" type="button" aria-controls="quotaSummary" aria-expanded="false" data-i18n-title="quota.self.title" title="本号额度 · 点击展开详情"><span data-i18n="quota.self">本号</span> <span class="mtr"><i></i></span><b>—</b></button>
-            <button id="quotaChipAll" class="quota-chip" type="button" aria-controls="quotaOverview" aria-expanded="false" data-i18n-title="quota.all.title" title="全院额度 · 点击展开总览"><span data-i18n="quota.all">全院</span> <span class="mtr"><i></i></span><b>—</b></button>
-          </div>
-
-          <div class="account-quota-detail">
-            <section id="quotaSummary" class="quota-summary" data-i18n-aria="aria.quotaSummary" aria-label="账号额度" aria-live="polite" hidden>
-              <div class="quota-summary-head">
-                <span class="quota-kicker" data-i18n="quota.kicker">额度 Beta</span>
-                <span id="quotaPlan" class="quota-plan"></span>
-                <span id="quotaStateBadge" class="quota-state-badge">等待查询</span>
-                <button id="quotaRefreshBtn" class="quota-refresh" type="button" data-i18n-title="quota.refresh.title" title="从官方服务刷新额度" data-i18n="quota.refresh">↻ 刷新额度</button>
+              <div class="account-legacy" hidden aria-hidden="true">
+                <p id="accountMeta"></p><code id="accountPath"></code><p id="accountNote" class="account-note"></p>
               </div>
-              <div id="quotaMeters" class="quota-meters"></div>
-              <p id="quotaMessage" class="quota-message"></p>
             </section>
           </div>
+        </section>
 
-          <div class="account-legacy" hidden aria-hidden="true">
-            <p id="accountMeta"></p>
-            <code id="accountPath"></code>
-            <p id="accountNote" class="account-note"></p>
+        <section id="sessionPane" class="workspace-panel session-pane">
+          <div class="session-toolbar">
+            <div class="session-toolbar-main">
+              <div class="session-heading">
+                <h3 data-i18n="session.title">会话</h3>
+                <span id="sessionCount">0 个</span>
+              </div>
+              <div class="session-toolbar-controls">
+                <div class="session-segment" role="group" data-i18n-aria="aria.sessionScope" aria-label="会话范围">
+                  <button id="sessionScopeCurrentBtn" type="button" aria-pressed="true" data-i18n="session.scope.current">本账号</button>
+                  <button id="sessionScopeAllBtn" type="button" aria-pressed="false" data-i18n="session.scope.all">全部账号</button>
+                </div>
+                <input id="searchInput" type="search" data-i18n-placeholder="session.search" placeholder="搜索会话、账号或 ID" />
+                <details id="sessionDisplayMenu" class="session-display-menu context-menu">
+                  <summary><span data-i18n="session.display">显示</span><b id="sessionDisplayLabel" data-i18n="session.view.compact">精简</b></summary>
+                  <div class="session-display-options context-menu-panel" role="group" data-i18n-aria="aria.sessionView" aria-label="会话列表视图">
+                    <button id="sessionCompactBtn" type="button" aria-pressed="true" data-i18n="session.view.compact">精简</button>
+                    <button id="sessionDetailBtn" type="button" aria-pressed="false" data-i18n="session.view.detail">详细</button>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="sessionTable" class="session-table" data-mode="compact">
+              <thead id="sessionHead">
+                <tr>
+                  <th class="col-select"></th>
+                  <th class="col-title" data-i18n="session.col.title">标题</th>
+                  <th data-i18n="session.col.active">活跃</th>
+                  <th class="col-project" data-i18n="session.col.project">项目目录</th>
+                  <th data-i18n="session.col.source">来源</th>
+                </tr>
+              </thead>
+              <tbody id="sessionRows"></tbody>
+            </table>
           </div>
         </section>
 
-        <section id="attentionInbox" class="attention-inbox" aria-live="polite" hidden>
-          <header>
-            <div><span data-i18n="attention.kicker">ATTENTION</span><b data-i18n="attention.title">需要留意</b></div>
-            <strong id="attentionCount">0</strong>
-          </header>
-          <div id="attentionItems" class="attention-items"></div>
-        </section>
-
-        <section id="quotaOverview" class="quota-overview" data-i18n-aria="aria.quotaOverview" aria-label="跨账号额度总览" hidden>
-          <header>
-            <div><span data-i18n="quotaMap.kicker">QUOTA MAP</span><b data-i18n="quotaMap.title">全院额度</b></div>
-            <small id="quotaOverviewMeta"></small>
-          </header>
-          <ul id="quotaOverviewList" class="quota-overview-list"></ul>
-        </section>
-
-        <div id="mainGrid" class="main-grid" data-workspace="sessions">
-          <section id="sessionPane" class="session-pane">
-            <div class="session-toolbar">
-              <div class="session-toolbar-main">
-                <div class="session-heading">
-                  <h3 data-i18n="session.title">会话</h3>
-                  <span id="sessionCount">0 个</span>
-                </div>
-                <div class="session-toolbar-controls">
-                  <div class="session-segment" role="group" data-i18n-aria="aria.sessionScope" aria-label="会话范围">
-                    <button id="sessionScopeCurrentBtn" type="button" aria-pressed="true" data-i18n="session.scope.current">本账号</button>
-                    <button id="sessionScopeAllBtn" type="button" aria-pressed="false" data-i18n="session.scope.all">全部账号</button>
-                  </div>
-                  <input id="searchInput" type="search" data-i18n-placeholder="session.search" placeholder="搜索会话、账号或 ID" />
-                  <details id="sessionDisplayMenu" class="session-display-menu context-menu">
-                    <summary><span data-i18n="session.display">显示</span><b id="sessionDisplayLabel" data-i18n="session.view.compact">精简</b></summary>
-                    <div class="session-display-options context-menu-panel" role="group" data-i18n-aria="aria.sessionView" aria-label="会话列表视图">
-                      <button id="sessionCompactBtn" type="button" aria-pressed="true" data-i18n="session.view.compact">精简</button>
-                      <button id="sessionDetailBtn" type="button" aria-pressed="false" data-i18n="session.view.detail">详细</button>
-                    </div>
-                  </details>
-                </div>
-              </div>
-              <div id="sessionSelectionBar" class="session-selection-bar" hidden>
-                <div class="session-selection-summary">
-                  <strong id="sessionSelectionCount">已选择 0 项</strong>
-                  <button id="clearSessionSelectionBtn" type="button" data-i18n="session.selection.clear">取消选择</button>
-                </div>
-                <p id="sessionSelectionIssue" class="session-selection-issue" hidden></p>
-                <div class="session-selection-actions">
-                  <button id="copySessionInfoBtn" class="session-copy-info" type="button" disabled data-i18n="session.copyInfo">复制会话信息</button>
-                  <button id="sendSessionInfoBtn" class="session-send-info" type="button" disabled data-i18n="session.sendInfo">发送到设备</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="table-wrap">
-              <table id="sessionTable" class="session-table" data-mode="compact">
-                <thead id="sessionHead">
-                  <tr>
-                    <th class="col-select"></th>
-                    <th class="col-title" data-i18n="session.col.title">标题</th>
-                    <th data-i18n="session.col.active">活跃</th>
-                    <th class="col-project" data-i18n="session.col.project">项目目录</th>
-                    <th data-i18n="session.col.source">来源</th>
-                  </tr>
-                </thead>
-                <tbody id="sessionRows"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <aside id="sessionInspector" class="inspector">
+        <aside id="detailPanel" class="workspace-panel detail-panel">
+          <aside id="sessionInspector" class="inspector detail-surface" data-detail-surface="session">
             <header class="inspector-head">
               <span data-i18n="detail.title">会话详情</span>
               <h3 id="detailTitle">未选择</h3>
             </header>
             <div class="inspector-body">
               <section id="sessionReplicaPicker" class="session-replica-picker" hidden>
-                <header>
-                  <strong data-i18n="session.replica.title">选择操作来源</strong>
-                  <small data-i18n="session.replica.hint">这条会话存在于多个位置。复制、发送或打开前，请确认使用哪一个副本。</small>
-                </header>
+                <header><strong data-i18n="session.replica.title">选择操作来源</strong><small data-i18n="session.replica.hint">这条会话存在于多个位置。复制、发送或打开前，请确认使用哪一个副本。</small></header>
                 <div id="sessionReplicaOptions" class="session-replica-options"></div>
               </section>
               <dl class="inspector-primary-fields">
-                <dt data-i18n="detail.field.agent">Agent</dt>
-                <dd id="detailAccount">-</dd>
-                <dt data-i18n="detail.field.location">运行位置</dt>
-                <dd id="detailLocation">-</dd>
-                <dt data-i18n="detail.field.project">项目</dt>
-                <dd id="detailProject">-</dd>
-                <dt data-i18n="detail.field.active">活跃</dt>
-                <dd id="detailUpdated">-</dd>
+                <dt data-i18n="detail.field.agent">Agent</dt><dd id="detailAccount">-</dd>
+                <dt data-i18n="detail.field.location">运行位置</dt><dd id="detailLocation">-</dd>
+                <dt data-i18n="detail.field.project">项目</dt><dd id="detailProject">-</dd>
+                <dt data-i18n="detail.field.active">活跃</dt><dd id="detailUpdated">-</dd>
               </dl>
               <details id="sessionTechnicalDetails" class="session-technical-details">
                 <summary data-i18n="detail.technical">技术信息</summary>
                 <dl>
-                  <dt data-i18n="detail.field.created">新建</dt>
-                  <dd id="detailCreated">-</dd>
-                  <dt data-i18n="detail.field.source">来源</dt>
-                  <dd id="detailSource">-</dd>
-                  <dt data-i18n="detail.field.coordinate">坐标</dt>
-                  <dd id="detailCoordinate">-</dd>
+                  <dt data-i18n="detail.field.created">新建</dt><dd id="detailCreated">-</dd>
+                  <dt data-i18n="detail.field.source">来源</dt><dd id="detailSource">-</dd>
+                  <dt data-i18n="detail.field.coordinate">坐标</dt><dd id="detailCoordinate">-</dd>
                 </dl>
               </details>
             </div>
-
-            <div class="inspector-actions">
-              <button id="openSessionFileBtn" data-i18n="detail.reveal">打开当前位置</button>
-              <details id="inspectorMoreMenu" class="inspector-more context-menu">
-                <summary data-i18n="common.more">更多</summary>
-                <div class="context-menu-panel">
-                  <button id="exportSessionBtn" data-i18n="detail.exportMd">导出当前 Markdown</button>
+            <div id="sessionActionDock" class="inspector-actions" hidden>
+              <div id="sessionSelectionBar" class="session-selection-bar" hidden>
+                <div class="session-selection-summary"><strong id="sessionSelectionCount">已选择 0 项</strong><button id="clearSessionSelectionBtn" type="button" data-i18n="session.selection.clear">取消选择</button></div>
+                <p id="sessionSelectionIssue" class="session-selection-issue" hidden></p>
+                <div class="session-selection-actions">
+                  <button id="copySessionInfoBtn" class="session-copy-info primary" type="button" disabled data-i18n="session.copyInfo">复制会话信息</button>
+                  <button id="sendSessionInfoBtn" class="session-send-info" type="button" disabled data-i18n="session.sendInfo">发送到设备</button>
                 </div>
-              </details>
+              </div>
+              <div id="sessionFocusedActions" class="inspector-focused-actions" hidden>
+                <button id="openSessionFileBtn" data-i18n="detail.reveal">打开当前位置</button>
+                <button id="exportSessionBtn" class="inspector-export" data-i18n="detail.exportMd">导出当前 Markdown</button>
+              </div>
             </div>
           </aside>
 
-          <section id="remoteWorkspaceHost" class="remote-workspace-host" hidden aria-live="polite">
-            <div>
-              <strong data-i18n="remote.workspace.loading">正在准备远程画面</strong>
-              <small data-i18n="remote.workspace.isolated">画面由隔离的安全区域承载，原窗口其他功能保持不变。</small>
-            </div>
+          <section id="detailSurfaceQuota" class="detail-surface quota-surface" data-detail-surface="quota" hidden>
+            <header class="detail-surface-head"><div><span data-i18n="detail.quota.kicker">QUOTA</span><h3 data-i18n="detail.quota.title">额度详情</h3><p data-i18n="detail.quota.lead">查看当前 Agent 或全部 Agent 的额度快照。</p></div></header>
+            <section id="quotaSummary" class="quota-summary" data-i18n-aria="aria.quotaSummary" aria-label="账号额度" aria-live="polite" hidden>
+              <div class="quota-summary-head">
+                <span class="quota-kicker" data-i18n="quota.kicker">额度 Beta</span><span id="quotaPlan" class="quota-plan"></span><span id="quotaStateBadge" class="quota-state-badge">等待查询</span>
+                <button id="quotaRefreshBtn" class="quota-refresh" type="button" data-i18n-title="quota.refresh.title" data-i18n="quota.refresh">↻ 刷新额度</button>
+              </div>
+              <div id="quotaMeters" class="quota-meters"></div><p id="quotaMessage" class="quota-message"></p>
+            </section>
+            <section id="quotaOverview" class="quota-overview" data-i18n-aria="aria.quotaOverview" aria-label="跨账号额度总览" hidden>
+              <header><div><span data-i18n="quotaMap.kicker">QUOTA MAP</span><b data-i18n="quotaMap.title">全院额度</b></div><small id="quotaOverviewMeta"></small></header>
+              <ul id="quotaOverviewList" class="quota-overview-list"></ul>
+            </section>
           </section>
-        </div>
 
-      <footer id="statusBar" class="status-bar">
-        <span id="statusText" data-i18n="status.ready">就绪</span>
-        <div id="statusMeta" class="status-meta"></div>
+          <section id="remoteWorkspaceHost" class="remote-workspace-host detail-surface" data-detail-surface="remote" hidden aria-live="polite">
+            <div><strong data-i18n="remote.workspace.loading">正在准备远程画面</strong><small data-i18n="remote.workspace.isolated">画面由隔离的安全区域承载，原窗口其他功能保持不变。</small></div>
+          </section>
+        </aside>
+      </main>
+
+      <footer id="statusBar" class="status-bar app-footer">
+        <div class="footer-status"><span id="statusText" data-i18n="status.ready">就绪</span></div>
+        <div class="footer-global" data-i18n-aria="aria.footerGlobal" aria-label="全局状态">
+          <span class="footer-global-label" data-i18n="ledger.title">今日小账本</span>
+          <span class="footer-ledger-stat"><span data-i18n="ledger.donePre">收工 </span><b id="ledgerDone">0</b><span data-i18n="ledger.doneSuf"> 次</span></span>
+          <span class="footer-ledger-sep" aria-hidden="true">·</span>
+          <span class="footer-ledger-stat"><span data-i18n="ledger.minPre">陪你干活 </span><b id="ledgerMin">0</b><span data-i18n="ledger.minSuf"> 分钟</span></span>
+          <button id="reminderToggle" class="footer-reminder-toggle" type="button" aria-pressed="true" data-i18n-title="reminder.title" title="休息提醒（伸懒腰 / 收工播报）总开关">🔔 提醒 开</button>
+        </div>
       </footer>
     </div>
 
@@ -524,7 +476,7 @@
             <p data-i18n="devices.lead.compact">选择设备查看连接、权限、运行位置与会话概况。</p>
           </div>
           <div class="device-center-head-actions">
-            <button id="closeDeviceCenterBtn" type="button" data-i18n="devices.workspace.back">← 返回会话</button>
+            <button id="closeDeviceCenterBtn" type="button" data-i18n="dialog.close">关闭</button>
             <span id="meshStateBadge" class="mesh-state-badge" data-state="local" data-i18n="devices.state.local">纯本机</span>
             <details id="deviceCenterMoreMenu" class="device-center-more context-menu">
               <summary data-i18n="common.more">更多</summary>
@@ -713,6 +665,48 @@
           <button id="chooseFilesBtn" type="button" class="primary" data-i18n="transfers.chooseFiles">选择文件并发送</button>
         </div>
         <p id="fileSendStatus" class="device-center-status" data-state="idle" aria-live="polite"></p>
+        <div class="dialog-actions">
+          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="activityCenterDialog" class="wide-dialog activity-center-dialog">
+      <form method="dialog" class="dialog-body">
+        <header class="utility-dialog-head">
+          <div>
+            <span data-i18n="detail.activity.kicker">ACTIVITY</span>
+            <h3 data-i18n="detail.activity.title">活动与传输</h3>
+            <p data-i18n="detail.activity.lead">需要处理的事项和设备传输都在这里。</p>
+          </div>
+          <button id="transferCenterBtn" type="button">⇄ <span data-i18n="transfers.center.action">传输记录</span></button>
+        </header>
+        <section id="attentionInbox" class="attention-inbox" aria-live="polite" hidden>
+          <header><div><span data-i18n="attention.kicker">ATTENTION</span><b data-i18n="attention.title">需要留意</b></div><strong id="attentionCount">0</strong></header>
+          <div id="attentionItems" class="attention-items"></div>
+        </section>
+        <p id="attentionEmpty" class="detail-empty-note" data-i18n="detail.activity.empty">目前没有需要处理的事项。</p>
+        <div class="dialog-actions">
+          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="settingsDialog" class="settings-dialog">
+      <form method="dialog" class="dialog-body">
+        <header class="utility-dialog-head">
+          <div>
+            <span data-i18n="detail.settings.kicker">SETTINGS</span>
+            <h3 data-i18n="detail.settings.title">应用设置</h3>
+            <p data-i18n="detail.settings.lead">更新、帮助、语言和外观统一放在这里。</p>
+          </div>
+        </header>
+        <div class="settings-actions">
+          <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">检查更新</span></button>
+          <button id="helpBtn" type="button" data-i18n-title="topbar.help.title">? <span data-i18n="topbar.help">使用说明</span></button>
+          <button id="langToggle" type="button" data-i18n-title="topbar.lang.title">文</button>
+          <button id="themeToggle" type="button" data-i18n-title="topbar.theme.title">◐ <span data-i18n="topbar.theme">外观</span></button>
+        </div>
         <div class="dialog-actions">
           <button value="default" class="primary" data-i18n="dialog.done">完成</button>
         </div>

@@ -4,7 +4,7 @@
 
 AgentDesk 以“单人 Personal Agent Mesh”为长期主轴：先把本机多账号、逻辑会话和工具维护做准，再扩展为同一个人在多台可信设备上的全局 Agent 目录、会话索引、显式发送和受限控制。它不扩张为团队平台、聊天壳或任务执行编排器。
 
-Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；单机双隔离端点和真实 Electron WebRTC 已完成配对、认证、库存、会话信息、文件及合成视频验证。独立 UI 上下文、Agent/AccountBinding/AgentSlot 对象管理与真实 1040 × 840 Electron 的 13 条任务路径也已本机收口。Phase 1 的两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵仍未完成，所以公开 Beta 门禁尚未关闭。
+Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；单机双隔离端点和真实 Electron WebRTC 已完成配对、认证、库存、会话信息、文件及合成视频验证。固定 Header/三面板/Footer 页面骨架、设备/工具/活动/设置四个独立弹窗、独立 UI 上下文、Agent/AccountBinding/AgentSlot 对象管理与真实 1040 × 840 Electron 任务路径也已本机收口。Phase 1 的两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵仍未完成，所以公开 Beta 门禁尚未关闭。
 
 ## 当前基线
 
@@ -21,10 +21,10 @@ Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码
 - Ed25519 成员证书/握手、Mesh 范围账号 HMAC、独立 `mesh.db`、OS 密钥保护和签名协议封装；
 - 来源单写的跨设备库存、强账号/强会话去重、离线快照与 tombstone；
 - 加密 SessionPointer、本机离线队列、目标端项目映射、选定文件分块/校验/续传；
-- 主窗口第 6 行的隔离 Remote Surface、目标端逐次同意、屏幕查看、固定键鼠输入协议和最多四路控制台；
+- 右下统一详情面板内的隔离 Remote Surface、目标端逐次同意、屏幕查看、固定键鼠输入协议和最多四路控制台；
 - 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
 - Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
-- 临时 userData 下真实 1040 × 840 Electron 的 13 条本地任务路径验收。
+- 临时 userData 下真实 1040 × 840 Electron 的 14 条本地任务路径验收。
 
 ## 近期优先级
 
@@ -81,7 +81,7 @@ Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码
 | Phase 3 库存与会话身份 | 来源单写、revision、强标识折叠、正交 Device Lens/Agent scope 和显式副本来源已实现 | 物理双机大库存、断网与 stale 验收 |
 | Phase 4 会话信息 | SessionPointer、本机离线队列、项目映射已实现 | macOS/Windows 不同项目根真机验收 |
 | Phase 5 文件 | 选择、确认、加密分块、哈希、续传已实现 | 大文件、磁盘不足和跨网络真机矩阵 |
-| Phase 6 仅查看 | 主窗口第 6 行隔离 Remote Surface、目标同意、显示器和画质已实现 | 真实桌面权限与多显示器矩阵 |
+| Phase 6 仅查看 | 右下详情内隔离 Remote Surface、目标同意、显示器和画质已实现 | 真实桌面权限与多显示器矩阵 |
 | Phase 7 输入控制 | 固定键鼠协议、唯一 owner、helper 与紧急停止已实现 | Windows helper、UIPI、DPI、键盘和 IME |
 | Phase 8 多设备控制台 | 四路网格、活动画质和聚合统计已实现 | 四台真机与公网带宽矩阵 |
 | Phase 9 无人值守 | 未授权、未实现 | 必须单独进行产品和安全评审 |

@@ -1,44 +1,47 @@
-# ADR：Personal Mesh 单窗口工作区承载
+# ADR：Personal Mesh 单窗口与固定三面板承载
 
-状态：Accepted
-日期：2026-08-11
-基准：`PERSONAL_AGENT_MESH_PLAN.md` 1.7
+状态：Accepted（2026-08-12 由规划 1.12 修订）
+
+基准：`PERSONAL_AGENT_MESH_PLAN.md` 1.12
 
 ## 背景
 
-原实现把设备中心做成覆盖主界面的宽模态层，并为 Remote Console 创建新的顶级窗口。功能虽然存在，但用户离开了熟悉的七行主窗口，不容易判断当前 Agent、运行位置、会话与设备动作之间的关系。
+设备中心曾使用整窗模态层，Remote Console 曾使用新顶级窗口，后续又收进七行界面的第六行。三种实现都让全局导航、Agent、会话与设备动作之间的关系漂移，并产生额外区域、整行切换或来源不明的状态提示。
 
-所有者确认：日常设备管理和远控都必须留在原 AgentDesk 窗口中，原有横向账号控制条和“会话表 + 详情”工作面不能被重做成另一套产品界面。
+所有者最终确认：1040 × 840 主窗口只保留一个 Header、一个 Footer，以及顶部 Agent、左下会话、右下统一详情三个固定面板。所有功能和按钮围绕这五个结构对象组织，不再插入额外信息轨、抽屉、整页工作区或第四个永久面板。
 
 ## 决策
 
-主窗口保持固定七行。第 6 行有三种互斥工作区状态：
+固定骨架如下：
 
-- `sessions`：原会话表和右侧详情；
-- `devices`：原“设备”内容以内嵌、非模态方式占用第 6 行；
-- `remote`：专用沙箱 WebContentsView 覆盖第 6 行的远控占位区域。
+1. Header：品牌、Device Lens、设备、工具、活动、设置，以及必要的后台远控文字提示；不存在“更多”杂物菜单。
+2. 顶部 Agent 面板：庭院/卡片切换、排行、去重 Agent 选择、运行位置和 Agent/Slot 操作。
+3. 左下会话面板：Agent 范围、搜索、显示设置与会话表。
+4. 右下详情面板：只保留 `session`、`quota`、`remote` 三种当前工作对象状态；会话动作位于 session 详情底部。
+5. Footer：全局状态、今日完成数、陪伴分钟和提醒总开关，不承载会话动作。
 
-顶栏、Presenter、账号控制条、提醒、额度和状态栏始终留在原位。切回 `sessions` 时恢复原 Agent、设备 Lens、运行位置和会话选择。
+设备、工具、活动、设置分别使用有界模态弹窗，并由独立 `utilityDialog` 状态描述；开关弹窗不得改变 `detailMode`、workspace、顶部 Agent、左下会话或 Footer。配对、权限、诊断和传输历史留在所属弹窗或受控次级弹窗。额度和远控才改变 `detailMode`，返回会话详情时恢复原 focused/checked 会话、筛选和副本来源。
 
-远控不迁入普通 Main Renderer。Electron Main 只接受主 Renderer 测得的有界矩形，重新验证它完全位于当前 BrowserWindow 内容区后，才设置 WebContentsView 的 bounds 与可见性。Remote Surface 继续使用专用 preload、固定 IPC、无 Node、context isolation 和 sandbox；Main Renderer 不取得 SDP、ICE 原文、TURN 凭据、采集 source、媒体轨或输入 DataChannel。
+远控不迁入普通 Main Renderer。Electron Main 只接受主 Renderer 测得的有界矩形，重新验证它位于右下详情面板和 BrowserWindow 内容区后，才设置专用 WebContentsView 的 bounds 与可见性。Remote Surface 继续使用专用 preload、固定 IPC、无 Node、context isolation 和 sandbox；Main Renderer 不取得 SDP、ICE 原文、TURN 凭据、采集 source、媒体轨或输入 DataChannel。
 
-目标端 Host Consent/Indicator 仍是目标设备本机的专用提示与停止界面，不受单窗口控制端决策影响。
+目标端 Host Consent/Indicator 仍是目标设备本机的专用提示与停止界面，不受控制端页面布局影响。
 
 ## 生命周期
 
-1. 设备卡“查看 / 控制”先完成设备认证与能力检查。
-2. Main 创建或复用隐藏的 Remote Surface，Renderer 切换第 6 行到 `remote` 并提交占位区域边界。
-3. Remote Surface 建立媒体与固定输入通道；目标端仍需逐次同意。
-4. 点击“返回工作台”会先释放全部输入、把当前会话降为仅查看并隐藏 Surface；媒体连接可以留在后台，主窗口显示活动查看提示。
-5. 用户可从活动提示重新进入 Surface；只有显式断开、最后一路终止、Mesh 重置、主窗口关闭、Renderer 崩溃或应用退出才结束媒体，并再次确保全部按键已释放。
+1. Header 的设备、工具、活动、设置只打开对应弹窗，不改变底层固定区域或详情状态。
+2. 设备弹窗中的“查看 / 控制”先完成设备认证与能力检查；成功后关闭设备弹窗。
+3. Main 创建或复用隐藏的 Remote Surface，Renderer 把右下详情切到 `remote` 并提交该面板内的占位边界。
+4. Remote Surface 建立媒体与固定输入通道；目标端仍需逐次同意。
+5. “返回工作台”先释放全部输入、把当前会话降为仅查看、隐藏 Surface，并恢复进入远控前的右下详情；媒体连接可留在后台，Header 显示有来源的文字提示。
+6. 只有显式断开、最后一路终止、Mesh 重置、主窗口关闭、Renderer 崩溃或应用退出才结束媒体，并再次确保全部按键释放。
 
 ## 约束与验收
 
 - 不创建 `AgentDesk Remote Console` 顶级 BrowserWindow；
-- 设备中心不再调用 `showModal()`；
-- WebContentsView 不能越过第 6 行或覆盖状态栏和上方五行；
+- 设备、工具、活动、设置分别使用有界模态弹窗，不挂入右下详情；
+- WebContentsView 不能越过右下详情面板，也不能覆盖 Header、顶部 Agent、左下会话或 Footer；
 - 普通 Renderer 只能提交 `{ visible, bounds }`，不能提交 URL、命令、路径、SDP 或凭据；
-- 第 6 行小高度下远控控制条仍可操作，多设备仍只有一个输入目标；
-- 三语文案和明暗主题保持一致；
-- 使用临时 userData 的真实 1040 × 840 Electron 验收已经证明设备中心和 Remote Surface 只占第 6 行、返回后会话工作台恢复、后台 viewing 提示存在且断开后清除；
-- 物理双机、真实 NAT/TURN 与 macOS/Windows 权限矩阵仍是发布门禁，单窗口改造不关闭这些门禁。
+- 多设备仍只有一个输入目标；隐藏 Surface 时不能继续持有输入；
+- 三语、明暗主题和 reduced-motion 保持一致；
+- 使用临时 userData 的真实 1040 × 840 Electron 验收必须证明恰好三个固定面板，四个全局弹窗不改写底层上下文，额度/远控只切换右下详情；
+- 物理双机、真实 NAT/TURN 与 macOS/Windows 权限矩阵仍是发布门禁，本 ADR 不关闭这些门禁。

@@ -14,6 +14,8 @@
     'topbar.toYard': 'Yard',
     'topbar.devices': 'Devices',
     'topbar.tools': 'Tools',
+    'topbar.activity': 'Activity',
+    'topbar.settings': 'Settings',
     'topbar.more': 'More',
     'topbar.help': 'Help',
     'topbar.theme': 'Appearance',
@@ -22,6 +24,8 @@
     'topbar.view.title': 'Switch Cat Yard / Classic view',
     'topbar.devices.title': 'View this device identity, the global Agent catalog, and device status',
     'topbar.tools.title': 'Check, update and open desktop apps / CLI tools',
+    'topbar.activity.title': 'Review items that need attention and transfer history',
+    'topbar.settings.title': 'Open updates, help, language, and appearance settings',
     'topbar.help.title': 'How to use',
     'topbar.theme.title': 'Toggle dark / light',
     'topbar.lang.title': 'Switch language (中 / EN / 日)',
@@ -416,6 +420,7 @@
 
     // Account console
     'account.none': 'No account selected',
+    'account.current': 'CURRENT AGENT',
     'account.form': 'Form',
     'account.form.title': 'This account has several client forms; switching applies Open / Edit / Remove / Diagnostics / Path / Quota to the chosen form',
     'account.open': 'Open account',
@@ -543,6 +548,16 @@
 
     // Session detail
     'detail.title': 'Session detail',
+    'detail.activity.kicker': 'ACTIVITY',
+    'detail.activity.title': 'Activity & transfers',
+    'detail.activity.lead': 'Items that need attention and device transfers live here.',
+    'detail.activity.empty': 'Nothing needs your attention right now.',
+    'detail.settings.kicker': 'SETTINGS',
+    'detail.settings.title': 'App settings',
+    'detail.settings.lead': 'Updates, help, language, and appearance are kept together here.',
+    'detail.quota.kicker': 'QUOTA',
+    'detail.quota.title': 'Quota detail',
+    'detail.quota.lead': 'Inspect quota snapshots for the current Agent or all Agents.',
     'detail.field.title': 'Title',
     'detail.field.account': 'Account',
     'detail.field.agent': 'Agent',
@@ -830,6 +845,7 @@
 
     // ── Region aria-labels ──
     'aria.topbarActions': 'Global actions',
+    'aria.footerGlobal': 'Today\'s companion and reminder status',
     'aria.yardCanvas': 'Cat Yard: each cat is an account, click to select',
     'aria.roster': 'Account roster (classic view)',
     'aria.quotaSummary': 'Account quota',

@@ -14,6 +14,8 @@
     'topbar.toYard': '庭院',
     'topbar.devices': '设备',
     'topbar.tools': '工具',
+    'topbar.activity': '活动',
+    'topbar.settings': '设置',
     'topbar.more': '更多',
     'topbar.help': '使用说明',
     'topbar.theme': '外观',
@@ -22,6 +24,8 @@
     'topbar.view.title': '切换 猫猫庭院 / 经典视图',
     'topbar.devices.title': '查看本机设备身份、全局 Agent 目录和设备状态',
     'topbar.tools.title': '检查、更新和打开桌面 App / CLI 工具',
+    'topbar.activity.title': '查看需要处理的事项与传输记录',
+    'topbar.settings.title': '查看更新、帮助、语言和外观设置',
     'topbar.help.title': '使用说明',
     'topbar.theme.title': '切换深色 / 浅色',
     'topbar.lang.title': '切换界面语言（中 / EN / 日）',
@@ -416,6 +420,7 @@
 
     // ── 账号控制条 ──
     'account.none': '未选择账号',
+    'account.current': 'CURRENT AGENT',
     'account.form': '形态',
     'account.form.title': '这个账号有多个客户端形态；切换后 打开 / 编辑 / 移除 / 诊断 / 位置 / 额度 都作用于所选形态',
     'account.open': '打开账号',
@@ -543,6 +548,16 @@
 
     // ── 会话详情 ──
     'detail.title': '会话详情',
+    'detail.activity.kicker': 'ACTIVITY',
+    'detail.activity.title': '活动与传输',
+    'detail.activity.lead': '需要处理的事项和设备传输都在这里。',
+    'detail.activity.empty': '目前没有需要处理的事项。',
+    'detail.settings.kicker': 'SETTINGS',
+    'detail.settings.title': '应用设置',
+    'detail.settings.lead': '更新、帮助、语言和外观统一放在这里。',
+    'detail.quota.kicker': 'QUOTA',
+    'detail.quota.title': '额度详情',
+    'detail.quota.lead': '查看当前 Agent 或全部 Agent 的额度快照。',
     'detail.field.title': '标题',
     'detail.field.account': '账号',
     'detail.field.agent': 'Agent',
@@ -830,6 +845,7 @@
 
     // ── 区域无障碍标签（aria-label）──
     'aria.topbarActions': '全局操作',
+    'aria.footerGlobal': '今日陪伴与提醒全局状态',
     'aria.yardCanvas': '猫猫庭院：每只猫是一个账号，点击选中',
     'aria.roster': '账号名册（经典视图）',
     'aria.quotaSummary': '账号额度',

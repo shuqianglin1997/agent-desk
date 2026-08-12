@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
-test('设备入口位于工具之前，设备中心只切换第六行且不改动七行骨架', () => {
+test('设备入口位于工具之前，设备中心使用独立模态弹窗且不改变三面板骨架', () => {
   const html = read('src/index.html');
   const styles = read('src/styles.css');
   const renderer = read('src/renderer.js');
@@ -14,13 +14,15 @@ test('设备入口位于工具之前，设备中心只切换第六行且不改�
   const nav = html.slice(navStart, navEnd);
   assert.ok(nav.indexOf('id="deviceCenterBtn"') > 0);
   assert.ok(nav.indexOf('id="deviceCenterBtn"') < nav.indexOf('id="toolCenterBtn"'));
+  assert.match(nav, /id="deviceCenterBtn"[^>]*aria-haspopup="dialog"[^>]*aria-controls="deviceCenterDialog"/);
   assert.match(html, /id="deviceCenterDialog"[\s\S]*?id="meshEmptyState"[\s\S]*?id="meshReadyState"/);
-  assert.match(html, /id="mainGrid" class="main-grid" data-workspace="sessions"/);
-  assert.match(renderer, /mainGrid\.append\(els\.deviceCenterDialog\)/);
-  assert.match(renderer, /deviceCenterDialog\.show\(\)/);
-  assert.doesNotMatch(renderer, /deviceCenterDialog\.showModal\(\)/);
-  assert.match(styles, /\.main-grid > \.device-center-dialog\[open\][\s\S]*?grid-column:\s*1 \/ -1/);
-  assert.match(styles, /\.app-shell \{[\s\S]*?grid-template-rows:\s*48px auto auto auto auto minmax\(0, 1fr\) 28px/);
+  assert.match(html, /id="mainGrid" class="workspace-board" data-workspace="sessions" data-detail="session"/);
+  assert.doesNotMatch(html, /id="detailSurfaceDevices"/);
+  assert.doesNotMatch(renderer, /detailSurfaceDevices|deviceCenterDialog\.show\(\)/);
+  assert.match(renderer, /\['devices', els\.deviceCenterBtn, els\.deviceCenterDialog\]/);
+  assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?dialog\.showModal\(\)/);
+  assert.match(styles, /\.device-center-dialog \.dialog-body\s*\{[\s\S]*?height:\s*min\(680px/);
+  assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 340px;[\s\S]*?grid-template-rows:\s*220px minmax\(0, 1fr\)/);
   assert.match(styles, /\.mesh-ready-state\[hidden\],[\s\S]*?\.mesh-empty-state\[hidden\][\s\S]*?display:\s*none/);
 });
 

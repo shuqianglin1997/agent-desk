@@ -185,7 +185,7 @@ Codex 额外区分：
 
 ### UI Context
 
-`src/ui-context.js` 是 Renderer 的用户选择真相源，分别保存 workspace、Device Lens、每个 Lens 的 Agent 记忆、Agent scope、AgentSlot、focused/checked conversation、SessionReplica、设备详情、活动远控会话和 transfer draft。它不保存 `selectedProfileId` 兼容影子，也不在 render、filter 或 reconcile 中选择第一项。
+`src/ui-context.js` 是 Renderer 的用户选择真相源，分别保存 workspace、Device Lens、每个 Lens 的 Agent 记忆、Agent scope、AgentSlot、focused/checked conversation、SessionReplica、设备详情、活动远控会话和 transfer draft。Renderer 另以 `utilityDialog` 表达设备/工具/活动/设置四个临时模态层；它不写入 workspace/detail，也不改变前述选择。系统不保存 `selectedProfileId` 兼容影子，也不在 render、filter 或 reconcile 中选择第一项。
 
 - 行点击只更新 `focusedConversationId`，复选框只更新 `checkedConversationIds`；有勾选时动作集合使用勾选项，否则使用焦点。
 - Device Lens、Agent 和 Slot 各自迁移；Slot 只决定副作用落点，不清空搜索或有效会话选择。
@@ -284,13 +284,15 @@ remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
 
 ### 远程查看和输入
 
-远程媒体使用第二条 WebRTC 连接，SDP 只经已认证设备通道交换。目标端 Host Renderer 枚举并采集显示器，控制端使用附着在主窗口第 6 行的沙箱 WebContentsView，只拿到安全显示信息和视频轨；普通 Main Renderer 不接触这些数据。查看与控制分别需要持久能力和目标端本次 consent；控制输入再经 Host Renderer 与 Main 双重规范化、速率限制，最后以固定 stdin 行协议交给平台 helper。
+远程媒体使用第二条 WebRTC 连接，SDP 只经已认证设备通道交换。目标端 Host Renderer 枚举并采集显示器，控制端使用限定在右下统一详情面板边界内的沙箱 WebContentsView，只拿到安全显示信息和视频轨；普通 Main Renderer 不接触这些数据。查看与控制分别需要持久能力和目标端本次 consent；控制输入再经 Host Renderer 与 Main 双重规范化、速率限制，最后以固定 stdin 行协议交给平台 helper。
 
 断线、失焦、暂停、目标切换、撤销、紧急停止和 helper 心跳超时都会释放按键。多设备控制台最多四路，只给当前目标活动画质，其余为低频缩略图。返回会话工作台会先释放输入、降为仅查看并隐藏 Surface，仍在 viewing 的会话由主 Renderer 顶栏提示；只有 disconnect/stopAll、撤销或终止路径才结束媒体。
 
 ## 9. 庭院
 
-庭院是同一份 profile/session/activity/quota 数据的可视化，不是独立业务层。拖放只保留三类意图：
+庭院是同一份 profile/session/activity/quota 数据的可视化，不是独立业务层。今日账本和提醒总开关由全局 Footer 渲染，庭院 DOM 不再拥有 `yardLedger` 或提醒 HUD。会话动作由右下 `sessionActionDock` 承载：focused 单条保留定位/导出与复制/发送，显式 checked 集合隐藏 focused 专用动作，只保留批量摘要/取消/复制/发送。
+
+拖放只保留三类意图：
 
 - `workshop`：确认后打开账号；已打开时聚焦状态；
 - `attention`：聚焦当前会话详情；
@@ -307,7 +309,7 @@ npm run accept:ui
 npm run build:mac:dir
 ```
 
-`npm run accept:ui` 使用临时 userData 启动真实 1040 × 840 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 13 条任务路径：七行骨架、focus/checked/隐藏选择、双 Presenter、三语/明暗主题、本机新增、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销后详情清理和 reduced-motion。
+`npm run accept:ui` 使用临时 userData 启动真实 1040 × 840 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 14 条任务路径：固定 Header/三面板/Footer、focus/checked/隐藏选择、庭院/卡片、三语/明暗主题、本机新增、四个 Header 入口、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销后详情清理和 reduced-motion。
 
 测试除了扫描器和纯函数，还包含以下边界契约：
 
@@ -318,7 +320,7 @@ npm run build:mac:dir
 - 庭院只暴露三类核心意图。
 - Mesh 账号关联键在同 Mesh 内稳定、跨 Mesh 不可关联，成员证书和握手证明可检测篡改与过期；
 - 同账号跨形态只形成一个 Agent，同机多账号不误合并，换号不静默搬历史，最后 Slot 删除后目录可为空；
-- 设备入口位于工具之前且不改变七行骨架，设备 IPC 保持固定白名单；
+- Header 直接提供设备、工具、活动和设置，四个入口各开独立模态弹窗且不改变底层工作台或三个固定面板，设备 IPC 保持固定白名单；
 - 两个隔离数据目录完成加密配对、权限更新、撤销、库存归并、SessionPointer 与文件续传；
 - 真实 Electron 沙箱 WebRTC 完成设备认证、库存、会话信息、184,333 字节文件和合成屏幕媒体；
 - 信令请求拒绝篡改、过期、重放、无租约发送和任意回复地址，公开诊断不含 IP、SDP 或凭据；
