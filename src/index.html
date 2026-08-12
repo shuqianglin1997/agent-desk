@@ -506,16 +506,20 @@
       </form>
     </dialog>
 
-    <dialog id="deviceCenterDialog" class="wide-dialog device-center-dialog">
-      <form method="dialog" class="dialog-body">
-        <header class="device-center-head">
+    <dialog id="deviceCenterDialog" class="wide-dialog device-center-dialog" aria-labelledby="deviceCenterTitle" aria-describedby="deviceCenterLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header device-center-head">
           <div>
             <span data-i18n="devices.kicker">PERSONAL AGENT MESH</span>
-            <h3 data-i18n="devices.title">我的设备</h3>
-            <p data-i18n="devices.lead.compact">选择设备查看连接、权限、运行位置与会话概况。</p>
+            <h3 id="deviceCenterTitle" data-i18n="devices.title">我的设备</h3>
+            <p id="deviceCenterLead" data-i18n="devices.lead.compact">选择设备查看连接、权限、运行位置与会话概况。</p>
           </div>
+          <button id="closeDeviceCenterBtn" class="utility-dialog-close" type="button" data-i18n="dialog.close">关闭</button>
+        </header>
+
+        <div class="utility-dialog-commandbar device-center-commandbar">
+          <p id="deviceCenterStatus" class="device-center-status" data-state="idle" aria-live="polite" data-i18n="devices.status.ready">设备中心已就绪。</p>
           <div class="device-center-head-actions">
-            <button id="closeDeviceCenterBtn" type="button" data-i18n="dialog.close">关闭</button>
             <span id="meshStateBadge" class="mesh-state-badge" data-state="local" data-i18n="devices.state.local">纯本机</span>
             <details id="deviceCenterMoreMenu" class="device-center-more context-menu">
               <summary data-i18n="common.more">更多</summary>
@@ -527,144 +531,157 @@
               </div>
             </details>
           </div>
-        </header>
+        </div>
 
-        <p id="deviceCenterStatus" class="device-center-status" data-state="idle" aria-live="polite" data-i18n="devices.status.ready">设备中心已就绪。</p>
-
-        <section id="meshEmptyState" class="mesh-empty-state">
-          <div class="mesh-empty-copy">
-            <strong data-i18n="devices.empty.title">先把本机加入你的个人设备网</strong>
-            <p data-i18n="devices.empty.body">会为本机建立独立设备身份，并把当前账号身份组迁移成全局 Agent；不会移动账号目录、会话或登录信息。</p>
-          </div>
-          <div id="meshPreviewStats" class="mesh-stat-grid"></div>
-          <div class="mesh-empty-actions">
-            <button id="initializeMeshBtn" type="button" class="primary device-primary-action" data-i18n="devices.initialize">建立本机设备身份</button>
-            <button id="showJoinMeshBtn" type="button" data-i18n="devices.join.show">加入已有设备网</button>
-          </div>
-          <div id="meshJoinPanel" class="mesh-code-panel" hidden>
-            <label for="meshJoinCode" data-i18n="devices.join.label">粘贴另一台设备生成的一次性配对码</label>
-            <textarea id="meshJoinCode" rows="3" autocomplete="off" spellcheck="false"></textarea>
-            <div>
-              <button id="cancelJoinMeshBtn" type="button" data-i18n="dialog.cancel">取消</button>
-              <button id="confirmJoinMeshBtn" type="button" class="primary" data-i18n="devices.join.action">加入设备网</button>
+        <div class="utility-dialog-content device-center-content">
+          <section id="meshEmptyState" class="mesh-empty-state">
+            <div class="mesh-empty-copy">
+              <strong data-i18n="devices.empty.title">先把本机加入你的个人设备网</strong>
+              <p data-i18n="devices.empty.body">会为本机建立独立设备身份，并把当前账号身份组迁移成全局 Agent；不会移动账号目录、会话或登录信息。</p>
             </div>
-          </div>
-        </section>
-
-        <section id="meshReadyState" class="mesh-ready-state" hidden>
-          <div id="meshSummary" class="mesh-summary"></div>
-          <section id="meshInvitePanel" class="mesh-code-panel" hidden>
-            <div class="mesh-code-head">
+            <div id="meshPreviewStats" class="mesh-stat-grid"></div>
+            <div class="mesh-empty-actions">
+              <button id="initializeMeshBtn" type="button" class="primary device-primary-action" data-i18n="devices.initialize">建立本机设备身份</button>
+              <button id="showJoinMeshBtn" type="button" data-i18n="devices.join.show">加入已有设备网</button>
+            </div>
+            <div id="meshJoinPanel" class="mesh-code-panel" hidden>
+              <label for="meshJoinCode" data-i18n="devices.join.label">粘贴另一台设备生成的一次性配对码</label>
+              <textarea id="meshJoinCode" rows="3" autocomplete="off" spellcheck="false"></textarea>
               <div>
-                <strong data-i18n="devices.invite.title">在另一台电脑上加入</strong>
-                <p data-i18n="devices.invite.body">配对端口只在这次邀请期间打开，配对码十分钟内有效且只能使用一次。</p>
+                <button id="cancelJoinMeshBtn" type="button" data-i18n="dialog.cancel">取消</button>
+                <button id="confirmJoinMeshBtn" type="button" class="primary" data-i18n="devices.join.action">加入设备网</button>
               </div>
-              <b id="meshInviteShortCode"></b>
-            </div>
-            <textarea id="meshInviteCode" rows="3" readonly spellcheck="false"></textarea>
-            <div>
-              <button id="closeDeviceInviteBtn" type="button" data-i18n="dialog.close">关闭</button>
-              <button id="copyDeviceInviteBtn" type="button" class="primary" data-i18n="devices.invite.copy">复制配对码</button>
             </div>
           </section>
-          <div class="device-center-layout">
-            <aside class="device-list-pane">
-              <header>
-                <div><span data-i18n="devices.section.devices">DEVICES</span><small id="deviceShelfMeta"></small></div>
-                <button id="createDeviceInviteBtn" type="button" class="primary" data-i18n="devices.invite.action">添加设备</button>
-              </header>
-              <div id="deviceList" class="device-list"></div>
-            </aside>
-            <section id="deviceDetail" class="device-detail-pane">
-              <header class="device-detail-head">
+
+          <section id="meshReadyState" class="mesh-ready-state" hidden>
+            <div id="meshSummary" class="mesh-summary"></div>
+            <section id="meshInvitePanel" class="mesh-code-panel" hidden>
+              <div class="mesh-code-head">
                 <div>
-                  <span id="deviceDetailKind"></span>
-                  <h4 id="deviceDetailName">—</h4>
-                  <p id="deviceDetailMeta"></p>
+                  <strong data-i18n="devices.invite.title">在另一台电脑上加入</strong>
+                  <p data-i18n="devices.invite.body">配对端口只在这次邀请期间打开，配对码十分钟内有效且只能使用一次。</p>
                 </div>
-                <span id="deviceDetailStatus" class="mesh-state-badge">—</span>
-              </header>
-              <div id="deviceDetailStats" class="device-detail-stats"></div>
-              <div id="deviceDetailActions" class="device-detail-actions"></div>
-              <section class="device-agent-section">
-                <header>
-                  <span data-i18n="devices.section.deviceAgents">AGENTS ON THIS DEVICE</span>
-                  <small id="agentCatalogMeta"></small>
-                </header>
-                <div id="meshAgentList" class="mesh-agent-list"></div>
-              </section>
+                <b id="meshInviteShortCode"></b>
+              </div>
+              <textarea id="meshInviteCode" rows="3" readonly spellcheck="false"></textarea>
+              <div>
+                <button id="closeDeviceInviteBtn" type="button" data-i18n="dialog.close">关闭</button>
+                <button id="copyDeviceInviteBtn" type="button" class="primary" data-i18n="devices.invite.copy">复制配对码</button>
+              </div>
             </section>
-          </div>
-        </section>
+            <div class="device-center-layout">
+              <aside class="device-list-pane">
+                <header>
+                  <div><span data-i18n="devices.section.devices">DEVICES</span><small id="deviceShelfMeta"></small></div>
+                  <button id="createDeviceInviteBtn" type="button" class="primary" data-i18n="devices.invite.action">添加设备</button>
+                </header>
+                <div id="deviceList" class="device-list"></div>
+              </aside>
+              <section id="deviceDetail" class="device-detail-pane">
+                <header class="device-detail-head">
+                  <div>
+                    <span id="deviceDetailKind"></span>
+                    <h4 id="deviceDetailName">—</h4>
+                    <p id="deviceDetailMeta"></p>
+                  </div>
+                  <span id="deviceDetailStatus" class="mesh-state-badge">—</span>
+                </header>
+                <div id="deviceDetailStats" class="device-detail-stats"></div>
+                <div id="deviceDetailActions" class="device-detail-actions"></div>
+                <section class="device-agent-section">
+                  <header>
+                    <span data-i18n="devices.section.deviceAgents">AGENTS ON THIS DEVICE</span>
+                    <small id="agentCatalogMeta"></small>
+                  </header>
+                  <div id="meshAgentList" class="mesh-agent-list"></div>
+                </section>
+              </section>
+            </div>
+          </section>
+        </div>
       </form>
     </dialog>
 
-    <dialog id="devicePermissionsDialog" class="device-permissions-dialog">
-      <form method="dialog" class="dialog-body">
-        <header>
-          <span data-i18n="devices.permissions.kicker">DEVICE ACCESS</span>
-          <h3 id="devicePermissionsTitle" data-i18n="devices.permissions.title">设备权限</h3>
-          <p data-i18n="devices.permissions.body">目录和会话索引默认可读；屏幕、输入、文件与打开账号分别授权。</p>
+    <dialog id="devicePermissionsDialog" class="device-permissions-dialog" aria-labelledby="devicePermissionsTitle" aria-describedby="devicePermissionsLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell child-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
+          <div>
+            <span data-i18n="devices.permissions.kicker">DEVICE ACCESS</span>
+            <h3 id="devicePermissionsTitle" data-i18n="devices.permissions.title">设备权限</h3>
+            <p id="devicePermissionsLead" data-i18n="devices.permissions.body">目录和会话索引默认可读；屏幕、输入、文件与打开账号分别授权。</p>
+          </div>
+          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
-        <div id="devicePermissionList" class="device-permission-list">
-          <label><input type="checkbox" data-capability="inventory.read"><span data-i18n="devices.permission.inventory">查看 Agent 与会话索引</span></label>
-          <label><input type="checkbox" data-capability="catalog.manage"><span data-i18n="devices.permission.catalog">管理全局 Agent 目录</span></label>
-          <label><input type="checkbox" data-capability="session.pointer.receive"><span data-i18n="devices.permission.pointer">接收会话信息</span></label>
-          <label><input type="checkbox" data-capability="file.receive"><span data-i18n="devices.permission.file">接收文件</span></label>
-          <label><input type="checkbox" data-capability="profile.launch"><span data-i18n="devices.permission.launch">打开已登记账号</span></label>
-          <label><input type="checkbox" data-capability="screen.view"><span data-i18n="devices.permission.screen">查看屏幕</span></label>
-          <label><input type="checkbox" data-capability="input.control"><span data-i18n="devices.permission.input">控制鼠标与键盘</span></label>
-          <label><input type="checkbox" data-capability="clipboard.receive"><span data-i18n="devices.permission.clipboard">接收显式剪贴板内容</span></label>
+        <div class="utility-dialog-content">
+          <div id="devicePermissionList" class="device-permission-list">
+            <label><input type="checkbox" data-capability="inventory.read"><span data-i18n="devices.permission.inventory">查看 Agent 与会话索引</span></label>
+            <label><input type="checkbox" data-capability="catalog.manage"><span data-i18n="devices.permission.catalog">管理全局 Agent 目录</span></label>
+            <label><input type="checkbox" data-capability="session.pointer.receive"><span data-i18n="devices.permission.pointer">接收会话信息</span></label>
+            <label><input type="checkbox" data-capability="file.receive"><span data-i18n="devices.permission.file">接收文件</span></label>
+            <label><input type="checkbox" data-capability="profile.launch"><span data-i18n="devices.permission.launch">打开已登记账号</span></label>
+            <label><input type="checkbox" data-capability="screen.view"><span data-i18n="devices.permission.screen">查看屏幕</span></label>
+            <label><input type="checkbox" data-capability="input.control"><span data-i18n="devices.permission.input">控制鼠标与键盘</span></label>
+            <label><input type="checkbox" data-capability="clipboard.receive"><span data-i18n="devices.permission.clipboard">接收显式剪贴板内容</span></label>
+          </div>
         </div>
-        <div class="dialog-actions device-permissions-actions">
+        <footer class="dialog-actions utility-dialog-footer device-permissions-actions">
           <button id="revokeDeviceBtn" type="button" class="danger-text" data-i18n="devices.revoke">撤销并删除设备</button>
           <span></span>
           <button value="cancel" data-i18n="dialog.cancel">取消</button>
           <button id="saveDevicePermissionsBtn" type="button" class="primary" data-i18n="dialog.save">保存</button>
-        </div>
+        </footer>
       </form>
     </dialog>
 
-    <dialog id="meshDiagnosticsDialog" class="device-diagnostics-dialog">
-      <form method="dialog" class="dialog-body">
-        <header>
-          <span data-i18n="devices.diagnostics.kicker">CONNECTION DIAGNOSTICS</span>
-          <h3 id="meshDiagnosticsTitle" data-i18n="devices.diagnostics.title">设备连接诊断</h3>
-          <p data-i18n="devices.diagnostics.body">只显示会合、直连/中继与权限状态，不显示 IP、SDP、密钥或 TURN 凭据。</p>
+    <dialog id="meshDiagnosticsDialog" class="device-diagnostics-dialog" aria-labelledby="meshDiagnosticsTitle" aria-describedby="meshDiagnosticsLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell child-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
+          <div>
+            <span data-i18n="devices.diagnostics.kicker">CONNECTION DIAGNOSTICS</span>
+            <h3 id="meshDiagnosticsTitle" data-i18n="devices.diagnostics.title">设备连接诊断</h3>
+            <p id="meshDiagnosticsLead" data-i18n="devices.diagnostics.body">只显示会合、直连/中继与权限状态，不显示 IP、SDP、密钥或 TURN 凭据。</p>
+          </div>
+          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
-        <div id="meshDiagnosticsStatus" class="device-diagnostics-status" data-state="idle"></div>
-        <div id="meshDiagnosticsBody" class="device-diagnostics-body"></div>
-        <div class="dialog-actions">
+        <div class="utility-dialog-commandbar diagnostics-commandbar">
           <button id="refreshMeshDiagnosticsBtn" type="button" data-i18n="devices.diagnostics.refresh">重新检查</button>
-          <span></span>
-          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
+        </div>
+        <div class="utility-dialog-content diagnostics-content">
+          <div id="meshDiagnosticsStatus" class="device-diagnostics-status" data-state="idle"></div>
+          <div id="meshDiagnosticsBody" class="device-diagnostics-body"></div>
         </div>
       </form>
     </dialog>
 
-    <dialog id="meshNetworkDialog" class="device-network-dialog">
-      <form method="dialog" class="dialog-body">
-        <header>
-          <span data-i18n="devices.network.kicker">P2P RENDEZVOUS</span>
-          <h3 data-i18n="devices.network.title">设备网络设置</h3>
-          <p data-i18n="devices.network.body">这里只设置会合服务和 STUN；TURN 短期凭据由会合服务签发，不保存密码或长期凭据。</p>
+    <dialog id="meshNetworkDialog" class="device-network-dialog" aria-labelledby="meshNetworkTitle" aria-describedby="meshNetworkLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell child-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
+          <div>
+            <span data-i18n="devices.network.kicker">P2P RENDEZVOUS</span>
+            <h3 id="meshNetworkTitle" data-i18n="devices.network.title">设备网络设置</h3>
+            <p id="meshNetworkLead" data-i18n="devices.network.body">这里只设置会合服务和 STUN；TURN 短期凭据由会合服务签发，不保存密码或长期凭据。</p>
+          </div>
+          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
-        <label class="device-network-field">
-          <span data-i18n="devices.network.signaling">信令服务 HTTPS 地址（每行一个）</span>
-          <textarea id="meshSignalingUrls" rows="3" spellcheck="false" placeholder="https://signal.example.com"></textarea>
-          <small data-i18n="devices.network.signalingHint">另一台电脑会从一次性配对码取得同一地址；公开地址必须使用 HTTPS。</small>
-        </label>
-        <label class="device-network-field">
-          <span data-i18n="devices.network.stun">STUN 地址（每行一个）</span>
-          <textarea id="meshStunUrls" rows="3" spellcheck="false" placeholder="stun:stun.example.com:3478"></textarea>
-          <small data-i18n="devices.network.stunHint">用于发现公网候选；直连失败时再使用信令服务签发的 TURN 中继。</small>
-        </label>
-        <div id="meshNetworkStatus" class="device-diagnostics-status" data-state="idle"></div>
-        <div class="dialog-actions">
+        <div class="utility-dialog-content network-settings-content">
+          <label class="device-network-field">
+            <span data-i18n="devices.network.signaling">信令服务 HTTPS 地址（每行一个）</span>
+            <textarea id="meshSignalingUrls" rows="3" spellcheck="false" placeholder="https://signal.example.com"></textarea>
+            <small data-i18n="devices.network.signalingHint">另一台电脑会从一次性配对码取得同一地址；公开地址必须使用 HTTPS。</small>
+          </label>
+          <label class="device-network-field">
+            <span data-i18n="devices.network.stun">STUN 地址（每行一个）</span>
+            <textarea id="meshStunUrls" rows="3" spellcheck="false" placeholder="stun:stun.example.com:3478"></textarea>
+            <small data-i18n="devices.network.stunHint">用于发现公网候选；直连失败时再使用信令服务签发的 TURN 中继。</small>
+          </label>
+          <div id="meshNetworkStatus" class="device-diagnostics-status" data-state="idle"></div>
+        </div>
+        <footer class="dialog-actions utility-dialog-footer">
           <button value="cancel" data-i18n="dialog.cancel">取消</button>
           <span></span>
           <button id="saveMeshNetworkBtn" type="button" class="primary" data-i18n="dialog.save">保存</button>
-        </div>
+        </footer>
       </form>
     </dialog>
 
@@ -710,76 +727,82 @@
       </form>
     </dialog>
 
-    <dialog id="activityCenterDialog" class="wide-dialog activity-center-dialog">
-      <form method="dialog" class="dialog-body">
-        <header class="utility-dialog-head">
+    <dialog id="activityCenterDialog" class="wide-dialog activity-center-dialog" aria-labelledby="activityCenterTitle" aria-describedby="activityCenterLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
           <div>
             <span data-i18n="detail.activity.kicker">ACTIVITY</span>
-            <h3 data-i18n="detail.activity.title">活动与传输</h3>
-            <p data-i18n="detail.activity.lead">需要处理的事项和设备传输都在这里。</p>
+            <h3 id="activityCenterTitle" data-i18n="detail.activity.title">活动与传输</h3>
+            <p id="activityCenterLead" data-i18n="detail.activity.lead">需要处理的事项和设备传输都在这里。</p>
           </div>
-          <button id="transferCenterBtn" type="button">⇄ <span data-i18n="transfers.center.action">传输记录</span></button>
+          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
-        <section id="attentionInbox" class="attention-inbox" aria-live="polite" hidden>
-          <header><div><span data-i18n="attention.kicker">ATTENTION</span><b data-i18n="attention.title">需要留意</b></div><strong id="attentionCount">0</strong></header>
-          <div id="attentionItems" class="attention-items"></div>
-        </section>
-        <p id="attentionEmpty" class="detail-empty-note" data-i18n="detail.activity.empty">目前没有需要处理的事项。</p>
-        <div class="dialog-actions">
-          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
+        <div class="utility-dialog-commandbar activity-center-commandbar">
+          <button id="transferCenterBtn" type="button">⇄ <span data-i18n="transfers.center.action">传输记录</span></button>
+        </div>
+        <div class="utility-dialog-content activity-center-content">
+          <section id="attentionInbox" class="attention-inbox" aria-live="polite" hidden>
+            <header><div><span data-i18n="attention.kicker">ATTENTION</span><b data-i18n="attention.title">需要留意</b></div><strong id="attentionCount">0</strong></header>
+            <div id="attentionItems" class="attention-items"></div>
+          </section>
+          <p id="attentionEmpty" class="detail-empty-note" data-i18n="detail.activity.empty">目前没有需要处理的事项。</p>
         </div>
       </form>
     </dialog>
 
-    <dialog id="settingsDialog" class="settings-dialog">
-      <form method="dialog" class="dialog-body">
-        <header class="utility-dialog-head">
+    <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsDialogTitle" aria-describedby="settingsDialogLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
           <div>
             <span data-i18n="detail.settings.kicker">SETTINGS</span>
-            <h3 data-i18n="detail.settings.title">应用设置</h3>
-            <p data-i18n="detail.settings.lead">更新、帮助、语言和外观统一放在这里。</p>
+            <h3 id="settingsDialogTitle" data-i18n="detail.settings.title">应用设置</h3>
+            <p id="settingsDialogLead" data-i18n="detail.settings.lead">更新、帮助、语言和外观统一放在这里。</p>
           </div>
+          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
-        <div class="settings-actions">
-          <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">检查更新</span></button>
-          <button id="helpBtn" type="button" data-i18n-title="topbar.help.title">? <span data-i18n="topbar.help">使用说明</span></button>
-          <button id="langToggle" type="button" data-i18n-title="topbar.lang.title">文</button>
-          <button id="themeToggle" type="button" data-i18n-title="topbar.theme.title">◐ <span data-i18n="topbar.theme">外观</span></button>
-        </div>
-        <div class="dialog-actions">
-          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
+        <div class="utility-dialog-content settings-dialog-content">
+          <div class="settings-actions">
+            <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">检查更新</span></button>
+            <button id="helpBtn" type="button" data-i18n-title="topbar.help.title">? <span data-i18n="topbar.help">使用说明</span></button>
+            <button id="langToggle" type="button" data-i18n-title="topbar.lang.title">文</button>
+            <button id="themeToggle" type="button" data-i18n-title="topbar.theme.title">◐ <span data-i18n="topbar.theme">外观</span></button>
+          </div>
         </div>
       </form>
     </dialog>
 
-    <dialog id="transferCenterDialog" class="wide-dialog transfer-center-dialog">
-      <form method="dialog" class="dialog-body">
-        <header>
-          <span data-i18n="transfers.center.kicker">TRANSFER CENTER</span>
-          <h3 data-i18n="transfers.center.title">传输记录</h3>
-          <p data-i18n="transfers.center.body">查看会话信息与文件的发送、接收、等待和失败状态。</p>
+    <dialog id="transferCenterDialog" class="wide-dialog transfer-center-dialog" aria-labelledby="transferCenterTitle" aria-describedby="transferCenterLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell child-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
+          <div>
+            <span data-i18n="transfers.center.kicker">TRANSFER CENTER</span>
+            <h3 id="transferCenterTitle" data-i18n="transfers.center.title">传输记录</h3>
+            <p id="transferCenterLead" data-i18n="transfers.center.body">查看会话信息与文件的发送、接收、等待和失败状态。</p>
+          </div>
+          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
-        <section class="transfer-history">
-          <header>
-            <strong data-i18n="transfers.recent">最近发送与接收</strong>
-            <button id="refreshTransfersBtn" type="button" data-i18n="transfers.refresh">刷新</button>
-          </header>
+        <div class="utility-dialog-commandbar transfer-center-commandbar">
+          <strong data-i18n="transfers.recent">最近发送与接收</strong>
+          <button id="refreshTransfersBtn" type="button" data-i18n="transfers.refresh">刷新</button>
+        </div>
+        <section class="utility-dialog-content transfer-center-content transfer-history">
           <div id="transferList" class="transfer-list"></div>
         </section>
-        <div class="dialog-actions">
-          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
-        </div>
       </form>
     </dialog>
 
-    <dialog id="toolCenterDialog" class="wide-dialog tool-center-dialog">
-      <form method="dialog" class="dialog-body">
-        <header class="tool-center-head">
+    <dialog id="toolCenterDialog" class="wide-dialog tool-center-dialog" aria-labelledby="toolCenterTitle" aria-describedby="toolCenterLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header tool-center-head">
           <div class="tool-center-title">
             <span data-i18n="tools.kicker">TOOL BAY · LOCAL</span>
-            <h3 data-i18n="tools.center.title">应用与 CLI 工具维护台</h3>
-            <p class="tool-center-lead" data-i18n-html="tools.center.lead">检查本机桌面 App 与 CLI 工具的安装和版本；可自动项始终沿用原来的 <b>npm / Homebrew / uv / 官方更新器</b>，不会调用 sudo。</p>
+            <h3 id="toolCenterTitle" data-i18n="tools.center.title">应用与 CLI 工具维护台</h3>
+            <p id="toolCenterLead" class="tool-center-lead" data-i18n-html="tools.center.lead">检查本机桌面 App 与 CLI 工具的安装和版本；可自动项始终沿用原来的 <b>npm / Homebrew / uv / 官方更新器</b>，不会调用 sudo。</p>
           </div>
+          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
+        </header>
+
+        <div class="utility-dialog-commandbar tool-center-commandbar">
           <div class="tool-center-overview">
             <strong id="toolSummary" data-i18n="tools.summary.waiting">等待检查</strong>
             <small id="toolCheckedAt" data-i18n="tools.notChecked">尚未检查</small>
@@ -788,40 +811,45 @@
               <button id="updateAllToolsBtn" type="button" class="primary" disabled data-i18n="tools.updateAllStatic">↑ 一键更新</button>
             </div>
           </div>
-        </header>
-
-        <p id="toolCenterStatus" class="tool-center-status" data-state="idle" aria-live="polite" data-i18n="tools.status.ready">准备检查本机工具。</p>
-
-        <section class="tool-shelf" data-i18n-aria="aria.desktopTools" aria-label="桌面应用">
-          <header><span data-i18n="tools.section.desktop">DESKTOP APPS</span><small data-i18n="tools.section.desktopHint">桌面应用由官方更新器管理</small></header>
-          <div id="desktopToolList" class="tool-list tool-list-desktop"></div>
-        </section>
-
-        <section class="tool-shelf" data-i18n-aria="aria.cliTools" aria-label="CLI 工具">
-          <header><span data-i18n="tools.section.cli">CLI TOOLS</span><small data-i18n="tools.section.cliHint">识别实际安装来源后更新</small></header>
-          <div id="cliToolList" class="tool-list tool-list-cli"></div>
-        </section>
-
-        <div class="dialog-actions tool-center-footer">
-          <small data-i18n="tools.securityNote">更新命令固定在主进程白名单；不会执行界面提交的路径、命令或下载地址。</small>
-          <button value="default" class="primary" data-i18n="dialog.done">完成</button>
+          <p id="toolCenterStatus" class="tool-center-status" data-state="idle" aria-live="polite" data-i18n="tools.status.ready">准备检查本机工具。</p>
         </div>
+
+        <div class="utility-dialog-content tool-center-content">
+          <section class="tool-shelf" data-i18n-aria="aria.desktopTools" aria-label="桌面应用">
+            <header><span data-i18n="tools.section.desktop">DESKTOP APPS</span><small data-i18n="tools.section.desktopHint">桌面应用由官方更新器管理</small></header>
+            <div id="desktopToolList" class="tool-list tool-list-desktop"></div>
+          </section>
+
+          <section class="tool-shelf" data-i18n-aria="aria.cliTools" aria-label="CLI 工具">
+            <header><span data-i18n="tools.section.cli">CLI TOOLS</span><small data-i18n="tools.section.cliHint">识别实际安装来源后更新</small></header>
+            <div id="cliToolList" class="tool-list tool-list-cli"></div>
+          </section>
+        </div>
+
+        <footer class="utility-dialog-footer tool-center-footer">
+          <small data-i18n="tools.securityNote">更新命令固定在主进程白名单；不会执行界面提交的路径、命令或下载地址。</small>
+        </footer>
       </form>
     </dialog>
 
-    <dialog id="welcomeDialog" class="welcome-dialog">
-      <form method="dialog" class="dialog-body">
-        <h3>AgentDesk</h3>
-        <p class="welcome-lead" data-i18n="welcome.lead">管理多个 Claude / Codex 账号，不保存任何密码 —— 登录始终发生在官方 App 里。</p>
-        <ol class="welcome-steps">
-          <li data-i18n-html="welcome.step1"><b>新增</b>一个账号槽位（工作号 / 个人号 / 备用号……）。</li>
-          <li data-i18n-html="welcome.step2">选中它点<b>打开账号</b>，在弹出的官方 App 里登录。</li>
-          <li data-i18n-html="welcome.step3">用过之后，这个账号的本地会话会<b>自动出现</b>在中间列表。</li>
-          <li data-i18n-html="welcome.step4">单选或勾选多条会话后可<b>复制路径与坐标</b>；支持的客户端还能导出 Markdown。</li>
-        </ol>
-        <p class="welcome-tip" data-i18n-html="welcome.tip">每个槽位是独立登录、互不挤下线，可加备注和分组管理。读不到会话时点<b>诊断</b>，或用<b>路径</b>手动指定会话目录。</p>
-        <div class="dialog-actions">
-          <button value="default" class="primary" data-i18n="welcome.start">开始使用</button>
+    <dialog id="welcomeDialog" class="welcome-dialog" aria-labelledby="welcomeDialogTitle" aria-describedby="welcomeDialogLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell child-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
+          <div>
+            <span aria-hidden="true">AGENTDESK GUIDE</span>
+            <h3 id="welcomeDialogTitle">AgentDesk</h3>
+            <p id="welcomeDialogLead" class="welcome-lead" data-i18n="welcome.lead">管理多个 Claude / Codex 账号，不保存任何密码 —— 登录始终发生在官方 App 里。</p>
+          </div>
+          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
+        </header>
+        <div class="utility-dialog-content welcome-dialog-content">
+          <ol class="welcome-steps">
+            <li data-i18n-html="welcome.step1"><b>新增</b>一个账号槽位（工作号 / 个人号 / 备用号……）。</li>
+            <li data-i18n-html="welcome.step2">选中它点<b>打开账号</b>，在弹出的官方 App 里登录。</li>
+            <li data-i18n-html="welcome.step3">用过之后，这个账号的本地会话会<b>自动出现</b>在中间列表。</li>
+            <li data-i18n-html="welcome.step4">单选或勾选多条会话后可<b>复制路径与坐标</b>；支持的客户端还能导出 Markdown。</li>
+          </ol>
+          <p class="welcome-tip" data-i18n-html="welcome.tip">每个槽位是独立登录、互不挤下线，可加备注和分组管理。读不到会话时点<b>诊断</b>，或用<b>路径</b>手动指定会话目录。</p>
         </div>
       </form>
     </dialog>
