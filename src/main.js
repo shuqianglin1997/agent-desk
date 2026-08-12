@@ -490,6 +490,15 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('remoteControl:return', async (_event, input = {}) => {
+    try {
+      const result = await getRemoteControlService().returnToWorkspace(boundedText(input.sessionId, 128));
+      return { ok: true, ...result };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'remote-return-failed', 160) };
+    }
+  });
+
   ipcMain.handle('remoteControl:disconnect', async (_event, input = {}) => {
     try {
       await getRemoteControlService().disconnect(boundedText(input.sessionId, 128));
@@ -942,7 +951,8 @@ function getRemoteControlService() {
     iceServersProvider: () => publicIceServers(),
     languageProvider: () => currentLang(),
     inputAdapter: getRemoteInputAdapter(),
-    onChange: emitRemoteControlChange
+    onChange: emitRemoteControlChange,
+    onReturnToWorkspace: emitRemoteControlReturn
   });
   return remoteControlService;
 }
@@ -971,6 +981,14 @@ function emitTransferChange(transfers) {
 function emitRemoteControlChange(sessions) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send('remoteControl:changed', Array.isArray(sessions) ? sessions : []);
+}
+
+function emitRemoteControlReturn(value = {}) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('remoteControl:returnToWorkspace', {
+    activeSessionId: boundedText(value.activeSessionId, 128),
+    sessions: Array.isArray(value.sessions) ? value.sessions : []
+  });
 }
 
 function registerRemoteEmergencyStop() {

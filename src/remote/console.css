@@ -467,3 +467,132 @@ body[data-surface="embedded"] .console-head {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+/* Embedded workspace hierarchy: one compact utility bar, picture, controls.
+ * The main AgentDesk window already owns product branding and navigation. */
+.console-shell {
+  grid-template-rows: 48px minmax(0, 1fr) 62px;
+}
+
+.console-head {
+  grid-template-columns: auto minmax(150px, 1fr) auto auto auto;
+  gap: 8px;
+  padding: 0 10px;
+  -webkit-app-region: no-drag;
+}
+
+.console-head > .back-action,
+.head-actions button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--paper);
+  cursor: pointer;
+}
+
+.console-head > .back-action {
+  padding: 0;
+  color: var(--muted);
+  font-size: 16px;
+}
+.console-head > .back-action:hover,
+.head-actions button:hover { border-color: rgba(226,185,94,.45); color: var(--signal); }
+
+.target-tabs {
+  align-self: stretch;
+  gap: 4px;
+  padding: 5px 0;
+}
+.target-tab {
+  min-width: 124px;
+  max-width: 190px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.target-tab strong { font-size: 11px; }
+.target-tab small { margin-top: 1px; font-size: 8.5px; }
+
+.connection-cluster {
+  min-width: 148px;
+  justify-items: end;
+  gap: 1px;
+}
+.path-status { gap: 6px; font-size: 10px; }
+.network-metrics { font-size: 8px; }
+
+.stream-budget {
+  min-width: 116px;
+  height: 30px;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(23,32,30,.76);
+}
+.stream-budget strong { font-size: 10px; }
+.stream-budget small {
+  max-width: 78px;
+  overflow: hidden;
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+}
+.budget-led { width: 6px; height: 6px; }
+.head-actions { gap: 5px; }
+
+.remote-stage { padding: 8px; }
+.remote-stage::before { inset: 8px; border-radius: 9px; }
+.video-stack[data-layout="grid"] { gap: 6px; }
+.video-panel { border-radius: 8px; }
+.stage-badge { top: 16px; left: 16px; min-width: 126px; padding: 5px 8px; }
+.stage-badge strong { font-size: 11px; }
+.remote-empty { gap: 7px; }
+.remote-empty h1 { font-size: 20px; }
+.remote-empty p { font-size: 10.5px; line-height: 1.5; }
+.empty-radar { width: 48px; height: 48px; }
+.empty-radar::before { inset: 9px; }
+.empty-radar::after { inset: 19px; }
+
+.control-deck {
+  flex-wrap: nowrap;
+  gap: 7px;
+  padding: 7px 10px;
+}
+.deck-identity { min-width: 120px; }
+.deck-identity strong { max-width: 150px; font-size: 11.5px; }
+.deck-identity span { margin-top: 1px; font-size: 8.5px; }
+.deck-select { gap: 2px; }
+.deck-select span { font-size: 7.5px; letter-spacing: .08em; }
+.deck-select select,
+.control-deck button { height: 30px; }
+.deck-select select { min-width: 102px; max-width: 138px; padding: 0 22px 0 7px; font-size: 9px; }
+#displaySelect { min-width: 132px; max-width: 174px; }
+.control-deck button { padding: 0 9px; font-size: 9px; }
+.view-lock { gap: 6px; font-size: 9px; }
+.view-lock i { width: 6px; height: 6px; }
+
+@media (max-width: 900px) {
+  .console-shell { grid-template-rows: 46px minmax(0, 1fr) 66px; }
+  .console-head { grid-template-columns: auto minmax(130px, 1fr) auto auto; }
+  .connection-cluster { min-width: 116px; }
+  .network-metrics { display: none; }
+  .stream-budget { display: none; }
+  .control-deck { flex-wrap: wrap; align-content: center; }
+  .deck-identity { min-width: 105px; }
+  .view-lock { margin-left: 0; }
+}
+
+@media (max-height: 480px) {
+  .console-shell { grid-template-rows: 42px minmax(0, 1fr) 62px; }
+  .console-head { padding: 0 8px; }
+  .connection-cluster { min-width: 132px; }
+  .target-tabs { padding: 4px 0; }
+  .target-tab { min-width: 112px; padding: 3px 7px; }
+  .remote-stage { padding: 6px; }
+  .remote-stage::before { inset: 6px; }
+  .stage-badge { top: 13px; left: 13px; }
+  .control-deck { gap: 6px; padding: 6px 8px; }
+  .deck-select select,
+  .control-deck button { height: 28px; }
+}

@@ -50,12 +50,18 @@ contextBridge.exposeInMainWorld('manager', {
   openRemoteControl: (deviceId) => ipcRenderer.invoke('remoteControl:open', { deviceId }),
   listRemoteControls: () => ipcRenderer.invoke('remoteControl:list'),
   setRemoteControlSurface: (input = {}) => ipcRenderer.invoke('remoteControl:setSurface', input),
+  returnRemoteControl: (sessionId) => ipcRenderer.invoke('remoteControl:return', { sessionId }),
   disconnectRemoteControl: (sessionId) => ipcRenderer.invoke('remoteControl:disconnect', { sessionId }),
   stopAllRemoteControls: () => ipcRenderer.invoke('remoteControl:stopAll'),
   onRemoteControlsChanged: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('remoteControl:changed', listener);
     return () => ipcRenderer.removeListener('remoteControl:changed', listener);
+  },
+  onRemoteControlReturn: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('remoteControl:returnToWorkspace', listener);
+    return () => ipcRenderer.removeListener('remoteControl:returnToWorkspace', listener);
   },
   listMeshSessions: () => ipcRenderer.invoke('remoteInventory:listSessions'),
   createSessionPointerTransfer: (input) => ipcRenderer.invoke('transfers:createSessionPointer', input),

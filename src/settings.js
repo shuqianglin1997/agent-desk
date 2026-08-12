@@ -21,7 +21,7 @@ const YARD_WEATHER = new Set(['auto', 'clear', 'cloudy', 'rain', 'snow']);
 
 const DEFAULT_SETTINGS = Object.freeze({
   theme: null,
-  view: 'yard',
+  view: 'classic',
   lang: null, // null = 跟随系统语言（中 / 英 / 日）
   sessionScope: 'current',
   sessionView: 'compact',

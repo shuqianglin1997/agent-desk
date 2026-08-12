@@ -27,7 +27,7 @@
   function bindEvents() {
     els.backBtn.addEventListener('click', async () => {
       releaseAllInput();
-      const result = await window.remoteConsole.returnToSessions();
+      const result = await window.remoteConsole.returnToSessions(activeSession()?.sessionId);
       if (!result?.ok) setPathError(result?.reasonCode || 'remote-return-failed');
     });
     els.displaySelect.addEventListener('change', () => {
