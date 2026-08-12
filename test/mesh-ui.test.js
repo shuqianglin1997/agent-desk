@@ -8,6 +8,7 @@ const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')
 test('设备入口位于工具之前，设备中心使用独立模态弹窗且不改变三面板骨架', () => {
   const html = read('src/index.html');
   const styles = read('src/styles.css');
+  const workspaceStyles = read('src/workspace.css');
   const renderer = read('src/renderer.js');
   const navStart = html.indexOf('<nav class="topbar-actions"');
   const navEnd = html.indexOf('</nav>', navStart);
@@ -21,8 +22,9 @@ test('设备入口位于工具之前，设备中心使用独立模态弹窗且�
   assert.doesNotMatch(renderer, /detailSurfaceDevices|deviceCenterDialog\.show\(\)/);
   assert.match(renderer, /\['devices', els\.deviceCenterBtn, els\.deviceCenterDialog\]/);
   assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?dialog\.showModal\(\)/);
-  assert.match(styles, /\.device-center-dialog \.dialog-body\s*\{[\s\S]*?height:\s*min\(680px/);
-  assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 340px;[\s\S]*?grid-template-rows:\s*220px minmax\(0, 1fr\)/);
+  assert.match(workspaceStyles, /\.device-center-dialog \.dialog-body\s*\{[\s\S]*?min-height:\s*610px/);
+  assert.match(workspaceStyles, /--header-h:\s*58px;[\s\S]*?--footer-h:\s*38px;[\s\S]*?--agent-h:\s*244px;[\s\S]*?--detail-w:\s*316px/);
+  assert.match(workspaceStyles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\);[\s\S]*?grid-template-rows:\s*var\(--agent-h\) minmax\(0, 1fr\)/);
   assert.match(styles, /\.mesh-ready-state\[hidden\],[\s\S]*?\.mesh-empty-state\[hidden\][\s\S]*?display:\s*none/);
 });
 

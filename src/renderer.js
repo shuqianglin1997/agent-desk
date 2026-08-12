@@ -139,18 +139,24 @@ const els = {
   formSelect: document.querySelector('#formSelect'),
   quotaChipSelf: document.querySelector('#quotaChipSelf'),
   quotaChipAll: document.querySelector('#quotaChipAll'),
-  atmosWeatherToggle: document.querySelector('#atmosWeatherToggle'),
+  atmosSceneBtn: document.querySelector('#atmosSceneBtn'),
+  atmosSceneLabel: document.querySelector('#atmosSceneLabel'),
+  atmosPopover: document.querySelector('#atmosPopover'),
   topbarContext: document.querySelector('#topbarContext'),
   remoteActivityBtn: document.querySelector('#remoteActivityBtn'),
   yardStage: document.querySelector('#yardStage'),
   yardCanvas: document.querySelector('#yardCanvas'),
   yardOverlay: document.querySelector('#yardOverlay'),
   viewToggle: document.querySelector('#viewToggle'),
+  classicViewBtn: document.querySelector('#classicViewBtn'),
   viewToggleLabel: document.querySelector('#viewToggleLabel'),
   globalMoreMenu: document.querySelector('#globalMoreMenu'),
   langToggle: document.querySelector('#langToggle'),
   accountActions: document.querySelector('#accountActions'),
   accountManage: document.querySelector('#accountManage'),
+  agentManageDialog: document.querySelector('#agentManageDialog'),
+  agentManageSummary: document.querySelector('#agentManageSummary'),
+  agentManageRuntimeLabel: document.querySelector('#agentManageRuntimeLabel'),
   yardManageActions: document.querySelector('#yardManageActions'),
   ledgerDone: document.querySelector('#ledgerDone'),
   ledgerMin: document.querySelector('#ledgerMin'),
@@ -169,6 +175,8 @@ const els = {
   detailSurfaceQuota: document.querySelector('#detailSurfaceQuota'),
   sessionPane: document.querySelector('#sessionPane'),
   sessionInspector: document.querySelector('#sessionInspector'),
+  sessionInspectorEmpty: document.querySelector('#sessionInspectorEmpty'),
+  sessionInspectorFields: document.querySelector('.inspector-primary-fields'),
   remoteWorkspaceHost: document.querySelector('#remoteWorkspaceHost'),
   deviceCenterDialog: document.querySelector('#deviceCenterDialog'),
   closeDeviceCenterBtn: document.querySelector('#closeDeviceCenterBtn'),
@@ -561,6 +569,31 @@ function maybeShowWelcome() {
   els.welcomeDialog.showModal();
 }
 
+function closeAgentManageDialog() {
+  if (els.agentManageDialog?.open) els.agentManageDialog.close();
+}
+
+function renderAgentManageContext() {
+  const profile = selectedProfile();
+  const agent = catalogAgentById(currentAgentId());
+  const group = identityGroups().find((item) => item.key === currentAgentId()) || null;
+  const agentName = agent?.displayName || group?.primary?.name || profile?.name || tr('account.noneAgent');
+  if (els.agentManageSummary) {
+    els.agentManageSummary.textContent = `${agentName} · ${tr('account.manageHint')}`;
+  }
+  if (els.agentManageRuntimeLabel) {
+    els.agentManageRuntimeLabel.textContent = profile
+      ? [profile._meshDeviceName, profile.name, appLabel(profile.appId)].filter(Boolean).join(' · ')
+      : tr('devices.slot.choose');
+  }
+}
+
+function openAgentManageDialog() {
+  if (!els.agentManageDialog) return;
+  renderAgentManageContext();
+  if (!els.agentManageDialog.open) els.agentManageDialog.showModal();
+}
+
 function bindEvents() {
   els.remoteActivityBtn?.addEventListener('click', () => {
     const sessions = activeOutgoingRemoteSessions();
@@ -570,6 +603,7 @@ function bindEvents() {
     setWorkspaceMode('remote');
   });
   els.addProfileBtn.addEventListener('click', () => openProfileCreationDialog());
+  els.accountManage?.addEventListener('click', () => openAgentManageDialog());
   els.newProfileMode?.addEventListener('change', () => syncProfileAssignmentControls());
   els.newProfileApp?.addEventListener('change', () => syncProfileAssignmentControls());
   els.newProfileAgent?.addEventListener('change', () => syncProfileAssignmentControls());
@@ -579,7 +613,10 @@ function bindEvents() {
     void confirmProfileCreation();
   });
 
-  els.editProfileBtn.addEventListener('click', () => openAgentOrProfileEditor());
+  els.editProfileBtn.addEventListener('click', () => {
+    closeAgentManageDialog();
+    openAgentOrProfileEditor();
+  });
   els.confirmEditBtn.addEventListener('click', (event) => {
     event.preventDefault();
     void confirmAgentOrProfileEdit();
@@ -595,8 +632,14 @@ function bindEvents() {
     renderCatPreview();
   });
 
-  els.manageAgentRelationsBtn?.addEventListener('click', () => openAgentRelationsDialog());
-  els.removeProfileBtn.addEventListener('click', () => void openAgentOrProfileRemoval());
+  els.manageAgentRelationsBtn?.addEventListener('click', () => {
+    closeAgentManageDialog();
+    openAgentRelationsDialog();
+  });
+  els.removeProfileBtn.addEventListener('click', () => {
+    closeAgentManageDialog();
+    void openAgentOrProfileRemoval();
+  });
   els.removeCatalogDialog?.querySelectorAll('input[name="catalogRemoveScope"]').forEach((radio) => {
     radio.addEventListener('change', () => renderCatalogRemovalImpact());
   });
@@ -672,7 +715,12 @@ function bindEvents() {
   });
 
   els.viewToggle.addEventListener('click', () => {
-    state.view = state.view === 'yard' ? 'classic' : 'yard';
+    state.view = 'yard';
+    persistSettings({ view: state.view });
+    applyView();
+  });
+  els.classicViewBtn?.addEventListener('click', () => {
+    state.view = 'classic';
     persistSettings({ view: state.view });
     applyView();
   });
@@ -922,6 +970,7 @@ function bindEvents() {
   els.pathConfigBtn.addEventListener('click', () => {
     const profile = selectedProfile();
     if (!profile) return;
+    closeAgentManageDialog();
     els.profilePathInput.value = profile.profilePath || '';
     els.sessionRootInput.value = profile.sessionRoot || '';
     els.executablePathInput.value = profile.executablePath || '';
@@ -975,6 +1024,7 @@ function bindEvents() {
   });
 
   els.diagnosticsBtn.addEventListener('click', async () => {
+    closeAgentManageDialog();
     await showDiagnostics();
   });
 
@@ -987,11 +1037,13 @@ function bindEvents() {
   els.profileFolderBtn.addEventListener('click', async () => {
     const profile = selectedProfile();
     if (!profile) return;
+    closeAgentManageDialog();
     const result = await window.manager.openPath(profile.profilePath);
     setStatus(result.message || result.reason || (result.ok ? tr('status.openAcctDirOk') : tr('status.openAcctDirFail')));
   });
 
   els.refreshBtn.addEventListener('click', async () => {
+    closeAgentManageDialog();
     if (isYardView()) window.YardScene.fx('bell');
     await loadSessions();
     await loadActivity();
@@ -1017,9 +1069,6 @@ function bindEvents() {
 
   // 所有轻量菜单遵循同一规则：点菜单外、选择菜单项或按 Esc 后关闭。
   document.addEventListener('pointerdown', (event) => {
-    if (els.accountManage.open && !els.accountManage.contains(event.target)) {
-      els.accountManage.open = false;
-    }
     for (const menu of document.querySelectorAll('details.context-menu[open]')) {
       if (!menu.contains(event.target)) menu.open = false;
     }
@@ -1031,7 +1080,6 @@ function bindEvents() {
   });
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
-    if (els.accountManage.open) els.accountManage.open = false;
     for (const menu of document.querySelectorAll('details.context-menu[open]')) {
       menu.open = false;
     }
@@ -1247,7 +1295,7 @@ function fillBindingAssignmentSelect(select, appId, preferredBindingId = null) {
 }
 
 function openProfileCreationDialog() {
-  els.accountManage.open = false;
+  closeAgentManageDialog();
   const meshMode = state.mesh.overview?.initialized === true;
   els.profileDialogTitle.textContent = tr(meshMode ? 'dialog.addProfile.slotTitle' : 'dialog.addProfile.title');
   els.newProfileMeshAssignment.hidden = !meshMode;
@@ -1343,7 +1391,7 @@ async function confirmProfileCreation() {
 }
 
 function openAgentOrProfileEditor() {
-  els.accountManage.open = false;
+  closeAgentManageDialog();
   const meshMode = state.mesh.overview?.initialized === true;
   if (meshMode) {
     const agent = catalogAgentById(currentAgentId());
@@ -1448,7 +1496,7 @@ async function refreshCatalogWorkspace(overview, options = {}) {
 }
 
 async function openAgentOrProfileRemoval() {
-  els.accountManage.open = false;
+  closeAgentManageDialog();
   const profile = selectedProfile();
   if (!state.mesh.overview?.initialized) {
     if (!profile) return;
@@ -1596,7 +1644,7 @@ async function confirmCatalogRemoval() {
 }
 
 function openAgentRelationsDialog() {
-  els.accountManage.open = false;
+  closeAgentManageDialog();
   const agent = catalogAgentById(currentAgentId());
   if (!agent || !state.mesh.overview?.initialized) return;
   state.mesh.relationAgentId = agent.agentId;
@@ -2580,18 +2628,14 @@ function initAtmosphere() {
     updateAtmosphereReadout();
     setStatus(tr('status.yardWeather', { label: tr('yard.weather.' + state.atmosWeather) }));
   });
-  // 天气行默认收起（原型只显时间行）；⛅ 展开，或用户存过非自动天气时自动展开
-  const syncWeatherToggle = () => {
-    if (els.atmosWeatherToggle) {
-      els.atmosWeatherToggle.setAttribute('aria-expanded', String(!els.atmosWeather.hidden));
-    }
-  };
-  els.atmosWeatherToggle?.addEventListener('click', () => {
-    els.atmosWeather.hidden = !els.atmosWeather.hidden;
-    syncWeatherToggle();
+  els.atmosPopover?.addEventListener('toggle', (event) => {
+    if (event.newState !== 'open' || !els.atmosSceneBtn) return;
+    const anchor = els.atmosSceneBtn.getBoundingClientRect();
+    const width = Math.min(320, window.innerWidth - 24);
+    els.atmosPopover.style.width = `${width}px`;
+    els.atmosPopover.style.left = `${Math.max(12, Math.min(window.innerWidth - width - 12, anchor.right - width))}px`;
+    els.atmosPopover.style.top = `${Math.min(window.innerHeight - 230, anchor.bottom + 8)}px`;
   });
-  if (state.atmosWeather !== 'auto') els.atmosWeather.hidden = false;
-  syncWeatherToggle();
 
   window.YardScene.setAtmosphere({ time: state.atmosTime, weather: state.atmosWeather });
   syncPressed();
@@ -2605,6 +2649,14 @@ function updateAtmosphereReadout() {
   els.yardStage.dataset.weather = current.weather;
   const autoTime = els.atmosTime.querySelector('[data-time="auto"]');
   const autoWeather = els.atmosWeather.querySelector('[data-weather="auto"]');
+  if (els.atmosSceneLabel) {
+    const timeKey = state.atmosTime === 'auto' ? 'auto' : current.time;
+    const weatherKey = state.atmosWeather === 'auto' ? 'auto' : current.weather;
+    els.atmosSceneLabel.textContent = tr('yard.atmos.sceneValue', {
+      time: tr(`yard.time.${timeKey}`),
+      weather: tr(`yard.weather.${weatherKey}`)
+    });
+  }
   if (autoTime) autoTime.title = tr('atmos.autoTimeTip', { label: tr('yard.time.' + current.time) });
   if (autoWeather) {
     const next = current.nextWeatherAt ? compactDate(current.nextWeatherAt) : tr('atmos.later');
@@ -2805,8 +2857,9 @@ function renderDeviceCenter() {
     : null;
 
   if (els.deviceCountBadge) {
-    els.deviceCountBadge.textContent = String(overview?.devices?.length || 0);
-    els.deviceCountBadge.hidden = !initialized;
+    const onlineCount = (overview?.devices || []).filter((device) => device.status === 'online').length;
+    els.deviceCountBadge.textContent = String(onlineCount);
+    els.deviceCountBadge.hidden = !initialized || onlineCount === 0;
   }
   renderDeviceLens(overview);
   if (els.meshEmptyState) els.meshEmptyState.hidden = initialized;
@@ -4240,8 +4293,9 @@ function applyView() {
   // 统一骨架：账号呈现层随视图切换 —— 庭院视图显示场景，经典视图显示账号名册（CSS 控制显隐）。
   // 新增/编辑/移除按钮固定在控制条（新增紧跟打开账号，编辑/移除在「管理」菜单），两视图共用、不再搬家。
   els.yardStage.hidden = !yard;
-  if (els.viewToggleLabel) els.viewToggleLabel.textContent = tr(yard ? 'topbar.toClassic' : 'topbar.toYard');
-  els.accountManage.open = false;
+  if (els.viewToggleLabel) els.viewToggleLabel.textContent = tr('topbar.toYard');
+  els.viewToggle?.setAttribute('aria-pressed', String(yard));
+  els.classicViewBtn?.setAttribute('aria-pressed', String(!yard));
   if (yardMounted) window.YardScene.setActive(yard);
   if (yard) loadActivity(); // 切回庭院时立刻刷新猫的状态
   renderTopbarContext();
@@ -4328,7 +4382,6 @@ function syncYard() {
     const groups = identityGroups();
     const statesById = {};
     const energyById = {};
-    const attentionById = {};
     // 一只猫 = 一个账号（组）：状态吃组内所有形态的聚合活跃，
     // 任一形态在干活猫就在打字；额度取组内有真实快照的那个槽位。
     for (const group of groups) {
@@ -4343,14 +4396,6 @@ function syncYard() {
       energyById[primary.id] = window.YardEnergy
         ? window.YardEnergy.deriveEnergy(state.quotaError ? null : snapshot, now)
         : 'unknown';
-      const broken = group.members.find(
-        (member) => window.YardCats.deriveState(now, member, state.activity[member.id]) === 'confused'
-      );
-      if (broken) {
-        attentionById[primary.id] = { kind: 'error', text: tr('attention.confused.title', { name: broken.name }) };
-      } else if (group.key === currentAgentId() && energyById[primary.id] === 'exhausted') {
-        attentionById[primary.id] = { kind: 'warning', text: tr('yard.attn.lowquota') };
-      }
     }
     const selectedGroup = groups.find((group) => group.key === currentAgentId()) || null;
     window.YardScene.update({
@@ -4358,7 +4403,10 @@ function syncYard() {
       statesById,
       energyById,
       positionsById: state.yardPositions,
-      attentionById,
+      // Persistent attention belongs to the Header Activity dialog. The compact
+      // yard keeps transient cat speech only, so path/quota warnings cannot
+      // cover the Agent presenter or become a second activity surface.
+      attentionById: {},
       selectedId: selectedGroup ? selectedGroup.primary.id : currentProfileId(),
       night: document.documentElement.dataset.theme === 'dark'
     });
@@ -4807,19 +4855,13 @@ function populateGroupDatalist() {
 // 编辑、移除、打开、诊断、位置和额度均通过该 Slot 即时解析本地 Profile。
 function renderFormSwitcher(profile, group) {
   if (!els.formSwitcher || !els.formSelect) return;
-  const meshMode = state.mesh.overview?.initialized === true;
   const label = els.formSwitcher.querySelector('.form-switcher-label');
-  if (label) label.textContent = tr(meshMode ? 'devices.slot.label' : 'account.form');
-  els.formSelect.title = tr(meshMode ? 'devices.slot.title' : 'account.form.title');
+  if (label) label.textContent = tr('devices.slot.label');
+  els.formSelect.title = tr('devices.slot.title');
   // 复用调用方已算好的组；缺省时才自己算一次，保持函数自足
   const grp = group || (profile ? groupOfProfile(profile.id) : null);
   const members = grp ? grp.members : [];
   if (!grp) {
-    els.formSwitcher.hidden = true;
-    els.formSelect.replaceChildren();
-    return;
-  }
-  if (members.length < 2 && profile) {
     els.formSwitcher.hidden = true;
     els.formSelect.replaceChildren();
     return;
@@ -4856,11 +4898,16 @@ function renderAccountHeader() {
     || currentDeviceLensId() === 'all'
     || currentDeviceLensId() === state.mesh.overview.localDeviceId;
 
-  els.addProfileBtn.textContent = tr(meshMode ? 'account.addSlot' : 'account.add');
-  els.editProfileBtn.textContent = tr(meshMode ? 'account.editAgent' : 'account.edit');
-  els.removeProfileBtn.textContent = tr(meshMode ? 'account.removeCatalog' : 'account.remove');
+  els.addProfileBtn.textContent = tr('account.addSlot');
+  const editProfileLabel = els.editProfileBtn.querySelector(':scope > span');
+  const removeProfileLabel = els.removeProfileBtn.querySelector(':scope > span');
+  if (editProfileLabel) editProfileLabel.textContent = tr(meshMode ? 'account.editAgent' : 'account.edit');
+  else els.editProfileBtn.textContent = tr(meshMode ? 'account.editAgent' : 'account.edit');
+  if (removeProfileLabel) removeProfileLabel.textContent = tr(meshMode ? 'account.removeCatalog' : 'account.remove');
+  else els.removeProfileBtn.textContent = tr(meshMode ? 'account.removeCatalog' : 'account.remove');
   els.addProfileBtn.disabled = !localLens;
   els.addProfileBtn.title = localLens ? '' : tr('account.addRemoteDisabled');
+  if (els.accountManage) els.accountManage.disabled = !selectedGroup && !profile;
   if (els.manageAgentRelationsBtn) {
     els.manageAgentRelationsBtn.hidden = !meshMode;
     els.manageAgentRelationsBtn.disabled = !selectedAgent;
@@ -4891,6 +4938,7 @@ function renderAccountHeader() {
     renderFormSwitcher(null, selectedGroup);
     renderQuotaSummary();
     renderTopbarContext();
+    renderAgentManageContext();
     return;
   }
 
@@ -4935,6 +4983,7 @@ function renderAccountHeader() {
   els.accountNote.style.display = profile.note ? '' : 'none';
   renderQuotaSummary();
   renderTopbarContext();
+  renderAgentManageContext();
 }
 
 const COMPACT_SESSION_COLUMNS = [
@@ -5592,6 +5641,9 @@ function renderInspector() {
     : (session ? tr('detail.export.cannot') : '');
 
   renderReplicaPicker(focused, resolution);
+  if (els.sessionInspectorEmpty) els.sessionInspectorEmpty.hidden = Boolean(focused);
+  if (els.sessionInspectorFields) els.sessionInspectorFields.hidden = !focused;
+  if (els.sessionTechnicalDetails) els.sessionTechnicalDetails.hidden = !focused;
 
   if (!focused) {
     setDetail(els.detailTitle, tr('detail.unselected'), { keep: true });

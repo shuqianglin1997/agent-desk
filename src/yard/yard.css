@@ -1,3 +1,5 @@
+@layer legacy {
+
 /*
  * AgentDesk — 庭院视图布局与像素皮肤。
  *
@@ -1097,4 +1099,6 @@ body[data-view="yard"] .tool-center-head-actions button.primary {
 body[data-view="yard"] .tool-status-badge {
   border-width: 2px;
   border-radius: 0;
+}
+
 }

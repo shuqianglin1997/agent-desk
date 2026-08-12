@@ -6,6 +6,7 @@
     <title>AgentDesk</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./yard/yard.css" />
+    <link rel="stylesheet" href="./workspace.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -16,7 +17,10 @@
         </div>
         <div class="topbar-lens">
           <span id="topbarContext" class="visually-hidden" aria-live="polite"></span>
-          <select id="deviceLensSelect" class="device-lens-select" data-i18n-aria="devices.lens.label" aria-label="设备视角" hidden></select>
+          <label class="device-lens-control">
+            <span data-i18n="devices.lens.caption">设备视角</span>
+            <select id="deviceLensSelect" class="device-lens-select" data-i18n-aria="devices.lens.label" aria-label="设备视角" hidden></select>
+          </label>
         </div>
         <nav class="topbar-actions" data-i18n-aria="aria.topbarActions" aria-label="全局操作">
           <button id="remoteActivityBtn" class="remote-activity-btn" type="button" hidden aria-live="polite"></button>
@@ -33,7 +37,10 @@
             <div><span data-i18n="presenter.title">AGENTS</span><b id="presenterCount">0</b></div>
             <div class="agent-panel-tools">
               <button id="leaderboardBtn" type="button" data-i18n-title="topbar.leaderboard.title">🏆 <span data-i18n="topbar.leaderboard">排行</span></button>
-              <button id="viewToggle" type="button" data-i18n-title="topbar.view.title">⇄ <span id="viewToggleLabel" data-i18n="topbar.toYard">庭院</span></button>
+              <div class="agent-view-segment" role="group" data-i18n-aria="topbar.view.title" aria-label="庭院或卡片视图">
+                <button id="viewToggle" type="button" aria-pressed="true" data-i18n-title="topbar.view.title"><span id="viewToggleLabel" data-i18n="topbar.toYard">庭院</span></button>
+                <button id="classicViewBtn" type="button" aria-pressed="false" data-i18n-title="topbar.view.title"><span data-i18n="topbar.toClassic">卡片</span></button>
+              </div>
             </div>
           </header>
           <div class="agent-panel-body">
@@ -45,21 +52,28 @@
                     <div id="yardOverlay" class="yard-overlay"></div>
                   </div>
                   <div class="yard-atmos">
-                    <div class="atmos-line">
-                      <div class="atmos-row" id="atmosTime" role="group" data-i18n-aria="yard.atmos.time" aria-label="时间">
-                        <button type="button" data-time="auto" data-i18n="yard.time.auto">跟随</button>
-                        <button type="button" data-time="day" data-i18n="yard.time.day">白天</button>
-                        <button type="button" data-time="dusk" data-i18n="yard.time.dusk">黄昏</button>
-                        <button type="button" data-time="night" data-i18n="yard.time.night">夜晚</button>
-                      </div>
-                      <button type="button" id="atmosWeatherToggle" class="atmos-more" aria-expanded="false" data-i18n-title="yard.weather.title" title="天气设置">⛅</button>
-                    </div>
-                    <div class="atmos-row" id="atmosWeather" role="group" data-i18n-aria="yard.atmos.weather" aria-label="天气" hidden>
-                      <button type="button" data-weather="auto" data-i18n="yard.weather.auto">自动</button>
-                      <button type="button" data-weather="clear" data-i18n="yard.weather.clear">晴</button>
-                      <button type="button" data-weather="cloudy" data-i18n="yard.weather.cloudy">多云</button>
-                      <button type="button" data-weather="rain" data-i18n="yard.weather.rain">雨</button>
-                      <button type="button" data-weather="snow" data-i18n="yard.weather.snow">雪</button>
+                    <button type="button" id="atmosSceneBtn" class="atmos-scene-button" popovertarget="atmosPopover" aria-haspopup="menu" data-i18n-title="yard.atmos.sceneTitle" title="庭院场景设置"><span aria-hidden="true">☀</span><b id="atmosSceneLabel">场景 · 跟随 / 自动</b><i aria-hidden="true">⌄</i></button>
+                    <div id="atmosPopover" class="atmos-popover" popover="auto">
+                      <header><span data-i18n="yard.atmos.scene">庭院场景</span><small data-i18n="yard.atmos.sceneHint">时间与天气只影响庭院画面</small></header>
+                      <section>
+                        <strong data-i18n="yard.atmos.time">时间</strong>
+                        <div class="atmos-row" id="atmosTime" role="group" data-i18n-aria="yard.atmos.time" aria-label="时间">
+                          <button type="button" data-time="auto" data-i18n="yard.time.auto">跟随</button>
+                          <button type="button" data-time="day" data-i18n="yard.time.day">白天</button>
+                          <button type="button" data-time="dusk" data-i18n="yard.time.dusk">黄昏</button>
+                          <button type="button" data-time="night" data-i18n="yard.time.night">夜晚</button>
+                        </div>
+                      </section>
+                      <section>
+                        <strong data-i18n="yard.atmos.weather">天气</strong>
+                        <div class="atmos-row" id="atmosWeather" role="group" data-i18n-aria="yard.atmos.weather" aria-label="天气">
+                          <button type="button" data-weather="auto" data-i18n="yard.weather.auto">自动</button>
+                          <button type="button" data-weather="clear" data-i18n="yard.weather.clear">晴</button>
+                          <button type="button" data-weather="cloudy" data-i18n="yard.weather.cloudy">多云</button>
+                          <button type="button" data-weather="rain" data-i18n="yard.weather.rain">雨</button>
+                          <button type="button" data-weather="snow" data-i18n="yard.weather.snow">雪</button>
+                        </div>
+                      </section>
                     </div>
                   </div>
                 </div>
@@ -74,27 +88,15 @@
                 <span id="accountBadge" class="account-badge" hidden></span>
               </div>
               <label id="formSwitcher" class="form-switcher" hidden>
-                <span class="form-switcher-label" data-i18n="account.form">形态</span>
-                <select id="formSelect" data-i18n-title="account.form.title" title="这个账号有多个客户端形态；切换后 打开 / 编辑 / 移除 / 诊断 / 位置 / 额度 都作用于所选形态"></select>
+                <span class="form-switcher-label" data-i18n="devices.slot.label">运行位置</span>
+                <select id="formSelect" data-i18n-title="devices.slot.title" title="选择明确的设备和客户端运行位置；打开、诊断、路径、重扫等操作只作用于这里选中的位置"></select>
               </label>
               <div class="account-actions" id="accountActions">
                 <button id="launchBtn" class="primary" data-i18n="account.open">打开账号</button>
-                <button id="addProfileBtn" data-i18n="account.add">新增</button>
-                <details id="accountManage" class="account-manage context-menu">
-                  <summary data-i18n="account.manage">管理</summary>
-                  <div id="yardManageActions" class="account-manage-menu context-menu-panel">
-                    <button id="pathConfigBtn" data-i18n="account.path">路径</button>
-                    <button id="diagnosticsBtn" data-i18n="account.diagnostics">诊断</button>
-                    <button id="refreshBtn" data-i18n="account.refresh">重扫</button>
-                    <span class="context-menu-divider" aria-hidden="true"></span>
-                    <button id="manageAgentRelationsBtn" data-i18n="account.relations" hidden>Agent 关系</button>
-                    <button id="editProfileBtn" data-i18n="account.edit">编辑</button>
-                    <button id="removeProfileBtn" data-i18n="account.remove">移除</button>
-                    <button id="profileFolderBtn" data-i18n="account.folder">位置</button>
-                  </div>
-                </details>
+                <button id="addProfileBtn" data-i18n="account.addSlot">新增运行位置</button>
+                <button id="accountManage" class="account-manage" type="button" aria-haspopup="dialog" aria-controls="agentManageDialog" data-i18n="account.manageAgent">管理 Agent</button>
               </div>
-              <div class="quota-chips">
+              <div class="quota-chips quota-compact-row">
                 <button id="quotaChipSelf" class="quota-chip" type="button" aria-controls="quotaSummary" aria-expanded="false" data-i18n-title="quota.self.title"><span data-i18n="quota.self">本号</span> <span class="mtr"><i></i></span><b>—</b></button>
                 <button id="quotaChipAll" class="quota-chip" type="button" aria-controls="quotaOverview" aria-expanded="false" data-i18n-title="quota.all.title"><span data-i18n="quota.all">全院</span> <span class="mtr"><i></i></span><b>—</b></button>
               </div>
@@ -151,6 +153,11 @@
               <h3 id="detailTitle">未选择</h3>
             </header>
             <div class="inspector-body">
+              <div id="sessionInspectorEmpty" class="inspector-empty-state">
+                <span aria-hidden="true">↳</span>
+                <strong data-i18n="detail.empty.title">选择一条会话</strong>
+                <p data-i18n="detail.empty.body">单击会话查看详情；勾选复选框建立批量操作集合。</p>
+              </div>
               <section id="sessionReplicaPicker" class="session-replica-picker" hidden>
                 <header><strong data-i18n="session.replica.title">选择操作来源</strong><small data-i18n="session.replica.hint">这条会话存在于多个位置。复制、发送或打开前，请确认使用哪一个副本。</small></header>
                 <div id="sessionReplicaOptions" class="session-replica-options"></div>
@@ -218,6 +225,38 @@
         </div>
       </footer>
     </div>
+
+    <dialog id="agentManageDialog" class="agent-manage-dialog wide-dialog">
+      <form method="dialog" class="dialog-body">
+        <header class="utility-dialog-head agent-manage-head">
+          <div>
+            <span data-i18n="account.manageKicker">AGENT &amp; RUNTIME</span>
+            <h3 data-i18n="account.manageAgent">管理 Agent</h3>
+            <p id="agentManageSummary" data-i18n="account.manageHint">全局 Agent 与当前运行位置分开管理；所有动作都显示自己的作用范围。</p>
+          </div>
+          <button value="cancel" data-i18n="dialog.close">关闭</button>
+        </header>
+        <div class="agent-manage-sections">
+          <section class="agent-manage-section">
+            <header><div><span data-i18n="account.globalAgent">全局 Agent</span><small data-i18n="account.globalAgentHint">名称、外观、账号关系与目录生命周期</small></div></header>
+            <div id="agentGlobalActions" class="agent-manage-actions">
+              <button id="editProfileBtn" type="button"><span data-i18n="account.editAgent">编辑 Agent</span><small data-i18n="account.editAgentHint">名称、分组、备注与猫咪外观</small></button>
+              <button id="manageAgentRelationsBtn" type="button" hidden><span data-i18n="account.relations">Agent 关系</span><small data-i18n="account.relationsHint">合并 Agent 或拆分登录账号</small></button>
+              <button id="removeProfileBtn" class="danger-zone-action" type="button"><span data-i18n="account.removeCatalog">从 AgentDesk 移除…</span><small data-i18n="account.removeHint">先预览运行位置、登录账号或整个 Agent 的影响</small></button>
+            </div>
+          </section>
+          <section class="agent-manage-section">
+            <header><div><span data-i18n="account.currentRuntime">当前运行位置</span><small id="agentManageRuntimeLabel">—</small></div></header>
+            <div id="yardManageActions" class="agent-manage-actions runtime-actions">
+              <button id="pathConfigBtn" type="button"><span data-i18n="account.path">路径</span><small data-i18n="account.pathHint">账号数据目录与会话根目录</small></button>
+              <button id="diagnosticsBtn" type="button"><span data-i18n="account.diagnostics">诊断</span><small data-i18n="account.diagnosticsHint">客户端、目录、会话与启动状态</small></button>
+              <button id="refreshBtn" type="button"><span data-i18n="account.refresh">重扫</span><small data-i18n="account.refreshHint">重新读取当前来源的会话与状态</small></button>
+              <button id="profileFolderBtn" type="button"><span data-i18n="account.folder">打开位置</span><small data-i18n="account.folderHint">在本机文件管理器中显示账号目录</small></button>
+            </div>
+          </section>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="profileDialog">
       <form method="dialog" class="dialog-body">

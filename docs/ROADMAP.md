@@ -12,7 +12,7 @@ Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码
 - Claude Desktop / CLI、Codex、Cursor、Kimi Code / Work 会话索引；
 - 与 Device Lens 正交的当前/全部 Agent 范围、搜索、排序、focus/显式勾选统一定位与支持来源的单会话 Markdown 导出；
 - 活动聚合、Codex 额度总览、路径诊断；
-- 猫猫庭院与经典名册；
+- 共用状态的猫猫庭院与卡片名册、单一场景 Popover；
 - 桌面 App / CLI 发现、版本检查、打开和显式维护；
 - macOS / Windows 打包、更新与发布校验；
 - Personal Mesh 初始化、一次性加密配对、设备权限/撤销、全局 Agent 目录、设备 Lens 与可删到零语义；
@@ -24,7 +24,7 @@ Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码
 - 右下统一详情面板内的隔离 Remote Surface、目标端逐次同意、屏幕查看、固定键鼠输入协议和最多四路控制台；
 - 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
 - Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
-- 临时 userData 下真实 1040 × 840 Electron 的 14 条本地任务路径验收。
+- 临时 userData 下真实 1040 × 840 Electron 的 15 条本地任务路径验收，包括 1.13 固定几何、Compact 无横滚与临时层边界。
 
 ## 近期优先级
 

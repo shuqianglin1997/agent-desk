@@ -4,26 +4,31 @@
 >
 > 当前分支：`main`
 >
-> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.12，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
+> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.13，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
 >
 > 仓库：`shuqianglin1997/agent-desk`
 
 ## 1. 当前结论
 
-1.12 批准的主窗口重构已经进入真实产品代码，不再是 HTML 排版提案：
+1.13 批准的主窗口层级与排版已经进入真实产品代码，不再是 HTML 排版提案：
 
 - 主窗口固定为一个 Header、一个 Footer，以及顶部 Agent、左下会话、右下详情三个面板；1040 × 840 尺寸不变。
+- Renderer 几何冻结为 58px Header、244px Agent 面板、316px 详情、38px Footer，工作区使用 12px/10px padding 与 10px gap；Compact 会话表没有水平滚动。
 - Header 直接保留 Device Lens、设备、工具、活动、设置；不存在全局“更多”杂物菜单，也不显示没有来源的状态圆点。
-- 顶部 Agent 面板同时承载庭院/卡片、排行、当前 Agent、运行位置、打开、新增、管理和紧凑额度。
+- 顶部 Agent 面板同时承载庭院/卡片当前模式分段、排行、当前 Agent、始终可见的运行位置、打开、新增、管理和紧凑额度。
+- 时间/天气进入一个原生 Top Layer 场景 Popover；原七项菜单进入分“全局 Agent / 当前运行位置”的对象 Dialog，不再依赖裁切面板内的绝对定位菜单。
 - 左下只负责会话范围、搜索、显示设置和列表；右下只承载会话详情及其底部动作坞、额度和隔离 Remote Surface。
 - 设备、工具、活动、设置由 Header 分别打开四个有界模态弹窗；开关弹窗不改变底层详情、Device Lens、Agent/Slot、搜索或 focused/checked 会话。配对、权限、诊断和传输历史保留在所属弹窗或受控次级弹窗。
 - 会话动作只进入右下会话详情底部动作坞：聚焦单条时集中提供复制、发送、打开和导出；显式勾选后原位切为批量摘要、取消、复制和发送。“复制会话信息”仍是唯一填充主按钮，内容仍严格只有路径和坐标。
 - Footer 只承担全局状态、今日完成数、陪伴分钟与提醒总开关；庭院内部不再叠加小账本或提醒条。
+- 路径、额度等持久待处理事项只进入 Header 的活动弹窗；庭院只保留 Agent Presenter 和摸猫/拖放后的短暂直接反馈。
 - 四个全局弹窗开关、额度详情切换和远控进入/返回时，三个固定面板的几何位置不变，不再插入提醒行、额度行、选择条、抽屉或整页工作区。
 - 庭院与卡片继续共用 Agent/Slot/会话业务状态；Agent 是展示主轴，Device 是筛选轴，Slot 和 SessionReplica 是动作落点。
 - Remote Surface 仍是专用沙箱 WebContentsView，只把可见边界收进右下详情；普通 Main Renderer 不接触 SDP、媒体轨、采集 source、TURN 凭据或输入通道。
 
-这轮同时修复了一个由新导航顺序暴露的真实问题：纯本地用户先打开“活动”时，传输历史的只读查询会提前创建空 `mesh.db`，设备中心随后把它判为不完整存储并阻止初始化。`TransferService` 的只读 `list/read/projectBindings` 现在在数据库不存在时直接返回空结果，不再产生存储副作用，并有单元测试锁定。
+表现层由 `src/workspace.css` 作为 canonical 分层系统承载，旧 `styles.css` 与 `yard/yard.css` 降入 `legacy`；像素皮肤只限于 Canvas、猫与紧凑名牌。语义 `[hidden]` 在最高层兜底，table focused/checked 边界落到真实单元格，避免 Chromium 把 `<tr>` 伪元素当成匿名列。
+
+上一轮还修复了一个由新导航顺序暴露的真实问题：纯本地用户先打开“活动”时，传输历史的只读查询会提前创建空 `mesh.db`，设备中心随后把它判为不完整存储并阻止初始化。`TransferService` 的只读 `list/read/projectBindings` 现在在数据库不存在时直接返回空结果，不再产生存储副作用，并有单元测试锁定。
 
 ## 2. 接手前强制门禁
 
@@ -66,13 +71,14 @@
 ## 4. 关键实现文件
 
 - `src/index.html`：固定五区结构和全部真实控件。
-- `src/styles.css`：1040 × 840 三面板几何、四个有界弹窗、会话详情动作坞、额度/远控详情与全局 Footer。
-- `src/yard/yard.css`：只负责顶部 Agent 面板内的庭院视觉，不再参与页面骨架排版。
+- `src/workspace.css`：1.13 canonical CSS 分层、固定几何、统一组件、Presenter 边界、四个有界弹窗、会话动作坞与全局 Footer。
+- `src/styles.css`：低优先级 legacy 兼容样式，不再决定工作台几何。
+- `src/yard/yard.css`：低优先级庭院 legacy 皮肤，不参与页面骨架排版。
 - `src/renderer.js`：Header 弹窗入口、utilityDialog/detailMode、Remote Surface 返回与选择状态。
 - `src/ui-context.js`：Device Lens、Agent、Slot、focused/checked Conversation、Replica、设备详情、远控和传输草稿的独立状态。
 - `src/mesh/main/transfer-service.js`：纯本地只读活动不创建 Mesh 数据库。
 - `src/i18n/{zh,en,ja}.js`：Header 与详情的三语文案，key 集合一致。
-- `scripts/ui-acceptance.js`：真实 1040 × 840 Electron 的 14 条任务路径。
+- `scripts/ui-acceptance.js`：真实 1040 × 840 Electron 的 15 条任务路径。
 - `test/ui-redesign.test.js`、`test/ui.test.js`、`test/mesh-ui.test.js`、`test/quota-ui.test.js`、`test/mesh-remote-control.test.js`：固定结构与交互契约。
 - `test/mesh-transfer.test.js`：纯本地活动查询无存储副作用。
 
@@ -80,16 +86,16 @@
 
 当前工作现场已经取得以下证据：
 
-- UI/远控/额度/i18n 相关测试：54/54 通过。
+- 本轮 UI/额度/i18n 定向测试：39/39 通过；远控、Mesh 与其余契约由完整测试覆盖。
 - 传输测试：6/6 通过，包含纯本地活动不创建 `mesh.db` 的新回归。
-- `package.json` 的完整 `check` 脚本通过。
-- 完整 Node 测试：348 项，347 通过、1 项仅 Windows 跳过、0 失败；配对与信令测试在允许本机 `127.0.0.1` 临时监听的环境中通过。
-- 真实 Electron 窗口验收：14/14 任务路径通过。
-- 实窗覆盖固定三面板、focus/checked、庭院/卡片、三语、明暗主题、本机新增、四个 Header 入口、设备中心与原子导航、Slot 上下文、Agent/Binding/Slot 管理、多副本来源、SessionPointer/文件/历史分离、远控返回/断开、撤销清理和 reduced-motion。
+- 134 个 JavaScript 源码与测试文件全部通过 `node --check`。
+- 完整 Node 测试：349 项，348 通过、1 项仅 Windows 跳过、0 失败；配对与信令测试在允许本机 `127.0.0.1` 临时监听的环境中通过。
+- 真实 Electron 窗口验收：15/15 任务路径通过。
+- 实窗覆盖 58/244/316/38 固定几何、Compact 无横滚、focus/checked、庭院/卡片、Top Layer 场景 Popover、Agent 对象 Dialog、三语、明暗主题、本机新增、四个 Header 入口、设备中心与原子导航、Slot 上下文、Agent/Binding/Slot 管理、多副本来源、SessionPointer/文件/历史分离、远控返回/断开、撤销清理和 reduced-motion。
 - `git diff --check` 通过。
 - macOS arm64 测试包已构建到 `release/mac-arm64/AgentDesk.app`；包内输入 helper 为 arm64/x86_64 universal，`codesign --verify --deep --strict` 通过。
-- 测试包已安装到 `/Applications/AgentDesk.app`，安装后 `app.asar` SHA-256 与构建产物一致，并已成功启动。
-- 审阅截图在临时目录 `/private/tmp/agentdesk-ui-110/`；它们不是产品数据，也不应作为运行时依赖。
+- 测试包已安装到 `/Applications/AgentDesk.app`，安装后 `app.asar` SHA-256 与构建产物均为 `908bc06d689edf74aab68e8dd472a46b5fb511911c857a43c4d92fb1988bd0e7`，并已成功启动；上一安装保留在 `/Applications/AgentDesk.app.pre-ui-1.13`。
+- 审阅截图在临时目录 `/private/tmp/agentdesk-ui-1.13-acceptance/`；它们不是产品数据，也不应作为运行时依赖。
 
 交付前仍应以当前工作树重新运行：
 
@@ -104,11 +110,12 @@ git diff --check
 
 ## 6. 文档权威关系
 
-- `PERSONAL_AGENT_MESH_PLAN.md` 1.12 是实施权威。
-- `AGENTDESK_WORKSPACE_REDESIGN_REVIEW.html` 是页面结构的历史审阅稿；若与 1.12 冲突，以计划和真实产品代码为准。
+- `PERSONAL_AGENT_MESH_PLAN.md` 1.13 是实施权威。
+- `AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html` 是 1.13 已批准并完成实现的层级、几何与临时层蓝图。
+- `AGENTDESK_WORKSPACE_REDESIGN_REVIEW.html` 是 1.12 页面结构的历史审阅稿；若与 1.13 冲突，以计划和真实产品代码为准。
 - `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md` 已修订为固定三面板与右下 Remote Surface。
 - 旧 owner review、旧会话身份 review、文章插图和规划变更记录中出现的“七行/第六行”只代表当时的历史方案，不能覆盖 1.10。
-- PRODUCT、SCENARIOS、INTERNAL、FUNCTION_AUDIT、ROADMAP 和 README 已按 1.12 同步。
+- PRODUCT、SCENARIOS、INTERNAL、FUNCTION_AUDIT、ROADMAP、YARD、README、单窗口 ADR 与本交接已按 1.13 同步。
 
 ## 7. 不得误报为已完成
 
