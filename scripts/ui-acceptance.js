@@ -314,6 +314,8 @@ async function layoutSnapshot(client) {
     const brand = rect('.topbar-brand');
     const lens = rect('.topbar-lens');
     const actions = rect('.topbar-actions');
+    const tableWrap = document.querySelector('#sessionPane .table-wrap');
+    const sessionTable = document.querySelector('#sessionTable');
     return {
       outerWidth,
       outerHeight,
@@ -331,6 +333,18 @@ async function layoutSnapshot(client) {
       documentOverflow: document.documentElement.scrollWidth - innerWidth,
       bodyOverflow: document.body.scrollWidth - innerWidth,
       topbarOverlap: overlaps(brand, lens) || overlaps(lens, actions) || overlaps(brand, actions),
+      brand: {
+        rect: brand,
+        display: getComputedStyle(document.querySelector('.topbar-brand')).display,
+        visibility: getComputedStyle(document.querySelector('.topbar-brand')).visibility,
+        opacity: getComputedStyle(document.querySelector('.topbar-brand')).opacity
+      },
+      compactTableOverflow: tableWrap && sessionTable?.dataset.mode === 'compact'
+        ? Math.max(0, tableWrap.scrollWidth - tableWrap.clientWidth)
+        : null,
+      compactTableWidthOverflow: tableWrap && sessionTable?.dataset.mode === 'compact'
+        ? Math.max(0, sessionTable.getBoundingClientRect().width - tableWrap.getBoundingClientRect().width)
+        : null,
       bodyView: document.body.dataset.view,
       theme: document.documentElement.dataset.theme,
       lang: document.documentElement.lang
@@ -345,15 +359,25 @@ function assertFixedShell(layout) {
   assert.equal(layout.shell.height, layout.innerHeight, 'app-shell must fill the renderer height');
   assert.equal(layout.rows.length, 3, 'app-shell must contain Header, board, and Footer rows only');
   assert.equal(layout.boardPanels, 3, 'workspace board must contain exactly three fixed panels');
-  assert.ok(Math.abs(layout.header.height - 60) <= 1, `Header must be 60px, got ${layout.header.height}px`);
-  assert.ok(Math.abs(layout.status.height - 42) <= 1, `Footer must be 42px, got ${layout.status.height}px`);
-  assert.ok(Math.abs(layout.agent.height - 220) <= 1, `Agent panel must be 220px, got ${layout.agent.height}px`);
+  assert.ok(Math.abs(layout.header.height - 58) <= 1, `Header must be 58px, got ${layout.header.height}px`);
+  assert.ok(Math.abs(layout.status.height - 38) <= 1, `Footer must be 38px, got ${layout.status.height}px`);
+  assert.ok(Math.abs(layout.agent.height - 244) <= 1, `Agent panel must be 244px, got ${layout.agent.height}px`);
+  assert.ok(Math.abs(layout.detail.width - 316) <= 1, `Detail panel must be 316px, got ${layout.detail.width}px`);
+  assert.ok(Math.abs(layout.sessions.width - 690) <= 2, `Session panel must be about 690px, got ${layout.sessions.width}px`);
   assert.ok(layout.agent.x <= layout.sessions.x + 1 && layout.agent.right >= layout.detail.right - 1, 'Agent panel must span the board');
   assert.ok(layout.sessions.y >= layout.agent.bottom + 8, 'sessions must stay below the Agent panel');
   assert.ok(layout.detail.y >= layout.agent.bottom + 8, 'detail must stay below the Agent panel');
   assert.ok(layout.sessions.right <= layout.detail.x - 8, 'sessions and detail must remain separate lower panels');
   assert.ok(layout.status.y >= layout.main.bottom - 1, 'Footer must remain below the board');
   assert.ok(layout.documentOverflow <= 1 && layout.bodyOverflow <= 1, 'the fixed shell must not overflow horizontally');
+  if (layout.compactTableOverflow !== null) {
+    assert.ok(layout.compactTableOverflow <= 1, `Compact table must not scroll horizontally, overflow ${layout.compactTableOverflow}px`);
+    assert.ok(layout.compactTableWidthOverflow <= 1, `Compact table must fit its panel, overflow ${layout.compactTableWidthOverflow}px`);
+  }
+  assert.ok(layout.brand.rect?.width > 100 && layout.brand.rect?.height > 24, 'the AgentDesk brand must remain visible in every view');
+  assert.notEqual(layout.brand.display, 'none');
+  assert.equal(layout.brand.visibility, 'visible');
+  assert.equal(layout.brand.opacity, '1');
   assert.equal(layout.topbarOverlap, false, 'topbar regions must not overlap');
 }
 
@@ -492,11 +516,69 @@ async function runAcceptance(client, artifactDir) {
     })()`);
   });
 
-  await run('classic/yard, light/dark, and zh/en/ja layouts', async () => {
+  await run('yard/cards share state; scene popover uses Top Layer; Agent management is an object Dialog', async () => {
     await client.evaluate(`document.querySelector('#viewToggle').click()`);
     assert.equal((await layoutSnapshot(client)).bodyView, 'yard');
-    await client.evaluate(`document.querySelector('#viewToggle').click()`);
+    let mode = await client.evaluate(`({
+      yardPressed: document.querySelector('#viewToggle').getAttribute('aria-pressed'),
+      cardsPressed: document.querySelector('#classicViewBtn').getAttribute('aria-pressed'),
+      runtimeVisible: !document.querySelector('#formSwitcher').hidden,
+      runtimeText: document.querySelector('#formSelect').selectedOptions[0]?.textContent || ''
+    })`);
+    assert.deepEqual({ yardPressed: mode.yardPressed, cardsPressed: mode.cardsPressed }, { yardPressed: 'true', cardsPressed: 'false' });
+    assert.equal(mode.runtimeVisible, true, 'current runtime must remain visible for the selected Agent');
+    assert.ok(mode.runtimeText.length > 0, 'current runtime must have an explicit label');
+    await capture(client, artifactDir, '02-yard');
+
+    await client.evaluate(`document.querySelector('#atmosSceneBtn').click()`);
+    await waitFor(client, `document.querySelector('#atmosPopover').matches(':popover-open')`, 'yard scene Top Layer popover');
+    const popover = await client.evaluate(`(() => {
+      const node = document.querySelector('#atmosPopover');
+      const rect = node.getBoundingClientRect();
+      return {
+        native: node.getAttribute('popover'),
+        open: node.matches(':popover-open'),
+        rect: { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom },
+        viewport: { width: innerWidth, height: innerHeight },
+        timeItems: document.querySelectorAll('#atmosTime button').length,
+        weatherItems: document.querySelectorAll('#atmosWeather button').length
+      };
+    })()`);
+    assert.equal(popover.native, 'auto');
+    assert.equal(popover.open, true);
+    assert.equal(popover.timeItems, 4);
+    assert.equal(popover.weatherItems, 5);
+    assert.ok(popover.rect.x >= 0 && popover.rect.y >= 0 && popover.rect.right <= popover.viewport.width && popover.rect.bottom <= popover.viewport.height);
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    await capture(client, artifactDir, '03-yard-scene-popover');
+    await client.evaluate(`document.querySelector('#atmosPopover').hidePopover()`);
+
+    await client.evaluate(`document.querySelector('#accountManage').click()`);
+    await waitFor(client, `document.querySelector('#agentManageDialog').open`, 'Agent management dialog');
+    const agentDialog = await dialogSnapshot(client, '#agentManageDialog');
+    assertDialogFits(agentDialog, { noScroll: true });
+    assert.equal(agentDialog.modal, true);
+    const sections = await client.evaluate(`({
+      globalActions: document.querySelectorAll('#agentGlobalActions > button').length,
+      runtimeActions: document.querySelectorAll('#yardManageActions > button').length,
+      summary: document.querySelector('#agentManageSummary').textContent.trim(),
+      runtime: document.querySelector('#agentManageRuntimeLabel').textContent.trim()
+    })`);
+    assert.deepEqual({ globalActions: sections.globalActions, runtimeActions: sections.runtimeActions }, { globalActions: 3, runtimeActions: 4 });
+    assert.ok(sections.summary.length > 0 && sections.runtime.length > 0);
+    await capture(client, artifactDir, '04-agent-manage-dialog');
+    await client.evaluate(`document.querySelector('#agentManageDialog').close()`);
+
+    await client.evaluate(`document.querySelector('#classicViewBtn').click()`);
     assert.equal((await layoutSnapshot(client)).bodyView, 'classic');
+    mode = await client.evaluate(`({
+      yardPressed: document.querySelector('#viewToggle').getAttribute('aria-pressed'),
+      cardsPressed: document.querySelector('#classicViewBtn').getAttribute('aria-pressed')
+    })`);
+    assert.deepEqual(mode, { yardPressed: 'false', cardsPressed: 'true' });
+  });
+
+  await run('light/dark and zh/en/ja preserve the approved geometry', async () => {
     await client.evaluate(`document.querySelector('#themeToggle').click()`);
     assert.equal((await layoutSnapshot(client)).theme, 'dark');
 
@@ -512,7 +594,7 @@ async function runAcceptance(client, artifactDir) {
       assert.equal(layout.lang, lang === 'zh' ? 'zh-CN' : lang);
     }
   });
-  await capture(client, artifactDir, '02-local-ja-dark');
+  await capture(client, artifactDir, '05-local-ja-dark');
 
   await run('pure-local add dialog fits without changing data', async () => {
     await client.evaluate(`openProfileCreationDialog()`);
@@ -570,7 +652,7 @@ async function runAcceptance(client, artifactDir) {
         };
       })()`);
       assert.deepEqual(current, baseline, `${kind} must not mutate or move the underlying workspace`);
-      await capture(client, artifactDir, `03-${kind}-dialog`);
+      await capture(client, artifactDir, `06-${kind}-dialog`);
       await client.evaluate(`document.querySelector(${JSON.stringify(dialog)}).close()`);
       await waitFor(client, `state.utilityDialog === null && !document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal close`);
     }
@@ -677,7 +759,7 @@ async function runAcceptance(client, artifactDir) {
     snapshot = await dialogSnapshot(client, '#deviceCenterDialog');
     assertDialogFits(snapshot);
   });
-  await capture(client, artifactDir, '04-devices-dialog');
+  await capture(client, artifactDir, '07-devices-dialog');
 
   await run('device task navigation applies an atomic Lens/Agent/scope transition', async () => {
     await client.evaluate(`(() => {
@@ -971,7 +1053,7 @@ async function runAcceptance(client, artifactDir) {
     assert.deepEqual(result, { copyDisabled: false, openDisabled: false });
     assert.ok(injected.remoteId);
   });
-  await capture(client, artifactDir, '04-multi-replica-source');
+  await capture(client, artifactDir, '08-multi-replica-source');
 
   await run('SessionPointer, file, and history dialogs keep independent drafts', async () => {
     await client.evaluate(`document.querySelector('#sendSessionInfoBtn').click()`);

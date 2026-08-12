@@ -100,7 +100,7 @@ test('右下详情面板承载隔离远控 Surface，其他两个面板和普通
   const main = read('src/main.js');
   const preload = read('src/preload.js');
   const renderer = read('src/renderer.js');
-  const styles = read('src/styles.css');
+  const styles = read('src/workspace.css');
   assert.match(main, /ipcMain\.handle\('remoteControl:open'/);
   assert.match(main, /ipcMain\.handle\('remoteControl:setSurface'[\s\S]*?event\.sender\.id !== mainWindow\.webContents\.id/);
   assert.match(main, /globalShortcut\.register\('CommandOrControl\+Shift\+Escape'/);
@@ -111,7 +111,8 @@ test('右下详情面板承载隔离远控 Surface，其他两个面板和普通
   assert.match(renderer, /setWorkspaceMode\('remote'\)/);
   assert.match(renderer, /remoteWorkspaceHost\.getBoundingClientRect\(\)/);
   assert.match(read('src/index.html'), /id="detailPanel"[\s\S]*?id="remoteWorkspaceHost"[^>]*data-detail-surface="remote"/);
-  assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 340px/);
+  assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\)/);
+  assert.match(styles, /--detail-w:\s*316px/);
   assert.match(styles, /\.detail-panel > \.remote-workspace-host\s*\{[\s\S]*?display:\s*grid/);
   assert.doesNotMatch(read('src/index.html'), /<video|remote-stage|remote-console/);
 });

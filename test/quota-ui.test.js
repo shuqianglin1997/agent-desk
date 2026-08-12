@@ -8,6 +8,7 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'u
 const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
 const scene = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'scene.js'), 'utf8');
 const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+const workspaceStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
 
 function between(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -50,7 +51,8 @@ test('stale 缓存可以展示但不会驱动疲劳，猫动作状态保持正�
 });
 
 test('经典视图固定三面板下允许会话主列收缩，详情列保持可用宽度', () => {
-  assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 340px/);
+  assert.match(workspaceStyles, /--detail-w:\s*316px/);
+  assert.match(workspaceStyles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\)/);
 });
 
 test('跨账号额度总览挂在右下额度详情，聚合模块在 renderer 前加载', () => {
@@ -83,9 +85,10 @@ test('额度总览随单账号额度一起刷新，按账号组归拢，默认�
   assert.match(renderer, /quotaChipSelf\.setAttribute\('aria-expanded'/);
   // setQuotaChip 内部结构判空（chip 模板被改动时安静降级）
   assert.match(renderer, /if \(!fill \|\| !value\) return;/);
-  // 「管理」下拉：点外关闭 + Esc 关闭（业界惯例；Esc 先关控制台浮层再关下拉）
-  assert.match(renderer, /pointerdown[\s\S]{0,200}?accountManage\.open = false/);
-  assert.match(renderer, /'Escape'[\s\S]{0,300}?accountManage\.open = false/);
+  // Agent 管理已升级为原生模态 Dialog；Renderer 只打开确定对象，关闭和 Esc 交给原生 Dialog 语义。
+  assert.match(html, /id="accountManage"[^>]*aria-haspopup="dialog"[^>]*aria-controls="agentManageDialog"/);
+  assert.match(renderer, /function openAgentManageDialog\(\)[\s\S]*?agentManageDialog\.showModal\(\)/);
+  assert.match(renderer, /function closeAgentManageDialog\(\)[\s\S]*?agentManageDialog\.close\(\)/);
   // 无官方额度接口的账号折叠为尾部一行，不逐行刷灰
   assert.match(renderer, /quota-overview-rest/);
   assert.match(styles, /\.quota-overview-rest\s*\{/);

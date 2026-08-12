@@ -18,9 +18,9 @@ test('更新按钮归入独立设置弹窗，Header 只保留四个直接入口'
   assert.ok(updateButton > settingsStart && updateButton < settingsEnd);
 });
 
-test('1.11 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下会话/右下详情三个面板', () => {
+test('1.13 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下会话/右下详情三个面板', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
   const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
   // 旧侧栏和七行信息轨移除；主区只保留三个固定面板。
   assert.doesNotMatch(html, /class="sidebar"/);
@@ -28,10 +28,13 @@ test('1.11 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下�
   const board = html.slice(html.indexOf('<main id="mainGrid"'), html.indexOf('</main>'));
   assert.equal((board.match(/class="workspace-panel /g) || []).length, 3);
   assert.match(html, /id="agentPanel"[\s\S]*?<section class="presenter">[\s\S]*?id="yardStage"[\s\S]*?id="accountRoster"[\s\S]*?class="account-bar"/);
-  assert.match(styles, /\.app-shell\s*\{[\s\S]*?grid-template:\s*60px minmax\(0, 1fr\) 42px \/ minmax\(0, 1fr\)/);
-  assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 340px;[\s\S]*?grid-template-rows:\s*220px minmax\(0, 1fr\)/);
+  assert.match(styles, /--header-h:\s*58px;[\s\S]*?--footer-h:\s*38px;[\s\S]*?--agent-h:\s*244px;[\s\S]*?--detail-w:\s*316px/);
+  assert.match(styles, /\.app-shell\s*\{[\s\S]*?grid-template:\s*var\(--header-h\) minmax\(0, 1fr\) var\(--footer-h\) \/ minmax\(0, 1fr\)/);
+  assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\);[\s\S]*?grid-template-rows:\s*var\(--agent-h\) minmax\(0, 1fr\)/);
+  assert.match(styles, /\.workspace-board \.table-wrap\s*\{[\s\S]*?overflow-x:\s*hidden/);
+  assert.match(styles, /\.session-table\[data-mode="compact"\]\s*\{\s*min-width:\s*0/);
   // 经典视图显示账号名册（庭院视图隐藏、由场景呈现）
-  assert.match(styles, /body\[data-view="classic"\] \.account-roster \{[\s\S]*?display:\s*grid/);
+  assert.match(styles, /body\[data-view="classic"\] \.agent-panel \.account-roster \{[\s\S]*?display:\s*grid/);
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.workspace-board \{\s*display: contents/);
   assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.status-bar \{[^}]*grid-row:\s*3/);
 });
@@ -179,12 +182,13 @@ test('会话编排边界已从 UI、preload、主进程和依赖中完整移除'
   }
 });
 
-test('账号管理折叠为单一入口（管理菜单含编辑/移除），账号操作紧凑一行', () => {
+test('Agent 管理是单一对象入口，全局 Agent 与当前运行位置在 Dialog 中分区', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
-  assert.match(html, /<details id="accountManage"[\s\S]*?<div id="yardManageActions"/);
-  // 账号操作是 flex 紧凑一行（控制条右侧）
-  assert.match(yardStyles, /body\[data-view="yard"\] \.account-actions \{[\s\S]*?display:\s*flex/);
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
+  assert.match(html, /id="accountManage"[^>]*aria-controls="agentManageDialog"/);
+  assert.match(html, /id="agentManageDialog"[\s\S]*?id="agentGlobalActions"[\s\S]*?id="yardManageActions"/);
+  assert.doesNotMatch(html, /<details id="accountManage"/);
+  assert.match(styles, /\.agent-panel \.account-actions\s*\{[\s\S]*?grid-template-columns:\s*minmax\(94px, 1\.2fr\) minmax\(82px, 1fr\) minmax\(78px, 0\.9fr\)/);
 });
 
 test('名牌三档高低交错 + 宽度封顶，缓解横带缩小后名牌互相盖住', () => {
@@ -198,12 +202,13 @@ test('名牌三档高低交错 + 宽度封顶，缓解横带缩小后名牌互�
   assert.match(yardStyles, /#yardOverlay \.yard-nameplate\.tier2::after/);
 });
 
-test('账号 CRUD 按钮固定在控制条：新增紧跟打开账号、编辑/移除在管理菜单（两视图共用不搬家）', () => {
+test('Agent CRUD 与运行位置操作按对象分区，两视图共用且不搬家', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
-  // 新增紧跟打开账号；编辑/移除静态放在「管理」菜单里
+  // 新增紧跟打开账号；全局 Agent 与当前运行位置动作分别静态放在对象 Dialog 的两个分区。
   assert.match(html, /id="launchBtn"[\s\S]*?id="addProfileBtn"/);
-  assert.match(html, /id="yardManageActions"[\s\S]*?id="editProfileBtn"[\s\S]*?id="removeProfileBtn"[\s\S]*?<\/div>/);
+  assert.match(html, /id="agentGlobalActions"[\s\S]*?id="editProfileBtn"[\s\S]*?id="manageAgentRelationsBtn"[\s\S]*?id="removeProfileBtn"[\s\S]*?<\/div>/);
+  assert.match(html, /id="yardManageActions"[\s\S]*?id="pathConfigBtn"[\s\S]*?id="diagnosticsBtn"[\s\S]*?id="refreshBtn"[\s\S]*?id="profileFolderBtn"[\s\S]*?<\/div>/);
   // 统一后不再按视图搬家：applyView 不再 insertBefore / sidebarActions.append 这几个按钮
   assert.doesNotMatch(renderer, /accountActions\.insertBefore\(els\.addProfileBtn/);
   assert.doesNotMatch(renderer, /sidebarActions\.append/);

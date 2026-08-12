@@ -25,7 +25,7 @@ Windows 开发版已经包含有人值守 Personal Mesh 代码和固定协议的
 
 ## GitHub 一键更新
 
-账号操作栏中常驻的「`↻ 更新`」会查询固定仓库 `shuqianglin1997/agent-desk` 的最新正式 GitHub Release，并按语义版本比较当前版本；猫猫庭院和经典视图都能看到。
+Header 的“设置”弹窗中的「`↻ 更新`」会查询固定仓库 `shuqianglin1997/agent-desk` 的最新正式 GitHub Release，并按语义版本比较当前版本；庭院和卡片 Presenter 共用这一全局设置入口。
 
 Windows portable 版满足以下条件时可以自动更新：
 

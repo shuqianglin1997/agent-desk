@@ -1,6 +1,6 @@
 # 猫猫庭院
 
-猫猫庭院是账号与会话数据的可视化皮肤。它和经典名册共用同一份 profile、session、activity、quota 和 settings，不形成第二套业务状态。
+猫猫庭院是账号与会话数据的可视化皮肤。它和卡片名册共用同一份 profile、session、activity、quota 和 settings，不形成第二套业务状态；顶部“庭院 / 卡片”分段只切 Presenter，不切换产品上下文。
 
 ## 数据映射
 
@@ -10,13 +10,17 @@
 - 路径不存在或不可读时进入 confused。
 - Codex 额度单独映射为 fresh/steady/tired/exhausted/unknown，不覆盖活动状态。
 - 日/暮/夜和晴/云/雨/雪只是本地视觉氛围。
+- 路径、额度等持久待处理事项只进入 Header 的“活动”弹窗，不通过常驻气泡覆盖猫或名牌；scene 只保留摸猫、拖放等短暂直接反馈。
 
 ## 逻辑画布
 
 - 固定逻辑尺寸：480 × 236。
 - 画布按自然比例铺满横向场景，外层木框裁切超出区域。
 - 角色脚底坐标用于命中、排序和拖放；名牌位于 HTML overlay。
+- 名牌属于 Agent Presenter，使用受限宽高和省略号，不继承应用级按钮尺寸；像素皮肤不扩散到表格、弹窗或 Footer。
 - 保存位置会归一化并限界；旧位置落在已裁掉的前景带时回退默认布局。
+
+时间与天气由画面右上的单一“场景 · 当前时间 / 天气”按钮打开原生 Top Layer Popover；Popover 不放在裁切场景内，不依赖 z-index 越过 `overflow:hidden`。
 
 ## 拖放语义
 
@@ -44,7 +48,7 @@ src/yard/
   palettes.js      场景配色
   sprites.js       程序化像素角色
   scene.js         Canvas 场景、overlay、拖拽与动画
-  yard.css         庭院皮肤
+  yard.css         legacy 庭院皮肤；工作台中的 canonical Presenter 约束在 workspace.css
 ```
 
 Renderer 负责把主进程数据聚合为 scene 输入；scene 不访问文件系统，不调用 Electron IPC。

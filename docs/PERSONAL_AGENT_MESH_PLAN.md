@@ -868,7 +868,7 @@ Header 的设备、工具、活动、设置入口各自打开独立的有界模�
 - 选项按设备分组；
 - 每个选项是确切 Slot，例如“Mac Studio / Codex Desktop”“MacBook / Codex CLI”；
 - 同一设备多个客户端形态分别列出；
-- 只有一个 Slot 时隐藏选择器；
+- 即使只有一个 Slot，也始终显示当前运行位置；单选 Select 可以保持只读感，但不能让用户失去动作落点信息；
 - 多个 Slot 时记住“当前控制设备 + agentId”最近选择；没有历史时优先本机在线 Slot，其次在线远端 Slot，最后才是最新离线 Slot；
 - 当前运行位置始终在控制条或 tooltip 中可见，副作用动作不得静默改投另一台设备。
 
@@ -1130,6 +1130,8 @@ UI 验收不再以 DOM 中是否出现按钮或 CSS 选择器为主要证据，�
 临时层按职责分为四类：Select 用于单值选择，Popover 只用于最多五项且无表单、无危险确认的短命令，对象 Dialog 用于 Agent/运行位置管理，全局 Dialog 用于设备、工具、活动、设置。所有 Popover 必须进入浏览器 Top Layer 或根级 Overlay Portal；禁止把绝对定位菜单放在 `overflow: hidden` 面板内并依赖 z-index 逃逸。四个全局入口继续各自打开独立有界 Dialog，不进入右下详情，也不合并为“更多”。
 
 CSS 实施必须先治理层级，再打磨视觉：按 reset/tokens、shell、components、features、themes 建立明确层，移除 v2/v3/临时尾部覆盖的代际叠加；庭院选择器只作用于场景和 Agent Presenter。应用 UI 默认使用 1px 边框，2–3px 深色像素边只保留给品牌符号和像素画框。每一阶段都必须通过 Compact 无横滚、浮层无裁切、三语、双主题、庭院/卡片共享状态和原有安全测试。
+
+实施状态（2026-08-12）：上述 1.13 表现层基线已经进入真实产品代码。`workspace.css` 成为 canonical 分层样式，旧样式降入 `legacy`；58/244/316/38 几何、Compact 无横滚、庭院/卡片共享选择、场景 Top Layer Popover、Agent 对象 Dialog、四个全局 Dialog、详情空状态/动作坞和纯全局 Footer 已通过临时 userData 下真实 1040 × 840 Electron 的 15 条任务路径。庭院只承载 Agent Presenter 与短暂直接反馈，路径/额度等持久待处理事项统一由 Header 的“活动”弹窗承载。该本机证据不替代物理双机、真实 NAT/coturn 或跨平台权限矩阵。
 
 ## 12. 会话信息与传输语义
 
@@ -2244,7 +2246,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 6：远程仅查看
 
-当前状态：**代码纵向链路与隔离 Remote Surface 已实现，正按 1.10 把可见边界迁入右下详情面板；物理双机与系统权限矩阵待完成**。目标端仍在独立沙箱 Host 窗口中选择显示器并逐次同意，连接后该窗口缩为 always-on-top 常驻停止条。媒体使用第二条 WebRTC DTLS/SRTP 连接，SDP 只经已有设备认证通道交换；两端持久 `screen.view` 权限和本次目标端同意缺一不可。支持最多四个查看会话、显示器切换、暂停与三档画质，普通 Main Renderer 不获得 SDP、采集 source、画面或 TURN 凭据。详细边界见 `ADR_PERSONAL_MESH_REMOTE_VIEW.md` 与 `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md`。双端沙箱自检已用真实 WebRTC 视频轨完成 `viewing`，但合成画面不替代两台物理电脑的 macOS/Windows 屏幕权限、显示器和公网测试。
+当前状态：**代码纵向链路与隔离 Remote Surface 已实现，1.13 可见边界已迁入右下详情面板；物理双机与系统权限矩阵待完成**。目标端仍在独立沙箱 Host 窗口中选择显示器并逐次同意，连接后该窗口缩为 always-on-top 常驻停止条。媒体使用第二条 WebRTC DTLS/SRTP 连接，SDP 只经已有设备认证通道交换；两端持久 `screen.view` 权限和本次目标端同意缺一不可。支持最多四个查看会话、显示器切换、暂停与三档画质，普通 Main Renderer 不获得 SDP、采集 source、画面或 TURN 凭据。详细边界见 `ADR_PERSONAL_MESH_REMOTE_VIEW.md` 与 `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md`。双端沙箱自检已用真实 WebRTC 视频轨完成 `viewing`，本机真实窗口已验证 Surface 进入/返回不改变 Header、Agent 面板、会话面板或此前详情状态；这些证据仍不替代两台物理电脑的 macOS/Windows 屏幕权限、显示器和公网测试。
 
 - 右下详情面板内嵌隔离远控工作区；
 - 屏幕权限；
@@ -2265,7 +2267,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 8：多设备控制台
 
-当前状态：**代码纵向链路、单窗口 Remote Surface 与本机窗口验收已完成，正按 1.10 迁移到右下详情边界；四台物理设备与公网带宽矩阵待完成**。控制台支持单屏和最多四路 2×2 网格；当前设备使用自己的活动画质偏好，所有后台画面自动收敛为 360p/2fps 低频缩略图。设备标签与画面标题均可快速切换，上一设备的待同意或已授权输入会先释放；控制按钮只有在两条输入 DataChannel 就绪后可请求。控制台每两秒读取 WebRTC 聚合统计，显示媒体直连/中继、延迟、接收码率、帧率和丢包，不保留候选地址、端口、SDP 或凭据。既有真实 1040 × 840 Electron 验收已证明 Remote Surface 切换前后始终只有一个顶级窗口；1.10 的新验收边界改为右下详情面板，返回后顶部 Agent、左下会话和此前详情状态均须恢复。详细边界见 `ADR_PERSONAL_MESH_MULTI_DEVICE_CONSOLE.md` 与 `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md`。
+当前状态：**代码纵向链路、单窗口 Remote Surface 与 1.13 右下详情边界的本机窗口验收已完成；四台物理设备与公网带宽矩阵待完成**。控制台支持单屏和最多四路 2×2 网格；当前设备使用自己的活动画质偏好，所有后台画面自动收敛为 360p/2fps 低频缩略图。设备标签与画面标题均可快速切换，上一设备的待同意或已授权输入会先释放；控制按钮只有在两条输入 DataChannel 就绪后可请求。控制台每两秒读取 WebRTC 聚合统计，显示媒体直连/中继、延迟、接收码率、帧率和丢包，不保留候选地址、端口、SDP 或凭据。真实 1040 × 840 Electron 验收已经证明 Remote Surface 只替换右下详情内容、始终只有一个顶级窗口，返回后顶部 Agent、左下会话和此前详情状态恢复。详细边界见 `ADR_PERSONAL_MESH_MULTI_DEVICE_CONSOLE.md` 与 `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md`。
 
 - 多设备标签或网格；
 - 一个高质量活动流；
@@ -2418,7 +2420,9 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - 冻结 1040 × 840 窗口下的 58px Header、244px 顶部 Agent 面板、316px 右下详情、约 690px 左下会话和 38px Footer 几何预算，Compact 会话表禁止横向滚动；
 - 冻结五级信息层级、每面板一个主任务、顶部 Agent 的对象到额度顺序、详情底部单一动作坞与纯全局 Footer；
 - 时间/天气收敛为庭院场景 Popover，七项管理菜单改为含“全局 Agent / 当前运行位置”分区的对象 Dialog；设备、工具、活动、设置继续四个独立有界 Dialog；
-- 冻结像素皮肤只作用于 Agent 呈现、应用控件使用统一系统，以及先治理 CSS 分层、浮层承载和状态矩阵再做视觉细节的实施顺序。
+- 明确运行位置始终可见，即使当前 Agent 只有一个 Slot；路径/额度等持久待处理事项只进入活动弹窗，不在庭院形成常驻气泡；
+- 冻结像素皮肤只作用于 Agent 呈现、应用控件使用统一系统，以及先治理 CSS 分层、浮层承载和状态矩阵再做视觉细节的实施顺序；
+- 1.13 已按批准稿完成产品实现，并通过真实 1040 × 840 Electron 的 15 条任务路径；该证据不改变物理双机、真实 NAT/coturn 和跨平台权限阶段门禁。
 
 ### 1.12 — 2026-08-12
 

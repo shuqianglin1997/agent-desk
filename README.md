@@ -19,7 +19,7 @@
 
 ![AgentDesk](assets/screenshots/app.png)
 
-> **Development status:** this branch contains the complete attended Personal Mesh code path: encrypted device pairing, cross-device Agent/session inventory, explicit Agent/AccountBinding/AgentSlot management, SessionPointer and selected-file transfer, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. The fixed Header / three-panel / Footer shell, four independent Devices/Tools/Activity/Settings dialogs, independent UI-context model, and real-window acceptance suite pass in a 1040 × 840 Electron window, alongside the automated two-endpoint loop. Physical computers, public NAT/coturn, and the macOS/Windows permission matrix are still release gates. Existing GitHub Releases may predate this branch.
+> **Development status:** this branch contains the complete attended Personal Mesh code path: encrypted device pairing, cross-device Agent/session inventory, explicit Agent/AccountBinding/AgentSlot management, SessionPointer and selected-file transfer, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. The owner-approved 58px Header / 244px Agent / 316px detail / 38px Footer geometry, compact table without horizontal scrolling, four independent Devices/Tools/Activity/Settings dialogs, independent UI-context model, and 15-path real-window acceptance suite pass in a 1040 × 840 Electron window, alongside the automated two-endpoint loop. Physical computers, public NAT/coturn, and the macOS/Windows permission matrix are still release gates. Existing GitHub Releases may predate this branch.
 
 ## What AgentDesk does
 
@@ -38,7 +38,7 @@ AgentDesk keeps a small, local index around the official AI coding clients alrea
 - **Diagnostics and paths.** Inspect launch candidates, data locations, permissions, scan roots, and Windows Store/MSIX versus traditional installs.
 - **Quota overview (Beta).** Show Codex rate-limit windows through the local official app-server. Unsupported clients are labeled honestly.
 - **Tool center.** Discover supported desktop apps and CLIs, show versions and install sources, open them, and explicitly update eligible CLIs through their existing npm, Homebrew, uv, or self-update mechanism.
-- **Two views.** Use the pixel cat yard or the compact classic roster; both render the same account and session data.
+- **Two views.** Use the pixel cat yard or the compact card roster through one current-mode segment; both render the same Agent, slot, and session state.
 
 Supported tool discovery currently covers Claude Code, Codex CLI, Gemini CLI, OpenCode, Cursor Agent, GitHub Copilot CLI, goose, Kimi Code, and Qwen Code. Discovery only resolves installed launchers; it does not attach agent-mode arguments or create sessions.
 
@@ -65,9 +65,10 @@ The optional yard view turns each Agent/account group into a pixel cat driven by
 - recent session activity controls working, resting, sleeping, and attention states;
 - quota is shown as a separate energy signal and never overrides activity;
 - day, dusk, night, and weather are visual atmosphere only;
+- one Scene button opens time and weather in a native top-layer popover, while persistent path/quota attention stays in the Activity dialog;
 - dragging a cat can open its account, focus its current session, or save its yard position.
 
-Use **⇄** to switch to the classic roster without changing any data. See [docs/YARD.md](docs/YARD.md).
+Use the **Yard / Cards** segment to change the presenter without changing any data or selection. See [docs/YARD.md](docs/YARD.md).
 
 ## Install
 
@@ -104,7 +105,8 @@ Release signing and notarization are documented in [docs/RELEASING.md](docs/RELE
 
 - `src/main.js`: trusted filesystem, app launch, diagnostics, quota, updates, and tool maintenance.
 - `src/preload.js`: narrow IPC bridge.
-- `src/renderer.js`, `src/index.html`, `src/styles.css`: UI.
+- `src/renderer.js`, `src/index.html`: UI structure and interaction.
+- `src/workspace.css`: canonical layered fixed-workspace, component, feature, and theme styles; `src/styles.css` remains the low-priority legacy compatibility layer.
 - `src/ui-context.js`: independent Device Lens, Agent, Slot, conversation, replica, remote-session, and transfer-draft state transitions.
 - `scripts/ui-acceptance.js`: real 1040 × 840 Electron task-path acceptance using temporary user data.
 - `src/apps.js`: supported client catalog and session scanners.
@@ -133,7 +135,7 @@ See [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), an
 
 AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
-> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、跨设备 Agent/会话库存、明确的 Agent/账号绑定/运行位置管理、SessionPointer 与选定文件传输、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。固定 Header / 三面板 / Footer 骨架、设备/工具/活动/设置四个独立弹窗、独立 UI 上下文与真实 1040 × 840 Electron 任务路径已经验收通过，自动化双端点链路也保持通过；物理双机、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
+> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、跨设备 Agent/会话库存、明确的 Agent/账号绑定/运行位置管理、SessionPointer 与选定文件传输、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。所有者批准的 58px Header / 244px Agent / 316px 详情 / 38px Footer 几何、Compact 无横滚、设备/工具/活动/设置四个独立弹窗、独立 UI 上下文与真实 1040 × 840 Electron 的 15 条任务路径已经验收通过，自动化双端点链路也保持通过；物理双机、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
 
 ## 核心能力
 
@@ -150,7 +152,7 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 - **额度总览（Beta）。** 通过本机 Codex 官方 app-server 读取额度周期；不支持的客户端明确标注，不抓 Cookie 或 token。
 - **独立全局弹窗。** 设备、工具、活动、设置从 Header 各自打开有界弹窗，不替换右下会话详情，也不改变 Device Lens、Agent/Slot 或会话选择。
 - **工具维护台。** 在独立工具弹窗发现桌面 App 与常用 CLI，显示版本和安装来源；用户明确点击后，符合条件的 CLI 才会沿用 npm、Homebrew、uv 或自身更新器维护。
-- **猫猫庭院 / 经典名册。** 两种视图使用同一份账号和会话数据，可随时切换。
+- **猫猫庭院 / 卡片名册。** 顶部“庭院 / 卡片”分段只切呈现，不改变 Agent、运行位置或会话选择；时间/天气进入一个 Top Layer 场景浮层，持久待处理事项归“活动”弹窗。
 
 工具发现覆盖 Claude Code、Codex CLI、Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi Code 和 Qwen Code。发现模块只定位本机启动器，不附加运行参数，也不创建会话。
 

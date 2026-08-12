@@ -56,7 +56,8 @@ src/
   renderer.js             UI 状态与交互
   ui-context.js           独立 UI 上下文与无副作用状态迁移
   index.html
-  styles.css
+  styles.css              低优先级 legacy 兼容样式
+  workspace.css           1.13 固定工作台的 canonical 分层样式
 
   apps.js                 客户端目录、默认路径、扫描器与导出能力
   sessions.js             Claude / Claude CLI / Codex / Kimi 会话扫描
@@ -194,6 +195,16 @@ Codex 额外区分：
 - 设备中心进入会话工作台使用原子迁移；设备详情选择不等于顶栏 Device Lens。
 - 远控返回释放输入并保留 viewing 会话，disconnect 才终止媒体。
 
+### 固定工作台与 CSS 层级
+
+`src/workspace.css` 是 1.13 主窗口的唯一 canonical 表现层，按 `reset / tokens / shell / components / features / themes` 组织；旧 `styles.css` 与 `yard/yard.css` 被放入低优先级 `legacy` 层，不能再通过文件尾覆盖改变三面板几何。最高主题层保留语义 `[hidden]` 规则，避免后写的 `display:grid` 把已隐藏视图重新显示。
+
+- Renderer 内容区按 58px Header、38px Footer、12px 横向 padding、10px 纵向 padding、10px gap、244px Agent 面板和 316px 详情宽度布局；Compact 表 `min-width: 0` 且没有水平滚动。
+- “庭院 / 卡片”是共用业务状态的当前模式分段；运行位置始终渲染，即使当前 Agent 只有一个 Slot。
+- 场景时间/天气使用原生 Top Layer Popover；Agent 与运行位置管理使用原生对象 Dialog；设备、工具、活动、设置分别使用四个全局 Dialog。
+- 像素样式只保留在 Canvas、猫、紧凑名牌等 Agent Presenter 内。应用按钮、表格、Footer 和弹窗统一使用组件 token。
+- 会话行的 focused 与 checked 视觉落在真实 table cell 上，不向 `<tr>` 注入会被 Chromium 当作匿名单元格的伪元素。
+
 ## 5. 客户端与会话扫描
 
 `apps.js` 是唯一客户端目录。每个条目声明：
@@ -290,7 +301,7 @@ remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
 
 ## 9. 庭院
 
-庭院是同一份 profile/session/activity/quota 数据的可视化，不是独立业务层。今日账本和提醒总开关由全局 Footer 渲染，庭院 DOM 不再拥有 `yardLedger` 或提醒 HUD。会话动作由右下 `sessionActionDock` 承载：focused 单条保留定位/导出与复制/发送，显式 checked 集合隐藏 focused 专用动作，只保留批量摘要/取消/复制/发送。
+庭院是同一份 profile/session/activity/quota 数据的可视化，不是独立业务层。今日账本和提醒总开关由全局 Footer 渲染，庭院 DOM 不再拥有 `yardLedger` 或提醒 HUD；路径、额度等持久 attention 只由 Header 的活动弹窗承载，scene 的 `attentionById` 保持空，只保留用户摸猫或拖放后的短暂直接反馈。会话动作由右下 `sessionActionDock` 承载：focused 单条保留定位/导出与复制/发送，显式 checked 集合隐藏 focused 专用动作，只保留批量摘要/取消/复制/发送。
 
 拖放只保留三类意图：
 
@@ -309,7 +320,7 @@ npm run accept:ui
 npm run build:mac:dir
 ```
 
-`npm run accept:ui` 使用临时 userData 启动真实 1040 × 840 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 14 条任务路径：固定 Header/三面板/Footer、focus/checked/隐藏选择、庭院/卡片、三语/明暗主题、本机新增、四个 Header 入口、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销后详情清理和 reduced-motion。
+`npm run accept:ui` 使用临时 userData 启动真实 1040 × 840 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 15 条任务路径：58/244/316/38 固定几何与 Compact 无横滚、focus/checked/隐藏选择、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、本机新增、四个 Header 入口、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销后详情清理和 reduced-motion。
 
 测试除了扫描器和纯函数，还包含以下边界契约：
 
