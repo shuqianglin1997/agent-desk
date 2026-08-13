@@ -1,6 +1,9 @@
 const crypto = require('node:crypto');
 const { canonicalEncode } = require('./identity-link');
-const { normalizeCatalog } = require('./agent-catalog');
+const {
+  normalizeCatalog,
+  providerNamespace: providerNamespaceForApp
+} = require('./agent-catalog');
 
 const INVENTORY_SCHEMA_VERSION = 1;
 const MAX_INVENTORY_SESSIONS = 20_000;
@@ -15,6 +18,9 @@ function buildLocalInventory(input = {}, options = {}) {
   const localSlots = catalog.slots.filter((slot) => slot.deviceId === deviceId);
   const localAgentIds = new Set(localSlots.map((slot) => slot.agentId).filter(Boolean));
   const localBindingIds = new Set(localSlots.map((slot) => slot.accountBindingId).filter(Boolean));
+  const localBindingsById = new Map(catalog.accountBindings
+    .filter((binding) => localBindingIds.has(binding.accountBindingId))
+    .map((binding) => [binding.accountBindingId, binding]));
   const sessionsByProfile = input.sessionsByProfile instanceof Map
     ? input.sessionsByProfile
     : new Map(Object.entries(input.sessionsByProfile || {}));
@@ -26,7 +32,8 @@ function buildLocalInventory(input = {}, options = {}) {
       if (replicas.length >= MAX_INVENTORY_SESSIONS) break;
       const replica = sessionReplica(record, slot, {
         deviceId,
-        linkKey: input.linkKey
+        linkKey: input.linkKey,
+        providerNamespace: localBindingsById.get(slot.accountBindingId)?.providerNamespace
       });
       if (replica) replicas.push(replica);
     }
@@ -159,6 +166,64 @@ function mergeCatalogInventory(existingValue, inventoryValue, options = {}) {
   });
 }
 
+function canonicalizeInventorySessions(inventoryValue, catalogValue, options = {}) {
+  const inventory = normalizeInventory(inventoryValue);
+  const catalog = normalizeCatalog(catalogValue || {});
+  const agentIds = new Set(catalog.agents.map((agent) => agent.agentId));
+  const bindingsById = new Map(catalog.accountBindings.map((binding) => [
+    binding.accountBindingId,
+    binding
+  ]));
+  const slotsByProfile = new Map(catalog.slots
+    .flatMap((slot) => {
+      const binding = bindingsById.get(slot.accountBindingId);
+      if (
+        slot.deviceId !== inventory.deviceId
+        || slot.assignmentState !== 'linked'
+        || !slot.agentId
+        || !agentIds.has(slot.agentId)
+        || !binding
+        || binding.agentId !== slot.agentId
+      ) return [];
+      return [[String(slot.profileId), { slot, binding }]];
+    }));
+
+  const sessions = inventory.sessions.flatMap((replica) => {
+    const canonical = slotsByProfile.get(String(replica.profileId));
+    // Catalog tombstones and suppressed/unassigned Slots remain authoritative:
+    // an older source inventory cannot keep their sessions visible.
+    if (!canonical) return [];
+    const { slot, binding } = canonical;
+
+    const adapterConversationKey = replica.stableProviderThreadId
+      || replica.adapterConversationKey;
+    const identityInput = replica.stableProviderThreadId
+      ? {
+          kind: 'provider',
+          provider: binding.providerNamespace || providerNamespaceForApp(slot.appId || replica.appId),
+          accountBindingId: slot.accountBindingId,
+          adapterConversationKey
+        }
+      : {
+          kind: 'device',
+          deviceId: inventory.deviceId,
+          profileId: slot.profileId,
+          adapterConversationKey
+        };
+
+    return [normalizeReplica({
+      ...replica,
+      conversationId: stableHmac(options.linkKey, identityInput),
+      agentId: slot.agentId,
+      accountBindingId: slot.accountBindingId
+    }, inventory.deviceId)];
+  });
+
+  // Only the receiver's canonical directory projection changes. Revision,
+  // freshness, source metadata and replica identity remain source-owned.
+  return normalizeInventory({ ...inventory, sessions });
+}
+
 function unifiedConversations(inventories, devices = [], options = {}) {
   const localDeviceId = String(options.localDeviceId || '');
   const deviceById = new Map((Array.isArray(devices) ? devices : []).map((device) => [device.deviceId, device]));
@@ -228,7 +293,7 @@ function sessionReplica(record, slot, context) {
   const identityInput = strong
     ? {
         kind: 'provider',
-        provider: slot.appId || record.appId || 'unknown',
+        provider: context.providerNamespace || providerNamespaceForApp(slot.appId || record.appId),
         accountBindingId: slot.accountBindingId,
         adapterConversationKey
       }
@@ -366,6 +431,7 @@ module.exports = {
   buildLocalInventory,
   normalizeInventory,
   mergeCatalogInventory,
+  canonicalizeInventorySessions,
   unifiedConversations,
   sessionReplica
 };

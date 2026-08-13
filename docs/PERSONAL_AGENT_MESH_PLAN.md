@@ -2,7 +2,7 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.16
+> 版本：1.17
 >
 > 日期：2026-08-13
 >
@@ -762,6 +762,8 @@ flowchart TB
 4. 顶栏明确显示设备名称、在线状态和数据新鲜度。
 5. 选择“全部设备”即可回到个人全局 Agent 目录，不产生另一套页面状态。
 
+当用户进入一个明确的远端 Device Lens，或从设备中心点击该设备的“查看会话”时，界面先展示本机已落库的该设备快照及新鲜度，再只对这一个 `deviceId` 按需调用固定 `remoteInventory:refresh` 请求新快照；同一设备的 Lens 导航、设备中心导航和显式“重扫”共用单飞请求。应用启动、本机 Lens 和“全部设备”只读本地索引，不遍历远端建立连接。若目标没有现存认证连接、临时 LAN 路由或已配置且可达的 signaling 路由，刷新必须明确失败并保留离线快照，不清空表格、不冒充已同步。
+
 ### 10.5 搜索个人全部会话
 
 1. 设备视角选择“全部设备”，会话范围选择“全部 Agent”。
@@ -1072,11 +1074,11 @@ Main Renderer 的日常上下文至少拆为以下独立状态：
 
 这些状态只能通过明确的用户事件按下列契约成组更新：
 
-1. 切换 Device Lens 只改变设备筛选和可选运行位置；恢复该 Lens 的 Agent 记忆，没有记忆时保持“未选择 Agent”，不得选择列表第一项，也不得静默把 `agentScope` 改成 all。
+1. 切换 Device Lens 只改变设备筛选和可选运行位置；恢复该 Lens 的 Agent 记忆，没有记忆时保持“未选择 Agent”，不得选择列表第一项，也不得静默把 `agentScope` 改成 all。进入明确远端 Lens 时先用已落库快照完成首次渲染，再只对该设备按需刷新；启动、本机和 all Lens 不扩散连接。
 2. 选择 Agent 只改变当前 Lens 的 Agent；搜索词、会话范围和仍然有效的 focused/checked 会话保留。选择运行位置只改变副作用动作落点，不重新加载会话、不清空搜索和会话选择。
 3. 会话加载、刷新、搜索或渲染不得自动选择第一条。行点击只更新 focusedConversationId；单会话动作集合由 focusedConversationId 派生，显式勾选后才使用 checkedConversationIds 作为批量集合。
 4. 多副本逻辑会话在具体设备 Lens 下只剩一个副本时来源明确；在全部设备视角存在多个候选时，必须由检查器选择来源或恢复该会话上次的明确选择。来源未解决前，“复制会话信息”“发送到设备”“打开当前位置”和远端定位都禁用并给出同一修复入口。
-5. 设备中心的“查看全部会话”是一个原子导航：`workspace=sessions + Lens=目标设备 + agentScope=all + 清空旧动作选择`；“查看这个 Agent 的会话”则额外设置该 Lens 的 selectedAgentId 并使用 `agentScope=current`。两者都保留搜索词，不读取进入设备中心前的隐式 Profile。
+5. 设备中心的“查看全部会话”是一个原子导航：`workspace=sessions + Lens=目标设备 + agentScope=all + 清空旧动作选择`；“查看这个 Agent 的会话”则额外设置该 Lens 的 selectedAgentId 并使用 `agentScope=current`。两者都保留搜索词，不读取进入设备中心前的隐式 Profile；目标为远端时，原子导航先展示缓存，再与 Lens 和“重扫”共用同一个单目标刷新。
 6. 设备中心左侧选择只改变 selectedDeviceDetailId。右侧必须以用户目标组织为“查看全部会话 / 查看屏幕 / 发送文件”，连接只作为按需建立、重试或诊断状态，不能与这些目标并列成含义重复的主任务。
 7. Agent 管理必须明确对象范围：全局 Agent 负责名称、猫外观、分组和账号绑定；当前运行位置负责启动、路径、重扫、诊断和移除此位置；新增流程先让用户选择“新 Agent / 新账号绑定 / 本机新运行位置”，不能继续以一个“新增账号”混合三种对象。
 8. SessionPointer 从会话动作条创建，只读取当前动作集合及其明确副本；文件发送从设备详情创建独立 transferDraft，不读取会话选择。收件箱与历史属于传输中心，不混进本次发送草稿。
@@ -1566,7 +1568,11 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 - 离线缓存带 generatedAt 和 staleAt；
 - UI 对过期状态可见。
 
-当前恢复基线（2026-08-13）：新连接必须等待首份完整库存事务落库后才能向调用方报告连接完成；已认证连接再次连接时主动请求新库存，远端运行位置的“重扫”只通过固定 `remoteInventory:refresh(deviceId)` 触发同一流程，并等待匹配 requestId 的完成响应。连接存续期间每 4 分钟发布一次有界全量快照，早于当前 5 分钟 `staleAt` 窗口，用于修复长期连接只同步一次的问题。库存收发每次重新核对当前 `inventory.read`，撤权后同步关闭既有连接；刷新请求按连接单飞、10 秒最小间隔并最多允许 4 个等待者，关闭连接会取消排队扫描、ACK 与刷新等待。该机制是增量协议完全落地前的恢复基线，不能写成 revision delta、缺口补齐或物理双机长连接门禁已经完成。
+当前恢复基线（2026-08-13）：新连接必须等待首份完整库存事务落库后才能向调用方报告连接完成；已认证连接再次连接时主动请求新库存，远端运行位置的“重扫”只通过固定 `remoteInventory:refresh(deviceId)` 触发同一流程，并等待匹配 requestId 的完成响应。用户进入一个明确远端 Device Lens 或该设备的“查看会话”时，先渲染已落库缓存，再只对该目标按需走这个固定刷新；同一设备并发意图合并为一份请求。应用启动、本机 Lens 与“全部设备”不 fan-out 建立连接；目标没有已认证、临时 LAN 或已配置可达的 signaling 路由时，只保留并明确标记离线快照，不声称已取得新库存。
+
+远端 inventory 事务在落库前，必须先用接收端合并后的 canonical Slot 投影每个 SessionReplica：只保留 `assignmentState=linked` 且 AgentIdentity/AccountBinding 完整的该来源设备 Slot，并把会话的 `agentId` 与 `accountBindingId` 改写为本地 canonical 目录 ID。强会话标识必须使用 canonical AccountBinding 重算 `conversationId`，以便与本地或其他设备的同一逻辑会话折叠；弱会话仍使用来源 `deviceId + profileId + adapterConversationKey` 作用域，其 `conversationId` 和 `replicaId` 保持稳定。若 tombstone、suppressed/unassigned Slot 或无效绑定已使 canonical linked Slot 不存在，对应会话必须在持久化前丢弃，不得靠旧 inventory 残留。该投影不改变来源拥有的 revision、generatedAt/staleAt 或 replica 定位身份。
+
+连接存续期间每 4 分钟发布一次有界全量快照，早于当前 5 分钟 `staleAt` 窗口，用于修复长期连接只同步一次的问题。库存收发每次重新核对当前 `inventory.read`，撤权后同步关闭既有连接；刷新请求按连接单飞、10 秒最小间隔并最多允许 4 个等待者，关闭连接会取消排队扫描、ACK 与刷新等待。该机制是增量协议完全落地前的恢复基线，不能写成 revision delta、缺口补齐或物理双机长连接门禁已经完成。本轮自动化没有配置或验证长期可达的公网 signaling endpoint，也不替代两台物理电脑的持续可达性、断网恢复或 NAT/TURN 矩阵。
 
 ### 17.3 离线发送队列
 
@@ -1955,6 +1961,8 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - inventory revision 与 tombstone；
 - schema v3 → v4 迁移保留 Slot 数据与外键；三种目录删除写入 nullable suppressed Slot，关闭重开后仍可删到零；
 - 新连接必须等待首份完整库存事务落库；已认证重连与固定 `remoteInventory:refresh` 必须等待匹配 requestId 的完成响应；
+- 明确远端 Device Lens/“查看会话”必须先展示缓存再只刷新单个目标；启动、本机和 all Lens 不 fan-out，无路由或刷新失败时缓存不被清空；
+- 远端会话落库前按 canonical Slot 改写 Agent/AccountBinding；强会话重算 canonical `conversationId`，弱会话与 `replicaId` 稳定，tombstone/suppressed 不留残存会话；
 - 库存权限撤销立即作用于既有连接；刷新洪泛被单飞、节流、等待上限与断连取消约束；
 - SessionPointer schema；
 - project mapping；
@@ -2229,7 +2237,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 3：跨设备库存与会话身份修正
 
-当前状态：**代码纵向链路已实现，真机验收待完成**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。新连接增加首库存落库屏障，已认证重连和固定 `remoteInventory:refresh` 可以立即请求新快照，连接存续时以 4 分钟有界全量快照作为当前恢复基线。双端沙箱 WebRTC 自动验证已覆盖刷新后 revision 与会话标题推进，并证明同一强标识会话只渲染一行、保留两个精确 replica。revision 增量/缺口补齐以及两台物理电脑的长连接、断网恢复和大库存仍待完成后再关闭本 Phase。
+当前状态：**代码纵向链路已实现，真机验收待完成**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。进入明确远端 Lens 或设备“查看会话”现在先展示缓存，再仅对该目标走固定 `remoteInventory:refresh`；启动、本机与 all Lens 不 fan-out，刷新失败保留离线快照。新连接增加首库存落库屏障，远端 SessionReplica 在持久化前按 canonical Slot 重写 Agent/Binding，强会话重算 canonical ConversationIdentity，弱会话与 replica 保持设备作用域稳定，tombstone/suppressed 不留残存。已认证重连和固定刷新会请求新快照，连接存续时以 4 分钟有界全量快照作为当前恢复基线。双端沙箱 WebRTC 自动验证已覆盖刷新后 revision 与会话标题推进，Node 定向回归覆盖缓存优先/单目标触发与持久化前 canonical 改写，并证明同一强标识会话只渲染一行、保留两个精确 replica。revision 增量/缺口补齐、两台物理电脑的长连接/断网恢复/大库存，以及未配置也未验证的长期公网 signaling 可达性，仍待完成后再关闭本 Phase。
 
 - Device、AgentIdentity、AccountBinding、AgentPresence、AgentSlot；
 - ProjectIdentity、ConversationIdentity、ConversationCheckpoint、ExecutionBranch、SessionReplica 与 PhysicalSessionRecord；
@@ -2447,6 +2455,12 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.17 — 2026-08-13
+
+- 修复远端库存虽有固定刷新 IPC，但进入 Device Lens 和设备“查看会话”未与真实用户路径完整接线的问题：现在先展示已落库缓存，再只对该远端目标按需调用 `remoteInventory:refresh(deviceId)`，同一设备并发意图单飞，失败保留离线快照；启动、本机和“全部设备”不 fan-out。
+- 修复远端目录已按强账号键归并到 canonical Slot，会话却仍带来源 Agent/Binding 而在“当前 Agent”下消失或错误分行的问题：落库前统一改写 Agent/Binding，强会话使用 canonical Binding 重算 `conversationId`，弱会话与 `replicaId` 保持稳定，tombstone/suppressed 已排除的 Slot 不留会话残存。
+- 定向 Node 回归覆盖两条修复路径；这些证据不替代两台物理电脑、长期可达/断网恢复、真实公网 NAT/TURN 或跨平台权限矩阵；本轮自动化未配置也未验证公网 signaling endpoint，无路由时不得声称可以取得新库存。
 
 ### 1.16 — 2026-08-13
 
