@@ -31,6 +31,7 @@ const {
 } = require('../domain/inventory');
 const {
   KNOWN_CAPABILITIES,
+  normalizeCapabilities,
   defaultPairedPermissions,
   updatePermissions
 } = require('../domain/capabilities');
@@ -123,6 +124,8 @@ class MeshService {
           status: 'online',
           appVersion: this.appVersion,
           osVersion: this.osVersion,
+          capabilities: KNOWN_CAPABILITIES,
+          permissions: KNOWN_CAPABILITIES,
           lastSeenAt: this.now(),
           signalUrls: this.currentSignalingUrls(local.signalUrls)
         });
@@ -1061,6 +1064,29 @@ class MeshService {
         status,
         lastSeenAt: status === 'online' ? this.now() : remote.lastSeenAt,
         endpoints: Array.isArray(details.endpoints) && details.endpoints.length ? details.endpoints : remote.endpoints
+      }), this.now());
+      return true;
+    } finally {
+      store.close();
+    }
+  }
+
+  updateRemoteCapabilities(deviceId, capabilities) {
+    if (!Array.isArray(capabilities)) return false;
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      const remote = snapshot.devices.find((device) => device.deviceId === String(deviceId || ''));
+      if (!remote || remote.isLocal) throw new Error('remote-device-not-found');
+      if (remote.status === 'revoked' || store.isDeviceRevoked(remote.deviceId)) {
+        throw new Error('device-revoked');
+      }
+      const supported = normalizeCapabilities(capabilities);
+      if (JSON.stringify(remote.capabilities || []) === JSON.stringify(supported)) return false;
+      store.saveDevice(normalizeDevice({
+        ...remote,
+        capabilities: supported
       }), this.now());
       return true;
     } finally {

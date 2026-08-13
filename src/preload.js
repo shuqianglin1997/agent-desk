@@ -39,6 +39,13 @@ contextBridge.exposeInMainWorld('manager', {
   ensureAgentReady: (input) => ipcRenderer.invoke('agentDeployments:ensureReady', input),
   retryAgentPreparation: (input) => ipcRenderer.invoke('agentDeployments:retryPreparation', input),
   cancelAgentPreparation: (jobId) => ipcRenderer.invoke('agentDeployments:cancelPreparation', { jobId }),
+  launchRemoteAgent: (input) => ipcRenderer.invoke('agentActions:launchRemote', input),
+  prepareRemoteAgent: (input) => ipcRenderer.invoke('agentActions:prepareRemote', input),
+  onAgentActionsChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('agentActions:changed', listener);
+    return () => ipcRenderer.removeListener('agentActions:changed', listener);
+  },
   onAgentDeploymentsChanged: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('agentDeployments:changed', listener);

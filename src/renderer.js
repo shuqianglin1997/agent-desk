@@ -934,6 +934,19 @@ function bindEvents() {
     });
   }
 
+  if (window.manager.onAgentActionsChanged) {
+    window.manager.onAgentActionsChanged((payload = {}) => {
+      if (payload.overview?.initialized) state.mesh.overview = payload.overview;
+      validateUiContext();
+      renderAccounts();
+      renderAccountHeader();
+      renderDeviceCenter();
+      const agentName = catalogAgentById(payload.agentId)?.displayName || null;
+      setStatus(provisioningResultMessage(payload, agentName));
+      if (payload.state === 'ready') requestDeviceOverviewReload();
+    });
+  }
+
   if (window.manager.onDeviceConnectionState) {
     window.manager.onDeviceConnectionState((value) => {
       if (value?.state === 'authenticated' || value?.state === 'inventory-synced') {
@@ -5318,11 +5331,18 @@ function provisioningResultMessage(result = {}, name = null) {
   if (result.state === 'waiting-install') return tr('status.provisioning.waitingInstall', { name: agentName });
   if (result.state === 'waiting-login') return tr('status.provisioning.waitingLogin', { name: agentName });
   if (result.state === 'verifying') return tr('status.provisioning.verifying', { name: agentName });
+  if (result.state === 'waiting-consent') return tr('status.provisioning.waitingConsent', { name: agentName });
   if (result.state === 'planning' || result.state === 'preparing') {
     return tr('status.provisioning.preparing', { name: agentName });
   }
   if (result.reasonCode === 'provisioning-client-required') return tr('status.provisioning.chooseClient');
-  if (result.reasonCode === 'remote-agent-action-pending') return tr('status.provisioning.remotePending');
+  if (result.reasonCode === 'target-declined') return tr('status.provisioning.targetDeclined');
+  if (String(result.reasonCode || '').startsWith('capability-denied:')) {
+    return tr('status.provisioning.remotePermission');
+  }
+  if (String(result.reasonCode || '').startsWith('capability-unsupported:')) {
+    return tr('status.provisioning.remoteUnsupported');
+  }
   return tr('status.provisioning.failed', { code: result.reasonCode || result.reason || 'provisioning-failed' });
 }
 
@@ -5351,9 +5371,39 @@ async function openCurrentAgent() {
     return result;
   }
   if (action.isRemote) {
-    const result = { ok: false, reasonCode: 'remote-agent-action-pending' };
-    setStatus(provisioningResultMessage(result, action.agent.displayName));
-    return result;
+    const busyKey = provisioningChoiceKey(action.group.key, action.deviceId);
+    if (state.mesh.provisioningBusyKey === busyKey) return { ok: false, reasonCode: 'provisioning-busy' };
+    state.mesh.provisioningBusyKey = busyKey;
+    renderAccountHeader();
+    let result;
+    try {
+      result = profile
+        ? await window.manager.launchRemoteAgent({
+            agentId: action.group.key,
+            deviceId: action.deviceId,
+            profileId: profile.id
+          })
+        : await window.manager.prepareRemoteAgent({
+            agentId: action.group.key,
+            deviceId: action.deviceId,
+            requestedAppId: action.requested.appId,
+            requestedClientForm: action.requested.clientForm || 'desktop'
+          });
+      if (result?.overview) state.mesh.overview = result.overview;
+      validateUiContext();
+      renderAccounts();
+      renderDeviceCenter();
+      setStatus(provisioningResultMessage(result, action.agent.displayName));
+      if (result?.state === 'ready') requestDeviceOverviewReload();
+      return result;
+    } catch (error) {
+      result = { ok: false, reasonCode: error?.message || 'remote-agent-action-failed' };
+      setStatus(provisioningResultMessage(result, action.agent.displayName));
+      return result;
+    } finally {
+      if (state.mesh.provisioningBusyKey === busyKey) state.mesh.provisioningBusyKey = null;
+      renderAccountHeader();
+    }
   }
 
   if (profile && state.appMeta[profile.appId]?.canProvision !== true) {
@@ -5499,14 +5549,20 @@ function renderAccountHeader() {
     ? state.appMeta[action.requested.appId]?.canProvision === true
     : false;
   const unavailable = ['offline', 'retired'].includes(action.readiness?.state);
+  const remoteCapability = profile ? 'profile.launch' : 'agent.prepare';
+  const remoteSupported = !action.isRemote
+    || (action.device?.capabilities || []).includes(remoteCapability);
+  const remotePermitted = !action.isRemote
+    || (action.device?.permissions || []).includes(remoteCapability);
   const canOpen = meshMode
-    ? Boolean(selectedAgent && !action.busy && !action.isRemote && !unavailable && (
+    ? Boolean(selectedAgent && !action.busy && !unavailable && remoteSupported && remotePermitted && (
         (profile && profileCanLaunch) || (!profile && requestedCanProvision)
       ))
     : Boolean(profile && profileCanLaunch && !remote);
   els.launchBtn.textContent = meshMode ? provisioningButtonLabel(action) : tr('account.open');
   els.launchBtn.disabled = !canOpen;
-  if (action.isRemote) els.launchBtn.title = tr('deployment.action.remotePending');
+  if (action.isRemote && !remoteSupported) els.launchBtn.title = tr('deployment.action.remoteUnsupported');
+  else if (action.isRemote && !remotePermitted) els.launchBtn.title = tr('deployment.action.remotePermission');
   else if (unavailable) els.launchBtn.title = tr('deployment.action.offline');
   else if (!profile && !action.requested?.appId) els.launchBtn.title = tr('deployment.action.chooseClient');
   else if (!profile && !requestedCanProvision) els.launchBtn.title = tr('deployment.action.unsupportedClient');

@@ -4,7 +4,7 @@
 >
 > 日期：2026-08-13
 >
-> 权威关系：本文细化 `PERSONAL_AGENT_MESH_PLAN.md` 1.18；如有冲突，以后者为准。
+> 权威关系：本文细化 `PERSONAL_AGENT_MESH_PLAN.md` 1.20；如有冲突，以后者为准。
 
 ## 1. 产品结论
 
@@ -18,20 +18,18 @@ AgentDesk 保存一份全局员工库。Agent 是长期存在的员工，Device 
 
 普通首次使用不再要求用户手工同步账号、创建运行位置、选择归属或填写路径。
 
-## 2. 当前实现与目标差距
+## 2. 当前实现状态
 
-当前代码仍以本地 Profile/Slot 为事实起点：
+截至 2026-08-13，本地代码已实现：
 
-- `agentSlots:addLocal` 先创建本地 Profile，再要求用户从三种目录归属中选择；
-- `createStoredProfile` 只创建受管 profile/session 目录；
-- `launchProfile` 只准备目录并尝试启动已安装客户端；
-- 工具中心对缺失桌面 App 只打开官方入口，对缺失 CLI 也没有受控安装事务；
-- Renderer 在远端 Slot 上禁用“打开”；`profile.launch` 只有权限名，没有完整语义处理链；
-- `identityGroupsForLens` 只为当前设备已有 linked Slot 的 Agent 创建卡片；
-- inventory 只发送本机 Slot 引用到的 Agent/Binding；
-- `pruneOrphans` 会在最后 Slot/Binding 消失后删除 Agent。
+- Agent 与 Slot/Binding 解耦，零账号、零运行位置时仍保持员工生命周期；
+- schema v5、Blueprint、Deployment、ProvisioningJob 和迁移前备份；
+- 本机幂等、可恢复的 ensure-ready 准备链；
+- 每个工作环境都投影完整员工库，没有 Slot 时显示首次准备；
+- 独立于 inventory 的签名 `catalog.snapshot`，零 Slot 员工也可传播；
+- 已就绪远端的 `profile.launch` 和未就绪远端的有人值守 `agent.prepare`。
 
-因此当前是“已有登录位置的目录”，不是独立员工库。
+尚未完成的是 causal catalog event 增量、CLI/Kimi/Cursor 准备适配、技能/工具要求恢复，以及两台物理电脑、真实 NAT/TURN 与跨平台权限矩阵验收。
 
 ## 3. 领域对象
 
@@ -211,24 +209,23 @@ Device Lens 对用户显示为“工作环境”。具体设备下仍展示完�
 
 ### 9.1 已就绪打开
 
-新增固定消息：
+使用固定消息：
 
-    profile.launch.request
-    profile.launch.result
+    profile.launch { phase: request }
+    profile.launch { phase: result }
 
-请求只包含 `agentId、deploymentId、profileId`。目标 Main 重新查表、检查 `profile.launch`、设备状态和本地启动器。
+请求只包含 `requestId、agentId、profileId`。目标 Main 重新查本机 ready Deployment、linked Slot 和 Profile，检查 `profile.launch` 后再由本地启动器执行。
 
 ### 9.2 有人值守准备
 
-新增固定消息：
+使用固定消息：
 
-    agent.prepare.request
+    agent.prepare { phase: request }
     agent.prepare.status
-    agent.prepare.cancel
 
 检查 `agent.prepare` 后，目标设备按自己的 Blueprint、适配器和路径执行。远端不能提交命令、URL、安装参数、配置正文、环境变量或绝对路径。
 
-目录创建与已批准非敏感配置可自动执行；软件安装、官方登录、系统权限和管理员权限在目标设备确认。无人值守准备不在本阶段。
+每次远端首次准备先在目标设备显示来源设备、Agent 和客户端的确认对话框。目录创建与已批准非敏感配置可在确认后执行；软件安装、官方登录、系统权限和管理员权限仍由目标设备上的人完成。无人值守准备不在本阶段。
 
 ## 10. 存储与迁移
 

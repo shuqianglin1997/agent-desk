@@ -4,6 +4,7 @@ const CAPABILITY_DEFINITIONS = Object.freeze({
   'session.pointer.receive': { defaultPaired: true, dangerous: false },
   'file.receive': { defaultPaired: false, dangerous: true },
   'profile.launch': { defaultPaired: false, dangerous: true },
+  'agent.prepare': { defaultPaired: false, dangerous: true },
   'screen.view': { defaultPaired: false, dangerous: true },
   'input.control': { defaultPaired: false, dangerous: true },
   'clipboard.receive': { defaultPaired: false, dangerous: true },

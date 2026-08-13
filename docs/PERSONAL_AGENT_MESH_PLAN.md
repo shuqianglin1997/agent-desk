@@ -2,7 +2,7 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.19
+> 版本：1.20
 >
 > 日期：2026-08-13
 >
@@ -1744,7 +1744,7 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 
 SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、崩溃恢复和 Windows portable 兼容性。
 
-当前实现说明（2026-08-13）：`mesh.db` 已升级到 schema v5。v4 继续以可空 `agent_slots.agent_id/account_binding_id` 准确持久化 suppressed Slot；v5 新增 `agent_blueprints`、`agent_deployments`、`provisioning_jobs` 与 `catalog_events`。现有数据库升级前会生成一次完整的 `pre-v5` 可恢复备份，再在事务中迁移；旧 Agent/Binding 不再因最后一个本机 Profile 消失而被清理，既有目录可以幂等推导初始 Blueprint 与本机 Deployment。显式删除 Agent 仍通过外键级联清理其运行模型；移除 Slot 或 Binding 只改变工作位置或账号关系，不删除员工。本机首次准备执行器、完整员工库工作环境 UI、独立签名 catalog 全量快照同步已落地；causal event 增量和远端固定语义动作仍按 Phase 2A 后续批次实施。
+当前实现说明（2026-08-13）：`mesh.db` 已升级到 schema v5。v4 继续以可空 `agent_slots.agent_id/account_binding_id` 准确持久化 suppressed Slot；v5 新增 `agent_blueprints`、`agent_deployments`、`provisioning_jobs` 与 `catalog_events`。现有数据库升级前会生成一次完整的 `pre-v5` 可恢复备份，再在事务中迁移；旧 Agent/Binding 不再因最后一个本机 Profile 消失而被清理，既有目录可以幂等推导初始 Blueprint 与本机 Deployment。显式删除 Agent 仍通过外键级联清理其运行模型；移除 Slot 或 Binding 只改变工作位置或账号关系，不删除员工。本机首次准备执行器、完整员工库工作环境 UI、独立签名 catalog 全量快照同步和远端 `profile.launch` / 有人值守 `agent.prepare` 已落地；causal event 增量仍按 Phase 2A 后续批次实施。
 
 ### 18.3 密钥存储
 
@@ -1840,6 +1840,8 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 6. 返回结构化结果。
 
 不得接受 remoteCommand、argv、shell、url、absoluteTargetPath 等通用字段。
+
+当前远端 Agent 动作基线（2026-08-13）：认证握手会重新声明当前客户端支持的 capability，用于让旧配对设备在升级后识别 `agent.prepare`；这不会自动授予任何危险权限。已就绪打开使用同一 `profile.launch` 消息的 request/result phase，请求只含 `requestId + agentId + profileId`；目标 Main 重新解析本机 ready Deployment、linked Slot 和 Profile。首次准备使用 `agent.prepare` request 和 `agent.prepare.status`，只含 Agent、受限客户端枚举与结构化状态；目标端先展示来源设备/Agent/客户端确认，再调用本机 ProvisioningService。任何额外路径、命令、argv、URL、环境变量或配置正文字段都被 schema 拒绝。
 
 ## 20. 安全模型与威胁
 
@@ -2352,7 +2354,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 2A：永久员工库与按需就绪
 
-当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v5、初始 Blueprint/Deployment 推导、迁移备份、本机首次准备、完整员工库工作环境 UI 与独立签名 catalog 全量快照已落地**。causal event 增量与远端固定语义接线继续进行。
+当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v5、初始 Blueprint/Deployment 推导、迁移备份、本机首次准备、完整员工库工作环境 UI、独立签名 catalog 全量快照、远端 `profile.launch` 与有人值守 `agent.prepare` 已落地**。causal event 增量继续进行；物理双机、真实 NAT/TURN 和跨平台权限矩阵仍是未关闭门禁。
 
 - AgentIdentity 生命周期与 Slot/Binding 解耦，可在零账号、零部署状态存在；
 - AgentBlueprint、AgentDeployment、ProvisioningJob 与 schema v5；
@@ -2597,6 +2599,13 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.20 — 2026-08-13
+
+- 接通已就绪远端 `profile.launch`：控制端只提交 Agent/Device/Profile 稳定 ID，目标端重新查本机 ready Deployment、linked Slot 和 Profile 后才打开；
+- 接通有人值守 `agent.prepare`：远端只提交 Agent 和受限客户端枚举，目标机先弹出来源设备/Agent/客户端确认，再使用本地可恢复 ProvisioningJob；登录、安装和系统权限仍在目标机完成；
+- 认证握手新增 capability 重新声明，旧配对设备升级后可发现 `agent.prepare`，但不自动授权；设备权限弹窗增加独立开关；
+- 远端动作 schema 拒绝任意路径、命令、argv、URL、环境变量和配置正文；自动化覆盖请求/响应、目标机重查、确认/拒绝、继续状态与三语 UI；完整 Node 套件为 405 项通过、0 失败。当前证据仍不替代物理双机和真实网络验收。
 
 ### 1.19 — 2026-08-13
 

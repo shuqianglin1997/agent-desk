@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const path = require('node:path');
-const { requireCapability } = require('../domain/capabilities');
+const { KNOWN_CAPABILITIES, requireCapability } = require('../domain/capabilities');
 const { createEnvelope, verifyEnvelope, SequenceGuard } = require('../protocol/envelope');
 const { createDeviceProof, verifyDeviceProof } = require('../protocol/handshake');
 const { encodeInventoryChunks, InventoryAssembler } = require('../protocol/inventory');
@@ -104,7 +104,8 @@ class PeerManager {
         membershipCertificate: peer.local.membershipCertificate
       }, peer.secrets.devicePrivateKey);
       await this.sendDataEnvelope(context, 'connection.hello', 'inventory.read', {
-        proof: helloProof
+        proof: helloProof,
+        supportedCapabilities: KNOWN_CAPABILITIES
       });
       await context.auth.promise;
       await context.firstCatalog.promise;
@@ -347,6 +348,7 @@ class PeerManager {
     if (messageType.startsWith('catalog.') && capability !== 'catalog.manage') {
       throw new Error('peer-capability-mismatch');
     }
+    assertSemanticCapability(messageType, capability);
     try {
       this.requireCurrentCapability(context, capability);
     } catch (error) {
@@ -373,13 +375,18 @@ class PeerManager {
         { membershipChain: context.peer.remote.membershipChain }
       );
       if (!proof.ok) throw new Error(proof.reason);
+      this.updateRemoteCapabilities(context, payload?.supportedCapabilities);
       await this.finishAuthenticated(context);
-      await this.sendDataEnvelope(context, 'connection.ready', 'inventory.read', { accepted: true });
+      await this.sendDataEnvelope(context, 'connection.ready', 'inventory.read', {
+        accepted: true,
+        supportedCapabilities: KNOWN_CAPABILITIES
+      });
       this.startInitialSync(context);
       return;
     }
     if (messageType === 'connection.ready') {
       if (context.role !== 'offerer' || !context.answerAuthenticated) throw new Error('peer-ready-unexpected');
+      this.updateRemoteCapabilities(context, payload?.supportedCapabilities);
       await this.finishAuthenticated(context);
       this.startInitialSync(context);
       return;
@@ -471,6 +478,17 @@ class PeerManager {
     context.auth.resolve(true);
     this.meshService.setRemoteConnectionState(context.peer.remote.deviceId, 'connected');
     this.emitState(context, 'authenticated');
+  }
+
+  updateRemoteCapabilities(context, capabilities) {
+    if (!Array.isArray(capabilities)) return false;
+    this.meshService.updateRemoteCapabilities(context.peer.remote.deviceId, capabilities);
+    const refreshed = this.meshService.getPeerContext(context.peer.remote.deviceId);
+    context.peer.remote = {
+      ...context.peer.remote,
+      capabilities: [...refreshed.remote.capabilities]
+    };
+    return true;
   }
 
   startInventorySync(context) {
@@ -713,6 +731,7 @@ class PeerManager {
     if (messageType.startsWith('catalog.') && capability !== 'catalog.manage') {
       throw new Error('peer-capability-mismatch');
     }
+    assertSemanticCapability(messageType, capability);
     this.requireCurrentCapability(context, capability);
     await context.open.promise;
     this.assertContextActive(context, context.generation);
@@ -972,6 +991,15 @@ function safeError(error) {
     .trim()
     .replace(/[^a-z0-9._:-]/gi, '-')
     .slice(0, 160) || 'peer-failed';
+}
+
+function assertSemanticCapability(messageType, capability) {
+  if (messageType === 'profile.launch' && capability !== 'profile.launch') {
+    throw new Error('peer-capability-mismatch');
+  }
+  if (['agent.prepare', 'agent.prepare.status'].includes(messageType) && capability !== 'agent.prepare') {
+    throw new Error('peer-capability-mismatch');
+  }
 }
 
 module.exports = {
