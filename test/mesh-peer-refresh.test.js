@@ -372,10 +372,59 @@ test('远程重扫通过固定 remoteInventory:refresh IPC/Preload 暴露，不�
     /refreshMeshInventory:\s*\(deviceId\)\s*=>\s*ipcRenderer\.invoke\('remoteInventory:refresh',\s*\{ deviceId \}\)/
   );
   assert.match(renderer, /profile\?\._remote === true && window\.manager\.refreshMeshInventory/);
-  assert.match(renderer, /refreshMeshInventory\(profile\._meshDeviceId\)/);
+  assert.match(renderer, /refreshRemoteInventoryForDevice\(profile\._meshDeviceId\)/);
+  assert.match(renderer, /function refreshRemoteInventoryForDevice[\s\S]*?refreshMeshInventory\(deviceId\)/);
   assert.match(renderer, /els\.refreshBtn\.disabled = disabled \|\| \(remote && !window\.manager\.refreshMeshInventory\)/);
   assert.doesNotMatch(preload, /remoteInventory:(command|exec|invoke)|remoteCommand|generic\.exec/i);
 });
+
+test('远端 Lens 与设备会话入口先显示缓存再按需刷新，本机和全部设备不扇出连接', () => {
+  const renderer = read('src/renderer.js');
+  const helper = sourceFunction(renderer, 'refreshRemoteInventoryForDevice', 'viewDeviceSessions');
+  const viewDevice = sourceFunction(renderer, 'viewDeviceSessions', 'viewDeviceAgentSessions');
+  const viewAgent = sourceFunction(renderer, 'viewDeviceAgentSessions', 'renderSelectedDeviceActions');
+  const selectLens = sourceFunction(renderer, 'selectDeviceLens', 'selectedDeviceLensLabel');
+
+  assert.match(helper, /if \(!device \|\| device\.isLocal \|\| !window\.manager\.refreshMeshInventory\) return Promise\.resolve\(null\)/);
+  assert.match(helper, /remoteInventoryRefreshes\.get\(deviceId\)[\s\S]*?if \(existing\) return existing/);
+  assert.match(helper, /remoteInventoryRefreshes\.set\(deviceId, operation\)/);
+  assert.match(helper, /refreshMeshInventory\(deviceId\)/);
+  assert.match(helper, /if \(!result\?\.ok\)[\s\S]*?remoteInventoryRefreshFailureText\(result\?\.reasonCode, deviceName\)[\s\S]*?return null/);
+  assert.match(renderer, /function remoteInventoryRefreshFailureText[\s\S]*?status\.refreshRemoteNoRoute[\s\S]*?status\.refreshRemoteTimeout/);
+  assert.doesNotMatch(helper, /state\.sessions\s*=\s*\[\]/, 'refresh failure must preserve the rendered cache');
+  assert.match(helper, /state\.mesh\.overview = result\.overview[\s\S]*?loadMeshSessions\(result\.sessions\)/);
+
+  assert.match(viewDevice, /await loadSessions\(\);[\s\S]*?await refreshRemoteInventoryForDevice\(device\)/);
+  assert.match(viewAgent, /await loadSessions\(\);[\s\S]*?await refreshRemoteInventoryForDevice\(device\)/);
+  assert.match(selectLens, /await loadSessions\(\);[\s\S]*?await refreshRemoteInventoryForDevice\(lensId\)/);
+  assert.doesNotMatch(viewDevice, /selectDeviceLens\(/, 'device-center navigation must not launch a second Lens refresh');
+  assert.doesNotMatch(viewAgent, /selectDeviceLens\(/, 'Agent navigation must not launch a second Lens refresh');
+});
+
+test('inventory-synced 撞上 Mesh 忙碌状态时会合并并在释放后补载', () => {
+  const renderer = read('src/renderer.js');
+  const eventBlock = renderer.slice(
+    renderer.indexOf('if (window.manager.onDeviceConnectionState)'),
+    renderer.indexOf('if (window.manager.onDeviceNetworkState)')
+  );
+  const request = sourceFunction(renderer, 'requestDeviceOverviewReload', 'flushPendingDeviceOverviewReload');
+  const flush = sourceFunction(renderer, 'flushPendingDeviceOverviewReload', 'loadDeviceOverview');
+  const render = sourceFunction(renderer, 'renderDeviceCenter', 'renderMeshPreview');
+
+  assert.match(eventBlock, /inventory-synced[\s\S]*?requestDeviceOverviewReload\(\)/);
+  assert.match(request, /pendingDeviceOverviewReload = true[\s\S]*?flushPendingDeviceOverviewReload\(\)/);
+  assert.match(flush, /pendingDeviceOverviewReload[\s\S]*?state\.mesh\.loading[\s\S]*?deviceOverviewReloadPromise/);
+  assert.match(flush, /loadDeviceOverview\(\{ silent: true \}\)/);
+  assert.match(render, /flushPendingDeviceOverviewReload\(\)/, 'the common post-loading render drains the pending reload');
+});
+
+function sourceFunction(source, name, nextName) {
+  const start = source.indexOf(`function ${name}`);
+  const end = source.indexOf(`function ${nextName}`, start + 1);
+  assert.ok(start >= 0, `${name} missing`);
+  assert.ok(end > start, `${nextName} must follow ${name}`);
+  return source.slice(start, end);
+}
 
 async function peerHarness() {
   const remoteKeys = crypto.generateKeyPairSync('ed25519');

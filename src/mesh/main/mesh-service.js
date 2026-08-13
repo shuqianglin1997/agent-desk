@@ -16,6 +16,7 @@ const {
   buildLocalInventory,
   normalizeInventory,
   mergeCatalogInventory,
+  canonicalizeInventorySessions,
   unifiedConversations
 } = require('../domain/inventory');
 const {
@@ -586,13 +587,16 @@ class MeshService {
       const catalog = mergeCatalogInventory(snapshot, inventory, {
         catalogRevision: snapshot.catalogRevision + 1
       });
+      const canonicalInventory = canonicalizeInventorySessions(inventory, catalog, {
+        linkKey: this.keyVault.load().identityLinkKey
+      });
       const device = normalizeDevice({
         ...remote,
         status: 'online',
-        inventoryRevision: inventory.revision,
+        inventoryRevision: canonicalInventory.revision,
         lastSeenAt: this.now()
       });
-      store.applyRemoteInventory(inventory, catalog, device, this.now());
+      store.applyRemoteInventory(canonicalInventory, catalog, device, this.now());
     } finally {
       store.close();
     }
@@ -605,7 +609,17 @@ class MeshService {
       const snapshot = store.readSnapshot();
       if (!snapshot) return [];
       const local = this.buildInventory(snapshot, { advanceRevision: false });
-      return unifiedConversations([local, ...snapshot.remoteInventories], snapshot.devices, {
+      const linkKey = this.keyVault.load().identityLinkKey;
+      const remoteInventories = snapshot.remoteInventories.flatMap((inventory) => {
+        try {
+          return [canonicalizeInventorySessions(inventory, snapshot, { linkKey })];
+        } catch (_error) {
+          // One legacy or damaged cache must not hide healthy local/remote
+          // conversations. The next authenticated snapshot can replace it.
+          return [];
+        }
+      });
+      return unifiedConversations([local, ...remoteInventories], snapshot.devices, {
         localDeviceId: snapshot.mesh.localDeviceId
       });
     } finally {
@@ -830,6 +844,10 @@ class MeshService {
   }
 
   publicOverview(snapshot, keyState) {
+    const remoteInventoryByDevice = new Map((snapshot.remoteInventories || []).map((inventory) => [
+      inventory.deviceId,
+      inventory
+    ]));
     const slots = snapshot.slots.map((slot) => ({
       deviceId: slot.deviceId,
       profileId: slot.profileId,
@@ -845,6 +863,7 @@ class MeshService {
     }));
     const devices = snapshot.devices.map((device) => {
       const deviceSlots = slots.filter((slot) => slot.deviceId === device.deviceId);
+      const remoteInventory = remoteInventoryByDevice.get(device.deviceId) || null;
       return {
         deviceId: device.deviceId,
         name: device.name,
@@ -860,6 +879,8 @@ class MeshService {
         pairedAt: device.pairedAt,
         lastSeenAt: device.lastSeenAt,
         inventoryRevision: device.inventoryRevision,
+        inventoryGeneratedAt: remoteInventory?.generatedAt || null,
+        inventoryStaleAt: remoteInventory?.staleAt || null,
         isLocal: device.isLocal,
         fingerprint: publicKeyFingerprint(device.devicePublicKey),
         endpointCount: Array.isArray(device.endpoints) ? device.endpoints.length : 0,

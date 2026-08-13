@@ -57,6 +57,15 @@ const state = {
   appMeta: { claude: { label: 'Claude', tagColor: '#d96f33' }, codex: { label: 'Codex', tagColor: '#2f9e8f' } }
 };
 
+// Remote inventory reads are deliberately on demand: selecting one remote
+// device may open one authenticated peer, while startup and the "all devices"
+// lens must not fan out into an N² connection mesh. Coalesce concurrent user
+// intents for the same device so Lens navigation, device-center navigation and
+// the explicit rescan action cannot launch duplicate full snapshots.
+const remoteInventoryRefreshes = new Map();
+let pendingDeviceOverviewReload = false;
+let deviceOverviewReloadPromise = null;
+
 function currentDeviceLensId() {
   return state.ui.selectedDeviceLensId || 'all';
 }
@@ -903,7 +912,7 @@ function bindEvents() {
       } else if (value?.state === 'error') {
         state.mesh.errorCode = value.reason || 'peer-connect-failed';
       }
-      void loadDeviceOverview({ silent: true });
+      requestDeviceOverviewReload();
     });
   }
 
@@ -1052,22 +1061,7 @@ function bindEvents() {
     if (isYardView()) window.YardScene.fx('bell');
     const profile = selectedProfile();
     if (profile?._remote === true && window.manager.refreshMeshInventory) {
-      const deviceName = profile._meshDeviceName || '-';
-      setStatus(tr('status.refreshRemoteWorking', { name: deviceName }));
-      const result = await window.manager.refreshMeshInventory(profile._meshDeviceId);
-      if (!result?.ok) {
-        setStatus(tr('status.refreshRemoteFailed', { name: deviceName }));
-        return;
-      }
-      if (result.overview) {
-        state.mesh.overview = result.overview;
-        validateUiContext();
-      }
-      await loadSessions();
-      renderAccounts();
-      renderAccountHeader();
-      renderDeviceCenter();
-      setStatus(tr('status.refreshRemoteDone', { name: deviceName }));
+      await refreshRemoteInventoryForDevice(profile._meshDeviceId);
       return;
     }
     await loadSessions();
@@ -2054,14 +2048,16 @@ async function loadSessions() {
   applySessionFilter();
 }
 
-async function loadMeshSessions() {
-  let rows = [];
-  try {
-    const result = await window.manager.listMeshSessions();
-    if (!result?.ok || !Array.isArray(result.sessions)) throw new Error(result?.reasonCode || 'inventory-list-failed');
-    rows = result.sessions;
-  } catch (_error) {
-    rows = [];
+async function loadMeshSessions(prefetchedRows = null) {
+  let rows = Array.isArray(prefetchedRows) ? prefetchedRows : [];
+  if (!Array.isArray(prefetchedRows)) {
+    try {
+      const result = await window.manager.listMeshSessions();
+      if (!result?.ok || !Array.isArray(result.sessions)) throw new Error(result?.reasonCode || 'inventory-list-failed');
+      rows = result.sessions;
+    } catch (_error) {
+      rows = [];
+    }
   }
   const overview = state.mesh.overview;
   const lens = currentDeviceLensId();
@@ -2889,6 +2885,28 @@ async function syncRemoteSurfaceLayout() {
   }
 }
 
+function requestDeviceOverviewReload() {
+  pendingDeviceOverviewReload = true;
+  flushPendingDeviceOverviewReload();
+}
+
+function flushPendingDeviceOverviewReload() {
+  if (
+    !pendingDeviceOverviewReload
+    || state.mesh.loading
+    || deviceOverviewReloadPromise
+    || !window.manager.listDevices
+  ) return;
+  pendingDeviceOverviewReload = false;
+  const operation = loadDeviceOverview({ silent: true });
+  deviceOverviewReloadPromise = operation;
+  const finish = () => {
+    if (deviceOverviewReloadPromise === operation) deviceOverviewReloadPromise = null;
+    flushPendingDeviceOverviewReload();
+  };
+  operation.then(finish, finish);
+}
+
 async function loadDeviceOverview(options = {}) {
   if (!window.manager.listDevices || state.mesh.loading) return;
   const silent = options.silent === true;
@@ -2921,6 +2939,10 @@ async function loadDeviceOverview(options = {}) {
 
 function renderDeviceCenter() {
   if (!els.deviceCenterBtn) return;
+  // Mesh mutations render once after releasing state.mesh.loading. That common
+  // point also drains an inventory-synced event that arrived while the mutation
+  // was busy, instead of losing the reload until the next four-minute snapshot.
+  flushPendingDeviceOverviewReload();
   const overview = state.mesh.overview;
   const initialized = overview?.initialized === true;
   const storageIncomplete = overview?.storageIncomplete === true;
@@ -3144,7 +3166,12 @@ function renderSelectedDeviceDetail(overview) {
   }
   if (els.deviceDetailStatus) {
     els.deviceDetailStatus.dataset.state = device.status === 'online' ? 'ready' : 'local';
-    els.deviceDetailStatus.textContent = tr(`devices.status.${device.status || 'offline'}`);
+    els.deviceDetailStatus.textContent = [
+      tr(`devices.status.${device.status || 'offline'}`),
+      !device.isLocal && device.inventoryGeneratedAt
+        ? tr('devices.device.lastSync', { time: compactDate(device.inventoryGeneratedAt) })
+        : null
+    ].filter(Boolean).join(' · ');
   }
   if (els.deviceDetailStats) {
     els.deviceDetailStats.replaceChildren();
@@ -3189,6 +3216,58 @@ function deviceMoreMenu(buttons) {
   return menu;
 }
 
+function refreshRemoteInventoryForDevice(deviceOrId) {
+  const deviceId = typeof deviceOrId === 'string' ? deviceOrId : deviceOrId?.deviceId;
+  const device = state.mesh.overview?.devices?.find((item) => item.deviceId === deviceId)
+    || (deviceOrId && typeof deviceOrId === 'object' ? deviceOrId : null);
+  if (!device || device.isLocal || !window.manager.refreshMeshInventory) return Promise.resolve(null);
+
+  const existing = remoteInventoryRefreshes.get(deviceId);
+  if (existing) return existing;
+
+  const deviceName = device.name || deviceId || '-';
+  const operation = (async () => {
+    setStatus(tr('status.refreshRemoteWorking', { name: deviceName }));
+    let result = null;
+    try {
+      result = await window.manager.refreshMeshInventory(deviceId);
+    } catch (_error) {
+      result = null;
+    }
+    if (!result?.ok) {
+      // Cached sessions were rendered before this request and remain intact.
+      // A failed on-demand connection must never turn an offline snapshot into
+      // an empty table or pretend that the cached data is current.
+      setStatus(remoteInventoryRefreshFailureText(result?.reasonCode, deviceName));
+      return null;
+    }
+
+    if (result.overview) {
+      state.mesh.overview = result.overview;
+      validateUiContext();
+    }
+    state.mesh.errorCode = null;
+    renderDeviceLens(state.mesh.overview);
+    renderAccounts();
+    renderAccountHeader();
+    renderDeviceCenter();
+    renderTopbarContext();
+    if (Array.isArray(result.sessions)) await loadMeshSessions(result.sessions);
+    else await loadSessions();
+    setStatus(tr('status.refreshRemoteDone', { name: deviceName }));
+    return result;
+  })();
+
+  remoteInventoryRefreshes.set(deviceId, operation);
+  const clear = () => {
+    if (remoteInventoryRefreshes.get(deviceId) === operation) {
+      remoteInventoryRefreshes.delete(deviceId);
+    }
+  };
+  operation.then(clear, clear);
+  return operation;
+}
+
 async function viewDeviceSessions(device, overview) {
   closeUtilityDialog(els.deviceCenterDialog);
   updateUi(window.UiContext.viewDeviceSessions(state.ui, device.deviceId));
@@ -3198,6 +3277,7 @@ async function viewDeviceSessions(device, overview) {
   renderAccounts();
   renderAccountHeader();
   await loadSessions();
+  await refreshRemoteInventoryForDevice(device);
 }
 
 async function viewDeviceAgentSessions(device, agent, overview) {
@@ -3216,6 +3296,7 @@ async function viewDeviceAgentSessions(device, agent, overview) {
   renderAccounts();
   renderAccountHeader();
   await loadSessions();
+  await refreshRemoteInventoryForDevice(device);
 }
 
 function renderSelectedDeviceActions(device, connection, overview) {
@@ -3845,6 +3926,23 @@ function meshErrorText(code) {
     return tr('devices.probe.failed', { code });
   }
   return tr('devices.error.generic', { code: code || '-' });
+}
+
+function remoteInventoryRefreshFailureText(code, deviceName = '-') {
+  const value = String(code || 'inventory-refresh-failed');
+  if (/capability-denied:inventory\.read|device-revoked/.test(value)) {
+    return tr('status.refreshRemoteDenied', { name: deviceName });
+  }
+  if (/protocol|version|peer-message-type-unknown/.test(value)) {
+    return tr('status.refreshRemoteVersion', { name: deviceName });
+  }
+  if (/route|endpoint|fetch|signal.*unavailable|device-unavailable/.test(value)) {
+    return tr('status.refreshRemoteNoRoute', { name: deviceName });
+  }
+  if (/timeout|peer-disconnected|peer-not-connected|peer-not-authenticated/.test(value)) {
+    return tr('status.refreshRemoteTimeout', { name: deviceName });
+  }
+  return tr('status.refreshRemoteFailedReason', { name: deviceName, code: value });
 }
 
 function remoteErrorText(code, deviceName = '-') {
@@ -4972,6 +5070,7 @@ async function selectDeviceLens(lensId) {
   renderAccounts();
   renderAccountHeader();
   await loadSessions();
+  await refreshRemoteInventoryForDevice(lensId);
 }
 
 function selectedDeviceLensLabel() {
