@@ -1,4 +1,4 @@
-const MESH_SCHEMA_VERSION = 4;
+const MESH_SCHEMA_VERSION = 5;
 
 function migrateMeshDatabase(database) {
   database.exec('PRAGMA foreign_keys = ON');
@@ -9,6 +9,68 @@ function migrateMeshDatabase(database) {
   if (current < 2) migrateToVersion2(database);
   if (current < 3) migrateToVersion3(database);
   if (current < 4) migrateToVersion4(database);
+  if (current < 5) migrateToVersion5(database);
+}
+
+function migrateToVersion5(database) {
+  database.exec(`
+    BEGIN IMMEDIATE;
+
+    CREATE TABLE agent_blueprints (
+      agent_id TEXT PRIMARY KEY REFERENCES agents(agent_id) ON DELETE CASCADE,
+      revision INTEGER NOT NULL,
+      preferred_provider TEXT,
+      preferred_app_id TEXT,
+      preferred_client_form TEXT,
+      updated_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    );
+
+    CREATE TABLE agent_deployments (
+      agent_id TEXT NOT NULL REFERENCES agents(agent_id) ON DELETE CASCADE,
+      device_id TEXT NOT NULL REFERENCES devices(device_id) ON DELETE CASCADE,
+      state TEXT NOT NULL,
+      blueprint_revision INTEGER NOT NULL DEFAULT 0,
+      revision INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      PRIMARY KEY (agent_id, device_id)
+    );
+
+    CREATE INDEX agent_deployments_device_state
+      ON agent_deployments(device_id, state, updated_at DESC);
+
+    CREATE TABLE provisioning_jobs (
+      job_id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(agent_id) ON DELETE CASCADE,
+      device_id TEXT NOT NULL REFERENCES devices(device_id) ON DELETE CASCADE,
+      client_form TEXT,
+      state TEXT NOT NULL,
+      current_step TEXT NOT NULL,
+      active_key TEXT UNIQUE,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    );
+
+    CREATE INDEX provisioning_jobs_agent_device
+      ON provisioning_jobs(agent_id, device_id, updated_at DESC);
+
+    CREATE TABLE catalog_events (
+      event_id TEXT PRIMARY KEY,
+      revision INTEGER NOT NULL,
+      source_device_id TEXT NOT NULL REFERENCES devices(device_id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    );
+
+    CREATE UNIQUE INDEX catalog_events_revision_source
+      ON catalog_events(revision, source_device_id, event_id);
+
+    PRAGMA user_version = 5;
+    COMMIT;
+  `);
 }
 
 function migrateToVersion4(database) {

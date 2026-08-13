@@ -195,21 +195,9 @@ function reconcileLocalCatalog(existing = {}, profiles = [], options = {}) {
     }
   }
 
-  // Removing the final local running position removes its empty binding and
-  // Agent. Nothing is protected by provider type, and an empty catalog is valid.
-  const liveBindingIds = new Set(slots.map((slot) => slot.accountBindingId).filter(Boolean));
-  accountBindings = accountBindings.filter((binding) => liveBindingIds.has(binding.accountBindingId));
-  const liveAgentIds = new Set([
-    ...slots.map((slot) => slot.agentId),
-    ...accountBindings.map((binding) => binding.agentId)
-  ].filter(Boolean));
-  const removedAgents = agents.filter((agent) => !liveAgentIds.has(agent.agentId));
-  agents = agents.filter((agent) => liveAgentIds.has(agent.agentId));
-  for (const agent of removedAgents) {
-    if (!tombstones.some((item) => item.objectType === 'agent' && item.objectId === agent.agentId)) {
-      tombstones.push({ objectType: 'agent', objectId: agent.agentId, deletedAt: now });
-    }
-  }
+  // AgentIdentity and AccountBinding are durable catalog objects. A missing
+  // local Profile only removes this device's runtime location; it must never
+  // infer that the employee or platform login was deleted.
 
   const next = normalizeCatalog({ agents, accountBindings, slots, tombstones });
   const changed = catalogSignature(previous) !== catalogSignature(next);
@@ -242,6 +230,29 @@ function updateAgentMetadata(existing = {}, input = {}, options = {}) {
     return next;
   });
   return finalizeMutation(previous, { ...previous, agents });
+}
+
+function createAgentIdentity(existing = {}, input = {}, options = {}) {
+  const previous = normalizeCatalog(existing);
+  if (typeof options.randomUUID !== 'function') throw new TypeError('randomUUID is required');
+  const now = options.now || new Date().toISOString();
+  const agentId = options.randomUUID();
+  const agent = {
+    agentId,
+    displayName: cleanText(input.displayName, 'Agent', 80),
+    catAppearance: input.catAppearance && typeof input.catAppearance === 'object'
+      ? { ...input.catAppearance }
+      : null,
+    group: cleanText(input.group, '', 80),
+    note: cleanText(input.note, '', 1000),
+    lifecycleState: 'active',
+    createdAt: now,
+    updatedAt: now
+  };
+  return finalizeMutation(previous, {
+    ...previous,
+    agents: [...previous.agents, agent]
+  });
 }
 
 function assignSlot(existing = {}, input = {}, options = {}) {
@@ -392,12 +403,13 @@ function assignSlot(existing = {}, input = {}, options = {}) {
     lastUpdatedAt: now
   };
 
-  ({ agents, accountBindings, tombstones } = pruneOrphans({
-    agents,
-    accountBindings,
-    slots,
-    tombstones
-  }, { candidateAgentIds: [oldAgentId], candidateBindingIds: [oldBindingId], now }));
+  if (reuseProvisional && agent.agentId !== oldAgentId) {
+    const oldBindingStillUsed = slots.some((item) => item.accountBindingId === oldBindingId);
+    if (!oldBindingStillUsed) accountBindings = accountBindings.filter((item) => item.accountBindingId !== oldBindingId);
+    const oldAgentStillUsed = slots.some((item) => item.agentId === oldAgentId)
+      || accountBindings.some((item) => item.agentId === oldAgentId);
+    if (!oldAgentStillUsed) agents = agents.filter((item) => item.agentId !== oldAgentId);
+  }
 
   return finalizeMutation(previous, { ...previous, agents, accountBindings, slots, tombstones });
 }
@@ -486,24 +498,20 @@ function splitAccountBinding(existing = {}, input = {}, options = {}) {
     createdAt: now,
     updatedAt: now
   };
-  let agents = [...previous.agents.map((item) => ({ ...item })), agent];
+  const agents = [...previous.agents.map((item) => ({ ...item })), agent];
   const accountBindings = previous.accountBindings.map((item) => (
     item.accountBindingId === accountBindingId ? { ...item, agentId } : { ...item }
   ));
   const slots = previous.slots.map((slot) => (
     slot.accountBindingId === accountBindingId ? { ...slot, agentId, lastUpdatedAt: now } : { ...slot }
   ));
-  let tombstones = previous.tombstones.map((item) => ({ ...item }));
-  ({ agents, tombstones } = pruneOrphans({
+  return finalizeMutation(previous, {
+    ...previous,
     agents,
     accountBindings,
     slots,
-    tombstones
-  }, {
-    candidateAgentIds: [binding.agentId],
-    now
-  }));
-  return finalizeMutation(previous, { ...previous, agents, accountBindings, slots, tombstones });
+    tombstones: previous.tombstones.map((item) => ({ ...item }))
+  });
 }
 
 function removeCatalogObject(existing = {}, input = {}, options = {}) {
@@ -515,44 +523,34 @@ function removeCatalogObject(existing = {}, input = {}, options = {}) {
   let accountBindings = previous.accountBindings.map((item) => ({ ...item }));
   let slots = previous.slots.map((item) => ({ ...item }));
   let tombstones = previous.tombstones.map((item) => ({ ...item }));
-  const affectedAgentIds = new Set();
-  const affectedBindingIds = new Set();
-
   if (scope === 'slot') {
     const deviceId = requiredText(input.deviceId, 'deviceId');
     const profileId = requiredText(input.profileId, 'profileId');
     const index = slots.findIndex((slot) => slot.deviceId === deviceId && slot.profileId === profileId);
     if (index < 0) throw new Error('slot-not-found');
-    affectedAgentIds.add(slots[index].agentId);
-    affectedBindingIds.add(slots[index].accountBindingId);
     slots[index] = suppressSlot(slots[index], now);
   } else if (scope === 'account-binding') {
     const accountBindingId = requiredText(input.accountBindingId, 'accountBindingId');
     const binding = accountBindings.find((item) => item.accountBindingId === accountBindingId);
     if (!binding) throw new Error('account-binding-not-found');
-    affectedAgentIds.add(binding.agentId);
-    affectedBindingIds.add(accountBindingId);
     slots = slots.map((slot) => slot.accountBindingId === accountBindingId ? suppressSlot(slot, now) : slot);
+    accountBindings = accountBindings.filter((item) => item.accountBindingId !== accountBindingId);
+    tombstones = addTombstone(tombstones, 'account-binding', accountBindingId, now);
   } else {
     const agentId = requiredText(input.agentId, 'agentId');
     if (!agents.some((agent) => agent.agentId === agentId)) throw new Error('agent-not-found');
-    affectedAgentIds.add(agentId);
+    const removedBindingIds = [];
     for (const binding of accountBindings) {
-      if (binding.agentId === agentId) affectedBindingIds.add(binding.accountBindingId);
+      if (binding.agentId === agentId) removedBindingIds.push(binding.accountBindingId);
     }
     slots = slots.map((slot) => slot.agentId === agentId ? suppressSlot(slot, now) : slot);
+    accountBindings = accountBindings.filter((binding) => binding.agentId !== agentId);
+    agents = agents.filter((agent) => agent.agentId !== agentId);
+    for (const bindingId of removedBindingIds) {
+      tombstones = addTombstone(tombstones, 'account-binding', bindingId, now);
+    }
+    tombstones = addTombstone(tombstones, 'agent', agentId, now);
   }
-
-  ({ agents, accountBindings, tombstones } = pruneOrphans({
-    agents,
-    accountBindings,
-    slots,
-    tombstones
-  }, {
-    candidateAgentIds: [...affectedAgentIds],
-    candidateBindingIds: [...affectedBindingIds],
-    now
-  }));
   return finalizeMutation(previous, { ...previous, agents, accountBindings, slots, tombstones });
 }
 
@@ -564,27 +562,6 @@ function suppressSlot(slot, now) {
     assignmentState: 'suppressed',
     lastUpdatedAt: now
   };
-}
-
-function pruneOrphans(value, options = {}) {
-  let agents = value.agents;
-  let accountBindings = value.accountBindings;
-  let tombstones = value.tombstones;
-  const slots = value.slots;
-  for (const bindingId of new Set((options.candidateBindingIds || []).filter(Boolean))) {
-    if (slots.some((slot) => slot.accountBindingId === bindingId)) continue;
-    if (!accountBindings.some((binding) => binding.accountBindingId === bindingId)) continue;
-    accountBindings = accountBindings.filter((binding) => binding.accountBindingId !== bindingId);
-    tombstones = addTombstone(tombstones, 'account-binding', bindingId, options.now);
-  }
-  for (const agentId of new Set((options.candidateAgentIds || []).filter(Boolean))) {
-    const live = slots.some((slot) => slot.agentId === agentId)
-      || accountBindings.some((binding) => binding.agentId === agentId);
-    if (live || !agents.some((agent) => agent.agentId === agentId)) continue;
-    agents = agents.filter((agent) => agent.agentId !== agentId);
-    tombstones = addTombstone(tombstones, 'agent', agentId, options.now);
-  }
-  return { agents, accountBindings, tombstones };
 }
 
 function addTombstone(value, objectType, objectId, deletedAt) {
@@ -684,6 +661,7 @@ module.exports = {
   clientForm,
   normalizeCatalog,
   reconcileLocalCatalog,
+  createAgentIdentity,
   updateAgentMetadata,
   assignSlot,
   mergeAgents,

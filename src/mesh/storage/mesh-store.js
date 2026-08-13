@@ -1,6 +1,14 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { migrateMeshDatabase } = require('./migrations');
+const crypto = require('node:crypto');
+const { MESH_SCHEMA_VERSION, migrateMeshDatabase } = require('./migrations');
+const {
+  normalizeAgentBlueprint,
+  normalizeAgentDeployment,
+  normalizeProvisioningJob,
+  activeJobKey,
+  deploymentKey
+} = require('../domain/agent-deployment');
 
 class MeshStore {
   constructor(filePath) {
@@ -8,7 +16,16 @@ class MeshStore {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     const { DatabaseSync } = require('node:sqlite');
     this.database = new DatabaseSync(filePath);
-    migrateMeshDatabase(this.database);
+    try {
+      const currentVersion = Number(this.database.prepare('PRAGMA user_version').get().user_version || 0);
+      if (currentVersion > 0 && currentVersion < MESH_SCHEMA_VERSION) {
+        preserveMigrationBackup(this.database, filePath, MESH_SCHEMA_VERSION);
+      }
+      migrateMeshDatabase(this.database);
+    } catch (error) {
+      try { this.database.close(); } catch (_closeError) { /* original error wins */ }
+      throw error;
+    }
     this.database.exec('PRAGMA journal_mode = WAL');
   }
 
@@ -77,6 +94,14 @@ class MeshStore {
         .map((row) => parsePayload(row.payload_json)),
       slots: this.database.prepare('SELECT payload_json FROM agent_slots ORDER BY device_id, profile_id').all()
         .map((row) => parsePayload(row.payload_json)),
+      blueprints: this.database.prepare('SELECT payload_json FROM agent_blueprints ORDER BY agent_id').all()
+        .map((row) => parsePayload(row.payload_json)),
+      deployments: this.database.prepare('SELECT payload_json FROM agent_deployments ORDER BY device_id, agent_id').all()
+        .map((row) => parsePayload(row.payload_json)),
+      provisioningJobs: this.database.prepare('SELECT payload_json FROM provisioning_jobs ORDER BY updated_at DESC').all()
+        .map((row) => parsePayload(row.payload_json)),
+      catalogEvents: this.database.prepare('SELECT payload_json FROM catalog_events ORDER BY revision, event_id').all()
+        .map((row) => parsePayload(row.payload_json)),
       tombstones: this.database.prepare('SELECT payload_json FROM catalog_tombstones ORDER BY object_type, object_id').all()
         .map((row) => parsePayload(row.payload_json)),
       membershipEvents: this.database.prepare('SELECT payload_json FROM membership_events ORDER BY sequence').all()
@@ -110,6 +135,145 @@ class MeshStore {
       this.writeDevice(device);
       this.writeAudit('device.updated', now, { deviceId: device.deviceId, name: device.name });
     });
+  }
+
+  saveRuntimeModel(model = {}, now, options = {}) {
+    const blueprints = (Array.isArray(model.blueprints) ? model.blueprints : []).map(normalizeAgentBlueprint);
+    const deployments = (Array.isArray(model.deployments) ? model.deployments : []).map(normalizeAgentDeployment);
+    const currentBlueprintRows = this.database.prepare(
+      'SELECT agent_id, payload_json FROM agent_blueprints'
+    ).all();
+    const currentDeploymentRows = this.database.prepare(
+      'SELECT agent_id, device_id, payload_json FROM agent_deployments'
+    ).all();
+    const currentBlueprints = new Map(currentBlueprintRows.map((row) => [row.agent_id, row.payload_json]));
+    const currentDeployments = new Map(currentDeploymentRows.map((row) => [
+      deploymentKey(row.agent_id, row.device_id),
+      row.payload_json
+    ]));
+    const changedBlueprints = blueprints.filter((blueprint) => (
+      !payloadMatches(currentBlueprints.get(blueprint.agentId), blueprint)
+    ));
+    const changedDeployments = deployments.filter((deployment) => (
+      !payloadMatches(currentDeployments.get(deploymentKey(deployment.agentId, deployment.deviceId)), deployment)
+    ));
+    const liveAgentIds = new Set(blueprints.map((item) => item.agentId));
+    const deletedBlueprintIds = currentBlueprintRows
+      .map((row) => row.agent_id)
+      .filter((agentId) => !liveAgentIds.has(agentId));
+    const localDeviceId = String(options.localDeviceId || '');
+    const localKeys = new Set(deployments
+      .filter((item) => item.deviceId === localDeviceId)
+      .map((item) => deploymentKey(item.agentId, item.deviceId)));
+    const deletedLocalDeployments = localDeviceId
+      ? currentDeploymentRows.filter((row) => (
+        row.device_id === localDeviceId
+        && !localKeys.has(deploymentKey(row.agent_id, row.device_id))
+      ))
+      : [];
+    const changed = Boolean(
+      changedBlueprints.length
+      || changedDeployments.length
+      || deletedBlueprintIds.length
+      || deletedLocalDeployments.length
+    );
+    if (!changed) return { blueprints, deployments, changed: false };
+
+    this.transaction(() => {
+      for (const blueprint of changedBlueprints) this.writeBlueprint(blueprint);
+      for (const deployment of changedDeployments) this.writeDeployment(deployment);
+      for (const agentId of deletedBlueprintIds) {
+        this.database.prepare('DELETE FROM agent_blueprints WHERE agent_id = ?').run(agentId);
+      }
+      for (const deployment of deletedLocalDeployments) {
+        this.database.prepare(`
+          DELETE FROM agent_deployments WHERE agent_id = ? AND device_id = ?
+        `).run(deployment.agent_id, deployment.device_id);
+      }
+      this.writeAudit('agent-runtime.reconciled', now, {
+        blueprintCount: blueprints.length,
+        deploymentCount: deployments.length,
+        localDeviceId: localDeviceId || null
+      });
+    });
+    return { blueprints, deployments, changed: true };
+  }
+
+  saveBlueprint(value, now) {
+    const blueprint = normalizeAgentBlueprint(value);
+    this.transaction(() => {
+      this.writeBlueprint(blueprint);
+      this.writeAudit('agent-blueprint.updated', now, {
+        agentId: blueprint.agentId,
+        revision: blueprint.revision
+      });
+    });
+    return blueprint;
+  }
+
+  saveDeployment(value, now) {
+    const deployment = normalizeAgentDeployment(value);
+    this.transaction(() => {
+      this.writeDeployment(deployment);
+      this.writeAudit(`agent-deployment.${deployment.state}`, now, {
+        agentId: deployment.agentId,
+        deviceId: deployment.deviceId,
+        revision: deployment.revision
+      });
+    });
+    return deployment;
+  }
+
+  saveProvisioningJob(value, now) {
+    const job = normalizeProvisioningJob(value);
+    const activeKey = activeJobKey(job);
+    this.transaction(() => {
+      this.database.prepare(`
+        INSERT INTO provisioning_jobs (
+          job_id, agent_id, device_id, client_form, state, current_step,
+          active_key, created_at, updated_at, payload_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(job_id) DO UPDATE SET
+          state = excluded.state,
+          current_step = excluded.current_step,
+          active_key = excluded.active_key,
+          updated_at = excluded.updated_at,
+          payload_json = excluded.payload_json
+      `).run(
+        job.jobId,
+        job.agentId,
+        job.deviceId,
+        job.requestedClientForm,
+        job.state,
+        job.currentStep,
+        activeKey,
+        job.createdAt,
+        job.updatedAt,
+        JSON.stringify(job)
+      );
+      this.writeAudit(`provisioning.${job.state}`, now, {
+        jobId: job.jobId,
+        agentId: job.agentId,
+        deviceId: job.deviceId,
+        currentStep: job.currentStep
+      });
+    });
+    return job;
+  }
+
+  readProvisioningJob(jobId) {
+    const row = this.database.prepare('SELECT payload_json FROM provisioning_jobs WHERE job_id = ?').get(jobId);
+    return row ? parsePayload(row.payload_json) : null;
+  }
+
+  findActiveProvisioningJob(agentId, deviceId, selector = null) {
+    const request = selector && typeof selector === 'object'
+      ? selector
+      : { requestedClientForm: selector };
+    const suffix = String(request.requestedClientForm || request.requestedAppId || 'default');
+    const key = `${String(agentId)}:${String(deviceId)}:${suffix}`;
+    const row = this.database.prepare('SELECT payload_json FROM provisioning_jobs WHERE active_key = ?').get(key);
+    return row ? parsePayload(row.payload_json) : null;
   }
 
   savePairedDevice(device, event, now) {
@@ -399,13 +563,65 @@ class MeshStore {
     );
   }
 
+  writeBlueprint(value) {
+    const blueprint = normalizeAgentBlueprint(value);
+    this.database.prepare(`
+      INSERT INTO agent_blueprints (
+        agent_id, revision, preferred_provider, preferred_app_id,
+        preferred_client_form, updated_at, payload_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(agent_id) DO UPDATE SET
+        revision = excluded.revision,
+        preferred_provider = excluded.preferred_provider,
+        preferred_app_id = excluded.preferred_app_id,
+        preferred_client_form = excluded.preferred_client_form,
+        updated_at = excluded.updated_at,
+        payload_json = excluded.payload_json
+    `).run(
+      blueprint.agentId,
+      blueprint.revision,
+      blueprint.preferredProvider,
+      blueprint.preferredAppId,
+      blueprint.preferredClientForm,
+      blueprint.updatedAt,
+      JSON.stringify(blueprint)
+    );
+  }
+
+  writeDeployment(value) {
+    const deployment = normalizeAgentDeployment(value);
+    this.database.prepare(`
+      INSERT INTO agent_deployments (
+        agent_id, device_id, state, blueprint_revision, revision, updated_at, payload_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(agent_id, device_id) DO UPDATE SET
+        state = excluded.state,
+        blueprint_revision = excluded.blueprint_revision,
+        revision = excluded.revision,
+        updated_at = excluded.updated_at,
+        payload_json = excluded.payload_json
+    `).run(
+      deployment.agentId,
+      deployment.deviceId,
+      deployment.state,
+      deployment.blueprintRevision,
+      deployment.revision,
+      deployment.updatedAt,
+      JSON.stringify(deployment)
+    );
+  }
+
   replaceCatalogRows(catalog) {
-    // The snapshot is the full signed catalog plus all currently cached Slots.
-    // Replacing these normalized rows is transactional, so a crash cannot mix revisions.
-    this.database.exec('DELETE FROM agent_slots; DELETE FROM account_bindings; DELETE FROM agents; DELETE FROM catalog_tombstones;');
+    // Keep durable per-Agent blueprint/deployment rows intact while catalog
+    // metadata is reconciled. Only an explicit missing Agent in the canonical
+    // catalog may cascade-delete its runtime model.
     const insertAgent = this.database.prepare(`
       INSERT INTO agents (agent_id, lifecycle_state, display_name, payload_json)
       VALUES (?, ?, ?, ?)
+      ON CONFLICT(agent_id) DO UPDATE SET
+        lifecycle_state = excluded.lifecycle_state,
+        display_name = excluded.display_name,
+        payload_json = excluded.payload_json
     `);
     for (const agent of catalog.agents) {
       insertAgent.run(agent.agentId, agent.lifecycleState || 'active', agent.displayName, JSON.stringify(agent));
@@ -415,6 +631,11 @@ class MeshStore {
       INSERT INTO account_bindings (
         account_binding_id, agent_id, provider_namespace, mesh_scoped_account_key, payload_json
       ) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(account_binding_id) DO UPDATE SET
+        agent_id = excluded.agent_id,
+        provider_namespace = excluded.provider_namespace,
+        mesh_scoped_account_key = excluded.mesh_scoped_account_key,
+        payload_json = excluded.payload_json
     `);
     for (const binding of catalog.accountBindings) {
       insertBinding.run(
@@ -426,6 +647,7 @@ class MeshStore {
       );
     }
 
+    this.database.exec('DELETE FROM agent_slots;');
     const insertSlot = this.database.prepare(`
       INSERT INTO agent_slots (
         device_id, profile_id, agent_id, account_binding_id, assignment_state, payload_json
@@ -442,6 +664,20 @@ class MeshStore {
       );
     }
 
+    const liveBindingIds = new Set(catalog.accountBindings.map((item) => item.accountBindingId));
+    for (const row of this.database.prepare('SELECT account_binding_id FROM account_bindings').all()) {
+      if (!liveBindingIds.has(row.account_binding_id)) {
+        this.database.prepare('DELETE FROM account_bindings WHERE account_binding_id = ?').run(row.account_binding_id);
+      }
+    }
+    const liveAgentIds = new Set(catalog.agents.map((item) => item.agentId));
+    for (const row of this.database.prepare('SELECT agent_id FROM agents').all()) {
+      if (!liveAgentIds.has(row.agent_id)) {
+        this.database.prepare('DELETE FROM agents WHERE agent_id = ?').run(row.agent_id);
+      }
+    }
+
+    this.database.exec('DELETE FROM catalog_tombstones;');
     const insertTombstone = this.database.prepare(`
       INSERT INTO catalog_tombstones (object_type, object_id, deleted_at, payload_json)
       VALUES (?, ?, ?, ?)
@@ -480,6 +716,37 @@ function parsePayload(value) {
     return JSON.parse(value);
   } catch (_error) {
     throw new Error('mesh-database-payload-invalid');
+  }
+}
+
+function payloadMatches(serialized, value) {
+  if (!serialized) return false;
+  try {
+    return JSON.stringify(JSON.parse(serialized)) === JSON.stringify(value);
+  } catch (_error) {
+    return false;
+  }
+}
+
+function preserveMigrationBackup(database, filePath, targetVersion) {
+  const backupFile = `${filePath}.pre-v${targetVersion}.bak`;
+  if (fs.existsSync(backupFile)) return backupFile;
+  const temporaryFile = `${backupFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync(temporaryFile, 'wx', 0o600);
+    fs.writeFileSync(descriptor, database.serialize());
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    descriptor = null;
+    fs.renameSync(temporaryFile, backupFile);
+    return backupFile;
+  } catch (error) {
+    if (descriptor !== null) {
+      try { fs.closeSync(descriptor); } catch (_closeError) { /* original error wins */ }
+    }
+    try { fs.unlinkSync(temporaryFile); } catch (_unlinkError) { /* best effort */ }
+    throw error;
   }
 }
 

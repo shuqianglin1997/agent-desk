@@ -53,7 +53,7 @@ function createHarness(profiles) {
   return { directory, databasePath, keyPath, makeService };
 }
 
-test('schema v3 安全迁移保留 Slot 数据、可空关系与外键约束', () => {
+test('schema v3 安全迁移到 v5，保留 Slot 数据并建立员工运行模型表', () => {
   const profiles = [profile('slot-a', 'account-a')];
   const harness = createHarness(profiles);
 
@@ -72,6 +72,10 @@ test('schema v3 安全迁移保留 Slot 数据、可空关系与外键约束', (
     legacy.exec(`
       PRAGMA foreign_keys = OFF;
       BEGIN IMMEDIATE;
+      DROP TABLE catalog_events;
+      DROP TABLE provisioning_jobs;
+      DROP TABLE agent_deployments;
+      DROP TABLE agent_blueprints;
       CREATE TABLE agent_slots_v3 (
         device_id TEXT NOT NULL REFERENCES devices(device_id) ON DELETE CASCADE,
         profile_id TEXT NOT NULL,
@@ -98,6 +102,11 @@ test('schema v3 安全迁移保留 Slot 数据、可空关系与外键约束', (
       Number(migrated.database.prepare('PRAGMA user_version').get().user_version),
       MESH_SCHEMA_VERSION
     );
+    const backupPath = `${harness.databasePath}.pre-v${MESH_SCHEMA_VERSION}.bak`;
+    assert.equal(fs.existsSync(backupPath), true);
+    const backup = new DatabaseSync(backupPath);
+    assert.equal(Number(backup.prepare('PRAGMA user_version').get().user_version), 3);
+    backup.close();
     const columns = migrated.database.prepare('PRAGMA table_info(agent_slots)').all();
     assert.equal(columns.find((column) => column.name === 'agent_id').notnull, 0);
     assert.equal(columns.find((column) => column.name === 'account_binding_id').notnull, 0);
@@ -106,6 +115,11 @@ test('schema v3 安全迁移保留 Slot 数据、可空关系与外键约束', (
       FROM agent_slots ORDER BY device_id, profile_id
     `).all(), expectedRows);
     assert.deepEqual(migrated.database.prepare('PRAGMA foreign_key_check').all(), []);
+    for (const table of ['agent_blueprints', 'agent_deployments', 'provisioning_jobs', 'catalog_events']) {
+      assert.equal(Boolean(migrated.database.prepare(`
+        SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ?
+      `).get(table)), true, `${table} must exist after v5 migration`);
+    }
 
     const foreignKeys = migrated.database.prepare('PRAGMA foreign_key_list(agent_slots)').all();
     assert.equal(foreignKeys.find((item) => item.from === 'device_id').on_delete, 'CASCADE');
@@ -135,6 +149,32 @@ test('schema v3 安全迁移保留 Slot 数据、可空关系与外键约束', (
   }
 });
 
+test('重复读取员工运行模型不产生写入或重复审计', () => {
+  const harness = createHarness([profile('stable-slot', 'stable-account')]);
+  try {
+    const service = harness.makeService();
+    service.initialize();
+    const before = new MeshStore(harness.databasePath);
+    const auditCount = before.database.prepare(`
+      SELECT COUNT(*) AS count FROM audit_events WHERE event_type = 'agent-runtime.reconciled'
+    `).get().count;
+    const snapshot = before.readSnapshot();
+    before.close();
+
+    service.getOverview();
+
+    const after = new MeshStore(harness.databasePath);
+    assert.equal(after.database.prepare(`
+      SELECT COUNT(*) AS count FROM audit_events WHERE event_type = 'agent-runtime.reconciled'
+    `).get().count, auditCount);
+    assert.deepEqual(after.readSnapshot().blueprints, snapshot.blueprints);
+    assert.deepEqual(after.readSnapshot().deployments, snapshot.deployments);
+    after.close();
+  } finally {
+    fs.rmSync(harness.directory, { recursive: true, force: true });
+  }
+});
+
 test('MeshService 三种删除持久化、关闭重开后仍可删到零', () => {
   const profiles = [
     profile('work-desktop', 'account-work'),
@@ -151,6 +191,9 @@ test('MeshService 三种删除持久化、关闭重开后仍可删到零', () =>
     assert.equal(initial.agents.length, 4);
     assert.equal(initial.accountBindings.length, 4);
     assert.equal(initial.slots.length, 5);
+    assert.equal(initial.blueprints.length, 4);
+    assert.equal(initial.deployments.length, 4);
+    assert.ok(initial.deployments.every((item) => item.state === 'ready'));
 
     const slotRemoved = service.removeCatalogObject({
       scope: 'slot',
@@ -180,7 +223,7 @@ test('MeshService 三种删除持久化、关闭重开后仍可删到零', () =>
       baseRevision: reopened.mesh.catalogRevision
     });
     assert.equal(bindingRemoved.accountBindings.some((item) => item.accountBindingId === removedBindingId), false);
-    assert.equal(bindingRemoved.agents.some((item) => item.agentId === removedBindingAgentId), false);
+    assert.equal(bindingRemoved.agents.some((item) => item.agentId === removedBindingAgentId), true);
     assert.deepEqual(
       bindingRemoved.slots.find((slot) => slot.profileId === 'binding-only'),
       {

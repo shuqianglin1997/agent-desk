@@ -8,6 +8,7 @@ const path = require('node:path');
 const { meshScopedAccountKey } = require('../src/mesh/domain/identity-link');
 const {
   reconcileLocalCatalog,
+  createAgentIdentity,
   updateAgentMetadata,
   assignSlot,
   mergeAgents,
@@ -130,7 +131,7 @@ test('同一设备多个实际账号不误合并；跨平台只按显式 identit
   assert.deepEqual(explicit.accountBindings.map((item) => item.providerNamespace).sort(), ['claude', 'codex']);
 });
 
-test('换号登录标记 identity-changed；删掉最后 Slot 后目录为空且留下 tombstone', () => {
+test('换号登录标记 identity-changed；移除最后本地 Profile 后员工与账号绑定继续存在', () => {
   const initial = reconcileLocalCatalog({}, [profile('slot', { identityFingerprint: 'old-account' })], {
     deviceId: 'device-a',
     linkKey: LINK_KEY,
@@ -152,10 +153,35 @@ test('换号登录标记 identity-changed；删掉最后 Slot 后目录为空且
     randomUUID: crypto.randomUUID,
     now: '2026-08-10T10:00:00.000Z'
   });
-  assert.equal(empty.agents.length, 0);
-  assert.equal(empty.accountBindings.length, 0);
+  assert.equal(empty.agents.length, 1);
+  assert.equal(empty.accountBindings.length, 1);
   assert.equal(empty.slots.length, 0);
-  assert.ok(empty.tombstones.some((item) => item.objectId === initial.agents[0].agentId));
+  assert.equal(empty.tombstones.some((item) => item.objectId === initial.agents[0].agentId), false);
+});
+
+test('员工可以在零账号、零运行位置状态独立创建并长期存在', () => {
+  const catalog = createAgentIdentity({}, {
+    displayName: '研究员',
+    group: '研究',
+    note: '等待首次分配工作环境'
+  }, {
+    randomUUID: () => 'agent-employee',
+    now: NOW
+  });
+  assert.equal(catalog.agents.length, 1);
+  assert.equal(catalog.agents[0].agentId, 'agent-employee');
+  assert.equal(catalog.accountBindings.length, 0);
+  assert.equal(catalog.slots.length, 0);
+  assert.equal(catalog.tombstones.length, 0);
+
+  const reconciled = reconcileLocalCatalog(catalog, [], {
+    deviceId: 'device-a',
+    linkKey: LINK_KEY,
+    randomUUID: crypto.randomUUID,
+    now: '2026-08-10T09:00:00.000Z'
+  });
+  assert.equal(reconciled.agents.length, 1);
+  assert.equal(reconciled.agents[0].agentId, 'agent-employee');
 });
 
 test('显式归属可把新 Slot 接到已有登录或已有 Agent，临时目录对象不会残留', () => {
@@ -183,6 +209,7 @@ test('显式归属可把新 Slot 接到已有登录或已有 Agent，临时目�
     accountBindingId: first.accountBindings[0].accountBindingId
   }, {
     randomUUID: crypto.randomUUID,
+    reuseProvisional: true,
     now: '2026-08-10T08:20:00.000Z'
   });
   assert.equal(assigned.agents.length, 1);
@@ -207,13 +234,14 @@ test('显式归属可把新 Slot 接到已有登录或已有 Agent，临时目�
     agentId: first.agents[0].agentId
   }, {
     randomUUID: crypto.randomUUID,
+    reuseProvisional: true,
     now: '2026-08-10T08:40:00.000Z'
   });
   assert.equal(crossPlatform.agents.length, 1);
   assert.deepEqual(crossPlatform.accountBindings.map((binding) => binding.providerNamespace).sort(), ['claude', 'codex']);
 });
 
-test('换号 Slot 选择全新 Agent 时不会复用旧身份，旧孤儿关系留下 tombstone', () => {
+test('换号 Slot 选择全新 Agent 时不会复用旧身份，原员工与账号绑定仍保留', () => {
   const initial = reconcileLocalCatalog({}, [
     profile('changed-slot', { name: '原账号', identityFingerprint: 'old-account' })
   ], {
@@ -245,10 +273,10 @@ test('换号 Slot 选择全新 Agent 时不会复用旧身份，旧孤儿关系�
 
   assert.equal(reassigned.slots[0].agentId, 'new-agent-id');
   assert.equal(reassigned.slots[0].accountBindingId, 'new-binding-id');
-  assert.equal(reassigned.agents.some((agent) => agent.agentId === oldAgentId), false);
-  assert.equal(reassigned.accountBindings.some((binding) => binding.accountBindingId === oldBindingId), false);
-  assert.ok(reassigned.tombstones.some((item) => item.objectType === 'agent' && item.objectId === oldAgentId));
-  assert.ok(reassigned.tombstones.some((item) => item.objectType === 'account-binding' && item.objectId === oldBindingId));
+  assert.equal(reassigned.agents.some((agent) => agent.agentId === oldAgentId), true);
+  assert.equal(reassigned.accountBindings.some((binding) => binding.accountBindingId === oldBindingId), true);
+  assert.equal(reassigned.tombstones.some((item) => item.objectType === 'agent' && item.objectId === oldAgentId), false);
+  assert.equal(reassigned.tombstones.some((item) => item.objectType === 'account-binding' && item.objectId === oldBindingId), false);
 });
 
 test('新建本地 Profile 的明确新 Agent 选择只复用唯一临时关系', () => {
@@ -387,7 +415,7 @@ test('合并 Agent 时同一强账号绑定只保留一份并重定向全部 Slo
   )));
 });
 
-test('拆分 Agent 的唯一账号绑定时不保留空 Agent', () => {
+test('拆分 Agent 的唯一账号绑定时保留原空员工', () => {
   const catalog = reconcileLocalCatalog({}, [profile('only', { identityFingerprint: 'only-account' })], {
     deviceId: 'device-a',
     linkKey: LINK_KEY,
@@ -399,9 +427,9 @@ test('拆分 Agent 的唯一账号绑定时不保留空 Agent', () => {
     accountBindingId: catalog.accountBindings[0].accountBindingId,
     displayName: '新 Agent'
   }, { randomUUID: crypto.randomUUID, now: '2026-08-10T09:30:00.000Z' });
-  assert.equal(split.agents.length, 1);
-  assert.notEqual(split.agents[0].agentId, originalAgentId);
-  assert.ok(split.tombstones.some((item) => item.objectType === 'agent' && item.objectId === originalAgentId));
+  assert.equal(split.agents.length, 2);
+  assert.ok(split.agents.some((item) => item.agentId === originalAgentId));
+  assert.equal(split.tombstones.some((item) => item.objectType === 'agent' && item.objectId === originalAgentId), false);
 });
 
 test('移除运行位置、登录账号和 Agent 使用不同作用域并保留 suppressed Slot', () => {
@@ -428,11 +456,11 @@ test('移除运行位置、登录账号和 Agent 使用不同作用域并保留 
     scope: 'account-binding',
     accountBindingId: catalog.accountBindings[0].accountBindingId
   }, { now: '2026-08-10T10:10:00.000Z' });
-  assert.equal(bindingRemoved.agents.length, 0);
+  assert.equal(bindingRemoved.agents.length, 1);
   assert.equal(bindingRemoved.accountBindings.length, 0);
   assert.ok(bindingRemoved.slots.every((slot) => slot.assignmentState === 'suppressed'));
   assert.ok(bindingRemoved.tombstones.some((item) => item.objectType === 'account-binding'));
-  assert.ok(bindingRemoved.tombstones.some((item) => item.objectType === 'agent'));
+  assert.equal(bindingRemoved.tombstones.some((item) => item.objectType === 'agent'), false);
   assert.throws(() => removeCatalogObject(catalog, { scope: 'implicit' }), /catalog-remove-scope-invalid/);
 });
 
@@ -507,10 +535,13 @@ test('独立 mesh.db + OS 加密密钥文件完成初始化、重命名、同步
 
     profiles = [];
     const emptied = service.getOverview();
-    assert.equal(emptied.agents.length, 0);
+    assert.equal(emptied.agents.length, 1);
+    assert.equal(emptied.accountBindings.length, 1);
     assert.equal(emptied.slots.length, 0);
+    assert.equal(emptied.blueprints.length, 1);
+    assert.equal(emptied.deployments[0].state, 'absent');
     const store = new MeshStore(databasePath);
-    assert.equal(store.readSnapshot().tombstones.length, 1);
+    assert.equal(store.readSnapshot().tombstones.length, 0);
     store.close();
 
     const reset = service.reset();
