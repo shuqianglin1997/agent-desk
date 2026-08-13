@@ -124,6 +124,18 @@ test('工作环境始终投影完整员工库，并用同一主按钮确保就�
   assert.match(renderer, /if \(!members\.length && state\.mesh\.overview\?\.initialized\)[\s\S]*?deployment\.client\.unprepared/);
 });
 
+test('全局员工目录通过独立 catalog 通道同步，先于来源设备 inventory 完成', () => {
+  const peer = read('src/mesh/main/peer-manager.js');
+  const main = read('src/main.js');
+  const service = read('src/mesh/main/mesh-service.js');
+  assert.match(peer, /await context\.firstCatalog\.promise;[\s\S]*?await context\.firstInventory\.promise/);
+  assert.match(peer, /sendCatalogSnapshot\(context\)[\s\S]*?'catalog\.snapshot', 'catalog\.manage'/);
+  assert.match(peer, /messageType === 'catalog\.snapshot'[\s\S]*?applyRemoteCatalog\(\{/);
+  assert.match(service, /createCatalogSnapshot\(\)[\s\S]*?buildCatalogSnapshot\(snapshot/);
+  assert.match(service, /applyRemoteCatalog\(input = \{\}\)[\s\S]*?mergeCatalogSnapshot\(snapshot, incoming\)/);
+  assert.match(main, /function catalogMeshCall\(callback\)[\s\S]*?broadcastCatalog\(\)[\s\S]*?broadcastInventory\(\)/);
+});
+
 test('公网会合设置与诊断使用固定 IPC，界面不接收 TURN 长期凭据或连接原文', () => {
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');

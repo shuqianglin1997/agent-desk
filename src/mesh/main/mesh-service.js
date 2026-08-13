@@ -47,6 +47,11 @@ const {
   decryptJoinResponse
 } = require('../protocol/pairing');
 const { createMembershipEvent, verifyMembershipEvent } = require('../protocol/membership-events');
+const {
+  createCatalogSnapshot: buildCatalogSnapshot,
+  normalizeCatalogSnapshot,
+  mergeCatalogSnapshot
+} = require('../protocol/catalog');
 const { createIdentityBundle, createDeviceIdentityBundle } = require('../storage/secure-keys');
 const { MeshStore } = require('../storage/mesh-store');
 
@@ -872,6 +877,60 @@ class MeshService {
     } finally {
       store.close();
     }
+  }
+
+  createCatalogSnapshot() {
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      return buildCatalogSnapshot(snapshot, {
+        meshId: snapshot.mesh.meshId,
+        sourceDeviceId: snapshot.mesh.localDeviceId,
+        now: this.now()
+      });
+    } finally {
+      store.close();
+    }
+  }
+
+  applyRemoteCatalog(input = {}) {
+    const incoming = normalizeCatalogSnapshot(input.snapshot);
+    const store = new MeshStore(this.databasePath);
+    let result;
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      const sourceDeviceId = String(input.deviceId || incoming.sourceDeviceId);
+      if (incoming.meshId !== snapshot.mesh.meshId) throw new Error('catalog-mesh-mismatch');
+      if (incoming.sourceDeviceId !== sourceDeviceId) throw new Error('catalog-device-mismatch');
+      if (sourceDeviceId === snapshot.mesh.localDeviceId) throw new Error('catalog-local-source');
+      const remote = snapshot.devices.find((device) => device.deviceId === sourceDeviceId);
+      if (!remote) throw new Error('device-not-found');
+      if (remote.status === 'revoked' || store.isDeviceRevoked(remote.deviceId)) throw new Error('device-revoked');
+
+      result = mergeCatalogSnapshot(snapshot, incoming);
+      if (result.changed) {
+        const liveAgentIds = new Set(result.catalog.agents.map((agent) => agent.agentId));
+        store.saveCatalog(result.catalog, this.now(), {
+          eventType: 'catalog.remote-synced',
+          sourceDeviceId
+        });
+        store.saveRuntimeModel({
+          blueprints: result.blueprints,
+          deployments: snapshot.deployments.filter((deployment) => liveAgentIds.has(deployment.agentId))
+        }, this.now(), {
+          localDeviceId: snapshot.mesh.localDeviceId
+        });
+      }
+    } finally {
+      store.close();
+    }
+    return {
+      changed: result?.changed === true,
+      catalogRevision: result?.catalog?.catalogRevision || 0,
+      overview: this.getOverview()
+    };
   }
 
   applyRemoteInventory(input = {}) {

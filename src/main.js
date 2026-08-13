@@ -307,7 +307,7 @@ function registerIpc() {
       });
       const agent = overview.agents.find((item) => !knownIds.has(item.agentId));
       if (!agent) throw new Error('agent-create-result-missing');
-      void peerManager?.broadcastInventory();
+      void peerManager?.broadcastCatalog();
       return { ok: true, agent, overview: withMeshRuntime(overview) };
     } catch (error) {
       return { ok: false, reasonCode: boundedText(error?.message || 'agent-create-failed', 160) };
@@ -400,6 +400,7 @@ function registerIpc() {
         group: boundedText(input.group, 80),
         note: boundedText(input.note, 1000)
       });
+      void peerManager?.broadcastCatalog();
       void peerManager?.broadcastInventory();
       return { ok: true, profile, overview: withMeshRuntime(overview) };
     } catch (error) {
@@ -1168,7 +1169,10 @@ function getProvisioningService() {
           overview
         });
       }
-      if (state === 'ready') void peerManager?.broadcastInventory();
+      if (state === 'ready') {
+        void peerManager?.broadcastCatalog();
+        void peerManager?.broadcastInventory();
+      }
     }
   });
   return provisioningService;
@@ -1491,7 +1495,10 @@ function meshCall(callback, resultKey = 'overview') {
 
 function catalogMeshCall(callback) {
   const result = meshCall(callback);
-  if (result.ok) void peerManager?.broadcastInventory();
+  if (result.ok) {
+    void peerManager?.broadcastCatalog();
+    void peerManager?.broadcastInventory();
+  }
   return result;
 }
 

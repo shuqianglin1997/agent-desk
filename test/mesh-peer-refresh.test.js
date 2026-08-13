@@ -374,7 +374,7 @@ test('远程重扫通过固定 remoteInventory:refresh IPC/Preload 暴露，不�
   assert.match(renderer, /profile\?\._remote === true && window\.manager\.refreshMeshInventory/);
   assert.match(renderer, /refreshRemoteInventoryForDevice\(profile\._meshDeviceId\)/);
   assert.match(renderer, /function refreshRemoteInventoryForDevice[\s\S]*?refreshMeshInventory\(deviceId\)/);
-  assert.match(renderer, /els\.refreshBtn\.disabled = disabled \|\| \(remote && !window\.manager\.refreshMeshInventory\)/);
+  assert.match(renderer, /els\.refreshBtn\.disabled = !profile \|\| \(remote && !window\.manager\.refreshMeshInventory\)/);
   assert.doesNotMatch(preload, /remoteInventory:(command|exec|invoke)|remoteCommand|generic\.exec/i);
 });
 

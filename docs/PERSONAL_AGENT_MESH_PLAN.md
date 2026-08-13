@@ -2,7 +2,7 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.18
+> 版本：1.19
 >
 > 日期：2026-08-13
 >
@@ -1644,6 +1644,8 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 
 目录同步不能依附来源设备库存。新连接在交换 inventory 前后都要通过独立 `catalog` 通道补齐签名目录事件；新设备加入时从配对设备取得一个有界完整目录快照和其 causal head。没有任何 Slot 的 Agent、没有设备部署的 AccountBinding 和 Blueprint 仍必须传播。inventory 只携带来源设备自己的 Deployment、Slot、活动和 SessionReplica；不得再用“本设备没有 Slot”推导删除全局员工。
 
+当前恢复基线（2026-08-13）：认证连接现在先通过设备签名信封交换独立、最大 384 KiB 的 `catalog.snapshot`，完整携带 Agent、AccountBinding、Blueprint 与 tombstone，双方完成目录落库后才把首份来源设备 inventory 作为连接完成条件。目录快照不携带 Slot、Deployment 或 ProvisioningJob；目录变更会向现存认证连接单独广播，离线设备重连时再取全量快照。对象按稳定 ID、更新时间/版本与确定性平局规则合并，tombstone 持续压过旧对象，本地 Slot 只转为 suppressed，不删除第三方数据。该机制关闭了零 Slot 员工依附 inventory 而无法传播的问题；它仍是全量快照恢复基线，不冒充 causal event 增量、缺口补齐与并发多对象事务冲突 UI 已完成。
+
 ### 17.2 快照与增量
 
 每个设备维护 inventoryRevision：
@@ -1742,7 +1744,7 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 
 SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、崩溃恢复和 Windows portable 兼容性。
 
-当前实现说明（2026-08-13）：`mesh.db` 已升级到 schema v5。v4 继续以可空 `agent_slots.agent_id/account_binding_id` 准确持久化 suppressed Slot；v5 新增 `agent_blueprints`、`agent_deployments`、`provisioning_jobs` 与 `catalog_events`。现有数据库升级前会生成一次完整的 `pre-v5` 可恢复备份，再在事务中迁移；旧 Agent/Binding 不再因最后一个本机 Profile 消失而被清理，既有目录可以幂等推导初始 Blueprint 与本机 Deployment。显式删除 Agent 仍通过外键级联清理其运行模型；移除 Slot 或 Binding 只改变工作位置或账号关系，不删除员工。首次准备执行器、签名 catalog 同步与工作环境 UI 仍按 Phase 2A 后续批次实施。
+当前实现说明（2026-08-13）：`mesh.db` 已升级到 schema v5。v4 继续以可空 `agent_slots.agent_id/account_binding_id` 准确持久化 suppressed Slot；v5 新增 `agent_blueprints`、`agent_deployments`、`provisioning_jobs` 与 `catalog_events`。现有数据库升级前会生成一次完整的 `pre-v5` 可恢复备份，再在事务中迁移；旧 Agent/Binding 不再因最后一个本机 Profile 消失而被清理，既有目录可以幂等推导初始 Blueprint 与本机 Deployment。显式删除 Agent 仍通过外键级联清理其运行模型；移除 Slot 或 Binding 只改变工作位置或账号关系，不删除员工。本机首次准备执行器、完整员工库工作环境 UI、独立签名 catalog 全量快照同步已落地；causal event 增量和远端固定语义动作仍按 Phase 2A 后续批次实施。
 
 ### 18.3 密钥存储
 
@@ -2350,7 +2352,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 2A：永久员工库与按需就绪
 
-当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v5、初始 Blueprint/Deployment 推导与迁移备份已落地**。首次准备执行器、独立签名 catalog 同步、工作环境 UI 与远端固定语义接线继续进行。
+当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v5、初始 Blueprint/Deployment 推导、迁移备份、本机首次准备、完整员工库工作环境 UI 与独立签名 catalog 全量快照已落地**。causal event 增量与远端固定语义接线继续进行。
 
 - AgentIdentity 生命周期与 Slot/Binding 解耦，可在零账号、零部署状态存在；
 - AgentBlueprint、AgentDeployment、ProvisioningJob 与 schema v5；
@@ -2595,6 +2597,12 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.19 — 2026-08-13
+
+- 全局 Agent 目录不再依附设备 inventory：认证连接先交换独立、受设备签名信封保护的有界 `catalog.snapshot`，再同步来源设备 Slot 与会话库存；零 Slot Agent、零部署 AccountBinding、Blueprint 和 tombstone 均可传播；
+- 目录快照明确排除 Slot、Deployment 与 ProvisioningJob，目录变更与设备库存分别广播，离线设备重连取得完整目录；接收端以稳定 ID、对象时间/版本和确定性平局规则合并，tombstone 防复活，本机运行位置仅 suppressed；
+- 新增目录协议与 MeshService 持久化回归，覆盖零 Slot 员工、Blueprint、设备事实隔离、远端删除不触碰本地第三方数据；当前仍诚实标为全量快照恢复基线，不宣称 causal event 增量和并发多对象事务冲突处理已完成。
 
 ### 1.18 — 2026-08-13
 

@@ -68,6 +68,7 @@ function reconcileLocalCatalog(existing = {}, profiles = [], options = {}) {
         binding.verificationState = 'verified';
         binding.linkMethod = 'automatic';
         binding.lastVerifiedAt = now;
+        binding.updatedAt = now;
         scopedBindings.set(`${provider}:${observed}`, binding);
       }
     }
@@ -166,6 +167,7 @@ function reconcileLocalCatalog(existing = {}, profiles = [], options = {}) {
           linkMethod: first.scoped ? 'automatic' : (first.hint ? 'manual' : 'imported'),
           verificationState: first.scoped ? 'verified' : (first.hint ? 'confirmed' : 'unverified'),
           createdAt: now,
+          updatedAt: now,
           lastVerifiedAt: first.scoped ? now : null
         };
         accountBindings.push(binding);
@@ -318,6 +320,7 @@ function assignSlot(existing = {}, input = {}, options = {}) {
       binding.linkMethod = 'automatic';
       binding.verificationState = 'verified';
       binding.lastVerifiedAt = now;
+      binding.updatedAt = now;
     }
   } else if (mode === 'existing-agent') {
     agent = agents.find((item) => item.agentId === requiredText(input.agentId, 'agentId'));
@@ -328,6 +331,7 @@ function assignSlot(existing = {}, input = {}, options = {}) {
       } else if (reusableProvisional && bindingWithObservedKey.accountBindingId === oldBindingId) {
         binding = bindingWithObservedKey;
         binding.agentId = agent.agentId;
+        binding.updatedAt = now;
       } else {
         throw new Error('account-binding-conflict');
       }
@@ -337,11 +341,13 @@ function assignSlot(existing = {}, input = {}, options = {}) {
     ) {
       binding = oldBinding;
       binding.agentId = agent.agentId;
+      binding.updatedAt = now;
       if (observedAccountKey && !binding.meshScopedAccountKey) {
         binding.meshScopedAccountKey = observedAccountKey;
         binding.linkMethod = 'automatic';
         binding.verificationState = 'verified';
         binding.lastVerifiedAt = now;
+        binding.updatedAt = now;
       }
     } else {
       binding = createBinding({
@@ -392,6 +398,7 @@ function assignSlot(existing = {}, input = {}, options = {}) {
       if (Object.prototype.hasOwnProperty.call(input, 'note')) agent.note = cleanText(input.note, '', 1000);
       agent.updatedAt = now;
       binding.displayAlias = cleanText(input.displayAlias, binding.displayAlias || slot.localLabel || slot.appId || 'Account', 80);
+      binding.updatedAt = now;
     }
   }
 
@@ -425,6 +432,7 @@ function createBinding({ randomUUID, agentId, provider, slot, observedAccountKey
     linkMethod: observedAccountKey ? 'automatic' : 'manual',
     verificationState: observedAccountKey ? 'verified' : 'confirmed',
     createdAt: now,
+    updatedAt: now,
     lastVerifiedAt: observedAccountKey ? now : null
   };
 }
@@ -456,7 +464,7 @@ function mergeAgents(existing = {}, input = {}, options = {}) {
       tombstones = addTombstone(tombstones, 'account-binding', sourceBinding.accountBindingId, now);
       continue;
     }
-    const moved = { ...sourceBinding, agentId: targetAgentId };
+    const moved = { ...sourceBinding, agentId: targetAgentId, updatedAt: now };
     accountBindings.push(moved);
     if (strongKey) targetStrongBindings.set(strongKey, moved);
   }
@@ -500,7 +508,7 @@ function splitAccountBinding(existing = {}, input = {}, options = {}) {
   };
   const agents = [...previous.agents.map((item) => ({ ...item })), agent];
   const accountBindings = previous.accountBindings.map((item) => (
-    item.accountBindingId === accountBindingId ? { ...item, agentId } : { ...item }
+    item.accountBindingId === accountBindingId ? { ...item, agentId, updatedAt: now } : { ...item }
   ));
   const slots = previous.slots.map((slot) => (
     slot.accountBindingId === accountBindingId ? { ...slot, agentId, lastUpdatedAt: now } : { ...slot }
