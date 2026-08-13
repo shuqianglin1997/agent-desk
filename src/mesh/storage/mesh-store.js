@@ -754,16 +754,31 @@ function payloadMatches(serialized, value) {
 
 function preserveMigrationBackup(database, filePath, targetVersion) {
   const backupFile = `${filePath}.pre-v${targetVersion}.bak`;
-  if (fs.existsSync(backupFile)) return backupFile;
+  const sourceVersion = Number(database.prepare('PRAGMA user_version').get().user_version || 0);
+  if (fs.existsSync(backupFile)) {
+    validateMigrationBackup(backupFile, sourceVersion, targetVersion, database.constructor);
+    return backupFile;
+  }
   const temporaryFile = `${backupFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
   let descriptor = null;
   try {
-    descriptor = fs.openSync(temporaryFile, 'wx', 0o600);
-    fs.writeFileSync(descriptor, database.serialize());
+    // VACUUM INTO is synchronous in node:sqlite, includes committed WAL pages,
+    // and is available in both the Node 22 test runtime and Electron's Node 24.
+    // The destination must not exist, so use an unguessable same-directory name
+    // and publish it only after the durable snapshot is complete.
+    database.prepare('VACUUM INTO ?').run(temporaryFile);
+    fs.chmodSync(temporaryFile, 0o600);
+    descriptor = fs.openSync(temporaryFile, 'r+');
     fs.fsyncSync(descriptor);
     fs.closeSync(descriptor);
     descriptor = null;
-    fs.renameSync(temporaryFile, backupFile);
+    validateMigrationBackup(temporaryFile, sourceVersion, targetVersion, database.constructor);
+    // A hard link gives us an atomic, no-overwrite install in the same
+    // directory. Removing the temporary name leaves the validated inode at the
+    // exact recovery path without ever exposing a partial backup.
+    fs.linkSync(temporaryFile, backupFile);
+    fs.unlinkSync(temporaryFile);
+    fsyncDirectory(path.dirname(backupFile));
     return backupFile;
   } catch (error) {
     if (descriptor !== null) {
@@ -774,4 +789,42 @@ function preserveMigrationBackup(database, filePath, targetVersion) {
   }
 }
 
-module.exports = { MeshStore };
+function validateMigrationBackup(filePath, sourceVersion, targetVersion, DatabaseClass) {
+  let backup = null;
+  try {
+    backup = new DatabaseClass(filePath, { readOnly: true });
+    const backupVersion = Number(backup.prepare('PRAGMA user_version').get().user_version || 0);
+    if (backupVersion !== sourceVersion || backupVersion <= 0 || backupVersion >= targetVersion) {
+      throw new Error('mesh-migration-backup-version');
+    }
+    const integrity = backup.prepare('PRAGMA integrity_check').get();
+    if (String(integrity?.integrity_check || '').toLowerCase() !== 'ok') {
+      throw new Error('mesh-migration-backup-integrity');
+    }
+    if (backup.prepare('PRAGMA foreign_key_check').all().length) {
+      throw new Error('mesh-migration-backup-foreign-key');
+    }
+  } catch (error) {
+    if (String(error?.message || '').startsWith('mesh-migration-backup-')) throw error;
+    throw new Error('mesh-migration-backup-invalid', { cause: error });
+  } finally {
+    try { backup?.close(); } catch (_error) { /* original validation result wins */ }
+  }
+}
+
+function fsyncDirectory(directory) {
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync(directory, 'r');
+    fs.fsyncSync(descriptor);
+  } catch (_error) {
+    // Some Windows filesystems do not allow opening a directory descriptor.
+    // The backup file itself was already fsynced above.
+  } finally {
+    if (descriptor !== null) {
+      try { fs.closeSync(descriptor); } catch (_error) { /* best effort */ }
+    }
+  }
+}
+
+module.exports = { MeshStore, preserveMigrationBackup };

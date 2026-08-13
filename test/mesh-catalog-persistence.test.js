@@ -6,7 +6,7 @@ const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 
 const { MeshService } = require('../src/mesh/main/mesh-service');
-const { MeshStore } = require('../src/mesh/storage/mesh-store');
+const { MeshStore, preserveMigrationBackup } = require('../src/mesh/storage/mesh-store');
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { MESH_SCHEMA_VERSION } = require('../src/mesh/storage/migrations');
 
@@ -146,6 +146,83 @@ test('schema v3 安全迁移到 v5，保留 Slot 数据并建立员工运行模�
     migrated.close();
   } finally {
     fs.rmSync(harness.directory, { recursive: true, force: true });
+  }
+});
+
+test('v4 WAL 中已提交数据会进入 pre-v5 一致备份，Node 22 与 Electron 均可迁移', () => {
+  const harness = createHarness([profile('wal-slot', 'wal-account')]);
+  let legacy = null;
+  try {
+    harness.makeService().initialize();
+    legacy = new DatabaseSync(harness.databasePath);
+    legacy.exec(`
+      PRAGMA journal_mode = WAL;
+      PRAGMA wal_autocheckpoint = 0;
+      DROP TABLE catalog_events;
+      DROP TABLE provisioning_jobs;
+      DROP TABLE agent_deployments;
+      DROP TABLE agent_blueprints;
+      PRAGMA user_version = 4;
+    `);
+    legacy.prepare(`
+      INSERT INTO audit_events (event_type, created_at, payload_json) VALUES (?, ?, ?)
+    `).run('migration.wal-marker', NOW, JSON.stringify({ committed: true }));
+    const walPath = `${harness.databasePath}-wal`;
+    assert.equal(fs.existsSync(walPath), true);
+    assert.ok(fs.statSync(walPath).size > 0);
+
+    const migrated = new MeshStore(harness.databasePath);
+    const backupPath = `${harness.databasePath}.pre-v${MESH_SCHEMA_VERSION}.bak`;
+    const backup = new DatabaseSync(backupPath, { readOnly: true });
+    assert.equal(Number(backup.prepare('PRAGMA user_version').get().user_version), 4);
+    assert.equal(backup.prepare('PRAGMA integrity_check').get().integrity_check, 'ok');
+    assert.deepEqual(backup.prepare('PRAGMA foreign_key_check').all(), []);
+    assert.equal(backup.prepare(`
+      SELECT COUNT(*) AS count FROM audit_events WHERE event_type = 'migration.wal-marker'
+    `).get().count, 1);
+    backup.close();
+
+    assert.equal(Number(migrated.database.prepare('PRAGMA user_version').get().user_version), MESH_SCHEMA_VERSION);
+    assert.equal(migrated.database.prepare('PRAGMA integrity_check').get().integrity_check, 'ok');
+    assert.deepEqual(migrated.database.prepare('PRAGMA foreign_key_check').all(), []);
+    assert.equal(migrated.database.prepare(`
+      SELECT COUNT(*) AS count FROM audit_events WHERE event_type = 'migration.wal-marker'
+    `).get().count, 1);
+    migrated.close();
+  } finally {
+    try { legacy?.close(); } catch (_error) { /* best effort */ }
+    fs.rmSync(harness.directory, { recursive: true, force: true });
+  }
+});
+
+test('迁移备份失败会清理临时文件且不伪造最终回滚点', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-backup-failure-'));
+  const databasePath = path.join(directory, 'mesh.db');
+  fs.writeFileSync(databasePath, 'source-remains');
+  try {
+    const database = {
+      prepare(sql) {
+        if (sql === 'PRAGMA user_version') {
+          return { get: () => ({ user_version: 4 }) };
+        }
+        assert.equal(sql, 'VACUUM INTO ?');
+        return {
+          run(destination) {
+            fs.writeFileSync(destination, 'partial');
+            throw new Error('injected-vacuum-failure');
+          }
+        };
+      }
+    };
+    assert.throws(
+      () => preserveMigrationBackup(database, databasePath, MESH_SCHEMA_VERSION),
+      /injected-vacuum-failure/
+    );
+    assert.equal(fs.readFileSync(databasePath, 'utf8'), 'source-remains');
+    assert.equal(fs.existsSync(`${databasePath}.pre-v${MESH_SCHEMA_VERSION}.bak`), false);
+    assert.deepEqual(fs.readdirSync(directory), ['mesh.db']);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
   }
 });
 

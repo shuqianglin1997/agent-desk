@@ -61,7 +61,11 @@ test('两端库存互换后目录按 Agent 去重，会话按强身份折叠且�
 
     const hostDeviceId = host.getOverview().localDeviceId;
     const joinDeviceId = joiner.getOverview().localDeviceId;
-    joiner.applyRemoteInventory({ deviceId: hostDeviceId, inventory: host.createInventorySnapshot() });
+    joiner.applyRemoteInventory({
+      deviceId: hostDeviceId,
+      inventory: host.createInventorySnapshot(),
+      allowLegacyCatalogProjection: true
+    });
 
     // Simulate an older/divergent endpoint catalog that uses its own IDs for
     // the same strong account. The receiver must project both sessions onto
@@ -104,7 +108,11 @@ test('两端库存互换后目录按 Agent 去重，会话按强身份折叠且�
       },
       linkKey: joiner.keyVault.load().identityLinkKey
     }, { now: NOW });
-    host.applyRemoteInventory({ deviceId: joinDeviceId, inventory: divergentInventory });
+    host.applyRemoteInventory({
+      deviceId: joinDeviceId,
+      inventory: divergentInventory,
+      allowLegacyCatalogProjection: true
+    });
 
     const hostOverview = host.getOverview();
     assert.equal(hostOverview.agents.length, 1);

@@ -215,6 +215,19 @@ test('MeshService 在已配对设备间落库零 Slot 员工，删除后旧目�
       item.agentId === agent.agentId && item.deviceId === joinDeviceId
     )).state, 'absent');
 
+    joiner.applyRemoteInventory({
+      deviceId: host.getOverview().localDeviceId,
+      inventory: host.createInventorySnapshot({ includeLegacyCatalogProjection: false }),
+      allowLegacyCatalogProjection: false
+    });
+    const afterInventory = serviceFor(joinDir, 'Joiner').getOverview();
+    assert.equal(
+      afterInventory.agents.some((item) => item.agentId === agent.agentId),
+      true,
+      'a source-device inventory cannot prune a catalog-only employee'
+    );
+    assert.equal(afterInventory.slots.some((slot) => slot.agentId === agent.agentId), false);
+
     host.removeCatalogObject({
       scope: 'agent',
       agentId: agent.agentId,

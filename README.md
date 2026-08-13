@@ -19,7 +19,7 @@
 
 ![AgentDesk](assets/screenshots/app.png)
 
-> **Development status:** this branch contains the complete attended Personal Mesh code path: encrypted device pairing, cross-device Agent/session inventory, explicit Agent/AccountBinding/AgentSlot management, SessionPointer and selected-file transfer, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. The owner-approved 58px Header / 244px Agent / 316px detail / 38px Footer geometry, compact table without horizontal scrolling, four independent Devices/Tools/Activity/Settings dialogs, independent UI-context model, and 15-path real-window acceptance suite pass in a 1040 × 840 Electron window, alongside the automated two-endpoint loop. Physical computers, public NAT/coturn, and the macOS/Windows permission matrix are still release gates. Existing GitHub Releases may predate this branch.
+> **Development status:** this branch contains the attended Personal Mesh code path: encrypted device pairing, a persistent global Agent library with Blueprint/Deployment/recoverable preparation, independently signed catalog and source-owned inventory sync, SessionPointer and selected-file transfer, fixed remote launch/attended prepare actions, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. Exact signed protocol features keep older peers on an inventory-only path, and read-only inventory cannot overwrite or delete the global catalog. The Node suite passes 417/418 tests with one Windows-only skip; the 17-path real-window suite passes at 1040 × 840; direct-LAN and local-signaling two-endpoint Electron loops also pass. Physical computers, public NAT/coturn, long-lived reachability, and the macOS/Windows permission matrix are still release gates. Existing GitHub Releases may predate this branch.
 
 ## What AgentDesk does
 
@@ -31,6 +31,7 @@ AgentDesk keeps a small, local index around the official AI coding clients alrea
 - **Session location actions.** Select one or several sessions and copy one minimal location format containing only path and coordinate; reveal the active source file or export one supported transcript as Markdown.
 - **Identity grouping.** Merge multiple client forms of the same login into one account card and one yard cat while preserving the underlying slots.
 - **Personal device mesh.** Create an OS-protected device identity, pair another computer with a one-time code, revoke any device, and view one deduplicated global Agent catalog through an all-devices or single-device lens.
+- **Persistent Agent library and on-demand readiness.** Keep an Agent even with zero accounts or slots, show the complete library in every device environment, and use a recoverable local preparation job before committing a new profile, slot, and deployment. Official installation, login, verification, and system permissions remain on the target computer.
 - **Cross-device sessions and files.** Exchange source-owned session inventories, send encrypted SessionPointers without changing the minimal copy format, map projects locally on the target, and transfer explicitly selected files with confirmation, hashing, chunking, and resume.
 - **Independent global dialogs.** Open Devices, Tools, Activity, and Settings in four bounded dialogs without replacing the current session detail or mutating the device lens, Agent/slot, or session selection.
 - **Attended remote control.** Open an isolated Remote Surface inside the fixed right-detail panel while the Header, Agent panel, session list, and Footer stay in place; require target-side consent for screen view and input, switch displays, and monitor up to four devices while keeping exactly one input target.
@@ -114,7 +115,8 @@ Release signing and notarization are documented in [docs/RELEASING.md](docs/RELE
 - `src/tool-maintenance.js`: fixed tool catalog, version/source detection, and safe update plans.
 - `src/mesh/domain/session-identity.js`: pure Codex physical-record and logical-conversation classification.
 - `src/mesh/domain/agent-catalog.js`, `device.js`, `identity-link.js`: local global-Agent catalog and device invariants.
-- `src/mesh/protocol/`: membership, pairing, signed envelopes, inventory, encrypted payload, and signaling authentication.
+- `src/agent-workspace.js`, `src/mesh/domain/agent-deployment.js`, `src/mesh/main/provisioning-service.js`: full-library device projection and recoverable readiness jobs.
+- `src/mesh/protocol/`: membership, pairing, exact feature negotiation, signed catalog/envelopes, device inventory, encrypted payload, and signaling authentication.
 - `src/mesh/network/`: temporary LAN endpoints, signed rendezvous client, and ICE configuration.
 - `src/mesh/storage/`, `src/mesh/main/`: independent SQLite store, OS-protected keys, peer policy, transfers, and remote-control orchestration.
 - `src/mesh/peer/`, `src/remote/`: sandboxed WebRTC endpoint, Remote Console, and target consent/indicator windows.
@@ -135,7 +137,7 @@ See [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), an
 
 AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
-> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、跨设备 Agent/会话库存、明确的 Agent/账号绑定/运行位置管理、SessionPointer 与选定文件传输、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。所有者批准的 58px Header / 244px Agent / 316px 详情 / 38px Footer 几何、Compact 无横滚、设备/工具/活动/设置四个独立弹窗、独立 UI 上下文与真实 1040 × 840 Electron 的 15 条任务路径已经验收通过，自动化双端点链路也保持通过；物理双机、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
+> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、长期全局员工库与 Blueprint/Deployment/可恢复首次准备、独立签名目录与来源设备库存、SessionPointer 与选定文件传输、固定远端打开/有人准备、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。签名协议 feature 让旧端安全降级为 inventory-only，只读库存不能覆盖或删除全局目录。完整 Node 套件 418 项中 417 通过、1 项仅 Windows 跳过；真实 1040 × 840 Electron 的 17 条任务路径、局域网直连和本机 signaling 两种隔离双端链路均通过。物理双机、长期可达、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
 
 ## 核心能力
 
@@ -145,6 +147,7 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 - **会话定位操作。** 单选或勾选多条会话后统一复制“路径 + 坐标”；当前会话可在系统中定位来源文件，支持的来源可导出 Markdown。
 - **同账号归组。** 桌面端与 CLI 等多个形态可以合并为一个账号、一张卡、一只猫，底层槽位仍各自保留。
 - **个人设备网。** 建立系统保护的设备身份，用一次性配对码加入另一台电脑；任意设备都可撤销删除，全局 Agent 按实际登录去重，设备只是筛选轴。
+- **长期员工库与按需就绪。** Agent 即使没有账号或运行位置也继续存在，每个工作环境都显示完整员工库；首次打开通过可恢复准备任务提交 Profile/Slot/Deployment，官方安装、登录、验证码和系统权限仍在目标电脑完成。
 - **跨设备会话与文件。** 同步来源设备只读库存，发送加密 SessionPointer，目标端确认项目映射；显式选取的文件经接收确认、分块、哈希和断点续传。
 - **有人值守远控。** 在固定右下详情面板的隔离 Remote Surface 查看或控制目标设备，Header、顶部 Agent、左下会话和 Footer 保持原位；屏幕与输入分别需要目标端本次同意，最多同时显示四台设备，但始终只有一个输入目标。
 - **P2P 会合与诊断。** 临时 LAN 优先，失败后回退签名 HTTPS 信令，使用 STUN/短期 TURN；界面只显示 LAN、直连或中继等脱敏状态。

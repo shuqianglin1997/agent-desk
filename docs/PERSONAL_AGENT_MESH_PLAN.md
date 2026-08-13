@@ -2,7 +2,7 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.20
+> 版本：1.21
 >
 > 日期：2026-08-13
 >
@@ -1600,6 +1600,8 @@ WebRTC 传输加密不能替代设备身份认证。信令服务器即使被攻�
 - 服务端不能强迫客户端启用能力；
 - 安全漏洞可配置最低安全版本，但必须通过签名发布元数据。
 
+当前兼容基线（2026-08-13）：危险权限 capability 与线协议 feature 明确分开。`connection.hello/ready` 的设备签名 payload 只接受有界精确白名单，并协商 `catalog.snapshot.v1` 与 `inventory.device-facts.v1`；未知、重复、超长或畸形 feature 被忽略且不写入设备目录。双方协商目录 feature 后才发送 `catalog.snapshot`；任一侧当前没有 `catalog.manage` 时发送有界 `connection.catalog-unavailable`，库存只读能力继续可用，不再因单边权限不对称等待超时。没有声明目录 feature 的旧端进入 inventory-only 兼容路径，新端不向它发送未知目录消息；诊断可显示本连接实际协商的 feature，但 feature 本身不授予权限。
+
 ### 16.5 重连
 
 - 网络切换后重新进行 ICE；
@@ -1644,7 +1646,7 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 
 目录同步不能依附来源设备库存。新连接在交换 inventory 前后都要通过独立 `catalog` 通道补齐签名目录事件；新设备加入时从配对设备取得一个有界完整目录快照和其 causal head。没有任何 Slot 的 Agent、没有设备部署的 AccountBinding 和 Blueprint 仍必须传播。inventory 只携带来源设备自己的 Deployment、Slot、活动和 SessionReplica；不得再用“本设备没有 Slot”推导删除全局员工。
 
-当前恢复基线（2026-08-13）：认证连接现在先通过设备签名信封交换独立、最大 384 KiB 的 `catalog.snapshot`，完整携带 Agent、AccountBinding、Blueprint 与 tombstone，双方完成目录落库后才把首份来源设备 inventory 作为连接完成条件。目录快照不携带 Slot、Deployment 或 ProvisioningJob；目录变更会向现存认证连接单独广播，离线设备重连时再取全量快照。对象按稳定 ID、更新时间/版本与确定性平局规则合并，tombstone 持续压过旧对象，本地 Slot 只转为 suppressed，不删除第三方数据。该机制关闭了零 Slot 员工依附 inventory 而无法传播的问题；它仍是全量快照恢复基线，不冒充 causal event 增量、缺口补齐与并发多对象事务冲突 UI 已完成。
+当前恢复基线（2026-08-13）：支持 `catalog.snapshot.v1` 的认证连接先通过设备签名信封交换独立、最大 384 KiB 的 `catalog.snapshot`，完整携带 Agent、AccountBinding、Blueprint 与 tombstone，双方完成目录落库后才把首份来源设备 inventory 作为连接完成条件。目录快照不携带 Slot、Deployment 或 ProvisioningJob；目录变更只向已协商该 feature 且当前具备 `catalog.manage` 的认证连接广播，离线设备重连时再取全量快照。任一侧没有目录权限时显式结束目录屏障而不破坏 `inventory.read`；旧端没有声明 feature 时不接收未知消息。对象按稳定 ID、更新时间/版本与确定性平局规则合并，tombstone 持续压过旧对象，本地 Slot 只转为 suppressed，不删除第三方数据。该机制关闭了零 Slot 员工依附 inventory 而无法传播的问题；它仍是全量快照恢复基线，不冒充 causal event 增量、缺口补齐与并发多对象事务冲突 UI 已完成。
 
 ### 17.2 快照与增量
 
@@ -1661,6 +1663,8 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 当前恢复基线（2026-08-13）：新连接必须等待首份完整库存事务落库后才能向调用方报告连接完成；已认证连接再次连接时主动请求新库存，远端运行位置的“重扫”只通过固定 `remoteInventory:refresh(deviceId)` 触发同一流程，并等待匹配 requestId 的完成响应。用户进入一个明确远端 Device Lens 或该设备的“查看会话”时，先渲染已落库缓存，再只对该目标按需走这个固定刷新；同一设备并发意图合并为一份请求。应用启动、本机 Lens 与“全部设备”不 fan-out 建立连接；目标没有已认证、临时 LAN 或已配置可达的 signaling 路由时，只保留并明确标记离线快照，不声称已取得新库存。
 
 远端 inventory 事务在落库前，必须先用接收端合并后的 canonical Slot 投影每个 SessionReplica：只保留 `assignmentState=linked` 且 AgentIdentity/AccountBinding 完整的该来源设备 Slot，并把会话的 `agentId` 与 `accountBindingId` 改写为本地 canonical 目录 ID。强会话标识必须使用 canonical AccountBinding 重算 `conversationId`，以便与本地或其他设备的同一逻辑会话折叠；弱会话仍使用来源 `deviceId + profileId + adapterConversationKey` 作用域，其 `conversationId` 和 `replicaId` 保持稳定。若 tombstone、suppressed/unassigned Slot 或无效绑定已使 canonical linked Slot 不存在，对应会话必须在持久化前丢弃，不得靠旧 inventory 残留。该投影不改变来源拥有的 revision、generatedAt/staleAt 或 replica 定位身份。
+
+协商 `inventory.device-facts.v1` 后，inventory 的目录字段必须为空，只能更新来源设备自己的 Slot 与 SessionReplica；它不能提交 Agent、AccountBinding 或 tombstone，也不能用缺失对象裁剪全局员工。旧端的兼容 inventory 投影只在接收端当前同时授予 `catalog.manage` 时作为“增补未知 Agent/Binding”的过渡输入；它不得覆盖既有目录元数据、改变既有 Binding 归属、应用远端 tombstone 或删除零 Slot/零 Binding Agent。只有独立目录通道可以修改这些全局事实。
 
 连接存续期间每 4 分钟发布一次有界全量快照，早于当前 5 分钟 `staleAt` 窗口，用于修复长期连接只同步一次的问题。库存收发每次重新核对当前 `inventory.read`，撤权后同步关闭既有连接；刷新请求按连接单飞、10 秒最小间隔并最多允许 4 个等待者，关闭连接会取消排队扫描、ACK 与刷新等待。该机制是增量协议完全落地前的恢复基线，不能写成 revision delta、缺口补齐或物理双机长连接门禁已经完成。本轮自动化没有配置或验证长期可达的公网 signaling endpoint，也不替代两台物理电脑的持续可达性、断网恢复或 NAT/TURN 矩阵。
 
@@ -1744,7 +1748,7 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 
 SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、崩溃恢复和 Windows portable 兼容性。
 
-当前实现说明（2026-08-13）：`mesh.db` 已升级到 schema v5。v4 继续以可空 `agent_slots.agent_id/account_binding_id` 准确持久化 suppressed Slot；v5 新增 `agent_blueprints`、`agent_deployments`、`provisioning_jobs` 与 `catalog_events`。现有数据库升级前会生成一次完整的 `pre-v5` 可恢复备份，再在事务中迁移；旧 Agent/Binding 不再因最后一个本机 Profile 消失而被清理，既有目录可以幂等推导初始 Blueprint 与本机 Deployment。显式删除 Agent 仍通过外键级联清理其运行模型；移除 Slot 或 Binding 只改变工作位置或账号关系，不删除员工。本机首次准备执行器、完整员工库工作环境 UI、独立签名 catalog 全量快照同步和远端 `profile.launch` / 有人值守 `agent.prepare` 已落地；causal event 增量仍按 Phase 2A 后续批次实施。
+当前实现说明（2026-08-13）：`mesh.db` 已升级到 schema v5。v4 继续以可空 `agent_slots.agent_id/account_binding_id` 准确持久化 suppressed Slot；v5 新增 `agent_blueprints`、`agent_deployments`、`provisioning_jobs` 与 `catalog_events`。现有数据库升级前使用参数化 `VACUUM INTO` 生成包含已提交 WAL 的一致快照，fsync、校验旧 schema 版本、`integrity_check` 与外键后，再以同目录原子无覆盖方式发布 `pre-v5` 回滚点并启动事务迁移；Node 22 测试运行时与 Electron 43 内嵌 Node 均走同一路径。旧 Agent/Binding 不再因最后一个本机 Profile 消失而被清理，既有目录可以幂等推导初始 Blueprint 与本机 Deployment。显式删除 Agent 仍通过外键级联清理其运行模型；移除 Slot 或 Binding 只改变工作位置或账号关系，不删除员工。本机首次准备执行器、完整员工库工作环境 UI、独立签名 catalog 全量快照同步和远端 `profile.launch` / 有人值守 `agent.prepare` 已落地；causal event 增量仍按 Phase 2A 后续批次实施。
 
 ### 18.3 密钥存储
 
@@ -1841,7 +1845,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 不得接受 remoteCommand、argv、shell、url、absoluteTargetPath 等通用字段。
 
-当前远端 Agent 动作基线（2026-08-13）：认证握手会重新声明当前客户端支持的 capability，用于让旧配对设备在升级后识别 `agent.prepare`；这不会自动授予任何危险权限。已就绪打开使用同一 `profile.launch` 消息的 request/result phase，请求只含 `requestId + agentId + profileId`；目标 Main 重新解析本机 ready Deployment、linked Slot 和 Profile。首次准备使用 `agent.prepare` request 和 `agent.prepare.status`，只含 Agent、受限客户端枚举与结构化状态；目标端先展示来源设备/Agent/客户端确认，再调用本机 ProvisioningService。任何额外路径、命令、argv、URL、环境变量或配置正文字段都被 schema 拒绝。
+当前远端 Agent 动作基线（2026-08-13）：认证握手会重新声明当前客户端支持的 capability，用于让旧配对设备在升级后识别 `agent.prepare`；这不会自动授予任何危险权限。已就绪打开使用同一 `profile.launch` 消息的 request/result phase，请求只含 `requestId + agentId + profileId`；目标 Main 重新解析本机 ready Deployment、linked Slot 和 Profile。首次准备使用 `agent.prepare` request 和 `agent.prepare.status`，只含 Agent、受限客户端枚举与结构化状态；目标端先展示来源设备/Agent/客户端确认。确认进入队列前、用户允许之后且任何本机副作用发生之前，目标端都会重新读取设备存在性与当前 `agent.prepare` 权限，并核对原始 connection generation 仍是当前认证连接；撤权、撤销、断连或连接替换会取消旧 consent，迟到的“允许”不能启动 ProvisioningJob。任何额外路径、命令、argv、URL、环境变量或配置正文字段都被 schema 拒绝。
 
 ## 20. 安全模型与威胁
 
@@ -1862,6 +1866,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 | 撤销设备离线后重现 | 签名撤销日志、连接前同步 revocation revision |
 | 相同名称导致账号误合并 | 只用 Mesh 范围 HMAC 强标识；否则用户显式关联 |
 | 恶意设备污染全局 Agent 目录 | catalog.manage、签名目录事件、base revision 和审计 |
+| inventory.read 绕过目录权限 | 现代 inventory 只含来源设备事实；旧兼容投影仅在当前 catalog.manage 下增补，不能覆盖、删除或应用 tombstone |
 | 离线库存让已删除 Agent 复活 | 目录 tombstone 优先于旧 inventory，确认后才清理 |
 
 ### 20.1 本机可见性
@@ -2064,12 +2069,15 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - `cwd` 只形成 ProjectBinding 候选，不能直接创建 ProjectIdentity；
 - 设备作用域稳定键；
 - inventory revision 与 tombstone；
+- 签名握手 feature 只接受精确有界白名单；新旧双向兼容、目录权限不对称不会发送未知消息或拖垮 inventory.read；
+- `inventory.device-facts.v1` 不携带全局 Agent/Binding/tombstone，旧兼容投影只能在当前 `catalog.manage` 下增补且不能覆盖、裁剪或复活目录对象；
 - schema v3 → v5 迁移先保留可恢复备份，保留 Slot 数据与外键并建立 Blueprint/Deployment/Job/目录事件表；三种目录删除写入 nullable suppressed Slot，关闭重开后仍可删到零；
 - 员工在零 Binding、零 Slot 时仍可独立创建与重开；重复运行运行模型协调不改 revision、时间或重复写审计；
 - 新连接必须等待首份完整库存事务落库；已认证重连与固定 `remoteInventory:refresh` 必须等待匹配 requestId 的完成响应；
 - 明确远端 Device Lens/“查看会话”必须先展示缓存再只刷新单个目标；启动、本机和 all Lens 不 fan-out，无路由或刷新失败时缓存不被清空；
 - 远端会话落库前按 canonical Slot 改写 Agent/AccountBinding；强会话重算 canonical `conversationId`，弱会话与 `replicaId` 稳定，tombstone/suppressed 不留残存会话；
 - 库存权限撤销立即作用于既有连接；刷新洪泛被单飞、节流、等待上限与断连取消约束；
+- `agent.prepare` 在确认排队和允许之后重新核对设备、权限与连接代次；撤权/断连后的迟到允许不产生 ProvisioningJob；
 - SessionPointer schema；
 - project mapping；
 - transfer state machine；
@@ -2176,7 +2184,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - 每个现有 `(agentId, deviceId)` 生成 AgentDeployment，能正常启动且身份关系完整的标为 ready，其他状态按诊断结果降级；
 - 停止使用“最后一个 Slot/Binding 消失即 prune Agent”的隐式删除规则；只有显式 Agent tombstone 删除员工；
 - 旧 suppressed Slot 保持 suppressed，不自动复活；旧 Agent tombstone 仍然权威；
-- 协议未声明 `agent-directory-v2` 的旧客户端只能读取兼容投影，不能提交会使无 Slot 员工消失的目录写入；
+- 协议未声明 `catalog.snapshot.v1` / `inventory.device-facts.v1` 的旧客户端只走 inventory-only 兼容投影；新端不向它发送未知目录消息，接收端也只在当前 `catalog.manage` 下允许增补目录对象，不能接受删除、覆盖或使无 Slot 员工消失的写入；
 - 回滚到旧版本时本地 Profile 仍可使用，但旧版本看不到零 Slot 员工，不得据此反向发布删除事件。
 
 ### 26.3 回滚
@@ -2354,7 +2362,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 2A：永久员工库与按需就绪
 
-当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v5、初始 Blueprint/Deployment 推导、迁移备份、本机首次准备、完整员工库工作环境 UI、独立签名 catalog 全量快照、远端 `profile.launch` 与有人值守 `agent.prepare` 已落地**。causal event 增量继续进行；物理双机、真实 NAT/TURN 和跨平台权限矩阵仍是未关闭门禁。
+当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v5、经验证的一致迁移备份、初始 Blueprint/Deployment 推导、本机首次准备、完整员工库工作环境 UI、独立签名 catalog 全量快照、版本特性兼容、远端 `profile.launch` 与有人值守 `agent.prepare` 已落地**。inventory 已收窄为来源设备事实，撤权/断连后的迟到准备确认不能产生副作用；causal event 增量继续进行。物理双机、真实 NAT/TURN 和跨平台权限矩阵仍是未关闭门禁。
 
 - AgentIdentity 生命周期与 Slot/Binding 解耦，可在零账号、零部署状态存在；
 - AgentBlueprint、AgentDeployment、ProvisioningJob 与 schema v5；
@@ -2377,7 +2385,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 3：跨设备库存与会话身份修正
 
-当前状态：**代码纵向链路已实现，真机验收待完成**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。进入明确远端 Lens 或设备“查看会话”现在先展示缓存，再仅对该目标走固定 `remoteInventory:refresh`；启动、本机与 all Lens 不 fan-out，刷新失败保留离线快照。新连接增加首库存落库屏障，远端 SessionReplica 在持久化前按 canonical Slot 重写 Agent/Binding，强会话重算 canonical ConversationIdentity，弱会话与 replica 保持设备作用域稳定，tombstone/suppressed 不留残存。已认证重连和固定刷新会请求新快照，连接存续时以 4 分钟有界全量快照作为当前恢复基线。双端沙箱 WebRTC 自动验证已覆盖刷新后 revision 与会话标题推进，Node 定向回归覆盖缓存优先/单目标触发与持久化前 canonical 改写，并证明同一强标识会话只渲染一行、保留两个精确 replica。revision 增量/缺口补齐、两台物理电脑的长连接/断网恢复/大库存，以及未配置也未验证的长期公网 signaling 可达性，仍待完成后再关闭本 Phase。
+当前状态：**代码纵向链路已实现，真机验收待完成**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。进入明确远端 Lens 或设备“查看会话”现在先展示缓存，再仅对该目标走固定 `remoteInventory:refresh`；启动、本机与 all Lens 不 fan-out，刷新失败保留离线快照。新连接增加首库存落库屏障，远端 SessionReplica 在持久化前按 canonical Slot 重写 Agent/Binding，强会话重算 canonical ConversationIdentity，弱会话与 replica 保持设备作用域稳定，tombstone/suppressed 不留残存。现代连接以 `inventory.device-facts.v1` 只传来源 Slot/会话；旧端 inventory-only 路径不接收未知目录消息，且目录兼容投影不能越过当前 `catalog.manage` 覆盖或删除全局员工。已认证重连和固定刷新会请求新快照，连接存续时以 4 分钟有界全量快照作为当前恢复基线。双端沙箱 WebRTC 自动验证已覆盖刷新后 revision 与会话标题推进，Node 定向回归覆盖缓存优先/单目标触发、版本兼容、权限不对称、目录/库存隔离与持久化前 canonical 改写，并证明同一强标识会话只渲染一行、保留两个精确 replica。revision 增量/缺口补齐、两台物理电脑的长连接/断网恢复/大库存，以及未配置也未验证的长期公网 signaling 可达性，仍待完成后再关闭本 Phase。
 
 - Device、AgentIdentity、AccountBinding、AgentPresence、AgentSlot；
 - ProjectIdentity、ConversationIdentity、ConversationCheckpoint、ExecutionBranch、SessionReplica 与 PhysicalSessionRecord；
@@ -2599,6 +2607,14 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.21 — 2026-08-13
+
+- 将权限 capability 与协议 feature 分离：签名 `hello/ready` 只协商精确白名单 `catalog.snapshot.v1` / `inventory.device-facts.v1`；旧端不再收到未知目录消息，目录权限不对称通过明确 unavailable 结束屏障而不破坏会话库存；
+- 收紧 inventory 为来源设备事实：现代快照不携带全局 Agent、AccountBinding 或 tombstone，旧兼容投影只在当前 `catalog.manage` 下增补未知对象，不能覆盖关系、应用删除或裁剪零 Slot/零 Binding 员工；
+- 修复 `agent.prepare` 确认竞态：排队前和允许后重新读取当前授权并绑定确切连接代次，撤权、撤销、断连或替换连接后的迟到允许不再产生本机 ProvisioningJob；
+- v5 迁移备份改用参数化 `VACUUM INTO`，纳入已提交 WAL，并在原子发布前校验 schema、完整性和外键；Node 22 与 Electron 43 的迁移路径一致；
+- 开发包版本升为 0.9.3。完整 Node 套件 418 项中 417 通过、1 项仅 Windows 跳过、0 失败；真实 Electron UI 17/17，以及局域网直连和本机 signaling 两种隔离双端链路均通过认证、目录/库存、刷新、SessionPointer、184,333 字节文件与合成屏幕验证。这些证据仍不替代两台物理电脑、真实 NAT/coturn 或跨平台权限矩阵。
 
 ### 1.20 — 2026-08-13
 

@@ -11,7 +11,7 @@ AgentDesk 是本地优先的账号、会话历史与工具维护器。它负责�
 - 诊断路径和安装；
 - 发现、打开并在用户确认后维护固定目录中的桌面 App / CLI。
 
-Personal Agent Mesh 的有人值守代码链路已经接入运行时：设备证书和配对、全局 Agent/Binding/Slot、跨设备库存、SessionPointer、文件传输、远程查看/输入、多设备控制台，以及 LAN/签名信令/STUN/TURN。独立 UI 上下文、目录对象管理和真实 1040 × 840 Electron 任务路径已经本机验收；两台物理电脑、真实公网 NAT、coturn 强制中继和跨平台权限矩阵仍未通过，因此当前是本机代码完成态而不是公开稳定验收态。
+Personal Agent Mesh 的有人值守代码链路已经接入运行时：设备证书和配对、长期全局 Agent/Blueprint/Deployment/ProvisioningJob、独立签名目录、来源设备库存、SessionPointer、文件传输、远程查看/输入、多设备控制台，以及 LAN/签名信令/STUN/TURN。旧端协议 feature 降级、目录权限不对称、inventory 目录隔离和远端准备撤权竞态已有回归；独立 UI 上下文、目录对象管理和真实 1040 × 840 Electron 任务路径也已本机验收。两台物理电脑、真实公网 NAT、coturn 强制中继和跨平台权限矩阵仍未通过，因此当前是本机代码完成态而不是公开稳定验收态。
 
 它不包含聊天 transport、Agent 进程生命周期、任务队列、多会话交接、规划资料索引或任意命令注册。
 
@@ -61,12 +61,14 @@ src/
 
   apps.js                 客户端目录、默认路径、扫描器与导出能力
   sessions.js             Claude / Claude CLI / Codex / Kimi 会话扫描
+  agent-workspace.js      全局员工库在工作环境上的就绪投影
   mesh/domain/
     session-identity.js   Codex 物理记录、用户根会话与内部子分支分类
     device.js             Device 归一化与本机设备约束
     identity-link.js      规范编码与 Mesh 范围账号 HMAC
     agent-catalog.js      Agent/Binding/Slot 迁移、同步、换号和删到零
-    inventory.js          来源单写库存、强标识折叠与 tombstone
+    agent-deployment.js   Blueprint/Deployment/ProvisioningJob 归一化与状态机
+    inventory.js          来源设备事实、canonical 会话投影与强标识折叠
     session-pointer.js    会话信息内部结构与有效期
     project-mapping.js    目标端确认的项目根映射
     file-transfer.js      文件 manifest、命名和路径边界
@@ -77,6 +79,8 @@ src/
     handshake.js          成员证书和一次性设备握手证明
     pairing.js            一次性邀请码、X25519/HKDF 加密配对
     envelope.js           设备签名消息、TTL、sequence 与能力
+    features.js           独立于权限的精确协议 feature 白名单与协商
+    catalog.js            独立签名目录快照归一化、合并与 tombstone
     inventory.js          库存分块、摘要与重组
     secure-payload.js     SessionPointer/文件 payload 加密
     membership-events.js  成员权限、撤销和 revision
@@ -92,6 +96,8 @@ src/
   mesh/main/
     mesh-service.js       初始化、配对、成员/目录、库存和公开投影
     peer-manager.js       设备认证、WebRTC 控制通道和库存同步
+    provisioning-service.js 本机可恢复首次准备与原子提交
+    agent-action-service.js 远端 profile.launch / agent.prepare 固定语义
     transfer-service.js   SessionPointer、本机队列与文件传输
     remote-control-service.js 远程查看、同意、媒体与输入会话
     webrtc-probe.js       隐藏沙箱 Renderer 生命周期与自检结果校验
@@ -247,6 +253,8 @@ profiles:list / profiles:add / profiles:update / profiles:remove
 profiles:migrateWindowsPath / profiles:launch
 agentCatalog:list / agentCatalog:get / agentCatalog:rename
 agentCatalog:merge / agentCatalog:split / agentCatalog:delete / agentCatalog:removeBinding
+agentBlueprint:get / agentBlueprint:update
+agentDeployments:list / agentDeployments:ensureReady / agentDeployments:cancelPreparation / agentDeployments:retryPreparation
 agentSlots:list / agentSlots:addLocal / agentSlots:assign / agentSlots:removeLocal
 sessions:list / sessions:reveal / sessions:export
 activity:all
@@ -258,6 +266,7 @@ devices:list / devices:initialize / devices:rename / devices:resetMesh / devices
 devices:createInvite / devices:cancelInvite / devices:join / devices:setReachable
 devices:connect / devices:disconnect / devices:updatePermissions / devices:revoke
 devices:getDiagnostics / devices:getNetworkConfig / devices:updateNetworkConfig
+remoteInventory:listAgentSlots / remoteInventory:listSessions / remoteInventory:refresh
 transfers:createSessionPointer / transfers:chooseFiles / transfers:acceptFile
 transfers:list / transfers:cancel / transfers:retry / transfers:openReceivedFile
 projects:chooseBinding
@@ -287,9 +296,12 @@ remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
 
 `PeerManager` 在隐藏沙箱 Renderer 中建立 RTCPeerConnection。WebRTC DTLS 之后仍要验证成员证书、签名信封和双方 DeviceProof，认证完成才开放库存、传输或远控消息。ICE 配置合并用户 STUN、部署静态 TURN 与网关短期 TURN；公开状态只保留 `host/srflx/prflx/relay`、UDP/TCP 和 pair state。
 
+`connection.hello/ready` 在设备签名 payload 中把协议 feature 与权限 capability 分开：只协商精确白名单 `catalog.snapshot.v1` 和 `inventory.device-facts.v1`，未知值不持久化。旧端没有目录 feature 时不接收未知 `catalog.snapshot`，继续走 inventory-only；双方支持目录但单边没有当前 `catalog.manage` 时交换有界 unavailable，首目录屏障结束而 `inventory.read` 不受影响。
+
 ### 库存和传输
 
-- 每个设备只发布自己的 Slot 与 SessionReplica，快照有 16 MiB 上限、分块摘要、revision 和 tombstone；
+- 独立 `catalog.snapshot` 只携带 Agent、AccountBinding、Blueprint 与 tombstone；现代 inventory 只发布来源设备自己的 Slot 与 SessionReplica，快照有 16 MiB 上限、分块摘要和 revision；
+- 旧端 inventory 目录投影只在接收端当前授予 `catalog.manage` 时用于增补未知对象，不能覆盖既有 Binding、应用 tombstone 或裁剪零 Slot 员工；
 - 同一强账号键归到同一 AccountBinding，同一强会话键折叠为一个 ConversationIdentity，弱标识保持设备作用域；
 - SessionPointer 由 Main 根据 `conversationId + replicaId + targetDeviceId` 重新查表并加密，离线队列只存发送端；
 - 文件经私有暂存固定内容和 SHA-256，以 96 KiB 加密块发送，接收端从 `.part` 实际偏移恢复；
@@ -322,6 +334,8 @@ npm run accept:ui
 npm run build:mac:dir
 ```
 
+当前完整 Node 套件共 418 项（417 通过、1 项仅 Windows 跳过、0 失败）。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均完成认证、目录/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；它仍不是物理双机或真实 NAT/TURN 证据。
+
 `npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 17 条任务路径：58/244/316/38 固定几何与 Compact 无横滚、focus/checked/隐藏选择、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、本机新增、四个 Header 入口、固定区矩形与单一滚动所有者、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销后详情清理和 reduced-motion。
 
 测试除了扫描器和纯函数，还包含以下边界契约：
@@ -332,6 +346,9 @@ npm run build:mac:dir
 - package 不包含会话协议 SDK；
 - 庭院只暴露三类核心意图。
 - Mesh 账号关联键在同 Mesh 内稳定、跨 Mesh 不可关联，成员证书和握手证明可检测篡改与过期；
+- 目录与库存 feature 兼容、权限不对称、旧端降级和 inventory 不能越权修改全局目录；
+- `agent.prepare` 在确认后重新核对当前权限与连接代次，撤权/断连后的迟到允许不产生副作用；
+- schema v5 的迁移回滚点包含已提交 WAL，并在发布前校验版本、完整性与外键；
 - 同账号跨形态只形成一个 Agent，同机多账号不误合并，换号不静默搬历史，最后 Slot 删除后目录可为空；
 - Header 直接提供设备、工具、活动和设置，四个入口各开独立模态弹窗且不改变底层工作台或三个固定面板，设备 IPC 保持固定白名单；
 - 四个全局弹窗的 Header/关闭/全局命令/Footer 不随内容滚动；工具、活动、设置不保留底部“完成”，父子弹窗关闭后恢复准确焦点和 disclosure 状态；

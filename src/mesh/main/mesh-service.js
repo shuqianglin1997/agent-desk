@@ -863,12 +863,15 @@ class MeshService {
     return this.getOverview();
   }
 
-  createInventorySnapshot() {
+  createInventorySnapshot(options = {}) {
     const store = new MeshStore(this.databasePath);
     try {
       const snapshot = store.readSnapshot();
       if (!snapshot) throw new Error('mesh-not-initialized');
-      const inventory = this.buildInventory(snapshot, { advanceRevision: true });
+      const inventory = this.buildInventory(snapshot, {
+        advanceRevision: true,
+        includeLegacyCatalogProjection: options.includeLegacyCatalogProjection !== false
+      });
       const local = snapshot.devices.find((device) => device.deviceId === snapshot.mesh.localDeviceId);
       store.saveDevice(normalizeDevice({
         ...local,
@@ -950,7 +953,8 @@ class MeshService {
       if (!remote) throw new Error('device-not-found');
       if (remote.status === 'revoked' || store.isDeviceRevoked(remote.deviceId)) throw new Error('device-revoked');
       const catalog = mergeCatalogInventory(snapshot, inventory, {
-        catalogRevision: snapshot.catalogRevision + 1
+        catalogRevision: snapshot.catalogRevision + 1,
+        allowLegacyCatalogProjection: input.allowLegacyCatalogProjection === true
       });
       const canonicalInventory = canonicalizeInventorySessions(inventory, catalog, {
         linkKey: this.keyVault.load().identityLinkKey
@@ -1158,7 +1162,10 @@ class MeshService {
       catalog: normalizeCatalog(snapshot),
       sessionsByProfile,
       linkKey: secrets.identityLinkKey
-    }, { now: this.now() });
+    }, {
+      now: this.now(),
+      includeLegacyCatalogProjection: options.includeLegacyCatalogProjection !== false
+    });
   }
 
   reset() {
