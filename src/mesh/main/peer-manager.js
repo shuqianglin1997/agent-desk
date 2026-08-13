@@ -5,6 +5,12 @@ const { createEnvelope, verifyEnvelope, SequenceGuard } = require('../protocol/e
 const { createDeviceProof, verifyDeviceProof } = require('../protocol/handshake');
 const { encodeInventoryChunks, InventoryAssembler } = require('../protocol/inventory');
 const {
+  createCatalogEventBatches,
+  normalizeCatalogEventBatch,
+  normalizeCatalogSyncMarker,
+  normalizeCatalogVector
+} = require('../protocol/catalog-events');
+const {
   PROTOCOL_FEATURES,
   KNOWN_PROTOCOL_FEATURES,
   normalizeProtocolFeatures,
@@ -115,7 +121,9 @@ class PeerManager {
       await this.sendDataEnvelope(context, 'connection.hello', 'inventory.read', {
         proof: helloProof,
         supportedCapabilities: KNOWN_CAPABILITIES,
-        protocolFeatures: this.protocolFeatures
+        protocolFeatures: this.protocolFeatures,
+        runtimeMetadata: this.meshService.getLocalRuntimeMetadata(),
+        catalogVector: this.meshService.getCatalogEventVector()
       });
       await context.auth.promise;
       await context.firstCatalog.promise;
@@ -203,7 +211,10 @@ class PeerManager {
       if (
         hadCatalog
         && !hasCatalog
-        && this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)
+        && (
+          this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_EVENTS_V1)
+          || this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)
+        )
       ) {
         context.firstCatalog.resolve({ skipped: true, reason: 'catalog-capability-revoked' });
         void this.sendCatalogUnavailable(context, 'catalog-capability-revoked').catch(() => false);
@@ -252,10 +263,13 @@ class PeerManager {
         context.authenticated
         && !context.closed
         && !context.window.isDestroyed()
-        && this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)
+        && (
+          this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_EVENTS_V1)
+          || this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)
+        )
         && context.peer.remote.permissions?.includes('catalog.manage')
       ));
-    const results = await Promise.allSettled(contexts.map((context) => this.sendCatalogSnapshot(context)));
+    const results = await Promise.allSettled(contexts.map((context) => this.queueCatalogSend(context)));
     results.forEach((result, index) => {
       if (result.status === 'rejected') this.failContext(contexts[index], result.reason);
     });
@@ -314,12 +328,16 @@ class PeerManager {
       firstInventory: deferred(PEER_TIMEOUT_MS, 'inventory-initial-timeout'),
       remoteProtocolFeatures: [],
       negotiatedProtocolFeatures: [],
+      remoteCatalogVector: {},
+      incomingCatalogSyncs: new Map(),
       pendingAcks: new Map(),
       pendingInventoryRefreshes: new Map(),
       inventoryAssembler: new InventoryAssembler(),
       lastReceivedInventoryRevision: Number(input.peer.remote.inventoryRevision) || 0,
       inventoryStarted: false,
       catalogStarted: false,
+      catalogSendPromise: null,
+      catalogSendFollowup: false,
       initialSyncPromise: null,
       generation: 0,
       inventorySendPromise: null,
@@ -411,11 +429,15 @@ class PeerManager {
       if (!proof.ok) throw new Error(proof.reason);
       this.updateRemoteCapabilities(context, payload?.supportedCapabilities);
       this.updateRemoteProtocolFeatures(context, payload?.protocolFeatures);
+      this.updateRemoteRuntimeMetadata(context, payload?.runtimeMetadata);
+      this.updateRemoteCatalogVector(context, payload?.catalogVector);
       await this.finishAuthenticated(context);
       await this.sendDataEnvelope(context, 'connection.ready', 'inventory.read', {
         accepted: true,
         supportedCapabilities: KNOWN_CAPABILITIES,
-        protocolFeatures: this.protocolFeatures
+        protocolFeatures: this.protocolFeatures,
+        runtimeMetadata: this.meshService.getLocalRuntimeMetadata(),
+        catalogVector: this.meshService.getCatalogEventVector()
       });
       this.startInitialSync(context);
       return;
@@ -424,6 +446,8 @@ class PeerManager {
       if (context.role !== 'offerer' || !context.answerAuthenticated) throw new Error('peer-ready-unexpected');
       this.updateRemoteCapabilities(context, payload?.supportedCapabilities);
       this.updateRemoteProtocolFeatures(context, payload?.protocolFeatures);
+      this.updateRemoteRuntimeMetadata(context, payload?.runtimeMetadata);
+      this.updateRemoteCatalogVector(context, payload?.catalogVector);
       await this.finishAuthenticated(context);
       this.startInitialSync(context);
       return;
@@ -435,7 +459,10 @@ class PeerManager {
     if (!context.authenticated) throw new Error('peer-not-authenticated');
 
     if (messageType === 'connection.catalog-unavailable') {
-      if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)) {
+      if (
+        !this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_EVENTS_V1)
+        && !this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)
+      ) {
         throw new Error('peer-feature-not-negotiated');
       }
       if (payload?.status !== 'unavailable') throw new Error('catalog-sync-status-invalid');
@@ -444,6 +471,86 @@ class PeerManager {
         reason: cleanText(payload?.reason, 80) || 'catalog-unavailable'
       });
       this.emitState(context, 'catalog-unavailable');
+      return;
+    }
+
+    if (messageType === 'catalog.events.batch') {
+      if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_EVENTS_V1)) {
+        throw new Error('peer-feature-not-negotiated');
+      }
+      const batch = normalizeCatalogEventBatch(payload);
+      if (batch.meshId !== context.peer.mesh.meshId) throw new Error('catalog-sync-mesh-mismatch');
+      if (batch.sourceDeviceId !== context.peer.remote.deviceId) throw new Error('catalog-sync-source-mismatch');
+      let incomingSync = context.incomingCatalogSyncs.get(batch.syncId);
+      if (!incomingSync) {
+        incomingSync = { batches: new Set(), inserted: 0, changed: false, unresolvedEventIds: [] };
+        context.incomingCatalogSyncs.set(batch.syncId, incomingSync);
+      }
+      if (incomingSync.batches.has(batch.batchIndex)) throw new Error('catalog-sync-batch-duplicate');
+      const applied = this.meshService.applyRemoteCatalogEvents({
+        deviceId: context.peer.remote.deviceId,
+        events: batch.events
+      });
+      incomingSync.batches.add(batch.batchIndex);
+      incomingSync.inserted += Number(applied.inserted || 0);
+      incomingSync.changed = incomingSync.changed || applied.changed === true;
+      incomingSync.unresolvedEventIds = applied.unresolvedEventIds || [];
+      this.emitState(context, 'catalog-events-received');
+      return;
+    }
+
+    if (messageType === 'catalog.events.complete') {
+      if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_EVENTS_V1)) {
+        throw new Error('peer-feature-not-negotiated');
+      }
+      const marker = normalizeCatalogSyncMarker(payload);
+      if (marker.meshId !== context.peer.mesh.meshId) throw new Error('catalog-sync-mesh-mismatch');
+      if (marker.sourceDeviceId !== context.peer.remote.deviceId) throw new Error('catalog-sync-source-mismatch');
+      const incomingSync = context.incomingCatalogSyncs.get(marker.syncId) || {
+        batches: new Set(),
+        inserted: 0,
+        changed: false,
+        unresolvedEventIds: []
+      };
+      if (incomingSync.batches.size !== marker.batchCount) throw new Error('catalog-sync-batch-missing');
+      for (let index = 0; index < marker.batchCount; index += 1) {
+        if (!incomingSync.batches.has(index)) throw new Error('catalog-sync-batch-missing');
+      }
+      if (incomingSync.unresolvedEventIds.length) throw new Error('catalog-sync-causal-gap');
+      const localVector = this.meshService.getCatalogEventVector();
+      for (const [deviceId, sequence] of Object.entries(marker.vector)) {
+        if (Number(localVector[deviceId] || 0) < sequence) throw new Error('catalog-sync-vector-gap');
+      }
+      this.updateRemoteCatalogVector(context, marker.vector);
+      context.incomingCatalogSyncs.delete(marker.syncId);
+      context.firstCatalog.resolve({
+        revision: Math.max(0, ...Object.values(localVector)),
+        changed: incomingSync.changed,
+        inserted: incomingSync.inserted
+      });
+      await this.sendDataEnvelope(context, 'catalog.events.ack', 'catalog.manage', {
+        schemaVersion: marker.schemaVersion,
+        syncId: marker.syncId,
+        meshId: context.peer.mesh.meshId,
+        sourceDeviceId: context.peer.local.deviceId,
+        batchCount: marker.batchCount,
+        vector: localVector
+      });
+      this.emitState(context, 'catalog-synced');
+      if (incomingSync.inserted > 0) {
+        void this.broadcastCatalog().catch(() => false);
+      }
+      return;
+    }
+
+    if (messageType === 'catalog.events.ack') {
+      if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_EVENTS_V1)) {
+        throw new Error('peer-feature-not-negotiated');
+      }
+      const marker = normalizeCatalogSyncMarker(payload);
+      if (marker.meshId !== context.peer.mesh.meshId) throw new Error('catalog-sync-mesh-mismatch');
+      if (marker.sourceDeviceId !== context.peer.remote.deviceId) throw new Error('catalog-sync-source-mismatch');
+      this.updateRemoteCatalogVector(context, marker.vector);
       return;
     }
 
@@ -557,6 +664,24 @@ class PeerManager {
     return context.negotiatedProtocolFeatures;
   }
 
+  updateRemoteRuntimeMetadata(context, value) {
+    const metadata = normalizeRuntimeMetadata(value);
+    if (!metadata) return false;
+    this.meshService.updateRemoteRuntimeMetadata(context.peer.remote.deviceId, metadata);
+    context.peer.remote = { ...context.peer.remote, ...metadata };
+    return true;
+  }
+
+  updateRemoteCatalogVector(context, value) {
+    try {
+      context.remoteCatalogVector = normalizeCatalogVector(value);
+      return true;
+    } catch (_error) {
+      context.remoteCatalogVector = {};
+      return false;
+    }
+  }
+
   supportsProtocolFeature(context, feature) {
     return Array.isArray(context?.negotiatedProtocolFeatures)
       && context.negotiatedProtocolFeatures.includes(feature);
@@ -586,7 +711,10 @@ class PeerManager {
   async startCatalogSync(context) {
     if (context.catalogStarted || context.closed) return;
     context.catalogStarted = true;
-    if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)) {
+    if (
+      !this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_EVENTS_V1)
+      && !this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)
+    ) {
       context.firstCatalog.resolve({ skipped: true, reason: 'catalog-feature-unavailable' });
       this.emitState(context, 'catalog-unavailable');
       return;
@@ -602,7 +730,62 @@ class PeerManager {
       }
       throw error;
     }
-    await this.sendCatalogSnapshot(context);
+    await this.queueCatalogSend(context);
+  }
+
+  queueCatalogSend(context) {
+    this.assertContextActive(context, context?.generation);
+    if (context.catalogSendPromise) {
+      context.catalogSendFollowup = true;
+      return context.catalogSendPromise;
+    }
+    const generation = context.generation;
+    const operation = Promise.resolve().then(async () => {
+      do {
+        context.catalogSendFollowup = false;
+        this.assertContextActive(context, generation);
+        if (this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_EVENTS_V1)) {
+          await this.sendCatalogEvents(context, generation);
+        } else {
+          await this.sendCatalogSnapshot(context);
+        }
+      } while (context.catalogSendFollowup && !context.closed);
+    });
+    context.catalogSendPromise = operation;
+    const clear = () => {
+      if (context.catalogSendPromise === operation) context.catalogSendPromise = null;
+    };
+    operation.then(clear, clear);
+    return operation;
+  }
+
+  async sendCatalogEvents(context, generation = context?.generation) {
+    if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_EVENTS_V1)) {
+      throw new Error('peer-feature-not-negotiated');
+    }
+    this.assertContextActive(context, generation);
+    const sync = this.meshService.createCatalogEventSync(context.remoteCatalogVector || {});
+    const syncId = crypto.randomUUID();
+    const batches = createCatalogEventBatches({
+      syncId,
+      meshId: sync.meshId,
+      sourceDeviceId: sync.sourceDeviceId,
+      events: sync.events
+    });
+    for (const batch of batches) {
+      this.assertContextActive(context, generation);
+      await this.sendDataEnvelope(context, 'catalog.events.batch', 'catalog.manage', batch);
+    }
+    this.assertContextActive(context, generation);
+    await this.sendDataEnvelope(context, 'catalog.events.complete', 'catalog.manage', {
+      schemaVersion: 1,
+      syncId,
+      meshId: sync.meshId,
+      sourceDeviceId: sync.sourceDeviceId,
+      batchCount: batches.length,
+      vector: sync.vector
+    });
+    return sync.vector;
   }
 
   sendCatalogSnapshot(context) {
@@ -614,7 +797,10 @@ class PeerManager {
   }
 
   sendCatalogUnavailable(context, reason) {
-    if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)) {
+    if (
+      !this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_EVENTS_V1)
+      && !this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)
+    ) {
       return Promise.resolve(false);
     }
     return this.sendDataEnvelope(context, 'connection.catalog-unavailable', 'inventory.read', {
@@ -927,6 +1113,8 @@ class PeerManager {
     for (const pending of context.pendingInventoryRefreshes?.values() || []) pending.waiter.reject(closeError);
     context.pendingInventoryRefreshes?.clear();
     context.activeIncomingInventoryRefreshIds?.clear();
+    context.incomingCatalogSyncs?.clear();
+    context.catalogSendFollowup = false;
     context.incomingInventoryRefreshWaiters = 0;
     this.contextsByToken.delete(context.token);
     const routed = this.ipcRouter.contexts.get(context.token);
@@ -1109,6 +1297,19 @@ function assertSemanticCapability(messageType, capability) {
   }
 }
 
+function normalizeRuntimeMetadata(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const metadata = {
+    appVersion: cleanText(value.appVersion, 40),
+    protocolVersion: cleanText(value.protocolVersion, 20),
+    platform: cleanText(value.platform, 40),
+    arch: cleanText(value.arch, 40),
+    osVersion: cleanText(value.osVersion, 120)
+  };
+  if (Object.values(metadata).some((item) => !item)) return null;
+  return metadata;
+}
+
 module.exports = {
   PEER_TIMEOUT_MS,
   INVENTORY_RESYNC_INTERVAL_MS,
@@ -1121,6 +1322,7 @@ module.exports = {
   normalizeDescription,
   normalizeIceServers,
   normalizeTransport,
+  normalizeRuntimeMetadata,
   networkPath,
   publicConnection,
   sharedIpcRouter

@@ -16,8 +16,8 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 桌面 App / CLI 发现、版本检查、打开和显式维护；
 - macOS / Windows 打包、更新与发布校验；
 - Personal Mesh 初始化、一次性加密配对、设备权限/撤销、全局 Agent 目录、设备 Lens 与可删到零语义；
-- schema v5、长期 Agent 生命周期、Blueprint/Deployment/ProvisioningJob、一致迁移回滚点与本机按需就绪；
-- 独立 `catalog.snapshot.v1` 与来源设备 `inventory.device-facts.v1`，旧端 inventory-only 降级、权限不对称处理及目录/库存能力隔离；
+- schema v6、长期 Agent 生命周期、Blueprint/Deployment/ProvisioningJob、签名目录事件、一致迁移回滚点与本机按需就绪；
+- 独立 `catalog.events.v1`、0.9.4 `catalog.snapshot.v1` 兼容与来源设备 `inventory.device-facts.v1`；目录按来源向量补缺口，并发字段确定性收敛，删除 tombstone 防复活，更旧端 inventory-only 降级；
 - Agent/账号绑定/运行位置的明确新增、归属、合并、拆分和三种删除范围；
 - Device Lens、Agent、Slot、focused/checked 会话、副本来源、设备详情、远控和传输草稿的独立 UI 上下文；
 - Ed25519 成员证书/握手、Mesh 范围账号 HMAC、独立 `mesh.db`、OS 密钥保护和签名协议封装；
@@ -27,7 +27,7 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
 - 已就绪远端固定 `profile.launch`、未就绪远端有人值守 `agent.prepare`，以及确认后撤权/断连的副作用阻断；
 - Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
-- 完整 Node 套件 418 项中 417 通过、1 项仅 Windows 跳过、0 失败；临时 userData 下真实 1040 × 840 Electron 的 17 条本地任务路径验收，包括固定几何、Compact 无横滚、卡片名册与临时层边界。
+- 完整 Node 套件 428 项中 427 通过、1 项仅 Windows 跳过、0 失败；临时 userData 下真实 1040 × 840 Electron 的 17 条本地任务路径验收，包括固定几何、Compact 无横滚、卡片名册与临时层边界。
 
 ## 近期优先级
 
@@ -80,8 +80,8 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 | 阶段 | 代码状态 | 尚未关闭的门禁 |
 |---|---|---|
 | Phase 1 技术验证 | WebRTC 承载、设备认证、SQLite、签名信令、STUN/TURN 配置已实现 | 两台真机、真实 NAT、coturn、跨平台权限 |
-| Phase 2 设备与全局 Agent | 初始化、配对、权限、撤销、目录、对象管理和可删到零已实现；本机 UI 任务验收通过 | 多台物理设备长期运行与目录冲突验收 |
-| Phase 2A 永久员工与按需就绪 | schema v5、Blueprint/Deployment/Job、独立签名目录、本机准备、远端打开/有人准备与撤权竞态防护已实现 | causal 目录事件增量、更多客户端适配器、物理双机准备/登录矩阵 |
+| Phase 2 设备与全局 Agent | 初始化、配对、权限、撤销、签名事件目录、对象管理和可删到零已实现；字段并发/关系冲突/删除防复活有自动化 | 物理双机 0.9.5 双端编辑、长期运行与冲突体验验收 |
+| Phase 2A 永久员工与按需就绪 | schema v6、Blueprint/Deployment/Job、事件增量与旧快照兼容、本机准备、远端打开/有人准备与撤权竞态防护已实现 | 事件 checkpoint 压缩、冲突专用 UI、更多适配器、物理双机准备/登录矩阵 |
 | Phase 3 库存与会话身份 | 来源设备事实、版本 feature 兼容、目录权限隔离、revision、强标识折叠、正交 Device Lens/Agent scope 和显式副本来源已实现 | 物理双机大库存、断网与 stale 验收；revision delta/缺口补齐 |
 | Phase 4 会话信息 | SessionPointer、本机离线队列、项目映射已实现 | macOS/Windows 不同项目根真机验收 |
 | Phase 5 文件 | 选择、确认、加密分块、哈希、续传已实现 | 大文件、磁盘不足和跨网络真机矩阵 |

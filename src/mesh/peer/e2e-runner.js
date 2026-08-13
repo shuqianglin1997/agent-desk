@@ -128,6 +128,27 @@ app.whenReady().then(async () => {
     });
 
     const connection = await leftManager.connect(rightId);
+    const createdAgent = left.service.createAgent({ displayName: 'Event-synced employee' });
+    const eventAgent = createdAgent.agents.find((agent) => agent.displayName === 'Event-synced employee');
+    if (!eventAgent) throw new Error('peer-e2e-catalog-event-create-missing');
+    await leftManager.broadcastCatalog();
+    await waitUntil(() => right.service.getOverview().agents.some((agent) => agent.agentId === eventAgent.agentId), 5_000);
+    right.service.updateAgent({
+      agentId: eventAgent.agentId,
+      displayName: 'Event-synced employee',
+      group: 'Remote group'
+    });
+    await rightManager.broadcastCatalog();
+    await waitUntil(() => left.service.getOverview().agents.some((agent) => (
+      agent.agentId === eventAgent.agentId && agent.group === 'Remote group'
+    )), 5_000);
+    left.service.removeCatalogObject({
+      scope: 'agent',
+      agentId: eventAgent.agentId,
+      baseRevision: left.service.getOverview().mesh.catalogRevision
+    });
+    await leftManager.broadcastCatalog();
+    await waitUntil(() => !right.service.getOverview().agents.some((agent) => agent.agentId === eventAgent.agentId), 5_000);
     await waitUntil(() => {
       const leftRows = left.service.getUnifiedSessions();
       const rightRows = right.service.getUnifiedSessions();
@@ -211,6 +232,8 @@ app.whenReady().then(async () => {
       rightReplicas: rightRows[0].replicas.length,
       authenticatedSides: new Set(states.filter((value) => value.state === 'authenticated').map((value) => value.side)).size,
       inventorySides: new Set(states.filter((value) => value.state === 'inventory-synced').map((value) => value.side)).size,
+      catalogEventFeature: connection.protocolFeatures.includes('catalog.events.v1'),
+      catalogEventDeleteConverged: !right.service.getOverview().agents.some((agent) => agent.agentId === eventAgent.agentId),
       refreshedRemoteRevision,
       refreshedRemoteTitle: leftRows[0].replicas.find((replica) => replica.deviceId === rightId)?.title,
       pointerState: leftTransfer.list().find((job) => job.transferId === pointerJob.transferId)?.state,

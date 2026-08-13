@@ -1,5 +1,6 @@
 const PROTOCOL_FEATURES = Object.freeze({
   CATALOG_SNAPSHOT_V1: 'catalog.snapshot.v1',
+  CATALOG_EVENTS_V1: 'catalog.events.v1',
   INVENTORY_DEVICE_FACTS_V1: 'inventory.device-facts.v1'
 });
 

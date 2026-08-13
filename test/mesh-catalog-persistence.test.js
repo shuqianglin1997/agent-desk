@@ -53,7 +53,7 @@ function createHarness(profiles) {
   return { directory, databasePath, keyPath, makeService };
 }
 
-test('schema v3 安全迁移到 v5，保留 Slot 数据并建立员工运行模型表', () => {
+test('schema v3 安全迁移到 v6，保留 Slot 数据并建立员工运行模型与目录事件表', () => {
   const profiles = [profile('slot-a', 'account-a')];
   const harness = createHarness(profiles);
 
@@ -118,8 +118,13 @@ test('schema v3 安全迁移到 v5，保留 Slot 数据并建立员工运行模�
     for (const table of ['agent_blueprints', 'agent_deployments', 'provisioning_jobs', 'catalog_events']) {
       assert.equal(Boolean(migrated.database.prepare(`
         SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ?
-      `).get(table)), true, `${table} must exist after v5 migration`);
+      `).get(table)), true, `${table} must exist after v6 migration`);
     }
+    const eventColumns = migrated.database.prepare('PRAGMA table_info(catalog_events)').all();
+    assert.equal(eventColumns.some((column) => column.name === 'source_sequence'), true);
+    assert.equal(eventColumns.some((column) => column.name === 'lamport'), true);
+    assert.equal(eventColumns.some((column) => column.name === 'revision'), false);
+    assert.deepEqual(migrated.database.prepare('PRAGMA foreign_key_list(catalog_events)').all(), []);
 
     const foreignKeys = migrated.database.prepare('PRAGMA foreign_key_list(agent_slots)').all();
     assert.equal(foreignKeys.find((item) => item.from === 'device_id').on_delete, 'CASCADE');
@@ -149,7 +154,7 @@ test('schema v3 安全迁移到 v5，保留 Slot 数据并建立员工运行模�
   }
 });
 
-test('v4 WAL 中已提交数据会进入 pre-v5 一致备份，Node 22 与 Electron 均可迁移', () => {
+test('v4 WAL 中已提交数据会进入 pre-v6 一致备份，Node 22 与 Electron 均可迁移', () => {
   const harness = createHarness([profile('wal-slot', 'wal-account')]);
   let legacy = null;
   try {

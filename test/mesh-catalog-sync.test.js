@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { MeshService } = require('../src/mesh/main/mesh-service');
+const { MeshStore } = require('../src/mesh/storage/mesh-store');
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const {
   createCatalogSnapshot,
@@ -242,6 +243,99 @@ test('MeshService 在已配对设备间落库零 Slot 员工，删除后旧目�
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test('签名目录事件让双端字段编辑自动收敛，删除压过并发旧编辑且重建使用新身份', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-catalog-events-sync-'));
+  const hostDir = path.join(directory, 'host');
+  const joinDir = path.join(directory, 'join');
+  fs.mkdirSync(hostDir, { recursive: true });
+  fs.mkdirSync(joinDir, { recursive: true });
+  try {
+    const host = serviceFor(hostDir, 'Host');
+    const joiner = serviceFor(joinDir, 'Joiner', async (_invite, request) => host.claimInvite({ request }));
+    host.initialize();
+    await joiner.join({ code: host.createInvite().code });
+    const hostId = host.getOverview().localDeviceId;
+    const joinId = joiner.getOverview().localDeviceId;
+
+    const created = host.createAgent({ displayName: 'Shared Agent', group: 'Initial' });
+    const agentId = created.agents.find((item) => item.displayName === 'Shared Agent').agentId;
+    syncCatalogEvents(host, joiner, hostId);
+    assert.equal(joiner.getOverview().agents.some((item) => item.agentId === agentId), true);
+
+    host.updateAgent({
+      agentId,
+      displayName: 'Host name',
+      baseRevision: host.getOverview().mesh.catalogRevision
+    });
+    joiner.updateAgent({
+      agentId,
+      group: 'Joiner group',
+      baseRevision: joiner.getOverview().mesh.catalogRevision
+    });
+    syncCatalogEvents(host, joiner, hostId);
+    syncCatalogEvents(joiner, host, joinId);
+    for (const overview of [host.getOverview(), joiner.getOverview()]) {
+      const agent = overview.agents.find((item) => item.agentId === agentId);
+      assert.equal(agent.displayName, 'Host name');
+      assert.equal(agent.group, 'Joiner group');
+    }
+
+    host.updateAgent({
+      agentId,
+      note: 'host note',
+      baseRevision: host.getOverview().mesh.catalogRevision
+    });
+    joiner.updateAgent({
+      agentId,
+      note: 'joiner note',
+      baseRevision: joiner.getOverview().mesh.catalogRevision
+    });
+    syncCatalogEvents(host, joiner, hostId);
+    syncCatalogEvents(joiner, host, joinId);
+    const hostNote = host.getOverview().agents.find((item) => item.agentId === agentId).note;
+    const joinNote = joiner.getOverview().agents.find((item) => item.agentId === agentId).note;
+    assert.equal(hostNote, joinNote);
+    const joinStore = new MeshStore(path.join(joinDir, 'mesh.db'));
+    assert.ok(joinStore.database.prepare(`
+      SELECT COUNT(*) AS count FROM audit_events
+      WHERE event_type = 'catalog.conflict-observed'
+    `).get().count >= 1);
+    joinStore.close();
+
+    host.removeCatalogObject({
+      scope: 'agent',
+      agentId,
+      baseRevision: host.getOverview().mesh.catalogRevision
+    });
+    joiner.updateAgent({
+      agentId,
+      displayName: 'offline stale rename',
+      baseRevision: joiner.getOverview().mesh.catalogRevision
+    });
+    syncCatalogEvents(host, joiner, hostId);
+    syncCatalogEvents(joiner, host, joinId);
+    assert.equal(host.getOverview().agents.some((item) => item.agentId === agentId), false);
+    assert.equal(joiner.getOverview().agents.some((item) => item.agentId === agentId), false);
+
+    const recreated = joiner.createAgent({ displayName: 'Shared Agent' });
+    const replacementId = recreated.agents.find((item) => item.displayName === 'Shared Agent').agentId;
+    assert.notEqual(replacementId, agentId);
+    syncCatalogEvents(joiner, host, joinId);
+    assert.equal(host.getOverview().agents.some((item) => item.agentId === replacementId), true);
+    assert.equal(host.getOverview().agents.some((item) => item.agentId === agentId), false);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+function syncCatalogEvents(source, target, sourceDeviceId) {
+  const sync = source.createCatalogEventSync(target.getCatalogEventVector());
+  return target.applyRemoteCatalogEvents({
+    deviceId: sourceDeviceId,
+    events: sync.events
+  });
+}
 
 function serviceFor(directory, hostname, pairingTransport = null) {
   return new MeshService({

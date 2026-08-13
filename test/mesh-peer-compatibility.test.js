@@ -15,6 +15,7 @@ const {
 
 test('协议特性只接受有界精确白名单，未知、重复和畸形值不会被保存', () => {
   const noisy = [
+    PROTOCOL_FEATURES.CATALOG_EVENTS_V1,
     PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1,
     PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1,
     'catalog.snapshot.v2',
@@ -99,10 +100,39 @@ test('协商新库存特性时发送设备事实模式，旧端连接保留兼�
   assert.deepEqual(legacy.snapshotOptions, [{ includeLegacyCatalogProjection: true }]);
 });
 
+test('认证握手更新远端运行版本，目录事件连接优先发送增量而不是旧快照', async () => {
+  const modern = harness();
+  modern.manager.updateRemoteProtocolFeatures(modern.context, KNOWN_PROTOCOL_FEATURES);
+  modern.manager.updateRemoteRuntimeMetadata(modern.context, {
+    appVersion: '0.9.5',
+    protocolVersion: '1.0',
+    platform: 'darwin',
+    arch: 'arm64',
+    osVersion: 'test-os'
+  });
+  assert.deepEqual(modern.runtimeMetadata, [{
+    deviceId: 'remote-device',
+    value: {
+      appVersion: '0.9.5',
+      protocolVersion: '1.0',
+      platform: 'darwin',
+      arch: 'arm64',
+      osVersion: 'test-os'
+    }
+  }]);
+  await modern.manager.queueCatalogSend(modern.context);
+  assert.equal(modern.catalogEventSyncs.length, 1);
+  assert.equal(modern.catalogSnapshots, 0);
+  assert.equal(modern.sent.some((item) => item.messageType === 'catalog.events.complete'), true);
+});
+
 function harness(options = {}) {
   const permissions = options.permissions || ['inventory.read', 'catalog.manage'];
   const snapshotOptions = [];
   const sent = [];
+  const runtimeMetadata = [];
+  const catalogEventSyncs = [];
+  let catalogSnapshots = 0;
   const peer = {
     mesh: { meshId: 'mesh-compat' },
     local: { deviceId: 'local-device' },
@@ -120,7 +150,24 @@ function harness(options = {}) {
       remote: { ...peer.remote, permissions: [...peer.remote.permissions] }
     }),
     setRemoteConnectionState: () => {},
-    createCatalogSnapshot: () => ({ schemaVersion: 1 }),
+    createCatalogSnapshot: () => {
+      catalogSnapshots += 1;
+      return { schemaVersion: 1 };
+    },
+    createCatalogEventSync: (vector) => {
+      catalogEventSyncs.push({ ...vector });
+      return {
+        meshId: 'mesh-compat',
+        sourceDeviceId: 'local-device',
+        vector: { 'local-device': 1 },
+        events: []
+      };
+    },
+    getCatalogEventVector: () => ({ 'local-device': 1 }),
+    getLocalRuntimeMetadata: () => ({
+      appVersion: '0.9.5', protocolVersion: '1.0', platform: 'darwin', arch: 'arm64', osVersion: 'test-os'
+    }),
+    updateRemoteRuntimeMetadata: (deviceId, value) => runtimeMetadata.push({ deviceId, value }),
     createInventorySnapshot: (value) => {
       snapshotOptions.push({ ...value });
       return inventory();
@@ -152,21 +199,35 @@ function harness(options = {}) {
     open: { promise: Promise.resolve(true) },
     remoteProtocolFeatures: [],
     negotiatedProtocolFeatures: [],
+    remoteCatalogVector: {},
+    incomingCatalogSyncs: new Map(),
     pendingAcks: new Map(),
     pendingInventoryRefreshes: new Map(),
+    catalogSendPromise: null,
+    catalogSendFollowup: false,
     lastReceivedInventoryRevision: 0,
     inventoryAssembler: { clear: () => {} }
   };
   manager.connectionsById.set(context.connectionId, context);
   manager.connectionsByDevice.set(peer.remote.deviceId, context);
-  manager.sendDataEnvelope = async (_context, messageType, _capability, payload) => {
+  manager.sendDataEnvelope = async (_context, messageType, capability, payload) => {
+    sent.push({ messageType, capability, payload });
     if (messageType === 'inventory.chunk') {
       const key = `${payload.transferId}:${payload.index}`;
       queueMicrotask(() => context.pendingAcks.get(key)?.resolve(true));
     }
     return 'message-id';
   };
-  return { manager, context, peer, sent, snapshotOptions };
+  return {
+    manager,
+    context,
+    peer,
+    sent,
+    snapshotOptions,
+    runtimeMetadata,
+    catalogEventSyncs,
+    get catalogSnapshots() { return catalogSnapshots; }
+  };
 }
 
 function inventory() {

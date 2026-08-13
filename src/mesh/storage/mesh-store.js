@@ -9,6 +9,7 @@ const {
   activeJobKey,
   deploymentKey
 } = require('../domain/agent-deployment');
+const { normalizeCatalogEventList } = require('../protocol/catalog-events');
 
 class MeshStore {
   constructor(filePath) {
@@ -100,7 +101,9 @@ class MeshStore {
         .map((row) => parsePayload(row.payload_json)),
       provisioningJobs: this.database.prepare('SELECT payload_json FROM provisioning_jobs ORDER BY updated_at DESC').all()
         .map((row) => parsePayload(row.payload_json)),
-      catalogEvents: this.database.prepare('SELECT payload_json FROM catalog_events ORDER BY revision, event_id').all()
+      catalogEvents: this.database.prepare(
+        'SELECT payload_json FROM catalog_events ORDER BY lamport, source_device_id, source_sequence'
+      ).all()
         .map((row) => parsePayload(row.payload_json)),
       tombstones: this.database.prepare('SELECT payload_json FROM catalog_tombstones ORDER BY object_type, object_id').all()
         .map((row) => parsePayload(row.payload_json)),
@@ -128,6 +131,66 @@ class MeshStore {
       });
     });
     return true;
+  }
+
+  saveCatalogEvents(eventsValue, now, options = {}) {
+    const events = normalizeCatalogEventList(eventsValue);
+    if (!events.length) return 0;
+    let inserted = 0;
+    this.transaction(() => {
+      for (const event of events) inserted += this.writeCatalogEvent(event);
+      if (inserted) {
+        this.writeAudit(options.eventType || 'catalog.events-recorded', now, {
+          inserted,
+          sourceDeviceId: options.sourceDeviceId || null
+        });
+      }
+    });
+    return inserted;
+  }
+
+  saveCatalogEventState(input = {}, now, options = {}) {
+    const events = normalizeCatalogEventList(input.events);
+    const blueprints = (Array.isArray(input.blueprints) ? input.blueprints : [])
+      .map(normalizeAgentBlueprint);
+    const conflicts = Array.isArray(input.conflicts) ? input.conflicts.slice(0, 256) : [];
+    const catalog = input.catalog;
+    if (!catalog || !Number.isSafeInteger(Number(catalog.catalogRevision))) {
+      throw new TypeError('catalog-event-state-invalid');
+    }
+    let inserted = 0;
+    this.transaction(() => {
+      for (const event of events) inserted += this.writeCatalogEvent(event);
+      this.replaceCatalogRows(catalog);
+      this.database.prepare('UPDATE mesh_config SET catalog_revision = ? WHERE singleton = 1')
+        .run(catalog.catalogRevision);
+      const liveBlueprintIds = new Set(blueprints.map((item) => item.agentId));
+      for (const blueprint of blueprints) this.writeBlueprint(blueprint);
+      for (const row of this.database.prepare('SELECT agent_id FROM agent_blueprints').all()) {
+        if (!liveBlueprintIds.has(row.agent_id)) {
+          this.database.prepare('DELETE FROM agent_blueprints WHERE agent_id = ?').run(row.agent_id);
+        }
+      }
+      this.writeAudit(options.eventType || 'catalog.events-applied', now, {
+        inserted,
+        knownEvents: events.length,
+        revision: catalog.catalogRevision,
+        agentCount: catalog.agents.length,
+        bindingCount: catalog.accountBindings.length,
+        conflictCount: conflicts.length,
+        sourceDeviceId: options.sourceDeviceId || null
+      });
+      for (const conflict of conflicts) {
+        const payload = JSON.stringify(conflict);
+        const recorded = this.database.prepare(`
+          SELECT 1 AS ok FROM audit_events
+          WHERE event_type = 'catalog.conflict-observed' AND payload_json = ?
+          LIMIT 1
+        `).get(payload);
+        if (!recorded) this.writeAudit('catalog.conflict-observed', now, conflict);
+      }
+    });
+    return inserted;
   }
 
   saveDevice(device, now) {
@@ -353,6 +416,16 @@ class MeshStore {
     `).get(deviceId));
   }
 
+  deviceRevokedAt(deviceId) {
+    const row = this.database.prepare(`
+      SELECT created_at FROM membership_events
+      WHERE subject_device_id = ? AND event_type = 'device.revoked'
+      ORDER BY sequence ASC
+      LIMIT 1
+    `).get(deviceId);
+    return row?.created_at || null;
+  }
+
   nextMembershipSequence() {
     const row = this.database.prepare('SELECT COALESCE(MAX(sequence), 0) AS value FROM membership_events').get();
     return Number(row?.value || 0) + 1;
@@ -567,6 +640,38 @@ class MeshStore {
       WHERE singleton = 1
     `).run(Number(event.sequence), revoked ? 1 : 0, Number(event.sequence));
     return true;
+  }
+
+  writeCatalogEvent(event) {
+    const existing = this.database.prepare(
+      'SELECT source_device_id, source_sequence, payload_json FROM catalog_events WHERE event_id = ?'
+    ).get(event.eventId);
+    const serialized = JSON.stringify(event);
+    if (existing) {
+      if (existing.payload_json !== serialized) throw new Error('catalog-event-id-collision');
+      return 0;
+    }
+    const sequenceOwner = this.database.prepare(`
+      SELECT event_id FROM catalog_events
+      WHERE source_device_id = ? AND source_sequence = ?
+    `).get(event.sourceDeviceId, event.sourceSequence);
+    if (sequenceOwner && sequenceOwner.event_id !== event.eventId) {
+      throw new Error('catalog-event-sequence-conflict');
+    }
+    const result = this.database.prepare(`
+      INSERT INTO catalog_events (
+        event_id, source_device_id, source_sequence, lamport, event_type, created_at, payload_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      event.eventId,
+      event.sourceDeviceId,
+      event.sourceSequence,
+      event.lamport,
+      event.eventType,
+      event.createdAt,
+      serialized
+    );
+    return Number(result.changes || 0);
   }
 
   writeRemoteInventory(inventory) {
