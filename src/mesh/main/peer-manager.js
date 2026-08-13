@@ -107,6 +107,7 @@ class PeerManager {
         proof: helloProof
       });
       await context.auth.promise;
+      await context.firstCatalog.promise;
       await context.firstInventory.promise;
       return publicConnection(context);
     } catch (error) {
@@ -213,6 +214,21 @@ class PeerManager {
     return results.filter((result) => result.status === 'fulfilled').length;
   }
 
+  async broadcastCatalog() {
+    const contexts = [...this.connectionsById.values()]
+      .filter((context) => (
+        context.authenticated
+        && !context.closed
+        && !context.window.isDestroyed()
+        && context.peer.remote.permissions?.includes('catalog.manage')
+      ));
+    const results = await Promise.allSettled(contexts.map((context) => this.sendCatalogSnapshot(context)));
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') this.failContext(contexts[index], result.reason);
+    });
+    return results.filter((result) => result.status === 'fulfilled').length;
+  }
+
   async refreshInventory(deviceId) {
     const context = this.connectionsByDevice.get(String(deviceId));
     if (!context?.authenticated || context.window.isDestroyed()) return this.connect(deviceId);
@@ -261,12 +277,15 @@ class PeerManager {
       signal: deferred(PEER_TIMEOUT_MS, 'peer-signal-timeout'),
       open: deferred(PEER_TIMEOUT_MS, 'peer-open-timeout'),
       auth: deferred(PEER_TIMEOUT_MS, 'peer-auth-timeout'),
+      firstCatalog: deferred(PEER_TIMEOUT_MS, 'catalog-initial-timeout'),
       firstInventory: deferred(PEER_TIMEOUT_MS, 'inventory-initial-timeout'),
       pendingAcks: new Map(),
       pendingInventoryRefreshes: new Map(),
       inventoryAssembler: new InventoryAssembler(),
       lastReceivedInventoryRevision: Number(input.peer.remote.inventoryRevision) || 0,
       inventoryStarted: false,
+      catalogStarted: false,
+      initialSyncPromise: null,
       generation: 0,
       inventorySendPromise: null,
       inventorySendFollowupPromise: null,
@@ -325,7 +344,18 @@ class PeerManager {
     if (messageType.startsWith('inventory.') && capability !== 'inventory.read') {
       throw new Error('peer-capability-mismatch');
     }
-    this.requireCurrentCapability(context, capability);
+    if (messageType.startsWith('catalog.') && capability !== 'catalog.manage') {
+      throw new Error('peer-capability-mismatch');
+    }
+    try {
+      this.requireCurrentCapability(context, capability);
+    } catch (error) {
+      if (messageType.startsWith('catalog.') && String(error?.message || '').startsWith('capability-denied:')) {
+        context.firstCatalog.resolve({ skipped: true, reason: 'catalog-capability-denied' });
+        return;
+      }
+      throw error;
+    }
 
     if (messageType === 'connection.hello') {
       if (context.role !== 'answerer' || context.authenticated) throw new Error('peer-hello-unexpected');
@@ -345,13 +375,13 @@ class PeerManager {
       if (!proof.ok) throw new Error(proof.reason);
       await this.finishAuthenticated(context);
       await this.sendDataEnvelope(context, 'connection.ready', 'inventory.read', { accepted: true });
-      this.startInventorySync(context);
+      this.startInitialSync(context);
       return;
     }
     if (messageType === 'connection.ready') {
       if (context.role !== 'offerer' || !context.answerAuthenticated) throw new Error('peer-ready-unexpected');
       await this.finishAuthenticated(context);
-      this.startInventorySync(context);
+      this.startInitialSync(context);
       return;
     }
     if (messageType === 'connection.close') {
@@ -359,6 +389,19 @@ class PeerManager {
       return;
     }
     if (!context.authenticated) throw new Error('peer-not-authenticated');
+
+    if (messageType === 'catalog.snapshot') {
+      const applied = this.meshService.applyRemoteCatalog({
+        deviceId: context.peer.remote.deviceId,
+        snapshot: payload
+      });
+      context.firstCatalog.resolve({
+        revision: applied.catalogRevision,
+        changed: applied.changed
+      });
+      this.emitState(context, 'catalog-synced');
+      return;
+    }
 
     if (messageType === 'inventory.chunk') {
       const assembled = context.inventoryAssembler.accept(payload);
@@ -440,6 +483,36 @@ class PeerManager {
     }, INVENTORY_RESYNC_INTERVAL_MS);
     context.inventoryResyncTimer.unref?.();
     void this.queueInventorySend(context).catch((error) => this.failContext(context, error));
+  }
+
+  startInitialSync(context) {
+    if (context.initialSyncPromise || context.closed) return context.initialSyncPromise;
+    const operation = this.startCatalogSync(context)
+      .then(() => this.startInventorySync(context));
+    context.initialSyncPromise = operation;
+    operation.catch((error) => this.failContext(context, error));
+    return operation;
+  }
+
+  async startCatalogSync(context) {
+    if (context.catalogStarted || context.closed) return;
+    context.catalogStarted = true;
+    try {
+      this.requireCurrentCapability(context, 'catalog.manage');
+    } catch (error) {
+      if (String(error?.message || '').startsWith('capability-denied:')) {
+        context.firstCatalog.resolve({ skipped: true, reason: 'catalog-capability-denied' });
+        this.emitState(context, 'catalog-unavailable');
+        return;
+      }
+      throw error;
+    }
+    await this.sendCatalogSnapshot(context);
+  }
+
+  sendCatalogSnapshot(context) {
+    const snapshot = this.meshService.createCatalogSnapshot();
+    return this.sendDataEnvelope(context, 'catalog.snapshot', 'catalog.manage', snapshot);
   }
 
   queueInventorySend(context, options = {}) {
@@ -637,6 +710,9 @@ class PeerManager {
     if (messageType.startsWith('inventory.') && capability !== 'inventory.read') {
       throw new Error('peer-capability-mismatch');
     }
+    if (messageType.startsWith('catalog.') && capability !== 'catalog.manage') {
+      throw new Error('peer-capability-mismatch');
+    }
     this.requireCurrentCapability(context, capability);
     await context.open.promise;
     this.assertContextActive(context, context.generation);
@@ -648,10 +724,10 @@ class PeerManager {
   requireCurrentCapability(context, capability) {
     if (!context || context.closed) throw new Error('peer-closed');
     // Permission edits synchronously refresh this snapshot through
-    // handlePermissionsChanged. Inventory additionally re-reads SQLite for
-    // every message because it exposes the full cross-device catalog. Avoid
-    // opening SQLite for high-frequency input.motion/input.keys traffic.
-    if (capability !== 'inventory.read') {
+    // handlePermissionsChanged. Inventory and the independent global catalog
+    // additionally re-read SQLite for every message. Avoid opening SQLite for
+    // high-frequency input.motion/input.keys traffic.
+    if (!['inventory.read', 'catalog.manage'].includes(capability)) {
       requireCapability(context.peer.remote, capability);
       return context.peer.remote;
     }
@@ -700,6 +776,7 @@ class PeerManager {
     context.signal.reject(error);
     context.open.reject(error);
     context.auth.reject(error);
+    context.firstCatalog?.reject(error);
     context.firstInventory?.reject(error);
     for (const ack of context.pendingAcks.values()) ack.reject(error);
     for (const pending of context.pendingInventoryRefreshes?.values() || []) pending.waiter.reject(error);
@@ -718,6 +795,7 @@ class PeerManager {
     context.signal?.reject(closeError);
     context.open?.reject(closeError);
     context.auth?.reject(closeError);
+    context.firstCatalog?.reject(closeError);
     context.firstInventory?.reject(closeError);
     context.inventoryRefreshDelay?.cancel(closeError);
     context.inventoryRefreshDelay = null;
