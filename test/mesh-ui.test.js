@@ -64,6 +64,7 @@ test('Agent 目录与 Slot 管理只通过固定语义 IPC 暴露', () => {
   for (const channel of [
     'agentCatalog:list',
     'agentCatalog:get',
+    'agentCatalog:create',
     'agentCatalog:rename',
     'agentCatalog:merge',
     'agentCatalog:split',
@@ -78,6 +79,10 @@ test('Agent 目录与 Slot 管理只通过固定语义 IPC 暴露', () => {
     assert.ok(preload.includes(`ipcRenderer.invoke('${channel}'`), `${channel} missing in preload`);
   }
   assert.doesNotMatch(preload, /agentCatalog:[^'"\n]*(command|path|exec)|agentSlots:[^'"\n]*(command|path|exec)/i);
+  const createAgentHandler = main.match(/ipcMain\.handle\('agentCatalog:create'[\s\S]*?\n\s*}\);/)?.[0] || '';
+  assert.match(preload, /createAgent:\s*\(input\)\s*=>\s*ipcRenderer\.invoke\('agentCatalog:create', input\)/);
+  assert.match(createAgentHandler, /getMeshService\(\)\.createAgent\(\{[\s\S]*?displayName:[\s\S]*?group:[\s\S]*?note:/);
+  assert.doesNotMatch(createAgentHandler, /createStoredProfile|assignSlot|profilePath|sessionRoot/);
   assert.match(main, /ipcMain\.handle\('agentSlots:addLocal'[\s\S]*?createStoredProfile\([\s\S]*?assignSlot\(/);
   assert.match(main, /ipcMain\.handle\('agentSlots:removeLocal'[\s\S]*?scope:\s*'slot'/);
   assert.match(main, /function removeStoredProfileRegistration[\s\S]*?saveProfiles\(next\)/);
@@ -164,6 +169,11 @@ test('Agent 管理明确区分新 Agent、新账号绑定、新运行位置和�
     assert.match(html, new RegExp(`name="catalogRemoveScope" value="${scope}"`));
   }
   assert.match(html, /id="agentRelationsDialog"[\s\S]*?id="mergeAgentTarget"[\s\S]*?id="splitAccountBinding"/);
+  assert.match(html, /id="agentCreateDialog"[\s\S]*?id="newAgentName"[\s\S]*?id="confirmAddAgentBtn"/);
+  assert.match(html, /id="agentManageDialog"[\s\S]*?id="yardManageActions"[\s\S]*?id="addRuntimeLocationBtn"/);
+  assert.match(renderer, /addProfileBtn\.addEventListener\('click'[\s\S]*?openAgentCreationDialog\(\)[\s\S]*?openProfileCreationDialog\(\)/);
+  assert.match(renderer, /function confirmAgentCreation\(\)[\s\S]*?manager\.createAgent\(\{[\s\S]*?displayName,[\s\S]*?baseRevision:\s*currentCatalogRevision\(\)/);
+  assert.match(renderer, /addRuntimeLocationBtn\?\.addEventListener\('click'[\s\S]*?openProfileCreationDialog\(\{ agentId:\s*currentAgentId\(\) }\)/);
   assert.match(renderer, /addLocalAgentSlot\(\{[\s\S]*?mode,[\s\S]*?accountBindingId/);
   assert.match(renderer, /removeLocalAgentSlot\(\{[\s\S]*?deviceId:[\s\S]*?profileId:/);
   assert.match(renderer, /removeAccountBinding\(\{[\s\S]*?accountBindingId:/);

@@ -295,6 +295,25 @@ function registerIpc() {
 
   ipcMain.handle('agentCatalog:list', () => meshCall(() => getMeshService().getOverview()));
 
+  ipcMain.handle('agentCatalog:create', (_event, input = {}) => {
+    try {
+      const before = getMeshService().getOverview();
+      const knownIds = new Set((before.agents || []).map((agent) => agent.agentId));
+      const overview = getMeshService().createAgent({
+        displayName: boundedText(input.displayName, 80),
+        group: boundedText(input.group, 80),
+        note: boundedText(input.note, 1000),
+        baseRevision: finiteRevision(input.baseRevision)
+      });
+      const agent = overview.agents.find((item) => !knownIds.has(item.agentId));
+      if (!agent) throw new Error('agent-create-result-missing');
+      void peerManager?.broadcastInventory();
+      return { ok: true, agent, overview: withMeshRuntime(overview) };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'agent-create-failed', 160) };
+    }
+  });
+
   ipcMain.handle('agentCatalog:get', (_event, input = {}) => {
     return meshCall(() => {
       const overview = getMeshService().getOverview();

@@ -81,7 +81,7 @@ test('批准后的 Agent 与会话操作层级：主动作常驻，对象管理�
   const renderer = read('src/renderer.js');
 
   assert.match(html, /id="launchBtn"[\s\S]*?id="addProfileBtn"[\s\S]*?id="accountManage"[^>]*aria-haspopup="dialog"[^>]*aria-controls="agentManageDialog"/);
-  assert.match(html, /id="agentManageDialog"[\s\S]*?id="agentGlobalActions"[\s\S]*?id="editProfileBtn"[\s\S]*?id="manageAgentRelationsBtn"[\s\S]*?id="removeProfileBtn"[\s\S]*?id="yardManageActions"[\s\S]*?id="pathConfigBtn"[\s\S]*?id="diagnosticsBtn"[\s\S]*?id="refreshBtn"[\s\S]*?id="profileFolderBtn"/);
+  assert.match(html, /id="agentManageDialog"[\s\S]*?id="agentGlobalActions"[\s\S]*?id="editProfileBtn"[\s\S]*?id="manageAgentRelationsBtn"[\s\S]*?id="removeProfileBtn"[\s\S]*?id="yardManageActions"[\s\S]*?id="addRuntimeLocationBtn"[\s\S]*?id="pathConfigBtn"[\s\S]*?id="diagnosticsBtn"[\s\S]*?id="refreshBtn"[\s\S]*?id="profileFolderBtn"/);
   assert.doesNotMatch(html, /<details id="accountManage"/);
   assert.match(renderer, /function openAgentManageDialog\(\)[\s\S]*?renderAgentManageContext\(\)[\s\S]*?agentManageDialog\.showModal\(\)/);
   assert.match(html, /id="atmosSceneBtn"[^>]*popovertarget="atmosPopover"[\s\S]*?id="atmosPopover"[^>]*popover="auto"/);
