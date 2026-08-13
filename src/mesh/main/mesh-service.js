@@ -555,7 +555,8 @@ class MeshService {
   }
 
   listActiveProvisioningJobs() {
-    this.getOverview();
+    const overview = this.getOverview();
+    if (!overview.initialized) return [];
     const store = new MeshStore(this.databasePath);
     try {
       const snapshot = store.readSnapshot();
