@@ -1742,7 +1742,7 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 
 SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、崩溃恢复和 Windows portable 兼容性。
 
-当前实现说明（2026-08-13）：`mesh.db` schema v4 将 `agent_slots.agent_id` 与 `account_binding_id` 改为可空，以准确持久化 `assignmentState=suppressed` 的 Slot；非空值继续受外键和级联规则保护。v3 → v4 迁移在事务中重建 Slot 表、复制原记录并保留主键/外键语义。移除单个运行位置、移除 AccountBinding、删除 Agent 与删到零均已增加 MeshService → SQLite → 关闭重开的持久化回归；这些动作仍不删除 `profiles.json`、官方客户端目录或第三方账号数据。
+当前实现说明（2026-08-13）：`mesh.db` 已升级到 schema v5。v4 继续以可空 `agent_slots.agent_id/account_binding_id` 准确持久化 suppressed Slot；v5 新增 `agent_blueprints`、`agent_deployments`、`provisioning_jobs` 与 `catalog_events`。现有数据库升级前会生成一次完整的 `pre-v5` 可恢复备份，再在事务中迁移；旧 Agent/Binding 不再因最后一个本机 Profile 消失而被清理，既有目录可以幂等推导初始 Blueprint 与本机 Deployment。显式删除 Agent 仍通过外键级联清理其运行模型；移除 Slot 或 Binding 只改变工作位置或账号关系，不删除员工。首次准备执行器、签名 catalog 同步与工作环境 UI 仍按 Phase 2A 后续批次实施。
 
 ### 18.3 密钥存储
 
@@ -2060,7 +2060,8 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - `cwd` 只形成 ProjectBinding 候选，不能直接创建 ProjectIdentity；
 - 设备作用域稳定键；
 - inventory revision 与 tombstone；
-- schema v3 → v4 迁移保留 Slot 数据与外键；三种目录删除写入 nullable suppressed Slot，关闭重开后仍可删到零；
+- schema v3 → v5 迁移先保留可恢复备份，保留 Slot 数据与外键并建立 Blueprint/Deployment/Job/目录事件表；三种目录删除写入 nullable suppressed Slot，关闭重开后仍可删到零；
+- 员工在零 Binding、零 Slot 时仍可独立创建与重开；重复运行运行模型协调不改 revision、时间或重复写审计；
 - 新连接必须等待首份完整库存事务落库；已认证重连与固定 `remoteInventory:refresh` 必须等待匹配 requestId 的完成响应；
 - 明确远端 Device Lens/“查看会话”必须先展示缓存再只刷新单个目标；启动、本机和 all Lens 不 fan-out，无路由或刷新失败时缓存不被清空；
 - 远端会话落库前按 canonical Slot 改写 Agent/AccountBinding；强会话重算 canonical `conversationId`，弱会话与 `replicaId` 稳定，tombstone/suppressed 不留残存会话；
@@ -2211,6 +2212,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
           account-binding.js
           agent-presence.js
           agent-slot.js
+          agent-deployment.js
           identity-link.js
           conversation.js
           conversation-checkpoint.js
@@ -2348,7 +2350,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 2A：永久员工库与按需就绪
 
-当前状态：**所有者已于 2026-08-13 批准并要求实施**。
+当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v5、初始 Blueprint/Deployment 推导与迁移备份已落地**。首次准备执行器、独立签名 catalog 同步、工作环境 UI 与远端固定语义接线继续进行。
 
 - AgentIdentity 生命周期与 Slot/Binding 解耦，可在零账号、零部署状态存在；
 - AgentBlueprint、AgentDeployment、ProvisioningJob 与 schema v5；
@@ -2603,6 +2605,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - 冻结全局 catalog 与来源设备 inventory 分离同步，新设备先取得零 Slot 员工和员工配置，再发布自己的部署、Slot 与会话事实；
 - 冻结本机“确保就绪并打开”、远端 `profile.launch` 和有人值守 `agent.prepare`，继续禁止远端任意路径、命令、安装参数以及密码、Token、Cookie、官方登录数据同步；
 - 该变化保持 58/244/316/38 固定主窗口、四个全局弹窗、右下详情动作坞、纯全局 Footer 和“复制会话信息”路径/坐标契约。
+- 第一批实现已将目录生命周期与本机 Slot 解耦，增加 schema v5、迁移前完整备份、Blueprint/Deployment 幂等协调及相应持久化回归；完整 Node 套件为 382 项（381 通过、1 项仅 Windows 跳过、0 失败）。
 
 ### 1.17 — 2026-08-13
 

@@ -6,12 +6,14 @@ const { createLocalDevice, normalizeDevice, renameDevice } = require('../domain/
 const {
   normalizeCatalog,
   reconcileLocalCatalog,
+  createAgentIdentity,
   updateAgentMetadata,
   assignSlot,
   mergeAgents,
   splitAccountBinding,
   removeCatalogObject
 } = require('../domain/agent-catalog');
+const { reconcileAgentRuntimeModel } = require('../domain/agent-deployment');
 const {
   buildLocalInventory,
   normalizeInventory,
@@ -113,8 +115,16 @@ class MeshService {
         });
         if (JSON.stringify(local) !== JSON.stringify(nextLocal)) store.saveDevice(nextLocal, this.now());
       }
-      const refreshed = store.readSnapshot();
-      return this.publicOverview({ ...refreshed, ...catalog }, keyState);
+      let refreshed = store.readSnapshot();
+      const runtimeModel = reconcileAgentRuntimeModel(refreshed, {
+        localDeviceId: refreshed.mesh.localDeviceId,
+        now: this.now()
+      });
+      store.saveRuntimeModel(runtimeModel, this.now(), {
+        localDeviceId: refreshed.mesh.localDeviceId
+      });
+      refreshed = store.readSnapshot();
+      return this.publicOverview(refreshed, keyState);
     } finally {
       store.close();
     }
@@ -424,6 +434,13 @@ class MeshService {
   updateAgent(input = {}) {
     return this.mutateCatalog(input, 'catalog.agent-updated', (catalog) => updateAgentMetadata(catalog, input, {
       now: this.now()
+    }));
+  }
+
+  createAgent(input = {}) {
+    return this.mutateCatalog(input, 'catalog.agent-created', (catalog) => createAgentIdentity(catalog, input, {
+      now: this.now(),
+      randomUUID: this.randomUUID
     }));
   }
 
@@ -839,6 +856,9 @@ class MeshService {
       agents: [],
       accountBindings: [],
       slots: [],
+      blueprints: [],
+      deployments: [],
+      provisioningJobs: [],
       keyState: this.keyVault.isAvailable() ? 'available' : 'os-key-protection-unavailable'
     };
   }
@@ -921,6 +941,48 @@ class MeshService {
         displayAlias: binding.displayAlias,
         linkMethod: binding.linkMethod,
         verificationState: binding.verificationState
+      })),
+      blueprints: (snapshot.blueprints || []).map((blueprint) => ({
+        blueprintId: blueprint.blueprintId,
+        agentId: blueprint.agentId,
+        revision: blueprint.revision,
+        preferredProvider: blueprint.preferredProvider,
+        preferredAppId: blueprint.preferredAppId,
+        preferredClientForm: blueprint.preferredClientForm,
+        desiredBindingIds: blueprint.desiredBindingIds,
+        skillRequirementCount: blueprint.skillRequirements?.length || 0,
+        toolRequirementCount: blueprint.toolRequirements?.length || 0,
+        projectRequirementCount: blueprint.projectRequirements?.length || 0,
+        updatedAt: blueprint.updatedAt
+      })),
+      deployments: (snapshot.deployments || []).map((deployment) => ({
+        deploymentId: deployment.deploymentId,
+        agentId: deployment.agentId,
+        deviceId: deployment.deviceId,
+        blueprintRevision: deployment.blueprintRevision,
+        state: deployment.state,
+        preferredSlotKey: deployment.preferredSlotKey,
+        slotKeys: deployment.slotKeys,
+        adapterId: deployment.adapterId,
+        adapterVersion: deployment.adapterVersion,
+        lastVerifiedAt: deployment.lastVerifiedAt,
+        lastOpenedAt: deployment.lastOpenedAt,
+        lastErrorCode: deployment.lastErrorCode,
+        resumeJobId: deployment.resumeJobId,
+        revision: deployment.revision,
+        updatedAt: deployment.updatedAt
+      })),
+      provisioningJobs: (snapshot.provisioningJobs || []).map((job) => ({
+        jobId: job.jobId,
+        agentId: job.agentId,
+        deviceId: job.deviceId,
+        requestedAppId: job.requestedAppId,
+        requestedClientForm: job.requestedClientForm,
+        state: job.state,
+        currentStep: job.currentStep,
+        waitingReason: job.waitingReason,
+        lastErrorCode: job.lastErrorCode,
+        updatedAt: job.updatedAt
       })),
       slots
     };
