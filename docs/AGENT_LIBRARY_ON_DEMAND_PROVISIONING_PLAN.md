@@ -4,7 +4,7 @@
 >
 > 日期：2026-08-13
 >
-> 权威关系：本文细化 `PERSONAL_AGENT_MESH_PLAN.md` 1.23；如有冲突，以后者为准。
+> 权威关系：本文细化 `PERSONAL_AGENT_MESH_PLAN.md` 1.24；如有冲突，以后者为准。
 
 ## 1. 产品结论
 
@@ -23,14 +23,14 @@ AgentDesk 保存一份全局员工库。Agent 是长期存在的员工，Device 
 截至 2026-08-13，本地代码已实现：
 
 - Agent 与 Slot/Binding 解耦，零账号、零运行位置时仍保持员工生命周期；
-- schema v5、Blueprint、Deployment、ProvisioningJob 和迁移前备份；
+- schema v6、Blueprint、Deployment、ProvisioningJob、签名目录事件和迁移前备份；
 - 本机幂等、可恢复的 ensure-ready 准备链；
 - 每个工作环境都投影完整员工库，没有 Slot 时显示首次准备；
-- 独立于 inventory 的签名 `catalog.snapshot`，零 Slot 员工也可传播；
-- 签名握手协商 `catalog.snapshot.v1` / `inventory.device-facts.v1`，旧端安全降级为 inventory-only，目录权限不对称不会拖垮会话同步；
+- 独立于 inventory 的签名 `catalog.events.v1`，零 Slot 员工也可传播；双端不同字段自动合并，同字段稳定收敛，关系事务受 revision/因果缺口门禁，删除 tombstone 压过旧端库存；
+- 签名握手协商 `catalog.events.v1` / `catalog.snapshot.v1` / `inventory.device-facts.v1`，0.9.4 旧端走安全快照兼容，更旧端降级为 inventory-only，目录权限不对称不会拖垮会话同步；
 - 已就绪远端的 `profile.launch` 和未就绪远端的有人值守 `agent.prepare`，且撤权、断连或连接替换后的迟到确认不能产生准备副作用。
 
-尚未完成的是 causal catalog event 增量、CLI/Kimi/Cursor 准备适配、技能/工具要求恢复，以及两台物理电脑、真实 NAT/TURN 与跨平台权限矩阵验收。
+尚未完成的是目录事件 checkpoint 压缩与冲突专用 UI、CLI/Kimi/Cursor 准备适配、技能/工具要求恢复，以及 0.9.5 双端编辑、真实 NAT/TURN 与跨平台权限矩阵验收。
 
 ## 3. 领域对象
 
@@ -164,9 +164,9 @@ AgentDesk 保存一份全局员工库。Agent 是长期存在的员工，Device 
 - 显式 tombstone；
 - 因果 head 和 revision。
 
-新设备加入时先取得完整目录快照，再补事件。目录中零 Slot 员工仍传播。
+新设备加入时从配对响应取得完整目录基线，随后为现有对象补签 bootstrap，并通过来源连续向量补齐事件。目录中零 Slot 员工仍传播。
 
-当前全量恢复协议以签名握手中的精确 feature 白名单协商 `catalog.snapshot.v1`。双方都支持时才发送目录快照；任一侧没有当前 `catalog.manage` 时显式返回 unavailable，并继续允许独立的库存只读流程。未声明 feature 的旧端不会收到未知目录消息。
+当前协议以签名握手中的精确 feature 白名单优先协商 `catalog.events.v1`：双方交换各来源已连续取得的序号，只发送对方缺少的原始签名事件。0.9.4 只支持 `catalog.snapshot.v1` 时走快照兼容；任一侧没有当前 `catalog.manage` 时显式返回 unavailable，并继续允许独立的库存只读流程。未声明目录 feature 的更旧端不会收到未知目录消息。
 
 ### 7.2 来源设备库存
 
@@ -236,16 +236,16 @@ Device Lens 对用户显示为“工作环境”。具体设备下仍展示完�
 
 ## 10. 存储与迁移
 
-`mesh.db` schema v5 新增：
+`mesh.db` schema v5 新增员工运行模型，schema v6 固化目录事件：
 
 - `agent_blueprints`；
 - `agent_deployments`；
 - `provisioning_jobs`；
-- 完整 `catalog_events` 与 snapshot head。
+- 带原始设备签名、`source_sequence`、Lamport 时钟、因果父事件和字段操作的 `catalog_events`。
 
 迁移：
 
-1. 使用参数化 `VACUUM INTO` 生成包含已提交 WAL 的 v4 一致快照，fsync 并校验版本、完整性和外键后，原子发布 `pre-v5` 回滚点。
+1. 使用参数化 `VACUUM INTO` 生成包含已提交 WAL 的旧库一致快照，fsync 并校验版本、完整性和外键后，原子发布 `pre-v6` 回滚点。
 2. 现有 Agent 原样成为长期员工。
 3. 从现有 Slot 推断 Blueprint 首选客户端。
 4. 从 `(agentId, deviceId)` 生成 Deployment。
@@ -258,7 +258,7 @@ Device Lens 对用户显示为“工作环境”。具体设备下仍展示完�
 
 ## 11. 实施顺序
 
-1. 权威文档、领域测试和 schema v5。
+1. 权威文档、领域测试和 schema v6。
 2. 永久 Agent 生命周期与独立 catalog 同步。
 3. AgentBlueprint、AgentDeployment、ProvisioningJob 领域与持久化。
 4. 本机 ensure-ready 服务及首批桌面适配器。
@@ -282,6 +282,6 @@ Device Lens 对用户显示为“工作环境”。具体设备下仍展示完�
 - 远端首次准备遵守目标端确认；
 - 远端首次准备在确认期间撤权、断连或替换连接后不产生任何本机准备副作用；
 - 新旧端与目录权限不对称时 inventory.read 仍可安全工作，旧 inventory 不能删除、覆盖或复活全局目录；
-- v4 WAL 中已提交数据完整进入经校验的 pre-v5 备份，迁移失败不留下伪回滚点；
+- v4/v5 WAL 中已提交数据完整进入经校验的 pre-v6 备份，迁移失败不留下伪回滚点；
 - 目录和协议不含凭据、任意命令或路径；
 - 现有会话、复制、发送、文件、远控、安全和固定布局契约继续通过。

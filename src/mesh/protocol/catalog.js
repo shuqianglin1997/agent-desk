@@ -352,5 +352,10 @@ module.exports = {
   MAX_CATALOG_SNAPSHOT_BYTES,
   createCatalogSnapshot,
   normalizeCatalogSnapshot,
-  mergeCatalogSnapshot
+  mergeCatalogSnapshot,
+  normalizeAgent,
+  normalizeBinding,
+  normalizeTombstone,
+  reconcileStrongBindingConflicts,
+  canonicalJson
 };

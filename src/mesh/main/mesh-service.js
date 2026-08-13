@@ -53,6 +53,18 @@ const {
   normalizeCatalogSnapshot,
   mergeCatalogSnapshot
 } = require('../protocol/catalog');
+const {
+  createCatalogEvent,
+  verifyCatalogEvent,
+  normalizeCatalogEventList,
+  diffCatalogState,
+  catalogCoverageOperations,
+  splitCoverageOperations,
+  materializeCatalogEvents,
+  catalogEventVector,
+  catalogEventsAfterVector,
+  nextCatalogEventClock
+} = require('../protocol/catalog-events');
 const { createIdentityBundle, createDeviceIdentityBundle } = require('../storage/secure-keys');
 const { MeshStore } = require('../storage/mesh-store');
 
@@ -83,7 +95,7 @@ class MeshService {
     if (!fs.existsSync(this.databasePath)) return this.uninitializedOverview();
     const store = new MeshStore(this.databasePath);
     try {
-      const snapshot = store.readSnapshot();
+      let snapshot = store.readSnapshot();
       if (!snapshot) return this.uninitializedOverview({ storageIncomplete: true });
       for (const device of snapshot.devices) {
         const membership = verifyMembershipChain(
@@ -104,6 +116,8 @@ class MeshService {
       let catalog = normalizeCatalog(snapshot);
       try {
         const secrets = this.keyVault.load();
+        this.ensureCatalogEventCoverage(store, snapshot);
+        snapshot = store.readSnapshot();
         const profiles = this.currentProfiles();
         catalog = reconcileLocalCatalog(snapshot, profiles, {
           deviceId: snapshot.mesh.localDeviceId,
@@ -112,7 +126,13 @@ class MeshService {
           randomUUID: this.randomUUID,
           now: this.now()
         });
-        store.saveCatalog(catalog, this.now());
+        this.saveLocalCatalogMutation(
+          store,
+          snapshot,
+          catalog,
+          'catalog.local-reconciled',
+          'ordinary'
+        );
       } catch (error) {
         keyState = error?.message || 'mesh-keys-unavailable';
       }
@@ -140,6 +160,10 @@ class MeshService {
         localDeviceId: refreshed.mesh.localDeviceId
       });
       refreshed = store.readSnapshot();
+      if (keyState === 'available') {
+        this.ensureCatalogEventCoverage(store, refreshed);
+        refreshed = store.readSnapshot();
+      }
       return this.publicOverview(refreshed, keyState);
     } finally {
       store.close();
@@ -771,8 +795,10 @@ class MeshService {
   mutateCatalog(input, eventType, mutation) {
     const store = new MeshStore(this.databasePath);
     try {
-      const snapshot = store.readSnapshot();
+      let snapshot = store.readSnapshot();
       if (!snapshot) throw new Error('mesh-not-initialized');
+      this.ensureCatalogEventCoverage(store, snapshot);
+      snapshot = store.readSnapshot();
       const local = snapshot.devices.find((device) => device.deviceId === snapshot.mesh.localDeviceId);
       if (!local) throw new Error('local-device-not-found');
       const membership = verifyMembershipChain(
@@ -787,15 +813,113 @@ class MeshService {
       if (input.baseRevision !== undefined && Number(input.baseRevision) !== snapshot.catalogRevision) {
         throw new Error('catalog-revision-conflict');
       }
+      const transactionKind = (
+        eventType.includes('merged')
+        || eventType.includes('split')
+        || eventType.includes('agent-removed')
+        || eventType.includes('binding-removed')
+      ) ? 'structural' : 'ordinary';
+      if (transactionKind === 'structural') {
+        const causalState = materializeCatalogEvents(snapshot, snapshot.catalogEvents, {
+          catalogRevision: snapshot.catalogRevision,
+          now: this.now()
+        });
+        if (causalState.unresolvedEventIds.length) throw new Error('catalog-causal-gap');
+      }
       const next = mutation(normalizeCatalog(snapshot));
-      store.saveCatalog(next, this.now(), {
-        eventType,
-        sourceDeviceId: snapshot.mesh.localDeviceId
-      });
+      this.saveLocalCatalogMutation(store, snapshot, next, eventType, transactionKind);
     } finally {
       store.close();
     }
     return this.getOverview();
+  }
+
+  ensureCatalogEventCoverage(store, snapshotValue) {
+    let snapshot = snapshotValue || store.readSnapshot();
+    if (!snapshot) throw new Error('mesh-not-initialized');
+    const operations = catalogCoverageOperations(snapshot, snapshot.catalogEvents);
+    if (!operations.length) return 0;
+    const local = snapshot.devices.find((device) => device.deviceId === snapshot.mesh.localDeviceId);
+    if (!local) throw new Error('local-device-not-found');
+    const secrets = this.keyVault.load();
+    const events = [];
+    let knownEvents = normalizeCatalogEventList(snapshot.catalogEvents);
+    for (const chunk of splitCoverageOperations(operations)) {
+      const clock = nextCatalogEventClock(knownEvents, local.deviceId);
+      const event = createCatalogEvent({
+        meshId: snapshot.mesh.meshId,
+        sourceDeviceId: local.deviceId,
+        sourceSequence: clock.sourceSequence,
+        lamport: clock.lamport,
+        causalParents: clock.causalParents,
+        baseRevision: snapshot.catalogRevision,
+        eventType: 'catalog.bootstrap',
+        transactionKind: 'bootstrap',
+        operations: chunk
+      }, {
+        devicePrivateKey: secrets.devicePrivateKey,
+        membershipCertificate: local.membershipCertificate,
+        membershipChain: local.membershipChain
+      }, { now: this.now(), randomUUID: this.randomUUID });
+      events.push(event);
+      knownEvents = [...knownEvents, event];
+    }
+    return store.saveCatalogEvents(events, this.now(), {
+      eventType: 'catalog.bootstrap-recorded',
+      sourceDeviceId: local.deviceId
+    });
+  }
+
+  saveLocalCatalogMutation(store, snapshot, nextCatalog, eventType, transactionKind, options = {}) {
+    const next = {
+      ...nextCatalog,
+      blueprints: Array.isArray(options.blueprints) ? options.blueprints : snapshot.blueprints
+    };
+    const operations = diffCatalogState(snapshot, next);
+    if (!operations.length) {
+      return store.saveCatalog(nextCatalog, this.now(), {
+        eventType,
+        sourceDeviceId: snapshot.mesh.localDeviceId
+      });
+    }
+    const local = snapshot.devices.find((device) => device.deviceId === snapshot.mesh.localDeviceId);
+    if (!local) throw new Error('local-device-not-found');
+    const secrets = this.keyVault.load();
+    const clock = nextCatalogEventClock(snapshot.catalogEvents, local.deviceId);
+    const event = createCatalogEvent({
+      meshId: snapshot.mesh.meshId,
+      sourceDeviceId: local.deviceId,
+      sourceSequence: clock.sourceSequence,
+      lamport: clock.lamport,
+      causalParents: clock.causalParents,
+      baseRevision: snapshot.catalogRevision,
+      eventType,
+      transactionKind,
+      originDeviceId: options.originDeviceId,
+      operations
+    }, {
+      devicePrivateKey: secrets.devicePrivateKey,
+      membershipCertificate: local.membershipCertificate,
+      membershipChain: local.membershipChain
+    }, { now: this.now(), randomUUID: this.randomUUID });
+    const allEvents = [...snapshot.catalogEvents, event];
+    const materialized = materializeCatalogEvents({
+      ...snapshot,
+      slots: nextCatalog.slots,
+      catalogRevision: nextCatalog.catalogRevision
+    }, allEvents, {
+      catalogRevision: nextCatalog.catalogRevision,
+      now: this.now()
+    });
+    return store.saveCatalogEventState({
+      catalog: materialized.catalog,
+      blueprints: materialized.blueprints,
+      events: [event],
+      conflicts: materialized.conflicts
+    }, this.now(), {
+      eventType,
+      sourceDeviceId: local.deviceId
+    });
   }
 
   updatePermissions(input = {}) {
@@ -888,8 +1012,10 @@ class MeshService {
   createCatalogSnapshot() {
     const store = new MeshStore(this.databasePath);
     try {
-      const snapshot = store.readSnapshot();
+      let snapshot = store.readSnapshot();
       if (!snapshot) throw new Error('mesh-not-initialized');
+      this.ensureCatalogEventCoverage(store, snapshot);
+      snapshot = store.readSnapshot();
       return buildCatalogSnapshot(snapshot, {
         meshId: snapshot.mesh.meshId,
         sourceDeviceId: snapshot.mesh.localDeviceId,
@@ -900,13 +1026,120 @@ class MeshService {
     }
   }
 
+  createCatalogEventSync(vector = {}) {
+    const store = new MeshStore(this.databasePath);
+    try {
+      let snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      this.ensureCatalogEventCoverage(store, snapshot);
+      snapshot = store.readSnapshot();
+      return {
+        meshId: snapshot.mesh.meshId,
+        sourceDeviceId: snapshot.mesh.localDeviceId,
+        vector: catalogEventVector(snapshot.catalogEvents),
+        events: catalogEventsAfterVector(snapshot.catalogEvents, vector)
+      };
+    } finally {
+      store.close();
+    }
+  }
+
+  getCatalogEventVector() {
+    return this.createCatalogEventSync({}).vector;
+  }
+
+  applyRemoteCatalogEvents(input = {}) {
+    const incoming = normalizeCatalogEventList(input.events);
+    const store = new MeshStore(this.databasePath);
+    try {
+      let snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      this.ensureCatalogEventCoverage(store, snapshot);
+      snapshot = store.readSnapshot();
+      const knownById = new Map(snapshot.catalogEvents.map((event) => [event.eventId, event]));
+      const knownBySequence = new Map(snapshot.catalogEvents.map((event) => [
+        `${event.sourceDeviceId}:${event.sourceSequence}`,
+        event.eventId
+      ]));
+      const accepted = [];
+      for (const event of incoming) {
+        const existing = knownById.get(event.eventId);
+        if (existing) {
+          if (JSON.stringify(existing) !== JSON.stringify(event)) {
+            throw new Error('catalog-event-id-collision');
+          }
+          continue;
+        }
+        if (event.meshId !== snapshot.mesh.meshId) throw new Error('catalog-event-mesh-mismatch');
+        const verified = verifyCatalogEvent(event, snapshot.mesh.rootPublicKey, { now: this.now() });
+        if (!verified.ok) throw new Error(verified.reason);
+        const revokedAt = store.deviceRevokedAt(event.sourceDeviceId);
+        if (revokedAt && Date.parse(event.createdAt) >= Date.parse(revokedAt)) {
+          throw new Error('catalog-event-source-revoked');
+        }
+        const sequenceKey = `${event.sourceDeviceId}:${event.sourceSequence}`;
+        if (knownBySequence.has(sequenceKey)) throw new Error('catalog-event-sequence-conflict');
+        knownById.set(event.eventId, event);
+        knownBySequence.set(sequenceKey, event.eventId);
+        accepted.push(event);
+      }
+      if (!accepted.length) {
+        const materialized = materializeCatalogEvents(snapshot, snapshot.catalogEvents, {
+          catalogRevision: snapshot.catalogRevision,
+          now: this.now()
+        });
+        return {
+          changed: false,
+          inserted: 0,
+          catalogRevision: snapshot.catalogRevision,
+          vector: catalogEventVector(snapshot.catalogEvents),
+          conflicts: materialized.conflicts,
+          unresolvedEventIds: materialized.unresolvedEventIds
+        };
+      }
+      const allEvents = [...snapshot.catalogEvents, ...accepted];
+      const materialized = materializeCatalogEvents(snapshot, allEvents, {
+        catalogRevision: snapshot.catalogRevision + 1,
+        now: this.now()
+      });
+      const inserted = store.saveCatalogEventState({
+        catalog: materialized.catalog,
+        blueprints: materialized.blueprints,
+        events: accepted,
+        conflicts: materialized.conflicts
+      }, this.now(), {
+        eventType: 'catalog.remote-events-applied',
+        sourceDeviceId: input.deviceId || null
+      });
+      const liveAgentIds = new Set(materialized.catalog.agents.map((agent) => agent.agentId));
+      store.saveRuntimeModel({
+        blueprints: materialized.blueprints,
+        deployments: snapshot.deployments.filter((deployment) => liveAgentIds.has(deployment.agentId))
+      }, this.now(), {
+        localDeviceId: snapshot.mesh.localDeviceId
+      });
+      return {
+        changed: materialized.changed,
+        inserted,
+        catalogRevision: materialized.catalog.catalogRevision,
+        vector: catalogEventVector(allEvents),
+        conflicts: materialized.conflicts,
+        unresolvedEventIds: materialized.unresolvedEventIds
+      };
+    } finally {
+      store.close();
+    }
+  }
+
   applyRemoteCatalog(input = {}) {
     const incoming = normalizeCatalogSnapshot(input.snapshot);
     const store = new MeshStore(this.databasePath);
     let result;
     try {
-      const snapshot = store.readSnapshot();
+      let snapshot = store.readSnapshot();
       if (!snapshot) throw new Error('mesh-not-initialized');
+      this.ensureCatalogEventCoverage(store, snapshot);
+      snapshot = store.readSnapshot();
       const sourceDeviceId = String(input.deviceId || incoming.sourceDeviceId);
       if (incoming.meshId !== snapshot.mesh.meshId) throw new Error('catalog-mesh-mismatch');
       if (incoming.sourceDeviceId !== sourceDeviceId) throw new Error('catalog-device-mismatch');
@@ -917,17 +1150,27 @@ class MeshService {
 
       result = mergeCatalogSnapshot(snapshot, incoming);
       if (result.changed) {
-        const liveAgentIds = new Set(result.catalog.agents.map((agent) => agent.agentId));
-        store.saveCatalog(result.catalog, this.now(), {
-          eventType: 'catalog.remote-synced',
-          sourceDeviceId
-        });
+        this.saveLocalCatalogMutation(
+          store,
+          snapshot,
+          result.catalog,
+          'catalog.compatibility-imported',
+          'compatibility',
+          {
+            blueprints: result.blueprints,
+            originDeviceId: sourceDeviceId
+          }
+        );
+        const persisted = store.readSnapshot();
+        const liveAgentIds = new Set(persisted.agents.map((agent) => agent.agentId));
         store.saveRuntimeModel({
-          blueprints: result.blueprints,
+          blueprints: persisted.blueprints,
           deployments: snapshot.deployments.filter((deployment) => liveAgentIds.has(deployment.agentId))
         }, this.now(), {
           localDeviceId: snapshot.mesh.localDeviceId
         });
+        result.catalog = normalizeCatalog(persisted);
+        result.blueprints = persisted.blueprints;
       }
     } finally {
       store.close();
@@ -1050,6 +1293,42 @@ class MeshService {
         local: { ...local, devicePublicKey: membership.payload.devicePublicKey },
         secrets: this.keyVault.load()
       };
+    } finally {
+      store.close();
+    }
+  }
+
+  getLocalRuntimeMetadata() {
+    return {
+      appVersion: optionalText(this.appVersion, 40) || 'unknown',
+      protocolVersion: PROTOCOL_VERSION,
+      platform: optionalText(this.platform, 40) || 'unknown',
+      arch: optionalText(this.arch, 40) || 'unknown',
+      osVersion: optionalText(this.osVersion, 120) || 'unknown'
+    };
+  }
+
+  updateRemoteRuntimeMetadata(deviceId, input = {}) {
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      const remote = snapshot.devices.find((device) => device.deviceId === String(deviceId || ''));
+      if (!remote || remote.isLocal) throw new Error('remote-device-not-found');
+      if (remote.status === 'revoked' || store.isDeviceRevoked(remote.deviceId)) {
+        throw new Error('device-revoked');
+      }
+      const next = normalizeDevice({
+        ...remote,
+        appVersion: optionalText(input.appVersion, 40) || remote.appVersion,
+        protocolVersion: optionalText(input.protocolVersion, 20) || remote.protocolVersion,
+        platform: optionalText(input.platform, 40) || remote.platform,
+        arch: optionalText(input.arch, 40) || remote.arch,
+        osVersion: optionalText(input.osVersion, 120) || remote.osVersion
+      });
+      if (JSON.stringify(remote) === JSON.stringify(next)) return false;
+      store.saveDevice(next, this.now());
+      return true;
     } finally {
       store.close();
     }

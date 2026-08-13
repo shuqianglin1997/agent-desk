@@ -296,11 +296,11 @@ remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
 
 `PeerManager` 在隐藏沙箱 Renderer 中建立 RTCPeerConnection。WebRTC DTLS 之后仍要验证成员证书、签名信封和双方 DeviceProof，认证完成才开放库存、传输或远控消息。ICE 配置合并用户 STUN、部署静态 TURN 与网关短期 TURN；公开状态只保留 `host/srflx/prflx/relay`、UDP/TCP 和 pair state。
 
-`connection.hello/ready` 在设备签名 payload 中把协议 feature 与权限 capability 分开：只协商精确白名单 `catalog.snapshot.v1` 和 `inventory.device-facts.v1`，未知值不持久化。旧端没有目录 feature 时不接收未知 `catalog.snapshot`，继续走 inventory-only；双方支持目录但单边没有当前 `catalog.manage` 时交换有界 unavailable，首目录屏障结束而 `inventory.read` 不受影响。
+`connection.hello/ready` 在设备签名 payload 中把协议 feature 与权限 capability 分开：只协商精确白名单 `catalog.events.v1`、`catalog.snapshot.v1` 和 `inventory.device-facts.v1`，未知值不持久化；同一握手携带当前 appVersion/protocol/platform/arch/osVersion 与目录来源向量。新端只发送对方缺少的原始签名目录事件，0.9.4 旧端继续接收快照，更旧端没有目录 feature 时走 inventory-only；双方支持目录但单边没有当前 `catalog.manage` 时交换有界 unavailable，首目录屏障结束而 `inventory.read` 不受影响。
 
 ### 库存和传输
 
-- 独立 `catalog.snapshot` 只携带 Agent、AccountBinding、Blueprint 与 tombstone；现代 inventory 只发布来源设备自己的 Slot 与 SessionReplica，快照有 16 MiB 上限、分块摘要和 revision；
+- 独立 `catalog.events.v1` 以来源连续向量补齐带原设备签名的 Agent、AccountBinding、Blueprint 与 tombstone 事件；并发普通字段确定性物化，关系事务保留原子边界，删除同 ID 永久防复活。0.9.4 的独立 `catalog.snapshot` 先经 tombstone 合并再转换为本机签名兼容事件；现代 inventory 只发布来源设备自己的 Slot 与 SessionReplica，快照有 16 MiB 上限、分块摘要和 revision；
 - 旧端 inventory 目录投影只在接收端当前授予 `catalog.manage` 时用于增补未知对象，不能覆盖既有 Binding、应用 tombstone 或裁剪零 Slot 员工；
 - 同一强账号键归到同一 AccountBinding，同一强会话键折叠为一个 ConversationIdentity，弱标识保持设备作用域；
 - SessionPointer 由 Main 根据 `conversationId + replicaId + targetDeviceId` 重新查表并加密，离线队列只存发送端；
@@ -334,7 +334,7 @@ npm run accept:ui
 npm run build:mac:dir
 ```
 
-当前完整 Node 套件共 418 项（417 通过、1 项仅 Windows 跳过、0 失败）。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均完成认证、目录/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；它仍不是物理双机或真实 NAT/TURN 证据。
+当前完整 Node 套件共 428 项（427 通过、1 项仅 Windows 跳过、0 失败）。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；它仍不是物理双机或真实 NAT/TURN 证据。
 
 `npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 17 条任务路径：58/244/316/38 固定几何与 Compact 无横滚、focus/checked/隐藏选择、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、本机新增、四个 Header 入口、固定区矩形与单一滚动所有者、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销后详情清理和 reduced-motion。
 
@@ -346,9 +346,9 @@ npm run build:mac:dir
 - package 不包含会话协议 SDK；
 - 庭院只暴露三类核心意图。
 - Mesh 账号关联键在同 Mesh 内稳定、跨 Mesh 不可关联，成员证书和握手证明可检测篡改与过期；
-- 目录与库存 feature 兼容、权限不对称、旧端降级和 inventory 不能越权修改全局目录；
+- 签名目录事件、来源连续向量、字段并发合并、同字段稳定冲突、结构事务门禁、删除 tombstone 与 0.9.4 快照兼容；inventory 不能越权修改全局目录；
 - `agent.prepare` 在确认后重新核对当前权限与连接代次，撤权/断连后的迟到允许不产生副作用；
-- schema v5 的迁移回滚点包含已提交 WAL，并在发布前校验版本、完整性与外键；
+- schema v6 的迁移回滚点包含已提交 WAL，并在发布前校验版本、完整性与外键；目录事件来源序列/Lamport 独立落列且不随 Device 删除级联消失；
 - 同账号跨形态只形成一个 Agent，同机多账号不误合并，换号不静默搬历史，最后 Slot 删除后目录可为空；
 - Header 直接提供设备、工具、活动和设置，四个入口各开独立模态弹窗且不改变底层工作台或三个固定面板，设备 IPC 保持固定白名单；
 - 四个全局弹窗的 Header/关闭/全局命令/Footer 不随内容滚动；工具、活动、设置不保留底部“完成”，父子弹窗关闭后恢复准确焦点和 disclosure 状态；

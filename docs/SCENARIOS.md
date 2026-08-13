@@ -122,7 +122,7 @@ AgentDesk 不替用户补充说明，不合并多个会话、不整理交接材�
 
 ## 12. 当前验证边界
 
-以上有人值守功能的代码链路已实现。完整 Node 套件 418 项中 417 通过、1 项仅 Windows 跳过、0 失败；本机两个隔离数据目录、两个沙箱 Renderer 的真实 Electron WebRTC 在局域网直连与本机 signaling 两种路径均完成认证、独立目录、来源库存、显式刷新、SessionPointer、184,333 字节文件及合成视频链路验证。另有使用临时 userData 的真实 1040 × 840 Electron 验收，覆盖 17 条本地任务路径，包括 58/244/316/38 固定几何、Compact 无横滚、少量卡固定宽度与 7+ 横滚、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、focus/勾选、四个 Header 入口、固定弹窗 Shell/父子 Esc、760 × 560 小视口、设备原子导航、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销清理和 reduced-motion。仍需在正式公开发布前完成：
+以上有人值守功能的代码链路已实现。完整 Node 套件 428 项中 427 通过、1 项仅 Windows 跳过、0 失败；本机两个隔离数据目录、两个沙箱 Renderer 的真实 Electron WebRTC 在局域网直连与本机 signaling 两种路径均完成认证、签名目录事件、来源库存、显式刷新、SessionPointer、184,333 字节文件及合成视频链路验证。另有使用临时 userData 的真实 1040 × 840 Electron 验收，覆盖 17 条本地任务路径，包括 58/244/316/38 固定几何、Compact 无横滚、少量卡固定宽度与 7+ 横滚、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、focus/勾选、四个 Header 入口、固定弹窗 Shell/父子 Esc、760 × 560 小视口、设备原子导航、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销清理和 reduced-motion。仍需在正式公开发布前完成：
 
 - 两台物理电脑跨真实家庭 NAT、对称 NAT、CGNAT、IPv6 和 UDP 禁用环境；
 - 真实 coturn 的 UDP/TCP/TLS 强制中继；

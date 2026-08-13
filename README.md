@@ -137,7 +137,7 @@ See [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), an
 
 AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
-> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、长期全局员工库与 Blueprint/Deployment/可恢复首次准备、独立签名目录与来源设备库存、SessionPointer 与选定文件传输、固定远端打开/有人准备、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。签名协议 feature 让旧端安全降级为 inventory-only，只读库存不能覆盖或删除全局目录。完整 Node 套件 418 项中 417 通过、1 项仅 Windows 跳过；真实 1040 × 840 Electron 的 17 条任务路径、局域网直连和本机 signaling 两种隔离双端链路均通过。物理双机、长期可达、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
+> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、长期全局员工库与 Blueprint/Deployment/可恢复首次准备、无固定主机的签名目录事件与来源设备库存、SessionPointer 与选定文件传输、固定远端打开/有人准备、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。新端按来源向量补齐目录事件，双端字段编辑自动收敛，删除 tombstone 防旧端复活；0.9.4 安全降级为目录快照，更旧端 inventory-only。完整 Node 套件 428 项中 427 通过、1 项仅 Windows 跳过；真实 1040 × 840 Electron 的 17 条任务路径、局域网直连和本机 signaling 两种隔离双端链路均通过。物理双机 0.9.5 双端编辑、长期可达、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
 
 ## 核心能力
 

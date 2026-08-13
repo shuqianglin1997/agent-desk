@@ -1,4 +1,4 @@
-const MESH_SCHEMA_VERSION = 5;
+const MESH_SCHEMA_VERSION = 6;
 
 function migrateMeshDatabase(database) {
   database.exec('PRAGMA foreign_keys = ON');
@@ -10,6 +10,35 @@ function migrateMeshDatabase(database) {
   if (current < 3) migrateToVersion3(database);
   if (current < 4) migrateToVersion4(database);
   if (current < 5) migrateToVersion5(database);
+  if (current < 6) migrateToVersion6(database);
+}
+
+function migrateToVersion6(database) {
+  database.exec(`
+    BEGIN IMMEDIATE;
+
+    DROP INDEX IF EXISTS catalog_events_revision_source;
+    DROP TABLE catalog_events;
+
+    CREATE TABLE catalog_events (
+      event_id TEXT PRIMARY KEY,
+      source_device_id TEXT NOT NULL,
+      source_sequence INTEGER NOT NULL,
+      lamport INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    );
+
+    CREATE UNIQUE INDEX catalog_events_source_sequence
+      ON catalog_events(source_device_id, source_sequence);
+
+    CREATE INDEX catalog_events_lamport
+      ON catalog_events(lamport, source_device_id, source_sequence);
+
+    PRAGMA user_version = 6;
+    COMMIT;
+  `);
 }
 
 function migrateToVersion5(database) {
