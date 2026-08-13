@@ -40,6 +40,7 @@ const { normalizeCat } = require('./yard/cats');
 const { mt } = require('./i18n/main-i18n');
 const { MeshService } = require('./mesh/main/mesh-service');
 const { ProvisioningService } = require('./mesh/main/provisioning-service');
+const { provisioningAdapterDescriptor } = require('./mesh/main/provisioning-adapters');
 const { PeerManager } = require('./mesh/main/peer-manager');
 const { TransferService } = require('./mesh/main/transfer-service');
 const { RemoteControlService } = require('./mesh/main/remote-control-service');
@@ -219,7 +220,14 @@ if (!hasSingleInstanceLock) {
 
 function registerIpc() {
   ipcMain.handle('apps:list', () => {
-    return apps.listApps();
+    return apps.listApps().map((entry) => {
+      const descriptor = provisioningAdapterDescriptor(entry.id, 'desktop');
+      return {
+        ...entry,
+        canProvision: Boolean(descriptor?.supportedPlatforms?.includes(process.platform)),
+        provisioningClientForm: descriptor?.clientForm || null
+      };
+    });
   });
 
   ipcMain.handle('settings:get', (_event, legacySettings = {}) => {

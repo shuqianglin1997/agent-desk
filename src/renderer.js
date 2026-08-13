@@ -49,6 +49,8 @@ const state = {
     removingSlotKey: null,
     relationAgentId: null,
     assigningSlotKey: null,
+    provisioningAppByAgentAndDevice: {},
+    provisioningBusyKey: null,
     remoteSessions: [],
     transfers: [],
     transferLoading: false,
@@ -109,7 +111,9 @@ async function loadApps() {
           label: a.label,
           tagColor: a.tagColor,
           canExportTranscript: Boolean(a.canExportTranscript),
-          canLaunch: a.canLaunch !== false
+          canLaunch: a.canLaunch !== false,
+          canProvision: a.canProvision === true,
+          provisioningClientForm: a.provisioningClientForm || null
         }
       ]));
     }
@@ -678,22 +682,20 @@ function bindEvents() {
     state.mesh.editingAgentId = null;
   });
 
-  els.launchBtn.addEventListener('click', async () => {
-    const profile = selectedProfile();
-    if (!profile) return;
-    const result = await window.manager.launchProfile(profile.id);
-    if (!result.ok) {
-      setStatus(result.reason || tr('status.openFail'));
-      return;
-    }
-    await loadProfiles(profile.id);
-    setStatus(result.warning || tr('status.opened', { name: profile.name }));
-  });
+  els.launchBtn.addEventListener('click', () => void openCurrentAgent());
 
   // 运行位置切换只改变副作用落点；不重新加载会话，也不清空搜索或会话选择。
   els.formSelect?.addEventListener('change', () => {
-    const id = els.formSelect.value;
-    if (id && id !== currentProfileId()) selectSlot(id);
+    const value = els.formSelect.value;
+    if (value.startsWith('prepare:')) {
+      const [, appId, clientForm = 'desktop'] = value.split(':');
+      const group = identityGroups().find((item) => item.key === currentAgentId()) || null;
+      const action = currentAgentActionContext(group, null);
+      rememberProvisioningChoice(group, action.deviceId, appId, clientForm);
+      renderAccountHeader();
+      return;
+    }
+    if (value && value !== currentProfileId()) selectSlot(value);
   });
 
   els.updateBtn.addEventListener('click', async () => {
@@ -903,6 +905,19 @@ function bindEvents() {
 
   if (window.manager.onToolProgress) {
     window.manager.onToolProgress(handleToolProgress);
+  }
+
+  if (window.manager.onAgentDeploymentsChanged) {
+    window.manager.onAgentDeploymentsChanged((payload = {}) => {
+      if (payload.overview?.initialized) state.mesh.overview = payload.overview;
+      validateUiContext();
+      renderAccounts();
+      renderAccountHeader();
+      renderDeviceCenter();
+      if (payload.state === 'ready') {
+        void loadProfiles().catch(() => {});
+      }
+    });
   }
 
   if (window.manager.onDeviceConnectionState) {
@@ -2606,10 +2621,11 @@ function initYard() {
   window.YardScene.mount({
     canvas: els.yardCanvas,
     overlay: els.yardOverlay,
-    onSelect: async (profileId) => {
-      await selectProfile(profileId);
-      const profile = selectedProfile();
-      if (profile) setStatus(tr('status.selected', { name: profile.name }));
+    onSelect: async (presenterId) => {
+      const group = groupOfPresenterId(presenterId);
+      if (!group) return;
+      await selectAgent(group.key);
+      setStatus(tr('status.selected', { name: group.agent?.displayName || group.primary.name }));
     },
     onPet: (profile) => {
       window.YardScene.say(profile.id, { text: tr('yard.say.purr'), kind: 'ambient', duration: 2800 });
@@ -4360,7 +4376,9 @@ function saveYardPosition(profileId, point, zoneId = 'ground') {
 function handleYardDrop({ profile, state: activityState, point, zone }) {
   if (!profile || !window.YardInteractions) return false;
   const zoneId = zone?.id || 'ground';
-  const hasSelectedSession = profile.id === currentProfileId() && Boolean(sessionForProfile(profile.id));
+  const group = groupOfPresenterId(profile.id);
+  const selectedRuntime = group?.key === currentAgentId() ? selectedProfile() : null;
+  const hasSelectedSession = Boolean(selectedRuntime && sessionForProfile(selectedRuntime.id));
   const intent = window.YardInteractions.resolveDropIntent(zoneId, {
     activityState,
     hasSession: hasSelectedSession
@@ -4380,15 +4398,21 @@ function handleYardDrop({ profile, state: activityState, point, zone }) {
 }
 
 async function executeYardIntent(profile, initialIntent) {
-  await selectProfile(profile.id);
-  const profileSession = sessionForProfile(profile.id);
+  const group = groupOfPresenterId(profile.id);
+  if (!group) return;
+  await selectAgent(group.key);
+  const runtimeProfile = selectedProfile();
+  const profileSession = runtimeProfile ? sessionForProfile(runtimeProfile.id) : null;
   if (profileSession) {
     setActiveSession(profileSession);
     renderSessions();
     renderInspector();
   }
+  const mergedActivity = window.IdentityGroups
+    ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
+    : null;
   const activityState = window.YardCats
-    ? window.YardCats.deriveState(Date.now(), profile, state.activity[profile.id])
+    ? window.YardCats.deriveState(Date.now(), profile, mergedActivity)
     : 'rest';
   const intent = window.YardInteractions.resolveDropIntent(initialIntent.zoneId, {
     activityState,
@@ -4411,14 +4435,11 @@ async function executeYardIntent(profile, initialIntent) {
   }
   if (intent.action === 'launch-profile') {
     if (!window.confirm(tr('status.openConfirmLaunch', { name: profile.name }))) return;
-    const result = await window.manager.launchProfile(profile.id);
-    if (!result.ok) {
-      window.YardScene.say(profile.id, { text: result.reason || tr('status.openFailShort'), kind: 'error', duration: 5000 });
-      setStatus(result.reason || tr('status.openFail'));
-      return;
+    const result = await openCurrentAgent();
+    if (result?.ok === false) {
+      const message = provisioningResultMessage(result);
+      window.YardScene.say(profile.id, { text: message, kind: 'error', duration: 5000 });
     }
-    await loadProfiles(profile.id);
-    setStatus(result.warning || tr('status.opened', { name: profile.name }));
     return;
   }
 }
@@ -4662,6 +4683,31 @@ const CARD_STATE_DOT = {
   play: '#d05a7a', rest: '#9a8b6a', nap: '#8a7fa8', hibernate: '#6a6a8a'
 };
 
+const DEPLOYMENT_STATE_DOT = {
+  ready: '#4f8a42',
+  absent: '#8f8778',
+  planning: '#3d6aa8',
+  preparing: '#3d6aa8',
+  verifying: '#3d6aa8',
+  'waiting-install': '#c1852d',
+  'waiting-login': '#c1852d',
+  error: '#c94f2e',
+  unsupported: '#7d6c9d',
+  offline: '#77736c',
+  retired: '#77736c'
+};
+
+function deploymentStateLabel(value) {
+  const stateName = String(value || 'absent');
+  return tr(`deployment.state.${stateName}`);
+}
+
+function provisioningAppLabel(appId) {
+  return appId && appId !== 'unknown'
+    ? appLabel(appId)
+    : tr('deployment.client.unselected');
+}
+
 function renderAccounts() {
   renderAccountRoster();
   populateGroupDatalist();
@@ -4748,7 +4794,11 @@ function buildAccountCard(group, now) {
   const activityState = window.IdentityGroups?.resolveCardActivityState
     ? window.IdentityGroups.resolveCardActivityState(activityEvidence, derivedActivityState)
     : (activityEvidence.remoteUnknown && derivedActivityState !== 'working' ? null : derivedActivityState);
-  const stateLabel = activityState ? tr('state.' + activityState) : tr('card.activityUnknown');
+  const meshMode = state.mesh.overview?.initialized === true;
+  const deploymentState = group.readiness?.state || 'absent';
+  const stateLabel = meshMode
+    ? deploymentStateLabel(deploymentState)
+    : (activityState ? tr('state.' + activityState) : tr('card.activityUnknown'));
 
   const top = document.createElement('div');
   top.className = 'account-card-top';
@@ -4779,10 +4829,10 @@ function buildAccountCard(group, now) {
   }
   const gp = document.createElement('div');
   gp.className = 'account-card-group';
-  if (state.mesh.overview?.initialized) {
+  if (meshMode) {
     // “运行位置”以 Slot 为口径；同一设备上的 Desktop/CLI 是两个明确动作落点。
-    const positions = group.members.length;
-    const online = group.members.filter((member) => member._deviceStatus === 'online').length;
+    const positions = (group.allMembers || group.members).length;
+    const online = (group.allMembers || group.members).filter((member) => member._deviceStatus === 'online').length;
     gp.textContent = tr('presenter.positions', { positions, online });
   } else {
     gp.textContent = primary.group ? tr('card.group', { g: primary.group }) : appLabel(primary.appId);
@@ -4792,11 +4842,13 @@ function buildAccountCard(group, now) {
 
   const st = document.createElement('div');
   st.className = 'account-card-state';
-  st.dataset.activity = activityState || 'unknown';
+  st.dataset.activity = meshMode ? deploymentState : (activityState || 'unknown');
   const dot = document.createElement('span');
   dot.className = 'account-card-dot';
-  dot.style.background = CARD_STATE_DOT[activityState] || '#9a9a9a';
-  st.append(dot, document.createTextNode(`${stateLabel} · ${appLabel(primary.appId)}`));
+  dot.style.background = meshMode
+    ? (DEPLOYMENT_STATE_DOT[deploymentState] || '#9a9a9a')
+    : (CARD_STATE_DOT[activityState] || '#9a9a9a');
+  st.append(dot, document.createTextNode(`${stateLabel} · ${provisioningAppLabel(primary.appId)}`));
 
   const details = document.createElement('div');
   details.className = 'account-card-details';
@@ -4862,7 +4914,7 @@ function buildAccountCard(group, now) {
   details.append(lastActive, quotaSummary, quotaTrack);
 
   card.append(top, st, details);
-  card.addEventListener('click', () => selectProfile(primary.id));
+  card.addEventListener('click', () => selectAgent(group.key));
   return card;
 }
 
@@ -4896,12 +4948,14 @@ function renderTopbarContext() {
     return;
   }
   const profile = selectedProfile();
+  const selectedGroup = identityGroups().find((group) => group.key === currentAgentId()) || null;
   if (!profile) {
     const remoteCount = activeOutgoingRemoteSessions().length;
     els.topbarContext.textContent = [
       deviceContext,
       ctx,
-      tr('ctx.noAgent'),
+      selectedGroup?.agent?.displayName || selectedGroup?.primary?.name || tr('ctx.noAgent'),
+      selectedGroup ? deploymentStateLabel(selectedGroup.readiness?.state) : null,
       remoteCount ? tr('remote.workspace.activeCount', { n: remoteCount }) : null
     ].filter(Boolean).join(' · ');
     return;
@@ -4930,54 +4984,11 @@ function identityGroups() {
 function identityGroupsForLens(lensId = 'all') {
   const overview = state.mesh.overview;
   if (overview?.initialized) {
-    const devices = new Map((overview.devices || []).map((device) => [device.deviceId, device]));
-    const bindings = new Map((overview.accountBindings || []).map((binding) => [binding.accountBindingId, binding]));
-    const localProfiles = new Map(state.profiles.map((profile) => [String(profile.id), profile]));
-    const lens = lensId || 'all';
-    const groups = [];
-    for (const agent of overview.agents || []) {
-      const slots = (overview.slots || []).filter((slot) => (
-        slot.agentId === agent.agentId
-        && slot.accountBindingId
-        && slot.assignmentState === 'linked'
-        && (lens === 'all' || slot.deviceId === lens)
-      ));
-      if (!slots.length) continue;
-      const members = slots.map((slot) => {
-        const device = devices.get(slot.deviceId) || {};
-        const binding = bindings.get(slot.accountBindingId) || {};
-        const local = slot.deviceId === overview.localDeviceId
-          ? localProfiles.get(String(slot.profileId))
-          : null;
-        return {
-          ...(local || {}),
-          id: local ? String(local.id) : `mesh:${slot.deviceId}:${slot.profileId}`,
-          name: agent.displayName || local?.name || slot.localLabel || 'Agent',
-          appId: slot.appId || local?.appId || 'unknown',
-          cat: agent.catAppearance || local?.cat || null,
-          group: agent.group || local?.group || '',
-          note: agent.note || local?.note || '',
-          _meshAgentId: agent.agentId,
-          _accountBindingId: slot.accountBindingId,
-          _accountBindingAlias: binding.displayAlias || slot.localLabel || null,
-          _providerNamespace: binding.providerNamespace || slot.appId || null,
-          _meshDeviceId: slot.deviceId,
-          _meshProfileId: slot.profileId,
-          _meshSlotKey: `${slot.deviceId}:${slot.profileId}`,
-          _meshDeviceName: device.name || slot.deviceId,
-          _remote: slot.deviceId !== overview.localDeviceId,
-          _deviceStatus: device.status || 'offline',
-          _assignmentState: slot.assignmentState,
-          _launchable: slot.launchable === true
-        };
-      }).sort((left, right) => {
-        if (left._remote !== right._remote) return left._remote ? 1 : -1;
-        if (left._deviceStatus !== right._deviceStatus) return left._deviceStatus === 'online' ? -1 : 1;
-        return left._meshSlotKey.localeCompare(right._meshSlotKey);
-      });
-      groups.push({ key: agent.agentId, primary: members[0], members, agent, slots });
-    }
-    return groups;
+    return window.AgentWorkspace.projectMeshAgentGroups({
+      overview,
+      profiles: state.profiles,
+      lensId: lensId || 'all'
+    });
   }
   if (!window.IdentityGroups) return state.profiles.map((profile) => ({ key: profile.id, primary: profile, members: [profile] }));
   return window.IdentityGroups.groupProfilesByIdentity(state.profiles);
@@ -4986,6 +4997,11 @@ function identityGroupsForLens(lensId = 'all') {
 function groupOfProfile(profileId) {
   if (!profileId) return null;
   return identityGroups().find((group) => group.members.some((member) => member.id === profileId)) || null;
+}
+
+function groupOfPresenterId(presenterId) {
+  if (!presenterId) return null;
+  return identityGroups().find((group) => group.primary?.id === presenterId) || null;
 }
 
 function preferredSlot(members) {
@@ -5004,6 +5020,17 @@ function setProfileContext(profileId) {
   state.ui = window.UiContext.setAgent(state.ui, group.key, {
     slotKey: member._meshSlotKey || member.id
   });
+  return true;
+}
+
+function setAgentContext(agentId) {
+  const group = identityGroups().find((item) => item.key === agentId);
+  if (!group) return false;
+  const member = preferredSlot(group.members);
+  state.ui = window.UiContext.setAgent(state.ui, group.key, {
+    slotKey: member?._meshSlotKey || member?.id || null
+  });
+  if (!member) state.ui = window.UiContext.setSlot(state.ui, null);
   return true;
 }
 
@@ -5101,6 +5128,14 @@ async function selectProfile(profileId) {
   renderAttentionInbox();
 }
 
+async function selectAgent(agentId) {
+  if (!setAgentContext(agentId)) return;
+  renderAccounts();
+  renderAccountHeader();
+  await loadSessions();
+  renderAttentionInbox();
+}
+
 function selectSlot(profileId) {
   const group = groupOfProfile(profileId);
   const member = group?.members.find((item) => item.id === profileId);
@@ -5122,9 +5157,193 @@ function populateGroupDatalist() {
   }
 }
 
-// 组内形态切换器：账号(组)有多个客户端形态时，在控制条列出各形态供切换。
-// 卡片/猫只负责选中 Agent；运行位置选择器只更新 UiContext 中的 Slot，
-// 编辑、移除、打开、诊断、位置和额度均通过该 Slot 即时解析本地 Profile。
+function provisioningChoiceKey(agentId, deviceId) {
+  return `${String(agentId || '')}::${String(deviceId || '')}`;
+}
+
+function supportedProvisioningApps() {
+  return Object.entries(state.appMeta)
+    .filter(([, meta]) => meta.canProvision === true)
+    .map(([appId, meta]) => ({
+      appId,
+      clientForm: meta.provisioningClientForm || 'desktop',
+      label: meta.label || appId
+    }));
+}
+
+function selectedProvisioningApp(group, deviceId, profile = null) {
+  if (!group || !deviceId) return null;
+  const remembered = state.mesh.provisioningAppByAgentAndDevice[
+    provisioningChoiceKey(group.key, deviceId)
+  ];
+  const deployment = group.deployments?.find((item) => item.deviceId === deviceId) || null;
+  const fromExistingSlot = (group.allMembers || group.members || []).find((member) => (
+    member._meshDeviceId === deviceId && state.appMeta[member.appId]?.canProvision === true
+  )) || (group.allMembers || group.members || []).find((member) => state.appMeta[member.appId]?.canProvision === true);
+  const appId = profile?.appId
+    || remembered?.appId
+    || deployment?.adapterId
+    || group.blueprint?.preferredAppId
+    || fromExistingSlot?.appId
+    || null;
+  if (!appId) return null;
+  return {
+    appId,
+    clientForm: remembered?.clientForm
+      || profile?._clientForm
+      || group.blueprint?.preferredClientForm
+      || 'desktop'
+  };
+}
+
+function currentAgentActionContext(group = null, profile = selectedProfile()) {
+  const selectedGroup = group || identityGroups().find((item) => item.key === currentAgentId()) || null;
+  const overview = state.mesh.overview;
+  if (!overview?.initialized || !selectedGroup) {
+    return { group: selectedGroup, profile, meshMode: false };
+  }
+  const lensId = currentDeviceLensId();
+  const deviceId = profile?._meshDeviceId
+    || (lensId !== 'all' ? lensId : overview.localDeviceId);
+  const device = (overview.devices || []).find((item) => item.deviceId === deviceId) || null;
+  const deployment = (selectedGroup.deployments || []).find((item) => item.deviceId === deviceId) || null;
+  const readiness = window.AgentWorkspace.resolveReadiness({
+    overview,
+    agentId: selectedGroup.key,
+    lensId: deviceId,
+    deployments: selectedGroup.deployments,
+    allMembers: selectedGroup.allMembers,
+    members: (selectedGroup.allMembers || []).filter((member) => member._meshDeviceId === deviceId)
+  });
+  const requested = selectedProvisioningApp(selectedGroup, deviceId, profile);
+  const activeJob = (overview.provisioningJobs || []).find((job) => (
+    job.agentId === selectedGroup.key
+    && job.deviceId === deviceId
+    && (!requested?.appId || job.requestedAppId === requested.appId)
+  )) || null;
+  return {
+    meshMode: true,
+    group: selectedGroup,
+    profile,
+    agent: selectedGroup.agent,
+    device,
+    deviceId,
+    deployment,
+    readiness,
+    requested,
+    activeJob,
+    isRemote: deviceId !== overview.localDeviceId,
+    busy: state.mesh.provisioningBusyKey === provisioningChoiceKey(selectedGroup.key, deviceId)
+  };
+}
+
+function rememberProvisioningChoice(group, deviceId, appId, clientForm = 'desktop') {
+  if (!group || !deviceId || !appId) return;
+  state.mesh.provisioningAppByAgentAndDevice = {
+    ...state.mesh.provisioningAppByAgentAndDevice,
+    [provisioningChoiceKey(group.key, deviceId)]: { appId, clientForm }
+  };
+}
+
+function provisioningButtonLabel(action) {
+  if (action?.busy) return tr('deployment.action.preparing');
+  const deploymentState = action?.readiness?.state || 'absent';
+  if (deploymentState === 'ready' && action.profile) return tr('account.open');
+  if (deploymentState === 'waiting-login') return tr('deployment.action.continueLogin');
+  if (deploymentState === 'waiting-install') return tr('deployment.action.continueInstall');
+  if (deploymentState === 'error' || deploymentState === 'unsupported') return tr('deployment.action.retry');
+  if (window.AgentWorkspace?.isPreparationActive(deploymentState)) return tr('deployment.action.continue');
+  return tr('deployment.action.firstOpen');
+}
+
+function provisioningResultMessage(result = {}, name = null) {
+  const agentName = name || currentAgentActionContext()?.agent?.displayName || tr('account.noneAgent');
+  if (result.state === 'ready' && result.ok) return tr('status.opened', { name: agentName });
+  if (result.state === 'waiting-install') return tr('status.provisioning.waitingInstall', { name: agentName });
+  if (result.state === 'waiting-login') return tr('status.provisioning.waitingLogin', { name: agentName });
+  if (result.state === 'verifying') return tr('status.provisioning.verifying', { name: agentName });
+  if (result.state === 'planning' || result.state === 'preparing') {
+    return tr('status.provisioning.preparing', { name: agentName });
+  }
+  if (result.reasonCode === 'provisioning-client-required') return tr('status.provisioning.chooseClient');
+  if (result.reasonCode === 'remote-agent-action-pending') return tr('status.provisioning.remotePending');
+  return tr('status.provisioning.failed', { code: result.reasonCode || result.reason || 'provisioning-failed' });
+}
+
+async function openCurrentAgent() {
+  const profile = selectedProfile();
+  const group = identityGroups().find((item) => item.key === currentAgentId()) || null;
+  const meshMode = state.mesh.overview?.initialized === true;
+  if (!meshMode) {
+    if (!profile) return { ok: false, reasonCode: 'profile-required' };
+    const result = await window.manager.launchProfile(profile.id);
+    if (!result.ok) {
+      setStatus(result.reason || tr('status.openFail'));
+      return result;
+    }
+    await loadProfiles(profile.id);
+    setStatus(result.warning || tr('status.opened', { name: profile.name }));
+    return result;
+  }
+
+  const action = currentAgentActionContext(group, profile);
+  if (!action.agent || !action.deviceId) return { ok: false, reasonCode: 'agent-required' };
+  if (!action.requested?.appId) {
+    const result = { ok: false, reasonCode: 'provisioning-client-required' };
+    setStatus(provisioningResultMessage(result, action.agent.displayName));
+    els.formSelect?.focus();
+    return result;
+  }
+  if (action.isRemote) {
+    const result = { ok: false, reasonCode: 'remote-agent-action-pending' };
+    setStatus(provisioningResultMessage(result, action.agent.displayName));
+    return result;
+  }
+
+  if (profile && state.appMeta[profile.appId]?.canProvision !== true) {
+    const result = await window.manager.launchProfile(profile.id);
+    if (!result.ok) {
+      setStatus(result.reason || tr('status.openFail'));
+      return result;
+    }
+    await loadProfiles(profile.id);
+    setStatus(result.warning || tr('status.opened', { name: action.agent.displayName }));
+    return result;
+  }
+
+  const busyKey = provisioningChoiceKey(action.group.key, action.deviceId);
+  if (state.mesh.provisioningBusyKey === busyKey) return { ok: false, reasonCode: 'provisioning-busy' };
+  state.mesh.provisioningBusyKey = busyKey;
+  renderAccountHeader();
+  let result;
+  try {
+    result = await window.manager.ensureAgentReady({
+      agentId: action.group.key,
+      deviceId: action.deviceId,
+      requestedAppId: action.requested.appId,
+      requestedClientForm: action.requested.clientForm || 'desktop'
+    });
+    if (result?.overview) state.mesh.overview = result.overview;
+    if (result?.state === 'ready') {
+      await loadProfiles(result.slot?.profileId || profile?.id || null);
+    } else {
+      await loadDeviceOverview({ silent: true });
+    }
+    setStatus(provisioningResultMessage(result, action.agent.displayName));
+    return result;
+  } catch (error) {
+    result = { ok: false, reasonCode: error?.message || 'provisioning-failed' };
+    setStatus(provisioningResultMessage(result, action.agent.displayName));
+    return result;
+  } finally {
+    if (state.mesh.provisioningBusyKey === busyKey) state.mesh.provisioningBusyKey = null;
+    renderAccountHeader();
+  }
+}
+
+// 卡片/猫只负责选中 Agent。已有 Slot 时选择器列出确切运行位置；当前
+// 工作环境没有 Slot 时，同一个控件原位列出受支持的首选客户端，普通流程
+// 直接进入首次准备，不要求用户先创建运行位置。
 function renderFormSwitcher(profile, group) {
   if (!els.formSwitcher || !els.formSelect) return;
   const label = els.formSwitcher.querySelector('.form-switcher-label');
@@ -5139,7 +5358,7 @@ function renderFormSwitcher(profile, group) {
     return;
   }
   els.formSelect.replaceChildren();
-  if (!profile) {
+  if (members.length && !profile) {
     const placeholder = document.createElement('option');
     placeholder.value = '';
     placeholder.textContent = tr('devices.slot.choose');
@@ -5156,16 +5375,45 @@ function renderFormSwitcher(profile, group) {
     option.selected = member.id === profile?.id;
     els.formSelect.append(option);
   }
+
+  if (!members.length && state.mesh.overview?.initialized) {
+    const action = currentAgentActionContext(grp, null);
+    const requested = action.requested;
+    const apps = supportedProvisioningApps();
+    if (!requested) {
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = tr('deployment.client.choose');
+      placeholder.selected = true;
+      placeholder.disabled = true;
+      els.formSelect.append(placeholder);
+    }
+    for (const app of apps) {
+      const option = document.createElement('option');
+      option.value = `prepare:${app.appId}:${app.clientForm}`;
+      option.textContent = tr('deployment.client.unprepared', { app: app.label });
+      option.selected = app.appId === requested?.appId && app.clientForm === requested?.clientForm;
+      els.formSelect.append(option);
+    }
+    if (!apps.length) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = tr('deployment.client.noneSupported');
+      option.selected = true;
+      option.disabled = true;
+      els.formSelect.append(option);
+    }
+  }
   els.formSwitcher.hidden = false;
 }
 
 function renderAccountHeader() {
   const profile = selectedProfile();
   const selectedGroup = identityGroups().find((group) => group.key === currentAgentId()) || null;
-  const disabled = !profile;
   const remote = profile?._remote === true;
   const meshMode = state.mesh.overview?.initialized === true;
   const selectedAgent = catalogAgentById(currentAgentId());
+  const action = currentAgentActionContext(selectedGroup, profile);
   const localLens = !meshMode
     || currentDeviceLensId() === 'all'
     || currentDeviceLensId() === state.mesh.overview.localDeviceId;
@@ -5185,19 +5433,32 @@ function renderAccountHeader() {
     els.manageAgentRelationsBtn.disabled = !selectedAgent;
   }
 
-  const canLaunch = !profile || state.appMeta[profile.appId]?.canLaunch !== false;
-  els.launchBtn.disabled = disabled || !canLaunch || remote;
-  els.launchBtn.title = canLaunch
-    ? ''
-    : '这个客户端在你自己的终端里运行；AgentDesk 负责识别和索引它的会话。';
-  els.pathConfigBtn.disabled = disabled || remote;
-  els.diagnosticsBtn.disabled = disabled || remote;
-  els.profileFolderBtn.disabled = disabled || remote;
-  els.refreshBtn.disabled = disabled || (remote && !window.manager.refreshMeshInventory);
-  els.editProfileBtn.disabled = meshMode ? !selectedAgent : (disabled || remote);
-  els.removeProfileBtn.disabled = meshMode ? !selectedAgent : (disabled || remote);
+  const profileCanLaunch = profile ? state.appMeta[profile.appId]?.canLaunch !== false : false;
+  const requestedCanProvision = action.requested?.appId
+    ? state.appMeta[action.requested.appId]?.canProvision === true
+    : false;
+  const unavailable = ['offline', 'retired'].includes(action.readiness?.state);
+  const canOpen = meshMode
+    ? Boolean(selectedAgent && !action.busy && !action.isRemote && !unavailable && (
+        (profile && profileCanLaunch) || (!profile && requestedCanProvision)
+      ))
+    : Boolean(profile && profileCanLaunch && !remote);
+  els.launchBtn.textContent = meshMode ? provisioningButtonLabel(action) : tr('account.open');
+  els.launchBtn.disabled = !canOpen;
+  if (action.isRemote) els.launchBtn.title = tr('deployment.action.remotePending');
+  else if (unavailable) els.launchBtn.title = tr('deployment.action.offline');
+  else if (!profile && !action.requested?.appId) els.launchBtn.title = tr('deployment.action.chooseClient');
+  else if (!profile && !requestedCanProvision) els.launchBtn.title = tr('deployment.action.unsupportedClient');
+  else if (profile && !profileCanLaunch) els.launchBtn.title = tr('deployment.action.externalClient');
+  else els.launchBtn.title = '';
+  els.pathConfigBtn.disabled = !profile || remote;
+  els.diagnosticsBtn.disabled = !profile || remote;
+  els.profileFolderBtn.disabled = !profile || remote;
+  els.refreshBtn.disabled = !profile || (remote && !window.manager.refreshMeshInventory);
+  els.editProfileBtn.disabled = meshMode ? !selectedAgent : (!profile || remote);
+  els.removeProfileBtn.disabled = meshMode ? !selectedAgent : (!profile || remote);
 
-  if (!profile) {
+  if (!profile && !selectedGroup) {
     els.accountTitle.textContent = selectedGroup?.agent?.displayName
       || selectedGroup?.primary?.name
       || tr(meshMode ? 'account.noneAgent' : 'account.none');
@@ -5214,18 +5475,20 @@ function renderAccountHeader() {
     return;
   }
 
-  // 名牌（原型）：`名字 · App`；徽章 = ⌨并行 / ⛓形态 / ⚡能量；
+  // 主名牌只表达全局 Agent；客户端与设备属于下方明确的运行位置选择器。
   // 长信息（槽位/分组/上次打开/路径/备注）收进名牌 tooltip，不再占控制条版面。
-  els.accountTitle.textContent = `${profile.name} · ${appLabel(profile.appId)}`;
-  const groupLabel = profile.group && profile.group !== appLabel(profile.appId) ? ` · ${profile.group}` : '';
-  const identityGroup = groupOfProfile(profile.id);
-  const members = identityGroup ? identityGroup.members : [profile];
+  const identityGroup = selectedGroup || (profile ? groupOfProfile(profile.id) : null);
+  const agentName = selectedAgent?.displayName || identityGroup?.primary?.name || profile?.name || tr('account.noneAgent');
+  els.accountTitle.textContent = agentName;
+  const groupLabel = (selectedAgent?.group || profile?.group) ? ` · ${selectedAgent?.group || profile.group}` : '';
+  const members = identityGroup ? identityGroup.members : (profile ? [profile] : []);
   // 并行会话数按整个账号（组）聚合：桌面在跑 + 终端在跑 = 一起数
   const activeNow = members.reduce((acc, member) => acc + (state.activity[member.id]?.activeNow || 0), 0);
   const badgeParts = [];
+  if (meshMode) badgeParts.push(deploymentStateLabel(action.readiness?.state));
   if (activeNow > 0) badgeParts.push(tr('acct.badgeParallel', { n: activeNow }));
   if (members.length > 1) badgeParts.push(tr('acct.badgeForms', { n: members.length }));
-  const quotaSnapshot = selectedQuota();
+  const quotaSnapshot = profile ? selectedQuota() : null;
   if (quotaSnapshot?.status === 'ok' && window.YardEnergy) {
     const energyKey = window.YardEnergy.deriveEnergy(quotaSnapshot, Date.now());
     badgeParts.push(`⚡ ${tr('energy.' + energyKey)}`);
@@ -5235,6 +5498,28 @@ function renderAccountHeader() {
     els.accountBadge.hidden = badgeParts.length === 0;
   }
   renderFormSwitcher(profile, identityGroup);
+
+  if (!profile) {
+    const environmentName = action.device?.name || selectedDeviceLensLabel() || '-';
+    const metaLine = tr('deployment.environmentStatus', {
+      device: environmentName,
+      state: deploymentStateLabel(action.readiness?.state)
+    });
+    const clientLine = action.requested?.appId
+      ? tr('deployment.client.selected', { app: appLabel(action.requested.appId) })
+      : tr('deployment.client.chooseHint');
+    if (els.accountId) {
+      els.accountId.title = [metaLine, clientLine, selectedAgent?.note || ''].filter(Boolean).join('\n');
+    }
+    els.accountMeta.textContent = metaLine;
+    els.accountPath.textContent = clientLine;
+    els.accountNote.textContent = selectedAgent?.note || '';
+    els.accountNote.style.display = selectedAgent?.note ? '' : 'none';
+    renderQuotaSummary();
+    renderTopbarContext();
+    renderAgentManageContext();
+    return;
+  }
 
   const metaLine = remote
     ? tr('devices.slot.remoteMeta', {
@@ -5251,8 +5536,8 @@ function renderAccountHeader() {
   // 隐藏源（.account-legacy）：保留旧字段写入，作为 tooltip 之外的读取兜底
   els.accountMeta.textContent = metaLine;
   els.accountPath.textContent = pathLine;
-  els.accountNote.textContent = profile.note || '';
-  els.accountNote.style.display = profile.note ? '' : 'none';
+  els.accountNote.textContent = selectedAgent?.note || profile.note || '';
+  els.accountNote.style.display = selectedAgent?.note || profile.note ? '' : 'none';
   renderQuotaSummary();
   renderTopbarContext();
   renderAgentManageContext();

@@ -232,7 +232,8 @@ test('不可 launch 的 CLI 槽位禁用打开按钮，账号卡片展示并行�
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   assert.match(renderer, /canLaunch: a\.canLaunch !== false/);
-  assert.match(renderer, /els\.launchBtn\.disabled = disabled \|\| !canLaunch/);
+  assert.match(renderer, /const profileCanLaunch = profile \? state\.appMeta\[profile\.appId\]\?\.canLaunch !== false : false/);
+  assert.match(renderer, /const canOpen = meshMode[\s\S]*?profile && profileCanLaunch[\s\S]*?els\.launchBtn\.disabled = !canOpen/);
   assert.match(renderer, /activeNow/);
   // 账号卡片：并行会话徽章 + 同账号(多形态)⛓ 徽章
   assert.match(renderer, /account-card-busy/);
@@ -281,9 +282,10 @@ test('运行位置可单独管理：控制条切换 AgentSlot 且不重载会话
   // 记取旧坑：inline-flex 会盖过 UA 的 [hidden]，必须显式补 [hidden]{display:none}
   assert.match(styles, /\.form-switcher\[hidden\]\s*\{\s*display:\s*none/);
   // Agent 可以存在但当前 Slot 为空，此时必须给出明确占位，不自动选第一项。
-  assert.match(renderer, /function renderFormSwitcher\(profile, group\)[\s\S]*?const grp = group \|\| \(profile \? groupOfProfile\(profile\.id\) : null\)[\s\S]*?if \(!profile\)[\s\S]*?devices\.slot\.choose/);
+  assert.match(renderer, /function renderFormSwitcher\(profile, group\)[\s\S]*?const grp = group \|\| \(profile \? groupOfProfile\(profile\.id\) : null\)[\s\S]*?if \(members\.length && !profile\)[\s\S]*?devices\.slot\.choose/);
+  assert.match(renderer, /if \(!members\.length && state\.mesh\.overview\?\.initialized\)[\s\S]*?deployment\.client\.unprepared/);
   // change 事件只写 UiContext 的 Slot 记忆，不重新加载会话，也不清空搜索或动作选择。
-  assert.match(renderer, /els\.formSelect\?\.addEventListener\('change'[\s\S]{0,180}?selectSlot\(id\)/);
+  assert.match(renderer, /els\.formSelect\?\.addEventListener\('change'[\s\S]{0,520}?selectSlot\(value\)/);
   const selectSlot = renderer.slice(renderer.indexOf('function selectSlot('), renderer.indexOf('function populateGroupDatalist('));
   assert.match(selectSlot, /UiContext\.setSlot\(state\.ui/);
   assert.doesNotMatch(selectSlot, /loadSessions|state\.query\s*=|clearConversationActions/);
