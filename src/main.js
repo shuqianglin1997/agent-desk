@@ -41,6 +41,7 @@ const { mt } = require('./i18n/main-i18n');
 const { MeshService } = require('./mesh/main/mesh-service');
 const { ProvisioningService } = require('./mesh/main/provisioning-service');
 const { provisioningAdapterDescriptor } = require('./mesh/main/provisioning-adapters');
+const { AgentActionService } = require('./mesh/main/agent-action-service');
 const { PeerManager } = require('./mesh/main/peer-manager');
 const { TransferService } = require('./mesh/main/transfer-service');
 const { RemoteControlService } = require('./mesh/main/remote-control-service');
@@ -102,6 +103,7 @@ let toolMaintenanceUpdating = null;
 let mainWindow = null;
 let meshService = null;
 let provisioningService = null;
+let agentActionService = null;
 let peerManager = null;
 let transferService = null;
 let remoteControlService = null;
@@ -208,6 +210,7 @@ if (!hasSingleInstanceLock) {
   app.on('before-quit', () => {
     clearTimeout(pairingEndpointTimer);
     provisioningService?.stop();
+    agentActionService?.stop('app-quit');
     globalShortcut.unregisterAll();
     void remoteControlService?.stopAll('app-quit');
     remoteInputAdapter?.stop();
@@ -474,9 +477,44 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('agentActions:launchRemote', async (_event, input = {}) => {
+    try {
+      const result = await getAgentActionService().launchRemote({
+        agentId: boundedText(input.agentId, 128),
+        deviceId: boundedText(input.deviceId, 128),
+        profileId: boundedText(input.profileId, 128)
+      });
+      return {
+        ...result,
+        overview: withMeshRuntime(getMeshService().getOverview())
+      };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'remote-launch-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('agentActions:prepareRemote', async (_event, input = {}) => {
+    try {
+      const result = await getAgentActionService().prepareRemote({
+        agentId: boundedText(input.agentId, 128),
+        deviceId: boundedText(input.deviceId, 128),
+        requestedAppId: boundedText(input.requestedAppId, 80),
+        requestedClientForm: boundedText(input.requestedClientForm, 80) || 'desktop'
+      });
+      return {
+        ...result,
+        overview: withMeshRuntime(getMeshService().getOverview())
+      };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'remote-preparation-failed', 160) };
+    }
+  });
+
   ipcMain.handle('devices:resetMesh', async () => {
     provisioningService?.stop();
     provisioningService = null;
+    agentActionService?.stop('mesh-reset');
+    agentActionService = null;
     await remoteControlService?.stopAll('mesh-reset');
     peerManager?.disconnectAll('mesh-reset');
     await signalingClient?.stop('mesh-reset');
@@ -1072,6 +1110,11 @@ function getMeshService() {
     },
     onDeviceRevoked: (deviceId) => {
       transferService?.handleDeviceRevoked(deviceId);
+      agentActionService?.handlePeerState({
+        deviceId,
+        state: 'disconnected',
+        reason: 'device-revoked'
+      });
       void remoteControlService?.stopDevice(deviceId, 'device-revoked');
       void peerManager?.disconnect(deviceId, 'device-revoked');
     }
@@ -1169,7 +1212,8 @@ function getProvisioningService() {
           overview
         });
       }
-      if (state === 'ready') {
+      const remoteActionTracked = agentActionService?.handleProvisioningChanged(value) === true;
+      if (state === 'ready' && !remoteActionTracked) {
         void peerManager?.broadcastCatalog();
         void peerManager?.broadcastInventory();
       }
@@ -1196,12 +1240,18 @@ function getPeerManager() {
     iceServersProvider: () => publicIceServers(),
     onState: (value) => {
       emitPeerState(value);
+      agentActionService?.handlePeerState(value);
       remoteControlService?.handlePeerState(value);
       if (value?.state === 'authenticated') {
         void getTransferService().flushDevice(value.deviceId);
       }
     },
     onEnvelope: async (value) => {
+      if (['profile.launch', 'agent.prepare', 'agent.prepare.status'].includes(
+        String(value?.envelope?.messageType || '')
+      )) {
+        return getAgentActionService().handleEnvelope(value);
+      }
       if (String(value?.envelope?.messageType || '').startsWith('remote.')) {
         return getRemoteControlService().handleEnvelope(value);
       }
@@ -1209,6 +1259,37 @@ function getPeerManager() {
     }
   });
   return peerManager;
+}
+
+function getAgentActionService() {
+  if (agentActionService) return agentActionService;
+  agentActionService = new AgentActionService({
+    meshService: getMeshService(),
+    peerManagerProvider: () => getPeerManager(),
+    provisioningServiceProvider: () => getProvisioningService(),
+    confirmPreparation: confirmRemoteAgentPreparation,
+    onChange: emitAgentActionChange
+  });
+  return agentActionService;
+}
+
+async function confirmRemoteAgentPreparation({ sourceDevice, agent, request }) {
+  showMainWindow();
+  const appName = apps.getApp(request.requestedAppId)?.label || request.requestedAppId;
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    title: t('main.agentPrepare.title'),
+    message: t('main.agentPrepare.message', {
+      device: sourceDevice.name,
+      agent: agent.displayName
+    }),
+    detail: t('main.agentPrepare.detail', { app: appName }),
+    buttons: [t('main.agentPrepare.allow'), t('main.agentPrepare.decline')],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true
+  });
+  return result.response === 0;
 }
 
 function getSignalingClient() {
@@ -1317,6 +1398,25 @@ function getRemoteInputAdapter() {
 function emitTransferChange(transfers) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send('transfers:changed', Array.isArray(transfers) ? transfers : []);
+}
+
+function emitAgentActionChange(value = {}) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('agentActions:changed', {
+    requestId: boundedText(value.requestId, 128),
+    deviceId: boundedText(value.deviceId, 128),
+    agentId: boundedText(value.agentId, 128),
+    requestedAppId: boundedText(value.requestedAppId, 80),
+    requestedClientForm: boundedText(value.requestedClientForm, 80),
+    state: boundedText(value.state, 80),
+    ok: value.ok === true,
+    launched: value.launched === true,
+    settled: value.settled === true,
+    reasonCode: boundedText(value.reasonCode, 160),
+    job: value.job || null,
+    slot: value.slot || null,
+    overview: withMeshRuntime(getMeshService().getOverview())
+  });
 }
 
 function emitRemoteControlChange(sessions) {

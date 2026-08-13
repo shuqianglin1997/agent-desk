@@ -136,6 +136,23 @@ test('全局员工目录通过独立 catalog 通道同步，先于来源设备 i
   assert.match(main, /function catalogMeshCall\(callback\)[\s\S]*?broadcastCatalog\(\)[\s\S]*?broadcastInventory\(\)/);
 });
 
+test('远端已就绪与首次准备共用主按钮，只走窄语义 IPC', () => {
+  const html = read('src/index.html');
+  const preload = read('src/preload.js');
+  const renderer = read('src/renderer.js');
+  const main = read('src/main.js');
+  const capabilities = read('src/mesh/domain/capabilities.js');
+  assert.match(capabilities, /'agent\.prepare': \{ defaultPaired: false, dangerous: true \}/);
+  assert.match(html, /data-capability="agent\.prepare"/);
+  assert.match(preload, /launchRemoteAgent: \(input\) => ipcRenderer\.invoke\('agentActions:launchRemote', input\)/);
+  assert.match(preload, /prepareRemoteAgent: \(input\) => ipcRenderer\.invoke\('agentActions:prepareRemote', input\)/);
+  assert.match(renderer, /profile[\s\S]*?launchRemoteAgent\(\{[\s\S]*?agentId:[\s\S]*?deviceId:[\s\S]*?profileId:/);
+  assert.match(renderer, /prepareRemoteAgent\(\{[\s\S]*?agentId:[\s\S]*?deviceId:[\s\S]*?requestedAppId:[\s\S]*?requestedClientForm:/);
+  assert.match(main, /agentActions:launchRemote[\s\S]*?agentId:[\s\S]*?deviceId:[\s\S]*?profileId:/);
+  assert.match(main, /agentActions:prepareRemote[\s\S]*?requestedAppId:[\s\S]*?requestedClientForm:/);
+  assert.doesNotMatch(preload, /agentActions:(command|exec|invoke)|remoteCommand|generic\.exec/i);
+});
+
 test('公网会合设置与诊断使用固定 IPC，界面不接收 TURN 长期凭据或连接原文', () => {
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
