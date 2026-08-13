@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">一项持续工作如何固定成任务包并由接收方继续</title>
+  <desc id="desc">左侧持续工作现场的人工检查点、会话、代码和明确附件在同一时刻固定到加密任务包。接收方完整验证后，把原生会话或只读内容及任务资料落入本机，来源现场保持不变。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#263238"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#2c6d9e"/>
+    </marker>
+    <pattern id="cipher" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+      <rect width="12" height="12" fill="#edf4f7"/>
+      <rect width="3" height="12" fill="#d8e8ee"/>
+    </pattern>
+  </defs>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#172126}
+    .mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+    .column{font-size:15px;font-weight:700;letter-spacing:.08em;fill:#54636a}
+    .lane{font-size:14px;font-weight:700}.body{font-size:13px}.small{font-size:11.5px;fill:#58666c}.tiny{font-size:10px;fill:#6a787e}
+    .source{fill:#fbfaf7;stroke:#a7a39a;stroke-width:1.4}.snapshot{fill:url(#cipher);stroke:#285a73;stroke-width:2}.receiver{fill:#f7faf9;stroke:#8fa49b;stroke-width:1.4}
+    .cell{fill:#fff;stroke:#c3c8c8;stroke-width:1.1}.inner{fill:#fff;fill-opacity:.78;stroke:#7f9ba8;stroke-width:1}.gate{fill:#263238;stroke:#263238}.output{fill:#fff;stroke:#71867c;stroke-width:1.2}
+    .line{fill:none;stroke:#263238;stroke-width:1.7;marker-end:url(#arrow)}.blue{fill:none;stroke:#2c6d9e;stroke-width:1.8;marker-end:url(#arrowBlue)}
+    .dashed{fill:none;stroke:#77868c;stroke-width:1.3;stroke-dasharray:6 5;marker-end:url(#arrow)}.guide{fill:none;stroke:#c5cecf;stroke-width:1;stroke-dasharray:3 5}
+    .hash{fill:#285a73}.ok{fill:#2f7d5c}.warn{fill:#a76b2c}.white{fill:#fff}.accent{fill:#2c6d9e}.muted{fill:#64747a}
+  </style>
+  <rect width="1280" height="720" fill="#ffffff"/>
+
+  <text class="column" x="54" y="45">持续工作现场</text>
+  <text class="column" x="484" y="45">T 时刻快照</text>
+  <text class="column" x="894" y="45">接收与继续</text>
+  <path class="guide" d="M54 62H1226"/>
+
+  <rect class="source" x="54" y="84" width="334" height="484" rx="16"/>
+  <path class="guide" d="M78 194H364M78 304H364M78 414H364"/>
+
+  <g transform="translate(78 110)">
+    <rect class="cell" width="286" height="62" rx="9"/>
+    <text class="lane" x="14" y="22">责任检查点</text>
+    <text class="small" x="14" y="43">目标 · 已完成 · 下一步 · 风险 · 验收</text>
+    <circle cx="260" cy="21" r="4" class="warn"/><circle cx="274" cy="21" r="4" class="ok"/>
+  </g>
+  <g transform="translate(78 220)">
+    <rect class="cell" width="286" height="62" rx="9"/>
+    <text class="lane" x="14" y="22">会话现场</text>
+    <text class="small" x="14" y="43">根记录 + 内部记录 / 只读内容</text>
+    <path d="M239 20h16v18h-16zM253 27h16v18h-16z" fill="none" stroke="#2c6d9e" stroke-width="1.4"/>
+  </g>
+  <g transform="translate(78 330)">
+    <rect class="cell" width="286" height="62" rx="9"/>
+    <text class="lane" x="14" y="22">代码现场</text>
+    <text class="small mono" x="14" y="43">remote · branch · HEAD · tracked diff</text>
+    <path d="M246 18v25m0-16h24m-24 10h14" fill="none" stroke="#2c6d9e" stroke-width="1.5"/>
+    <circle cx="246" cy="18" r="3" class="accent"/><circle cx="270" cy="27" r="3" class="accent"/><circle cx="260" cy="37" r="3" class="accent"/>
+  </g>
+  <g transform="translate(78 440)">
+    <rect class="cell" width="286" height="62" rx="9"/>
+    <text class="lane" x="14" y="22">明确附件</text>
+    <text class="small" x="14" y="43">只取系统选择器中确认的文件</text>
+    <path d="M247 18h22v27h-22zM251 14h14l4 4" fill="none" stroke="#2c6d9e" stroke-width="1.5"/>
+  </g>
+
+  <path class="blue" d="M364 141H452"/>
+  <path class="blue" d="M364 251H452"/>
+  <path class="blue" d="M364 361H452"/>
+  <path class="blue" d="M364 471H452"/>
+  <text class="tiny" x="399" y="126">同一时刻固定</text>
+
+  <rect class="snapshot" x="452" y="84" width="324" height="484" rx="18"/>
+  <rect x="476" y="103" width="276" height="34" rx="17" fill="#285a73"/>
+  <text class="body white" x="614" y="125" text-anchor="middle">TaskPackage · 认证加密容器</text>
+
+  <g transform="translate(476 154)">
+    <rect class="inner" width="276" height="76" rx="9"/>
+    <text class="body" x="14" y="25">checkpoint.json</text>
+    <text class="tiny mono" x="14" y="48">length  •  sha256  •  entry type</text>
+    <rect class="hash" x="238" y="20" width="22" height="5" rx="2"/><rect class="hash" x="226" y="31" width="34" height="5" rx="2"/><rect class="hash" x="234" y="42" width="26" height="5" rx="2"/>
+  </g>
+  <g transform="translate(476 244)">
+    <rect class="inner" width="276" height="76" rx="9"/>
+    <text class="body" x="14" y="25">conversation/*</text>
+    <text class="tiny mono" x="14" y="48">native root + children  |  transcript</text>
+    <rect class="hash" x="238" y="20" width="22" height="5" rx="2"/><rect class="hash" x="226" y="31" width="34" height="5" rx="2"/><rect class="hash" x="234" y="42" width="26" height="5" rx="2"/>
+  </g>
+  <g transform="translate(476 334)">
+    <rect class="inner" width="276" height="76" rx="9"/>
+    <text class="body" x="14" y="25">project/working-tree.patch</text>
+    <text class="tiny mono" x="14" y="48">Git baseline + tracked changes</text>
+    <rect class="hash" x="238" y="20" width="22" height="5" rx="2"/><rect class="hash" x="226" y="31" width="34" height="5" rx="2"/><rect class="hash" x="234" y="42" width="26" height="5" rx="2"/>
+  </g>
+  <g transform="translate(476 424)">
+    <rect class="inner" width="276" height="76" rx="9"/>
+    <text class="body" x="14" y="25">attachments/*</text>
+    <text class="tiny mono" x="14" y="48">explicit files only</text>
+    <rect class="hash" x="238" y="20" width="22" height="5" rx="2"/><rect class="hash" x="226" y="31" width="34" height="5" rx="2"/><rect class="hash" x="234" y="42" width="26" height="5" rx="2"/>
+  </g>
+  <text class="tiny" x="614" y="535" text-anchor="middle">标题、Agent、项目和文件名均位于密文内</text>
+
+  <path class="line" d="M776 326H838"/>
+  <g transform="translate(838 272)">
+    <rect class="gate" width="84" height="108" rx="12"/>
+    <text class="small white" x="42" y="30" text-anchor="middle">完整验证</text>
+    <text class="tiny white" x="42" y="51" text-anchor="middle">认证标签</text>
+    <text class="tiny white" x="42" y="68" text-anchor="middle">清单关系</text>
+    <text class="tiny white" x="42" y="85" text-anchor="middle">逐项哈希</text>
+  </g>
+
+  <rect class="receiver" x="954" y="84" width="272" height="484" rx="16"/>
+  <path class="line" d="M922 326H954"/>
+  <g transform="translate(980 111)">
+    <rect class="output" width="220" height="80" rx="9"/>
+    <text class="lane" x="14" y="24">先读交接内容</text>
+    <text class="small" x="14" y="46">检查目标、进展、下一步、风险</text>
+    <text class="small" x="14" y="64">再选择本机 Agent 与运行位置</text>
+  </g>
+  <path class="line" d="M1090 191V219"/>
+  <g transform="translate(980 219)">
+    <rect class="output" width="220" height="84" rx="9"/>
+    <text class="lane" x="14" y="24">会话落点</text>
+    <text class="small" x="14" y="47">Codex 原生记录 → 会话目录</text>
+    <text class="small" x="14" y="66">其他来源 → 只读会话内容</text>
+  </g>
+  <path class="line" d="M1090 303V331"/>
+  <g transform="translate(980 331)">
+    <rect class="output" width="220" height="84" rx="9"/>
+    <text class="lane" x="14" y="24">任务资料落点</text>
+    <text class="small" x="14" y="47">交接说明 · Git patch · 附件</text>
+    <text class="small" x="14" y="66">写入独立、无覆盖的资料目录</text>
+  </g>
+  <path class="line" d="M1090 415V443"/>
+  <g transform="translate(980 443)">
+    <rect class="output" width="220" height="86" rx="9"/>
+    <text class="lane" x="14" y="24">继续推进</text>
+    <text class="small" x="14" y="47">接收方形成新的工作现场</text>
+    <text class="small" x="14" y="66">后续变化各自记录，不自动合并</text>
+  </g>
+
+  <path class="dashed" d="M222 568V626H1090V538"/>
+  <rect x="87" y="593" width="270" height="64" rx="10" fill="#fbfaf7" stroke="#a7a39a" stroke-width="1.2"/>
+  <text class="body" x="222" y="619" text-anchor="middle">来源会话、项目与文件继续保留</text>
+  <text class="small" x="222" y="640" text-anchor="middle">确认接收端可继续后，再由人按需归档</text>
+
+  <path class="dashed" d="M566 568V670H1014V558"/>
+  <g transform="translate(477 642)">
+    <rect width="178" height="48" rx="24" fill="#fff" stroke="#a76b2c" stroke-width="1.3" stroke-dasharray="5 4"/>
+    <text class="small" x="89" y="21" text-anchor="middle">一次性解锁码</text>
+    <text class="tiny" x="89" y="36" text-anchor="middle">与文件分开发送</text>
+  </g>
+</svg>

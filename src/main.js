@@ -44,6 +44,7 @@ const { provisioningAdapterDescriptor } = require('./mesh/main/provisioning-adap
 const { AgentActionService } = require('./mesh/main/agent-action-service');
 const { PeerManager } = require('./mesh/main/peer-manager');
 const { TransferService } = require('./mesh/main/transfer-service');
+const { TaskPackageService } = require('./task-package/service');
 const { RemoteControlService } = require('./mesh/main/remote-control-service');
 const { RemoteInputAdapter, defaultInputHelperPath } = require('./mesh/platform/input-adapter');
 const { runWebRtcProbe } = require('./mesh/main/webrtc-probe');
@@ -106,6 +107,7 @@ let provisioningService = null;
 let agentActionService = null;
 let peerManager = null;
 let transferService = null;
+let taskPackageService = null;
 let remoteControlService = null;
 let remoteInputAdapter = null;
 let signalingClient = null;
@@ -210,6 +212,7 @@ if (!hasSingleInstanceLock) {
   app.on('before-quit', () => {
     clearTimeout(pairingEndpointTimer);
     provisioningService?.stop();
+    taskPackageService?.stop();
     agentActionService?.stop('app-quit');
     globalShortcut.unregisterAll();
     void remoteControlService?.stopAll('app-quit');
@@ -854,6 +857,132 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('taskPackages:previewExport', (_event, input = {}) => {
+    try {
+      return {
+        ok: true,
+        preview: getTaskPackageService().previewExport({
+          profileId: boundedText(input.profileId, 128),
+          sessionId: boundedText(input.sessionId, 128)
+        })
+      };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-preview-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:export', async (_event, input = {}) => {
+    try {
+      const profileId = boundedText(input.profileId, 128);
+      const sessionId = boundedText(input.sessionId, 128);
+      const preview = getTaskPackageService().previewExport({ profileId, sessionId });
+      if (!preview.supported) throw new Error('task-package-source-unsupported');
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: t('main.taskPackage.exportTitle'),
+        defaultPath: path.join(app.getPath('desktop'), taskPackageSuggestedName(preview.title)),
+        filters: [{ name: 'AgentDesk Task Package', extensions: ['agentdesk-task'] }]
+      });
+      if (result.canceled || !result.filePath) return { ok: true, cancelled: true };
+      let attachmentPaths = [];
+      if (input.includeAttachments === true) {
+        const attachmentResult = await dialog.showOpenDialog(mainWindow, {
+          title: t('main.taskPackage.attachmentsTitle'),
+          properties: ['openFile', 'multiSelections']
+        });
+        if (attachmentResult.canceled) return { ok: true, cancelled: true };
+        attachmentPaths = attachmentResult.filePaths;
+      }
+      const exported = await getTaskPackageService().exportPackage({
+        profileId,
+        sessionId,
+        conversationId: boundedText(input.conversationId, 128),
+        senderLabel: boundedText(input.senderLabel, 120),
+        checkpoint: boundedTaskCheckpoint(input.checkpoint),
+        includeProject: input.includeProject !== false,
+        attachmentPaths,
+        destinationPath: result.filePath
+      });
+      return { ok: true, exported, history: getTaskPackageService().listHistory() };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-export-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:chooseImport', async () => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: t('main.taskPackage.importTitle'),
+        properties: ['openFile'],
+        filters: [{ name: 'AgentDesk Task Package', extensions: ['agentdesk-task'] }]
+      });
+      if (result.canceled || !result.filePaths[0]) return { ok: true, cancelled: true };
+      return { ok: true, draft: getTaskPackageService().createImportDraft(result.filePaths[0]) };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-import-choose-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:inspectImport', async (_event, input = {}) => {
+    try {
+      const inspected = await getTaskPackageService().inspectImport({
+        token: boundedText(input.token, 128),
+        unlockCode: boundedText(input.unlockCode, 100)
+      });
+      return { ok: true, inspected };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-import-inspect-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:commitImport', async (_event, input = {}) => {
+    try {
+      const destination = await dialog.showOpenDialog(mainWindow, {
+        title: t('main.taskPackage.materialsTitle'),
+        defaultPath: app.getPath('documents'),
+        properties: ['openDirectory', 'createDirectory']
+      });
+      if (destination.canceled || !destination.filePaths[0]) return { ok: true, cancelled: true };
+      const imported = await getTaskPackageService().commitImport({
+        token: boundedText(input.token, 128),
+        targetProfileId: boundedText(input.targetProfileId, 128),
+        artifactDirectory: destination.filePaths[0],
+        openAfterImport: input.openAfterImport !== false
+      });
+      return { ok: true, imported, history: getTaskPackageService().listHistory() };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-import-commit-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:cancelImport', (_event, input = {}) => {
+    try {
+      getTaskPackageService().cancelImport(boundedText(input.token, 128));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-import-cancel-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:list', () => {
+    try { return { ok: true, history: getTaskPackageService().listHistory() }; } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-history-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:reveal', (_event, input = {}) => {
+    try {
+      const itemPath = getTaskPackageService().historyLocation(
+        boundedText(input.packageId, 128),
+        boundedText(input.direction, 40)
+      );
+      if (fs.statSync(itemPath).isDirectory()) shell.openPath(itemPath);
+      else shell.showItemInFolder(itemPath);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-history-location', 160) };
+    }
+  });
+
   ipcMain.handle('projects:chooseBinding', async (_event, input = {}) => {
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
@@ -1358,6 +1487,24 @@ function getTransferService() {
   return transferService;
 }
 
+function getTaskPackageService() {
+  if (taskPackageService) return taskPackageService;
+  const userData = app.getPath('userData');
+  taskPackageService = new TaskPackageService({
+    profileProvider: () => loadProfiles(),
+    meshOverviewProvider: () => {
+      if (meshService) return meshService.getOverview();
+      if (!fs.existsSync(path.join(userData, 'mesh.db'))) return null;
+      try { return getMeshService().getOverview(); } catch (_error) { return null; }
+    },
+    historyFile: path.join(userData, 'task-package-history.json'),
+    stagingRoot: path.join(app.getPath('temp'), 'agentdesk-task-packages'),
+    launchProfile: (profile) => launchProfile(profile),
+    onChange: emitTaskPackageChange
+  });
+  return taskPackageService;
+}
+
 function getRemoteControlService() {
   if (remoteControlService) return remoteControlService;
   remoteControlService = new RemoteControlService({
@@ -1399,6 +1546,11 @@ function getRemoteInputAdapter() {
 function emitTransferChange(transfers) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send('transfers:changed', Array.isArray(transfers) ? transfers : []);
+}
+
+function emitTaskPackageChange(history) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('taskPackages:changed', Array.isArray(history) ? history : []);
 }
 
 function emitAgentActionChange(value = {}) {
@@ -1653,6 +1805,30 @@ async function closePairingEndpoint() {
 
 function boundedText(value, limit) {
   return String(value || '').trim().slice(0, limit);
+}
+
+function boundedTaskCheckpoint(value = {}) {
+  const lines = (input) => {
+    const source = Array.isArray(input) ? input : String(input || '').split(/\r?\n/);
+    return source.map((item) => boundedText(item, 1000)).filter(Boolean).slice(0, 32);
+  };
+  return {
+    objective: String(value.objective || '').replace(/\0/g, '').trim().slice(0, 4000),
+    completed: lines(value.completed),
+    next: lines(value.next),
+    blockers: lines(value.blockers),
+    acceptance: lines(value.acceptance)
+  };
+}
+
+function taskPackageSuggestedName(title) {
+  const stem = String(title || 'AgentDesk-task')
+    .normalize('NFC')
+    .replace(/[\0-\x1f\x7f<>:"/\\|?*]/g, '_')
+    .replace(/[. ]+$/g, '')
+    .trim()
+    .slice(0, 100) || 'AgentDesk-task';
+  return `${stem}.agentdesk-task`;
 }
 
 async function checkForUpdates(options = {}) {

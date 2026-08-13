@@ -19,7 +19,7 @@
 
 ![AgentDesk](assets/screenshots/app.png)
 
-> **Development status:** this branch contains the attended Personal Mesh code path: encrypted device pairing, a persistent global Agent library with Blueprint/Deployment/recoverable preparation, independently signed catalog and source-owned inventory sync, SessionPointer and selected-file transfer, fixed remote launch/attended prepare actions, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. Exact signed protocol features keep older peers on an inventory-only path, and read-only inventory cannot overwrite or delete the global catalog. The Node suite passes 417/418 tests with one Windows-only skip; the 17-path real-window suite passes at 1040 × 840; direct-LAN and local-signaling two-endpoint Electron loops also pass. Physical computers, public NAT/coturn, long-lived reachability, and the macOS/Windows permission matrix are still release gates. Existing GitHub Releases may predate this branch.
+> **Development status:** this branch contains the attended Personal Mesh code path plus the v0.10 portable TaskPackage flow: encrypted device pairing, a persistent global Agent library, independently signed catalog and source-owned inventory, SessionPointer and selected-file transfer, encrypted whole-work checkpoints, fixed remote actions, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. Codex TaskPackages preserve native root/internal records; other supported sources carry read-only transcripts. Physical computers, public NAT/coturn, long-lived reachability, and the macOS/Windows permission matrix remain release gates. Existing GitHub Releases may predate this branch.
 
 ## What AgentDesk does
 
@@ -33,6 +33,7 @@ AgentDesk keeps a small, local index around the official AI coding clients alrea
 - **Personal device mesh.** Create an OS-protected device identity, pair another computer with a one-time code, revoke any device, and view one deduplicated global Agent catalog through an all-devices or single-device lens.
 - **Persistent Agent library and on-demand readiness.** Keep an Agent even with zero accounts or slots, show the complete library in every device environment, and use a recoverable local preparation job before committing a new profile, slot, and deployment. Official installation, login, verification, and system permissions remain on the target computer.
 - **Cross-device sessions and files.** Exchange source-owned session inventories, send encrypted SessionPointers without changing the minimal copy format, map projects locally on the target, and transfer explicitly selected files with confirmation, hashing, chunking, and resume.
+- **Explicit task handoff.** Freeze one local conversation, a human-authored checkpoint, Git baseline/tracked changes, and explicit attachments into an encrypted `.agentdesk-task` file. The receiver verifies everything before choosing a local Agent/Profile; source data is retained. Codex supports native import, while other supported clients receive a read-only transcript.
 - **Independent global dialogs.** Open Devices, Tools, Activity, and Settings in four bounded dialogs without replacing the current session detail or mutating the device lens, Agent/slot, or session selection.
 - **Attended remote control.** Open an isolated Remote Surface inside the fixed right-detail panel while the Header, Agent panel, session list, and Footer stay in place; require target-side consent for screen view and input, switch displays, and monitor up to four devices while keeping exactly one input target.
 - **P2P rendezvous and diagnostics.** Prefer temporary LAN endpoints, fall back to signed HTTPS signaling, use STUN or short-lived TURN credentials, and show only sanitized LAN/direct/relay state.
@@ -49,7 +50,7 @@ AgentDesk is an account and history manager, not an execution or orchestration l
 
 - It does not embed a terminal or chat surface.
 - It does not start or supervise agent conversations.
-- It does not maintain task queues, multi-session handoff plans, or planning-document indexes.
+- It does not maintain task queues, multi-session handoff plans, or planning-document indexes. TaskPackage is an explicit immutable checkpoint, not orchestration or ongoing sync.
 - It does not register arbitrary commands or custom protocol agents.
 - It does not store passwords, tokens, or browser credentials.
 - Personal Mesh connections are restricted to authenticated devices, explicit capabilities, and fixed semantic actions; generic remote shell and arbitrary command execution remain out of scope.
@@ -123,6 +124,7 @@ Release signing and notarization are documented in [docs/RELEASING.md](docs/RELE
 - `native/`: fixed-protocol macOS and Windows input helpers.
 - `services/signaling/`: optional self-hosted short-lived rendezvous and TURN REST credential service.
 - `src/mesh/probe/`, `src/mesh/main/webrtc-probe.js`: sandboxed WebRTC placement and local DataChannel acceptance probe.
+- `src/task-package/`: encrypted TaskPackage format, Git/checkpoint capture, and the versioned Codex native adapter.
 - `src/yard/`: cat state, scene, atmosphere, and the three core drag intents.
 
 See [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), and the [full function audit](docs/FUNCTION_AUDIT.md).
@@ -137,7 +139,7 @@ See [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), an
 
 AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
-> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh：加密设备配对、长期全局员工库与 Blueprint/Deployment/可恢复首次准备、无固定主机的签名目录事件与来源设备库存、SessionPointer 与选定文件传输、固定远端打开/有人准备、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。新端按来源向量补齐目录事件，双端字段编辑自动收敛，删除 tombstone 防旧端复活；0.9.4 安全降级为目录快照，更旧端 inventory-only。完整 Node 套件 428 项中 427 通过、1 项仅 Windows 跳过；真实 1040 × 840 Electron 的 17 条任务路径、局域网直连和本机 signaling 两种隔离双端链路均通过。物理双机 0.9.5 双端编辑、长期可达、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
+> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh，并加入 v0.10 便携 TaskPackage：加密设备配对、长期全局员工库、签名目录事件与来源设备库存、SessionPointer 与选定文件传输、整项工作加密检查点、固定远端动作、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。Codex 任务包保留原生根会话和内部记录，其他支持来源携带只读会话内容。物理双机、长期可达、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
 
 ## 核心能力
 
@@ -149,6 +151,7 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 - **个人设备网。** 建立系统保护的设备身份，用一次性配对码加入另一台电脑；任意设备都可撤销删除，全局 Agent 按实际登录去重，设备只是筛选轴。
 - **长期员工库与按需就绪。** Agent 即使没有账号或运行位置也继续存在，每个工作环境都显示完整员工库；首次打开通过可恢复准备任务提交 Profile/Slot/Deployment，官方安装、登录、验证码和系统权限仍在目标电脑完成。
 - **跨设备会话与文件。** 同步来源设备只读库存，发送加密 SessionPointer，目标端确认项目映射；显式选取的文件经接收确认、分块、哈希和断点续传。
+- **显式任务交接。** 把一条本机会话、人工填写的阶段检查点、Git 基线/已跟踪差异和明确附件固定为加密 `.agentdesk-task`。接收方完整验证后再选择本机 Agent/Profile，来源始终保留；Codex 可原生导入，其他支持客户端接收只读会话内容。
 - **有人值守远控。** 在固定右下详情面板的隔离 Remote Surface 查看或控制目标设备，Header、顶部 Agent、左下会话和 Footer 保持原位；屏幕与输入分别需要目标端本次同意，最多同时显示四台设备，但始终只有一个输入目标。
 - **P2P 会合与诊断。** 临时 LAN 优先，失败后回退签名 HTTPS 信令，使用 STUN/短期 TURN；界面只显示 LAN、直连或中继等脱敏状态。
 - **路径与诊断。** 展示启动候选、真实数据目录、权限、扫描位置，以及 Windows Store/MSIX 和传统安装差异。
@@ -165,7 +168,7 @@ AgentDesk 已收敛为账号与历史管理工具，不承担会话执行和编�
 
 - 不内嵌终端或聊天界面；
 - 不启动、托管或续接 Agent 会话；
-- 不提供任务队列、多会话交接清单或规划资料索引；
+- 不提供任务队列、多会话交接清单或规划资料索引；TaskPackage 是用户显式生成的不可变检查点，不是自动编排或持续同步；
 - 不登记任意命令或自定义协议 Agent；
 - 不保存密码、token 或浏览器凭据；
 - Personal Mesh 只允许认证设备、明确能力和固定语义动作，不提供通用远程 Shell 或任意命令；

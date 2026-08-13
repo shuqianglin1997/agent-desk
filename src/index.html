@@ -188,6 +188,7 @@
               </div>
               <div id="sessionFocusedActions" class="inspector-focused-actions" hidden>
                 <button id="openSessionFileBtn" data-i18n="detail.reveal">打开当前位置</button>
+                <button id="taskPackageActionBtn" class="inspector-task-package" data-i18n="taskPackage.action">交接任务</button>
                 <button id="exportSessionBtn" class="inspector-export" data-i18n="detail.exportMd">导出当前 Markdown</button>
               </div>
             </div>
@@ -763,15 +764,107 @@
           <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
         <div class="utility-dialog-commandbar activity-center-commandbar">
-          <button id="transferCenterBtn" type="button">⇄ <span data-i18n="transfers.center.action">传输记录</span></button>
+          <div class="activity-center-actions">
+            <button id="importTaskPackageBtn" type="button">⇥ <span data-i18n="taskPackage.import.action">导入任务包</span></button>
+            <button id="transferCenterBtn" type="button">⇄ <span data-i18n="transfers.center.action">传输记录</span></button>
+          </div>
         </div>
         <div class="utility-dialog-content activity-center-content">
+          <section id="taskPackageHistory" class="task-package-history" aria-live="polite">
+            <header><div><span data-i18n="taskPackage.history.kicker">TASK PACKAGES</span><b data-i18n="taskPackage.history.title">任务交接</b></div><strong id="taskPackageHistoryCount">0</strong></header>
+            <div id="taskPackageHistoryList" class="task-package-history-list"></div>
+            <p id="taskPackageHistoryEmpty" class="detail-empty-note" data-i18n="taskPackage.history.empty">还没有导出或接收过任务包。</p>
+          </section>
           <section id="attentionInbox" class="attention-inbox" aria-live="polite" hidden>
             <header><div><span data-i18n="attention.kicker">ATTENTION</span><b data-i18n="attention.title">需要留意</b></div><strong id="attentionCount">0</strong></header>
             <div id="attentionItems" class="attention-items"></div>
           </section>
           <p id="attentionEmpty" class="detail-empty-note" data-i18n="detail.activity.empty">目前没有需要处理的事项。</p>
         </div>
+      </form>
+    </dialog>
+
+    <dialog id="taskPackageDialog" class="wide-dialog task-package-dialog" aria-labelledby="taskPackageTitle" aria-describedby="taskPackageLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell child-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
+          <div>
+            <span data-i18n="taskPackage.kicker">TASK PACKAGE</span>
+            <h3 id="taskPackageTitle" data-i18n="taskPackage.title">交接任务</h3>
+            <p id="taskPackageLead" data-i18n="taskPackage.lead">把当前工作检查点、会话记录和项目现场装进一个可验证的加密任务包。</p>
+          </div>
+          <button id="taskPackageCloseBtn" type="button" class="utility-dialog-close" data-i18n="dialog.close">关闭</button>
+        </header>
+        <div class="utility-dialog-content task-package-content">
+          <section id="taskPackagePreview" class="task-package-preview"></section>
+          <label class="task-package-field">
+            <span data-i18n="taskPackage.sender">交接人或来源说明（可选）</span>
+            <input id="taskPackageSender" type="text" maxlength="120" autocomplete="name" data-i18n-placeholder="taskPackage.sender.placeholder" placeholder="例如：林强 / 研发组">
+          </label>
+          <label class="task-package-field">
+            <span data-i18n="taskPackage.objective">这次交接要继续完成什么</span>
+            <textarea id="taskPackageObjective" rows="3" maxlength="4000" required data-i18n-placeholder="taskPackage.objective.placeholder" placeholder="写清目标和边界；不会由系统猜测。"></textarea>
+          </label>
+          <div class="task-package-checkpoint-grid">
+            <label class="task-package-field"><span data-i18n="taskPackage.completed">已经完成</span><textarea id="taskPackageCompleted" rows="4" maxlength="32000" data-i18n-placeholder="taskPackage.lines.placeholder" placeholder="每行一项"></textarea></label>
+            <label class="task-package-field"><span data-i18n="taskPackage.next">接下来</span><textarea id="taskPackageNext" rows="4" maxlength="32000" data-i18n-placeholder="taskPackage.lines.placeholder" placeholder="每行一项"></textarea></label>
+            <label class="task-package-field"><span data-i18n="taskPackage.blockers">阻塞与风险</span><textarea id="taskPackageBlockers" rows="4" maxlength="32000" data-i18n-placeholder="taskPackage.lines.placeholder" placeholder="每行一项"></textarea></label>
+            <label class="task-package-field"><span data-i18n="taskPackage.acceptance">验收标准</span><textarea id="taskPackageAcceptance" rows="4" maxlength="32000" data-i18n-placeholder="taskPackage.lines.placeholder" placeholder="每行一项"></textarea></label>
+          </div>
+          <div class="task-package-options">
+            <label><input id="taskPackageIncludeProject" type="checkbox" checked><span data-i18n="taskPackage.includeProject">包含 Git 提交、分支和已跟踪文件差异</span></label>
+            <label><input id="taskPackageIncludeAttachments" type="checkbox"><span data-i18n="taskPackage.includeAttachments">导出时再选择附件</span></label>
+          </div>
+          <p class="task-package-security" data-i18n="taskPackage.security">任务包包含完整会话正文，可能带有敏感信息；只选择确实需要的附件。来源会话会保留。文件使用一次性密钥加密，密钥不写入文件或历史，请分开发送。</p>
+          <section id="taskPackageExportResult" class="task-package-result" hidden>
+            <span data-i18n="taskPackage.result.kicker">UNLOCK CODE</span>
+            <strong data-i18n="taskPackage.result.title">任务包已生成</strong>
+            <code id="taskPackageUnlockCode"></code>
+            <button id="copyTaskPackageCodeBtn" type="button" data-i18n="taskPackage.result.copy">复制解锁密钥</button>
+            <small data-i18n="taskPackage.result.hint">这是唯一一次显示。把任务包文件和密钥分开发给对方。</small>
+          </section>
+          <p id="taskPackageStatus" class="device-center-status" data-state="idle" aria-live="polite"></p>
+        </div>
+        <footer class="dialog-actions utility-dialog-footer">
+          <button id="taskPackageCancelBtn" type="button" data-i18n="dialog.cancel">取消</button>
+          <span></span>
+          <button id="exportTaskPackageBtn" type="button" class="primary" data-i18n="taskPackage.export">生成加密任务包</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="taskPackageImportDialog" class="wide-dialog task-package-import-dialog" aria-labelledby="taskPackageImportTitle" aria-describedby="taskPackageImportLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell child-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
+          <div>
+            <span data-i18n="taskPackage.import.kicker">RECEIVE TASK</span>
+            <h3 id="taskPackageImportTitle" data-i18n="taskPackage.import.title">导入任务包</h3>
+            <p id="taskPackageImportLead" data-i18n="taskPackage.import.lead">先验证文件和密钥，再选择本机 Agent 与运行位置。只有明确支持的适配器才会写入原生客户端会话。</p>
+          </div>
+          <button id="taskPackageImportCloseBtn" type="button" class="utility-dialog-close" data-i18n="dialog.close">关闭</button>
+        </header>
+        <div class="utility-dialog-content task-package-content">
+          <div class="task-package-import-source">
+            <button id="chooseTaskPackageFileBtn" type="button" data-i18n="taskPackage.import.choose">选择 .agentdesk-task 文件</button>
+            <strong id="taskPackageImportFile" data-i18n="taskPackage.import.noFile">尚未选择文件</strong>
+          </div>
+          <label class="task-package-field">
+            <span data-i18n="taskPackage.import.code">解锁密钥</span>
+            <input id="taskPackageImportCode" type="text" maxlength="100" autocomplete="off" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX">
+          </label>
+          <button id="inspectTaskPackageBtn" type="button" data-i18n="taskPackage.import.inspect">验证并读取</button>
+          <section id="taskPackageImportPreview" class="task-package-import-preview" hidden></section>
+          <label id="taskPackageTargetField" class="task-package-field" hidden>
+            <span data-i18n="taskPackage.import.target">接收这项工作的本机 Agent 与运行位置</span>
+            <select id="taskPackageTargetProfile"></select>
+          </label>
+          <label id="taskPackageOpenField" class="task-package-open-option" hidden><input id="taskPackageOpenAfter" type="checkbox" checked><span data-i18n="taskPackage.import.openAfter">导入后打开目标 Agent</span></label>
+          <p id="taskPackageImportStatus" class="device-center-status" data-state="idle" aria-live="polite"></p>
+        </div>
+        <footer class="dialog-actions utility-dialog-footer">
+          <button id="taskPackageImportCancelBtn" type="button" data-i18n="dialog.cancel">取消</button>
+          <span></span>
+          <button id="commitTaskPackageBtn" type="button" class="primary" disabled data-i18n="taskPackage.import.commit">导入并保存任务资料</button>
+        </footer>
       </form>
     </dialog>
 

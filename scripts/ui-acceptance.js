@@ -741,6 +741,81 @@ async function runAcceptance(client, artifactDir) {
     })()`);
   });
 
+  await run('TaskPackage export and receive keep fixed transaction controls around one scrolling content owner', async () => {
+    await client.evaluate(`document.querySelectorAll('#sessionRows tr:not(.empty-row)')[0].click()`);
+    await waitFor(client, `!document.querySelector('#taskPackageActionBtn').disabled`, 'TaskPackage action for a local Codex session');
+    await client.evaluate(`document.querySelector('#taskPackageActionBtn').click()`);
+    await waitFor(
+      client,
+      `document.querySelector('#taskPackageDialog').open
+        && document.querySelector('#taskPackagePreview strong')?.textContent.trim().length > 0
+        && !document.querySelector('#exportTaskPackageBtn').disabled`,
+      'TaskPackage export preview'
+    );
+    let snapshot = await dialogSnapshot(client, '#taskPackageDialog');
+    assertDialogFits(snapshot);
+    assert.equal(snapshot.modal, true);
+    let controls = await client.evaluate(`({
+      closeType: document.querySelector('#taskPackageCloseBtn').type,
+      cancelType: document.querySelector('#taskPackageCancelBtn').type,
+      objectiveRequired: document.querySelector('#taskPackageObjective').required,
+      sourceMode: document.querySelector('#taskPackagePreview b').textContent.trim()
+    })`);
+    assert.deepEqual(
+      { closeType: controls.closeType, cancelType: controls.cancelType, objectiveRequired: controls.objectiveRequired },
+      { closeType: 'button', cancelType: 'button', objectiveRequired: true }
+    );
+    assert.ok(controls.sourceMode.length > 0);
+    let shellBefore = await utilityDialogShellSnapshot(client, '#taskPackageDialog');
+    assert.equal(shellBefore.shellOverflowY, 'hidden');
+    await forceUtilityContentScroll(client, '#taskPackageDialog');
+    let shellAfter = await utilityDialogShellSnapshot(client, '#taskPackageDialog');
+    assert.ok(shellAfter.contentScrollTop > 0);
+    assert.equal(shellAfter.shellScrollTop, 0);
+    for (const key of ['header', 'close', 'footer']) assertRectStable(shellBefore, shellAfter, key);
+    await clearUtilityContentScrollFixture(client, '#taskPackageDialog');
+    await capture(client, artifactDir, '02-task-package-export');
+    await client.evaluate(`document.querySelector('#taskPackageCloseBtn').click()`);
+    await waitFor(client, `!document.querySelector('#taskPackageDialog').open`, 'TaskPackage export close');
+    await waitFor(client, `document.activeElement?.id === 'taskPackageActionBtn'`, 'TaskPackage export focus return');
+
+    await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
+    await waitFor(client, `state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'activity parent for TaskPackage receive');
+    await client.evaluate(`document.querySelector('#importTaskPackageBtn').click()`);
+    await waitFor(
+      client,
+      `document.querySelector('#activityCenterDialog').open && document.querySelector('#taskPackageImportDialog').open`,
+      'TaskPackage receive child'
+    );
+    assert.equal(await client.evaluate(`state.utilityDialog`), 'activity');
+    snapshot = await dialogSnapshot(client, '#taskPackageImportDialog');
+    assertDialogFits(snapshot);
+    controls = await client.evaluate(`({
+      closeType: document.querySelector('#taskPackageImportCloseBtn').type,
+      cancelType: document.querySelector('#taskPackageImportCancelBtn').type,
+      commitDisabled: document.querySelector('#commitTaskPackageBtn').disabled
+    })`);
+    assert.deepEqual(controls, { closeType: 'button', cancelType: 'button', commitDisabled: true });
+    shellBefore = await utilityDialogShellSnapshot(client, '#taskPackageImportDialog');
+    assert.equal(shellBefore.shellOverflowY, 'hidden');
+    await forceUtilityContentScroll(client, '#taskPackageImportDialog');
+    shellAfter = await utilityDialogShellSnapshot(client, '#taskPackageImportDialog');
+    assert.ok(shellAfter.contentScrollTop > 0);
+    assert.equal(shellAfter.shellScrollTop, 0);
+    for (const key of ['header', 'close', 'footer']) assertRectStable(shellBefore, shellAfter, key);
+    await clearUtilityContentScrollFixture(client, '#taskPackageImportDialog');
+    await capture(client, artifactDir, '03-task-package-import');
+    await client.evaluate(`document.querySelector('#taskPackageImportCloseBtn').click()`);
+    await waitFor(
+      client,
+      `document.querySelector('#activityCenterDialog').open && !document.querySelector('#taskPackageImportDialog').open`,
+      'TaskPackage receive returns to activity'
+    );
+    await waitFor(client, `document.activeElement?.id === 'importTaskPackageBtn'`, 'TaskPackage receive focus return');
+    await client.evaluate(`document.querySelector('#activityCenterDialog .utility-dialog-close').click()`);
+    await waitFor(client, `state.utilityDialog === null && !document.querySelector('#activityCenterDialog').open`, 'activity closes after TaskPackage receive');
+  });
+
   await run('yard/cards share state; scene popover uses Top Layer; Agent management is an object Dialog', async () => {
     await client.evaluate(`document.querySelector('#viewToggle').click()`);
     assert.equal((await layoutSnapshot(client)).bodyView, 'yard');

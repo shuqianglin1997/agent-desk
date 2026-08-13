@@ -56,7 +56,20 @@ const state = {
     transferLoading: false,
     transferMessage: ''
   },
-  appMeta: { claude: { label: 'Claude', tagColor: '#d96f33' }, codex: { label: 'Codex', tagColor: '#2f9e8f' } }
+  taskPackages: {
+    history: [],
+    exportPreview: null,
+    exportSource: null,
+    exportBusy: false,
+    exportCode: null,
+    importDraft: null,
+    importPreview: null,
+    importBusy: false
+  },
+  appMeta: {
+    claude: { label: 'Claude', tagColor: '#d96f33', taskPackageMode: 'unsupported' },
+    codex: { label: 'Codex', tagColor: '#2f9e8f', taskPackageMode: 'native' }
+  }
 };
 
 // Remote inventory reads are deliberately on demand: selecting one remote
@@ -111,6 +124,7 @@ async function loadApps() {
           label: a.label,
           tagColor: a.tagColor,
           canExportTranscript: Boolean(a.canExportTranscript),
+          taskPackageMode: ['native', 'transcript'].includes(a.taskPackageMode) ? a.taskPackageMode : 'unsupported',
           canLaunch: a.canLaunch !== false,
           canProvision: a.canProvision === true,
           provisioningClientForm: a.provisioningClientForm || null
@@ -251,11 +265,16 @@ const els = {
   confirmSessionSendBtn: document.querySelector('#confirmSessionSendBtn'),
   sessionSendStatus: document.querySelector('#sessionSendStatus'),
   transferCenterBtn: document.querySelector('#transferCenterBtn'),
+  importTaskPackageBtn: document.querySelector('#importTaskPackageBtn'),
   transferCenterDialog: document.querySelector('#transferCenterDialog'),
   activityCenterDialog: document.querySelector('#activityCenterDialog'),
   settingsDialog: document.querySelector('#settingsDialog'),
   refreshTransfersBtn: document.querySelector('#refreshTransfersBtn'),
   transferList: document.querySelector('#transferList'),
+  taskPackageHistory: document.querySelector('#taskPackageHistory'),
+  taskPackageHistoryCount: document.querySelector('#taskPackageHistoryCount'),
+  taskPackageHistoryList: document.querySelector('#taskPackageHistoryList'),
+  taskPackageHistoryEmpty: document.querySelector('#taskPackageHistoryEmpty'),
   toolCenterDialog: document.querySelector('#toolCenterDialog'),
   toolCenterStatus: document.querySelector('#toolCenterStatus'),
   toolSummary: document.querySelector('#toolSummary'),
@@ -330,6 +349,38 @@ const els = {
   sessionTechnicalDetails: document.querySelector('#sessionTechnicalDetails'),
   openSessionFileBtn: document.querySelector('#openSessionFileBtn'),
   exportSessionBtn: document.querySelector('#exportSessionBtn'),
+  taskPackageActionBtn: document.querySelector('#taskPackageActionBtn'),
+  taskPackageDialog: document.querySelector('#taskPackageDialog'),
+  taskPackageCloseBtn: document.querySelector('#taskPackageCloseBtn'),
+  taskPackageCancelBtn: document.querySelector('#taskPackageCancelBtn'),
+  taskPackagePreview: document.querySelector('#taskPackagePreview'),
+  taskPackageSender: document.querySelector('#taskPackageSender'),
+  taskPackageObjective: document.querySelector('#taskPackageObjective'),
+  taskPackageCompleted: document.querySelector('#taskPackageCompleted'),
+  taskPackageNext: document.querySelector('#taskPackageNext'),
+  taskPackageBlockers: document.querySelector('#taskPackageBlockers'),
+  taskPackageAcceptance: document.querySelector('#taskPackageAcceptance'),
+  taskPackageIncludeProject: document.querySelector('#taskPackageIncludeProject'),
+  taskPackageIncludeAttachments: document.querySelector('#taskPackageIncludeAttachments'),
+  taskPackageExportResult: document.querySelector('#taskPackageExportResult'),
+  taskPackageUnlockCode: document.querySelector('#taskPackageUnlockCode'),
+  copyTaskPackageCodeBtn: document.querySelector('#copyTaskPackageCodeBtn'),
+  taskPackageStatus: document.querySelector('#taskPackageStatus'),
+  exportTaskPackageBtn: document.querySelector('#exportTaskPackageBtn'),
+  taskPackageImportDialog: document.querySelector('#taskPackageImportDialog'),
+  taskPackageImportCloseBtn: document.querySelector('#taskPackageImportCloseBtn'),
+  taskPackageImportCancelBtn: document.querySelector('#taskPackageImportCancelBtn'),
+  chooseTaskPackageFileBtn: document.querySelector('#chooseTaskPackageFileBtn'),
+  taskPackageImportFile: document.querySelector('#taskPackageImportFile'),
+  taskPackageImportCode: document.querySelector('#taskPackageImportCode'),
+  inspectTaskPackageBtn: document.querySelector('#inspectTaskPackageBtn'),
+  taskPackageImportPreview: document.querySelector('#taskPackageImportPreview'),
+  taskPackageTargetField: document.querySelector('#taskPackageTargetField'),
+  taskPackageTargetProfile: document.querySelector('#taskPackageTargetProfile'),
+  taskPackageOpenField: document.querySelector('#taskPackageOpenField'),
+  taskPackageOpenAfter: document.querySelector('#taskPackageOpenAfter'),
+  taskPackageImportStatus: document.querySelector('#taskPackageImportStatus'),
+  commitTaskPackageBtn: document.querySelector('#commitTaskPackageBtn'),
   profileDialog: document.querySelector('#profileDialog'),
   agentCreateDialog: document.querySelector('#agentCreateDialog'),
   newAgentName: document.querySelector('#newAgentName'),
@@ -424,6 +475,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   initCompanion();
   applyView();
   await loadProfiles();
+  await loadTaskPackageHistory();
   loadActivity();
   loadQuotas();
   // 庭院和经典卡片都会展示活动状态/最近活跃，因此两种 Presenter 可见时都要刷新。
@@ -765,7 +817,7 @@ function bindEvents() {
   els.activityCenterBtn?.addEventListener('click', async () => {
     openUtilityDialog('activity');
     renderAttentionInbox();
-    await loadTransfers();
+    await Promise.all([loadTransfers(), loadTaskPackageHistory()]);
   });
 
   els.settingsBtn?.addEventListener('click', () => {
@@ -983,6 +1035,13 @@ function bindEvents() {
         setStatus(state.mesh.transferMessage);
       }
       renderTransferList();
+    });
+  }
+
+  if (window.manager.onTaskPackagesChanged) {
+    window.manager.onTaskPackagesChanged((history) => {
+      state.taskPackages.history = Array.isArray(history) ? history : [];
+      renderTaskPackageHistory();
     });
   }
 
@@ -1229,6 +1288,65 @@ function bindEvents() {
 
   els.transferCenterBtn?.addEventListener('click', async () => {
     await openTransferCenter(els.transferCenterBtn);
+  });
+
+  els.importTaskPackageBtn?.addEventListener('click', () => {
+    openTaskPackageImportDialog(els.importTaskPackageBtn);
+  });
+
+  els.taskPackageActionBtn?.addEventListener('click', async () => {
+    await openTaskPackageExportDialog(els.taskPackageActionBtn);
+  });
+
+  els.exportTaskPackageBtn?.addEventListener('click', async () => {
+    await exportCurrentTaskPackage();
+  });
+
+  els.copyTaskPackageCodeBtn?.addEventListener('click', async () => {
+    const code = state.taskPackages.exportCode;
+    if (!code) return;
+    await window.manager.writeClipboard(code);
+    setTaskPackageStatus('export', tr('taskPackage.status.codeCopied'), 'idle');
+  });
+
+  els.chooseTaskPackageFileBtn?.addEventListener('click', async () => {
+    await chooseTaskPackageImportFile();
+  });
+
+  els.inspectTaskPackageBtn?.addEventListener('click', async () => {
+    await inspectTaskPackageImport();
+  });
+
+  els.commitTaskPackageBtn?.addEventListener('click', async () => {
+    await commitTaskPackageImport();
+  });
+
+  els.taskPackageDialog?.addEventListener('close', () => {
+    resetTaskPackageExportState();
+  });
+
+  for (const control of [els.taskPackageCloseBtn, els.taskPackageCancelBtn]) {
+    control?.addEventListener('click', () => {
+      if (!state.taskPackages.exportBusy) els.taskPackageDialog?.close('cancel');
+    });
+  }
+
+  els.taskPackageDialog?.addEventListener('cancel', (event) => {
+    if (state.taskPackages.exportBusy) event.preventDefault();
+  });
+
+  els.taskPackageImportDialog?.addEventListener('close', () => {
+    void cancelTaskPackageImportDraft();
+  });
+
+  for (const control of [els.taskPackageImportCloseBtn, els.taskPackageImportCancelBtn]) {
+    control?.addEventListener('click', () => {
+      if (!state.taskPackages.importBusy) els.taskPackageImportDialog?.close('cancel');
+    });
+  }
+
+  els.taskPackageImportDialog?.addEventListener('cancel', (event) => {
+    if (state.taskPackages.importBusy) event.preventDefault();
   });
 
   els.sessionSendDialog?.addEventListener('close', () => {
@@ -5801,6 +5919,488 @@ async function openFileSendDialog(preselectedDeviceId = null, returnFocus = docu
   openChildDialog(els.fileSendDialog, returnFocus);
 }
 
+async function openTaskPackageExportDialog(returnFocus = document.activeElement) {
+  const session = resolvedFocusedSession();
+  const profile = sessionOwnerProfile(session);
+  if (!session || !profile || !els.taskPackageDialog || !window.manager.previewTaskPackageExport) return;
+  resetTaskPackageExportState();
+  state.taskPackages.exportBusy = true;
+  lockTaskPackageDialog('export', true);
+  setTaskPackageStatus('export', tr('taskPackage.status.reading'), 'busy');
+  openChildDialog(els.taskPackageDialog, returnFocus);
+  let result;
+  try {
+    result = await window.manager.previewTaskPackageExport({
+      profileId: profile.id,
+      sessionId: session.id
+    });
+  } catch (_error) {
+    result = { ok: false, reasonCode: 'task-package-preview-failed' };
+  } finally {
+    state.taskPackages.exportBusy = false;
+    lockTaskPackageDialog('export', false);
+  }
+  if (!result?.ok || !result.preview?.supported) {
+    state.taskPackages.exportPreview = null;
+    setTaskPackageStatus('export', taskPackageErrorText(result?.reasonCode || 'task-package-source-unsupported'), 'error');
+    if (els.exportTaskPackageBtn) els.exportTaskPackageBtn.disabled = true;
+    return;
+  }
+  state.taskPackages.exportPreview = result.preview;
+  state.taskPackages.exportSource = {
+    profileId: profile.id,
+    sessionId: session.id,
+    conversationId: session.conversationId || null
+  };
+  renderTaskPackageExportPreview();
+  setTaskPackageStatus('export', tr(
+    result.preview.mode === 'native' ? 'taskPackage.status.nativeReady' : 'taskPackage.status.transcriptReady'
+  ), 'idle');
+  if (els.exportTaskPackageBtn) els.exportTaskPackageBtn.disabled = false;
+}
+
+function resetTaskPackageExportState() {
+  state.taskPackages.exportPreview = null;
+  state.taskPackages.exportSource = null;
+  state.taskPackages.exportBusy = false;
+  state.taskPackages.exportCode = null;
+  if (els.taskPackagePreview) els.taskPackagePreview.replaceChildren();
+  for (const field of [
+    els.taskPackageSender,
+    els.taskPackageObjective,
+    els.taskPackageCompleted,
+    els.taskPackageNext,
+    els.taskPackageBlockers,
+    els.taskPackageAcceptance
+  ]) {
+    if (field) field.value = '';
+  }
+  if (els.taskPackageIncludeProject) els.taskPackageIncludeProject.checked = true;
+  if (els.taskPackageIncludeAttachments) els.taskPackageIncludeAttachments.checked = false;
+  if (els.taskPackageExportResult) els.taskPackageExportResult.hidden = true;
+  if (els.taskPackageUnlockCode) els.taskPackageUnlockCode.textContent = '';
+  if (els.taskPackageStatus) {
+    els.taskPackageStatus.textContent = '';
+    els.taskPackageStatus.dataset.state = 'idle';
+  }
+  if (els.exportTaskPackageBtn) {
+    els.exportTaskPackageBtn.disabled = true;
+    els.exportTaskPackageBtn.textContent = tr('taskPackage.export');
+  }
+  lockTaskPackageDialog('export', false);
+}
+
+function renderTaskPackageExportPreview() {
+  if (!els.taskPackagePreview) return;
+  els.taskPackagePreview.replaceChildren();
+  const preview = state.taskPackages.exportPreview;
+  if (!preview) return;
+  const title = document.createElement('strong');
+  title.textContent = preview.title;
+  const meta = document.createElement('span');
+  meta.textContent = [preview.sourceAgentName, preview.appLabel, preview.projectName].filter(Boolean).join(' · ');
+  const badge = document.createElement('b');
+  badge.textContent = preview.mode === 'native'
+    ? tr('taskPackage.mode.nativeCount', { n: preview.nativeRecordCount })
+    : tr('taskPackage.mode.transcript');
+  els.taskPackagePreview.append(title, meta, badge);
+}
+
+async function exportCurrentTaskPackage() {
+  if (state.taskPackages.exportBusy || !state.taskPackages.exportPreview || !state.taskPackages.exportSource) return;
+  if (!els.taskPackageObjective?.value.trim()) {
+    setTaskPackageStatus('export', tr('taskPackage.status.objectiveRequired'), 'error');
+    els.taskPackageObjective?.focus();
+    return;
+  }
+  const source = state.taskPackages.exportSource;
+  state.taskPackages.exportBusy = true;
+  lockTaskPackageDialog('export', true);
+  if (els.exportTaskPackageBtn) els.exportTaskPackageBtn.disabled = true;
+  setTaskPackageStatus('export', tr('taskPackage.status.exporting'), 'busy');
+  let result;
+  try {
+    result = await window.manager.exportTaskPackage({
+      profileId: source.profileId,
+      sessionId: source.sessionId,
+      conversationId: source.conversationId,
+      senderLabel: els.taskPackageSender?.value || '',
+      checkpoint: {
+        objective: els.taskPackageObjective?.value || '',
+        completed: els.taskPackageCompleted?.value || '',
+        next: els.taskPackageNext?.value || '',
+        blockers: els.taskPackageBlockers?.value || '',
+        acceptance: els.taskPackageAcceptance?.value || ''
+      },
+      includeProject: els.taskPackageIncludeProject?.checked !== false,
+      includeAttachments: els.taskPackageIncludeAttachments?.checked === true
+    });
+  } catch (_error) {
+    result = { ok: false, reasonCode: 'task-package-export-failed' };
+  } finally {
+    state.taskPackages.exportBusy = false;
+    lockTaskPackageDialog('export', false);
+  }
+  if (result?.cancelled) {
+    if (els.exportTaskPackageBtn) els.exportTaskPackageBtn.disabled = false;
+    setTaskPackageStatus('export', tr('taskPackage.status.cancelled'), 'idle');
+    return;
+  }
+  if (!result?.ok) {
+    if (els.exportTaskPackageBtn) els.exportTaskPackageBtn.disabled = false;
+    setTaskPackageStatus('export', taskPackageErrorText(result?.reasonCode), 'error');
+    return;
+  }
+  state.taskPackages.exportCode = result.exported.unlockCode;
+  state.taskPackages.history = result.history || state.taskPackages.history;
+  if (els.taskPackageUnlockCode) els.taskPackageUnlockCode.textContent = result.exported.unlockCode;
+  if (els.taskPackageExportResult) els.taskPackageExportResult.hidden = false;
+  if (els.exportTaskPackageBtn) {
+    els.exportTaskPackageBtn.disabled = true;
+    els.exportTaskPackageBtn.textContent = tr('taskPackage.export.done');
+  }
+  setTaskPackageStatus('export', tr('taskPackage.status.exported'), 'idle');
+  renderTaskPackageHistory();
+}
+
+function openTaskPackageImportDialog(returnFocus = document.activeElement) {
+  if (!els.taskPackageImportDialog) return;
+  resetTaskPackageImportState();
+  openChildDialog(els.taskPackageImportDialog, returnFocus);
+}
+
+function resetTaskPackageImportState() {
+  state.taskPackages.importDraft = null;
+  state.taskPackages.importPreview = null;
+  state.taskPackages.importBusy = false;
+  if (els.taskPackageImportFile) els.taskPackageImportFile.textContent = tr('taskPackage.import.noFile');
+  if (els.taskPackageImportCode) els.taskPackageImportCode.value = '';
+  if (els.taskPackageImportPreview) {
+    els.taskPackageImportPreview.hidden = true;
+    els.taskPackageImportPreview.replaceChildren();
+  }
+  if (els.taskPackageTargetField) els.taskPackageTargetField.hidden = true;
+  if (els.taskPackageOpenField) els.taskPackageOpenField.hidden = true;
+  if (els.taskPackageTargetProfile) els.taskPackageTargetProfile.replaceChildren();
+  if (els.taskPackageOpenAfter) els.taskPackageOpenAfter.checked = true;
+  if (els.inspectTaskPackageBtn) els.inspectTaskPackageBtn.disabled = false;
+  if (els.chooseTaskPackageFileBtn) els.chooseTaskPackageFileBtn.disabled = false;
+  if (els.commitTaskPackageBtn) {
+    els.commitTaskPackageBtn.disabled = true;
+    els.commitTaskPackageBtn.textContent = tr('taskPackage.import.commit');
+  }
+  lockTaskPackageDialog('import', false);
+  if (els.taskPackageImportStatus) {
+    els.taskPackageImportStatus.textContent = tr('taskPackage.import.status.choose');
+    els.taskPackageImportStatus.dataset.state = 'idle';
+  }
+}
+
+async function chooseTaskPackageImportFile() {
+  if (state.taskPackages.importBusy || !window.manager.chooseTaskPackageImport) return;
+  await cancelTaskPackageImportDraft();
+  clearTaskPackageImportInspection();
+  if (els.taskPackageImportFile) els.taskPackageImportFile.textContent = tr('taskPackage.import.noFile');
+  if (els.taskPackageImportCode) els.taskPackageImportCode.value = '';
+  state.taskPackages.importBusy = true;
+  lockTaskPackageDialog('import', true);
+  if (els.chooseTaskPackageFileBtn) els.chooseTaskPackageFileBtn.disabled = true;
+  setTaskPackageStatus('import', tr('taskPackage.import.status.choosing'), 'busy');
+  let result;
+  try {
+    result = await window.manager.chooseTaskPackageImport();
+  } catch (_error) {
+    result = { ok: false, reasonCode: 'task-package-import-choose-failed' };
+  } finally {
+    state.taskPackages.importBusy = false;
+    lockTaskPackageDialog('import', false);
+    if (els.chooseTaskPackageFileBtn) els.chooseTaskPackageFileBtn.disabled = false;
+  }
+  if (result?.cancelled) {
+    setTaskPackageStatus('import', tr('taskPackage.status.cancelled'), 'idle');
+    return;
+  }
+  if (!result?.ok) {
+    setTaskPackageStatus('import', taskPackageErrorText(result?.reasonCode), 'error');
+    return;
+  }
+  state.taskPackages.importDraft = result.draft;
+  state.taskPackages.importPreview = null;
+  if (els.taskPackageImportFile) {
+    els.taskPackageImportFile.textContent = `${result.draft.fileName} · ${formatBytes(result.draft.size)}`;
+  }
+  if (els.commitTaskPackageBtn) els.commitTaskPackageBtn.disabled = true;
+  setTaskPackageStatus('import', tr('taskPackage.import.status.enterCode'), 'idle');
+}
+
+async function inspectTaskPackageImport() {
+  const draft = state.taskPackages.importDraft;
+  if (!draft || state.taskPackages.importBusy) return;
+  const unlockCode = els.taskPackageImportCode?.value || '';
+  if (!unlockCode.trim()) {
+    setTaskPackageStatus('import', tr('taskPackage.import.status.codeRequired'), 'error');
+    return;
+  }
+  state.taskPackages.importBusy = true;
+  lockTaskPackageDialog('import', true);
+  if (els.inspectTaskPackageBtn) els.inspectTaskPackageBtn.disabled = true;
+  setTaskPackageStatus('import', tr('taskPackage.import.status.inspecting'), 'busy');
+  let result;
+  try {
+    result = await window.manager.inspectTaskPackageImport({ token: draft.token, unlockCode });
+  } catch (_error) {
+    result = { ok: false, reasonCode: 'task-package-import-inspect-failed' };
+  } finally {
+    state.taskPackages.importBusy = false;
+    lockTaskPackageDialog('import', false);
+    if (els.inspectTaskPackageBtn) els.inspectTaskPackageBtn.disabled = false;
+  }
+  if (!result?.ok) {
+    state.taskPackages.importPreview = null;
+    if (els.commitTaskPackageBtn) els.commitTaskPackageBtn.disabled = true;
+    setTaskPackageStatus('import', taskPackageErrorText(result?.reasonCode), 'error');
+    return;
+  }
+  state.taskPackages.importPreview = result.inspected;
+  renderTaskPackageImportPreview();
+  setTaskPackageStatus('import', result.inspected.compatibleProfiles.length
+    ? tr('taskPackage.import.status.verified')
+    : tr('taskPackage.import.status.noTarget'), result.inspected.compatibleProfiles.length ? 'idle' : 'error');
+}
+
+function renderTaskPackageImportPreview() {
+  const inspected = state.taskPackages.importPreview;
+  if (!inspected || !els.taskPackageImportPreview) return;
+  const manifest = inspected.manifest;
+  els.taskPackageImportPreview.replaceChildren();
+  const title = document.createElement('strong');
+  title.textContent = manifest.session.originalTitle;
+  const meta = document.createElement('span');
+  meta.textContent = [
+    manifest.source.senderLabel,
+    manifest.source.agentName,
+    manifest.project?.name,
+    formatBytes(manifest.bytesTotal)
+  ].filter(Boolean).join(' · ');
+  const badge = document.createElement('b');
+  badge.textContent = tr(manifest.session.mode === 'native' ? 'taskPackage.mode.native' : 'taskPackage.mode.transcript');
+  els.taskPackageImportPreview.append(title, meta, badge);
+  const details = document.createElement('div');
+  details.className = 'task-package-import-preview-details';
+  appendTaskPackagePreviewSection(details, tr('taskPackage.objective'), manifest.checkpoint.objective
+    ? [manifest.checkpoint.objective]
+    : []);
+  appendTaskPackagePreviewSection(details, tr('taskPackage.completed'), manifest.checkpoint.completed);
+  appendTaskPackagePreviewSection(details, tr('taskPackage.next'), manifest.checkpoint.next);
+  appendTaskPackagePreviewSection(details, tr('taskPackage.blockers'), manifest.checkpoint.blockers);
+  appendTaskPackagePreviewSection(details, tr('taskPackage.acceptance'), manifest.checkpoint.acceptance);
+  if (manifest.project) {
+    const projectFacts = [
+      manifest.project.name,
+      manifest.project.branch,
+      manifest.project.head ? manifest.project.head.slice(0, 12) : null,
+      tr(manifest.project.dirty ? 'taskPackage.import.preview.gitDirty' : 'taskPackage.import.preview.gitClean')
+    ].filter(Boolean);
+    appendTaskPackagePreviewSection(details, tr('taskPackage.import.preview.project'), projectFacts);
+  }
+  const attachmentCount = manifest.entries.filter((entry) => entry.kind === 'attachment').length;
+  if (attachmentCount) {
+    appendTaskPackagePreviewSection(details, tr('taskPackage.import.preview.attachments'), [
+      tr('taskPackage.import.preview.attachmentCount', { n: attachmentCount })
+    ]);
+  }
+  els.taskPackageImportPreview.append(details);
+  els.taskPackageImportPreview.hidden = false;
+
+  if (els.taskPackageTargetProfile) {
+    els.taskPackageTargetProfile.replaceChildren();
+    for (const profile of inspected.compatibleProfiles) {
+      const option = document.createElement('option');
+      option.value = profile.profileId;
+      option.textContent = [
+        profile.agentName,
+        profile.name !== profile.agentName ? profile.name : null,
+        profile.appLabel
+      ].filter(Boolean).join(' · ');
+      els.taskPackageTargetProfile.append(option);
+    }
+  }
+  const hasTargets = inspected.compatibleProfiles.length > 0;
+  if (els.taskPackageTargetField) els.taskPackageTargetField.hidden = !hasTargets;
+  if (els.taskPackageOpenField) els.taskPackageOpenField.hidden = !hasTargets;
+  if (els.commitTaskPackageBtn) els.commitTaskPackageBtn.disabled = !hasTargets;
+}
+
+function appendTaskPackagePreviewSection(container, label, values = []) {
+  const section = document.createElement('section');
+  const heading = document.createElement('strong');
+  heading.textContent = label;
+  section.append(heading);
+  const lines = (Array.isArray(values) ? values : []).map((value) => String(value || '').trim()).filter(Boolean);
+  if (!lines.length) {
+    const empty = document.createElement('span');
+    empty.textContent = tr('taskPackage.import.preview.notProvided');
+    section.append(empty);
+  } else {
+    const list = document.createElement('ul');
+    for (const value of lines) {
+      const item = document.createElement('li');
+      item.textContent = value;
+      list.append(item);
+    }
+    section.append(list);
+  }
+  container.append(section);
+}
+
+async function commitTaskPackageImport() {
+  const draft = state.taskPackages.importDraft;
+  const inspected = state.taskPackages.importPreview;
+  const targetProfileId = els.taskPackageTargetProfile?.value || '';
+  if (!draft || !inspected || !targetProfileId || state.taskPackages.importBusy) return;
+  state.taskPackages.importBusy = true;
+  lockTaskPackageDialog('import', true);
+  if (els.commitTaskPackageBtn) els.commitTaskPackageBtn.disabled = true;
+  setTaskPackageStatus('import', tr('taskPackage.import.status.importing'), 'busy');
+  let result;
+  try {
+    result = await window.manager.commitTaskPackageImport({
+      token: draft.token,
+      targetProfileId,
+      openAfterImport: els.taskPackageOpenAfter?.checked !== false
+    });
+  } catch (_error) {
+    result = { ok: false, reasonCode: 'task-package-import-commit-failed' };
+  } finally {
+    state.taskPackages.importBusy = false;
+    lockTaskPackageDialog('import', false);
+  }
+  if (result?.cancelled) {
+    if (els.commitTaskPackageBtn) els.commitTaskPackageBtn.disabled = false;
+    setTaskPackageStatus('import', tr('taskPackage.import.status.destinationCancelled'), 'idle');
+    return;
+  }
+  if (!result?.ok) {
+    if (els.commitTaskPackageBtn) els.commitTaskPackageBtn.disabled = false;
+    setTaskPackageStatus('import', taskPackageErrorText(result?.reasonCode), 'error');
+    return;
+  }
+  state.taskPackages.history = result.history || state.taskPackages.history;
+  state.taskPackages.importDraft = null;
+  if (els.commitTaskPackageBtn) {
+    els.commitTaskPackageBtn.disabled = true;
+    els.commitTaskPackageBtn.textContent = tr('taskPackage.import.done');
+  }
+  const targetName = result.imported.targetAgentName || result.imported.targetProfileName;
+  const completedText = tr(
+    result.imported.sessionMode === 'native'
+      ? 'taskPackage.import.status.nativeDone'
+      : 'taskPackage.import.status.materialsDone',
+    { name: targetName }
+  );
+  setTaskPackageStatus('import', result.imported.openFailed
+    ? `${completedText} ${tr('taskPackage.import.status.openFailed')}`
+    : completedText, result.imported.openFailed ? 'error' : 'idle');
+  setStatus(tr('taskPackage.status.received', { name: targetName }));
+  renderTaskPackageHistory();
+  if (result.imported.sessionMode === 'native') await loadProfiles();
+}
+
+async function cancelTaskPackageImportDraft() {
+  const token = state.taskPackages.importDraft?.token;
+  state.taskPackages.importDraft = null;
+  state.taskPackages.importPreview = null;
+  if (token && window.manager.cancelTaskPackageImport) {
+    try { await window.manager.cancelTaskPackageImport(token); } catch (_error) { /* Main also expires drafts. */ }
+  }
+}
+
+function clearTaskPackageImportInspection() {
+  state.taskPackages.importPreview = null;
+  if (els.taskPackageImportPreview) {
+    els.taskPackageImportPreview.hidden = true;
+    els.taskPackageImportPreview.replaceChildren();
+  }
+  if (els.taskPackageTargetField) els.taskPackageTargetField.hidden = true;
+  if (els.taskPackageOpenField) els.taskPackageOpenField.hidden = true;
+  if (els.taskPackageTargetProfile) els.taskPackageTargetProfile.replaceChildren();
+  if (els.commitTaskPackageBtn) els.commitTaskPackageBtn.disabled = true;
+}
+
+function lockTaskPackageDialog(kind, locked) {
+  const controls = kind === 'import'
+    ? [els.taskPackageImportCloseBtn, els.taskPackageImportCancelBtn]
+    : [els.taskPackageCloseBtn, els.taskPackageCancelBtn];
+  for (const control of controls) {
+    if (control) control.disabled = Boolean(locked);
+  }
+}
+
+async function loadTaskPackageHistory() {
+  if (!window.manager.listTaskPackages) return;
+  const result = await window.manager.listTaskPackages();
+  if (result?.ok) state.taskPackages.history = result.history || [];
+  renderTaskPackageHistory();
+}
+
+function renderTaskPackageHistory() {
+  if (!els.taskPackageHistoryList) return;
+  const history = state.taskPackages.history || [];
+  els.taskPackageHistoryList.replaceChildren();
+  if (els.taskPackageHistoryCount) els.taskPackageHistoryCount.textContent = String(history.length);
+  if (els.taskPackageHistoryEmpty) els.taskPackageHistoryEmpty.hidden = history.length > 0;
+  for (const item of history.slice(0, 12)) {
+    const card = document.createElement('article');
+    card.className = 'task-package-history-card';
+    const title = document.createElement('strong');
+    title.textContent = item.title || tr('taskPackage.history.untitled');
+    const meta = document.createElement('small');
+    const direction = tr(item.direction === 'imported'
+      ? 'taskPackage.history.imported'
+      : 'taskPackage.history.exported');
+    const mode = tr(item.sessionMode === 'native' ? 'taskPackage.mode.native' : 'taskPackage.mode.transcript');
+    meta.textContent = [direction, mode, item.sourceAgentName, item.targetAgentName, compactDate(item.recordedAt || item.createdAt)].filter(Boolean).join(' · ');
+    card.append(title, meta);
+    if (item.canReveal) {
+      const reveal = document.createElement('button');
+      reveal.type = 'button';
+      reveal.textContent = tr('taskPackage.history.reveal');
+      reveal.addEventListener('click', async () => {
+        const result = await window.manager.revealTaskPackage({
+          packageId: item.packageId,
+          direction: item.direction
+        });
+        if (!result?.ok) setStatus(taskPackageErrorText(result?.reasonCode));
+      });
+      card.append(reveal);
+    }
+    els.taskPackageHistoryList.append(card);
+  }
+}
+
+function setTaskPackageStatus(kind, message, tone = 'idle') {
+  const element = kind === 'import' ? els.taskPackageImportStatus : els.taskPackageStatus;
+  if (!element) return;
+  element.textContent = message || '';
+  element.dataset.state = tone;
+}
+
+function taskPackageErrorText(code) {
+  const value = String(code || 'task-package-failed');
+  if (/unlock|decrypt/.test(value)) return tr('taskPackage.error.unlock');
+  if (/session-conflict|file-conflict/.test(value)) return tr('taskPackage.error.conflict');
+  if (/target-(incompatible|not-codex)|native-adapter-unsupported/.test(value)) return tr('taskPackage.error.target');
+  if (/source-unsupported/.test(value)) return tr('taskPackage.error.source');
+  if (/git-patch-too-large/.test(value)) return tr('taskPackage.error.patchLarge');
+  if (/git-snapshot-failed/.test(value)) return tr('taskPackage.error.gitSnapshot');
+  if (/attachment-count/.test(value)) return tr('taskPackage.error.attachmentCount');
+  if (/attachment-(changing|short-read|invalid|write)/.test(value)) return tr('taskPackage.error.attachmentChanged');
+  if (/record-limit/.test(value)) return tr('taskPackage.error.recordLimit');
+  if (/format|schema|manifest|hash|truncated|trailing|entry|jsonl|session-meta/.test(value)) return tr('taskPackage.error.invalid');
+  if (/changing/.test(value)) return tr('taskPackage.error.changing');
+  return tr('taskPackage.error.generic', { code: value });
+}
+
 function populateTransferTargets(select, devices, preselectedDeviceId) {
   if (!select) return null;
   select.replaceChildren();
@@ -6313,6 +6913,19 @@ function renderInspector() {
   els.exportSessionBtn.title = canExport
     ? tr('detail.export.can')
     : (session ? tr('detail.export.cannot') : '');
+  const canTaskPackage = Boolean(
+    !disabled
+    && session
+    && !session._remote
+    && !session._stale
+    && state.appMeta[session.appId]?.taskPackageMode !== 'unsupported'
+  );
+  if (els.taskPackageActionBtn) {
+    els.taskPackageActionBtn.disabled = !canTaskPackage;
+    els.taskPackageActionBtn.title = canTaskPackage
+      ? tr('taskPackage.action.hint')
+      : (session ? tr('taskPackage.action.unsupported') : '');
+  }
 
   renderReplicaPicker(focused, resolution);
   if (els.sessionInspectorEmpty) els.sessionInspectorEmpty.hidden = Boolean(focused);
