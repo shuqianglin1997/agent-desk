@@ -4,6 +4,12 @@ const { KNOWN_CAPABILITIES, requireCapability } = require('../domain/capabilitie
 const { createEnvelope, verifyEnvelope, SequenceGuard } = require('../protocol/envelope');
 const { createDeviceProof, verifyDeviceProof } = require('../protocol/handshake');
 const { encodeInventoryChunks, InventoryAssembler } = require('../protocol/inventory');
+const {
+  PROTOCOL_FEATURES,
+  KNOWN_PROTOCOL_FEATURES,
+  normalizeProtocolFeatures,
+  negotiateProtocolFeatures
+} = require('../protocol/features');
 
 const PEER_TIMEOUT_MS = 30_000;
 // Full snapshots are the current recovery baseline. Keep them comfortably inside
@@ -25,6 +31,9 @@ class PeerManager {
     this.iceServersProvider = options.iceServersProvider || (() => []);
     this.onState = options.onState || (() => {});
     this.onEnvelope = options.onEnvelope || (() => {});
+    this.protocolFeatures = normalizeProtocolFeatures(
+      options.protocolFeatures === undefined ? KNOWN_PROTOCOL_FEATURES : options.protocolFeatures
+    );
     this.contextsByToken = new Map();
     this.connectionsById = new Map();
     this.connectionsByDevice = new Map();
@@ -105,7 +114,8 @@ class PeerManager {
       }, peer.secrets.devicePrivateKey);
       await this.sendDataEnvelope(context, 'connection.hello', 'inventory.read', {
         proof: helloProof,
-        supportedCapabilities: KNOWN_CAPABILITIES
+        supportedCapabilities: KNOWN_CAPABILITIES,
+        protocolFeatures: this.protocolFeatures
       });
       await context.auth.promise;
       await context.firstCatalog.promise;
@@ -182,12 +192,22 @@ class PeerManager {
   handlePermissionsChanged(deviceId, permissions = []) {
     const context = this.connectionsByDevice.get(String(deviceId));
     if (!context || context.closed) return false;
+    const hadCatalog = context.peer.remote.permissions?.includes('catalog.manage') === true;
     context.peer.remote = {
       ...context.peer.remote,
       permissions: Array.isArray(permissions) ? [...permissions] : []
     };
     try {
       requireCapability(context.peer.remote, 'inventory.read');
+      const hasCatalog = context.peer.remote.permissions?.includes('catalog.manage') === true;
+      if (
+        hadCatalog
+        && !hasCatalog
+        && this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)
+      ) {
+        context.firstCatalog.resolve({ skipped: true, reason: 'catalog-capability-revoked' });
+        void this.sendCatalogUnavailable(context, 'catalog-capability-revoked').catch(() => false);
+      }
       return true;
     } catch (_error) {
       this.closeContext(context, 'capability-revoked:inventory.read');
@@ -201,6 +221,17 @@ class PeerManager {
 
   listConnections() {
     return [...this.connectionsById.values()].map(publicConnection);
+  }
+
+  isCurrentConnection(context) {
+    return Boolean(
+      context
+      && !context.closed
+      && context.authenticated
+      && !context.window.isDestroyed()
+      && this.connectionsById.get(context.connectionId) === context
+      && this.connectionsByDevice.get(context.peer.remote.deviceId) === context
+    );
   }
 
   async broadcastInventory() {
@@ -221,6 +252,7 @@ class PeerManager {
         context.authenticated
         && !context.closed
         && !context.window.isDestroyed()
+        && this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)
         && context.peer.remote.permissions?.includes('catalog.manage')
       ));
     const results = await Promise.allSettled(contexts.map((context) => this.sendCatalogSnapshot(context)));
@@ -280,6 +312,8 @@ class PeerManager {
       auth: deferred(PEER_TIMEOUT_MS, 'peer-auth-timeout'),
       firstCatalog: deferred(PEER_TIMEOUT_MS, 'catalog-initial-timeout'),
       firstInventory: deferred(PEER_TIMEOUT_MS, 'inventory-initial-timeout'),
+      remoteProtocolFeatures: [],
+      negotiatedProtocolFeatures: [],
       pendingAcks: new Map(),
       pendingInventoryRefreshes: new Map(),
       inventoryAssembler: new InventoryAssembler(),
@@ -376,10 +410,12 @@ class PeerManager {
       );
       if (!proof.ok) throw new Error(proof.reason);
       this.updateRemoteCapabilities(context, payload?.supportedCapabilities);
+      this.updateRemoteProtocolFeatures(context, payload?.protocolFeatures);
       await this.finishAuthenticated(context);
       await this.sendDataEnvelope(context, 'connection.ready', 'inventory.read', {
         accepted: true,
-        supportedCapabilities: KNOWN_CAPABILITIES
+        supportedCapabilities: KNOWN_CAPABILITIES,
+        protocolFeatures: this.protocolFeatures
       });
       this.startInitialSync(context);
       return;
@@ -387,6 +423,7 @@ class PeerManager {
     if (messageType === 'connection.ready') {
       if (context.role !== 'offerer' || !context.answerAuthenticated) throw new Error('peer-ready-unexpected');
       this.updateRemoteCapabilities(context, payload?.supportedCapabilities);
+      this.updateRemoteProtocolFeatures(context, payload?.protocolFeatures);
       await this.finishAuthenticated(context);
       this.startInitialSync(context);
       return;
@@ -397,7 +434,23 @@ class PeerManager {
     }
     if (!context.authenticated) throw new Error('peer-not-authenticated');
 
+    if (messageType === 'connection.catalog-unavailable') {
+      if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)) {
+        throw new Error('peer-feature-not-negotiated');
+      }
+      if (payload?.status !== 'unavailable') throw new Error('catalog-sync-status-invalid');
+      context.firstCatalog.resolve({
+        skipped: true,
+        reason: cleanText(payload?.reason, 80) || 'catalog-unavailable'
+      });
+      this.emitState(context, 'catalog-unavailable');
+      return;
+    }
+
     if (messageType === 'catalog.snapshot') {
+      if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)) {
+        throw new Error('peer-feature-not-negotiated');
+      }
       const applied = this.meshService.applyRemoteCatalog({
         deviceId: context.peer.remote.deviceId,
         snapshot: payload
@@ -418,7 +471,11 @@ class PeerManager {
         }
         this.meshService.applyRemoteInventory({
           deviceId: context.peer.remote.deviceId,
-          inventory: assembled.inventory
+          inventory: assembled.inventory,
+          allowLegacyCatalogProjection: (
+            !this.supportsProtocolFeature(context, PROTOCOL_FEATURES.INVENTORY_DEVICE_FACTS_V1)
+            && this.hasCurrentCapability(context, 'catalog.manage')
+          )
         });
         context.lastReceivedInventoryRevision = Math.max(
           context.lastReceivedInventoryRevision,
@@ -491,6 +548,20 @@ class PeerManager {
     return true;
   }
 
+  updateRemoteProtocolFeatures(context, features) {
+    context.remoteProtocolFeatures = normalizeProtocolFeatures(features);
+    context.negotiatedProtocolFeatures = negotiateProtocolFeatures(
+      this.protocolFeatures,
+      context.remoteProtocolFeatures
+    );
+    return context.negotiatedProtocolFeatures;
+  }
+
+  supportsProtocolFeature(context, feature) {
+    return Array.isArray(context?.negotiatedProtocolFeatures)
+      && context.negotiatedProtocolFeatures.includes(feature);
+  }
+
   startInventorySync(context) {
     if (context.inventoryStarted || context.closed) return;
     context.inventoryStarted = true;
@@ -515,11 +586,17 @@ class PeerManager {
   async startCatalogSync(context) {
     if (context.catalogStarted || context.closed) return;
     context.catalogStarted = true;
+    if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)) {
+      context.firstCatalog.resolve({ skipped: true, reason: 'catalog-feature-unavailable' });
+      this.emitState(context, 'catalog-unavailable');
+      return;
+    }
     try {
       this.requireCurrentCapability(context, 'catalog.manage');
     } catch (error) {
       if (String(error?.message || '').startsWith('capability-denied:')) {
         context.firstCatalog.resolve({ skipped: true, reason: 'catalog-capability-denied' });
+        await this.sendCatalogUnavailable(context, 'catalog-capability-denied');
         this.emitState(context, 'catalog-unavailable');
         return;
       }
@@ -529,8 +606,21 @@ class PeerManager {
   }
 
   sendCatalogSnapshot(context) {
+    if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)) {
+      throw new Error('peer-feature-not-negotiated');
+    }
     const snapshot = this.meshService.createCatalogSnapshot();
     return this.sendDataEnvelope(context, 'catalog.snapshot', 'catalog.manage', snapshot);
+  }
+
+  sendCatalogUnavailable(context, reason) {
+    if (!this.supportsProtocolFeature(context, PROTOCOL_FEATURES.CATALOG_SNAPSHOT_V1)) {
+      return Promise.resolve(false);
+    }
+    return this.sendDataEnvelope(context, 'connection.catalog-unavailable', 'inventory.read', {
+      status: 'unavailable',
+      reason: cleanText(reason, 80) || 'catalog-unavailable'
+    });
   }
 
   queueInventorySend(context, options = {}) {
@@ -569,7 +659,12 @@ class PeerManager {
     this.assertContextActive(context, generation);
     this.requireCurrentCapability(context, 'inventory.read');
     context.lastInventorySnapshotStartedAt = Date.now();
-    const inventory = this.meshService.createInventorySnapshot();
+    const inventory = this.meshService.createInventorySnapshot({
+      includeLegacyCatalogProjection: !this.supportsProtocolFeature(
+        context,
+        PROTOCOL_FEATURES.INVENTORY_DEVICE_FACTS_V1
+      )
+    });
     this.assertContextActive(context, generation);
     const chunks = encodeInventoryChunks(inventory);
     for (const chunk of chunks) {
@@ -767,6 +862,15 @@ class PeerManager {
     return current.remote;
   }
 
+  hasCurrentCapability(context, capability) {
+    try {
+      this.requireCurrentCapability(context, capability);
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
   assertContextActive(context, generation) {
     if (
       !context
@@ -932,6 +1036,9 @@ function publicConnection(context) {
     deviceName: context.peer.remote.name,
     role: context.role,
     authenticated: context.authenticated,
+    protocolFeatures: Array.isArray(context.negotiatedProtocolFeatures)
+      ? [...context.negotiatedProtocolFeatures]
+      : [],
     signalingPath: context.signalingPath,
     signalingService: context.signalingService,
     networkPath: networkPath(context.transport),
@@ -1007,6 +1114,8 @@ module.exports = {
   INVENTORY_RESYNC_INTERVAL_MS,
   INVENTORY_REFRESH_MIN_INTERVAL_MS,
   MAX_PENDING_INVENTORY_REFRESH_REQUESTS,
+  PROTOCOL_FEATURES,
+  KNOWN_PROTOCOL_FEATURES,
   PeerManager,
   normalizePeerSignal,
   normalizeDescription,

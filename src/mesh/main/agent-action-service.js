@@ -38,6 +38,7 @@ class AgentActionService {
     this.outgoingPreparations = new Map();
     this.incomingPreparations = new Map();
     this.incomingConsentKeys = new Set();
+    this.incomingConsents = new Map();
     this.confirmationQueue = Promise.resolve();
   }
 
@@ -189,7 +190,7 @@ class AgentActionService {
     const localDeviceId = overview.localDeviceId;
     const agent = overview.agents.find((item) => item.agentId === request.agentId);
     if (!agent || !localDeviceId) {
-      await this.sendPreparationStatus(context.peer.remote.deviceId, {
+      await this.sendPreparationStatusForContext(context, {
         ...request,
         state: 'error',
         ok: false,
@@ -202,7 +203,7 @@ class AgentActionService {
 
     const consentKey = `${context.peer.remote.deviceId}:${request.agentId}`;
     if (this.incomingConsentKeys.has(consentKey) || this.incomingConsentKeys.size >= MAX_PENDING_ACTIONS) {
-      await this.sendPreparationStatus(context.peer.remote.deviceId, {
+      await this.sendPreparationStatusForContext(context, {
         ...request,
         state: 'error',
         ok: false,
@@ -213,7 +214,7 @@ class AgentActionService {
       return true;
     }
 
-    await this.sendPreparationStatus(context.peer.remote.deviceId, {
+    await this.sendPreparationStatusForContext(context, {
       ...request,
       state: 'waiting-consent',
       ok: true,
@@ -222,14 +223,27 @@ class AgentActionService {
       reasonCode: null
     });
     this.incomingConsentKeys.add(consentKey);
+    const consentId = `${context.peer.remote.deviceId}:${request.requestId}`;
+    const consent = {
+      consentId,
+      consentKey,
+      requestId: request.requestId,
+      sourceDeviceId: context.peer.remote.deviceId,
+      connectionId: context.connectionId || null,
+      generation: Number(context.generation) || 0,
+      context,
+      cancelled: false,
+      cancelReason: null
+    };
+    this.incomingConsents.set(consentId, consent);
     try {
       const accepted = await this.confirmPreparationSerial({
         request,
         sourceDevice: context.peer.remote,
         agent
-      });
+      }, consent);
       if (accepted !== true) {
-        await this.sendPreparationStatus(context.peer.remote.deviceId, {
+        await this.sendPreparationStatusForContext(context, {
           ...request,
           state: 'cancelled',
           ok: false,
@@ -240,9 +254,11 @@ class AgentActionService {
         return true;
       }
 
+      const current = this.requireIncomingPreparationAuthorization(consent, request);
+
       const result = await this.provisioningServiceProvider().ensureReady({
         agentId: request.agentId,
-        deviceId: localDeviceId,
+        deviceId: current.localDeviceId,
         requestedAppId: request.requestedAppId,
         requestedClientForm: request.requestedClientForm,
         interactive: true,
@@ -255,14 +271,15 @@ class AgentActionService {
         }
         this.incomingPreparations.set(status.job.jobId, {
           request,
-          sourceDeviceId: context.peer.remote.deviceId
+          sourceDeviceId: context.peer.remote.deviceId,
+          context
         });
       }
       await this.syncReadyState(status.state);
-      await this.sendPreparationStatus(context.peer.remote.deviceId, status);
+      await this.sendPreparationStatusForContext(context, status);
       return true;
     } catch (error) {
-      await this.sendPreparationStatus(context.peer.remote.deviceId, {
+      await this.trySendPreparationStatusForContext(context, {
         ...request,
         state: 'error',
         ok: false,
@@ -273,6 +290,7 @@ class AgentActionService {
       return true;
     } finally {
       this.incomingConsentKeys.delete(consentKey);
+      this.incomingConsents.delete(consentId);
     }
   }
 
@@ -304,7 +322,7 @@ class AgentActionService {
     const status = statusFromProvisioning(tracked.request, value, true);
     if (TERMINAL_PREPARATION_STATES.has(status.state)) this.incomingPreparations.delete(jobId);
     void this.syncReadyState(status.state)
-      .then(() => this.sendPreparationStatus(tracked.sourceDeviceId, status))
+      .then(() => this.sendPreparationStatusForContext(tracked.context, status))
       .catch(() => false);
     return true;
   }
@@ -317,7 +335,18 @@ class AgentActionService {
       pending.reject(error);
       this.deletePending(requestId);
     }
+    this.cancelIncomingConsents(value.deviceId, value.reason || `peer-${value.state}`);
+    for (const [jobId, tracked] of this.incomingPreparations) {
+      if (tracked.sourceDeviceId === String(value.deviceId || '')) {
+        this.incomingPreparations.delete(jobId);
+      }
+    }
     return true;
+  }
+
+  handlePermissionsChanged(deviceId, permissions = []) {
+    if (Array.isArray(permissions) && permissions.includes('agent.prepare')) return false;
+    return this.cancelIncomingConsents(deviceId, 'capability-revoked:agent.prepare');
   }
 
   stop(reason = 'agent-action-service-stopped') {
@@ -328,6 +357,11 @@ class AgentActionService {
     }
     this.outgoingPreparations.clear();
     this.incomingPreparations.clear();
+    for (const consent of this.incomingConsents.values()) {
+      consent.cancelled = true;
+      consent.cancelReason = safeError(reason);
+    }
+    this.incomingConsents.clear();
     this.incomingConsentKeys.clear();
   }
 
@@ -358,10 +392,69 @@ class AgentActionService {
     return status;
   }
 
-  confirmPreparationSerial(value) {
+  async sendPreparationStatusForContext(context, value) {
+    const manager = this.peerManagerProvider();
+    if (typeof manager.isCurrentConnection === 'function' && !manager.isCurrentConnection(context)) {
+      throw new Error('agent-prepare-connection-changed');
+    }
+    return this.sendPreparationStatus(context.peer.remote.deviceId, value);
+  }
+
+  async trySendPreparationStatusForContext(context, value) {
+    try {
+      return await this.sendPreparationStatusForContext(context, value);
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  requireIncomingPreparationAuthorization(consent, request) {
+    if (
+      !consent
+      || consent.cancelled
+      || !this.incomingConsents.has(consent.consentId)
+      || consent.context.closed === true
+      || (Number(consent.context.generation) || 0) !== consent.generation
+    ) {
+      throw new Error(consent?.cancelReason || 'agent-prepare-consent-cancelled');
+    }
+    const manager = this.peerManagerProvider();
+    if (typeof manager.isCurrentConnection === 'function' && !manager.isCurrentConnection(consent.context)) {
+      throw new Error('agent-prepare-connection-changed');
+    }
+    const overview = this.meshService.getOverview();
+    const sourceDevice = overview.devices.find((item) => item.deviceId === consent.sourceDeviceId);
+    if (!sourceDevice || sourceDevice.isLocal || sourceDevice.status === 'revoked') {
+      throw new Error('remote-device-not-found');
+    }
+    requireCapability(sourceDevice, 'agent.prepare');
+    const agent = overview.agents.find((item) => item.agentId === request.agentId);
+    if (!agent) throw new Error('agent-not-found');
+    if (!overview.localDeviceId) throw new Error('local-device-not-found');
+    return { overview, sourceDevice, agent, localDeviceId: overview.localDeviceId };
+  }
+
+  cancelIncomingConsents(deviceId, reason) {
+    const target = String(deviceId || '');
+    let cancelled = false;
+    for (const [consentId, consent] of this.incomingConsents) {
+      if (consent.sourceDeviceId !== target) continue;
+      consent.cancelled = true;
+      consent.cancelReason = safeError(reason || 'agent-prepare-consent-cancelled');
+      this.incomingConsents.delete(consentId);
+      this.incomingConsentKeys.delete(consent.consentKey);
+      cancelled = true;
+    }
+    return cancelled;
+  }
+
+  confirmPreparationSerial(value, consent = null) {
     const operation = this.confirmationQueue
       .catch(() => false)
-      .then(() => this.confirmPreparation(value));
+      .then(() => {
+        if (consent) this.requireIncomingPreparationAuthorization(consent, value.request);
+        return this.confirmPreparation(value);
+      });
     this.confirmationQueue = operation.then(() => undefined, () => undefined);
     return operation;
   }

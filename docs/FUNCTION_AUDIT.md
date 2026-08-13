@@ -12,7 +12,7 @@
 |---|---|---|---|
 | Header | Device Lens、设备、工具、活动、设置 | 选择全部设备/某台设备；四个入口各自打开独立弹窗，更新/帮助/语言/主题归设置弹窗 | 已收敛；弹窗不替换右下详情，无“更多”杂物菜单、无来源不明状态点；四个弹窗统一固定 Header/Command/Footer 与单一 Content 滚动区 |
 | 固定页面骨架 | 顶部 Agent、左下会话、右下详情、Footer | 庭院/卡片与 Agent/Slot 操作归顶部，会话浏览归左下；右下只承载会话、额度、远控，Footer 只保留全局状态 | 已实现；58px Header、244px Agent、316px 详情、38px Footer，主区恰好三个面板且 Compact 无横滚 |
-| Agent 与运行位置 | 打开账号、新增运行位置、运行位置选择、管理 Agent | 新建 Agent/账号绑定/本机 Slot，并把打开、路径、诊断、重扫等动作落到确切 Slot | 已实现；运行位置始终可见，“全局 Agent / 当前运行位置”在对象 Dialog 中分区，均可删到零；schema v4 可持久化 nullable suppressed Slot |
+| Agent 员工库与运行位置 | 打开账号、首次准备、新增运行位置、运行位置选择、管理 Agent | 长期保存 Agent/Blueprint，以 Deployment 表达当前工作环境就绪状态；准备成功后才产生 Profile/Slot，既有动作落到确切 Slot | 已实现；每个工作环境显示完整员工库，零 Binding/Slot 员工不消失；schema v5 保留 nullable suppressed Slot，并增加 Blueprint/Deployment/ProvisioningJob 与一致迁移备份 |
 | 目录纠错 | 合并 Agent、拆分绑定、移除运行位置/登录账号/Agent | 修改 AgentIdentity、AccountBinding、AgentSlot 目录关系并预览影响 | 已实现；三种删除范围均经过 MeshService → SQLite → 关闭重开的回归，不触碰官方客户端数据 |
 | 身份归组 | 运行位置选择、强账号标识、显式归属 | 把同一实际登录的跨设备/跨客户端位置归入一只猫 | 已实现；跨平台或无强标识时不按名称猜测 |
 | 会话列表 | 当前 Agent/全部 Agent、显示、搜索、表头排序 | 与 Device Lens 正交地只读浏览各客户端历史 | 保留；不产生任务或运行状态 |
@@ -27,7 +27,8 @@
 | 本地持久化 | profiles.json、settings.json 及备份 | 保存账号、界面设置、猫位置和今日账本 | 保留；原子写入，账号空列表是有效状态 |
 | 应用更新 | Header“设置”弹窗中的“更新” | 检查可信 Release，支持的平台校验后替换 | 保留；正式 macOS 包仍需签名和公证 |
 | Personal Mesh 身份与设备 | 顶栏“设备”、添加设备、权限、撤销 | 建立系统保护身份、一次性加密配对、设备权限与可删到零的成员目录 | 代码已实现；LAN 临时入口、签名成员事件和撤销防复活均有自动化 |
-| 全局 Agent 与跨设备库存 | 设备 Lens、设备“查看会话”、Agent/会话列表、远端“重扫” | 先展示单个目标的已落库快照，再按需刷新；同账号跨设备去重、强会话副本折叠、弱会话设备作用域和离线快照 | 代码已实现；进入明确远端只对该 `deviceId` 走固定 `remoteInventory:refresh`，同一设备单飞，失败保留缓存；启动/本机/all 不 fan-out，无路由不冒充已同步。首库存落库前按 canonical Slot 改写远端会话 Agent/Binding，强会话重算 `conversationId`，弱会话/replica 稳定，tombstone/suppressed 无残留；4 分钟有界全快照、权限复核和撤权断链保持，revision 增量仍待后续演进 |
+| 全局 Agent 目录与跨设备库存 | 设备 Lens、设备“查看会话”、Agent/会话列表、远端“重扫” | 签名目录独立同步长期员工；设备库存只同步来源 Slot/会话，先展示单目标缓存再按需刷新 | 代码已实现；精确协商 `catalog.snapshot.v1` / `inventory.device-facts.v1`，旧端 inventory-only 安全降级，目录权限不对称不拖垮会话。现代 inventory 无 Agent/Binding/tombstone，旧投影仅在当前 `catalog.manage` 下增补且不能覆盖/删除/裁剪。进入明确远端只刷新该 `deviceId`，同一设备单飞，失败保留缓存；首库存落库前按 canonical Slot 改写会话，强会话重算 `conversationId`，弱会话/replica 稳定；4 分钟全快照、权限复核和撤权断链保持，revision 增量仍待后续演进 |
+| 远端打开与有人准备 | Agent 面板主动作 | ready Deployment 用固定 `profile.launch`；没有 Slot 时用固定 `agent.prepare` 请求目标机有人值守准备 | 代码已实现；请求只含稳定 ID/受限枚举，安装、登录和系统权限留在目标机。确认排队前和允许后重读当前授权并绑定连接代次，撤权/断连/替换后的迟到允许不产生 Job |
 | 会话信息发送 | “复制会话信息”旁的“发送到设备” | 发送内部 SessionPointer，目标端映射项目根 | 代码已实现；复制格式仍只有路径和坐标，离线只在发送端密文排队 |
 | 文件传输 | 设备卡或发送弹层 | 显式选文件、接收确认、加密分块、校验和续传 | 代码已实现；Renderer 不提交来源或保存路径 |
 | 传输草稿与历史 | SessionPointer 弹层、文件弹层、传输中心 | 会话引用与文件分别建草稿，历史只负责状态、重试和取消 | 已实现；不同 kind 关闭/重试不串状态 |
@@ -35,7 +36,7 @@
 | 多设备控制台 | 右下 Remote Surface 单屏/网格 | 最多四路、一个活动画质、唯一输入目标和公开网络统计 | 代码已实现；切换/断线/撤销均释放按键 |
 | 公网会合与诊断 | 设备“网络设置”“连接诊断” | HTTPS 信令、STUN、短期 TURN、LAN/直连/中继状态 | 代码已实现；服务端可自托管，不接收业务内容；真实 NAT/coturn 待物理验收 |
 | UI 上下文 | Device Lens、Agent、Slot、focus/checked、副本、设备详情、全局弹窗、远控、传输草稿 | 保持每种对象和动作目标独立，并提供原子导航 | 已实现；`utilityDialog` 不写入 workspace/detail，render/filter 无选择副作用 |
-| 真实窗口验收 | `npm run accept:ui` | 在临时 userData 的真实 Electron 窗口执行 17 条任务路径 | 已通过；覆盖固定几何、Compact 无横滚、1–2 个 Agent 固定卡宽/右侧留白、7+ Agent 横滚/信息带不重叠/选中可见、Top Layer、四个 Header 入口、固定区不随内容滚动、父子 Esc/焦点栈、760 × 560 小视口、三语、主题、庭院/卡片、对象管理、多副本、远控和 reduced-motion |
+| 自动化与真实窗口验收 | `npm test`、`npm run accept:ui`、双端 E2E | Node 领域/安全回归、临时 userData 的 17 条真实窗口路径、局域网与本机 signaling 两种隔离双端链 | 418 项 Node 中 417 通过、1 项仅 Windows 跳过、0 失败；UI 17/17；两种 E2E 均完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件与合成屏幕。均不替代物理双机/真实 NAT/TURN |
 
 ## 3. 会话复制的唯一契约
 
@@ -72,9 +73,10 @@
 - “复制标识”“复制项目”合并为“复制会话信息”。
 - 详情里的线程 ID、文件、会话标识三处重复信息合并为“坐标”。
 - 恢复轻量多选，但其状态只服务复制/发送定位信息等明确动作，不恢复旧交接功能或任务状态。
-- 默认账号、独立账号和最后一个账号使用同一删除规则；schema v4 允许 suppressed Slot 的目录外键为空，三种删除范围关闭重开后不复活。
+- 默认账号、独立账号和最后一个账号使用同一删除规则；schema v5 保留 suppressed Slot 目录外键可空并新增员工运行模型，三种删除范围关闭重开后不复活，零 Slot/零 Binding Agent 仍长期存在。
 - Codex 使用用户根 `session_id` 作为列表身份；压缩不新增行，guardian/subagent 默认隐藏。
-- Device、AgentIdentity、AccountBinding、AgentSlot 和远端库存已进入独立 Mesh 存储；同账号跨设备/形态不重复、同机多账号不误合并。明确远端 Lens/设备“查看会话”已收敛为缓存优先、单目标按需刷新，启动/all 不 fan-out，失败不丢离线快照。首库存落库屏障、4 分钟全快照恢复基线和持久化前 canonical Slot 会话投影已经补齐，强会话按 canonical Binding 折叠，弱会话/replica 稳定，tombstone/suppressed 不留旧会话。
+- Device、AgentIdentity、AccountBinding、AgentBlueprint、AgentDeployment、ProvisioningJob、AgentSlot 和远端库存已进入独立 Mesh 存储；v5 升级前的 `VACUUM INTO` 回滚点包含已提交 WAL并经过版本/完整性/外键校验。同账号跨设备/形态不重复、同机多账号不误合并。签名 catalog 与来源设备 inventory 已按精确 feature 分离，旧端/权限不对称安全降级；`inventory.read` 不再能提交目录 tombstone、覆盖 Binding 或裁剪零 Slot 员工。明确远端 Lens/设备“查看会话”已收敛为缓存优先、单目标按需刷新，启动/all 不 fan-out，失败不丢离线快照。首库存落库屏障、4 分钟全快照恢复基线和持久化前 canonical Slot 会话投影已经补齐，强会话按 canonical Binding 折叠，弱会话/replica 稳定，tombstone/suppressed 不留旧会话。
+- 已就绪远端打开和有人值守首次准备已接入固定语义；准备确认绑定原连接，并在产生副作用前重新核对当前设备与授权，撤权、撤销、断连或替换后的迟到允许不能启动本机 Job。
 - Mesh 可以配对、授权、撤销和显式重置；最后一台远端设备及最后一个 Agent/Slot 均允许删除到零，不会按平台复活默认 Agent。
 - 会话副本只在强身份成立时折叠，动作始终落到确切 replica；压缩与 internal-child 不增加用户会话行。
 - SessionPointer、文件、屏幕与输入分别授权；“发送到设备”没有发展成第二套复制格式或交接模板。

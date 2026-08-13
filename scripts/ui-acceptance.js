@@ -617,6 +617,10 @@ async function pressEscape(client) {
   };
   await client.call('Input.dispatchKeyEvent', { type: 'keyDown', ...key });
   await client.call('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+  // Let Chromium finish the native <dialog> cancel/close default action before
+  // the next CDP evaluate call. Querying immediately can preempt that task and
+  // make a real Escape close look flaky in the acceptance harness.
+  await new Promise((resolve) => setTimeout(resolve, 100));
 }
 
 function assertDialogFits(snapshot, options = {}) {
@@ -782,10 +786,18 @@ async function runAcceptance(client, artifactDir) {
     const sections = await client.evaluate(`({
       globalActions: document.querySelectorAll('#agentGlobalActions > button').length,
       runtimeActions: document.querySelectorAll('#yardManageActions > button').length,
+      runtimeActionIds: [...document.querySelectorAll('#yardManageActions > button')].map((button) => button.id),
       summary: document.querySelector('#agentManageSummary').textContent.trim(),
       runtime: document.querySelector('#agentManageRuntimeLabel').textContent.trim()
     })`);
-    assert.deepEqual({ globalActions: sections.globalActions, runtimeActions: sections.runtimeActions }, { globalActions: 3, runtimeActions: 4 });
+    assert.deepEqual({ globalActions: sections.globalActions, runtimeActions: sections.runtimeActions }, { globalActions: 3, runtimeActions: 5 });
+    assert.deepEqual(sections.runtimeActionIds, [
+      'addRuntimeLocationBtn',
+      'pathConfigBtn',
+      'diagnosticsBtn',
+      'refreshBtn',
+      'profileFolderBtn'
+    ]);
     assert.ok(sections.summary.length > 0 && sections.runtime.length > 0);
     await capture(client, artifactDir, '04-agent-manage-dialog');
     await client.evaluate(`document.querySelector('#agentManageDialog').close()`);

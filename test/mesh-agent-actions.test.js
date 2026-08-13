@@ -150,6 +150,67 @@ test('目标机拒绝首次准备时不创建 Job，并返回结构化结果', a
   assert.equal(harness.preparationInputs.length, 0);
 });
 
+test('目标机确认期间撤销 agent.prepare，迟到允许不会创建准备任务', async () => {
+  const gate = manualGate();
+  const harness = actionHarness({ readySlot: false, confirmationGate: gate });
+  const pending = harness.left.prepareRemote({
+    agentId: 'agent-1',
+    deviceId: 'device-b',
+    requestedAppId: 'codex',
+    requestedClientForm: 'desktop'
+  });
+  await waitFor(() => harness.confirmations.length === 1);
+
+  harness.right.handlePermissionsChanged('device-a', ['inventory.read']);
+  gate.resolve(true);
+  const result = await pending;
+  assert.equal(result.state, 'error');
+  assert.equal(result.reasonCode, 'capability-revoked:agent.prepare');
+  assert.equal(harness.preparationInputs.length, 0);
+});
+
+test('即使遗漏权限通知，确认后仍重新读取当前授权再决定是否产生副作用', async () => {
+  const gate = manualGate();
+  const harness = actionHarness({ readySlot: false, confirmationGate: gate });
+  const pending = harness.left.prepareRemote({
+    agentId: 'agent-1',
+    deviceId: 'device-b',
+    requestedAppId: 'codex',
+    requestedClientForm: 'desktop'
+  });
+  await waitFor(() => harness.confirmations.length === 1);
+
+  harness.setRightRemotePermissions(['inventory.read']);
+  gate.resolve(true);
+  const result = await pending;
+  assert.equal(result.state, 'error');
+  assert.equal(result.reasonCode, 'capability-denied:agent.prepare');
+  assert.equal(harness.preparationInputs.length, 0);
+});
+
+test('确认队列等待时连接断开，旧弹窗允许不会作用于新连接或本机', async () => {
+  const gate = manualGate();
+  const harness = actionHarness({ readySlot: false, confirmationGate: gate });
+  const pending = harness.left.prepareRemote({
+    agentId: 'agent-1',
+    deviceId: 'device-b',
+    requestedAppId: 'codex',
+    requestedClientForm: 'desktop'
+  });
+  await waitFor(() => harness.confirmations.length === 1);
+
+  harness.right.handlePeerState({
+    deviceId: 'device-a',
+    state: 'disconnected',
+    reason: 'peer-disconnected'
+  });
+  gate.resolve(true);
+  const result = await pending;
+  assert.equal(result.state, 'error');
+  assert.equal(result.reasonCode, 'peer-disconnected');
+  assert.equal(harness.preparationInputs.length, 0);
+});
+
 test('已超时或被后续请求替代的迟到结果被忽略，不会断开认证连接', () => {
   const harness = actionHarness({ readySlot: false });
   const context = { peer: { remote: deviceRecord('device-b') } };
@@ -237,6 +298,7 @@ function actionHarness(options = {}) {
     provisioningServiceProvider: () => provisioningB,
     confirmPreparation: async (value) => {
       confirmations.push(value);
+      if (options.confirmationGate) return options.confirmationGate.promise;
       return options.confirmation !== false;
     },
     randomUUID: () => `target-${++sequence}`
@@ -251,6 +313,10 @@ function actionHarness(options = {}) {
     openedSlots,
     confirmations,
     preparationInputs,
+    setRightRemotePermissions(permissions) {
+      const remote = overviewB.devices.find((device) => device.deviceId === 'device-a');
+      remote.permissions = [...permissions];
+    },
     managers: { left: managerA, right: managerB }
   };
 }
@@ -263,11 +329,17 @@ function fakeManager(localDeviceId, remoteDeviceId, sent) {
       assert.equal(deviceId, remoteDeviceId);
       return { authenticated: true, deviceId };
     },
+    isCurrentConnection(context) {
+      return Boolean(context && context.closed !== true);
+    },
     async sendSemantic(deviceId, messageType, capability, payload) {
       assert.equal(deviceId, remoteDeviceId);
       sent.push({ from: localDeviceId, messageType, capability, payload: structuredClone(payload) });
       return this.remoteService.handleEnvelope({
         context: {
+          connectionId: 'connection-a-b',
+          generation: 0,
+          closed: false,
           peer: {
             local: { deviceId: remoteDeviceId },
             remote: deviceRecord(localDeviceId)
@@ -282,6 +354,20 @@ function fakeManager(localDeviceId, remoteDeviceId, sent) {
       return 1;
     }
   };
+}
+
+function manualGate() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+async function waitFor(predicate) {
+  const deadline = Date.now() + 2_000;
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error('test-wait-timeout');
+    await new Promise((resolve) => setImmediate(resolve));
+  }
 }
 
 function overviewFor(localDeviceId, remoteDeviceId, readySlot) {

@@ -681,6 +681,7 @@ function registerIpc() {
     const device = result.overview?.devices?.find((item) => item.deviceId === boundedText(input.deviceId, 128));
     if (device) {
       peerManager?.handlePermissionsChanged(device.deviceId, device.permissions);
+      agentActionService?.handlePermissionsChanged(device.deviceId, device.permissions);
       remoteControlService?.handlePermissionsChanged(device.deviceId, device.permissions);
     }
     return result;

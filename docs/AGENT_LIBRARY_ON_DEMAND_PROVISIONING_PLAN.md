@@ -4,7 +4,7 @@
 >
 > 日期：2026-08-13
 >
-> 权威关系：本文细化 `PERSONAL_AGENT_MESH_PLAN.md` 1.20；如有冲突，以后者为准。
+> 权威关系：本文细化 `PERSONAL_AGENT_MESH_PLAN.md` 1.21；如有冲突，以后者为准。
 
 ## 1. 产品结论
 
@@ -27,7 +27,8 @@ AgentDesk 保存一份全局员工库。Agent 是长期存在的员工，Device 
 - 本机幂等、可恢复的 ensure-ready 准备链；
 - 每个工作环境都投影完整员工库，没有 Slot 时显示首次准备；
 - 独立于 inventory 的签名 `catalog.snapshot`，零 Slot 员工也可传播；
-- 已就绪远端的 `profile.launch` 和未就绪远端的有人值守 `agent.prepare`。
+- 签名握手协商 `catalog.snapshot.v1` / `inventory.device-facts.v1`，旧端安全降级为 inventory-only，目录权限不对称不会拖垮会话同步；
+- 已就绪远端的 `profile.launch` 和未就绪远端的有人值守 `agent.prepare`，且撤权、断连或连接替换后的迟到确认不能产生准备副作用。
 
 尚未完成的是 causal catalog event 增量、CLI/Kimi/Cursor 准备适配、技能/工具要求恢复，以及两台物理电脑、真实 NAT/TURN 与跨平台权限矩阵验收。
 
@@ -165,6 +166,8 @@ AgentDesk 保存一份全局员工库。Agent 是长期存在的员工，Device 
 
 新设备加入时先取得完整目录快照，再补事件。目录中零 Slot 员工仍传播。
 
+当前全量恢复协议以签名握手中的精确 feature 白名单协商 `catalog.snapshot.v1`。双方都支持时才发送目录快照；任一侧没有当前 `catalog.manage` 时显式返回 unavailable，并继续允许独立的库存只读流程。未声明 feature 的旧端不会收到未知目录消息。
+
 ### 7.2 来源设备库存
 
 inventory 只同步来源设备自己的：
@@ -176,6 +179,8 @@ inventory 只同步来源设备自己的：
 - freshness 与 revision。
 
 接收端不能用 inventory 缺少某个 Agent 推导删除全局员工。
+
+协商 `inventory.device-facts.v1` 后，inventory 的 Agent、AccountBinding 与 tombstone 投影为空；它只更新来源设备的 Slot/SessionReplica。旧客户端兼容投影仅在接收端当前授予 `catalog.manage` 时允许增补本地未知对象，不能覆盖既有关系、应用删除或裁剪零 Slot 员工。
 
 ## 8. UI 接线
 
@@ -227,6 +232,8 @@ Device Lens 对用户显示为“工作环境”。具体设备下仍展示完�
 
 每次远端首次准备先在目标设备显示来源设备、Agent 和客户端的确认对话框。目录创建与已批准非敏感配置可在确认后执行；软件安装、官方登录、系统权限和管理员权限仍由目标设备上的人完成。无人值守准备不在本阶段。
 
+确认请求必须绑定原始认证连接代次。进入确认队列前、用户允许后且调用 ProvisioningService 前重新读取来源设备、当前 `agent.prepare` 权限和 Agent/本机设备；撤权、撤销、断连或连接替换会取消旧 consent，旧弹窗的迟到“允许”只能返回结构化错误，不能创建 Job 或目录。
+
 ## 10. 存储与迁移
 
 `mesh.db` schema v5 新增：
@@ -238,7 +245,7 @@ Device Lens 对用户显示为“工作环境”。具体设备下仍展示完�
 
 迁移：
 
-1. 备份 v4 数据库。
+1. 使用参数化 `VACUUM INTO` 生成包含已提交 WAL 的 v4 一致快照，fsync 并校验版本、完整性和外键后，原子发布 `pre-v5` 回滚点。
 2. 现有 Agent 原样成为长期员工。
 3. 从现有 Slot 推断 Blueprint 首选客户端。
 4. 从 `(agentId, deviceId)` 生成 Deployment。
@@ -273,5 +280,8 @@ Device Lens 对用户显示为“工作环境”。具体设备下仍展示完�
 - 后续打开直接启动；
 - 已就绪远端可固定语义打开；
 - 远端首次准备遵守目标端确认；
+- 远端首次准备在确认期间撤权、断连或替换连接后不产生任何本机准备副作用；
+- 新旧端与目录权限不对称时 inventory.read 仍可安全工作，旧 inventory 不能删除、覆盖或复活全局目录；
+- v4 WAL 中已提交数据完整进入经校验的 pre-v5 备份，迁移失败不留下伪回滚点；
 - 目录和协议不含凭据、任意命令或路径；
 - 现有会话、复制、发送、文件、远控、安全和固定布局契约继续通过。

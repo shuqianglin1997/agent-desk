@@ -4,7 +4,7 @@
 
 AgentDesk 以“单人 Personal Agent Mesh”为长期主轴：先把本机多账号、逻辑会话和工具维护做准，再扩展为同一个人在多台可信设备上的全局 Agent 目录、会话索引、显式发送和受限控制。它不扩张为团队平台、聊天壳或任务执行编排器。
 
-Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；单机双隔离端点和真实 Electron WebRTC 已完成配对、认证、库存、会话信息、文件及合成视频验证。固定 Header/三面板/Footer 页面骨架、设备/工具/活动/设置四个独立弹窗、独立 UI 上下文、Agent/AccountBinding/AgentSlot 对象管理与真实 1040 × 840 Electron 任务路径也已本机收口。Phase 1 的两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵仍未完成，所以公开 Beta 门禁尚未关闭。
+Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于 2026-08-13 获批。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；长期 Agent/Blueprint/Deployment/ProvisioningJob、独立签名目录、来源设备库存、新旧协议安全降级和远端有人准备已接入。单机双隔离端点和真实 Electron WebRTC 已在局域网与本机 signaling 两种路径完成认证、目录/库存、显式刷新、会话信息、文件及合成视频验证。固定 Header/三面板/Footer 页面骨架、设备/工具/活动/设置四个独立弹窗、独立 UI 上下文、Agent/AccountBinding/AgentSlot 对象管理与真实 1040 × 840 Electron 任务路径也已本机收口。Phase 1 的两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵仍未完成，所以公开 Beta 门禁尚未关闭。
 
 ## 当前基线
 
@@ -16,6 +16,8 @@ Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码
 - 桌面 App / CLI 发现、版本检查、打开和显式维护；
 - macOS / Windows 打包、更新与发布校验；
 - Personal Mesh 初始化、一次性加密配对、设备权限/撤销、全局 Agent 目录、设备 Lens 与可删到零语义；
+- schema v5、长期 Agent 生命周期、Blueprint/Deployment/ProvisioningJob、一致迁移回滚点与本机按需就绪；
+- 独立 `catalog.snapshot.v1` 与来源设备 `inventory.device-facts.v1`，旧端 inventory-only 降级、权限不对称处理及目录/库存能力隔离；
 - Agent/账号绑定/运行位置的明确新增、归属、合并、拆分和三种删除范围；
 - Device Lens、Agent、Slot、focused/checked 会话、副本来源、设备详情、远控和传输草稿的独立 UI 上下文；
 - Ed25519 成员证书/握手、Mesh 范围账号 HMAC、独立 `mesh.db`、OS 密钥保护和签名协议封装；
@@ -23,8 +25,9 @@ Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码
 - 加密 SessionPointer、本机离线队列、目标端项目映射、选定文件分块/校验/续传；
 - 右下统一详情面板内的隔离 Remote Surface、目标端逐次同意、屏幕查看、固定键鼠输入协议和最多四路控制台；
 - 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
+- 已就绪远端固定 `profile.launch`、未就绪远端有人值守 `agent.prepare`，以及确认后撤权/断连的副作用阻断；
 - Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
-- 临时 userData 下真实 1040 × 840 Electron 的 15 条本地任务路径验收，包括 1.13 固定几何、Compact 无横滚与临时层边界。
+- 完整 Node 套件 418 项中 417 通过、1 项仅 Windows 跳过、0 失败；临时 userData 下真实 1040 × 840 Electron 的 17 条本地任务路径验收，包括固定几何、Compact 无横滚、卡片名册与临时层边界。
 
 ## 近期优先级
 
@@ -78,7 +81,8 @@ Personal Mesh 规划已于 2026-08-10 获批。Phase 2–8 的有人值守代码
 |---|---|---|
 | Phase 1 技术验证 | WebRTC 承载、设备认证、SQLite、签名信令、STUN/TURN 配置已实现 | 两台真机、真实 NAT、coturn、跨平台权限 |
 | Phase 2 设备与全局 Agent | 初始化、配对、权限、撤销、目录、对象管理和可删到零已实现；本机 UI 任务验收通过 | 多台物理设备长期运行与目录冲突验收 |
-| Phase 3 库存与会话身份 | 来源单写、revision、强标识折叠、正交 Device Lens/Agent scope 和显式副本来源已实现 | 物理双机大库存、断网与 stale 验收 |
+| Phase 2A 永久员工与按需就绪 | schema v5、Blueprint/Deployment/Job、独立签名目录、本机准备、远端打开/有人准备与撤权竞态防护已实现 | causal 目录事件增量、更多客户端适配器、物理双机准备/登录矩阵 |
+| Phase 3 库存与会话身份 | 来源设备事实、版本 feature 兼容、目录权限隔离、revision、强标识折叠、正交 Device Lens/Agent scope 和显式副本来源已实现 | 物理双机大库存、断网与 stale 验收；revision delta/缺口补齐 |
 | Phase 4 会话信息 | SessionPointer、本机离线队列、项目映射已实现 | macOS/Windows 不同项目根真机验收 |
 | Phase 5 文件 | 选择、确认、加密分块、哈希、续传已实现 | 大文件、磁盘不足和跨网络真机矩阵 |
 | Phase 6 仅查看 | 右下详情内隔离 Remote Surface、目标同意、显示器和画质已实现 | 真实桌面权限与多显示器矩阵 |

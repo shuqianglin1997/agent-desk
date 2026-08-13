@@ -25,6 +25,7 @@ function buildLocalInventory(input = {}, options = {}) {
     ? input.sessionsByProfile
     : new Map(Object.entries(input.sessionsByProfile || {}));
   const replicas = [];
+  const includeLegacyCatalogProjection = options.includeLegacyCatalogProjection !== false;
 
   for (const slot of localSlots) {
     const records = sessionsByProfile.get(String(slot.profileId));
@@ -47,10 +48,14 @@ function buildLocalInventory(input = {}, options = {}) {
     staleAt: new Date(Date.parse(now) + staleAfterMs).toISOString(),
     catalog: {
       catalogRevision: catalog.catalogRevision,
-      agents: catalog.agents.filter((agent) => localAgentIds.has(agent.agentId)),
-      accountBindings: catalog.accountBindings.filter((binding) => localBindingIds.has(binding.accountBindingId)),
+      agents: includeLegacyCatalogProjection
+        ? catalog.agents.filter((agent) => localAgentIds.has(agent.agentId))
+        : [],
+      accountBindings: includeLegacyCatalogProjection
+        ? catalog.accountBindings.filter((binding) => localBindingIds.has(binding.accountBindingId))
+        : [],
       slots: localSlots,
-      tombstones: catalog.tombstones
+      tombstones: includeLegacyCatalogProjection ? catalog.tombstones : []
     },
     sessions: replicas
   };
@@ -89,81 +94,113 @@ function mergeCatalogInventory(existingValue, inventoryValue, options = {}) {
   const existing = normalizeCatalog(existingValue || {});
   const inventory = normalizeInventory(inventoryValue);
   const deviceId = inventory.deviceId;
-  const tombstones = mergeByKey(existing.tombstones, inventory.catalog.tombstones, (item) => `${item.objectType}:${item.objectId}`);
-  const deletedAgents = new Set(tombstones.filter((item) => item.objectType === 'agent').map((item) => item.objectId));
-  const deletedBindings = new Set(tombstones.filter((item) => item.objectType === 'account-binding').map((item) => item.objectId));
-
-  const agents = mergeByKey(existing.agents, inventory.catalog.agents, (item) => item.agentId)
-    .filter((agent) => !deletedAgents.has(agent.agentId));
-  const bindings = existing.accountBindings
-    .filter((binding) => !deletedBindings.has(binding.accountBindingId) && !deletedAgents.has(binding.agentId))
-    .map((binding) => ({ ...binding }));
+  const allowLegacyCatalogProjection = options.allowLegacyCatalogProjection === true;
+  // Inventory is authorized by inventory.read and therefore never owns global
+  // tombstones or existing Agent/Binding relationships. Older peers may supply
+  // an additive compatibility projection, but only when catalog.manage is also
+  // currently authorized by the receiver.
+  const tombstones = existing.tombstones.map((item) => ({ ...item }));
+  const deletedAgents = new Set(tombstones
+    .filter((item) => item.objectType === 'agent')
+    .map((item) => item.objectId));
+  const deletedBindings = new Set(tombstones
+    .filter((item) => item.objectType === 'account-binding')
+    .map((item) => item.objectId));
+  const agents = existing.agents.map((agent) => ({ ...agent }));
+  const agentIds = new Set(agents.map((agent) => agent.agentId));
+  const bindings = existing.accountBindings.map((binding) => ({ ...binding }));
   const bindingsById = new Map(bindings.map((binding) => [binding.accountBindingId, binding]));
   const bindingsByStrongKey = new Map(bindings.filter((binding) => binding.meshScopedAccountKey).map((binding) => [
     `${binding.providerNamespace}:${binding.meshScopedAccountKey}`,
     binding
   ]));
   const bindingRemap = new Map();
+  const incomingAgentsById = new Map(inventory.catalog.agents.map((agent) => [agent.agentId, agent]));
+  const incomingBindingsById = new Map(inventory.catalog.accountBindings.map((binding) => [
+    binding.accountBindingId,
+    binding
+  ]));
+  const referencedBindingIds = new Set(inventory.catalog.slots
+    .map((slot) => slot.accountBindingId)
+    .filter(Boolean));
 
-  for (const incoming of inventory.catalog.accountBindings) {
-    if (deletedBindings.has(incoming.accountBindingId) || deletedAgents.has(incoming.agentId)) continue;
-    const existingById = bindingsById.get(incoming.accountBindingId);
-    const strongKey = incoming.meshScopedAccountKey
+  for (const bindingId of referencedBindingIds) {
+    const incoming = incomingBindingsById.get(bindingId);
+    const existingById = bindingsById.get(bindingId);
+    const strongKey = incoming?.meshScopedAccountKey
       ? `${incoming.providerNamespace}:${incoming.meshScopedAccountKey}`
       : null;
     const existingStrong = strongKey ? bindingsByStrongKey.get(strongKey) : null;
     const target = existingById || existingStrong;
-    if (target) {
-      bindingRemap.set(incoming.accountBindingId, {
-        accountBindingId: target.accountBindingId,
-        agentId: target.agentId
-      });
+    if (target && !deletedBindings.has(target.accountBindingId) && !deletedAgents.has(target.agentId)) {
+      bindingRemap.set(bindingId, target);
       continue;
+    }
+    if (!allowLegacyCatalogProjection || !incoming) continue;
+    if (deletedBindings.has(incoming.accountBindingId) || deletedAgents.has(incoming.agentId)) continue;
+    const incomingAgent = incomingAgentsById.get(incoming.agentId);
+    if (!agentIds.has(incoming.agentId)) {
+      if (!incomingAgent) continue;
+      agents.push({ ...incomingAgent });
+      agentIds.add(incoming.agentId);
     }
     const copy = { ...incoming };
     bindings.push(copy);
     bindingsById.set(copy.accountBindingId, copy);
     if (strongKey) bindingsByStrongKey.set(strongKey, copy);
-    bindingRemap.set(copy.accountBindingId, {
-      accountBindingId: copy.accountBindingId,
-      agentId: copy.agentId
-    });
+    bindingRemap.set(copy.accountBindingId, copy);
   }
 
   const keptSlots = existing.slots.filter((slot) => slot.deviceId !== deviceId);
-  const incomingSlots = inventory.catalog.slots.flatMap((slot) => {
+  const incomingSlots = inventory.catalog.slots.map((slot) => {
+    const incomingBinding = incomingBindingsById.get(slot.accountBindingId);
+    const observedStrongKey = slot.observedAccountKey
+      ? `${providerNamespaceForApp(slot.appId)}:${slot.observedAccountKey}`
+      : null;
     const mapped = bindingRemap.get(slot.accountBindingId)
-      || (bindingsById.has(slot.accountBindingId)
-        ? { accountBindingId: slot.accountBindingId, agentId: bindingsById.get(slot.accountBindingId).agentId }
+      || bindingsById.get(slot.accountBindingId)
+      || (observedStrongKey ? bindingsByStrongKey.get(observedStrongKey) : null)
+      || (incomingBinding?.meshScopedAccountKey
+        ? bindingsByStrongKey.get(`${incomingBinding.providerNamespace}:${incomingBinding.meshScopedAccountKey}`)
         : null);
-    if (!mapped || deletedAgents.has(mapped.agentId) || deletedBindings.has(mapped.accountBindingId)) return [];
-    return [{
+    if (
+      mapped
+      && agentIds.has(mapped.agentId)
+      && !deletedAgents.has(mapped.agentId)
+      && !deletedBindings.has(mapped.accountBindingId)
+    ) {
+      return {
+        ...slot,
+        deviceId,
+        accountBindingId: mapped.accountBindingId,
+        agentId: mapped.agentId
+      };
+    }
+    return {
       ...slot,
       deviceId,
-      accountBindingId: mapped.accountBindingId,
-      agentId: mapped.agentId
-    }];
+      agentId: null,
+      accountBindingId: null,
+      assignmentState: (
+        slot.assignmentState === 'suppressed'
+        || deletedAgents.has(slot.agentId)
+        || deletedBindings.has(slot.accountBindingId)
+      ) ? 'suppressed' : 'pending'
+    };
   });
 
-  const liveAgentIds = new Set([
-    ...bindings.map((binding) => binding.agentId),
-    ...keptSlots.map((slot) => slot.agentId),
-    ...incomingSlots.map((slot) => slot.agentId)
-  ]);
-  const incomingAgentsById = new Map(inventory.catalog.agents.map((agent) => [agent.agentId, agent]));
-  for (const slot of incomingSlots) {
-    if (agents.some((agent) => agent.agentId === slot.agentId)) continue;
-    const candidate = incomingAgentsById.get(slot.agentId);
-    if (candidate && !deletedAgents.has(candidate.agentId)) agents.push({ ...candidate });
-  }
-
-  return normalizeCatalog({
-    catalogRevision: Math.max(existing.catalogRevision, inventory.catalog.catalogRevision, Number(options.catalogRevision) || 0),
-    agents: agents.filter((agent) => liveAgentIds.has(agent.agentId)),
+  const material = normalizeCatalog({
+    catalogRevision: existing.catalogRevision,
+    agents,
     accountBindings: bindings,
     slots: [...keptSlots, ...incomingSlots],
     tombstones
   });
+  const changed = catalogMaterialSignature(existing) !== catalogMaterialSignature(material);
+  material.catalogRevision = changed
+    ? Math.max(existing.catalogRevision + 1, Number(options.catalogRevision) || 0)
+    : existing.catalogRevision;
+  return material;
 }
 
 function canonicalizeInventorySessions(inventoryValue, catalogValue, options = {}) {
@@ -381,6 +418,15 @@ function mergeByKey(primary, incoming, keyOf) {
     if (!map.has(key)) map.set(key, { ...item });
   }
   return [...map.values()];
+}
+
+function catalogMaterialSignature(value) {
+  return JSON.stringify({
+    agents: value.agents,
+    accountBindings: value.accountBindings,
+    slots: value.slots,
+    tombstones: value.tombstones
+  });
 }
 
 function assertInventorySize(value) {

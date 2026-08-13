@@ -85,12 +85,16 @@ AgentDesk 不替用户补充说明，不合并多个会话、不整理交接材�
 
 ## 8. 管理多台电脑上的全部 Agent
 
+- Agent 是长期员工，不由现有 Profile 反推生命周期；即使没有账号绑定或任何运行位置，也会在每个工作环境中继续显示。
+- 当前环境没有 Slot 时，主动作进入可恢复的“首次准备并打开”；系统只创建 AgentDesk 受管 staging 与白名单配置，官方安装、登录、验证码和系统权限仍在目标设备由人完成，验证成功后才提交正式 Slot/Deployment。
 - 同一个实际登录可出现在多台设备，同一设备也可有多个账号；强账号标识相同时只增加运行位置，不复制 Agent 或猫。
 - 顶栏“全部设备/某台设备”只改变设备视角，会话区“当前 Agent/全部 Agent”保持独立，两者组合覆盖全局和局部查看。
 - “新增”先明确选择新 Agent、已有 Agent 的另一账号绑定或本机新运行位置；无可靠账号 ID 时也必须显式选择归属，不按名称猜测。
 - Agent 全局信息、AccountBinding 和本机 AgentSlot 分开管理；合并 Agent、拆分绑定以及移除运行位置/登录账号/整个 Agent 都显示影响范围。
 - 设备离线时保留最后一次库存快照并明确标记；来源设备只写自己的 Slot 与会话副本。
+- 全局目录与设备库存独立：现代连接只在签名 feature 协商后同步 Agent/Binding/Blueprint/tombstone，inventory 不能借只读权限改绑、删除或裁剪员工；旧端安全降级为 inventory-only。
 - 所有账号、运行位置、Agent 和远端设备都允许删除到零；离线旧库存不能让已删除 Agent 复活，也不会补回 Claude、Kimi 默认项。
+- 已就绪远端只接受固定 `profile.launch`，未就绪远端只接受受限 `agent.prepare`；目标端确认期间若撤权、断连或连接被替换，迟到允许不会创建准备任务。
 
 ## 9. 把会话信息发到另一台设备
 
@@ -118,7 +122,7 @@ AgentDesk 不替用户补充说明，不合并多个会话、不整理交接材�
 
 ## 12. 当前验证边界
 
-以上有人值守功能的代码链路已实现，并在本机两个隔离数据目录、两个沙箱 Renderer 和真实 Electron WebRTC 中完成配对、认证、库存、SessionPointer、184,333 字节文件及合成视频链路验证。另有使用临时 userData 的真实 1040 × 840 Electron 验收，覆盖 15 条本地任务路径，包括 58/244/316/38 固定几何、Compact 无横滚、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、focus/勾选、四个 Header 入口、设备原子导航、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销清理和 reduced-motion。仍需在正式公开发布前完成：
+以上有人值守功能的代码链路已实现。完整 Node 套件 418 项中 417 通过、1 项仅 Windows 跳过、0 失败；本机两个隔离数据目录、两个沙箱 Renderer 的真实 Electron WebRTC 在局域网直连与本机 signaling 两种路径均完成认证、独立目录、来源库存、显式刷新、SessionPointer、184,333 字节文件及合成视频链路验证。另有使用临时 userData 的真实 1040 × 840 Electron 验收，覆盖 17 条本地任务路径，包括 58/244/316/38 固定几何、Compact 无横滚、少量卡固定宽度与 7+ 横滚、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、focus/勾选、四个 Header 入口、固定弹窗 Shell/父子 Esc、760 × 560 小视口、设备原子导航、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销清理和 reduced-motion。仍需在正式公开发布前完成：
 
 - 两台物理电脑跨真实家庭 NAT、对称 NAT、CGNAT、IPv6 和 UDP 禁用环境；
 - 真实 coturn 的 UDP/TCP/TLS 强制中继；
