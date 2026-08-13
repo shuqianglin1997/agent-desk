@@ -3,6 +3,8 @@ const assert = require('node:assert');
 
 const {
   reconcileAgentRuntimeModel,
+  createProvisioningJob,
+  transitionProvisioningJob,
   normalizeProvisioningJob,
   activeJobKey
 } = require('../src/mesh/domain/agent-deployment');
@@ -142,4 +144,66 @@ test('准备任务活动键固定到员工、设备和受限客户端，完成�
   });
   assert.equal(activeJobKey(job), 'agent-a:device-a:codex');
   assert.equal(activeJobKey({ ...job, state: 'ready' }), null);
+});
+
+test('准备任务拥有稳定 staging Profile，并拒绝跳步和终态复活', () => {
+  const ids = ['job-a', 'profile-staging-a'];
+  const created = createProvisioningJob({
+    agentId: 'agent-a',
+    deviceId: 'device-a',
+    requestedAppId: 'codex',
+    requestedClientForm: 'desktop',
+    blueprintRevision: 2
+  }, { now: NOW, randomUUID: () => ids.shift() });
+
+  assert.equal(created.jobId, 'job-a');
+  assert.equal(created.stagingProfileId, 'profile-staging-a');
+  assert.equal(created.state, 'planning');
+  assert.throws(() => transitionProvisioningJob(created, { state: 'ready' }, { now: NOW }), /transition-invalid/);
+
+  const preparing = transitionProvisioningJob(created, {
+    state: 'preparing',
+    completedStep: 'plan'
+  }, { now: NOW });
+  const waiting = transitionProvisioningJob(preparing, {
+    state: 'waiting-login',
+    completedSteps: ['staging-prepared', 'plan']
+  }, { now: NOW });
+  assert.deepEqual(waiting.completedSteps, ['plan', 'staging-prepared']);
+  assert.equal(waiting.stagingProfileId, 'profile-staging-a');
+
+  const verifying = transitionProvisioningJob(waiting, { state: 'verifying' }, { now: NOW });
+  const ready = transitionProvisioningJob(verifying, { state: 'ready' }, { now: NOW });
+  assert.equal(ready.completedAt, NOW);
+  assert.throws(() => transitionProvisioningJob(ready, { state: 'planning' }, { now: NOW }), /transition-invalid/);
+});
+
+test('错误和不支持状态保留在设备部署中，显式重试复用同一任务', () => {
+  const baseJob = normalizeProvisioningJob({
+    jobId: 'job-a',
+    agentId: 'agent-a',
+    deviceId: 'device-a',
+    requestedAppId: 'codex',
+    requestedClientForm: 'desktop',
+    state: 'error',
+    currentStep: 'error',
+    lastErrorCode: 'identity-mismatch',
+    createdAt: NOW,
+    updatedAt: NOW
+  });
+  const failed = reconcileAgentRuntimeModel({
+    agents: [agent()],
+    accountBindings: [binding()],
+    slots: [],
+    provisioningJobs: [baseJob]
+  }, { localDeviceId: 'device-a', now: NOW });
+  assert.equal(failed.deployments[0].state, 'error');
+  assert.equal(failed.deployments[0].resumeJobId, 'job-a');
+
+  const retried = transitionProvisioningJob(baseJob, { state: 'planning' }, {
+    now: '2026-08-13T09:00:00.000Z'
+  });
+  assert.equal(retried.jobId, 'job-a');
+  assert.equal(retried.retryCount, 1);
+  assert.equal(retried.lastErrorCode, null);
 });

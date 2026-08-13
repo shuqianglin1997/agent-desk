@@ -21,6 +21,7 @@ const JOB_STATES = Object.freeze([
   'verifying',
   'ready',
   'error',
+  'unsupported',
   'cancelled'
 ]);
 
@@ -32,6 +33,18 @@ const ACTIVE_JOB_STATES = Object.freeze(new Set([
   'verifying'
 ]));
 
+const JOB_TRANSITIONS = Object.freeze({
+  planning: new Set(['preparing', 'waiting-install', 'waiting-login', 'verifying', 'error', 'unsupported', 'cancelled']),
+  preparing: new Set(['waiting-install', 'waiting-login', 'verifying', 'error', 'unsupported', 'cancelled']),
+  'waiting-install': new Set(['preparing', 'error', 'unsupported', 'cancelled']),
+  'waiting-login': new Set(['preparing', 'verifying', 'error', 'unsupported', 'cancelled']),
+  verifying: new Set(['waiting-login', 'ready', 'error', 'unsupported', 'cancelled']),
+  error: new Set(['planning', 'cancelled']),
+  unsupported: new Set(['planning', 'cancelled']),
+  ready: new Set(),
+  cancelled: new Set()
+});
+
 function reconcileAgentRuntimeModel(snapshot = {}, options = {}) {
   const now = normalizeIso(options.now) || new Date().toISOString();
   const localDeviceId = requiredText(options.localDeviceId || snapshot.mesh?.localDeviceId, 'localDeviceId');
@@ -42,9 +55,14 @@ function reconcileAgentRuntimeModel(snapshot = {}, options = {}) {
     .map((item) => [String(item?.agentId || ''), item]));
   const existingDeployments = new Map((Array.isArray(snapshot.deployments) ? snapshot.deployments : [])
     .map((item) => [deploymentKey(item?.agentId, item?.deviceId), item]));
-  const activeJobs = new Map((Array.isArray(snapshot.provisioningJobs) ? snapshot.provisioningJobs : [])
-    .filter((job) => ACTIVE_JOB_STATES.has(job?.state))
-    .map((job) => [deploymentKey(job.agentId, job.deviceId), job]));
+  const latestJobs = new Map();
+  for (const job of Array.isArray(snapshot.provisioningJobs) ? snapshot.provisioningJobs : []) {
+    const key = deploymentKey(job?.agentId, job?.deviceId);
+    const current = latestJobs.get(key);
+    if (!current || Date.parse(job?.updatedAt || 0) > Date.parse(current?.updatedAt || 0)) {
+      latestJobs.set(key, job);
+    }
+  }
 
   const blueprints = agents.map((agent) => reconcileBlueprint(
     existingBlueprints.get(String(agent.agentId)),
@@ -62,11 +80,11 @@ function reconcileAgentRuntimeModel(snapshot = {}, options = {}) {
   for (const agent of agents) {
     const key = deploymentKey(agent.agentId, localDeviceId);
     const previous = existingDeployments.get(key);
-    const activeJob = activeJobs.get(key);
+    const latestJob = latestJobs.get(key);
     deployments.push(deriveLocalDeployment(agent, slots, blueprints, {
       localDeviceId,
       previous,
-      activeJob,
+      latestJob,
       now
     }));
   }
@@ -75,6 +93,68 @@ function reconcileAgentRuntimeModel(snapshot = {}, options = {}) {
     blueprints: stableBy(blueprints, (item) => item.agentId),
     deployments: stableBy(deployments, (item) => deploymentKey(item.agentId, item.deviceId))
   };
+}
+
+function createProvisioningJob(input = {}, options = {}) {
+  if (typeof options.randomUUID !== 'function') throw new TypeError('randomUUID is required');
+  const now = normalizeIso(options.now) || new Date().toISOString();
+  return normalizeProvisioningJob({
+    jobId: options.randomUUID(),
+    agentId: requiredText(input.agentId, 'agentId'),
+    deviceId: requiredText(input.deviceId, 'deviceId'),
+    requestedAppId: optionalText(input.requestedAppId, 80),
+    requestedClientForm: optionalText(input.requestedClientForm, 80),
+    blueprintRevision: nonNegativeInteger(input.blueprintRevision),
+    state: 'planning',
+    currentStep: 'plan',
+    completedSteps: [],
+    stagingProfileId: options.randomUUID(),
+    resultSlotKey: null,
+    waitingReason: null,
+    lastErrorCode: null,
+    retryCount: 0,
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+    cancelledAt: null
+  });
+}
+
+function transitionProvisioningJob(value, input = {}, options = {}) {
+  const previous = normalizeProvisioningJob(value);
+  const state = JOB_STATES.includes(input.state) ? input.state : previous.state;
+  if (state !== previous.state && !JOB_TRANSITIONS[previous.state]?.has(state)) {
+    throw new Error(`provisioning-transition-invalid:${previous.state}:${state}`);
+  }
+  const now = normalizeIso(options.now) || new Date().toISOString();
+  const completedSteps = [...previous.completedSteps];
+  const requestedSteps = [
+    ...(Array.isArray(input.completedSteps) ? input.completedSteps : []),
+    input.completedStep
+  ];
+  for (const step of stringList(requestedSteps, 32, 80)) {
+    if (!completedSteps.includes(step)) completedSteps.push(step);
+  }
+  const retrying = ['error', 'unsupported'].includes(previous.state) && state === 'planning';
+  return normalizeProvisioningJob({
+    ...previous,
+    state,
+    currentStep: optionalText(input.currentStep, 80) || previous.currentStep,
+    completedSteps,
+    resultSlotKey: Object.prototype.hasOwnProperty.call(input, 'resultSlotKey')
+      ? input.resultSlotKey
+      : previous.resultSlotKey,
+    waitingReason: Object.prototype.hasOwnProperty.call(input, 'waitingReason')
+      ? input.waitingReason
+      : (retrying ? null : previous.waitingReason),
+    lastErrorCode: Object.prototype.hasOwnProperty.call(input, 'lastErrorCode')
+      ? input.lastErrorCode
+      : (retrying ? null : previous.lastErrorCode),
+    retryCount: retrying ? previous.retryCount + 1 : previous.retryCount,
+    updatedAt: now,
+    completedAt: state === 'ready' ? now : previous.completedAt,
+    cancelledAt: state === 'cancelled' ? now : previous.cancelledAt
+  });
 }
 
 function reconcileBlueprint(existing, agent, bindings, slots, options = {}) {
@@ -148,9 +228,14 @@ function deriveLocalDeployment(agent, slots, blueprints, options = {}) {
     state = 'error';
     lastErrorCode = 'identity-changed';
   }
-  if (options.activeJob) {
-    state = options.activeJob.state;
-    lastErrorCode = options.activeJob.lastErrorCode || null;
+  const latestJob = options.latestJob;
+  if (!launchableSlots.length && latestJob && [
+    ...ACTIVE_JOB_STATES,
+    'error',
+    'unsupported'
+  ].includes(latestJob.state)) {
+    state = latestJob.state;
+    lastErrorCode = latestJob.lastErrorCode || null;
   }
   const previous = options.previous || {};
   const preferredSlot = launchableSlots.find((slot) => (
@@ -171,7 +256,9 @@ function deriveLocalDeployment(agent, slots, blueprints, options = {}) {
       : previous.lastVerifiedAt || null,
     lastOpenedAt: previous.lastOpenedAt || null,
     lastErrorCode,
-    resumeJobId: options.activeJob?.jobId || null,
+    resumeJobId: latestJob && latestJob.state !== 'ready' && latestJob.state !== 'cancelled'
+      ? latestJob.jobId
+      : null,
     revision: Math.max(1, Number(previous.revision) || 0),
     updatedAt: options.now
   };
@@ -331,9 +418,12 @@ module.exports = {
   DEPLOYMENT_STATES,
   JOB_STATES,
   ACTIVE_JOB_STATES,
+  JOB_TRANSITIONS,
   reconcileAgentRuntimeModel,
   reconcileBlueprint,
   deriveBlueprint,
+  createProvisioningJob,
+  transitionProvisioningJob,
   normalizeAgentBlueprint,
   normalizeAgentDeployment,
   normalizeProvisioningJob,

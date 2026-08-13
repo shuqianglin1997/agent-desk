@@ -227,6 +227,10 @@ class MeshStore {
   saveProvisioningJob(value, now) {
     const job = normalizeProvisioningJob(value);
     const activeKey = activeJobKey(job);
+    const current = this.database.prepare(
+      'SELECT payload_json FROM provisioning_jobs WHERE job_id = ?'
+    ).get(job.jobId);
+    if (payloadMatches(current?.payload_json, job)) return job;
     this.transaction(() => {
       this.database.prepare(`
         INSERT INTO provisioning_jobs (
@@ -274,6 +278,26 @@ class MeshStore {
     const key = `${String(agentId)}:${String(deviceId)}:${suffix}`;
     const row = this.database.prepare('SELECT payload_json FROM provisioning_jobs WHERE active_key = ?').get(key);
     return row ? parsePayload(row.payload_json) : null;
+  }
+
+  findLatestProvisioningJob(agentId, deviceId, selector = null) {
+    const request = selector && typeof selector === 'object'
+      ? selector
+      : { requestedClientForm: selector };
+    const rows = this.database.prepare(`
+      SELECT payload_json FROM provisioning_jobs
+      WHERE agent_id = ? AND device_id = ?
+      ORDER BY updated_at DESC, created_at DESC, job_id DESC
+    `).all(String(agentId), String(deviceId));
+    const clientForm = String(request.requestedClientForm || '');
+    const appId = String(request.requestedAppId || '');
+    for (const row of rows) {
+      const job = parsePayload(row.payload_json);
+      if (clientForm && job.requestedClientForm !== clientForm) continue;
+      if (appId && job.requestedAppId !== appId) continue;
+      return job;
+    }
+    return null;
   }
 
   savePairedDevice(device, event, now) {
