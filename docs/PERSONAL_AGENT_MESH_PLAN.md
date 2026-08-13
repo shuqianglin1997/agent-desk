@@ -2,7 +2,7 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.22
+> 版本：1.23
 >
 > 日期：2026-08-13
 >
@@ -2321,7 +2321,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 1：技术验证与 ADR
 
-当前状态：**进行中**。已实现并单测 Ed25519 Mesh Root/设备成员证书、可委托的 admin 证书链、一次性握手证明、Mesh 范围账号关联键、系统密钥保护封装和 Electron 内置 SQLite 独立存储；Electron 43.3.0 本地打包与 `node:sqlite` 运行时已经验证。沙箱 Renderer 内真实 WebRTC `control.reliable` DataChannel 自检已通过，并形成 `ADR_PERSONAL_MESH_WEBRTC_PLACEMENT.md`。两个隔离数据目录先通过临时局域网 HTTP 端点完成一次性加密配对；现又增加最小可自托管 Signaling Gateway、签名在线租约、信令配对、签名 WebRTC offer/answer 转发、短期 TURN REST 凭据、STUN/TURN 配置和脱敏连接诊断，形成 `ADR_PERSONAL_MESH_SIGNALING_AND_RELAY.md`。真实 Electron 自检已通过本机信令服务完成配对、双方设备证明、WebRTC DataChannel、库存、SessionPointer、文件与合成屏幕媒体整条链路。该结果仍是单机双端点与本机信令验证，不是两台物理电脑、真实公网 NAT 或真实 TURN 强制回退证明；Phase 1 不得标记完成。
+当前状态：**进行中**。已实现并单测 Ed25519 Mesh Root/设备成员证书、可委托的 admin 证书链、一次性握手证明、Mesh 范围账号关联键、系统密钥保护封装和 Electron 内置 SQLite 独立存储；Electron 43.3.0 本地打包与 `node:sqlite` 运行时已经验证。沙箱 Renderer 内真实 WebRTC `control.reliable` DataChannel 自检已通过，并形成 `ADR_PERSONAL_MESH_WEBRTC_PLACEMENT.md`。两个隔离数据目录先通过临时局域网 HTTP 端点完成一次性加密配对；现又增加最小可自托管 Signaling Gateway、签名在线租约、信令配对、签名 WebRTC offer/answer 转发、短期 TURN REST 凭据、STUN/TURN 配置和脱敏连接诊断，形成 `ADR_PERSONAL_MESH_SIGNALING_AND_RELAY.md`。真实 Electron 自检已通过本机信令服务完成配对、双方设备证明、WebRTC DataChannel、库存、SessionPointer、文件与合成屏幕媒体整条链路。0.9.4 已进一步在两台物理 Mac 上通过同一局域网 host/UDP 认证 DataChannel、目录同步、562,009 字节真实库存、显式刷新和 4 分钟周期同步；该证据仍不覆盖真实公网 NAT、TURN 强制回退、断网恢复或 macOS ↔ Windows 权限矩阵，Phase 1 继续进行。
 
 只做隔离验证，不改主产品流程：
 
@@ -2385,7 +2385,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 3：跨设备库存与会话身份修正
 
-当前状态：**代码纵向链路已实现，真机验收进行中**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。进入明确远端 Lens 或设备“查看会话”现在先展示缓存，再仅对该目标走固定 `remoteInventory:refresh`；启动、本机与 all Lens 不 fan-out，刷新失败保留离线快照。新连接增加首库存落库屏障，远端 SessionReplica 在持久化前按 canonical Slot 重写 Agent/Binding，强会话重算 canonical ConversationIdentity，弱会话与 replica 保持设备作用域稳定，tombstone/suppressed 不留残存。现代连接以 `inventory.device-facts.v1` 只传来源 Slot/会话；旧端 inventory-only 路径不接收未知目录消息，且目录兼容投影不能越过当前 `catalog.manage` 覆盖或删除全局员工。已认证重连和固定刷新会请求新快照，连接存续时以 4 分钟有界全量快照作为当前恢复基线。双端沙箱 WebRTC 自动验证已覆盖刷新后 revision 与会话标题推进，Node 定向回归覆盖缓存优先/单目标触发、版本兼容、权限不对称、目录/库存隔离与持久化前 canonical 改写，并证明同一强标识会话只渲染一行、保留两个精确 replica。2026-08-13 首次物理双 Mac 局域网验证已经建立 host/UDP DataChannel，完成设备证书认证与独立 catalog 落库；真实大库存的首个 192 KiB 原始块在 Base64 与签名封装后跨过实际单消息边界，随即触发 `datachannel-error`。发送端现统一限制为 96 KiB 原始块，完整签名信封受 192 KiB 自动化预算约束；两端升级到 0.9.4 后仍须复测完整库存、刷新和长连接。revision 增量/缺口补齐、断网恢复，以及未配置也未验证的长期公网 signaling 可达性，仍待完成后再关闭本 Phase。
+当前状态：**代码纵向链路与物理双 Mac 大库存基线已通过，Phase 继续进行**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。进入明确远端 Lens 或设备“查看会话”现在先展示缓存，再仅对该目标走固定 `remoteInventory:refresh`；启动、本机与 all Lens 不 fan-out，刷新失败保留离线快照。新连接增加首库存落库屏障，远端 SessionReplica 在持久化前按 canonical Slot 重写 Agent/Binding，强会话重算 canonical ConversationIdentity，弱会话与 replica 保持设备作用域稳定，tombstone/suppressed 不留残存。现代连接以 `inventory.device-facts.v1` 只传来源 Slot/会话；旧端 inventory-only 路径不接收未知目录消息，且目录兼容投影不能越过当前 `catalog.manage` 覆盖或删除全局员工。已认证重连和固定刷新会请求新快照，连接存续时以 4 分钟有界全量快照作为当前恢复基线。双端沙箱 WebRTC 自动验证已覆盖刷新后 revision 与会话标题推进，Node 定向回归覆盖缓存优先/单目标触发、版本兼容、权限不对称、目录/库存隔离与持久化前 canonical 改写，并证明同一强标识会话只渲染一行、保留两个精确 replica。2026-08-13 首次物理双 Mac 局域网验证定位到 192 KiB 原始块经 Base64 与签名封装后超过实际单消息边界；0.9.4 将原始块统一限制为 96 KiB 后，两端重新验证同一 host/UDP 连接：设备证书认证和 catalog 成功，562,009 字节库存中的 9 个 Slot、638 条 SessionReplica 全部落库，首次 revision 7、显式刷新推进到 8、4 分钟周期同步推进到 9，连接持续 5 分钟无 `error` 或 `disconnected`。物理双 Mac 大库存、显式刷新与当前周期恢复基线由此关闭；revision 增量/缺口补齐、断网恢复、真实公网 signaling/NAT/TURN 与跨平台矩阵仍待完成，Phase 3 不整体标记完成。
 
 - Device、AgentIdentity、AccountBinding、AgentPresence、AgentSlot；
 - ProjectIdentity、ConversationIdentity、ConversationCheckpoint、ExecutionBranch、SessionReplica 与 PhysicalSessionRecord；
@@ -2607,6 +2607,13 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.23 — 2026-08-13
+
+- 两台物理 Mac 均升级至 0.9.4 后重新完成局域网验证：`control.reliable` 为 ordered，ICE 选中 host/UDP succeeded，双方设备证书认证与 `catalog.snapshot.v1` 均成功；
+- 对面真实库存为 562,009 字节、9 个 Slot、638 条 SessionReplica，首次同步完整落库且连接没有再出现 `datachannel-error`；显式刷新把 revision 7 推进到 8，4 分钟周期全量同步继续推进到 9；
+- 连续观察 5 分钟，连接始终 authenticated/online，638 条远端会话稳定，无 `error` 或 `disconnected`。物理双 Mac 大库存、显式刷新和当前周期恢复基线验收由此关闭；
+- 仍不把 Phase 1/3 整体写成完成：真实公网 NAT/TURN、断网恢复、revision 增量/缺口补齐及 macOS ↔ Windows 权限矩阵尚未验证。
 
 ### 1.22 — 2026-08-13
 
