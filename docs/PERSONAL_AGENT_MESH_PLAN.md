@@ -2,7 +2,7 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.21
+> 版本：1.22
 >
 > 日期：2026-08-13
 >
@@ -2385,7 +2385,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 3：跨设备库存与会话身份修正
 
-当前状态：**代码纵向链路已实现，真机验收待完成**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。进入明确远端 Lens 或设备“查看会话”现在先展示缓存，再仅对该目标走固定 `remoteInventory:refresh`；启动、本机与 all Lens 不 fan-out，刷新失败保留离线快照。新连接增加首库存落库屏障，远端 SessionReplica 在持久化前按 canonical Slot 重写 Agent/Binding，强会话重算 canonical ConversationIdentity，弱会话与 replica 保持设备作用域稳定，tombstone/suppressed 不留残存。现代连接以 `inventory.device-facts.v1` 只传来源 Slot/会话；旧端 inventory-only 路径不接收未知目录消息，且目录兼容投影不能越过当前 `catalog.manage` 覆盖或删除全局员工。已认证重连和固定刷新会请求新快照，连接存续时以 4 分钟有界全量快照作为当前恢复基线。双端沙箱 WebRTC 自动验证已覆盖刷新后 revision 与会话标题推进，Node 定向回归覆盖缓存优先/单目标触发、版本兼容、权限不对称、目录/库存隔离与持久化前 canonical 改写，并证明同一强标识会话只渲染一行、保留两个精确 replica。revision 增量/缺口补齐、两台物理电脑的长连接/断网恢复/大库存，以及未配置也未验证的长期公网 signaling 可达性，仍待完成后再关闭本 Phase。
+当前状态：**代码纵向链路已实现，真机验收进行中**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。进入明确远端 Lens 或设备“查看会话”现在先展示缓存，再仅对该目标走固定 `remoteInventory:refresh`；启动、本机与 all Lens 不 fan-out，刷新失败保留离线快照。新连接增加首库存落库屏障，远端 SessionReplica 在持久化前按 canonical Slot 重写 Agent/Binding，强会话重算 canonical ConversationIdentity，弱会话与 replica 保持设备作用域稳定，tombstone/suppressed 不留残存。现代连接以 `inventory.device-facts.v1` 只传来源 Slot/会话；旧端 inventory-only 路径不接收未知目录消息，且目录兼容投影不能越过当前 `catalog.manage` 覆盖或删除全局员工。已认证重连和固定刷新会请求新快照，连接存续时以 4 分钟有界全量快照作为当前恢复基线。双端沙箱 WebRTC 自动验证已覆盖刷新后 revision 与会话标题推进，Node 定向回归覆盖缓存优先/单目标触发、版本兼容、权限不对称、目录/库存隔离与持久化前 canonical 改写，并证明同一强标识会话只渲染一行、保留两个精确 replica。2026-08-13 首次物理双 Mac 局域网验证已经建立 host/UDP DataChannel，完成设备证书认证与独立 catalog 落库；真实大库存的首个 192 KiB 原始块在 Base64 与签名封装后跨过实际单消息边界，随即触发 `datachannel-error`。发送端现统一限制为 96 KiB 原始块，完整签名信封受 192 KiB 自动化预算约束；两端升级到 0.9.4 后仍须复测完整库存、刷新和长连接。revision 增量/缺口补齐、断网恢复，以及未配置也未验证的长期公网 signaling 可达性，仍待完成后再关闭本 Phase。
 
 - Device、AgentIdentity、AccountBinding、AgentPresence、AgentSlot；
 - ProjectIdentity、ConversationIdentity、ConversationCheckpoint、ExecutionBranch、SessionReplica 与 PhysicalSessionRecord；
@@ -2607,6 +2607,13 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.22 — 2026-08-13
+
+- 首次物理双 Mac 局域网验证已经取得 host/UDP、selected pair succeeded、设备证书认证和 `catalog-synced`，把失败边界收敛到第一条真实大库存消息；
+- 修复库存原始块 192 KiB 经 Base64、JSON 元数据与 Ed25519 签名封装后超过真实 DataChannel 单消息边界的问题：默认和可覆盖上限统一降为 96 KiB，16 MiB 快照的最大分块数相应提高到 192；
+- 新增完整签名库存信封回归，主动传入 256 KiB 也必须被限制，且每条最终线上 JSON 保持在 192 KiB 安全预算内；开发包版本升为 0.9.4；
+- 该修复尚待另一台设备升级后完成物理双机大库存、显式刷新与长连接复测；Phase 3 继续进行，不把认证和目录成功写成库存门禁已经关闭。
 
 ### 1.21 — 2026-08-13
 
