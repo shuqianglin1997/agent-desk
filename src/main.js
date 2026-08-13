@@ -39,6 +39,7 @@ const { QuotaService } = require('./quota-service');
 const { normalizeCat } = require('./yard/cats');
 const { mt } = require('./i18n/main-i18n');
 const { MeshService } = require('./mesh/main/mesh-service');
+const { ProvisioningService } = require('./mesh/main/provisioning-service');
 const { PeerManager } = require('./mesh/main/peer-manager');
 const { TransferService } = require('./mesh/main/transfer-service');
 const { RemoteControlService } = require('./mesh/main/remote-control-service');
@@ -99,6 +100,7 @@ let toolMaintenanceCache = null;
 let toolMaintenanceUpdating = null;
 let mainWindow = null;
 let meshService = null;
+let provisioningService = null;
 let peerManager = null;
 let transferService = null;
 let remoteControlService = null;
@@ -191,6 +193,7 @@ if (!hasSingleInstanceLock) {
     registerIpc();
     registerRemoteEmergencyStop();
     createWindow();
+    getProvisioningService().resumeActiveJobs();
 
     app.on('activate', () => {
       showMainWindow();
@@ -203,6 +206,7 @@ if (!hasSingleInstanceLock) {
 
   app.on('before-quit', () => {
     clearTimeout(pairingEndpointTimer);
+    provisioningService?.stop();
     globalShortcut.unregisterAll();
     void remoteControlService?.stopAll('app-quit');
     remoteInputAdapter?.stop();
@@ -404,7 +408,47 @@ function registerIpc() {
     }));
   });
 
+  ipcMain.handle('agentDeployments:ensureReady', async (_event, input = {}) => {
+    try {
+      const result = await getProvisioningService().ensureReady({
+        agentId: boundedText(input.agentId, 128),
+        deviceId: boundedText(input.deviceId, 128),
+        requestedAppId: boundedText(input.requestedAppId, 80),
+        requestedClientForm: boundedText(input.requestedClientForm, 80) || 'desktop',
+        interactive: true,
+        manualConfirmation: input.manualConfirmation === true
+      });
+      return publicProvisioningResult(result);
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'provisioning-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('agentDeployments:retryPreparation', async (_event, input = {}) => {
+    try {
+      const result = await getProvisioningService().retry(
+        boundedText(input.jobId, 128),
+        { manualConfirmation: input.manualConfirmation === true }
+      );
+      return publicProvisioningResult(result);
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'provisioning-retry-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('agentDeployments:cancelPreparation', (_event, input = {}) => {
+    try {
+      return publicProvisioningResult(
+        getProvisioningService().cancel(boundedText(input.jobId, 128))
+      );
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'provisioning-cancel-failed', 160) };
+    }
+  });
+
   ipcMain.handle('devices:resetMesh', async () => {
+    provisioningService?.stop();
+    provisioningService = null;
     await remoteControlService?.stopAll('mesh-reset');
     peerManager?.disconnectAll('mesh-reset');
     await signalingClient?.stop('mesh-reset');
@@ -967,7 +1011,7 @@ function getMeshService() {
     profilesProvider: () => loadProfiles().map((profile) => ({
       ...profile,
       identityFingerprint: identityFingerprint(profile),
-      launchable: apps.getApp(profile.appId).canLaunch !== false
+      launchable: apps.getApp(profile.appId).noLaunch !== true
     })),
     sessionCountProvider: (profile) => apps.getApp(profile.appId).scan(profile).length,
     sessionsProvider: (profile) => apps.getApp(profile.appId).scan(profile),
@@ -1005,6 +1049,109 @@ function getMeshService() {
     }
   });
   return meshService;
+}
+
+function getProvisioningService() {
+  if (provisioningService) return provisioningService;
+  provisioningService = new ProvisioningService({
+    meshService: getMeshService(),
+    platform: process.platform,
+    adapterProvider: (appId, descriptor) => ({
+      async inspect(profile) {
+        if (apps.getApp(appId).noLaunch === true) {
+          return { supported: false, installed: false, reasonCode: 'client-form-unsupported' };
+        }
+        const executable = findExecutable(profile);
+        return { supported: true, installed: executable.found === true };
+      },
+      async prepare(profile) {
+        ensureDir(profile.profilePath);
+        ensureDir(profile.sessionRoot);
+        return { ok: true };
+      },
+      async observeIdentity(profile) {
+        return identityFingerprint(profile);
+      },
+      async launch(profile) {
+        return launchProfile(profile);
+      },
+      async openInstall() {
+        const tool = toolMaintenance.catalogTool(descriptor.toolId);
+        if (!tool?.officialUrl) throw new Error('official-install-page-unavailable');
+        return openMaintenanceOfficialPage(tool);
+      }
+    }),
+    profileRepository: {
+      build({ job, agent, descriptor }) {
+        const id = job.stagingProfileId;
+        const profilePath = makeIsolatedProfilePath(descriptor.appId, 'employee', id);
+        return normalizeProfile({
+          id,
+          appId: descriptor.appId,
+          name: agent.displayName,
+          profilePath,
+          sessionRoot: defaultSessionRoot(descriptor.appId, profilePath, false),
+          profilePathMode: 'managed',
+          sessionRootMode: 'managed',
+          isProtected: false,
+          createdAt: job.createdAt,
+          lastLaunchedAt: null,
+          group: agent.group,
+          note: agent.note,
+          provisioningJobId: job.jobId
+        });
+      },
+      get(profileId) {
+        return loadProfiles().find((profile) => profile.id === profileId) || null;
+      },
+      commit(profile) {
+        const profiles = loadProfiles();
+        const existing = profiles.find((item) => item.id === profile.id);
+        if (existing) {
+          if (
+            existing.appId !== profile.appId
+            || !pathsEqual(existing.profilePath, profile.profilePath)
+            || !pathsEqual(existing.sessionRoot, profile.sessionRoot)
+          ) {
+            throw new Error('provisioning-profile-conflict');
+          }
+          return existing;
+        }
+        ensureDir(profile.profilePath);
+        ensureDir(profile.sessionRoot);
+        profiles.push(normalizeProfile(profile));
+        saveProfiles(profiles);
+        return profiles.at(-1);
+      },
+      markOpened(profileId) {
+        return updateStoredProfile(profileId, (profile) => ({
+          ...profile,
+          lastLaunchedAt: new Date().toISOString()
+        }));
+      }
+    },
+    onChanged(value) {
+      const state = value?.state || value?.job?.state || null;
+      let overview = null;
+      try { overview = withMeshRuntime(getMeshService().getOverview()); } catch (_error) { /* best effort */ }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('agentDeployments:changed', {
+          jobId: value?.job?.jobId || null,
+          state,
+          overview
+        });
+      }
+      if (state === 'ready') void peerManager?.broadcastInventory();
+    }
+  });
+  return provisioningService;
+}
+
+function publicProvisioningResult(result = {}) {
+  return {
+    ...result,
+    ...(result.overview ? { overview: withMeshRuntime(result.overview) } : {})
+  };
 }
 
 function getPeerManager() {

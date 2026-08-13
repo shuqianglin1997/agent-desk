@@ -144,7 +144,10 @@ class ProvisioningService {
           lastErrorCode: null
         });
         if (options.interactive === true) {
-          await adapter.openInstall();
+          const opened = await adapter.openInstall();
+          if (opened?.ok === false) {
+            throw new Error(optionalText(opened.reason, 160) || 'official-install-page-failed');
+          }
           context = this.meshService.transitionProvisioningJob({
             jobId,
             completedStep: 'install-page-opened'

@@ -35,6 +35,14 @@ contextBridge.exposeInMainWorld('manager', {
   addLocalAgentSlot: (input) => ipcRenderer.invoke('agentSlots:addLocal', input),
   assignAgentSlot: (input) => ipcRenderer.invoke('agentSlots:assign', input),
   removeLocalAgentSlot: (input) => ipcRenderer.invoke('agentSlots:removeLocal', input),
+  ensureAgentReady: (input) => ipcRenderer.invoke('agentDeployments:ensureReady', input),
+  retryAgentPreparation: (input) => ipcRenderer.invoke('agentDeployments:retryPreparation', input),
+  cancelAgentPreparation: (jobId) => ipcRenderer.invoke('agentDeployments:cancelPreparation', { jobId }),
+  onAgentDeploymentsChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('agentDeployments:changed', listener);
+    return () => ipcRenderer.removeListener('agentDeployments:changed', listener);
+  },
   resetMesh: () => ipcRenderer.invoke('devices:resetMesh'),
   probeMeshTransport: () => ipcRenderer.invoke('devices:probeTransport'),
   createDeviceInvite: () => ipcRenderer.invoke('devices:createInvite'),

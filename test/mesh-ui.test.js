@@ -84,6 +84,27 @@ test('Agent 目录与 Slot 管理只通过固定语义 IPC 暴露', () => {
   assert.doesNotMatch(main, /function removeStoredProfileRegistration[\s\S]{0,500}(rmSync|unlinkSync|rmdirSync)/);
 });
 
+test('首次准备只暴露员工、设备、客户端枚举和确认状态，不接受路径或命令', () => {
+  const preload = read('src/preload.js');
+  const main = read('src/main.js');
+  for (const channel of [
+    'agentDeployments:ensureReady',
+    'agentDeployments:retryPreparation',
+    'agentDeployments:cancelPreparation'
+  ]) {
+    assert.ok(main.includes(`ipcMain.handle('${channel}'`), `${channel} missing in main`);
+    assert.ok(preload.includes(`ipcRenderer.invoke('${channel}'`), `${channel} missing in preload`);
+  }
+  assert.match(main, /ipcMain\.handle\('agentDeployments:ensureReady'[\s\S]*?agentId:\s*boundedText\(input\.agentId[\s\S]*?deviceId:\s*boundedText\(input\.deviceId[\s\S]*?requestedAppId:\s*boundedText\(input\.requestedAppId[\s\S]*?requestedClientForm:\s*boundedText\(input\.requestedClientForm/);
+  assert.doesNotMatch(
+    main.match(/ipcMain\.handle\('agentDeployments:ensureReady'[\s\S]*?\n\s*}\);/)?.[0] || '',
+    /input\.(path|profilePath|sessionRoot|command|argv|url|environment|token|cookie)/i
+  );
+  assert.doesNotMatch(preload, /agentDeployments:[^'"\n]*(command|path|exec|token|cookie)/i);
+  assert.match(main, /getProvisioningService\(\)\.resumeActiveJobs\(\)/);
+  assert.match(main, /provisioningService\?\.stop\(\)/);
+});
+
 test('公网会合设置与诊断使用固定 IPC，界面不接收 TURN 长期凭据或连接原文', () => {
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
