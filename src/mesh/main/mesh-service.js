@@ -4,6 +4,7 @@ const os = require('node:os');
 const { groupProfilesByIdentity } = require('../../identity-groups');
 const { createLocalDevice, normalizeDevice, renameDevice } = require('../domain/device');
 const {
+  providerNamespace,
   normalizeCatalog,
   reconcileLocalCatalog,
   createAgentIdentity,
@@ -13,7 +14,14 @@ const {
   splitAccountBinding,
   removeCatalogObject
 } = require('../domain/agent-catalog');
-const { reconcileAgentRuntimeModel } = require('../domain/agent-deployment');
+const {
+  ACTIVE_JOB_STATES,
+  reconcileAgentRuntimeModel,
+  createProvisioningJob,
+  transitionProvisioningJob: advanceProvisioningJob,
+  normalizeAgentDeployment
+} = require('../domain/agent-deployment');
+const { meshScopedAccountKey } = require('../domain/identity-link');
 const {
   buildLocalInventory,
   normalizeInventory,
@@ -472,6 +480,283 @@ class MeshService {
     return this.mutateCatalog(input, `catalog.${input.scope || 'slot'}-removed`, (catalog) => removeCatalogObject(catalog, input, {
       now: this.now()
     }));
+  }
+
+  ensureProvisioningJob(input = {}) {
+    const overview = this.getOverview();
+    if (!overview.initialized) throw new Error('mesh-not-initialized');
+    const agentId = requiredText(input.agentId, 'agentId');
+    const deviceId = requiredText(input.deviceId, 'deviceId');
+    const requestedAppId = requiredText(input.requestedAppId, 'requestedAppId');
+    const requestedClientForm = requiredText(input.requestedClientForm, 'requestedClientForm');
+    if (deviceId !== overview.localDeviceId) throw new Error('provisioning-local-device-required');
+    if (!overview.agents.some((agent) => agent.agentId === agentId)) throw new Error('agent-not-found');
+
+    const store = new MeshStore(this.databasePath);
+    let job;
+    try {
+      const snapshot = store.readSnapshot();
+      const blueprint = snapshot.blueprints.find((item) => item.agentId === agentId);
+      if (!blueprint) throw new Error('agent-blueprint-not-found');
+      const selector = { requestedAppId, requestedClientForm };
+      job = store.findActiveProvisioningJob(agentId, deviceId, selector);
+      if (!job) {
+        const latest = store.findLatestProvisioningJob(agentId, deviceId, selector);
+        if (latest && ['error', 'unsupported'].includes(latest.state)) {
+          job = advanceProvisioningJob(latest, {
+            state: 'planning',
+            currentStep: 'plan'
+          }, { now: this.now() });
+        } else {
+          job = createProvisioningJob({
+            agentId,
+            deviceId,
+            requestedAppId,
+            requestedClientForm,
+            blueprintRevision: blueprint.revision
+          }, { now: this.now(), randomUUID: this.randomUUID });
+        }
+        store.saveProvisioningJob(job, this.now());
+      }
+    } finally {
+      store.close();
+    }
+    this.getOverview();
+    return this.getProvisioningContext({ jobId: job.jobId });
+  }
+
+  getProvisioningContext(input = {}) {
+    this.getOverview();
+    const jobId = requiredText(input.jobId, 'jobId');
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      const job = snapshot.provisioningJobs.find((item) => item.jobId === jobId);
+      if (!job) throw new Error('provisioning-job-not-found');
+      if (job.deviceId !== snapshot.mesh.localDeviceId) throw new Error('provisioning-local-device-required');
+      const agent = snapshot.agents.find((item) => item.agentId === job.agentId);
+      if (!agent) throw new Error('agent-not-found');
+      const blueprint = snapshot.blueprints.find((item) => item.agentId === job.agentId);
+      if (!blueprint) throw new Error('agent-blueprint-not-found');
+      const deployment = snapshot.deployments.find((item) => (
+        item.agentId === job.agentId && item.deviceId === job.deviceId
+      )) || null;
+      return {
+        job,
+        agent,
+        blueprint,
+        deployment,
+        accountBindings: snapshot.accountBindings.filter((item) => item.agentId === job.agentId)
+      };
+    } finally {
+      store.close();
+    }
+  }
+
+  listActiveProvisioningJobs() {
+    this.getOverview();
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) return [];
+      return snapshot.provisioningJobs.filter((job) => (
+        job.deviceId === snapshot.mesh.localDeviceId && ACTIVE_JOB_STATES.has(job.state)
+      ));
+    } finally {
+      store.close();
+    }
+  }
+
+  transitionProvisioningJob(input = {}) {
+    const jobId = requiredText(input.jobId, 'jobId');
+    const store = new MeshStore(this.databasePath);
+    let next;
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      const current = store.readProvisioningJob(jobId);
+      if (!current) throw new Error('provisioning-job-not-found');
+      if (current.deviceId !== snapshot.mesh.localDeviceId) throw new Error('provisioning-local-device-required');
+      next = advanceProvisioningJob(current, input, { now: this.now() });
+      store.saveProvisioningJob(next, this.now());
+    } finally {
+      store.close();
+    }
+    this.getOverview();
+    return this.getProvisioningContext({ jobId: next.jobId });
+  }
+
+  verifyProvisioningIdentity(input = {}) {
+    const jobId = requiredText(input.jobId, 'jobId');
+    const observedFingerprint = optionalText(input.observedFingerprint, 160);
+    const manualConfirmation = input.manualConfirmation === true;
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      const job = store.readProvisioningJob(jobId);
+      if (!job) throw new Error('provisioning-job-not-found');
+      if (job.deviceId !== snapshot.mesh.localDeviceId) throw new Error('provisioning-local-device-required');
+      const blueprint = snapshot.blueprints.find((item) => item.agentId === job.agentId);
+      if (!blueprint) throw new Error('agent-blueprint-not-found');
+      const provider = providerNamespace(job.requestedAppId);
+      const order = new Map((blueprint.desiredBindingIds || []).map((bindingId, index) => [bindingId, index]));
+      const candidates = snapshot.accountBindings
+        .filter((binding) => binding.agentId === job.agentId && binding.providerNamespace === provider)
+        .sort((left, right) => (
+          (order.get(left.accountBindingId) ?? Number.MAX_SAFE_INTEGER)
+          - (order.get(right.accountBindingId) ?? Number.MAX_SAFE_INTEGER)
+        ));
+      let observedAccountKey = null;
+      if (observedFingerprint) {
+        const secrets = this.keyVault.load();
+        observedAccountKey = meshScopedAccountKey(secrets.identityLinkKey, provider, observedFingerprint);
+        const globalMatch = snapshot.accountBindings.find((binding) => (
+          binding.providerNamespace === provider
+          && binding.meshScopedAccountKey === observedAccountKey
+        ));
+        if (globalMatch && globalMatch.agentId !== job.agentId) {
+          return { status: 'mismatch', reasonCode: 'identity-belongs-to-another-agent' };
+        }
+        const exact = candidates.find((binding) => binding.meshScopedAccountKey === observedAccountKey);
+        if (exact) {
+          return {
+            status: 'matched',
+            mode: 'existing-binding',
+            accountBindingId: exact.accountBindingId
+          };
+        }
+        const strongCandidates = candidates.filter((binding) => binding.meshScopedAccountKey);
+        if (strongCandidates.length) {
+          return { status: 'mismatch', reasonCode: 'binding-identity-mismatch' };
+        }
+        if (candidates.length === 1) {
+          return {
+            status: 'matched',
+            mode: 'existing-binding',
+            accountBindingId: candidates[0].accountBindingId
+          };
+        }
+        if (candidates.length > 1) {
+          return { status: 'ambiguous', reasonCode: 'binding-choice-required' };
+        }
+        return { status: 'new-binding', mode: 'existing-agent', agentId: job.agentId };
+      }
+
+      if (!manualConfirmation) {
+        return { status: 'confirmation-required', reasonCode: 'identity-confirmation-required' };
+      }
+      if (candidates.length === 1) {
+        return {
+          status: 'matched',
+          mode: 'existing-binding',
+          accountBindingId: candidates[0].accountBindingId
+        };
+      }
+      if (candidates.length > 1) {
+        return { status: 'ambiguous', reasonCode: 'binding-choice-required' };
+      }
+      return { status: 'new-binding', mode: 'existing-agent', agentId: job.agentId };
+    } finally {
+      store.close();
+    }
+  }
+
+  finalizeProvisioning(input = {}) {
+    const jobId = requiredText(input.jobId, 'jobId');
+    const profileId = requiredText(input.profileId, 'profileId');
+    const verdict = this.verifyProvisioningIdentity(input);
+    if (!['matched', 'new-binding'].includes(verdict.status)) {
+      throw new Error(verdict.reasonCode || 'provisioning-identity-unverified');
+    }
+    let context = this.getProvisioningContext({ jobId });
+    if (context.job.stagingProfileId !== profileId) throw new Error('provisioning-profile-mismatch');
+    if (context.job.state !== 'verifying') throw new Error('provisioning-job-not-verifying');
+
+    let overview = this.getOverview();
+    const currentSlot = overview.slots.find((slot) => (
+      slot.deviceId === context.job.deviceId && slot.profileId === profileId
+    ));
+    if (!currentSlot) throw new Error('provisioning-profile-not-registered');
+    if (!(currentSlot.agentId === context.job.agentId && currentSlot.assignmentState === 'linked')) {
+      overview = this.assignSlot({
+        mode: verdict.mode,
+        reuseProvisional: true,
+        deviceId: context.job.deviceId,
+        profileId,
+        agentId: context.job.agentId,
+        accountBindingId: verdict.accountBindingId,
+        displayAlias: context.agent.displayName
+      });
+    }
+
+    const store = new MeshStore(this.databasePath);
+    try {
+      const current = store.readProvisioningJob(jobId);
+      if (!current) throw new Error('provisioning-job-not-found');
+      const next = advanceProvisioningJob(current, {
+        state: 'ready',
+        currentStep: 'complete',
+        completedSteps: ['identity-verified', 'profile-registered', 'catalog-linked'],
+        resultSlotKey: `${current.deviceId}:${profileId}`,
+        waitingReason: null,
+        lastErrorCode: null
+      }, { now: this.now() });
+      store.saveProvisioningJob(next, this.now());
+    } finally {
+      store.close();
+    }
+    overview = this.getOverview();
+    return {
+      overview,
+      job: overview.provisioningJobs.find((job) => job.jobId === jobId),
+      deployment: overview.deployments.find((deployment) => (
+        deployment.agentId === context.job.agentId && deployment.deviceId === context.job.deviceId
+      )),
+      slot: overview.slots.find((slot) => slot.deviceId === context.job.deviceId && slot.profileId === profileId)
+    };
+  }
+
+  markDeploymentOpened(input = {}) {
+    this.getOverview();
+    const agentId = requiredText(input.agentId, 'agentId');
+    const deviceId = requiredText(input.deviceId, 'deviceId');
+    const now = this.now();
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      if (deviceId !== snapshot.mesh.localDeviceId) throw new Error('deployment-local-device-required');
+      const current = snapshot.deployments.find((deployment) => (
+        deployment.agentId === agentId && deployment.deviceId === deviceId
+      ));
+      if (!current || current.state !== 'ready') throw new Error('deployment-not-ready');
+      store.saveDeployment(normalizeAgentDeployment({
+        ...current,
+        preferredSlotKey: optionalText(input.slotKey, 260) || current.preferredSlotKey,
+        lastOpenedAt: now,
+        revision: current.revision + 1,
+        updatedAt: now
+      }), now);
+    } finally {
+      store.close();
+    }
+    return this.getOverview();
+  }
+
+  cancelProvisioningJob(input = {}) {
+    const context = this.getProvisioningContext(input);
+    if (context.job.completedSteps.includes('profile-registered')) {
+      throw new Error('provisioning-commit-in-progress');
+    }
+    return this.transitionProvisioningJob({
+      jobId: context.job.jobId,
+      state: 'cancelled',
+      currentStep: 'cancelled',
+      waitingReason: null,
+      lastErrorCode: null
+    });
   }
 
   mutateCatalog(input, eventType, mutation) {
@@ -1000,6 +1285,17 @@ function defaultDeviceName(hostname) {
 
 function cleanName(value) {
   return String(value || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+}
+
+function optionalText(value, limit = 128) {
+  const text = String(value || '').trim();
+  return text ? text.slice(0, limit) : null;
+}
+
+function requiredText(value, field) {
+  const text = optionalText(value, 260);
+  if (!text) throw new TypeError(`${field} is required`);
+  return text;
 }
 
 module.exports = {
