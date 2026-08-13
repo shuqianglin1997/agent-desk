@@ -140,9 +140,11 @@ git diff --check
 
 ## 9. 工作树保护
 
-以下未跟踪文章文件属于所有者现有内容，不在本次页面重构范围内，不要删除或覆盖：
+文章版本已经收敛，只保留两份最终正文：
 
-- `docs/AGENTDESK_MULTI_ACCOUNT_MANAGEMENT_ARTICLE_V2.md`
-- `docs/AGENTDESK_MULTI_ACCOUNT_MANAGEMENT_ARTICLE_V3.md`
+- `docs/AGENTDESK_MULTI_ACCOUNT_MANAGEMENT_ARTICLE_V4.md`
+- `docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md`
+
+旧版本已经删除，不要从历史提交中恢复为并列正文。
 
 任何安装、重置、撤销或删除操作都必须先确认目标；破坏性 Mesh 验收继续只使用临时 userData，不触碰所有者真实配置。
