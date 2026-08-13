@@ -137,6 +137,22 @@ app.whenReady().then(async () => {
         && rightRows[0].replicas.length === 2;
     }, 15_000);
 
+    const firstRemoteRevision = left.service.getOverview().devices
+      .find((device) => device.deviceId === rightId)?.inventoryRevision || 0;
+    right.updateSession({
+      title: 'Refreshed conversation',
+      updatedAt: new Date(Date.now() + 1_000).toISOString()
+    });
+    await leftManager.refreshInventory(rightId);
+    await waitUntil(() => {
+      const refreshed = left.service.getUnifiedSessions()[0]?.replicas
+        ?.find((replica) => replica.deviceId === rightId);
+      return refreshed?.title === 'Refreshed conversation';
+    }, 5_000);
+    const refreshedRemoteRevision = left.service.getOverview().devices
+      .find((device) => device.deviceId === rightId)?.inventoryRevision || 0;
+    if (refreshedRemoteRevision <= firstRemoteRevision) throw new Error('peer-e2e-refresh-revision-stale');
+
     const leftRows = left.service.getUnifiedSessions();
     const rightRows = right.service.getUnifiedSessions();
     const pointerJob = await leftTransfer.createSessionPointerTransfer({
@@ -195,6 +211,8 @@ app.whenReady().then(async () => {
       rightReplicas: rightRows[0].replicas.length,
       authenticatedSides: new Set(states.filter((value) => value.state === 'authenticated').map((value) => value.side)).size,
       inventorySides: new Set(states.filter((value) => value.state === 'inventory-synced').map((value) => value.side)).size,
+      refreshedRemoteRevision,
+      refreshedRemoteTitle: leftRows[0].replicas.find((replica) => replica.deviceId === rightId)?.title,
       pointerState: leftTransfer.list().find((job) => job.transferId === pointerJob.transferId)?.state,
       receivedPointers: receivedPointer.items.length,
       fileState: leftTransfer.list().find((job) => job.transferId === fileJob.transferId)?.state,
@@ -268,7 +286,12 @@ function endpoint(directory, hostname, profileId, platform, port, extra = {}) {
     endpointProvider: () => [`http://127.0.0.1:${port}`],
     ...extra
   });
-  return { service };
+  return {
+    service,
+    updateSession(patch = {}) {
+      Object.assign(session, patch);
+    }
+  };
 }
 
 function fakeProtector() {

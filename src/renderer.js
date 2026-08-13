@@ -407,10 +407,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadProfiles();
   loadActivity();
   loadQuotas();
-  // 庭院可见、或排行榜开着时轮询（排行榜按钮在经典视图也可点，要保证它也实时刷新）。
-  // 8 秒一轮：干活/在岗要跟得上会话节奏，60 秒太钝会漏掉短生成。仅可见时轮询，后台不扫。
+  // 庭院和经典卡片都会展示活动状态/最近活跃，因此两种 Presenter 可见时都要刷新。
+  // 8 秒一轮：干活/在岗要跟得上会话节奏，60 秒太钝会漏掉短生成；应用在后台时不扫。
   setInterval(() => {
-    if (!document.hidden && (state.view === 'yard' || els.leaderboardDialog.open)) loadActivity();
+    if (!document.hidden) loadActivity();
   }, 8000);
   // 额度查询走独立的慢轮询和主进程缓存，绝不混入 8 秒活跃度探测。
   setInterval(() => {
@@ -428,7 +428,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // 从最小化/后台切回前台时立刻刷新一次，别等下一轮
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
-    if (state.view === 'yard' || els.leaderboardDialog.open) loadActivity();
+    loadActivity();
     if (Date.now() - quotaRequestedAt >= QUOTA_REFRESH_INTERVAL) loadQuotas();
   });
   maybeShowWelcome();
@@ -1050,6 +1050,26 @@ function bindEvents() {
   els.refreshBtn.addEventListener('click', async () => {
     closeAgentManageDialog();
     if (isYardView()) window.YardScene.fx('bell');
+    const profile = selectedProfile();
+    if (profile?._remote === true && window.manager.refreshMeshInventory) {
+      const deviceName = profile._meshDeviceName || '-';
+      setStatus(tr('status.refreshRemoteWorking', { name: deviceName }));
+      const result = await window.manager.refreshMeshInventory(profile._meshDeviceId);
+      if (!result?.ok) {
+        setStatus(tr('status.refreshRemoteFailed', { name: deviceName }));
+        return;
+      }
+      if (result.overview) {
+        state.mesh.overview = result.overview;
+        validateUiContext();
+      }
+      await loadSessions();
+      renderAccounts();
+      renderAccountHeader();
+      renderDeviceCenter();
+      setStatus(tr('status.refreshRemoteDone', { name: deviceName }));
+      return;
+    }
     await loadSessions();
     await loadActivity();
     setStatus(isYardView() ? tr('status.refreshBell') : tr('status.refreshList'));
@@ -4352,6 +4372,7 @@ function applyView() {
   els.classicViewBtn?.setAttribute('aria-pressed', String(!yard));
   if (yardMounted) window.YardScene.setActive(yard);
   if (yard) loadActivity(); // 切回庭院时立刻刷新猫的状态
+  else revealSelectedAccountCard();
   renderTopbarContext();
 }
 
@@ -4565,6 +4586,50 @@ function renderAccountRoster() {
   for (const group of groups) {
     els.accountRoster.append(buildAccountCard(group, now));
   }
+  revealSelectedAccountCard();
+}
+
+function revealSelectedAccountCard() {
+  if (!els.accountRoster || document.body.dataset.view !== 'classic') return;
+  const selected = els.accountRoster.querySelector('.account-card.selected');
+  if (!selected) return;
+  // Keep the roster itself as the explicit horizontal owner. Chromium's
+  // scrollIntoView can choose the presenter's overflow:hidden box in this
+  // nested layout and leave a persisted/right-side selection clipped.
+  const rosterRect = els.accountRoster.getBoundingClientRect();
+  const selectedRect = selected.getBoundingClientRect();
+  const style = getComputedStyle(els.accountRoster);
+  const inlineInset = Number.parseFloat(style.scrollPaddingInlineStart) || 0;
+  const visibleLeft = rosterRect.left + inlineInset;
+  const visibleRight = rosterRect.right - inlineInset;
+  if (selectedRect.left < visibleLeft) {
+    els.accountRoster.scrollLeft = Math.max(0, els.accountRoster.scrollLeft - (visibleLeft - selectedRect.left));
+  } else if (selectedRect.right > visibleRight) {
+    const maxScrollLeft = Math.max(0, els.accountRoster.scrollWidth - els.accountRoster.clientWidth);
+    els.accountRoster.scrollLeft = Math.min(
+      maxScrollLeft,
+      els.accountRoster.scrollLeft + (selectedRect.right - visibleRight)
+    );
+  }
+}
+
+function accountCardQuotaSource(member) {
+  const parts = [
+    member?._accountBindingAlias || (!member?._meshAgentId ? member?.name : null),
+    member?._meshDeviceName,
+    member?.appId ? appLabel(member.appId) : null
+  ].filter(Boolean);
+  return [...new Set(parts)].join(' / ') || String(member?.id || '-');
+}
+
+function trustedLocalAccountCardQuota(group, now) {
+  if (!window.QuotaOverview?.selectTrustedAccountQuota) {
+    return { status: 'unknown', reason: 'quota-helper-unavailable' };
+  }
+  return window.QuotaOverview.selectTrustedAccountQuota(group, state.quotas, now, {
+    quotaError: state.quotaError,
+    maxAgeMs: Number(window.YardEnergy?.DEFAULT_MAX_AGE_MS) || 15 * 60_000
+  });
 }
 
 function buildAccountCard(group, now) {
@@ -4574,11 +4639,18 @@ function buildAccountCard(group, now) {
   card.className = 'account-card';
   card.classList.toggle('selected', group.key === currentAgentId());
 
-  const merged = window.IdentityGroups
-    ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
-    : state.activity[primary.id];
-  const activityState = window.YardCats ? window.YardCats.deriveState(now, primary, merged) : 'rest';
-  const stateLabel = tr('state.' + activityState);
+  const activityEvidence = window.IdentityGroups?.cardActivityEvidence
+    ? window.IdentityGroups.cardActivityEvidence(group.members, state.activity)
+    : { merged: state.activity[primary.id] || null, remoteUnknown: primary._remote === true };
+  const merged = activityEvidence.merged;
+  const derivedActivityState = merged && window.YardCats ? window.YardCats.deriveState(now, primary, merged) : null;
+  // A local working signal proves that the Agent is working. A local rest/idle
+  // signal cannot describe remote Presence while remote activity is not part
+  // of inventory, so mixed groups otherwise remain explicitly unknown.
+  const activityState = window.IdentityGroups?.resolveCardActivityState
+    ? window.IdentityGroups.resolveCardActivityState(activityEvidence, derivedActivityState)
+    : (activityEvidence.remoteUnknown && derivedActivityState !== 'working' ? null : derivedActivityState);
+  const stateLabel = activityState ? tr('state.' + activityState) : tr('card.activityUnknown');
 
   const top = document.createElement('div');
   top.className = 'account-card-top';
@@ -4610,12 +4682,10 @@ function buildAccountCard(group, now) {
   const gp = document.createElement('div');
   gp.className = 'account-card-group';
   if (state.mesh.overview?.initialized) {
-    const deviceIds = new Set(group.members.map((member) => member._meshDeviceId).filter(Boolean));
-    const onlineIds = new Set(group.members
-      .filter((member) => member._deviceStatus === 'online')
-      .map((member) => member._meshDeviceId)
-      .filter(Boolean));
-    gp.textContent = tr('presenter.positions', { positions: deviceIds.size, online: onlineIds.size });
+    // “运行位置”以 Slot 为口径；同一设备上的 Desktop/CLI 是两个明确动作落点。
+    const positions = group.members.length;
+    const online = group.members.filter((member) => member._deviceStatus === 'online').length;
+    gp.textContent = tr('presenter.positions', { positions, online });
   } else {
     gp.textContent = primary.group ? tr('card.group', { g: primary.group }) : appLabel(primary.appId);
   }
@@ -4624,32 +4694,76 @@ function buildAccountCard(group, now) {
 
   const st = document.createElement('div');
   st.className = 'account-card-state';
+  st.dataset.activity = activityState || 'unknown';
   const dot = document.createElement('span');
   dot.className = 'account-card-dot';
   dot.style.background = CARD_STATE_DOT[activityState] || '#9a9a9a';
   st.append(dot, document.createTextNode(`${stateLabel} · ${appLabel(primary.appId)}`));
 
-  // 原型 qbar：卡片底部额度条（组内取有官方额度快照的成员；未知则空条）
+  const details = document.createElement('div');
+  details.className = 'account-card-details';
+
+  const lastActive = document.createElement('div');
+  lastActive.className = 'account-card-fact account-card-last-active';
+  const lastActiveLabel = document.createElement('span');
+  lastActiveLabel.className = 'account-card-fact-label';
+  lastActiveLabel.textContent = tr(activityEvidence.remoteUnknown && merged ? 'card.lastActiveLocal' : 'card.lastActive');
+  const activityAt = merged?.contentActiveAt || merged?.latestMtime || null;
+  const activityDate = activityAt ? new Date(activityAt) : null;
+  const hasActivityTime = Boolean(activityDate && !Number.isNaN(activityDate.getTime()));
+  const lastActiveValue = document.createElement(hasActivityTime ? 'time' : 'span');
+  lastActiveValue.className = 'account-card-fact-value';
+  lastActiveValue.textContent = compactDate(hasActivityTime ? activityAt : null);
+  lastActiveValue.title = hasActivityTime ? fullDate(activityAt) : tr('common.unrecorded');
+  if (hasActivityTime) lastActiveValue.dateTime = activityDate.toISOString();
+  lastActive.append(lastActiveLabel, lastActiveValue);
+
+  const quotaSummary = document.createElement('div');
+  quotaSummary.className = 'account-card-fact account-card-quota-summary';
+  const quotaLabel = document.createElement('span');
+  quotaLabel.className = 'account-card-fact-label';
+  quotaLabel.textContent = tr('card.quota');
+  const quotaValue = document.createElement('strong');
+  quotaValue.className = 'account-card-fact-value';
+
+  // 只展示本地 Slot 的新鲜实时快照；旧采样、已过重置点和远端缓存都不进入卡片额度。
   const quotaTrack = document.createElement('div');
   quotaTrack.className = 'account-card-quota';
   const quotaFill = document.createElement('i');
   quotaTrack.append(quotaFill);
-  const holder = group.members.find((member) => state.quotas[member.id]?.status === 'ok');
-  const tightest = holder && window.QuotaOverview
-    ? window.QuotaOverview.tightestWindow(state.quotas[holder.id], now)
-    : null;
-  if (tightest) {
+  const trustedQuota = trustedLocalAccountCardQuota(group, now);
+  if (trustedQuota.status === 'ok') {
+    const { member, snapshot, tightest } = trustedQuota;
+    const source = accountCardQuotaSource(member);
     const percent = Math.max(0, Math.min(100, Math.round(tightest.remainingPercent)));
+    const shortValue = `${tightest.label} · ${tr('quota.remainingShort', { pct: percent })}`;
+    const fullValue = tr('quota.overview.value', { label: tightest.label, pct: percent });
+    const title = tr('card.quotaSource', {
+      source,
+      value: fullValue,
+      time: fullDate(snapshot.observedAt)
+    });
+    quotaValue.textContent = shortValue;
+    quotaValue.title = title;
+    quotaSummary.dataset.source = source;
+    quotaTrack.dataset.trusted = 'true';
     quotaTrack.dataset.level = window.YardEnergy?.energyForRemaining?.(percent) || 'unknown';
     quotaFill.style.width = `${percent}%`;
-    quotaTrack.title = tr('quota.overview.value', { label: tightest.label, pct: percent });
+    quotaTrack.title = title;
   } else {
+    const conflict = trustedQuota.status === 'conflict';
+    quotaValue.textContent = tr(conflict ? 'card.quotaConflict' : 'devices.value.unknown');
+    quotaValue.title = tr(conflict ? 'card.quotaConflictHint' : 'quota.chip.noData');
+    quotaTrack.dataset.trusted = 'false';
+    quotaTrack.dataset.reason = trustedQuota.reason || 'unknown';
     quotaTrack.dataset.level = 'unknown';
     quotaFill.style.width = '0%';
-    quotaTrack.title = tr('quota.chip.noData');
+    quotaTrack.title = quotaValue.title;
   }
+  quotaSummary.append(quotaLabel, quotaValue);
+  details.append(lastActive, quotaSummary, quotaTrack);
 
-  card.append(top, st, quotaTrack);
+  card.append(top, st, details);
   card.addEventListener('click', () => selectProfile(primary.id));
   return card;
 }
@@ -4719,6 +4833,7 @@ function identityGroupsForLens(lensId = 'all') {
   const overview = state.mesh.overview;
   if (overview?.initialized) {
     const devices = new Map((overview.devices || []).map((device) => [device.deviceId, device]));
+    const bindings = new Map((overview.accountBindings || []).map((binding) => [binding.accountBindingId, binding]));
     const localProfiles = new Map(state.profiles.map((profile) => [String(profile.id), profile]));
     const lens = lensId || 'all';
     const groups = [];
@@ -4732,6 +4847,7 @@ function identityGroupsForLens(lensId = 'all') {
       if (!slots.length) continue;
       const members = slots.map((slot) => {
         const device = devices.get(slot.deviceId) || {};
+        const binding = bindings.get(slot.accountBindingId) || {};
         const local = slot.deviceId === overview.localDeviceId
           ? localProfiles.get(String(slot.profileId))
           : null;
@@ -4744,6 +4860,9 @@ function identityGroupsForLens(lensId = 'all') {
           group: agent.group || local?.group || '',
           note: agent.note || local?.note || '',
           _meshAgentId: agent.agentId,
+          _accountBindingId: slot.accountBindingId,
+          _accountBindingAlias: binding.displayAlias || slot.localLabel || null,
+          _providerNamespace: binding.providerNamespace || slot.appId || null,
           _meshDeviceId: slot.deviceId,
           _meshProfileId: slot.profileId,
           _meshSlotKey: `${slot.deviceId}:${slot.profileId}`,
@@ -4975,7 +5094,7 @@ function renderAccountHeader() {
   els.pathConfigBtn.disabled = disabled || remote;
   els.diagnosticsBtn.disabled = disabled || remote;
   els.profileFolderBtn.disabled = disabled || remote;
-  els.refreshBtn.disabled = disabled || remote;
+  els.refreshBtn.disabled = disabled || (remote && !window.manager.refreshMeshInventory);
   els.editProfileBtn.disabled = meshMode ? !selectedAgent : (disabled || remote);
   els.removeProfileBtn.disabled = meshMode ? !selectedAgent : (disabled || remote);
 

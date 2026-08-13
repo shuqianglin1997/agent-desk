@@ -2,7 +2,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { groupProfilesByIdentity, mergeActivity } = require('../src/identity-groups');
+const {
+  groupProfilesByIdentity,
+  mergeActivity,
+  cardActivityEvidence,
+  resolveCardActivityState
+} = require('../src/identity-groups');
 
 const P = (id, extra = {}) => ({ id, name: id, appId: 'claude', createdAt: '2026-07-01T00:00:00.000Z', ...extra });
 
@@ -110,4 +115,31 @@ test('回归：merged activity 穿透 deriveState 后「在岗 onduty」不丢�
   const merged = deriveState(now, profile, mergeActivity([idle]));
   assert.equal(merged, direct);
   assert.equal(merged, 'onduty');
+});
+
+test('卡片活动覆盖：remote-only 未知；混合 Agent 的本机休息不能冒充全局休息', () => {
+  const remote = { id: 'remote', _remote: true };
+  const local = { id: 'local', _remote: false };
+  const remoteOnly = cardActivityEvidence([remote], {});
+  assert.equal(remoteOnly.merged, null);
+  assert.equal(remoteOnly.remoteUnknown, true);
+  assert.equal(resolveCardActivityState(remoteOnly, null), null);
+
+  const activity = { local: { profileId: 'local', rootExists: true, rootReadable: true, running: false, latestMtime: 1 } };
+  const mixed = cardActivityEvidence([local, remote], activity);
+  assert.equal(mixed.merged.profileId, 'local');
+  assert.equal(mixed.remoteUnknown, true);
+  assert.equal(resolveCardActivityState(mixed, 'rest'), null);
+  assert.equal(resolveCardActivityState(mixed, 'onduty'), null);
+  assert.equal(resolveCardActivityState(mixed, 'working'), 'working');
+});
+
+test('纯本机卡片保留真实活动状态，混合卡片的最近活跃证据仍明确来自本机', () => {
+  const local = { id: 'local', _remote: false };
+  const evidence = cardActivityEvidence([local], {
+    local: { profileId: 'local', running: true, latestMtime: 100, contentActiveAt: 120 }
+  });
+  assert.equal(evidence.remoteUnknown, false);
+  assert.equal(evidence.merged.contentActiveAt, 120);
+  assert.equal(resolveCardActivityState(evidence, 'onduty'), 'onduty');
 });

@@ -115,5 +115,21 @@
     };
   }
 
-  return { groupProfilesByIdentity, mergeActivity };
+  function cardActivityEvidence(members, activitiesById) {
+    const list = Array.isArray(members) ? members.filter(Boolean) : [];
+    const localMembers = list.filter((member) => member._remote !== true);
+    const activities = activitiesById && typeof activitiesById === 'object' ? activitiesById : {};
+    return {
+      merged: mergeActivity(localMembers.map((member) => activities[member.id])),
+      remoteUnknown: list.some((member) => member._remote === true),
+      localMemberCount: localMembers.length
+    };
+  }
+
+  function resolveCardActivityState(evidence, derivedState) {
+    const state = typeof derivedState === 'string' && derivedState ? derivedState : null;
+    return evidence?.remoteUnknown && state !== 'working' ? null : state;
+  }
+
+  return { groupProfilesByIdentity, mergeActivity, cardActivityEvidence, resolveCardActivityState };
 });

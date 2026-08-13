@@ -44,7 +44,8 @@ test('设备 IPC 只暴露固定语义，不提供通用 channel、命令、路�
     'devices:getNetworkConfig',
     'devices:updateNetworkConfig',
     'devices:updatePermissions',
-    'devices:revoke'
+    'devices:revoke',
+    'remoteInventory:refresh'
   ]) {
     assert.ok(main.includes(`ipcMain.handle('${channel}'`), `${channel} missing in main`);
     assert.ok(preload.includes(`ipcRenderer.invoke('${channel}'`), `${channel} missing in preload`);

@@ -2,9 +2,9 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.14
+> 版本：1.16
 >
-> 日期：2026-08-12
+> 日期：2026-08-13
 >
 > 工作分支：codex/agentdesk-personal-mesh-plan
 >
@@ -224,7 +224,7 @@ Personal Agent Mesh 必须新增 PersonalMesh、Device、全局 AgentIdentity �
 - 把会话表改成任务队列；
 - 重新引入已删除的 handoff、artifact 或 runtime 控制台结构。
 
-### 6.4 已证实的当前会话索引缺陷
+### 6.4 已证实的历史会话索引缺陷与修复基线
 
 2026-08-08 对本机 Codex 数据做了只读、脱敏核对。这个结果用于确认问题性质，不把本机数量写成长期产品假设：
 
@@ -234,7 +234,7 @@ Personal Agent Mesh 必须新增 PersonalMesh、Device、全局 AgentIdentity �
 | guardian/subagent 内部 rollout | 10 | 否，只能挂在父会话诊断树下 |
 | 物理 JSONL 文件总数 | 16 | 不能直接等于列表行数 |
 
-当前 `src/sessions.js` 的 `scanCodex` 同时扫描 `sessions` 与 `archived_sessions`，再用每个文件自己的 `payload.id` 去重并写入 `address`。当前 `src/session-table.js` 又用 `profileId + address` 作为行键。扫描器没有读取或处理 `thread_source`、`source.subagent` 和 `parent_thread_id`，于是每个内部文件都获得独立行。
+修复前，`src/sessions.js` 的 `scanCodex` 同时扫描 `sessions` 与 `archived_sessions`，再用每个文件自己的 `payload.id` 去重并写入 `address`；`src/session-table.js` 又用 `profileId + address` 作为行键。扫描器当时没有读取或处理 `thread_source`、`source.subagent` 和 `parent_thread_id`，于是每个内部文件都获得独立行。
 
 本机 10 个内部文件全部满足：
 
@@ -245,7 +245,7 @@ Personal Agent Mesh 必须新增 PersonalMesh、Device、全局 AgentIdentity �
 
 与此同时，用户根 JSONL 内部可以连续出现多次 `compacted` 与 `context_compacted` 事件，根会话 ID 和文件都不变。当前样本中一个根会话已经发生 5 次压缩，仍然只有一个用户根记录。这证明“压缩创建新项目”不是源数据语义，而是 AgentDesk 把物理执行记录误当成用户会话的索引身份错误。
 
-Claude CLI 扫描器已经有等价先例：遇到 `isSidechain === true` 的子 Agent 文件直接不进入默认列表。Codex 适配器必须采用同样的产品语义，同时保留父子谱系供诊断，而不是简单丢失关系。
+Claude CLI 扫描器已经有等价先例：遇到 `isSidechain === true` 的子 Agent 文件直接不进入默认列表。当前 Codex 适配器已按同一产品语义分类用户根、压缩检查点与 internal-child，并保留父子谱系供诊断；相应回归证明压缩和 guardian/subagent 不再增加默认会话行。跨设备库存继续消费这份归一化结果，不以物理文件数重新生成身份。
 
 ## 7. 领域模型
 
@@ -1131,7 +1131,7 @@ UI 验收不再以 DOM 中是否出现按钮或 CSS 选择器为主要证据，�
 
 CSS 实施必须先治理层级，再打磨视觉：按 reset/tokens、shell、components、features、themes 建立明确层，移除 v2/v3/临时尾部覆盖的代际叠加；庭院选择器只作用于场景和 Agent Presenter。应用 UI 默认使用 1px 边框，2–3px 深色像素边只保留给品牌符号和像素画框。每一阶段都必须通过 Compact 无横滚、浮层无裁切、三语、双主题、庭院/卡片共享状态和原有安全测试。
 
-实施状态（2026-08-12）：上述 1.13 表现层基线已经进入真实产品代码。`workspace.css` 成为 canonical 分层样式，旧样式降入 `legacy`；58/244/316/38 几何、Compact 无横滚、庭院/卡片共享选择、场景 Top Layer Popover、Agent 对象 Dialog、四个全局 Dialog、详情空状态/动作坞和纯全局 Footer 已通过临时 userData 下真实 1040 × 840 Electron 的 15 条任务路径。庭院只承载 Agent Presenter 与短暂直接反馈，路径/额度等持久待处理事项统一由 Header 的“活动”弹窗承载。该本机证据不替代物理双机、真实 NAT/coturn 或跨平台权限矩阵。
+实施状态（2026-08-13）：上述表现层基线已经进入真实产品代码。`workspace.css` 成为 canonical 分层样式，旧样式降入 `legacy`；58/244/316/38 几何、Compact 无横滚、庭院/卡片共享选择、场景 Top Layer Popover、Agent 对象 Dialog、四个全局 Dialog、详情空状态/动作坞和纯全局 Footer 已通过临时 userData 下真实 1040 × 840 Electron 的任务路径。卡片 Presenter 额外显式重置通用按钮的 `inline-flex`、32px 高度与不换行几何；卡宽固定为 164px，少量 Agent 左对齐并保留右侧空间，5 个以上由名册自身横向滚动，选中卡片自动露出。卡片内部可在状态下方显示非交互的“最近活跃 / 可信额度”紧凑信息带：最近活跃在缺失、不可解析或只有未同步活动的远端位置时显示未知，历史但有效的时间照常展示；混合本机/远端且仅有本机证据时明确标为“本机活跃”，除非本机正在工作，否则不把本机休息状态伪装为整个 Agent 状态。额度只接受本机、成功、新鲜、未过重置点、provider/source 匹配且同一 AccountBinding 来源一致的快照；其他情况显示未知，已检测冲突明确显示“来源不一致”，不得伪装为 0 或全局实时值。验收覆盖少量卡不拉伸、7 个以上横滚、内容不越界/不重叠、右侧控制区分隔、选中可见以及三语/明暗主题；上述数据分支由定向行为测试覆盖，不把几何验收扩写为全部语义分支的 Electron 证据。庭院只承载 Agent Presenter 与短暂直接反馈，路径/额度等持久待处理事项统一由 Header 的“活动”弹窗承载。该本机证据不替代物理双机、真实 NAT/coturn 或跨平台权限矩阵。
 
 ### 11.13 全局弹窗 Shell、滚动归属与父子层级
 
@@ -1566,6 +1566,8 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 - 离线缓存带 generatedAt 和 staleAt；
 - UI 对过期状态可见。
 
+当前恢复基线（2026-08-13）：新连接必须等待首份完整库存事务落库后才能向调用方报告连接完成；已认证连接再次连接时主动请求新库存，远端运行位置的“重扫”只通过固定 `remoteInventory:refresh(deviceId)` 触发同一流程，并等待匹配 requestId 的完成响应。连接存续期间每 4 分钟发布一次有界全量快照，早于当前 5 分钟 `staleAt` 窗口，用于修复长期连接只同步一次的问题。库存收发每次重新核对当前 `inventory.read`，撤权后同步关闭既有连接；刷新请求按连接单飞、10 秒最小间隔并最多允许 4 个等待者，关闭连接会取消排队扫描、ACK 与刷新等待。该机制是增量协议完全落地前的恢复基线，不能写成 revision delta、缺口补齐或物理双机长连接门禁已经完成。
+
 ### 17.3 离线发送队列
 
 - 发送动作可在本机排队；
@@ -1642,6 +1644,8 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 - 避免 profile/settings 的简单 JSON 语义被污染。
 
 SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、崩溃恢复和 Windows portable 兼容性。
+
+当前实现说明（2026-08-13）：`mesh.db` schema v4 将 `agent_slots.agent_id` 与 `account_binding_id` 改为可空，以准确持久化 `assignmentState=suppressed` 的 Slot；非空值继续受外键和级联规则保护。v3 → v4 迁移在事务中重建 Slot 表、复制原记录并保留主键/外键语义。移除单个运行位置、移除 AccountBinding、删除 Agent 与删到零均已增加 MeshService → SQLite → 关闭重开的持久化回归；这些动作仍不删除 `profiles.json`、官方客户端目录或第三方账号数据。
 
 ### 18.3 密钥存储
 
@@ -1949,6 +1953,9 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - `cwd` 只形成 ProjectBinding 候选，不能直接创建 ProjectIdentity；
 - 设备作用域稳定键；
 - inventory revision 与 tombstone；
+- schema v3 → v4 迁移保留 Slot 数据与外键；三种目录删除写入 nullable suppressed Slot，关闭重开后仍可删到零；
+- 新连接必须等待首份完整库存事务落库；已认证重连与固定 `remoteInventory:refresh` 必须等待匹配 requestId 的完成响应；
+- 库存权限撤销立即作用于既有连接；刷新洪泛被单飞、节流、等待上限与断连取消约束；
 - SessionPointer schema；
 - project mapping；
 - transfer state machine；
@@ -2074,7 +2081,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ## 27. 建议代码结构
 
-以下目录基准已开始落地；当前只实现本机可验证的设备身份、目录与会话身份基础，网络与远控目录仍须按阶段补齐：
+以下目录基准已部分落地；设备身份、目录、会话身份、认证库存、SessionPointer、文件与隔离远控的本机纵向代码链路已经存在，尚未落地或尚未关闭的物理双机、公网 NAT/TURN、跨平台权限与增量协议门禁仍须按第 28 节各阶段补齐：
 
     src/
       mesh/
@@ -2200,7 +2207,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 2：全局 Agent 目录、设备模型与设备中心
 
-当前状态：**本机与加密配对纵向基础已实现，Phase 2 继续进行**。顶栏已有“设备”入口和本机设备中心；用户可显式建立本机设备身份，把现有 Identity Group 迁移为 AgentIdentity/AccountBinding/AgentSlot，查看目录统计、重命名本机、离开并重置 Mesh。设备中心已经可以生成一次性配对码、加入已有 Mesh、逐项调整远端权限以及撤销删除设备；局域网端口只在用户创建邀请后临时开启。同一强账号标识在两个隔离端点的自动归并已通过测试。远端库存持续同步、目录事件补齐和物理双机验证仍在后续阶段，不绕过 Phase 1 的真机退出条件。
+当前状态：**本机与加密配对纵向基础已实现，Phase 2 继续进行**。顶栏已有“设备”入口和本机设备中心；用户可显式建立本机设备身份，把现有 Identity Group 迁移为 AgentIdentity/AccountBinding/AgentSlot，查看目录统计、重命名本机、离开并重置 Mesh。设备中心已经可以生成一次性配对码、加入已有 Mesh、逐项调整远端权限以及撤销删除设备；局域网端口只在用户创建邀请后临时开启。同一强账号标识在两个隔离端点的自动归并已通过测试。schema v4 已修复 suppressed Slot 无法写入 SQLite 的约束冲突，三种删除范围均覆盖关闭重开的持久化回归。签名目录事件补齐和物理双机验证仍在后续阶段，不绕过 Phase 1 的真机退出条件。
 
 - 本机 Device；
 - AgentIdentity、AccountBinding、AgentPresence、AgentSlot；
@@ -2222,7 +2229,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 ### Phase 3：跨设备库存与会话身份修正
 
-当前状态：**代码纵向链路已实现，真机验收待完成**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。双端沙箱 WebRTC 自动验证已证明双方库存交换后同一强标识会话只渲染一行并保留两个精确 replica。仍需两台物理电脑的长连接、断网恢复和大库存验证后再关闭本 Phase。
+当前状态：**代码纵向链路已实现，真机验收待完成**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。新连接增加首库存落库屏障，已认证重连和固定 `remoteInventory:refresh` 可以立即请求新快照，连接存续时以 4 分钟有界全量快照作为当前恢复基线。双端沙箱 WebRTC 自动验证已覆盖刷新后 revision 与会话标题推进，并证明同一强标识会话只渲染一行、保留两个精确 replica。revision 增量/缺口补齐以及两台物理电脑的长连接、断网恢复和大库存仍待完成后再关闭本 Phase。
 
 - Device、AgentIdentity、AccountBinding、AgentPresence、AgentSlot；
 - ProjectIdentity、ConversationIdentity、ConversationCheckpoint、ExecutionBranch、SessionReplica 与 PhysicalSessionRecord；
@@ -2243,6 +2250,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - 每个会话动作都能回到确切 replica 和 Slot；
 - 来源设备是唯一写入者；
 - 离线缓存不会伪装实时。
+- Agent 卡宽稳定为 164px，少量卡不均分拉伸；5 个以上由一个明确横向滚动容器承载，通用按钮样式不会压扁卡片，选中卡片完整可见且不侵入右侧控制区；卡内历史有效的最近活跃时间正常展示，未同步远端活动不冒充全局休息，额度只展示本机新鲜且来源一致的可信值，其他情况诚实显示未知或来源冲突。
 
 ### Phase 4：会话信息发送与项目映射
 
@@ -2439,6 +2447,21 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.16 — 2026-08-13
+
+- 所有者明确要求 Agent 卡片不再均分拉宽铺满名册；卡宽冻结为 164px，少量卡左对齐留白，5 个以上继续使用名册唯一横向滚动容器；
+- 卡片状态下方增加非交互的最近活跃与额度摘要，只复用既有缓存，不增加网络、目录扫描或自动调度；远端未同步活跃、过期额度和未支持 provider 显示未知，额度来源冲突明确显示“来源不一致”；
+- 真实 Electron 验收必须同时证明 1–2 张卡不拉伸、7+ 卡仍横向滚动、底部信息带不越界/不重叠、选中右侧卡完整可见，并覆盖三语与明暗主题。
+
+### 1.15 — 2026-08-13
+
+- 修复三种 Agent 目录删除在领域层成功、SQLite 写入却因 `agent_slots.agent_id/account_binding_id NOT NULL` 失败的问题：schema v4 允许 suppressed Slot 的两项目录关系为空，v3 → v4 事务迁移保留原数据、主键与非空外键约束；
+- 增加运行位置、AccountBinding、Agent 三种删除范围的 MeshService → SQLite → 关闭重开回归，覆盖删到零、tombstone 与外键检查；官方客户端目录、`profiles.json` 和第三方账号数据仍不删除；
+- 修复远端库存只在首次认证发送一次、重复连接直接暴露旧缓存的问题：新连接等待首份完整库存落库，已认证重连与远端“重扫”通过固定 `remoteInventory:refresh` 请求并等待匹配完成响应，未知消息仍拒绝为通用命令；库存权限实时复核、撤权立即断链，刷新请求单飞/节流/限制等待且断连取消排队工作；
+- 在 revision 增量协议完全落地前，以连接存续期间每 4 分钟发布一次有界全量快照作为恢复基线，确保早于 5 分钟 stale 窗口；本次不宣称 delta/缺口补齐、物理双机长连接或公网 NAT/coturn 门禁完成；
+- 修复 Agent 卡片继承通用按钮 `inline-flex`、32px 高度和不换行后内容被压扁重叠的问题；卡片改回独立网格，名册成为唯一横向滚动所有者，选中右侧卡片会自动进入可见区；
+- 真实 1040 × 840 Electron 的 17 条任务路径增加 7+ Agent 几何断言，逐卡验证边框内包含、行序、无重叠、右侧控制区分隔和选中可见性；单机双隔离端点增加显式刷新后 revision/标题推进验证。上述本机证据不替代两台物理电脑、真实公网或跨平台权限矩阵。
 
 ### 1.14 — 2026-08-12
 
