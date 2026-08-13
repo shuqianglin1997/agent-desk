@@ -208,7 +208,9 @@ test('Agent CRUD 与运行位置操作按对象分区，两视图共用且不搬
   // 新增紧跟打开账号；全局 Agent 与当前运行位置动作分别静态放在对象 Dialog 的两个分区。
   assert.match(html, /id="launchBtn"[\s\S]*?id="addProfileBtn"/);
   assert.match(html, /id="agentGlobalActions"[\s\S]*?id="editProfileBtn"[\s\S]*?id="manageAgentRelationsBtn"[\s\S]*?id="removeProfileBtn"[\s\S]*?<\/div>/);
-  assert.match(html, /id="yardManageActions"[\s\S]*?id="pathConfigBtn"[\s\S]*?id="diagnosticsBtn"[\s\S]*?id="refreshBtn"[\s\S]*?id="profileFolderBtn"[\s\S]*?<\/div>/);
+  assert.match(html, /id="yardManageActions"[\s\S]*?id="addRuntimeLocationBtn"[\s\S]*?id="pathConfigBtn"[\s\S]*?id="diagnosticsBtn"[\s\S]*?id="refreshBtn"[\s\S]*?id="profileFolderBtn"[\s\S]*?<\/div>/);
+  assert.match(html, /id="agentCreateDialog"[\s\S]*?id="newAgentName"[\s\S]*?id="newAgentGroup"[\s\S]*?id="newAgentNote"[\s\S]*?id="confirmAddAgentBtn"/);
+  assert.match(renderer, /if \(state\.mesh\.overview\?\.initialized\) openAgentCreationDialog\(\);[\s\S]*?else openProfileCreationDialog\(\);/);
   // 统一后不再按视图搬家：applyView 不再 insertBefore / sidebarActions.append 这几个按钮
   assert.doesNotMatch(renderer, /accountActions\.insertBefore\(els\.addProfileBtn/);
   assert.doesNotMatch(renderer, /sidebarActions\.append/);

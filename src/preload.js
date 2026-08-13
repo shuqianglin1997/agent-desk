@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('manager', {
   renameDevice: (input) => ipcRenderer.invoke('devices:rename', input),
   listAgentCatalog: () => ipcRenderer.invoke('agentCatalog:list'),
   getAgentCatalog: (agentId) => ipcRenderer.invoke('agentCatalog:get', { agentId }),
+  createAgent: (input) => ipcRenderer.invoke('agentCatalog:create', input),
   renameAgent: (input) => ipcRenderer.invoke('agentCatalog:rename', input),
   mergeAgents: (input) => ipcRenderer.invoke('agentCatalog:merge', input),
   splitAccountBinding: (input) => ipcRenderer.invoke('agentCatalog:split', input),

@@ -248,12 +248,36 @@
           <section class="agent-manage-section">
             <header><div><span data-i18n="account.currentRuntime">当前运行位置</span><small id="agentManageRuntimeLabel">—</small></div></header>
             <div id="yardManageActions" class="agent-manage-actions runtime-actions">
+              <button id="addRuntimeLocationBtn" type="button"><span data-i18n="account.addRuntimeAdvanced">导入运行位置</span><small data-i18n="account.addRuntimeAdvancedHint">仅用于登记已有登录或修复位置关系</small></button>
               <button id="pathConfigBtn" type="button"><span data-i18n="account.path">路径</span><small data-i18n="account.pathHint">账号数据目录与会话根目录</small></button>
               <button id="diagnosticsBtn" type="button"><span data-i18n="account.diagnostics">诊断</span><small data-i18n="account.diagnosticsHint">客户端、目录、会话与启动状态</small></button>
               <button id="refreshBtn" type="button"><span data-i18n="account.refresh">重扫</span><small data-i18n="account.refreshHint">重新读取当前来源的会话与状态</small></button>
               <button id="profileFolderBtn" type="button"><span data-i18n="account.folder">打开位置</span><small data-i18n="account.folderHint">在本机文件管理器中显示账号目录</small></button>
             </div>
           </section>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="agentCreateDialog" aria-labelledby="agentCreateTitle" aria-describedby="agentCreateLead">
+      <form method="dialog" class="dialog-body">
+        <h3 id="agentCreateTitle" data-i18n="dialog.addAgent.title">新增 Agent</h3>
+        <p id="agentCreateLead" class="field-hint" data-i18n="dialog.addAgent.lead">先把员工加入全局员工库；运行位置会在你第一次打开它时自动准备。</p>
+        <label>
+          <span data-i18n="dialog.field.agentName">员工名称</span>
+          <input id="newAgentName" type="text" data-i18n-placeholder="dialog.ph.agentName" placeholder="例如：研究助理" />
+        </label>
+        <label>
+          <span data-i18n="dialog.field.group">分组</span>
+          <input id="newAgentGroup" type="text" list="groupOptions" data-i18n-placeholder="dialog.ph.profileGroup" placeholder="可选，例如：工作 / 个人 / 备用" />
+        </label>
+        <label>
+          <span data-i18n="dialog.field.note">备注</span>
+          <textarea id="newAgentNote" rows="3" data-i18n-placeholder="dialog.ph.agentNote" placeholder="可选，记录这名员工负责什么"></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button value="cancel" data-i18n="dialog.cancel">取消</button>
+          <button id="confirmAddAgentBtn" type="button" class="primary" data-i18n="dialog.create">创建</button>
         </div>
       </form>
     </dialog>

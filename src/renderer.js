@@ -171,6 +171,7 @@ const els = {
   agentManageSummary: document.querySelector('#agentManageSummary'),
   agentManageRuntimeLabel: document.querySelector('#agentManageRuntimeLabel'),
   yardManageActions: document.querySelector('#yardManageActions'),
+  addRuntimeLocationBtn: document.querySelector('#addRuntimeLocationBtn'),
   ledgerDone: document.querySelector('#ledgerDone'),
   ledgerMin: document.querySelector('#ledgerMin'),
   reminderToggle: document.querySelector('#reminderToggle'),
@@ -330,6 +331,11 @@ const els = {
   openSessionFileBtn: document.querySelector('#openSessionFileBtn'),
   exportSessionBtn: document.querySelector('#exportSessionBtn'),
   profileDialog: document.querySelector('#profileDialog'),
+  agentCreateDialog: document.querySelector('#agentCreateDialog'),
+  newAgentName: document.querySelector('#newAgentName'),
+  newAgentGroup: document.querySelector('#newAgentGroup'),
+  newAgentNote: document.querySelector('#newAgentNote'),
+  confirmAddAgentBtn: document.querySelector('#confirmAddAgentBtn'),
   profileDialogTitle: document.querySelector('#profileDialogTitle'),
   newProfileMeshAssignment: document.querySelector('#newProfileMeshAssignment'),
   newProfileMode: document.querySelector('#newProfileMode'),
@@ -595,9 +601,10 @@ function renderAgentManageContext() {
     els.agentManageSummary.textContent = `${agentName} · ${tr('account.manageHint')}`;
   }
   if (els.agentManageRuntimeLabel) {
+    const group = identityGroups().find((item) => item.key === currentAgentId()) || null;
     els.agentManageRuntimeLabel.textContent = profile
       ? [profile._meshDeviceName, profile.name, appLabel(profile.appId)].filter(Boolean).join(' · ')
-      : tr('devices.slot.choose');
+      : (group ? deploymentStateLabel(group.readiness?.state) : tr('devices.slot.choose'));
   }
 }
 
@@ -615,7 +622,14 @@ function bindEvents() {
     state.ui = window.UiContext.openRemote(state.ui, active.sessionId);
     setWorkspaceMode('remote');
   });
-  els.addProfileBtn.addEventListener('click', () => openProfileCreationDialog());
+  els.addProfileBtn.addEventListener('click', () => {
+    if (state.mesh.overview?.initialized) openAgentCreationDialog();
+    else openProfileCreationDialog();
+  });
+  els.addRuntimeLocationBtn?.addEventListener('click', () => {
+    openProfileCreationDialog({ agentId: currentAgentId() });
+  });
+  els.confirmAddAgentBtn?.addEventListener('click', () => void confirmAgentCreation());
   els.accountManage?.addEventListener('click', () => openAgentManageDialog());
   els.newProfileMode?.addEventListener('change', () => syncProfileAssignmentControls());
   els.newProfileApp?.addEventListener('change', () => syncProfileAssignmentControls());
@@ -1328,7 +1342,44 @@ function fillBindingAssignmentSelect(select, appId, preferredBindingId = null) {
   return bindings;
 }
 
-function openProfileCreationDialog() {
+function openAgentCreationDialog() {
+  closeAgentManageDialog();
+  if (!state.mesh.overview?.initialized || !els.agentCreateDialog) return;
+  els.newAgentName.value = '';
+  els.newAgentGroup.value = '';
+  els.newAgentNote.value = '';
+  els.confirmAddAgentBtn.disabled = false;
+  els.agentCreateDialog.showModal();
+  els.newAgentName.focus();
+}
+
+async function confirmAgentCreation() {
+  const displayName = els.newAgentName.value.trim();
+  if (!displayName) {
+    setStatus(tr('status.agentNameFirst'));
+    els.newAgentName.focus();
+    return;
+  }
+  els.confirmAddAgentBtn.disabled = true;
+  try {
+    const result = await window.manager.createAgent({
+      displayName,
+      group: els.newAgentGroup.value,
+      note: els.newAgentNote.value,
+      baseRevision: currentCatalogRevision()
+    });
+    if (!result?.ok) throw new Error(result?.reasonCode || 'agent-create-failed');
+    els.agentCreateDialog.close();
+    await refreshCatalogWorkspace(result.overview, { agentId: result.agent.agentId });
+    setStatus(tr('status.agentCreated', { name: result.agent.displayName }));
+  } catch (error) {
+    setStatus(tr('catalog.error.generic', { code: error?.message || 'agent-create-failed' }));
+  } finally {
+    if (els.agentCreateDialog.open) els.confirmAddAgentBtn.disabled = false;
+  }
+}
+
+function openProfileCreationDialog(options = {}) {
   closeAgentManageDialog();
   const meshMode = state.mesh.overview?.initialized === true;
   els.profileDialogTitle.textContent = tr(meshMode ? 'dialog.addProfile.slotTitle' : 'dialog.addProfile.title');
@@ -1339,13 +1390,17 @@ function openProfileCreationDialog() {
   els.newProfileGroup.value = '';
   els.newProfileNote.value = '';
   if (meshMode) {
-    els.newProfileMode.value = '';
-    els.newProfileAgent.value = '';
+    els.newProfileMode.value = options.agentId ? 'existing-agent' : '';
+    els.newProfileAgent.value = options.agentId || '';
     els.newProfileBinding.value = '';
   }
   syncProfileAssignmentControls();
+  if (meshMode && options.agentId) {
+    els.newProfileAgent.value = options.agentId;
+    syncProfileAssignmentControls();
+  }
   els.profileDialog.showModal();
-  (meshMode ? els.newProfileMode : els.newProfileName).focus();
+  (meshMode && !options.agentId ? els.newProfileMode : els.newProfileName).focus();
 }
 
 function syncProfileAssignmentControls() {
@@ -1518,6 +1573,7 @@ async function refreshCatalogWorkspace(overview, options = {}) {
       state.ui = window.UiContext.setAgent(state.ui, group.key, {
         slotKey: member?._meshSlotKey || member?.id
       });
+      if (!member) state.ui = window.UiContext.setSlot(state.ui, null);
     }
   }
   validateUiContext();
@@ -5418,15 +5474,20 @@ function renderAccountHeader() {
     || currentDeviceLensId() === 'all'
     || currentDeviceLensId() === state.mesh.overview.localDeviceId;
 
-  els.addProfileBtn.textContent = tr('account.addSlot');
+  els.addProfileBtn.textContent = tr(meshMode ? 'account.addAgent' : 'account.addSlot');
   const editProfileLabel = els.editProfileBtn.querySelector(':scope > span');
   const removeProfileLabel = els.removeProfileBtn.querySelector(':scope > span');
   if (editProfileLabel) editProfileLabel.textContent = tr(meshMode ? 'account.editAgent' : 'account.edit');
   else els.editProfileBtn.textContent = tr(meshMode ? 'account.editAgent' : 'account.edit');
   if (removeProfileLabel) removeProfileLabel.textContent = tr(meshMode ? 'account.removeCatalog' : 'account.remove');
   else els.removeProfileBtn.textContent = tr(meshMode ? 'account.removeCatalog' : 'account.remove');
-  els.addProfileBtn.disabled = !localLens;
-  els.addProfileBtn.title = localLens ? '' : tr('account.addRemoteDisabled');
+  els.addProfileBtn.disabled = false;
+  els.addProfileBtn.title = meshMode ? tr('account.addAgentHint') : '';
+  if (els.addRuntimeLocationBtn) {
+    els.addRuntimeLocationBtn.hidden = !meshMode;
+    els.addRuntimeLocationBtn.disabled = !selectedAgent || !localLens;
+    els.addRuntimeLocationBtn.title = localLens ? '' : tr('account.addRemoteDisabled');
+  }
   if (els.accountManage) els.accountManage.disabled = !selectedGroup && !profile;
   if (els.manageAgentRelationsBtn) {
     els.manageAgentRelationsBtn.hidden = !meshMode;
