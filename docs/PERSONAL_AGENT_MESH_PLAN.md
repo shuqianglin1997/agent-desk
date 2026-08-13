@@ -2,15 +2,15 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.17
+> 版本：1.18
 >
 > 日期：2026-08-13
 >
 > 工作分支：codex/agentdesk-personal-mesh-plan
 >
-> 当前授权：所有者已于 2026-08-10 明确批准本基准并要求开始开发；允许按本文阶段和门禁实施，任何方向变化仍须先写回本文件。
+> 当前授权：所有者已于 2026-08-10 明确批准本基准并要求开始开发，并于 2026-08-13 审阅“全局员工库 + 工作环境 + 按需就绪”规划后明确要求直接实施；允许按本文阶段和门禁实施，任何后续方向变化仍须先写回本文件。
 >
-> 完整产品审阅稿：`docs/PERSONAL_AGENT_MESH_OWNER_REVIEW.html`。UI 层级与排版实施蓝图：`docs/AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html`，已于 2026-08-12 获所有者批准。`docs/PERSONAL_AGENT_MESH_REVIEW.html` 保留为会话身份问题的专项技术图解。本文仍是实施时必须完整重读的单一基准。
+> 完整产品审阅稿：`docs/PERSONAL_AGENT_MESH_OWNER_REVIEW.html`。UI 层级与排版实施蓝图：`docs/AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html`，已于 2026-08-12 获所有者批准。“全局员工库 + 工作环境 + 按需就绪”的实施细化见 `docs/AGENT_LIBRARY_ON_DEMAND_PROVISIONING_PLAN.md`。`docs/PERSONAL_AGENT_MESH_REVIEW.html` 保留为会话身份问题的专项技术图解。本文仍是实施时必须完整重读的单一基准；细化稿不得覆盖本文。
 
 ## 0. 强制重读与实施门禁
 
@@ -101,6 +101,11 @@ AgentDesk Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控�
 15. 上下文压缩只是同一逻辑会话内部的检查点，不创建新项目、不创建新会话，也不增加会话列表行。
 16. guardian、subagent 等内部执行记录必须归属于用户根会话，默认不出现在用户会话列表；即使父记录暂时不可见，也不能把内部记录提升成用户会话。
 17. 项目与会话是两个独立身份轴。`cwd`、文件路径和窗口位置只是来源位置元数据，不能直接充当 ProjectIdentity 或 ConversationIdentity。
+18. Agent 是长期存在的全局“员工”，不再由已有 Slot 反向推导生命周期；移除最后一个运行位置或最后一个平台账号都不能自动删除 Agent，只有显式“删除 Agent”才能使其消失。
+19. Device 是员工的工作环境。选择某台设备后仍展示完整员工库，并以“已就绪 / 首次准备 / 需要登录 / 缺少客户端 / 不支持 / 离线”等状态表达该员工在此环境中的可用性，不能用不存在 Slot 作为隐藏员工的理由。
+20. 普通首次使用流程统一为“确保 Agent 在目标设备就绪，然后打开”。系统负责创建受管目录、应用白名单配置、恢复允许的技能/工具要求、验证登录身份并提交部署；用户不再手工同步 Slot、选择归属或填写路径。
+21. 自动准备不能绕过操作系统安装确认、官方登录、验证码或双重认证；密码、Token、Cookie 和官方浏览器登录数据继续不跨设备。若以后要求免登录凭据迁移，必须单独进行产品与安全评审。
+22. 远端打开使用固定语义动作；远端首次准备一期保持有人值守。目录创建和受控配置可自动执行，软件安装、官方登录和系统权限仍由目标设备明确确认。
 
 ## 4. 所有者已批准的实施默认值
 
@@ -122,6 +127,9 @@ AgentDesk Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控�
 14. 有可靠账号标识时使用 Mesh 范围的不可逆关联键自动归并；没有可靠标识时明确区分“已有登录在新设备上的位置 / 已有 Agent 的另一个平台账号 / 全新 Agent”，不按名称、路径、标题或邮箱猜测。
 15. 跨平台账号只有在用户显式操作时才能归入同一 Agent；系统不能因为名称相同就自动合并。
 16. 同一会话在多台设备存在副本时，只在有强稳定标识或明确来源链时折叠；不按标题和时间模糊去重。
+17. 全局员工库与设备库存分离同步：Agent、AccountBinding、员工配置和显式删除属于签名目录事实；设备库存只发布来源设备自己的部署、Slot、活动和会话副本。
+18. 新设备配对完成后先取得完整员工库，再扫描本机环境。一个 Agent 即使在任何设备都没有 Slot，也必须继续存在并可见。
+19. 首次准备采用可恢复、幂等的事务任务；失败或应用重启不得产生重复 Profile、重复 Slot 或半提交目录关系。
 
 ## 5. 产品边界
 
@@ -312,7 +320,7 @@ AgentIdentity 是用户真正管理、庭院真正展示的全局 Agent。它既
 - catAppearance；
 - group、note；
 - createdAt、updatedAt；
-- lifecycleState：active、deleting、deleted；
+- lifecycleState：active、paused、deleting、deleted；
 - catalogRevision。
 
 规则：
@@ -320,8 +328,9 @@ AgentIdentity 是用户真正管理、庭院真正展示的全局 Agent。它既
 - 默认一个被识别出的实际账号生成一个 AgentIdentity；
 - 用户可以把多个平台账号显式归入同一 AgentIdentity，表达“它们是同一个工作 Agent”；
 - 跨平台绝不自动合并；
-- 一个 AgentIdentity 可以分布在零到多台设备，但正常活跃对象至少应有一个 AccountBinding 或 AgentSlot；
-- 不预建 Claude、Kimi 等空 Agent；最后一个运行位置移除时允许整个 Agent 消失；
+- 一个 AgentIdentity 可以分布在零到多台设备，也可以暂时没有 AccountBinding；这表示员工尚未配置平台登录，不等于员工已被删除；
+- 不按平台预建 Claude、Kimi 等默认 Agent，但用户显式创建或迁移得到的 Agent 只在明确“删除 Agent”后消失；
+- 移除最后一个运行位置只使所有设备部署回到未准备，移除最后一个 AccountBinding 只使 Agent 进入待配置；两者都不能触发隐式删除；
 - 所有 Agent 都可以删除，目录可以为空。
 
 ### 7.4 AccountBinding
@@ -345,11 +354,12 @@ AccountBinding 表示一个实际的平台登录身份，例如某个 Codex 账�
 - linked 状态的 AccountBinding 必须且只能属于一个 AgentIdentity；待归属时可以暂时不属于任何 Agent；
 - 同一个 AccountBinding 可以在多台设备上有 AgentSlot；
 - AccountBinding 不保存邮箱、密码、Cookie、Token 或平台原始账号 ID；
+- AccountBinding 可以在零个设备上存在，表示这张员工工作证已经登记但尚未在当前设备登录；
 - 合并和拆分 AccountBinding 只改变 AgentDesk 的目录关系，不改官方账号或本地会话文件。
 
 ### 7.5 AgentPresence
 
-AgentPresence 是 `(agentId, deviceId)` 的派生聚合，表示某个全局 Agent 在某台设备上是否可用。它不是新的登录账号，也不是独立事实源。
+AgentPresence 是 `(agentId, deviceId)` 的派生聚合，表示某个全局 Agent 在某台设备上的就绪情况。它不是新的登录账号，也不是独立事实源；即使该设备尚无 Slot，也必须能从 AgentDeployment 或员工配置派生“首次准备”等状态。
 
 建议字段：
 
@@ -357,7 +367,7 @@ AgentPresence 是 `(agentId, deviceId)` 的派生聚合，表示某个全局 Age
 - deviceId；
 - slotIds；
 - bindingIds；
-- status：online、offline、partial、unavailable；
+- status：ready、preparing、needs-login、missing-client、unsupported、offline、error；
 - activitySummary；
 - launchableForms；
 - sessionCount；
@@ -387,6 +397,68 @@ AgentSlot 是最末端、可执行的本地客户端槽位，对应当前 Profil
 
 同一 profileId 只在所属设备内唯一，槽位稳定键是 `deviceId + profileId`。`agentId` 用于全局归组，`accountBindingId` 用于确认是不是同一个实际登录，三者不能互相替代。
 
+### 7.6.1 AgentBlueprint
+
+AgentBlueprint 是全局员工配置，描述“这名员工需要什么工作条件”，不保存任何登录秘密。用户界面只称“员工配置”。
+
+建议字段：
+
+- blueprintId、agentId、revision；
+- preferredProvider、preferredClientForm；
+- desiredBindings：需要使用的 AccountBinding 与优先顺序；
+- portableSettings：只允许客户端适配器声明的非敏感配置；
+- skillRequirements：技能 ID、版本和可信来源，不直接等于任意本地目录；
+- toolRequirements：固定工具目录中的 toolId 与版本约束；
+- projectRequirements：ProjectIdentity 引用，不包含来源设备绝对路径；
+- createdAt、updatedAt、updatedByDeviceId。
+
+规则：
+
+- Blueprint 属于签名全局目录事实，新设备配对后即取得；
+- 不复制整个用户目录、`~/.codex`、官方客户端数据库、项目目录或任意 dotfiles；
+- 适配器没有声明的字段不能写入目标设备；
+- 技能内容只能来自可信固定来源或用户显式发送的受控包；
+- Blueprint 缺失时 Agent 仍存在，但打开动作进入“待配置”。
+
+### 7.6.2 AgentDeployment
+
+AgentDeployment 表示一名员工在一台设备上的准备结果，是 `(agentId, deviceId)` 的设备事实。它把“员工存在”和“这台电脑已经可工作”分开。
+
+建议字段：
+
+- deploymentId、agentId、deviceId；
+- blueprintRevision；
+- state：absent、planning、preparing、waiting-install、waiting-login、verifying、ready、error、unsupported、retired；
+- preferredSlotKey、slotKeys；
+- adapterId、adapterVersion；
+- lastVerifiedAt、lastOpenedAt；
+- lastErrorCode、resumeJobId；
+- revision、updatedAt。
+
+目标设备只写自己的 Deployment。其他设备只缓存签名摘要，不能远端伪造“已就绪”。删除 Deployment 不删除 Agent、AccountBinding、官方客户端数据或项目文件。
+
+### 7.6.3 ProvisioningJob
+
+ProvisioningJob 是一次“确保员工在目标设备就绪”的可恢复事务，用户界面称“首次准备”。
+
+建议字段：
+
+- jobId、agentId、deviceId、requestedClientForm；
+- blueprintRevision；
+- state、currentStep、completedSteps；
+- stagingProfileId、resultSlotKey；
+- waitingReason、lastErrorCode、retryCount；
+- createdAt、updatedAt、completedAt、cancelledAt。
+
+硬规则：
+
+- `(agentId, deviceId, clientForm)` 同时最多一个活动 Job；重复点击复用现有任务；
+- 每一步幂等，应用退出后从持久状态恢复；
+- Profile 与 Slot 在身份验证通过前保持 staging，不进入普通运行位置和会话统计；
+- 成功时原子提交 Deployment、Profile 与 Slot 关系；失败只清理 AgentDesk 创建的暂存记录，不删除官方客户端或用户文件；
+- 需要软件安装、官方登录、验证码、双重认证或系统权限时进入明确等待状态，不能伪装成自动完成；
+- 登录身份与预期 AccountBinding 不一致时停止提交并要求用户纠正，不能静默改绑员工。
+
 ### 7.7 多对多关系与不变量
 
 ```mermaid
@@ -405,7 +477,7 @@ flowchart LR
 2. 设备 A 上两个不同账号，即使 appId 相同，也必须是两个 AccountBinding；除非用户显式归组，否则也是两个 AgentIdentity。
 3. 同一 Agent 在一台设备有多个客户端形态，只增加 Slot，不增加猫。
 4. 同一 Agent 在多台设备出现，只增加 Presence，不增加猫。
-5. AgentIdentity 是展示和管理主轴；Device 是筛选轴；AgentSlot 是动作落点。
+5. AgentIdentity 是展示和管理主轴；Device 是工作环境轴；AgentDeployment 表示该员工在环境中的就绪状态；AgentSlot 是已就绪后的具体动作落点。
 6. 任何副作用动作都必须解析到一个确切 `deviceId + profileId`，不能只拿 agentId 猜执行位置。
 
 示例：
@@ -683,6 +755,7 @@ flowchart TB
 | inventory.read | 查看设备、账号和会话元数据 | 配对后开启 |
 | catalog.manage | 重命名、归组、合并、拆分或删除全局 Agent 目录对象 | 可信个人 admin 设备开启 |
 | profile.manage | 修改目标设备上的本地 AgentSlot 登记或路径 | 关闭；第一版不远端开放 |
+| agent.prepare | 请求目标设备按已签名员工配置进行首次准备；安装、登录和系统权限仍需目标端确认 | 关闭，用户开启 |
 | session.pointer.receive | 接收其他可信设备发送的会话信息 | 配对后开启 |
 | file.receive | 接收显式文件 | 关闭，用户开启 |
 | profile.launch | 打开来源设备上已登记的账号槽位 | 关闭，用户开启 |
@@ -692,7 +765,7 @@ flowchart TB
 | unattended | 无本机确认建立查看/控制连接 | 单独关闭 |
 | device.admin | 配对新设备、撤销设备 | 默认可信个人设备开启，待审阅 |
 
-`catalog.manage` 只改 Mesh 目录和缓存，不允许借此删除官方客户端目录、凭据或项目文件。`profile.manage` 属于目标设备事实写权限，不能与目录管理混为一谈。
+`catalog.manage` 只改 Mesh 目录和缓存，不允许借此删除官方客户端目录、凭据或项目文件。`profile.manage` 属于目标设备事实写权限，不能与目录管理混为一谈。`agent.prepare` 只传 `agentId + deviceId + 受限客户端枚举`；目标设备必须重新读取本地适配器和员工配置，不能接受远端传来的安装命令、路径、argv、环境变量或配置正文。
 
 不设计 generic.exec、shell.run、path.open 任意版本。语义动作只接受稳定 ID 和受限枚举，由目标设备本地重新解析。
 
@@ -757,10 +830,10 @@ flowchart TB
 ### 10.4 按设备查看 Agent
 
 1. 用户在顶栏设备视角选择某台设备。
-2. 庭院或经典名册只筛出在该设备存在 Presence 的全局 Agent，但 Agent 身份、猫外观和名称不变。
-3. 同一 Agent 在该设备有 Desktop/CLI 等多个形态时仍只显示一只猫，控制条负责切换槽位。
-4. 顶栏明确显示设备名称、在线状态和数据新鲜度。
-5. 选择“全部设备”即可回到个人全局 Agent 目录，不产生另一套页面状态。
+2. 庭院或卡片始终展示完整全局员工库；没有本地 Slot 的 Agent 显示“首次准备”，不能从名册消失。
+3. 同一 Agent 在该设备有 Desktop/CLI 等多个形态时仍只显示一只猫，控制条负责切换已就绪 Slot；没有 Slot 时控制条展示员工配置中的首选客户端。
+4. 顶栏明确显示工作环境名称、在线状态和数据新鲜度；Agent 卡只显示该环境下的单一就绪状态，不堆设备标签。
+5. 选择“全部设备”回到聚合总览；打开动作默认落到本机，也可在既有运行位置选择器中选择其他环境，不产生另一套页面状态。
 
 当用户进入一个明确的远端 Device Lens，或从设备中心点击该设备的“查看会话”时，界面先展示本机已落库的该设备快照及新鲜度，再只对这一个 `deviceId` 按需调用固定 `remoteInventory:refresh` 请求新快照；同一设备的 Lens 导航、设备中心导航和显式“重扫”共用单飞请求。应用启动、本机 Lens 和“全部设备”只读本地索引，不遍历远端建立连接。若目标没有现存认证连接、临时 LAN 路由或已配置且可达的 signaling 路由，刷新必须明确失败并保留离线快照，不清空表格、不冒充已同步。
 
@@ -820,12 +893,22 @@ flowchart TB
 
 1. Agent 有多个运行位置时，移除一个位置不影响其他设备上的位置。
 2. 移除 AccountBinding 时，确认页列出它在几台设备有几个位置；Agent 的其他 AccountBinding 不受影响。
-3. 移除的是 Agent 最后一个运行位置/最后一个 AccountBinding 时，确认文案明确说明“该 Agent 将从 AgentDesk 消失”，不得用必须保留一个的规则阻止。
+3. 移除最后一个运行位置时 Agent 回到“尚未准备”；移除最后一个 AccountBinding 时 Agent 进入“待配置”。两者都不能让 Agent 消失。
 4. 删除 Agent 时展示涉及的账号绑定、设备和会话索引数量；确认后发布目录 tombstone。
 5. 离线设备下次上线后应用 tombstone，移除 Mesh 目录关系和缓存；目标设备的本地 Profile 保持 suppressed/unassigned，第一版不借目录事件远端改写 profiles.json，也不删除官方客户端数据。
 6. 删除最后一个 Agent 后显示真实空状态和“新增 Agent”，不按平台自动补回 Claude/Kimi 默认项。
 7. 撤销设备只移除该设备上的 Presence；同一 Agent 在其他设备仍有 Slot 时继续存在。
 8. 用户在 Slot 所属设备上仍可直接移除本地 Profile 登记，沿用现有“可删到零”规则；是否以后开放受限的远端登记删除，单独由 `profile.manage` 能力评审。
+
+### 10.10 首次准备并打开 Agent
+
+1. 用户选择 Agent 和工作环境，点击“首次准备并打开”。
+2. Main 根据 AgentBlueprint、目标 Device 能力和客户端适配器生成有界准备计划；Renderer 不提交路径或命令。
+3. 已安装客户端时创建受管 staging 目录并应用白名单配置；缺少客户端时进入等待安装，安全可自动安装的 CLI 仍需明确确认，桌面 App 使用官方安装入口并在完成后自动续跑。
+4. 需要登录时打开官方客户端或固定官方登录流程，AgentDesk 只观察安全身份指纹，不读取或传输密码、Token、Cookie。
+5. 身份验证成功后原子提交 Profile、AgentSlot 和 AgentDeployment；随后执行正常打开。
+6. 应用退出、设备重启或网络中断后 Job 从最后完成步骤继续；重复点击不重复造 Slot。
+7. 目标为远端设备时使用 `agent.prepare` 固定语义请求；目录和受控配置可自动执行，安装、登录与系统权限在目标设备确认。无人值守准备另行评审。
 
 ## 11. 前端信息架构
 
@@ -857,7 +940,7 @@ Header 的设备、工具、活动、设置入口各自打开独立的有界模�
 ### 11.2 Header 细节
 
 - Header 左侧只显示品牌；中部是“全部设备/某台设备”Device Lens；右侧直接显示设备、工具、活动、设置和必要的后台远控安全提示。
-- 设备 Lens 默认是“全部设备”；选择设备只筛选 Agent 和会话，不会创建另一套账号状态，也不会改变 Agent 身份。
+- 设备 Lens 在用户界面称“工作环境”。选择设备只改变 Agent 的环境就绪状态、打开目标和会话位置范围，不会创建另一套账号状态，也不会改变 Agent 身份；完整员工库始终可见。
 - 设备在线数量用小徽章表达，不常驻展示 CPU/GPU 细节；徽章必须是在线数，不是设备总数。
 - Header 不再重复显示所选 Agent、庭院/卡片模式或在线长句；这些信息分别属于顶部 Agent 面板和 Device Lens。
 - 不存在“更多”杂物菜单。更新、帮助、语言和主题进入设置弹窗；排行成为顶部 Agent 面板内的轻量排序信息；传输进入活动弹窗；提醒作为影响整个庭院的全局开关固定在 Footer，不在庭院内占行。
@@ -865,7 +948,7 @@ Header 的设备、工具、活动、设置入口各自打开独立的有界模�
 
 ### 11.3 Agent 控制条与运行位置
 
-选中的是全局 AgentIdentity，但任何实际动作都要落到一个 AgentSlot。现有“客户端形态”选择器扩展为“运行位置”选择器，仍占用原来的控制条位置，不新增一行：
+选中的是全局 AgentIdentity。已就绪时实际动作落到 AgentSlot；尚未准备时同一位置展示 AgentBlueprint 的首选客户端并把主动作落到 ProvisioningJob。现有“客户端形态”选择器扩展为“运行位置 / 首选客户端”选择器，仍占用原来的控制条位置，不新增一行：
 
 - 选项按设备分组；
 - 每个选项是确切 Slot，例如“Mac Studio / Codex Desktop”“MacBook / Codex CLI”；
@@ -873,6 +956,7 @@ Header 的设备、工具、活动、设置入口各自打开独立的有界模�
 - 即使只有一个 Slot，也始终显示当前运行位置；单选 Select 可以保持只读感，但不能让用户失去动作落点信息；
 - 多个 Slot 时记住“当前控制设备 + agentId”最近选择；没有历史时优先本机在线 Slot，其次在线远端 Slot，最后才是最新离线 Slot；
 - 当前运行位置始终在控制条或 tooltip 中可见，副作用动作不得静默改投另一台设备。
+- 当前工作环境没有 Slot 时显示“尚未准备 · 首选客户端”，主按钮为“首次准备并打开”；普通流程不要求用户先进入“新增运行位置”。
 
 主名牌只显示 Agent 名称和必要状态。设备名称属于运行位置，不作为 Agent 名称后缀，也不在每只猫上堆机器标签。猫/卡片只使用“3 个位置 · 2 在线”之类的紧凑摘要；设备全名在运行位置选择器、详情和 tooltip 中出现。
 
@@ -885,14 +969,15 @@ Renderer 状态也必须拆开，不能继续让一个 `selectedProfileId` 同�
 
 四者可相互派生默认值，但不能互相覆盖。切换设备视角只改变筛选和可选 Slot，不得偷偷把用户选中的 Agent 变成另一个本地 Profile。
 
-选择具体设备时，运行位置选择器只列该设备上的 Slot。若当前 Agent 在该设备不存在，使用该设备上次选中的 Agent；没有历史则进入“未选择 Agent”状态，不按同名 Profile 猜一个。切回“全部设备”时恢复全局视角最近选择。“当前 Agent”会话范围在没有选中 Agent 时禁用并给出直接说明。
+选择具体设备时，员工库仍显示全部 Agent；运行位置选择器只列该设备已有 Slot，没有 Slot 时显示 Blueprint 的首选客户端。每个设备 Lens 继续记住自己的 Agent 选择，但不存在 Slot 不再使 Agent 失效或被清除。切回“全部设备”时恢复全局视角最近选择。“当前 Agent”会话范围在没有选中 Agent 时禁用并给出直接说明。
 
 主布局和按钮位置保持不变，但目标是远端设备时，动作必须按风险降级：
 
 | 现有动作 | 本机 | 远端设备 |
 |---|---|---|
 | 打开账号 | 保持现有行为 | 仅在 profile.launch 获准时执行固定语义动作 |
-| 新增 | 在本机创建 Slot，并选择“已有登录的新位置/已有 Agent 的另一账号/全新 Agent” | 禁用；不从远端创建本地槽位 |
+| 首次准备 | 本机按 Blueprint 自动创建和验证 Deployment/Slot | 仅在 agent.prepare 获准时发起有人值守准备；安装、登录和系统权限在目标端确认 |
+| 新增 | 只保留为高级管理与修复入口，不是普通首次使用前置步骤 | 禁用任意远端 Profile 写入 |
 | 路径 | 可编辑 | 只读展示脱敏路径和映射状态 |
 | 诊断 | 可用 | 只读获取脱敏诊断 |
 | 重扫 | 可用 | 请求来源设备刷新库存，不直接传路径 |
@@ -1542,6 +1627,7 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 
 - AgentIdentity 的创建、重命名、猫外观、合并、拆分和删除；
 - AccountBinding 与 AgentIdentity 的关联；
+- AgentBlueprint 的创建、更新和版本；
 - Slot 归属确认和目录 tombstone。
 
 目录事件至少携带 eventId、sourceDeviceId、Lamport clock、causalParents 和受影响对象的 base revision。可信设备按因果关系交换签名事件，不依赖一台永久主机；信令服务不需要保存或解密 Agent 目录 payload。
@@ -1555,6 +1641,8 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 - 离线设备在重新取得缺失事件前不能执行会破坏目录关系的危险操作。
 
 这样既避免不同设备改写同一官方会话数据库，也不需要指定一台永久主机来保存全局 Agent 目录。
+
+目录同步不能依附来源设备库存。新连接在交换 inventory 前后都要通过独立 `catalog` 通道补齐签名目录事件；新设备加入时从配对设备取得一个有界完整目录快照和其 causal head。没有任何 Slot 的 Agent、没有设备部署的 AccountBinding 和 Blueprint 仍必须传播。inventory 只携带来源设备自己的 Deployment、Slot、活动和 SessionReplica；不得再用“本设备没有 Slot”推导删除全局员工。
 
 ### 17.2 快照与增量
 
@@ -1621,6 +1709,9 @@ Mesh 目录事实由拥有 `catalog.manage` 的设备提交签名目录事件：
 - agents；
 - account_bindings；
 - agent_slot_links；
+- agent_blueprints；
+- agent_deployments；
+- provisioning_jobs；
 - slot_binding_history；
 - catalog_events；
 - catalog_tombstones；
@@ -1686,6 +1777,14 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
     agentCatalog:split
     agentCatalog:delete
 
+    agentBlueprint:get
+    agentBlueprint:update
+
+    agentDeployments:list
+    agentDeployments:ensureReady
+    agentDeployments:cancelPreparation
+    agentDeployments:retryPreparation
+
     agentSlots:list
     agentSlots:addLocal
     agentSlots:removeLocal
@@ -1721,6 +1820,8 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
     profile.focus
     profile.launch
+    agent.prepare
+    agent.prepare.status
     session.reveal
     session.pointer.receive
     file.receive
@@ -1784,7 +1885,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - 覆盖项目文件；
 - 清空本机数据。
 
-如后续确有需求，应引入目标设备本机确认或 OS 级重新认证。
+`agent.prepare` 不构成上述规则的旁路：远端只可请求目标设备按本地固定适配器准备；创建 AgentDesk 私有 staging 目录和应用已批准的非敏感 Blueprint 可自动执行，软件安装、官方登录、系统权限和任何管理员权限仍必须在目标设备确认。如后续确需无人值守安装或凭据迁移，应引入独立产品与安全评审以及 OS 级重新认证。
 
 ## 21. 平台适配
 
@@ -2063,6 +2164,16 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - 现有会话选择、复制和导出行为不变；
 - 新 Mesh 数据写入独立存储。
 
+### 26.2.1 v4 到永久员工库模型的迁移
+
+- `mesh.db` 升级到 schema v5 前先保留可恢复备份；`profiles.json` 和官方客户端目录不移动；
+- 每个现有 AgentIdentity 原样成为长期员工，并从现有 Slot 推断初始 AgentBlueprint；
+- 每个现有 `(agentId, deviceId)` 生成 AgentDeployment，能正常启动且身份关系完整的标为 ready，其他状态按诊断结果降级；
+- 停止使用“最后一个 Slot/Binding 消失即 prune Agent”的隐式删除规则；只有显式 Agent tombstone 删除员工；
+- 旧 suppressed Slot 保持 suppressed，不自动复活；旧 Agent tombstone 仍然权威；
+- 协议未声明 `agent-directory-v2` 的旧客户端只能读取兼容投影，不能提交会使无 Slot 员工消失的目录写入；
+- 回滚到旧版本时本地 Profile 仍可使用，但旧版本看不到零 Slot 员工，不得据此反向发布删除事件。
+
 ### 26.3 回滚
 
 - 禁用 Mesh 后仍可使用全部本机功能；
@@ -2235,6 +2346,29 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - 本地功能在 Mesh 未启用时完全不变；
 - UI 回归测试通过。
 
+### Phase 2A：永久员工库与按需就绪
+
+当前状态：**所有者已于 2026-08-13 批准并要求实施**。
+
+- AgentIdentity 生命周期与 Slot/Binding 解耦，可在零账号、零部署状态存在；
+- AgentBlueprint、AgentDeployment、ProvisioningJob 与 schema v5；
+- 独立签名 catalog 快照/事件同步，不再依附本机 inventory；
+- 新设备配对后立即取得完整员工库；
+- 本机“确保就绪并打开”，包含受管目录、白名单配置、固定工具/技能要求、官方登录等待、身份验证、原子提交和重启恢复；
+- 工作环境 Lens 始终展示完整员工库，以环境就绪状态替代隐藏未部署 Agent；
+- 已就绪远端通过 `profile.launch` 固定语义打开；未就绪远端通过 `agent.prepare` 发起有人值守准备；
+- 普通首次使用不再要求手工“新增运行位置 / 选择归属 / 填写路径”。
+
+退出条件：
+
+- 新设备没有本地 Profile 时仍完整显示全局员工库；
+- 删除最后 Slot 或 AccountBinding 不删除 Agent；
+- 首次准备重复点击、崩溃恢复和失败重试都不制造重复 Profile/Slot；
+- 登录错误账号时不提交 Deployment，不污染旧会话归属；
+- 后续打开直接启动；远端动作只接受稳定 ID 和受限枚举；
+- 密码、Token、Cookie、原始账号 ID、远端路径与安装命令不进入目录、Renderer 或协议；
+- 固定 Header/Footer/三面板、四个全局弹窗和复制会话信息契约保持不变。
+
 ### Phase 3：跨设备库存与会话身份修正
 
 当前状态：**代码纵向链路已实现，真机验收待完成**。本地适配器已按 ConversationIdentity 修正压缩与 internal-child 分类；设备库存具备来源约束、16 MiB 总上限、分块校验、revision、离线快照和 tombstone 防复活；主窗口已有设备 Lens 与全局 Agent 去重视图。进入明确远端 Lens 或设备“查看会话”现在先展示缓存，再仅对该目标走固定 `remoteInventory:refresh`；启动、本机与 all Lens 不 fan-out，刷新失败保留离线快照。新连接增加首库存落库屏障，远端 SessionReplica 在持久化前按 canonical Slot 重写 Agent/Binding，强会话重算 canonical ConversationIdentity，弱会话与 replica 保持设备作用域稳定，tombstone/suppressed 不留残存。已认证重连和固定刷新会请求新快照，连接存续时以 4 分钟有界全量快照作为当前恢复基线。双端沙箱 WebRTC 自动验证已覆盖刷新后 revision 与会话标题推进，Node 定向回归覆盖缓存优先/单目标触发与持久化前 canonical 改写，并证明同一强标识会话只渲染一行、保留两个精确 replica。revision 增量/缺口补齐、两台物理电脑的长连接/断网恢复/大库存，以及未配置也未验证的长期公网 signaling 可达性，仍待完成后再关闭本 Phase。
@@ -2336,11 +2470,11 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 1. 用户可以创建个人设备网并添加多台设备。
 2. 任意可信设备都可以成为控制台。
 3. 所有远端设备都可撤销和删除。
-4. 同一个实际账号登录在多台设备时，全局目录只出现一个 Agent、一只猫。
+4. 同一个实际账号登录在多台设备时，全局目录只出现一个 Agent、一只猫；没有任何设备 Slot 的 Agent 也继续存在。
 5. 同一台设备上的多个实际账号保持独立，不因平台或名称相同误合并。
 6. 同一 Agent 的设备、账号绑定和客户端形态可以展开查看，任何动作都落到明确 Slot。
 7. 顶栏设备视角与会话区 Agent 范围组合后能覆盖个人全局、单设备、单 Agent 和局部交叉查看。
-8. 所有 Agent 都可删除到零，删除后不会被离线旧库存复活，也不会自动补平台默认项。
+8. 所有 Agent 都可显式删除到零，删除后不会被离线旧库存复活，也不会自动补平台默认项；移除最后 Slot 或 AccountBinding 不能隐式删除 Agent。
 9. 同一账号的额度不会因多设备重复计算；同一会话只在强标识成立时折叠。
 10. 控制台能搜索所有设备的会话索引，并回到确切来源副本。
 11. 离线设备显示明确的最后快照和时间。
@@ -2361,6 +2495,10 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 26. 同一用户会话发生任意次数上下文压缩后仍保持一个 ConversationIdentity、一条列表行和原 ProjectIdentity。
 27. guardian、subagent、sidechain 等内部记录默认不可见；父记录缺失时也不会伪装成新会话或新项目。
 28. `cwd`、绝对路径、物理文件名和标题都不能单独创建或合并 ProjectIdentity。
+29. 新设备加入后先取得完整员工库；选择任一工作环境都不隐藏尚未部署的 Agent，并准确显示首次准备、需登录、缺客户端、不支持或离线。
+30. 用户第一次在本机打开 Agent 时无需手工创建 Slot、选择目录归属或填写路径；准备任务可恢复、幂等，身份验证通过后才原子提交。
+31. 已就绪远端可通过固定 `profile.launch` 打开；未就绪远端只在 `agent.prepare` 授权和目标端必要确认后准备，不接受任意路径、命令或安装参数。
+32. 自动准备不复制密码、Token、Cookie、官方客户端数据库、整个用户目录或项目目录；官方登录和系统权限不能被绕过。
 
 ## 30. 主要风险
 
@@ -2412,11 +2550,11 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 | 决策门 | 建议结论 | 直接决定什么 | 若不同意会怎样 |
 |---|---|---|---|
-| A. 产品主轴 | 定义为单人 Personal Agent Mesh；Agent 是全局主轴，设备是筛选轴，Slot 是动作落点 | 一只猫是否能稳定代表一个 Agent；同账号跨设备是否去重 | 必须重做领域模型与主界面过滤，不应开始 P2P |
+| A. 产品主轴 | 定义为单人 Personal Agent Mesh；Agent 是长期员工，设备是工作环境轴，Deployment 表示就绪，Slot 是已就绪动作落点 | 一只猫是否能稳定代表一个 Agent；新设备能否先看到员工再按需准备 | 必须重做领域模型、目录同步与主界面过滤，不应继续堆同步按钮 |
 | B. 会话身份 | 一行只代表 ConversationIdentity；压缩是 checkpoint；guardian/subagent 是隐藏分支；项目独立解析 | 当前“压缩后多出项目/会话”能否从根上消失 | 若仍以物理文件为行，后续跨设备会把重复问题成倍放大 |
 | C. 第一版范围 | 先完成设备、全局 Agent 目录、正确会话索引、复制/发送与项目映射，再做查看和控制 | 交付顺序、风险隔离、何时可用 | 若先做远控，会得到一个会远程桌面但不会管理 Agent 工作流的产品 |
 | D. 权限与数据 | 不同步凭据；目录/索引默认同步；屏幕、输入、文件、无人值守分别授权；远端不执行任意命令 | P2P 协议、后端可见数据与安全边界 | 若要求通用命令或凭据托管，需要另立高风险产品与安全评审 |
-| E. 交互契约 | 一个 Header、一个 Footer、三个固定面板；设备/工具/活动/设置各自为独立弹窗；设备 Lens 与 Agent 范围正交；“复制会话信息”仍是唯一主按钮且只含路径/坐标 | 主窗口改动范围和日常工作效率 | 若增加永久区域或改变复制格式，必须先单独审阅 UI，不与 Mesh 实现捆绑 |
+| E. 交互契约 | 一个 Header、一个 Footer、三个固定面板；设备/工具/活动/设置各自为独立弹窗；工作环境 Lens 与 Agent 范围正交且不隐藏未部署员工；“复制会话信息”仍是会话主按钮且只含路径/坐标 | 主窗口改动范围、首次打开路径和日常工作效率 | 若增加永久区域或改变复制格式，必须先单独审阅 UI，不与 Mesh 实现捆绑 |
 
 五门通过后，实施前只剩四项可调参数，不影响核心模型：
 
@@ -2455,6 +2593,16 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.18 — 2026-08-13
+
+- 所有者审阅并批准“Agent 是全局员工库、Device 是工作环境、首次打开按需就绪”的模型，明确要求直接实施并按阶段提交推送；
+- AgentIdentity 生命周期与 Slot/AccountBinding 解耦：移除最后运行位置或平台账号不再隐式删除员工，只有显式“删除 Agent”产生员工 tombstone；
+- 新增 AgentBlueprint、AgentDeployment 与 ProvisioningJob，冻结首次准备的幂等、重启恢复、登录身份验证、原子提交和安全回滚规则；
+- Device Lens 的产品语义由“只筛已有 Presence”改为“工作环境”：完整员工库始终可见，当前环境以已就绪、首次准备、需登录、缺客户端、不支持、离线或错误表达可用性；
+- 冻结全局 catalog 与来源设备 inventory 分离同步，新设备先取得零 Slot 员工和员工配置，再发布自己的部署、Slot 与会话事实；
+- 冻结本机“确保就绪并打开”、远端 `profile.launch` 和有人值守 `agent.prepare`，继续禁止远端任意路径、命令、安装参数以及密码、Token、Cookie、官方登录数据同步；
+- 该变化保持 58/244/316/38 固定主窗口、四个全局弹窗、右下详情动作坞、纯全局 Footer 和“复制会话信息”路径/坐标契约。
 
 ### 1.17 — 2026-08-13
 
