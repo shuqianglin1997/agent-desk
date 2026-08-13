@@ -1002,31 +1002,112 @@
   body[data-view="classic"] .agent-panel .account-roster {
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(158px, 1fr);
+    grid-auto-columns: 164px;
     align-items: stretch;
+    justify-content: start;
     gap: 8px;
     padding: 10px;
     overflow-x: auto;
     overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scroll-padding-inline: 10px;
+    scrollbar-gutter: stable;
     background:
       linear-gradient(110deg, color-mix(in srgb, var(--surface-warm) 42%, transparent), transparent 52%),
       var(--surface-raised);
   }
 
   body[data-view="classic"] .agent-panel .account-card {
+    /* account-card is a semantic button, but it is a presenter card rather
+     * than a 32px application control. Reset every shared button geometry
+     * that would otherwise flatten and horizontally concatenate its rows. */
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    align-content: stretch;
+    align-items: start;
+    justify-content: stretch;
+    justify-items: stretch;
+    gap: 0;
+    width: auto;
+    height: auto;
+    min-width: 0;
     min-height: 0;
     max-height: 100%;
     padding: 10px;
+    overflow: hidden;
     border: 1px solid var(--line-soft);
     border-radius: 9px;
+    color: var(--ink-primary);
     background: var(--surface-raised);
     box-shadow: none;
+    font-weight: 400;
+    line-height: 1.35;
+    text-align: left;
+    white-space: normal;
+    scroll-snap-align: start;
   }
   body[data-view="classic"] .agent-panel .account-card.selected {
     padding: 9px;
     border: 2px solid var(--focus);
     background: var(--focus-wash);
     box-shadow: none;
+  }
+
+  body[data-view="classic"] .agent-panel .account-card-top {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body[data-view="classic"] .agent-panel .account-card-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  body[data-view="classic"] .agent-panel .account-card-state,
+  body[data-view="classic"] .agent-panel .account-card-quota {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body[data-view="classic"] .agent-panel .account-card-details {
+    align-self: end;
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    gap: 5px;
+    padding-top: 7px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  body[data-view="classic"] .agent-panel .account-card-fact {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    color: var(--ink-tertiary);
+    font-size: 9.5px;
+    line-height: 1.25;
+  }
+
+  body[data-view="classic"] .agent-panel .account-card-fact-label {
+    font-weight: 600;
+  }
+
+  body[data-view="classic"] .agent-panel .account-card-fact-value {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink-secondary);
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body[data-view="classic"] .agent-panel .account-card-details .account-card-quota {
+    margin-top: 0;
   }
 
   .agent-panel .account-bar {

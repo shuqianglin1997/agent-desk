@@ -617,6 +617,9 @@
     'status.openAcctDirFail': '无法打开账号目录。',
     'status.refreshBell': '♪ 摇铃 —— 全体猫竖起耳朵，会话已重新扫描。',
     'status.refreshList': '会话列表已刷新。',
+    'status.refreshRemoteWorking': '正在连接“{name}”并重新读取最新会话…',
+    'status.refreshRemoteDone': '已从“{name}”同步最新会话。',
+    'status.refreshRemoteFailed': '无法从“{name}”刷新会话；请确认远端 AgentDesk 在线。',
     'status.quotaRefreshing': '正在从官方服务刷新额度…',
     'status.quotaRefreshFail': '额度刷新失败：{err}',
     'status.quotaRefreshed': '额度已刷新：{headline}。',
@@ -1120,6 +1123,13 @@
     'detail.empty.body': '单击会话查看详情；勾选复选框建立批量操作集合。',
     'card.busy': '{n} 个会话正在进行',
     'card.forms': '一个账号 {n} 个形态',
-    'card.group': '分组 · {g}'
+    'card.group': '分组 · {g}',
+    'card.lastActive': '最近活跃',
+    'card.lastActiveLocal': '本机活跃',
+    'card.quota': '额度',
+    'card.activityUnknown': '活动未知',
+    'card.quotaConflict': '来源不一致',
+    'card.quotaConflictHint': '同一登录账号的多个新鲜额度来源不一致，请刷新后在额度详情中核对。',
+    'card.quotaSource': '来源 {source} · {value} · 采样 {time}'
   };
 })(typeof self !== 'undefined' ? self : this);

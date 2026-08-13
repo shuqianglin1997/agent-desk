@@ -143,7 +143,10 @@ function seedUserData(userData) {
     workCli: path.join(userData, 'fixtures', 'work-cli'),
     personal: path.join(userData, 'fixtures', 'personal')
   };
-  for (const root of Object.values(roots)) fs.mkdirSync(root, { recursive: true });
+  const extraRoots = Array.from({ length: 5 }, (_, index) => (
+    path.join(userData, 'fixtures', `extra-${index + 1}`)
+  ));
+  for (const root of [...Object.values(roots), ...extraRoots]) fs.mkdirSync(root, { recursive: true });
 
   const profiles = [
     {
@@ -189,6 +192,29 @@ function seedUserData(userData) {
       createdAt: '2026-08-12T01:02:00.000Z'
     }
   ];
+  const extraNames = [
+    'Research Agent With A Deliberately Long Name',
+    '制作素材 Agent',
+    '日本語テストエージェント',
+    'Review Agent',
+    'Archive Agent'
+  ];
+  for (let index = 0; index < extraNames.length; index += 1) {
+    profiles.push({
+      id: `acceptance-extra-${index + 1}`,
+      appId: 'codex',
+      name: extraNames[index],
+      group: index % 2 === 0 ? 'Extended fixture' : '',
+      note: 'Horizontal roster geometry fixture',
+      identityKey: `acceptance-extra-login-${index + 1}`,
+      profilePath: path.join(userData, 'profiles', `extra-${index + 1}`),
+      sessionRoot: extraRoots[index],
+      profilePathMode: 'custom',
+      sessionRootMode: 'custom',
+      isProtected: false,
+      createdAt: `2026-08-12T01:${String(index + 3).padStart(2, '0')}:00.000Z`
+    });
+  }
   for (const profile of profiles) fs.mkdirSync(profile.profilePath, { recursive: true });
 
   writeCodexSession(roots.workDesktop, {
@@ -381,6 +407,122 @@ function assertFixedShell(layout) {
   assert.equal(layout.topbarOverlap, false, 'topbar regions must not overlap');
 }
 
+async function accountRosterSnapshot(client) {
+  return client.evaluate(`(() => {
+    const rectOf = (node) => {
+      if (!node) return null;
+      const rect = node.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    const contains = (outer, inner) => Boolean(outer && inner
+      && inner.x >= outer.x - 1
+      && inner.y >= outer.y - 1
+      && inner.right <= outer.right + 1
+      && inner.bottom <= outer.bottom + 1);
+    const rosterNode = document.querySelector('#accountRoster');
+    const roster = rectOf(rosterNode);
+    const presenter = rectOf(document.querySelector('.agent-panel .presenter'));
+    const controls = rectOf(document.querySelector('.agent-panel .account-bar'));
+    const cards = [...rosterNode.querySelectorAll('.account-card')]
+      .filter((card) => !card.hidden)
+      .map((card) => {
+      const cardRect = rectOf(card);
+      const top = rectOf(card.querySelector('.account-card-top'));
+      const avatar = rectOf(card.querySelector('.account-card-avatar'));
+      const meta = rectOf(card.querySelector('.account-card-meta'));
+      const name = rectOf(card.querySelector('.account-card-name'));
+      const group = rectOf(card.querySelector('.account-card-group'));
+      const state = rectOf(card.querySelector('.account-card-state'));
+      const details = rectOf(card.querySelector('.account-card-details'));
+      const lastActive = rectOf(card.querySelector('.account-card-last-active'));
+      const quotaSummary = rectOf(card.querySelector('.account-card-quota-summary'));
+      const quota = rectOf(card.querySelector('.account-card-quota'));
+      const style = getComputedStyle(card);
+      return {
+        selected: card.classList.contains('selected'),
+        label: card.querySelector('.account-card-name')?.textContent.trim() || '',
+        rect: cardRect,
+        display: style.display,
+        computedHeight: style.height,
+        whiteSpace: style.whiteSpace,
+        top,
+        avatar,
+        meta,
+        name,
+        group,
+        state,
+        stateActivity: card.querySelector('.account-card-state')?.dataset.activity || '',
+        details,
+        lastActive,
+        quotaSummary,
+        quota,
+        quotaTrusted: card.querySelector('.account-card-quota')?.dataset.trusted || '',
+        childrenInside: [top, state, details].every((item) => contains(cardRect, item)),
+        topChildrenInside: [avatar, meta, name, group].every((item) => contains(top, item)),
+        detailsChildrenInside: [lastActive, quotaSummary, quota].every((item) => contains(details, item)),
+        verticalOrder: top.bottom <= state.y + 1 && state.bottom <= details.y + 1,
+        detailsOrder: lastActive.bottom <= quotaSummary.y + 1 && quotaSummary.bottom <= quota.y + 1,
+        metaOrder: name.bottom <= group.y + 1,
+        lastActiveText: card.querySelector('.account-card-last-active')?.textContent.trim() || '',
+        quotaText: card.querySelector('.account-card-quota-summary')?.textContent.trim() || ''
+      };
+    });
+    const selected = cards.find((card) => card.selected) || null;
+    const rosterStyle = getComputedStyle(rosterNode);
+    return {
+      roster,
+      presenter,
+      controls,
+      overflowX: rosterStyle.overflowX,
+      scrollbarGutter: rosterStyle.scrollbarGutter,
+      clientWidth: rosterNode.clientWidth,
+      scrollWidth: rosterNode.scrollWidth,
+      scrollLeft: rosterNode.scrollLeft,
+      cards,
+      selectedVisible: Boolean(selected
+        && selected.rect.x >= roster.x - 1
+        && selected.rect.right <= roster.right + 1)
+    };
+  })()`);
+}
+
+function assertAccountRosterGeometry(snapshot, options = {}) {
+  const minimumCards = options.minimumCards ?? 7;
+  const requireOverflow = options.requireOverflow !== false;
+  assert.ok(snapshot.cards.length >= minimumCards, `geometry fixture must render at least ${minimumCards} Agent cards, got ${snapshot.cards.length}`);
+  assert.equal(snapshot.overflowX, 'auto', 'the Agent roster must own one explicit horizontal scroller');
+  assert.match(snapshot.scrollbarGutter, /stable/, 'the roster must reserve a stable scrollbar gutter');
+  if (requireOverflow) {
+    assert.ok(snapshot.scrollWidth > snapshot.clientWidth + 100, '7+ Agent cards must overflow into the roster scroller');
+  } else {
+    assert.ok(snapshot.scrollWidth <= snapshot.clientWidth + 1, 'a small Agent set must not create horizontal overflow');
+  }
+  assert.ok(snapshot.roster.right <= snapshot.controls.x + 1, 'the roster scrollport must stop before the right Agent controls');
+  assert.ok(snapshot.presenter.right <= snapshot.controls.x + 1, 'the presenter must not visually cover the right Agent controls');
+  assert.equal(snapshot.selectedVisible, true, 'the selected Agent card must be fully visible inside the roster scrollport');
+  for (const [index, card] of snapshot.cards.entries()) {
+    assert.ok(card.rect.width >= 163 && card.rect.width <= 165, `Agent card ${index + 1} must remain 164px wide, got ${card.rect.width}px`);
+    assert.equal(card.display, 'grid', `Agent card ${index + 1} must reset the shared inline-flex button layout`);
+    assert.notEqual(card.computedHeight, '32px', `Agent card ${index + 1} must not inherit the shared button height`);
+    assert.equal(card.whiteSpace, 'normal', `Agent card ${index + 1} must restore card text wrapping rules`);
+    assert.ok(card.rect.height >= 90, `Agent card ${index + 1} is flattened to ${card.rect.height}px`);
+    assert.ok(card.rect.height <= snapshot.roster.height + 1, `Agent card ${index + 1} escapes the roster vertically`);
+    assert.equal(card.childrenInside, true, `Agent card ${index + 1} has content outside its border box`);
+    assert.equal(card.topChildrenInside, true, `Agent card ${index + 1} has overlapping avatar/name metadata`);
+    assert.equal(card.detailsChildrenInside, true, `Agent card ${index + 1} has facts outside its details band`);
+    assert.equal(card.verticalOrder, true, `Agent card ${index + 1} rows overlap vertically`);
+    assert.equal(card.detailsOrder, true, `Agent card ${index + 1} detail rows overlap vertically`);
+    assert.equal(card.metaOrder, true, `Agent card ${index + 1} name overlaps its group/position summary`);
+    assert.ok(card.lastActiveText.length > 0, `Agent card ${index + 1} must expose a recent-activity fact`);
+    assert.ok(card.quotaText.length > 0, `Agent card ${index + 1} must expose a quota fact`);
+    assert.match(card.stateActivity, /^(working|onduty|arriving|confused|play|rest|nap|hibernate|unknown)$/);
+    assert.match(card.quotaTrusted, /^(true|false)$/);
+    if (index > 0) {
+      assert.ok(snapshot.cards[index - 1].rect.right <= card.rect.x + 0.5, `Agent cards ${index} and ${index + 1} overlap`);
+    }
+  }
+}
+
 async function dialogSnapshot(client, selector) {
   return client.evaluate(`(() => {
     const dialog = document.querySelector(${JSON.stringify(selector)});
@@ -501,7 +643,7 @@ async function runAcceptance(client, artifactDir) {
   await waitFor(
     client,
     `typeof state !== 'undefined'
-      && state.profiles.length === 3
+      && state.profiles.length === 8
       && state.sessions.length >= 3
       && document.querySelectorAll('#sessionRows tr:not(.empty-row)').length >= 3
       && !document.querySelector('#welcomeDialog').open`,
@@ -517,7 +659,7 @@ async function runAcceptance(client, artifactDir) {
       workspace: state.ui.workspaceMode,
       mesh: state.mesh.overview?.initialized === true
     })`);
-    assert.equal(initial.profiles, 3);
+    assert.equal(initial.profiles, 8);
     assert.equal(initial.focused, null, 'initial render must not auto-focus a session');
     assert.equal(initial.checked, 0, 'initial render must not auto-check a session');
     assert.equal(initial.workspace, 'sessions');
@@ -655,6 +797,62 @@ async function runAcceptance(client, artifactDir) {
       cardsPressed: document.querySelector('#classicViewBtn').getAttribute('aria-pressed')
     })`);
     assert.deepEqual(mode, { yardPressed: 'false', cardsPressed: 'true' });
+
+    await waitFor(client, `document.querySelectorAll('#accountRoster .account-card').length >= 7`, '7+ Agent roster fixture');
+    assertAccountRosterGeometry(await accountRosterSnapshot(client));
+
+    await client.evaluate(`(() => {
+      const cards = document.querySelectorAll('#accountRoster .account-card');
+      cards[cards.length - 1].click();
+    })()`);
+    await waitFor(
+      client,
+      `(() => {
+        const cards = document.querySelectorAll('#accountRoster .account-card');
+        return cards.length >= 7 && cards[cards.length - 1].classList.contains('selected');
+      })()`,
+      'rightmost Agent selection'
+    );
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const scrolledRoster = await accountRosterSnapshot(client);
+    assert.ok(
+      scrolledRoster.scrollLeft > 0,
+      `selecting a right-side Agent must scroll the roster horizontally: ${JSON.stringify({
+        scrollLeft: scrolledRoster.scrollLeft,
+        scrollWidth: scrolledRoster.scrollWidth,
+        clientWidth: scrolledRoster.clientWidth,
+        selected: scrolledRoster.cards.find((card) => card.selected)?.rect,
+        roster: scrolledRoster.roster
+      })}`
+    );
+    assertAccountRosterGeometry(scrolledRoster);
+
+    // Reuse the same isolated renderer to prove that a small account set does
+    // not redistribute the available track width. Hiding the fixture-only
+    // surplus cards changes no persisted profile or Mesh data.
+    await client.evaluate(`document.querySelector('#accountRoster .account-card').click()`);
+    await waitFor(
+      client,
+      `document.querySelector('#accountRoster .account-card')?.classList.contains('selected')`,
+      'leftmost Agent selection'
+    );
+    await client.evaluate(`(() => {
+      const roster = document.querySelector('#accountRoster');
+      [...roster.querySelectorAll('.account-card')].forEach((card, index) => { card.hidden = index >= 2; });
+      roster.scrollLeft = 0;
+    })()`);
+    const smallRoster = await accountRosterSnapshot(client);
+    assert.equal(smallRoster.cards.length, 2, 'the small-card geometry fixture must expose exactly two cards');
+    assertAccountRosterGeometry(smallRoster, { minimumCards: 2, requireOverflow: false });
+    assert.ok(
+      smallRoster.roster.right - smallRoster.cards[1].rect.right > 200,
+      'two fixed-width Agent cards must leave visible unused space instead of stretching across the roster'
+    );
+    await client.evaluate(`(() => {
+      const roster = document.querySelector('#accountRoster');
+      [...roster.querySelectorAll('.account-card')].forEach((card) => { card.hidden = false; });
+    })()`);
+    assertAccountRosterGeometry(await accountRosterSnapshot(client));
   });
 
   await run('light/dark and zh/en/ja preserve the approved geometry', async () => {
@@ -671,6 +869,7 @@ async function runAcceptance(client, artifactDir) {
       const layout = await layoutSnapshot(client);
       assertFixedShell(layout);
       assert.equal(layout.lang, lang === 'zh' ? 'zh-CN' : lang);
+      assertAccountRosterGeometry(await accountRosterSnapshot(client));
     }
   });
   await capture(client, artifactDir, '05-local-ja-dark');
@@ -743,7 +942,10 @@ async function runAcceptance(client, artifactDir) {
       for (const key of ['header', 'close', 'commandbar', 'footer']) assertRectStable(shellBefore, shellAfter, key);
       await clearUtilityContentScrollFixture(client, dialog);
 
-      await client.evaluate(`document.querySelector(${JSON.stringify(dialog)}).close()`);
+      // Exercise the actual user close control. Calling HTMLDialogElement.close()
+      // directly has proven flaky under Electron's remote debugging transport
+      // and skips the form-method=dialog interaction we need to certify.
+      await client.evaluate(`document.querySelector(${JSON.stringify(dialog)})?.querySelector('.utility-dialog-close')?.click()`);
       await waitFor(client, `state.utilityDialog === null && !document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal close`);
       await waitFor(client, `document.activeElement === document.querySelector(${JSON.stringify(button)})`, `${kind} trigger focus return`);
     }
@@ -1382,7 +1584,15 @@ async function stopChild(child, childState) {
     new Promise((resolve) => child.once('exit', () => resolve(true))),
     new Promise((resolve) => setTimeout(() => resolve(false), 4_000))
   ]);
-  if (!stopped && !childState.exited) child.kill('SIGKILL');
+  if (!stopped && !childState.exited) {
+    child.kill('SIGKILL');
+    await Promise.race([
+      childState.exited
+        ? Promise.resolve(true)
+        : new Promise((resolve) => child.once('exit', () => resolve(true))),
+      new Promise((resolve) => setTimeout(() => resolve(false), 4_000))
+    ]);
+  }
 }
 
 async function main() {
@@ -1442,7 +1652,7 @@ async function main() {
     client?.close();
     if (child) await stopChild(child, childState);
     if (keepTemp) process.stdout.write(`Temporary userData kept at: ${userData}\n`);
-    else fs.rmSync(tempRoot, { recursive: true, force: true });
+    else fs.rmSync(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 

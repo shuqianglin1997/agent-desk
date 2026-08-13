@@ -49,6 +49,33 @@ test('1.13 CSS 层级与庭院呈现：旧皮肤降层，名牌不膨胀，持�
   assert.doesNotMatch(workspaceStyles, /\.session-table tbody tr(?::|\.)[^\{]*::(?:before|after)/);
 });
 
+test('卡片名册使用固定宽度与可信摘要，并用真实窗口验收覆盖少量卡和 7+ Agent', () => {
+  const workspaceStyles = read('src/workspace.css');
+  const renderer = read('src/renderer.js');
+  const quotaOverview = read('src/quota-overview.js');
+  const identityGroups = read('src/identity-groups.js');
+  const acceptance = read('scripts/ui-acceptance.js');
+
+  assert.match(workspaceStyles, /body\[data-view="classic"\] \.agent-panel \.account-roster \{[\s\S]*?grid-auto-columns:\s*164px;[\s\S]*?justify-content:\s*start;[\s\S]*?overflow-x:\s*auto;[\s\S]*?scroll-padding-inline:\s*10px;[\s\S]*?scrollbar-gutter:\s*stable;/);
+  assert.match(workspaceStyles, /body\[data-view="classic"\] \.agent-panel \.account-card \{[\s\S]*?display:\s*grid;[\s\S]*?height:\s*auto;[\s\S]*?overflow:\s*hidden;[\s\S]*?white-space:\s*normal;/);
+  assert.match(workspaceStyles, /\.account-card-details \{[\s\S]*?align-self:\s*end;[\s\S]*?border-top:/);
+  assert.match(renderer, /function revealSelectedAccountCard\(\)[\s\S]*?scrollPaddingInlineStart[\s\S]*?scrollLeft = Math\.min/);
+  assert.match(quotaOverview, /function activeCardWindows\(snapshot, now\)[\s\S]*?resetsAt > now/);
+  assert.match(quotaOverview, /function quotaWindowsConflict\(left, right\)[\s\S]*?leftWindows\.length !== rightWindows\.length/);
+  assert.match(quotaOverview, /function selectTrustedAccountQuota\(group, quotasById[\s\S]*?options\.quotaError[\s\S]*?_remote !== true[\s\S]*?TRUSTED_SOURCES[\s\S]*?quotaWindowsConflict[\s\S]*?status: 'conflict'/);
+  assert.match(identityGroups, /function cardActivityEvidence[\s\S]*?remoteUnknown[\s\S]*?function resolveCardActivityState/);
+  assert.match(renderer, /const activityEvidence = window\.IdentityGroups[\s\S]*?resolveCardActivityState[\s\S]*?tr\('card\.activityUnknown'\)/);
+  assert.match(renderer, /setInterval\(\(\) => \{\s*if \(!document\.hidden\) loadActivity\(\);/);
+  assert.match(renderer, /visibilitychange[\s\S]*?if \(document\.hidden\) return;\s*loadActivity\(\);/);
+  assert.match(renderer, /function syncYard\(\)[\s\S]*?\}\s*renderAccountRoster\(\);\s*renderTopbarContext\(\);/);
+  assert.match(renderer, /const positions = group\.members\.length;[\s\S]*?_deviceStatus === 'online'/);
+  assert.match(renderer, /account-card-last-active[\s\S]*?account-card-quota-summary[\s\S]*?details\.append\(lastActive, quotaSummary, quotaTrack\)/);
+  assert.match(acceptance, /Array\.from\(\{ length: 5 \}/);
+  assert.match(acceptance, /Agent card \$\{index \+ 1\} must remain 164px wide/);
+  assert.match(acceptance, /smallRoster\.cards\.length, 2[\s\S]*?leave visible unused space instead of stretching/);
+  assert.match(acceptance, /detailsChildrenInside[\s\S]*?detailsOrder/);
+});
+
 test('批准后的 Agent 与会话操作层级：主动作常驻，对象管理进 Dialog，选择后才出现复制与发送', () => {
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');

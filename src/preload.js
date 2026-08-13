@@ -75,6 +75,7 @@ contextBridge.exposeInMainWorld('manager', {
     return () => ipcRenderer.removeListener('remoteControl:returnToWorkspace', listener);
   },
   listMeshSessions: () => ipcRenderer.invoke('remoteInventory:listSessions'),
+  refreshMeshInventory: (deviceId) => ipcRenderer.invoke('remoteInventory:refresh', { deviceId }),
   createSessionPointerTransfer: (input) => ipcRenderer.invoke('transfers:createSessionPointer', input),
   chooseFileTransfer: (input) => ipcRenderer.invoke('transfers:chooseFiles', input),
   acceptFileTransfer: (transferId) => ipcRenderer.invoke('transfers:acceptFile', { transferId }),

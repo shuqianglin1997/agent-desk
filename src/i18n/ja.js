@@ -617,6 +617,9 @@
     'status.openAcctDirFail': 'アカウントディレクトリを開けません。',
     'status.refreshBell': '♪ 鈴の音 —— ねこたちが耳を立て、セッションを再スキャンしました。',
     'status.refreshList': 'セッション一覧を更新しました。',
+    'status.refreshRemoteWorking': '「{name}」に接続して最新のセッションを再取得しています…',
+    'status.refreshRemoteDone': '「{name}」から最新のセッションを同期しました。',
+    'status.refreshRemoteFailed': '「{name}」のセッションを更新できません。接続先で AgentDesk がオンラインか確認してください。',
     'status.quotaRefreshing': '公式サービスからクォータを更新中…',
     'status.quotaRefreshFail': 'クォータ更新に失敗：{err}',
     'status.quotaRefreshed': 'クォータを更新：{headline}。',
@@ -1120,6 +1123,13 @@
     'detail.empty.body': '行をクリックして詳細を表示し、チェックボックスで一括操作の対象を選びます。',
     'card.busy': '{n} 件のセッションが進行中',
     'card.forms': '1 アカウント {n} 形態',
-    'card.group': 'グループ · {g}'
+    'card.group': 'グループ · {g}',
+    'card.lastActive': '最終アクティブ',
+    'card.lastActiveLocal': 'ローカル稼働',
+    'card.quota': 'クォータ',
+    'card.activityUnknown': 'アクティビティ不明',
+    'card.quotaConflict': '出典が不一致',
+    'card.quotaConflictHint': '同じログインの新しいクォータ情報が一致しません。更新後、詳細で確認してください。',
+    'card.quotaSource': '出典 {source} · {value} · 取得 {time}'
   };
 })(typeof self !== 'undefined' ? self : this);

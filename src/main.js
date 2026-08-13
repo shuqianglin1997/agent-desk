@@ -298,7 +298,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('agentCatalog:rename', (_event, input = {}) => {
-    return meshCall(() => getMeshService().updateAgent({
+    return catalogMeshCall(() => getMeshService().updateAgent({
       agentId: boundedText(input.agentId, 128),
       displayName: boundedText(input.displayName, 80),
       group: boundedText(input.group, 80),
@@ -311,7 +311,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('agentCatalog:merge', (_event, input = {}) => {
-    return meshCall(() => getMeshService().mergeAgents({
+    return catalogMeshCall(() => getMeshService().mergeAgents({
       sourceAgentId: boundedText(input.sourceAgentId, 128),
       targetAgentId: boundedText(input.targetAgentId, 128),
       baseRevision: finiteRevision(input.baseRevision)
@@ -319,7 +319,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('agentCatalog:split', (_event, input = {}) => {
-    return meshCall(() => getMeshService().splitAccountBinding({
+    return catalogMeshCall(() => getMeshService().splitAccountBinding({
       accountBindingId: boundedText(input.accountBindingId, 128),
       displayName: boundedText(input.displayName, 80),
       group: boundedText(input.group, 80),
@@ -329,7 +329,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('agentCatalog:delete', (_event, input = {}) => {
-    return meshCall(() => getMeshService().removeCatalogObject({
+    return catalogMeshCall(() => getMeshService().removeCatalogObject({
       scope: 'agent',
       agentId: boundedText(input.agentId, 128),
       baseRevision: finiteRevision(input.baseRevision)
@@ -337,7 +337,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('agentCatalog:removeBinding', (_event, input = {}) => {
-    return meshCall(() => getMeshService().removeCatalogObject({
+    return catalogMeshCall(() => getMeshService().removeCatalogObject({
       scope: 'account-binding',
       accountBindingId: boundedText(input.accountBindingId, 128),
       baseRevision: finiteRevision(input.baseRevision)
@@ -369,6 +369,7 @@ function registerIpc() {
         group: boundedText(input.group, 80),
         note: boundedText(input.note, 1000)
       });
+      void peerManager?.broadcastInventory();
       return { ok: true, profile, overview: withMeshRuntime(overview) };
     } catch (error) {
       if (profile) {
@@ -380,7 +381,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('agentSlots:assign', (_event, input = {}) => {
-    return meshCall(() => getMeshService().assignSlot({
+    return catalogMeshCall(() => getMeshService().assignSlot({
       mode: boundedText(input.mode, 40),
       deviceId: boundedText(input.deviceId, 128),
       profileId: boundedText(input.profileId, 128),
@@ -395,7 +396,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('agentSlots:removeLocal', (_event, input = {}) => {
-    return meshCall(() => getMeshService().removeCatalogObject({
+    return catalogMeshCall(() => getMeshService().removeCatalogObject({
       scope: 'slot',
       deviceId: boundedText(input.deviceId, 128),
       profileId: boundedText(input.profileId, 128),
@@ -568,7 +569,10 @@ function registerIpc() {
       permissions: patch
     }));
     const device = result.overview?.devices?.find((item) => item.deviceId === boundedText(input.deviceId, 128));
-    if (device) remoteControlService?.handlePermissionsChanged(device.deviceId, device.permissions);
+    if (device) {
+      peerManager?.handlePermissionsChanged(device.deviceId, device.permissions);
+      remoteControlService?.handlePermissionsChanged(device.deviceId, device.permissions);
+    }
     return result;
   });
 
@@ -641,6 +645,21 @@ function registerIpc() {
 
   ipcMain.handle('remoteInventory:listSessions', () => {
     return meshCall(() => getMeshService().getUnifiedSessions(), 'sessions');
+  });
+
+  ipcMain.handle('remoteInventory:refresh', async (_event, input = {}) => {
+    try {
+      try { await ensureSignalingOnline(); } catch (_error) { /* LAN is still attempted first. */ }
+      const connection = await getPeerManager().refreshInventory(boundedText(input.deviceId, 128));
+      return {
+        ok: true,
+        connection,
+        sessions: getMeshService().getUnifiedSessions(),
+        overview: withMeshRuntime(getMeshService().getOverview())
+      };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'inventory-refresh-failed', 160) };
+    }
   });
 
   ipcMain.handle('transfers:createSessionPointer', async (_event, input = {}) => {
@@ -1294,6 +1313,12 @@ function meshCall(callback, resultKey = 'overview') {
       reasonCode: boundedText(error?.message || 'mesh-operation-failed', 160)
     };
   }
+}
+
+function catalogMeshCall(callback) {
+  const result = meshCall(callback);
+  if (result.ok) void peerManager?.broadcastInventory();
+  return result;
 }
 
 async function openPairingEndpoint(options = {}) {

@@ -617,6 +617,9 @@
     'status.openAcctDirFail': 'Could not open the account directory.',
     'status.refreshBell': '♪ Bell rung — every cat perks up, sessions rescanned.',
     'status.refreshList': 'Session list refreshed.',
+    'status.refreshRemoteWorking': 'Connecting to “{name}” and reading its latest sessions…',
+    'status.refreshRemoteDone': 'Latest sessions synced from “{name}”.',
+    'status.refreshRemoteFailed': 'Could not refresh sessions from “{name}”. Make sure AgentDesk is online there.',
     'status.quotaRefreshing': 'Refreshing quota from the official service…',
     'status.quotaRefreshFail': 'Quota refresh failed: {err}',
     'status.quotaRefreshed': 'Quota refreshed: {headline}.',
@@ -1120,6 +1123,13 @@
     'detail.empty.body': 'Click a row to inspect it; use checkboxes to build a batch selection.',
     'card.busy': '{n} sessions running',
     'card.forms': '{n} forms of one account',
-    'card.group': 'Group · {g}'
+    'card.group': 'Group · {g}',
+    'card.lastActive': 'Last active',
+    'card.lastActiveLocal': 'Local activity',
+    'card.quota': 'Quota',
+    'card.activityUnknown': 'Activity unavailable',
+    'card.quotaConflict': 'Sources disagree',
+    'card.quotaConflictHint': 'Fresh quota sources for this login disagree. Refresh, then review the quota details.',
+    'card.quotaSource': 'Source {source} · {value} · observed {time}'
   };
 })(typeof self !== 'undefined' ? self : this);

@@ -1,4 +1,4 @@
-const MESH_SCHEMA_VERSION = 3;
+const MESH_SCHEMA_VERSION = 4;
 
 function migrateMeshDatabase(database) {
   database.exec('PRAGMA foreign_keys = ON');
@@ -8,6 +8,35 @@ function migrateMeshDatabase(database) {
   if (current < 1) migrateToVersion1(database);
   if (current < 2) migrateToVersion2(database);
   if (current < 3) migrateToVersion3(database);
+  if (current < 4) migrateToVersion4(database);
+}
+
+function migrateToVersion4(database) {
+  database.exec(`
+    BEGIN IMMEDIATE;
+
+    CREATE TABLE agent_slots_v4 (
+      device_id TEXT NOT NULL REFERENCES devices(device_id) ON DELETE CASCADE,
+      profile_id TEXT NOT NULL,
+      agent_id TEXT REFERENCES agents(agent_id) ON DELETE CASCADE,
+      account_binding_id TEXT REFERENCES account_bindings(account_binding_id) ON DELETE CASCADE,
+      assignment_state TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      PRIMARY KEY (device_id, profile_id)
+    );
+
+    INSERT INTO agent_slots_v4 (
+      device_id, profile_id, agent_id, account_binding_id, assignment_state, payload_json
+    )
+    SELECT device_id, profile_id, agent_id, account_binding_id, assignment_state, payload_json
+    FROM agent_slots;
+
+    DROP TABLE agent_slots;
+    ALTER TABLE agent_slots_v4 RENAME TO agent_slots;
+
+    PRAGMA user_version = 4;
+    COMMIT;
+  `);
 }
 
 function migrateToVersion3(database) {

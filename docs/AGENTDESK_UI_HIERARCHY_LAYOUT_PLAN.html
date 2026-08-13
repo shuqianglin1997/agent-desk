@@ -861,9 +861,12 @@
 
     .mock-card-stage {
       display: none;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-auto-flow: column;
+      grid-auto-columns: 164px;
+      justify-content: start;
       gap: 9px;
       padding: 12px;
+      overflow-x: auto;
       background: #f8f3e9;
     }
 
@@ -880,6 +883,8 @@
     .mock-agent-card.selected { border-color: var(--blue); box-shadow: inset 3px 0 var(--blue); }
     .mock-agent-card b { display: block; font-size: 11px; }
     .mock-agent-card span { display: block; margin-top: 5px; color: #7c7468; font-size: 8px; }
+    .mock-agent-card .mock-card-facts { margin-top: 14px; padding-top: 7px; border-top: 1px solid #e3dbce; }
+    .mock-agent-card .mock-card-facts span { display: flex; justify-content: space-between; gap: 6px; }
 
     .mock-agent-console {
       display: grid;
@@ -1197,7 +1202,7 @@
   <header class="hero">
     <span class="eyebrow">UI hierarchy review · owner approved · implemented</span>
     <h1>结构保留，<em>层级重做。</em></h1>
-    <p class="hero-lead">一个 Header、一个 Footer、顶部 Agent、左下会话、右下详情——这个大结构成立。原实现不合格的是结构内部：尺寸互相打架、控件权重失控、浮层被裁切、庭院皮肤越界、空白与拥挤分配颠倒。本稿记录审查依据与批准方案；主窗口已按 1.13、全局弹窗已按 1.14 完成实现。</p>
+    <p class="hero-lead">一个 Header、一个 Footer、顶部 Agent、左下会话、右下详情——这个大结构成立。原实现不合格的是结构内部：尺寸互相打架、控件权重失控、浮层被裁切、庭院皮肤越界、空白与拥挤分配颠倒。本稿记录审查依据与批准方案；主窗口已按 1.13、全局弹窗已按 1.14、卡片宽度与信息带已按 1.16 收敛。</p>
     <div class="hero-meta">
       <span>固定外窗 1040 × 840</span>
       <span>三面板契约不变</span>
@@ -1220,7 +1225,7 @@
       <a href="#states"><span>08</span>状态矩阵</a>
       <a href="#delivery"><span>09</span>实施顺序</a>
       <a href="#approval"><span>10</span>审阅清单</a>
-      <p class="toc-note">本页已于 2026-08-12 获所有者批准并完成实现；主窗口尺寸与组件规则写入 1.13，弹窗 Shell 与父子层级写入 1.14 产品基准。</p>
+      <p class="toc-note">本页已于 2026-08-12 获所有者批准并完成实现；主窗口尺寸与组件规则写入 1.13，弹窗 Shell 与父子层级写入 1.14，卡片固定宽度与可信摘要写入 1.16 产品基准。</p>
     </aside>
 
     <main>
@@ -1412,9 +1417,9 @@
                 <div class="mock-agent-body">
                   <div class="mock-scene"><span class="mock-nameplate">● peter</span><span class="mock-cat"></span><span class="mock-atmos-chip">☀ 场景 · 跟随</span></div>
                   <div class="mock-card-stage">
-                    <div class="mock-agent-card selected"><b>peter · Codex</b><span>3 个位置 · 2 在线</span><span>工作中 · 3 路并行</span></div>
-                    <div class="mock-agent-card"><b>Claude 工作号</b><span>2 个位置 · 1 在线</span><span>14 分钟前</span></div>
-                    <div class="mock-agent-card"><b>Kimi 素材号</b><span>1 个位置 · 在线</span><span>正在生成</span></div>
+                    <div class="mock-agent-card selected"><b>peter · Codex</b><span>3 个位置 · 2 在线</span><span>工作中 · 3 路并行</span><div class="mock-card-facts"><span><i>最近活跃</i><b>刚刚</b></span><span><i>额度</i><b>每周 · 64%</b></span></div></div>
+                    <div class="mock-agent-card"><b>Claude 工作号</b><span>2 个位置 · 1 在线</span><span>14 分钟前</span><div class="mock-card-facts"><span><i>最近活跃</i><b>14 分钟前</b></span><span><i>额度</i><b>—</b></span></div></div>
+                    <div class="mock-agent-card"><b>Kimi 素材号</b><span>1 个位置 · 在线</span><span>正在生成</span><div class="mock-card-facts"><span><i>最近活跃</i><b>刚刚</b></span><span><i>额度</i><b>—</b></span></div></div>
                   </div>
                   <aside class="mock-agent-console">
                     <div class="mock-agent-title"><small>当前 Agent</small><b>peter · Codex</b></div>
@@ -1494,6 +1499,7 @@
           <ul>
             <li><b>标题行：</b>左“Agent + 数量”；右“排行”与“庭院 / 卡片”直接分段，始终显示当前模式。</li>
             <li><b>左舞台：</b>庭院或卡片只负责选择 Agent；两种视图共用同一选中、状态和数据。</li>
+            <li><b>卡片名册：</b>每张卡固定 164px 并左对齐，不因数量少就均分拉宽；5 张以上由名册横向滚动。卡内下方只放最近活跃和新鲜、可信的额度摘要：有效历史活动时间正常显示，混合远端未知时标明“本机活跃”；额度只接受本机、未过期、未过重置点且来源一致的快照，其他情况显示未知或来源不一致。不增加动作、路径、详细设备列表或持久警告。</li>
             <li><b>庭院场景：</b>时间和天气合成一个“场景 · 跟随 / 晴”按钮，Popover 内再展开，不常驻四段按钮。</li>
             <li><b>右控制区顺序：</b>当前 Agent → 轻量状态 → 运行位置 → 主/次动作 → 一条额度摘要。</li>
             <li><b>动作：</b>“打开账号”为唯一填充主按钮；“新增运行位置”明确对象；“管理 Agent”打开对象 Dialog，不再展开七项菜单。</li>
@@ -1689,7 +1695,7 @@ body[data-view="yard"] .app-shell button { … }
           <label><input type="checkbox"><span>先完成 CSS 架构和状态矩阵，再开始视觉细节打磨。</span></label>
         </div>
 
-        <div class="final-callout"><b>完成</b><div><strong>主窗口按 1.13 实现，全局弹窗规则已按 1.14 完成。</strong><p>真实 Electron 已通过 17 条任务路径，包含固定区滚动、父子 Esc/焦点和 760 × 560 小视口；任何新的层级、尺寸或内容去向变化仍须先写回权威计划。</p></div></div>
+        <div class="final-callout"><b>完成</b><div><strong>主窗口按 1.13 实现，全局弹窗规则按 1.14 完成，卡片宽度与可信摘要按 1.16 收敛。</strong><p>真实 Electron 已通过 17 条任务路径，包含少量卡固定宽度、7+ 横滚、固定区滚动、父子 Esc/焦点和 760 × 560 小视口；活动/额度可信分支另由定向行为测试覆盖。任何新的层级、尺寸或内容去向变化仍须先写回权威计划。</p></div></div>
       </section>
     </main>
   </div>
