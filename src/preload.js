@@ -105,6 +105,19 @@ contextBridge.exposeInMainWorld('manager', {
     ipcRenderer.on('transfers:changed', listener);
     return () => ipcRenderer.removeListener('transfers:changed', listener);
   },
+  previewTaskPackageExport: (input) => ipcRenderer.invoke('taskPackages:previewExport', input),
+  exportTaskPackage: (input) => ipcRenderer.invoke('taskPackages:export', input),
+  chooseTaskPackageImport: () => ipcRenderer.invoke('taskPackages:chooseImport'),
+  inspectTaskPackageImport: (input) => ipcRenderer.invoke('taskPackages:inspectImport', input),
+  commitTaskPackageImport: (input) => ipcRenderer.invoke('taskPackages:commitImport', input),
+  cancelTaskPackageImport: (token) => ipcRenderer.invoke('taskPackages:cancelImport', { token }),
+  listTaskPackages: () => ipcRenderer.invoke('taskPackages:list'),
+  revealTaskPackage: (input) => ipcRenderer.invoke('taskPackages:reveal', input),
+  onTaskPackagesChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('taskPackages:changed', listener);
+    return () => ipcRenderer.removeListener('taskPackages:changed', listener);
+  },
   addProfile: (input) => ipcRenderer.invoke('profiles:add', input),
   updateProfile: (input) => ipcRenderer.invoke('profiles:update', input),
   removeProfile: (id) => ipcRenderer.invoke('profiles:remove', id),

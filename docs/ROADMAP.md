@@ -2,9 +2,9 @@
 
 ## 定位
 
-AgentDesk 以“单人 Personal Agent Mesh”为长期主轴：先把本机多账号、逻辑会话和工具维护做准，再扩展为同一个人在多台可信设备上的全局 Agent 目录、会话索引、显式发送和受限控制。它不扩张为团队平台、聊天壳或任务执行编排器。
+AgentDesk 以“单人 Personal Agent Mesh”为长期主轴：先把本机多账号、逻辑会话和工具维护做准，再扩展为同一个人在多台可信设备上的全局 Agent 目录、会话索引、显式发送和受限控制。整项工作可以通过便携加密 TaskPackage 交给另一个 Agent、设备或人；这项能力传递一次快照，不把 Personal Mesh 扩张为团队平台、聊天壳或任务执行编排器。
 
-Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于 2026-08-13 获批。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；长期 Agent/Blueprint/Deployment/ProvisioningJob、独立签名目录、来源设备库存、新旧协议安全降级和远端有人准备已接入。单机双隔离端点和真实 Electron WebRTC 已在局域网与本机 signaling 两种路径完成认证、目录/库存、显式刷新、会话信息、文件及合成视频验证。固定 Header/三面板/Footer 页面骨架、设备/工具/活动/设置四个独立弹窗、独立 UI 上下文、Agent/AccountBinding/AgentSlot 对象管理与真实 1040 × 840 Electron 任务路径也已本机收口。Phase 1 的两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵仍未完成，所以公开 Beta 门禁尚未关闭。
+Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于 2026-08-13 获批，TaskPackage 基线于 2026-08-14 写入 1.25。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；Phase 4A 已实现便携加密文件、人工检查点、Git/附件捕获、Codex 原生导入和活动历史。固定 Header/三面板/Footer 页面骨架、四个独立全局弹窗与独立 UI 上下文保持不变。Phase 1 的真实公网/coturn、跨平台权限矩阵，以及 TaskPackage 的同 Mesh 直接发送和更多原生客户端适配器仍未完成，所以公开 Beta 门禁尚未关闭。
 
 ## 当前基线
 
@@ -23,11 +23,12 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - Ed25519 成员证书/握手、Mesh 范围账号 HMAC、独立 `mesh.db`、OS 密钥保护和签名协议封装；
 - 来源单写的跨设备库存、强账号/强会话去重、离线快照与 tombstone；
 - 加密 SessionPointer、本机离线队列、目标端项目映射、选定文件分块/校验/续传；
+- 便携加密 TaskPackage：人工目标/进展/下一步/风险/验收、原生会话或 transcript、Git 基线/已跟踪差异、明确附件、接收预览和本地历史；
 - 右下统一详情面板内的隔离 Remote Surface、目标端逐次同意、屏幕查看、固定键鼠输入协议和最多四路控制台；
 - 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
 - 已就绪远端固定 `profile.launch`、未就绪远端有人值守 `agent.prepare`，以及确认后撤权/断连的副作用阻断；
 - Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
-- 完整 Node 套件 428 项中 427 通过、1 项仅 Windows 跳过、0 失败；临时 userData 下真实 1040 × 840 Electron 的 17 条本地任务路径验收，包括固定几何、Compact 无横滚、卡片名册与临时层边界。
+- 完整 Node 套件 436 项中 435 通过、1 项仅 Windows 跳过、0 失败；临时 userData 下真实 1040 × 840 Electron 的 18 条本地任务路径验收，包括固定几何、Compact 无横滚、卡片名册、临时层边界和 TaskPackage 固定事务弹窗。
 
 ## 近期优先级
 
@@ -75,6 +76,14 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 改进键盘导航和无障碍标签；
 - 导出失败时给出来源级原因。
 
+### 7. TaskPackage 适配器与传输
+
+- 在真实 Codex 安装中复验原生根会话、internal-child、重复导入、归档目录与客户端重新扫描；
+- 为每个新增原生客户端适配器分别完成版本白名单、身份复核、不覆盖、回滚和幂等证明；
+- 在既有受认证文件通道上增加同 Personal Mesh 直接发送，不改变包内加密、清单和来源保留规则；
+- 跨 Mesh 直连先设计双方身份确认、接收权限、限速与滥用边界；当前继续使用便携文件和分开发送的解锁码；
+- 增加磁盘不足、超大包、取消、应用崩溃和陈旧 staging 的真实文件系统矩阵。
+
 ## Personal Mesh 阶段状态
 
 | 阶段 | 代码状态 | 尚未关闭的门禁 |
@@ -84,6 +93,7 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 | Phase 2A 永久员工与按需就绪 | schema v6、Blueprint/Deployment/Job、事件增量与旧快照兼容、本机准备、远端打开/有人准备与撤权竞态防护已实现 | 事件 checkpoint 压缩、冲突专用 UI、更多适配器、物理双机准备/登录矩阵 |
 | Phase 3 库存与会话身份 | 来源设备事实、版本 feature 兼容、目录权限隔离、revision、强标识折叠、正交 Device Lens/Agent scope 和显式副本来源已实现 | 物理双机大库存、断网与 stale 验收；revision delta/缺口补齐 |
 | Phase 4 会话信息 | SessionPointer、本机离线队列、项目映射已实现 | macOS/Windows 不同项目根真机验收 |
+| Phase 4A 整项任务交接 | 便携加密文件、人工检查点、Git/附件、Codex 原生导入、接收预览和历史已实现 | 同 Mesh 直接发送、跨 Mesh 身份设计、更多原生适配器与真实大包矩阵 |
 | Phase 5 文件 | 选择、确认、加密分块、哈希、续传已实现 | 大文件、磁盘不足和跨网络真机矩阵 |
 | Phase 6 仅查看 | 右下详情内隔离 Remote Surface、目标同意、显示器和画质已实现 | 真实桌面权限与多显示器矩阵 |
 | Phase 7 输入控制 | 固定键鼠协议、唯一 owner、helper 与紧急停止已实现 | Windows helper、UIPI、DPI、键盘和 IME |

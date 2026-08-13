@@ -7,13 +7,14 @@ AgentDesk 是本地优先的账号、会话历史与工具维护器。它负责�
 - 保存和启动受支持客户端的账号槽位；
 - 只读扫描本地会话元数据；
 - 定位或导出单个会话；
+- 从一条明确本机会话生成或导入经过验证的 TaskPackage；
 - 聚合活动状态与 Codex 额度；
 - 诊断路径和安装；
 - 发现、打开并在用户确认后维护固定目录中的桌面 App / CLI。
 
 Personal Agent Mesh 的有人值守代码链路已经接入运行时：设备证书和配对、长期全局 Agent/Blueprint/Deployment/ProvisioningJob、独立签名目录、来源设备库存、SessionPointer、文件传输、远程查看/输入、多设备控制台，以及 LAN/签名信令/STUN/TURN。旧端协议 feature 降级、目录权限不对称、inventory 目录隔离和远端准备撤权竞态已有回归；独立 UI 上下文、目录对象管理和真实 1040 × 840 Electron 任务路径也已本机验收。两台物理电脑、真实公网 NAT、coturn 强制中继和跨平台权限矩阵仍未通过，因此当前是本机代码完成态而不是公开稳定验收态。
 
-它不包含聊天 transport、Agent 进程生命周期、任务队列、多会话交接、规划资料索引或任意命令注册。
+它不包含聊天 transport、Agent 进程生命周期、任务队列、自动多会话交接编排、规划资料索引或任意命令注册。TaskPackage 是用户显式创建的一次不可变工作快照，不改变这条边界。
 
 ## 2. 进程边界
 
@@ -28,6 +29,7 @@ Renderer
                  ├─ CLI discovery and tool maintenance
                  ├─ MeshService / mesh.db / OS-protected key vault
                  ├─ SignalingClient / PeerManager / TransferService
+                 ├─ TaskPackageService / native-session adapters
                  ├─ RemoteControlService / OS input adapter
                  └─ native shell/dialog/process APIs
 
@@ -58,6 +60,11 @@ src/
   index.html
   styles.css              低优先级 legacy 兼容样式
   workspace.css           1.14 固定工作台与全局弹窗 Shell 的 canonical 分层样式
+
+  task-package/
+    format.js             流式加密容器、清单归一、逐项校验与受控解包
+    codex-adapter.js      Codex 根会话/internal-child 一致捕获与事务导入
+    service.js            可信来源解析、Git 检查点、附件、导入草稿和本地历史
 
   apps.js                 客户端目录、默认路径、扫描器与导出能力
   sessions.js             Claude / Claude CLI / Codex / Kimi 会话扫描
@@ -201,6 +208,18 @@ Codex 额外区分：
 - 设备中心进入会话工作台使用原子迁移；设备详情选择不等于顶栏 Device Lens。
 - 远控返回释放输入并保留 viewing 会话，disconnect 才终止媒体。
 
+### TaskPackage
+
+TaskPackage 是本地独立交付物，不写入 `mesh.db`，也不成为 `ConversationIdentity` 或持续任务状态。Main 以当前 Profile/Session 扫描结果重新解析来源，Renderer 只提交稳定 ID、有限文本字段和布尔选项；保存路径、导入文件、附件与资料目录均来自 Electron 原生选择器。
+
+容器分两层：外层只含格式版本、AES-256-GCM/scrypt 参数、salt 和 IV；完整清单与条目正文都在认证加密区。清单限定 64 项、单项 4 GiB、整包 8 GiB，逻辑路径不能为绝对路径、盘符、空段或 `..`，每项带 SHA-256。解锁码由 20 个无歧义字符组成并分组显示，只返回一次给 Renderer，不写入包、本地历史或日志。
+
+导出内容由四部分组成：人工检查点；一个原生会话或只读 transcript；可选 Git remote/branch/HEAD/status 与 `git diff --binary HEAD`；最多 32 个明确附件。Git status 可以记录未跟踪文件名，但未跟踪正文不会自动进入 patch。重复附件名会被稳定安全改名，符号链接与目录拒绝。
+
+Codex 适配器只信任 Profile `sessionRoot` 下 `sessions` / `archived_sessions` 的真实 JSONL 文件。活跃追加文件先取完整行边界的一致快照；根记录与归属同一 `parent_thread_id` 的 internal-child 全部重新解析身份。导入先在私有 staging 解包和验证，不覆盖目标同名或同会话 ID 的不同内容；新增文件和任务资料作为事务回滚。成功后在 `session_index.jsonl` 追加带来源的标题。提交完成后的历史写入或客户端启动是附加便利，失败不能删除已经导入的内容。
+
+`task-package-history.json` 只保存包 ID、方向、模式、展示字段、大小、本机路径和时间。导入 token 在 Main 内存映射真实路径；解密草稿 30 分钟过期，取消/成功/退出清理，启动时再清理 24 小时前的私有 staging。
+
 ### 固定工作台与 CSS 层级
 
 `src/workspace.css` 是 1.14 主窗口与全局弹窗的唯一 canonical 表现层，按 `reset / tokens / shell / components / features / themes` 组织；旧 `styles.css` 与 `yard/yard.css` 被放入低优先级 `legacy` 层，不能再通过文件尾覆盖改变三面板几何或弹窗滚动归属。最高主题层保留语义 `[hidden]` 规则，避免后写的 `display:grid` 把已隐藏视图重新显示。
@@ -270,11 +289,14 @@ remoteInventory:listAgentSlots / remoteInventory:listSessions / remoteInventory:
 transfers:createSessionPointer / transfers:chooseFiles / transfers:acceptFile
 transfers:list / transfers:cancel / transfers:retry / transfers:openReceivedFile
 projects:chooseBinding
+taskPackages:previewExport / taskPackages:export / taskPackages:chooseImport
+taskPackages:inspectImport / taskPackages:commitImport / taskPackages:cancelImport
+taskPackages:list / taskPackages:reveal
 remoteControl:open / remoteControl:list / remoteControl:setSurface
 remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
 ```
 
-目录、设备与传输 IPC 只接受固定动作、稳定 ID、受限枚举和有界元数据。合并、拆分与删除由 Main 重新读取 catalog revision；文件来源、保存目录和项目根都由 Main 的系统选择器产生。Renderer 不能取得 Root/设备私钥、Mesh 关联键、SDP、ICE 地址、TURN credential、任意路径、网络报文或通用远端命令。
+目录、设备与传输 IPC 只接受固定动作、稳定 ID、受限枚举和有界元数据。合并、拆分与删除由 Main 重新读取 catalog revision；文件来源、保存目录和项目根都由 Main 的系统选择器产生。TaskPackage 的导入草稿只向 Renderer 暴露随机 token、文件名和大小，目标 Profile 在提交时重新查表，真实路径和解密明文不返回 Renderer。Renderer 不能取得 Root/设备私钥、Mesh 关联键、SDP、ICE 地址、TURN credential、任意路径、网络报文或通用远端命令。
 
 `devices:probeTransport` 只创建一次隐藏、沙箱化的 WebRTC Renderer，返回耗时、候选类型和协议，不返回 IP、SDP 或 ICE 原文。MVP 的 WebRTC 进程边界见 [ADR_PERSONAL_MESH_WEBRTC_PLACEMENT.md](ADR_PERSONAL_MESH_WEBRTC_PLACEMENT.md)。
 
@@ -307,6 +329,8 @@ remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
 - 文件经私有暂存固定内容和 SHA-256，以 96 KiB 加密块发送，接收端从 `.part` 实际偏移恢复；
 - 项目映射只接受目标端系统选择器返回的本机根目录，来源绝对路径从不直接执行。
 
+TaskPackage 当前不经过 `TransferService` 或 Personal Mesh 协议。它先作为用户持有的加密便携文件工作，可经任意已有文件通道跨 Agent、设备或人传递。同 Mesh 直接发送以后可以把已经生成的包作为一种已知文件载荷接入，但不得跳过包自身验证，也不得把跨 Mesh 文件交换自动升级为设备成员信任。
+
 ### 远程查看和输入
 
 远程媒体使用第二条 WebRTC 连接，SDP 只经已认证设备通道交换。目标端 Host Renderer 枚举并采集显示器，控制端使用限定在右下统一详情面板边界内的沙箱 WebContentsView，只拿到安全显示信息和视频轨；普通 Main Renderer 不接触这些数据。查看与控制分别需要持久能力和目标端本次 consent；控制输入再经 Host Renderer 与 Main 双重规范化、速率限制，最后以固定 stdin 行协议交给平台 helper。
@@ -334,14 +358,14 @@ npm run accept:ui
 npm run build:mac:dir
 ```
 
-当前完整 Node 套件共 428 项（427 通过、1 项仅 Windows 跳过、0 失败）。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；它仍不是物理双机或真实 NAT/TURN 证据。
+当前完整 Node 套件共 436 项（435 通过、1 项仅 Windows 跳过、0 失败）。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；它仍不是物理双机或真实 NAT/TURN 证据。
 
-`npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 17 条任务路径：58/244/316/38 固定几何与 Compact 无横滚、focus/checked/隐藏选择、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、本机新增、四个 Header 入口、固定区矩形与单一滚动所有者、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、远控后台提示、撤销后详情清理和 reduced-motion。
+`npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 18 条任务路径：58/244/316/38 固定几何与 Compact 无横滚、focus/checked/隐藏选择、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、本机新增、四个 Header 入口、固定区矩形与单一滚动所有者、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、TaskPackage 导出/接收固定事务弹窗、远控后台提示、撤销后详情清理和 reduced-motion。
 
 测试除了扫描器和纯函数，还包含以下边界契约：
 
 - preload/main 不出现会话执行 IPC；
-- 已退休的执行与交接模块不存在；focused/checked 会话只形成临时动作集合，并只调用最小定位格式；
+- 已退休的执行与自动交接编排模块不存在；focused/checked 会话只形成临时动作集合，并只调用最小定位格式。TaskPackage 只从一条聚焦本机会话显式建立不可变快照；
 - 工具发现不携带协议或会话参数；
 - package 不包含会话协议 SDK；
 - 庭院只暴露三类核心意图。
@@ -358,6 +382,7 @@ npm run build:mac:dir
 - 嵌入式 Remote Surface/Host 使用专用沙箱 IPC，输入只接受有界固定事件且始终只有一个 owner。
 - Agent/AccountBinding/AgentSlot 的新增、归属、合并、拆分和三种删除范围走固定目录 IPC，均可删到零且不触碰官方客户端数据。
 - Renderer 任务结果测试和真实窗口验收共同证明 UI 上下文互不覆盖，render/filter 不自动制造选择。
+- TaskPackage 回归覆盖错误密钥与密文保密、清单类型/路径/总量边界、Git 只携带已跟踪差异、Codex 根会话/internal-child 原生导入、来源标题、目标冲突、历史，以及客户端打开失败后仍保留已提交内容；UI 契约证明它是单会话次级动作，导入/历史属于活动弹窗，两个事务弹窗固定 Header/Footer 且只有 Content 滚动。
 
 这些自动化不能替代两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵；对应门禁见 `PERSONAL_AGENT_MESH_PLAN.md`。
 

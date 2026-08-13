@@ -1,16 +1,18 @@
 # Personal Agent Mesh 开发交接与剩余任务
 
-> 更新日期：2026-08-12
+> 更新日期：2026-08-14
 >
 > 当前分支：`main`
 >
-> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.14，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
+> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.25，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
 >
 > 仓库：`shuqianglin1997/agent-desk`
+>
+> 本轮开发前回滚点：`c42ac57c63a2e5160cd7c1544ba83bfe7797f43f`
 
 ## 1. 当前结论
 
-1.14 批准的主窗口层级、排版与全局弹窗 Shell 已经进入真实产品代码，不再是 HTML 排版提案：
+1.14 批准的主窗口层级、排版与全局弹窗 Shell 已经进入真实产品代码；1.24 的签名事件目录和 1.25 的 TaskPackage 在这套固定骨架内继续实现：
 
 - 主窗口固定为一个 Header、一个 Footer，以及顶部 Agent、左下会话、右下详情三个面板；1040 × 840 尺寸不变。
 - Renderer 几何冻结为 58px Header、244px Agent 面板、316px 详情、38px Footer，工作区使用 12px/10px padding 与 10px gap；Compact 会话表没有水平滚动。
@@ -21,7 +23,10 @@
 - 设备、工具、活动、设置由 Header 分别打开四个有界模态弹窗；开关弹窗不改变底层详情、Device Lens、Agent/Slot、搜索或 focused/checked 会话。配对、权限、诊断和传输历史保留在所属弹窗或受控次级弹窗。
 - 四个全局弹窗统一为固定 Header、中性顶部关闭、可选固定 Command Bar、单一 Content 滚动区与只供真实事务使用的固定 Footer；工具、活动、设置不再用底部橙色“完成”伪装主操作。
 - 帮助、传输记录、网络、权限和诊断使用父子弹窗栈；关闭或 Esc 只移除最上层并恢复父层的滚动、菜单和触发焦点。网络设置入口完成读取后会恢复可用状态，不再永久 disabled。
-- 会话动作只进入右下会话详情底部动作坞：聚焦单条时集中提供复制、发送、打开和导出；显式勾选后原位切为批量摘要、取消、复制和发送。“复制会话信息”仍是唯一填充主按钮，内容仍严格只有路径和坐标。
+- 会话动作只进入右下会话详情底部动作坞：聚焦单条时集中提供复制、发送、打开、交接任务和 Markdown 导出；显式勾选后原位切为批量摘要、取消、复制和发送。“复制会话信息”仍是唯一填充主按钮，内容仍严格只有路径和坐标。
+- “交接任务”从一条本机会话生成便携加密 `.agentdesk-task`：人工目标/进展/下一步/风险/验收、原生会话或只读内容、Git 基线/已跟踪差异和明确附件；来源始终保留。
+- “活动”弹窗提供任务包导入和本地历史。接收者完整验证后先看检查点、项目状态和附件数量，再选择本机 Agent/Profile 与资料目录；弹窗继续使用固定 Header、滚动 Content 和固定事务 Footer。
+- Codex 原生适配器携带根会话与 internal-child，目标端重新验证身份、拒绝同 ID 异内容覆盖、失败回滚、重复导入幂等，并把标题标注为来自交接人/来源 Agent。其他支持来源当前只保存只读会话内容。
 - Footer 只承担全局状态、今日完成数、陪伴分钟与提醒总开关；庭院内部不再叠加小账本或提醒条。
 - 路径、额度等持久待处理事项只进入 Header 的活动弹窗；庭院只保留 Agent Presenter 和摸猫/拖放后的短暂直接反馈。
 - 四个全局弹窗开关、额度详情切换和远控进入/返回时，三个固定面板的几何位置不变，不再插入提醒行、额度行、选择条、抽屉或整页工作区。
@@ -79,24 +84,25 @@
 - `src/renderer.js`：Header 弹窗入口、utilityDialog/detailMode、Remote Surface 返回与选择状态。
 - `src/ui-context.js`：Device Lens、Agent、Slot、focused/checked Conversation、Replica、设备详情、远控和传输草稿的独立状态。
 - `src/mesh/main/transfer-service.js`：纯本地只读活动不创建 Mesh 数据库。
+- `src/task-package/format.js`：TaskPackage schema v1、流式认证加密、清单/路径/大小/哈希校验。
+- `src/task-package/codex-adapter.js`：Codex 一致快照、根/内部记录捕获、原生导入、冲突与回滚。
+- `src/task-package/service.js`：人工检查点、Git/附件捕获、导入事务、历史与来源保留。
 - `src/i18n/{zh,en,ja}.js`：Header 与详情的三语文案，key 集合一致。
-- `scripts/ui-acceptance.js`：真实 Electron 的 17 条任务路径，另含 760 × 560 小视口矩阵。
+- `scripts/ui-acceptance.js`：真实 Electron 的 18 条任务路径，另含 760 × 560 小视口矩阵。
 - `test/ui-redesign.test.js`、`test/ui.test.js`、`test/mesh-ui.test.js`、`test/quota-ui.test.js`、`test/mesh-remote-control.test.js`：固定结构与交互契约。
 - `test/mesh-transfer.test.js`：纯本地活动查询无存储副作用。
+- `test/task-package.test.js`、`test/task-package-ui.test.js`：容器、稳定 Git 现场、附件不可变快照、Codex 原生导入、接收预览、固定弹窗和窄 IPC。
 
 ## 5. 已验证结果
 
 当前工作现场已经取得以下证据：
 
-- 本轮 UI/额度/i18n 定向测试：43/43 通过；远控、Mesh 与其余契约由完整测试覆盖。
-- 传输测试：6/6 通过，包含纯本地活动不创建 `mesh.db` 的新回归。
-- 134 个 JavaScript 源码与测试文件全部通过 `node --check`。
-- 完整 Node 测试：350 项，349 通过、1 项仅 Windows 跳过、0 失败；配对与信令测试在允许本机 `127.0.0.1` 临时监听的环境中通过。
-- 真实 Electron 窗口验收：17/17 任务路径通过。
+- 当前完整 Node 套件为 436 项：435 通过、1 项仅 Windows 跳过、0 失败。TaskPackage 定向回归覆盖认证加密、错误码、清单关系、稳定 Git 现场、附件不可变快照、Codex 根/child、幂等、标题、启动失败提交点、接收预览与窄 IPC。
+- 当前工作树的真实 Electron 窗口验收以 18/18 任务路径通过；新增路径实际打开 TaskPackage 导出和接收弹窗，把 Content 滚到底并确认 Header、关闭按钮和 Footer 的矩形不移动，子层关闭后焦点回到活动弹窗。
 - 实窗覆盖 58/244/316/38 固定几何、Compact 无横滚、focus/checked、庭院/卡片、Top Layer 场景 Popover、Agent 对象 Dialog、三语、明暗主题、本机新增、四个 Header 入口、固定区矩形不随 Content 滚动、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 上下文、Agent/Binding/Slot 管理、多副本来源、SessionPointer/文件/历史分离、远控返回/断开、撤销清理和 reduced-motion。
 - `git diff --check` 通过。
-- macOS arm64 测试包已构建到 `release/mac-arm64/AgentDesk.app`；包内输入 helper 为 arm64/x86_64 universal，`codesign --verify --deep --strict` 通过。
-- 测试包已安装到 `/Applications/AgentDesk.app`，安装后 `app.asar` SHA-256 与构建产物均为 `590ce0cc771b4d36fa092b054ef2f76d59f79999e730b43b2fc0fce395efdb9c`，并已从该路径成功启动；被替换的上一安装保留在 `/Applications/AgentDesk.app.pre-ui-1.14`，更早的 1.13 前备份仍保留在 `/Applications/AgentDesk.app.pre-ui-1.13`。
+- 0.10.0 macOS arm64 测试包已构建到 `release/mac-arm64/AgentDesk.app`；包内输入 helper 为 arm64/x86_64 universal，`codesign --verify --deep --strict` 通过，`app.asar` 已核对包含 TaskPackage 三项实现和 0.10.0 清单。
+- 最终测试包已安装到 `/Applications/AgentDesk.app`，安装后 `app.asar` SHA-256 与最终构建产物均为 `d29aef36bf2887bbf9af26b461f8c54441bffdcae605982a876ce09cd2f01b79`，并已从该路径成功启动；开发前回滚版继续保留在 `/Applications/AgentDesk.app.pre-task-package-c42ac57`，被最终包替换的中间构建保留在 `/Applications/AgentDesk.app.pre-task-package-0.10.0-intermediate-d29aef36`，均未删除。
 - 本轮审阅截图在临时目录 `/private/tmp/agentdesk-ui-1.14-acceptance/`；它们不是产品数据，也不应作为运行时依赖。
 
 交付前仍应以当前工作树重新运行：
@@ -112,12 +118,12 @@ git diff --check
 
 ## 6. 文档权威关系
 
-- `PERSONAL_AGENT_MESH_PLAN.md` 1.14 是实施权威。
+- `PERSONAL_AGENT_MESH_PLAN.md` 1.25 是实施权威。
 - `AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html` 是 1.13 主窗口层级、几何与临时层蓝图；全局弹窗内部 Shell 与父子层级以 1.14 计划和真实产品代码为准。
 - `AGENTDESK_WORKSPACE_REDESIGN_REVIEW.html` 是 1.12 页面结构的历史审阅稿；若与 1.14 冲突，以计划和真实产品代码为准。
 - `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md` 已修订为固定三面板与右下 Remote Surface。
 - 旧 owner review、旧会话身份 review、文章插图和规划变更记录中出现的“七行/第六行”只代表当时的历史方案，不能覆盖 1.10。
-- INTERNAL、FUNCTION_AUDIT、UI 蓝图与本交接已按 1.14 的弹窗规则同步；其他产品与 Mesh 语义没有变化。
+- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器和当前限制；它服从 1.25 产品基线。
 
 ## 7. 不得误报为已完成
 
@@ -127,6 +133,7 @@ git diff --check
 - macOS helper 空载验证不等于 Windows helper 或跨平台输入通过。
 - Phase 2–8 的纵向链路和本机 UI 收口不等于公开 Beta 门禁关闭。
 - 当前没有无人值守、登录界面、UAC 安全桌面、远程 Shell 或通用命令能力。
+- 当前任务包通过便携加密文件交换；同 Mesh 直接发送、跨 Mesh 身份确认和非 Codex 原生导入尚未完成。
 
 ## 8. 后续真实任务
 
@@ -137,6 +144,7 @@ git diff --check
 3. 完成 macOS → macOS、macOS ↔ Windows、Windows → Windows 的屏幕、键鼠、DPI、多显示器和 IME 矩阵。
 4. 完成 macOS Developer ID/公证/Gatekeeper 与 Windows helper/portable/UIPI/UAC 发布验证。
 5. 无人值守若要进入开发，必须先通过 Phase 9 的独立产品与安全评审。
+6. 在既有受认证文件通道上接入 TaskPackage 之前，先完成同 Mesh 目标确认、进度/取消和包内外双重加密的 ADR；跨 Mesh 直连另行评审。
 
 ## 9. 工作树保护
 
