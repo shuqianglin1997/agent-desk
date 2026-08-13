@@ -2,15 +2,20 @@ const crypto = require('node:crypto');
 const { normalizeInventory } = require('../domain/inventory');
 
 const INVENTORY_CHUNK_SCHEMA_VERSION = 1;
-const DEFAULT_CHUNK_BYTES = 192 * 1024;
+// Chunk data is base64url encoded inside a signed JSON envelope before it is
+// sent through WebRTC. 96 KiB of raw data becomes about 128 KiB on the wire,
+// leaving room for metadata and the signature below the transport's practical
+// single-message boundary.
+const DEFAULT_CHUNK_BYTES = 96 * 1024;
+const MAX_CHUNK_BYTES = 96 * 1024;
 const MAX_TOTAL_BYTES = 16 * 1024 * 1024;
-const MAX_CHUNKS = 128;
+const MAX_CHUNKS = 192;
 
 function encodeInventoryChunks(inventoryValue, options = {}) {
   const inventory = normalizeInventory(inventoryValue);
   const bytes = Buffer.from(JSON.stringify(inventory));
   if (bytes.length > MAX_TOTAL_BYTES) throw new Error('inventory-too-large');
-  const chunkBytes = clampInteger(options.chunkBytes, 32 * 1024, 256 * 1024, DEFAULT_CHUNK_BYTES);
+  const chunkBytes = clampInteger(options.chunkBytes, 32 * 1024, MAX_CHUNK_BYTES, DEFAULT_CHUNK_BYTES);
   const total = Math.max(1, Math.ceil(bytes.length / chunkBytes));
   if (total > MAX_CHUNKS) throw new Error('inventory-too-many-chunks');
   const transferId = String(options.transferId || crypto.randomUUID());
@@ -139,6 +144,8 @@ function clampInteger(value, min, max, fallback) {
 module.exports = {
   INVENTORY_CHUNK_SCHEMA_VERSION,
   DEFAULT_CHUNK_BYTES,
+  MAX_CHUNK_BYTES,
+  MAX_CHUNKS,
   MAX_TOTAL_BYTES,
   encodeInventoryChunks,
   InventoryAssembler,

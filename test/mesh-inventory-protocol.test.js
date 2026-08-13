@@ -1,12 +1,22 @@
+const crypto = require('node:crypto');
 const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { buildLocalInventory } = require('../src/mesh/domain/inventory');
-const { encodeInventoryChunks, InventoryAssembler } = require('../src/mesh/protocol/inventory');
+const { createEnvelope } = require('../src/mesh/protocol/envelope');
+const {
+  DEFAULT_CHUNK_BYTES,
+  MAX_CHUNK_BYTES,
+  MAX_CHUNKS,
+  MAX_TOTAL_BYTES,
+  encodeInventoryChunks,
+  InventoryAssembler
+} = require('../src/mesh/protocol/inventory');
 const { LanEndpoint, sendPeerSignal, normalizeEndpoint } = require('../src/mesh/network/lan-endpoint');
 
 const NOW = '2026-08-10T08:00:00.000Z';
 const LINK_KEY = Buffer.alloc(32, 7).toString('base64');
+const SAFE_DATA_CHANNEL_ENVELOPE_BYTES = 192 * 1024;
 
 function inventory(sessionCount = 120) {
   const deviceId = 'device-a';
@@ -73,6 +83,37 @@ test('库存分块拒绝跨传输元数据混入和内容篡改', () => {
   assert.throws(() => {
     for (const chunk of corrupted) second.accept(chunk);
   }, /inventory-chunk-(checksum|size|payload)/);
+});
+
+test('库存块的完整签名信封保留真实 DataChannel 单消息余量', () => {
+  const source = inventory(500);
+  const chunks = encodeInventoryChunks(source, {
+    chunkBytes: 256 * 1024,
+    transferId: 'transfer-envelope-budget'
+  });
+  const { privateKey } = crypto.generateKeyPairSync('ed25519');
+
+  assert.ok(chunks.length > 1);
+  assert.ok(Math.ceil(MAX_TOTAL_BYTES / DEFAULT_CHUNK_BYTES) <= MAX_CHUNKS);
+  for (const [index, chunk] of chunks.entries()) {
+    assert.ok(Buffer.from(chunk.data, 'base64url').length <= MAX_CHUNK_BYTES);
+    const envelope = createEnvelope({
+      protocolVersion: '1.0',
+      messageType: 'inventory.chunk',
+      messageId: 'm'.repeat(128),
+      connectionId: 'c'.repeat(128),
+      sourceDeviceId: 's'.repeat(128),
+      targetDeviceId: 't'.repeat(128),
+      sequence: index + 1,
+      capability: 'inventory.read',
+      payload: chunk
+    }, privateKey, { now: NOW });
+    const envelopeBytes = Buffer.byteLength(JSON.stringify(envelope));
+    assert.ok(
+      envelopeBytes < SAFE_DATA_CHANNEL_ENVELOPE_BYTES,
+      `signed inventory envelope is ${envelopeBytes} bytes`
+    );
+  }
 });
 
 test('局域网信令只向规范 HTTP 端点发送并返回对端响应', async () => {

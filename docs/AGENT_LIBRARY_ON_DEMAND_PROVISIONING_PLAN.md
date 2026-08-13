@@ -4,7 +4,7 @@
 >
 > 日期：2026-08-13
 >
-> 权威关系：本文细化 `PERSONAL_AGENT_MESH_PLAN.md` 1.21；如有冲突，以后者为准。
+> 权威关系：本文细化 `PERSONAL_AGENT_MESH_PLAN.md` 1.22；如有冲突，以后者为准。
 
 ## 1. 产品结论
 

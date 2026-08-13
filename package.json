@@ -1,7 +1,7 @@
 {
   "name": "agent-desk",
   "productName": "AgentDesk",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "A local desktop manager for AI coding accounts, session history, quotas, diagnostics, and installed tools.",
   "main": "src/main.js",
   "author": "hupo",

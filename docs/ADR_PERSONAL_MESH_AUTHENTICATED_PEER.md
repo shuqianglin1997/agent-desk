@@ -26,7 +26,7 @@ WebRTC/DTLS 的传输加密不替代上述 Mesh 设备身份认证。
 - preload 只有 bootstrap、signal、state、message 四个固定 IPC，以及 Main 到 peer 的固定事件；
 - IPC 同时绑定一次性 token 与精确 `webContents.id`；
 - SDP 最大 256 KiB，Renderer 单消息最大 512 KiB，库存总量最大 16 MiB；
-- 库存按 192 KiB 分块、逐块确认、SHA-256 总校验并施加背压；
+- 库存按最多 96 KiB 原始数据分块、逐块确认、SHA-256 总校验并施加背压；Base64、元数据与签名完成后的整条信封必须保持在 192 KiB 安全预算内；
 - 设备私钥、Mesh 关联密钥、账号凭据与 Cookie 不进入 peer Renderer；
 - 公钥材料按 opaque text 保存，不能进行普通 UI 字符串的空白折叠；
 - 端点只接受 JSON、限速、限制请求大小并拒绝非 HTTP(S) 或带路径的端点地址。
@@ -43,9 +43,11 @@ WebRTC/DTLS 的传输加密不替代上述 Mesh 设备身份认证。
 
 自动化领域与协议测试同时覆盖库存乱序重组、元数据混入、内容篡改、局域网信令、签名重放、公钥存储回归与离线 tombstone。
 
+2026-08-13 的首次物理双 Mac 局域网验证进一步证明了 host/UDP DataChannel、设备证书认证和独立 catalog 落库。随后真实大库存的首个 192 KiB 原始块在 Base64 与签名封装后超过该链路的单消息边界并触发 `datachannel-error`。实现已把发送上限收紧到 96 KiB，并增加完整签名信封小于 192 KiB 的回归；两端升级到 0.9.4 后仍须完成库存、刷新与长连接复测。
+
 ## 尚未由本 ADR 证明
 
-- 两台物理电脑、不同 NAT、CGNAT 和公网切换；
+- 两台物理电脑上的完整大库存、刷新、长连接，以及不同 NAT、CGNAT 和公网切换；
 - TURN 回退与短期凭据服务；
 - macOS ↔ Windows 真机媒体和输入权限；
 - 后台服务或无人值守。
