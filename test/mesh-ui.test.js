@@ -105,6 +105,20 @@ test('首次准备只暴露员工、设备、客户端枚举和确认状态，�
   assert.match(main, /provisioningService\?\.stop\(\)/);
 });
 
+test('工作环境始终投影完整员工库，并用同一主按钮确保就绪后打开', () => {
+  const html = read('src/index.html');
+  const renderer = read('src/renderer.js');
+  const projection = read('src/agent-workspace.js');
+  assert.match(html, /<script src="\.\/agent-workspace\.js"><\/script>[\s\S]*?<script src="\.\/renderer\.js"><\/script>/);
+  assert.match(renderer, /function identityGroupsForLens[\s\S]*?AgentWorkspace\.projectMeshAgentGroups/);
+  assert.doesNotMatch(renderer, /if \(!slots\.length\) continue/);
+  assert.match(projection, /return \(overview\.agents \|\| \[\]\)\.map/);
+  assert.match(renderer, /card\.addEventListener\('click', \(\) => selectAgent\(group\.key\)\)/);
+  assert.match(renderer, /function openCurrentAgent\(\)[\s\S]*?ensureAgentReady\(\{[\s\S]*?agentId:[\s\S]*?deviceId:[\s\S]*?requestedAppId:/);
+  assert.match(renderer, /deployment\.action\.firstOpen/);
+  assert.match(renderer, /if \(!members\.length && state\.mesh\.overview\?\.initialized\)[\s\S]*?deployment\.client\.unprepared/);
+});
+
 test('公网会合设置与诊断使用固定 IPC，界面不接收 TURN 长期凭据或连接原文', () => {
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
