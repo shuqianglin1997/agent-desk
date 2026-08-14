@@ -107,7 +107,13 @@ function currentLang() {
 const t = (key, params) => mt(currentLang(), key, params);
 
 const APP_NAME = 'AgentDesk';
-const MAIN_DOCUMENT_URL = pathToFileURL(path.join(__dirname, 'index.html')).href;
+// Windows portable launchers may start the extracted app through an 8.3 path
+// while Chromium reports the same document with its long path. Resolve the
+// physical document once, then use that exact path for both loadFile and the
+// IPC/navigation allowlist so aliases cannot make the real main frame fail its
+// own sender check.
+const MAIN_DOCUMENT_PATH = fs.realpathSync(path.join(__dirname, 'index.html'));
+const MAIN_DOCUMENT_URL = pathToFileURL(MAIN_DOCUMENT_PATH).href;
 const STORE_VERSION = 2;
 const WINDOWS_DISCOVERY_TTL = 30_000;
 const UPDATE_CACHE_TTL = 5 * 60_000;
@@ -201,7 +207,7 @@ function createWindow() {
     });
   }
 
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadFile(MAIN_DOCUMENT_PATH);
   return mainWindow;
 }
 
