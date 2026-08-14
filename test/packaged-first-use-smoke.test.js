@@ -6,12 +6,15 @@ const path = require('node:path');
 
 const {
   NETWORK_ENV_KEYS,
+  assertAdHocMacSignatureDetails,
   assertBrowserLaunchIdentity,
   assertLocalOnlyOverview,
   assertPackagedRendererUrl,
   browserWebSocketFromOutput,
   parseArguments,
+  readMacSignatureDetails,
   resolvePackagedArtifact,
+  resolveSmokeKeychainMode,
   runtimeVersionFromUserAgent,
   shutdownComplete,
   shutdownFailureReasons,
@@ -44,12 +47,14 @@ test('CLI requires an explicit artifact and validates bounded numeric options', 
     '--expected-version', '9.8.7-preview.1',
     '--expected-onboarding-version', '3',
     '--timeout-ms', '6000',
+    '--macos-ci-mock-keychain',
     '--keep-temp'
   ], {});
   assert.equal(parsed.artifact, path.resolve('/tmp/AgentDesk.app'));
   assert.equal(parsed.expectedVersion, '9.8.7-preview.1');
   assert.equal(parsed.expectedOnboardingVersion, 3);
   assert.equal(parsed.timeoutMs, 6000);
+  assert.equal(parsed.macosCiMockKeychain, true);
   assert.equal(parsed.keepTemp, true);
 });
 
@@ -67,6 +72,113 @@ test('macOS resolver accepts only a real AgentDesk.app app.asar executable layou
   const sourceElectron = path.join(root, 'node_modules', 'electron', 'dist', 'Electron.app');
   touch(path.join(sourceElectron, 'Contents', 'MacOS', 'Electron'), 0o700);
   assert.throws(() => resolvePackagedArtifact(sourceElectron, 'darwin'), /Source Electron runtime is forbidden/);
+
+  const adHocSliceDetails = (architecture) => [
+    `Executable=${fromBundle.executablePath}`,
+    `Format=app bundle with Mach-O ${architecture}`,
+    'Signature=adhoc',
+    'TeamIdentifier=not set'
+  ].join('\n');
+  const adHocDetails = {
+    architectures: ['arm64', 'x86_64'],
+    slices: [
+      { architecture: 'arm64', details: adHocSliceDetails('arm64') },
+      { architecture: 'x86_64', details: adHocSliceDetails('x86_64') }
+    ]
+  };
+  assert.equal(assertAdHocMacSignatureDetails(adHocDetails), true);
+
+  const commandCalls = [];
+  const commandResults = [
+    { status: 0, stdout: '', stderr: '' },
+    { status: 0, stdout: 'arm64 x86_64\n', stderr: '' },
+    { status: 0, stdout: '', stderr: adHocSliceDetails('arm64') },
+    { status: 0, stdout: '', stderr: adHocSliceDetails('x86_64') }
+  ];
+  const inspected = readMacSignatureDetails(fromBundle.artifactPath, (command, args, options) => {
+    commandCalls.push({ command, args, options });
+    return commandResults.shift();
+  });
+  assert.equal(assertAdHocMacSignatureDetails(inspected), true);
+  assert.equal(commandResults.length, 0);
+  assert.deepEqual(commandCalls.map(({ command, args }) => [command, args]), [
+    ['/usr/bin/codesign', [
+      '--verify', '--deep', '--strict', '--all-architectures', fromBundle.artifactPath
+    ]],
+    ['/usr/bin/lipo', ['-archs', fromBundle.executablePath]],
+    ['/usr/bin/codesign', [
+      '--display', '--verbose=4', '--architecture', 'arm64', fromBundle.artifactPath
+    ]],
+    ['/usr/bin/codesign', [
+      '--display', '--verbose=4', '--architecture', 'x86_64', fromBundle.artifactPath
+    ]]
+  ]);
+  assert.ok(commandCalls.every(({ options }) => (
+    options.encoding === 'utf8' && options.maxBuffer === 1024 * 1024
+  )));
+  assert.throws(
+    () => readMacSignatureDetails(fromBundle.artifactPath, () => ({ status: 1, stdout: '', stderr: '' })),
+    /valid signature on every AgentDesk\.app architecture/
+  );
+  assert.equal(resolveSmokeKeychainMode(
+    { macosCiMockKeychain: true },
+    fromBundle,
+    { platform: 'darwin', readMacSignatureDetails: () => adHocDetails }
+  ), 'mock');
+  assert.equal(resolveSmokeKeychainMode(
+    { macosCiMockKeychain: false },
+    { kind: 'windows-portable', artifactPath: 'C:\\AgentDesk-portable.exe' },
+    { platform: 'win32', readMacSignatureDetails: () => { throw new Error('must not inspect'); } }
+  ), 'system');
+  assert.throws(
+    () => resolveSmokeKeychainMode(
+      { macosCiMockKeychain: true },
+      { kind: 'windows-portable', artifactPath: 'C:\\AgentDesk-portable.exe' },
+      { platform: 'win32', readMacSignatureDetails: () => adHocDetails }
+    ),
+    /supported only on macOS/
+  );
+  assert.throws(
+    () => resolveSmokeKeychainMode(
+      { macosCiMockKeychain: true },
+      fromBundle,
+      {
+        platform: 'darwin',
+        readMacSignatureDetails: () => ({
+          architectures: ['arm64', 'x86_64'],
+          slices: [
+            { architecture: 'arm64', details: adHocSliceDetails('arm64') },
+            {
+              architecture: 'x86_64',
+              details: [
+                'Authority=Developer ID Application: Example (ABCDEFGHIJ)',
+                'TeamIdentifier=ABCDEFGHIJ'
+              ].join('\n')
+            }
+          ]
+        })
+      }
+    ),
+    /exactly one ad-hoc signature for x86_64/
+  );
+  assert.throws(
+    () => resolveSmokeKeychainMode(
+      { macosCiMockKeychain: true },
+      fromBundle,
+      { platform: 'darwin', readMacSignatureDetails: () => ({ architectures: [], slices: [] }) }
+    ),
+    /contains no architectures/
+  );
+  assert.throws(
+    () => assertAdHocMacSignatureDetails({
+      architectures: ['arm64'],
+      slices: [{
+        architecture: 'arm64',
+        details: `${adHocSliceDetails('arm64')}\nSignature=certificate`
+      }]
+    }),
+    /exactly one ad-hoc signature for arm64/
+  );
 }));
 
 test('Windows resolver distinguishes win-unpacked and the versioned portable artifact', () => fixture((root) => {
@@ -120,7 +232,8 @@ test('browser discovery accepts only the spawned loopback DevTools endpoint', ()
   const identity = {
     launchToken: 'a'.repeat(64),
     port: 9229,
-    userData: 'C:\\Temp\\agentdesk-smoke'
+    userData: 'C:\\Temp\\agentdesk-smoke',
+    keychainMode: 'system'
   };
   const commandLine = [
     'C:\\AgentDesk\\AgentDesk.exe',
@@ -131,6 +244,22 @@ test('browser discovery accepts only the spawned loopback DevTools endpoint', ()
     `--user-data-dir=${identity.userData}`
   ];
   assert.equal(assertBrowserLaunchIdentity(commandLine, identity), true);
+  assert.equal(
+    assertBrowserLaunchIdentity([...commandLine, '--use-mock-keychain'], { ...identity, keychainMode: 'mock' }),
+    true
+  );
+  assert.throws(
+    () => assertBrowserLaunchIdentity([...commandLine, '--use-mock-keychain'], identity),
+    /Keychain mode does not match/
+  );
+  assert.throws(
+    () => assertBrowserLaunchIdentity(commandLine, { ...identity, keychainMode: 'mock' }),
+    /Keychain mode does not match/
+  );
+  assert.throws(
+    () => assertBrowserLaunchIdentity([...commandLine, '--use-mock-keychain=true'], { ...identity, keychainMode: 'mock' }),
+    /Keychain mode does not match/
+  );
   assert.throws(
     () => assertBrowserLaunchIdentity(commandLine.filter((entry) => !entry.includes('smoke-token')), identity),
     /not the exact spawned smoke process/

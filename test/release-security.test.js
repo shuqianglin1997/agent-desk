@@ -30,6 +30,21 @@ function listJavaScriptFiles(directory) {
 
 test('macOS 正式构建强制签名、公证和 Hardened Runtime', () => {
   const macCi = fs.readFileSync(path.join(root, '.github', 'workflows', 'macos-ci.yml'), 'utf8');
+  const workflowDirectory = path.join(root, '.github', 'workflows');
+  const workflowContents = fs.readdirSync(workflowDirectory)
+    .filter((name) => /\.ya?ml$/i.test(name))
+    .map((name) => ({
+      name,
+      contents: fs.readFileSync(path.join(workflowDirectory, name), 'utf8')
+    }));
+  const semanticMockKeychainUsers = workflowContents
+    .filter(({ contents }) => contents.includes('--macos-ci-mock-keychain'))
+    .map(({ name }) => name)
+    .sort();
+  const nativeMockKeychainUsers = workflowContents
+    .filter(({ contents }) => contents.includes('--use-mock-keychain'))
+    .map(({ name }) => name)
+    .sort();
 
   assert.equal(packageJson.build.mac.forceCodeSigning, true);
   assert.equal(packageJson.build.mac.hardenedRuntime, true);
@@ -75,7 +90,12 @@ test('macOS 正式构建强制签名、公证和 Hardened Runtime', () => {
   assert.match(macCi, /arm64/);
   assert.match(macCi, /x86_64/);
   assert.match(macCi, /npm run verify:electron-package -- --artifact "\$PACKAGED_APP"/);
-  assert.match(macCi, /npm run accept:packaged -- --artifact "\$PACKAGED_APP"/);
+  assert.match(
+    macCi,
+    /npm run accept:packaged -- --artifact "\$PACKAGED_APP" --artifacts "\$SMOKE_ARTIFACTS" --macos-ci-mock-keychain/
+  );
+  assert.deepEqual(semanticMockKeychainUsers, ['macos-ci.yml']);
+  assert.deepEqual(nativeMockKeychainUsers, []);
   assert.match(
     macCi,
     /- name: Upload macOS smoke diagnostics\s+if: failure\(\)\s+uses: actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/
@@ -122,7 +142,7 @@ test('RunAsNode 兼容面只限现有 Main 固定 CLI launcher', () => {
   assert.doesNotMatch(productionSource, /--inspect(?:-brk)?\b/);
 });
 
-test('发布工作流缺少凭据时失败，并验证两端最终产物及内层程序', () => {
+test('发布工作流缺少凭据时失败，并验证两端最终产物及内层程序', async () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8');
   const macVerifier = fs.readFileSync(path.join(root, 'scripts', 'verify-macos-release.sh'), 'utf8');
   const windowsVerifier = fs.readFileSync(path.join(root, 'scripts', 'verify-windows-release.ps1'), 'utf8');
@@ -130,6 +150,7 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
     path.join(root, 'scripts', 'verify-windows-portable-package.ps1'),
     'utf8'
   );
+  const windowsTestAnnotations = require('../scripts/windows-test-annotations');
   const windowsCi = fs.readFileSync(path.join(root, '.github', 'workflows', 'windows-ci.yml'), 'utf8');
   const macJob = workflow.slice(
     workflow.indexOf('  build-macos:'),
@@ -139,6 +160,9 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
     workflow.indexOf('  build-windows:'),
     workflow.indexOf('  assemble-release-assets:')
   );
+
+  assert.doesNotMatch(workflow, /--macos-ci-mock-keychain/);
+  assert.doesNotMatch(workflow, /--use-mock-keychain/);
 
   for (const secret of [
     'MAC_CSC_LINK',
@@ -257,6 +281,13 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
 
   assert.match(windowsCi, /unsigned Windows compatibility artifact \(not for distribution\)/);
   assert.match(windowsCi, /CSC_IDENTITY_AUTO_DISCOVERY: "false"/);
+  assert.equal(
+    packageJson.scripts['test:ci:windows'],
+    'node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/windows-test-annotations.js --test-reporter-destination=stderr'
+  );
+  assert.match(packageJson.scripts.check, /node --check scripts\/windows-test-annotations\.js/);
+  assert.match(windowsCi, /- name: Test\s+run: npm run test:ci:windows/);
+  assert.doesNotMatch(windowsCi, /run: npm test/);
   assert.match(windowsCi, /npm run build:win/);
   assertOrdered(windowsCi, [
     '- name: Build unsigned Windows compatibility artifact (not for distribution)',
@@ -296,6 +327,134 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
   assert.match(windowsPortablePackageVerifier, /resources\\native\\AgentDeskInputHelper\.exe/);
   assert.match(windowsPortablePackageVerifier, /Directory\]::Delete\(\$temporaryRoot, \$true\)/);
   assert.doesNotMatch(windowsPortablePackageVerifier, /Get-AuthenticodeSignature|ExpectedSignerThumbprint/);
+
+  async function* diagnosticEvents() {
+    yield {
+      type: 'test:fail',
+      data: {
+        file: 'c:/repo/test/windows-cleanup.test.js',
+        name: 'rejects C:\\Users\\Alice Smith\\Company, Secret; private\\private.txt token=do-not-publish',
+        nesting: 1,
+        testNumber: 2,
+        line: 84,
+        column: 3,
+        details: {
+          error: {
+            failureType: 'testCodeFailure',
+            stack: 'private stack must not be reported'
+          }
+        }
+      }
+    };
+    yield {
+      type: 'test:fail',
+      data: {
+        file: 'C:\\repo\\test\\windows-cleanup.test.js',
+        name: 'Windows cleanup suite',
+        nesting: 0,
+        testNumber: 1,
+        line: 80,
+        column: 1,
+        details: { error: { failureType: 'subtestsFailed' } }
+      }
+    };
+  }
+  const annotations = [];
+  for await (const chunk of windowsTestAnnotations(diagnosticEvents())) annotations.push(chunk);
+  const annotationOutput = annotations.join('');
+  assert.match(
+    annotationOutput,
+    /::error title=Windows Node test failed::windows-cleanup\.test\.js › rejects <path>/
+  );
+  assert.equal((annotationOutput.match(/::error/g) || []).length, 1);
+  assert.equal(
+    windowsTestAnnotations.sanitizeFailureName('/Users/Alice Smith/Client, Secret/data.json remains private'),
+    '<path>'
+  );
+  assert.equal(
+    windowsTestAnnotations.sanitizeFailureName(
+      'credentials access_token=do-not-publish AWS_SESSION_TOKEN=short-secret Authorization: Bearer private-bearer'
+    ),
+    'credentials access_token=<redacted> AWS_SESSION_TOKEN=<redacted> Authorization=<redacted>'
+  );
+  assert.equal(
+    windowsTestAnnotations.sanitizeFailureName('request used Bearer private-bearer'),
+    'request used Bearer <redacted>'
+  );
+  assert.doesNotMatch(
+    annotationOutput,
+    /Alice|Company Secret|Client Secret|do-not-publish|short-secret|private-bearer|private stack/
+  );
+
+  async function* node22FailureEvents() {
+    yield {
+      type: 'test:fail',
+      data: {
+        file: 'c:/repo/test/left.test.js',
+        name: 'same leaf',
+        nesting: 1,
+        testNumber: 2,
+        line: 11,
+        column: 3,
+        details: { error: { failureType: 'testCodeFailure' } }
+      }
+    };
+    yield {
+      type: 'test:fail',
+      data: {
+        file: 'C:\\repo\\test\\right.test.js',
+        name: 'same leaf',
+        nesting: 1,
+        testNumber: 2,
+        line: 11,
+        column: 3,
+        details: { error: { failureType: 'testCodeFailure' } }
+      }
+    };
+    yield {
+      type: 'test:fail',
+      data: {
+        file: 'C:\\repo\\test\\left.test.js',
+        name: 'same leaf',
+        nesting: 1,
+        testNumber: 2,
+        line: 11,
+        column: 3,
+        details: { error: { failureType: 'testCodeFailure' } }
+      }
+    };
+  }
+  const interleavedAnnotations = [];
+  for await (const chunk of windowsTestAnnotations(node22FailureEvents())) {
+    interleavedAnnotations.push(chunk);
+  }
+  const interleavedOutput = interleavedAnnotations.join('');
+  assert.match(interleavedOutput, /::error title=Windows Node test failed::left\.test\.js › same leaf/);
+  assert.match(interleavedOutput, /::error title=Windows Node test failed::right\.test\.js › same leaf/);
+  assert.equal((interleavedOutput.match(/left\.test\.js › same leaf/g) || []).length, 2);
+  assert.equal((interleavedOutput.match(/::error/g) || []).length, 3);
+
+  async function* ambiguousFileEvents() {
+    yield {
+      type: 'test:fail',
+      data: {
+        file: 'relative.test.js',
+        name: 'standalone child',
+        nesting: 1,
+        testNumber: 2,
+        line: 4,
+        column: 1,
+        details: { error: { failureType: 'testCodeFailure' } }
+      }
+    };
+  }
+  const ambiguousAnnotations = [];
+  for await (const chunk of windowsTestAnnotations(ambiguousFileEvents())) {
+    ambiguousAnnotations.push(chunk);
+  }
+  const ambiguousOutput = ambiguousAnnotations.join('');
+  assert.match(ambiguousOutput, /::error title=Windows Node test failed::standalone child/);
+  assert.doesNotMatch(ambiguousOutput, /untrusted parent/);
 });
 
 test('主分支 macOS 和 Windows CI 只运行固定 SHA action 且 checkout 不留凭据', () => {

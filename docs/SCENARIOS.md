@@ -143,7 +143,7 @@ AgentDesk 不替用户补充说明，不合并多个会话，也不会把历史�
 
 当前 `0.10.1-preview.1` 的证据分层如下：完整 Node 套件共 517 项，516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14。临时 userData 下真实 1040 × 840 Electron UI 为 21/21，覆盖全新首 Agent、重启恢复、设备向导 Shell 与状态投影、TaskPackage 直送资格和状态投影，以及既有固定几何、弹窗、会话、传输和远控任务路径。
 
-成品证据单独记账：当前 macOS unpacked `AgentDesk.app` 已通过独立 fuse/ASAR verifier，118/118 个常规文件的整文件/分块 SHA-256、五项 fuse 和 `ElectronAsarIntegrity` header hash 均符合实际字节，且不存在 `default_app.asar`。这个 ad-hoc unpacked 结果不证明三次首次使用 smoke、Developer ID、公证、Gatekeeper 或可分发 DMG 已通过。
+成品证据单独记账：本机现有确切 `release/mac-arm64/AgentDesk.app` 已通过独立 fuse/ASAR verifier，118/118 个常规文件的整文件/分块 SHA-256、五项 fuse 和 `ElectronAsarIntegrity` header hash 均符合实际字节，且不存在 `default_app.asar`；同一确切字节随后使用真实语义开关 `--macos-ci-mock-keychain` 通过初始化、重启恢复并完成、完成后再重启三次 packaged first-use smoke。runner 先证明 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，并逐次从 Browser command line 核对唯一原生 `--use-mock-keychain`。这证明的是本机 ad-hoc 成品在 mock Keychain 下的打包与首次使用事务；新的 GitHub macOS `main` CI 运行仍待结果，macOS 系统 Keychain/OS 密钥保护、Developer ID、公证、Gatekeeper、签名 DMG、Draft/公开重下载和物理干净机仍未由这条记录覆盖。
 
 发布事务代码已把稳定开关固定为 `stableAllowed=false`，并要求精确 DMG、portable、`SHA256SUMS.txt` 三项资产依次经过 Draft、macOS/Windows 原生 runner 重下载、发布后无 token 匿名重下载与失败回 Draft；公开过再失败的 candidate 不得复用 Tag/version。14/14 只证明这些策略的纯代码边界。目前尚未配置真实签名凭据、受保护 `preview-release` 环境或真实 Preview Tag，因此没有公开 `v0.10.1-preview.1`。
 

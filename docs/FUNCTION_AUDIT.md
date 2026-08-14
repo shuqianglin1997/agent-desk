@@ -31,7 +31,7 @@
 | 本地持久化 | profiles.json、settings.json 及备份 | 保存账号、界面设置、猫位置和今日账本 | 保留；原子写入，账号空列表是有效状态 |
 | 应用更新 | Header“设置”弹窗中的“更新” | 检查可信 Release，支持的平台校验后替换 | 保留；正式 macOS 包仍需签名和公证 |
 | Electron 成品完整性 | 打包脚本与独立 verifier | 强制 `app.asar`、禁止 `default_app.asar`，流式复算每个文件的整文件/分块哈希，核对五项 fuse 及 macOS/Windows header 绑定 | 已实现；当前 macOS unpacked 的 118/118 个常规文件已通过。该证据不等于签名、公证、三次首次使用或可分发 DMG |
-| 成品首次使用 smoke | `accept:packaged` | 同一确切 `AgentDesk.app` / `win-unpacked` / portable 在一次性 userData 连续三次启动，验证首次初始化、恢复完成、完成后重启、零默认 Profile/远端连接与清理 | 脚本和 macOS/Windows CI 门禁已实现；当前未把 mac unpacked fuse/ASAR 通过误报为该 smoke 已通过 |
+| 成品首次使用 smoke | `accept:packaged` | 同一确切 `AgentDesk.app` / `win-unpacked` / portable 在一次性 userData 连续三次启动，验证首次初始化、恢复完成、完成后重启、零默认 Profile/远端连接与清理 | 脚本和 macOS/Windows CI 门禁已实现；本机现有确切 `release/mac-arm64/AgentDesk.app` 已在 ad-hoc 签名预检后，使用真实语义开关 `--macos-ci-mock-keychain` 和逐次 Browser 原生开关绑定通过三次启动。新的 GitHub macOS `main` CI 运行仍待结果；该记录不证明系统 Keychain/OS 密钥保护、Developer ID/公证、Draft/公开重下载或物理干净机 |
 | Preview 发布事务 | 受保护 Preview Tag | 精确三资产先建 Draft，两个原生系统重下载复验，再发布并无 token 匿名重下载；失败回 Draft，公开过的候选不可复用 | 代码已实现，发布安全 14/14；`stableAllowed=false`。真实签名凭据、受保护环境和真实 Tag 尚未执行，当前没有公开 Preview |
 | Personal Mesh 身份与设备 | 顶栏“设备”、添加设备、权限、撤销 | 建立系统保护身份、一次性加密配对、设备权限与可删到零的成员目录 | 代码已实现；LAN 临时入口、签名成员事件和撤销防复活均有自动化 |
 | 全局 Agent 目录与跨设备库存 | 设备 Lens、设备“查看会话”、Agent/会话列表、远端“重扫” | 签名事件目录独立同步长期员工；设备库存只同步来源 Slot/会话，先展示单目标缓存再按需刷新 | 代码已实现；精确协商 `catalog.events.v1` / `catalog.snapshot.v1` / `inventory.device-facts.v1`。目录无固定主机，按来源向量补事件；并发字段自动收敛，关系事务受基线/缺口门禁，删除 tombstone 防旧端复活；0.9.4 走快照兼容，更旧端 inventory-only。现代 inventory 无 Agent/Binding/tombstone；进入明确远端只刷新该 `deviceId`，失败保留缓存；首库存落库前按 canonical Slot 改写会话；库存 4 分钟全快照保持，inventory revision delta 仍待演进 |

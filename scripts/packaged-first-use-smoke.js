@@ -23,7 +23,7 @@ const fs = require('node:fs');
 const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const PACKAGE = require(path.join(APP_ROOT, 'package.json'));
@@ -154,6 +154,7 @@ function usage() {
     `  --expected-onboarding-version <number>   default: ${ONBOARDING.CURRENT_VERSION}`,
     '  --artifacts <directory>                  write screenshots and report.json',
     '  --timeout-ms <milliseconds>              5000..120000',
+    '  --macos-ci-mock-keychain                 ad-hoc macOS CI only; never a release candidate',
     '  --keep-temp                              preserve disposable userData',
     '  --help'
   ].join('\n');
@@ -166,6 +167,7 @@ function parseArguments(argv, env = process.env) {
     expectedOnboardingVersion: ONBOARDING.CURRENT_VERSION,
     artifacts: null,
     timeoutMs: DEFAULT_TIMEOUT_MS,
+    macosCiMockKeychain: false,
     keepTemp: false,
     help: false
   };
@@ -184,6 +186,10 @@ function parseArguments(argv, env = process.env) {
     }
     if (argument === '--keep-temp') {
       options.keepTemp = true;
+      continue;
+    }
+    if (argument === '--macos-ci-mock-keychain') {
+      options.macosCiMockKeychain = true;
       continue;
     }
     const key = valueOptions.get(argument);
@@ -327,6 +333,118 @@ function resolvePackagedArtifact(inputPath, platform = process.platform) {
     throw new Error('Source Electron runtime is forbidden; provide a packaged AgentDesk artifact');
   }
   return platform === 'darwin' ? resolveMacBundle(absolute) : resolveWindowsArtifact(absolute);
+}
+
+function assertAdHocMacSignatureSlice(details, architecture) {
+  const lines = String(details || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const signatures = lines.filter((line) => line.startsWith('Signature='));
+  assert.deepEqual(
+    signatures,
+    ['Signature=adhoc'],
+    `macOS CI mock Keychain requires exactly one ad-hoc signature for ${architecture}`
+  );
+  assert.equal(
+    lines.some((line) => line.startsWith('Authority=')),
+    false,
+    `macOS CI mock Keychain is forbidden for a certificate-signed ${architecture} slice`
+  );
+  assert.deepEqual(
+    lines.filter((line) => line.startsWith('TeamIdentifier=')),
+    ['TeamIdentifier=not set'],
+    `macOS CI mock Keychain requires no signing team identity for ${architecture}`
+  );
+}
+
+function assertAdHocMacSignatureDetails(report) {
+  assert.ok(report && typeof report === 'object', 'macOS signature report is required');
+  const architectures = Array.isArray(report.architectures) ? report.architectures.map(String) : [];
+  const slices = Array.isArray(report.slices) ? report.slices : [];
+  assert.ok(architectures.length > 0, 'macOS signature report contains no architectures');
+  assert.equal(new Set(architectures).size, architectures.length, 'macOS signature report repeats an architecture');
+  assert.equal(slices.length, architectures.length, 'macOS signature report must classify every architecture');
+  const slicesByArchitecture = new Map();
+  for (const slice of slices) {
+    const architecture = String(slice?.architecture || '');
+    assert.ok(architectures.includes(architecture), `macOS signature report contains unexpected ${architecture || 'empty'} slice`);
+    assert.equal(slicesByArchitecture.has(architecture), false, `macOS signature report repeats ${architecture}`);
+    slicesByArchitecture.set(architecture, slice);
+  }
+  for (const architecture of architectures) {
+    const slice = slicesByArchitecture.get(architecture);
+    assert.ok(slice, `macOS signature report is missing ${architecture}`);
+    assertAdHocMacSignatureSlice(slice.details, architecture);
+  }
+  return true;
+}
+
+function runMacSignatureCommand(command, args, label, commandRunner) {
+  let result;
+  try {
+    result = commandRunner(command, args, {
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024,
+      windowsHide: true
+    });
+  } catch (error) {
+    throw new Error(`${label}: ${error?.message || error}`);
+  }
+  if (!result || typeof result !== 'object') throw new Error(`${label}: command returned no result`);
+  if (result.error) throw new Error(`${label}: ${result.error.message}`);
+  if (result.status !== 0) throw new Error(label);
+  return result;
+}
+
+function readMacSignatureDetails(bundlePath, commandRunner = spawnSync) {
+  runMacSignatureCommand('/usr/bin/codesign', [
+    '--verify',
+    '--deep',
+    '--strict',
+    '--all-architectures',
+    bundlePath
+  ], 'macOS CI mock Keychain requires a valid signature on every AgentDesk.app architecture', commandRunner);
+  const executablePath = path.join(bundlePath, 'Contents', 'MacOS', PRODUCT_NAME);
+  const architectureResult = runMacSignatureCommand(
+    '/usr/bin/lipo',
+    ['-archs', executablePath],
+    'Unable to enumerate macOS package architectures',
+    commandRunner
+  );
+  const architectures = String(architectureResult.stdout || '').trim().split(/\s+/).filter(Boolean);
+  assert.ok(architectures.length > 0, 'macOS package contains no reported architectures');
+  assert.equal(new Set(architectures).size, architectures.length, 'macOS package repeats a reported architecture');
+  for (const architecture of architectures) {
+    assert.match(architecture, /^[A-Za-z0-9_]+$/, `Unsupported macOS architecture name: ${architecture}`);
+  }
+  const slices = architectures.map((architecture) => {
+    const result = runMacSignatureCommand('/usr/bin/codesign', [
+      '--display',
+      '--verbose=4',
+      '--architecture',
+      architecture,
+      bundlePath
+    ], `Unable to inspect the ${architecture} macOS package signature`, commandRunner);
+    return {
+      architecture,
+      details: `${result.stdout || ''}\n${result.stderr || ''}`
+    };
+  });
+  return { architectures, slices };
+}
+
+function resolveSmokeKeychainMode(options, artifact, runtime = {}) {
+  if (options?.macosCiMockKeychain !== true) return 'system';
+  const platform = runtime.platform || process.platform;
+  if (platform !== 'darwin') {
+    throw new Error('--macos-ci-mock-keychain is supported only on macOS');
+  }
+  if (artifact?.kind !== 'mac-app' || !String(artifact?.artifactPath || '').toLowerCase().endsWith('.app')) {
+    throw new Error('--macos-ci-mock-keychain requires a packaged AgentDesk.app');
+  }
+  const signatureDetails = runtime.readMacSignatureDetails
+    ? runtime.readMacSignatureDetails(artifact.artifactPath)
+    : readMacSignatureDetails(artifact.artifactPath, runtime.runCommand || spawnSync);
+  assertAdHocMacSignatureDetails(signatureDetails);
+  return 'mock';
 }
 
 function packagedRendererPath(url) {
@@ -475,6 +593,15 @@ function assertBrowserLaunchIdentity(commandLine, identity) {
       `DevTools Browser is not the exact spawned smoke process: missing or duplicate ${argument.split('=')[0]}`
     );
   }
+  assert.ok(['system', 'mock'].includes(identity.keychainMode), 'spawned launcher Keychain mode is invalid');
+  const mockKeychainArguments = argumentsList.filter((value) => (
+    value === '--use-mock-keychain' || value.startsWith('--use-mock-keychain=')
+  ));
+  assert.deepEqual(
+    mockKeychainArguments,
+    identity.keychainMode === 'mock' ? ['--use-mock-keychain'] : [],
+    `DevTools Browser Keychain mode does not match the spawned ${identity.keychainMode} smoke process`
+  );
   return true;
 }
 
@@ -632,8 +759,9 @@ async function capture(client, directory, name) {
   return target;
 }
 
-async function launchPackagedApp(artifact, userData, output, timeoutMs) {
+async function launchPackagedApp(artifact, userData, output, timeoutMs, keychainMode) {
   fs.mkdirSync(userData, { recursive: true });
+  assert.ok(['system', 'mock'].includes(keychainMode), 'packaged smoke Keychain mode is invalid');
   const port = await freePort();
   const launchToken = crypto.randomBytes(32).toString('hex');
   const childState = { exited: false, code: null, signal: null, error: null };
@@ -645,6 +773,7 @@ async function launchPackagedApp(artifact, userData, output, timeoutMs) {
     '--remote-allow-origins=*',
     '--disable-background-networking',
     '--no-first-run',
+    ...(keychainMode === 'mock' ? ['--use-mock-keychain'] : []),
     `--user-data-dir=${userData}`
   ], {
     cwd: artifact.kind === 'mac-app'
@@ -670,7 +799,8 @@ async function launchPackagedApp(artifact, userData, output, timeoutMs) {
     launchToken,
     pid: child.pid,
     port,
-    userData
+    userData,
+    keychainMode
   });
   const instance = {
     artifact,
@@ -1110,6 +1240,7 @@ function assertNoRuntimeExceptions(instance, label) {
 
 async function runSmoke(options) {
   const artifact = resolvePackagedArtifact(options.artifact);
+  const keychainMode = resolveSmokeKeychainMode(options, artifact);
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-packaged-smoke-'));
   const userData = path.join(tempRoot, 'user-data');
   const output = [];
@@ -1122,14 +1253,15 @@ async function runSmoke(options) {
     },
     expectedVersion: options.expectedVersion,
     expectedOnboardingVersion: options.expectedOnboardingVersion,
+    keychainMode,
     userData,
     phases: []
   };
   let instance = null;
   let primaryFailure = null;
   try {
-    process.stdout.write(`Packaged artifact: ${artifact.kind} · ${artifact.artifactPath}\n`);
-    instance = await launchPackagedApp(artifact, userData, output, options.timeoutMs);
+    process.stdout.write(`Packaged artifact: ${artifact.kind} · ${artifact.artifactPath} · keychain=${keychainMode}\n`);
+    instance = await launchPackagedApp(artifact, userData, output, options.timeoutMs, keychainMode);
     const firstWindow = await assertPackagedMainWindow(instance, options.expectedVersion);
     const first = await initializeFirstAgent(instance, userData, options);
     assertNoRuntimeExceptions(instance, 'packaged local initialization');
@@ -1138,7 +1270,7 @@ async function runSmoke(options) {
     await stopPackagedApp(instance);
     instance = null;
 
-    instance = await launchPackagedApp(artifact, userData, output, options.timeoutMs);
+    instance = await launchPackagedApp(artifact, userData, output, options.timeoutMs, keychainMode);
     await assertPackagedMainWindow(instance, options.expectedVersion);
     const progress = await recoverAndComplete(instance, userData, first, options);
     assertNoRuntimeExceptions(instance, 'packaged restart recovery');
@@ -1148,7 +1280,7 @@ async function runSmoke(options) {
     await stopPackagedApp(instance);
     instance = null;
 
-    instance = await launchPackagedApp(artifact, userData, output, options.timeoutMs);
+    instance = await launchPackagedApp(artifact, userData, output, options.timeoutMs, keychainMode);
     await assertPackagedMainWindow(instance, options.expectedVersion);
     const finalState = await verifyCompletedRestart(instance, userData, first, options);
     await capture(instance.client, options.artifacts, '02-packaged-completed-restart');
@@ -1241,13 +1373,16 @@ if (require.main === module) {
 
 module.exports = {
   NETWORK_ENV_KEYS,
+  assertAdHocMacSignatureDetails,
   assertBrowserLaunchIdentity,
   assertLocalOnlyOverview,
   assertPackagedRendererUrl,
   browserWebSocketFromOutput,
   parseArguments,
   packagedRendererPath,
+  readMacSignatureDetails,
   resolvePackagedArtifact,
+  resolveSmokeKeychainMode,
   runtimeVersionFromUserAgent,
   shutdownComplete,
   shutdownFailureReasons,
