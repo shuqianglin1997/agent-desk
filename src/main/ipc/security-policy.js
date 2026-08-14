@@ -1,3 +1,5 @@
+const fs = require('node:fs');
+const path = require('node:path');
 const { URL } = require('node:url');
 
 const MAIN_DOCUMENT_CSP = [
@@ -23,6 +25,41 @@ function canonicalDocumentUrl(value) {
   } catch (_error) {
     return '';
   }
+}
+
+function resolvePackagedDocumentPath(value, options = {}) {
+  if (typeof value !== 'string' || !value) {
+    throw new TypeError('document path is required');
+  }
+  const pathApi = options.pathApi || path;
+  const realpathSync = options.realpathSync || fs.realpathSync;
+  const realpathNative = options.realpathNative || fs.realpathSync.native || fs.realpathSync;
+  const absolutePath = pathApi.resolve(value);
+  const parsed = pathApi.parse(absolutePath);
+  const segments = absolutePath
+    .slice(parsed.root.length)
+    .split(pathApi.sep)
+    .filter(Boolean);
+
+  let archiveIndex = -1;
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    if (segments[index].toLowerCase() === 'app.asar') {
+      archiveIndex = index;
+      break;
+    }
+  }
+  if (archiveIndex < 0) return realpathSync(absolutePath);
+
+  // Electron's ASAR-aware realpath preserves an outer Windows 8.3 alias when
+  // the requested path points inside the archive. Resolve only the physical
+  // archive with the native filesystem API, then append the trusted internal
+  // path so loadFile and the exact IPC document allowlist use one spelling.
+  const archivePath = pathApi.join(parsed.root, ...segments.slice(0, archiveIndex + 1));
+  const resolvedArchivePath = realpathNative(archivePath);
+  const internalSegments = segments.slice(archiveIndex + 1);
+  return internalSegments.length
+    ? pathApi.join(resolvedArchivePath, ...internalSegments)
+    : resolvedArchivePath;
 }
 
 function isTrustedMainSender(event, options = {}) {
@@ -101,6 +138,7 @@ function installMainWindowSecurity(window, options = {}) {
 module.exports = {
   MAIN_DOCUMENT_CSP,
   canonicalDocumentUrl,
+  resolvePackagedDocumentPath,
   isTrustedMainSender,
   createTrustedIpcMain,
   withContentSecurityPolicy,

@@ -66,6 +66,7 @@ const {
 const { normalizeServiceUrls } = require('./mesh/protocol/signaling-auth');
 const {
   MAIN_DOCUMENT_CSP,
+  resolvePackagedDocumentPath,
   createTrustedIpcMain,
   installMainWindowSecurity
 } = require('./main/ipc/security-policy');
@@ -107,12 +108,10 @@ function currentLang() {
 const t = (key, params) => mt(currentLang(), key, params);
 
 const APP_NAME = 'AgentDesk';
-// Windows portable launchers may start the extracted app through an 8.3 path
-// while Chromium reports the same document with its long path. Resolve the
-// physical document once, then use that exact path for both loadFile and the
-// IPC/navigation allowlist so aliases cannot make the real main frame fail its
-// own sender check.
-const MAIN_DOCUMENT_PATH = fs.realpathSync(path.join(__dirname, 'index.html'));
+// Resolve the physical ASAR boundary before loading so a Windows portable 8.3
+// path and Chromium's long path cannot describe the same trusted document with
+// different URLs. The exact result is shared by loadFile and the IPC allowlist.
+const MAIN_DOCUMENT_PATH = resolvePackagedDocumentPath(path.join(__dirname, 'index.html'));
 const MAIN_DOCUMENT_URL = pathToFileURL(MAIN_DOCUMENT_PATH).href;
 const STORE_VERSION = 2;
 const WINDOWS_DISCOVERY_TTL = 30_000;
