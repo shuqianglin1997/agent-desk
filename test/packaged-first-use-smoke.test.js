@@ -259,6 +259,20 @@ test('packaged Renderer proof requires app.asar and parses the packaged version 
     contract: { width: 1040, height: 840 },
     displayClamped: false
   });
+  assert.deepEqual(assertPackagedWindowGeometry({
+    ...exactGeometry,
+    innerHeight: 775
+  }), {
+    contract: { width: 1040, height: 840 },
+    displayClamped: false
+  });
+  assert.throws(
+    () => assertPackagedWindowGeometry({
+      ...exactGeometry,
+      innerHeight: 743
+    }),
+    /height frame 97 exceeds 96 CSS px/
+  );
   const ciGeometry = {
     outerWidth: 1024,
     outerHeight: 796,
@@ -302,8 +316,25 @@ test('packaged Renderer proof requires app.asar and parses the packaged version 
   });
   assert.deepEqual(assertPackagedWindowGeometry({
     ...insetMacCiGeometry,
+    windowY: 25,
+    screenAvailTop: 25
+  }), {
+    contract: { width: 1040, height: 840 },
+    displayClamped: true
+  });
+  assert.deepEqual(assertPackagedWindowGeometry({
+    ...insetMacCiGeometry,
     windowY: -1055,
     screenAvailTop: -1058
+  }), {
+    contract: { width: 1040, height: 840 },
+    displayClamped: true
+  });
+  assert.deepEqual(assertPackagedWindowGeometry({
+    ...insetMacCiGeometry,
+    outerHeight: 678,
+    innerHeight: 650,
+    windowY: 3
   }), {
     contract: { width: 1040, height: 840 },
     displayClamped: true
@@ -311,8 +342,9 @@ test('packaged Renderer proof requires app.asar and parses the packaged version 
   assert.throws(
     () => assertPackagedWindowGeometry({
       ...insetMacCiGeometry,
-      outerHeight: 680,
-      innerHeight: 652
+      outerHeight: 675,
+      innerHeight: 647,
+      windowY: 4
     }),
     /neither the 840 contract nor an exact display clamp/
   );
@@ -339,7 +371,7 @@ test('packaged Renderer proof requires app.asar and parses the packaged version 
       innerHeight: 300,
       windowY: 184
     }),
-    /height frame 200 exceeds 64 CSS px/
+    /height frame 200 exceeds 96 CSS px/
   );
   assert.throws(
     () => assertPackagedWindowGeometry({ ...ciGeometry, outerWidth: 1000, innerWidth: 1000 }),
