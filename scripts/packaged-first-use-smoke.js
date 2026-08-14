@@ -32,7 +32,8 @@ const ONBOARDING = require(path.join(APP_ROOT, 'src', 'onboarding-state.js'));
 const PRODUCT_NAME = 'AgentDesk';
 const DEFAULT_TIMEOUT_MS = 45_000;
 const MAIN_WINDOW_CONTRACT = Object.freeze({ width: 1040, height: 840 });
-const MAX_OBSERVED_WINDOW_FRAME_CSS_PX = 64;
+const MAX_OBSERVED_WINDOW_FRAME_CSS_PX = 96;
+const MAX_AVAILABLE_EDGE_INSET_CSS_PX = 8;
 const NETWORK_ENV_KEYS = Object.freeze([
   'AGENTDESK_ALLOW_INSECURE_SIGNALING',
   'AGENTDESK_SIGNALING_URLS',
@@ -424,26 +425,35 @@ function assertPackagedWindowGeometry(snapshot) {
       accepted.add(Math.min(dimension.contract, displaySize + frame));
     }
 
-    // Window managers can place a fixed-size window a few frame pixels in
-    // from the available display origin before clamping its trailing edge.
-    // Electron 43 exposes screenX/screenY and availLeft/availTop, but can leave
-    // the non-standard screen.left/screen.top undefined. Use only the available
-    // origin for this extra proof and never infer or fall back to a full origin.
+    // GitHub macOS runners have trimmed exactly three CSS pixels from either
+    // edge of the available span. An independent eight-pixel total budget also
+    // covers a 3 + 3 split plus two pixels of CSS rounding, while remaining far
+    // below observed window chrome (28px on macOS and 65px on Windows). Never
+    // let the frame measurement enlarge this edge budget.
+    let exactAvailableEdgeClamp = false;
+    let edgeInsets = null;
     if (
       !accepted.has(dimension.actual)
       && Number.isFinite(dimension.position)
       && Number.isFinite(dimension.availableOrigin)
     ) {
-      const originInset = dimension.position - dimension.availableOrigin;
-      const remaining = dimension.available - originInset;
-      if (originInset >= 0 && originInset <= frame && remaining > 0) {
-        accepted.add(Math.min(dimension.contract, remaining));
-        accepted.add(Math.min(dimension.contract, remaining + frame));
-      }
+      const leading = dimension.position - dimension.availableOrigin;
+      const trailing = (
+        dimension.availableOrigin + dimension.available
+        - (dimension.position + dimension.actual)
+      );
+      const total = leading + trailing;
+      edgeInsets = { leading, trailing, total };
+      exactAvailableEdgeClamp = (
+        leading >= 0
+        && trailing >= 0
+        && total <= MAX_AVAILABLE_EDGE_INSET_CSS_PX
+        && dimension.actual + leading + trailing === dimension.available
+      );
     }
     assert.ok(
-      accepted.has(dimension.actual),
-      `packaged BrowserWindow ${dimension.name} ${dimension.actual} is neither the ${dimension.contract} contract nor an exact display clamp (${[...accepted].join(', ')}; position ${dimension.position}; available origin ${dimension.availableOrigin})`
+      accepted.has(dimension.actual) || exactAvailableEdgeClamp,
+      `packaged BrowserWindow ${dimension.name} ${dimension.actual} is neither the ${dimension.contract} contract nor an exact display clamp (${[...accepted].join(', ')}; position ${dimension.position}; available origin ${dimension.availableOrigin}; edge insets ${JSON.stringify(edgeInsets)})`
     );
     if (dimension.actual !== dimension.contract) displayClamped = true;
   }
