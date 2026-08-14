@@ -18,9 +18,11 @@ jobs:
   verify:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -33,5 +35,88 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build Windows portable
+      - name: Parse Windows release verifiers
+        shell: pwsh
+        run: |
+          foreach ($verifier in @(
+            'scripts/verify-windows-portable-package.ps1',
+            'scripts/verify-windows-release.ps1',
+            'scripts/verify-windows-publisher.ps1'
+          )) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $verifier),
+              [ref] $tokens,
+              [ref] $parseErrors
+            ) | Out-Null
+            if ($parseErrors.Count -ne 0) {
+              $parseErrors | ForEach-Object { Write-Error $_ }
+              exit 1
+            }
+          }
+
+      # This unsigned artifact only proves that the Windows source can be
+      # packaged. It is never uploaded or presented as an installable release.
+      - name: Build unsigned Windows compatibility artifact (not for distribution)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run build:win
+
+      - name: Resolve unique Windows compatibility artifacts
+        id: packaged_artifacts
+        shell: pwsh
+        run: |
+          $unpackedCandidates = @(
+            Get-ChildItem -LiteralPath 'release' -Directory -Recurse |
+              Where-Object { $_.Name -ceq 'win-unpacked' }
+          )
+          if ($unpackedCandidates.Count -ne 1) {
+            throw "Expected exactly one win-unpacked directory; found $($unpackedCandidates.Count)."
+          }
+
+          $portableCandidates = @(
+            Get-ChildItem -LiteralPath 'release' -File -Filter 'AgentDesk-*-portable-x64.exe'
+          )
+          if ($portableCandidates.Count -ne 1) {
+            throw "Expected exactly one Windows portable executable; found $($portableCandidates.Count)."
+          }
+
+          "unpacked=$($unpackedCandidates[0].FullName)" >> $env:GITHUB_OUTPUT
+          "portable=$($portableCandidates[0].FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Verify Electron fuses and ASAR layout in win-unpacked
+        shell: pwsh
+        env:
+          PACKAGED_ARTIFACT: ${{ steps.packaged_artifacts.outputs.unpacked }}
+        run: npm run verify:electron-package -- --artifact "$env:PACKAGED_ARTIFACT"
+
+      - name: Smoke packaged first use in win-unpacked
+        shell: pwsh
+        env:
+          PACKAGED_ARTIFACT: ${{ steps.packaged_artifacts.outputs.unpacked }}
+          SMOKE_ARTIFACTS: ${{ runner.temp }}\agentdesk-smoke-windows-unpacked
+        run: npm run accept:packaged -- --artifact "$env:PACKAGED_ARTIFACT" --artifacts "$env:SMOKE_ARTIFACTS"
+
+      - name: Verify Electron fuses and ASAR layout inside Windows portable
+        shell: pwsh
+        env:
+          PACKAGED_ARTIFACT: ${{ steps.packaged_artifacts.outputs.portable }}
+        run: npm run verify:win-portable-package -- -PortablePath "$env:PACKAGED_ARTIFACT"
+
+      - name: Smoke packaged first use in Windows portable
+        shell: pwsh
+        env:
+          PACKAGED_ARTIFACT: ${{ steps.packaged_artifacts.outputs.portable }}
+          SMOKE_ARTIFACTS: ${{ runner.temp }}\agentdesk-smoke-windows-portable
+        run: npm run accept:packaged -- --artifact "$env:PACKAGED_ARTIFACT" --artifacts "$env:SMOKE_ARTIFACTS"
+
+      - name: Upload Windows smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-ci-smoke-diagnostics
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/agentdesk-smoke-windows-unpacked
+            ${{ runner.temp }}/agentdesk-smoke-windows-portable

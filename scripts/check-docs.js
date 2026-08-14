@@ -13,7 +13,9 @@ const CURRENT_STATE_DOCS = [
   'docs/FUNCTION_AUDIT.md',
   'docs/ROADMAP.md',
   'docs/WINDOWS.md',
-  'docs/RELEASING.md'
+  'docs/RELEASING.md',
+  'docs/PERSONAL_AGENT_MESH_HANDOFF.md',
+  'docs/ADR_AGENTDESK_TASK_PACKAGE.md'
 ];
 const EVIDENCE_DOCS = [
   'README.md',
@@ -26,6 +28,10 @@ const EVIDENCE_DOCS = [
 ];
 
 const errors = [];
+const CURRENT_NODE_TOTAL = '517';
+const CURRENT_NODE_PASSED = '516';
+const CURRENT_UI_RESULT = '21/21';
+const CURRENT_RELEASE_SECURITY_RESULT = '14/14';
 
 function fail(file, message, lineNumber = null) {
   errors.push(`${file}${lineNumber ? `:${lineNumber}` : ''}: ${message}`);
@@ -60,7 +66,7 @@ function checkCurrentClaims(relativePath, body) {
     }
 
     if (/(?:三项[^。；;.]{0,40}尚未实现|three items are not implemented yet|版本化首次使用[^。；;.]{0,50}尚未实现|设备任务向导[^。；;.]{0,50}尚未实现|same-Mesh TaskPackage[^。；;.]{0,50}not implemented yet)/i.test(line)) {
-      fail(relativePath, 'retains the superseded pre-1.27 implementation status', lineNumber);
+      fail(relativePath, 'retains a superseded pre-maturity implementation status', lineNumber);
     }
 
     if (/0\.10\.0/i.test(line) && /(?:稳定|stable)/i.test(line) && !lineHasNegation(line)) {
@@ -133,8 +139,10 @@ for (const relativePath of CURRENT_STATE_DOCS) {
 for (const relativePath of EVIDENCE_DOCS) {
   requireText(relativePath, '562,009', 'must preserve the scoped physical two-Mac inventory evidence');
   requireText(relativePath, 'Preview', 'must distinguish Preview from a stable release');
-  requireText(relativePath, '490', 'must record the current full Node test total');
-  requireText(relativePath, '21/21', 'must record the current real-window task-path result');
+  requireText(relativePath, CURRENT_NODE_TOTAL, 'must record the current full Node test total');
+  requireText(relativePath, CURRENT_NODE_PASSED, 'must record the current passing Node test count');
+  requireText(relativePath, CURRENT_UI_RESULT, 'must record the current real-window task-path result');
+  requireText(relativePath, CURRENT_RELEASE_SECURITY_RESULT, 'must record the current release-security result');
   requireText(relativePath, '25/25', 'must record the scoped TaskPackage security result');
   if (!/(?:NAT|coturn)/i.test(documents.get(relativePath) || '')) {
     fail(relativePath, 'must name the still-open real NAT/coturn gate');
@@ -155,16 +163,68 @@ requireText('docs/README.md', '版本化首次使用', 'must record the implemen
 requireText('docs/README.md', '设备任务向导', 'must record the implemented device journey code path');
 requireText('docs/README.md', '旧七行信息轨只属于历史记录', 'must preserve the fixed current window skeleton');
 requireText('docs/README.md', 'v0.10.1-preview.1', 'must preserve the approved Preview release sequence');
-requireText('docs/RELEASING.md', 'prerelease flag', 'must explain how the workflow classifies Preview tags');
-requireText('docs/RELEASING.md', 'first Preview', 'must require verification of the first Preview classification');
+requireText('README.md', 'no public Preview matching this source', 'must disclose that the current source has no public Preview');
+requireText('docs/README.md', '当前尚无该公开 Release', 'must distinguish release-transaction code from a public Release');
+requireText('docs/PRODUCT.md', '当前没有公开 `v0.10.1-preview.1`', 'must preserve the current public-release boundary');
+requireText('docs/RELEASING.md', 'stableAllowed=false', 'must document the Preview-only stable gate');
+requireText('docs/RELEASING.md', 'repository or organization Actions variables', 'must document publisher identities as non-secret Actions variables');
+requireText('docs/RELEASING.md', 'APPLE_TEAM_ID', 'must bind macOS release assets to the configured Apple team identity');
+requireText('docs/RELEASING.md', 'WIN_SIGNER_THUMBPRINT', 'must bind Windows release assets to the protected publisher identity');
+requireText('docs/RELEASING.md', 'candidate-burned', 'must document non-reuse after public exposure');
+requireText('docs/RELEASING.md', 'fail-only rollback watcher', 'must document immediate per-public-gate rollback');
+requireText('docs/RELEASING.md', 'anonymously download', 'must document tokenless public redownload');
+requireText('docs/RELEASING.md', 'No public Preview currently satisfies this sequence', 'must disclose that no public Preview has passed the transaction');
 requireText('docs/WINDOWS.md', '不会被客户端自动更新器当成最新版', 'must disclose Preview updater behavior');
+requireText('docs/WINDOWS.md', '当前没有可供下载的公开', 'must disclose that no current Windows Preview is downloadable');
+if (authorityVersion) {
+  requireText('docs/PERSONAL_AGENT_MESH_HANDOFF.md', `PERSONAL_AGENT_MESH_PLAN.md\` ${authorityVersion}`, 'handoff must point to the current authority');
+  requireText('docs/ADR_AGENTDESK_TASK_PACKAGE.md', `PERSONAL_AGENT_MESH_PLAN.md\` ${authorityVersion}`, 'TaskPackage ADR must point to the current authority');
+}
 
 const releaseWorkflow = read('.github/workflows/release.yml');
-if (!releaseWorkflow.includes('name: Classify release channel')) {
-  fail('.github/workflows/release.yml', 'must classify stable and prerelease tag channels');
+const releaseRollback = read('scripts/redraft-github-release.sh');
+const requiredReleaseWorkflowMarkers = [
+  'STABLE_ALLOWED: "false"',
+  'name: Enforce protected Preview-only release policy',
+  'APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}',
+  'WIN_SIGNER_THUMBPRINT',
+  'create-draft:',
+  'verify-draft-macos:',
+  'verify-draft-windows:',
+  'publish-release:',
+  'verify-public-metadata:',
+  'verify-public-macos:',
+  'verify-public-windows:',
+  'redraft-on-public-metadata-failure:',
+  'redraft-on-public-macos-failure:',
+  'redraft-on-public-windows-failure:',
+  'seal-public-release:',
+  'redraft-on-release-failure:',
+  'name: Refuse an existing or previously burned release candidate',
+  'name: Create Preview as draft with only exact assets',
+  'name: Anonymously verify published state and exact asset metadata',
+  'name: Fail closed by returning any exposed release to draft',
+  'run: bash scripts/redraft-github-release.sh'
+];
+for (const marker of requiredReleaseWorkflowMarkers) {
+  if (!releaseWorkflow.includes(marker)) {
+    fail('.github/workflows/release.yml', `must preserve release transaction marker ${JSON.stringify(marker)}`);
+  }
 }
-if (!releaseWorkflow.includes('prerelease: ${{ steps.release_class.outputs.prerelease }}')) {
-  fail('.github/workflows/release.yml', 'must pass the derived prerelease flag to GitHub Release');
+
+if (/secrets\.(?:APPLE_TEAM_ID|WIN_SIGNER_THUMBPRINT)/.test(releaseWorkflow)) {
+  fail('.github/workflows/release.yml', 'publisher identities must use repository/organization Actions variables, not secrets');
+}
+for (const marker of [
+  'candidate_burned=true',
+  'the same tag moved from release ID $RELEASE_ID to $current_release_id',
+  'the same-tag release asset identity changed',
+  'PUBLIC VERIFICATION FAILED — CANDIDATE BURNED',
+  'gh api --method PATCH'
+]) {
+  if (!releaseRollback.includes(marker)) {
+    fail('scripts/redraft-github-release.sh', `must preserve rollback marker ${JSON.stringify(marker)}`);
+  }
 }
 
 if (errors.length) {

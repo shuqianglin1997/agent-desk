@@ -30,6 +30,9 @@
 | 工具维护 | 顶栏“工具” | 发现、打开并显式维护固定目录内的桌面 App/CLI | 保留；不接受界面传入任意命令 |
 | 本地持久化 | profiles.json、settings.json 及备份 | 保存账号、界面设置、猫位置和今日账本 | 保留；原子写入，账号空列表是有效状态 |
 | 应用更新 | Header“设置”弹窗中的“更新” | 检查可信 Release，支持的平台校验后替换 | 保留；正式 macOS 包仍需签名和公证 |
+| Electron 成品完整性 | 打包脚本与独立 verifier | 强制 `app.asar`、禁止 `default_app.asar`，流式复算每个文件的整文件/分块哈希，核对五项 fuse 及 macOS/Windows header 绑定 | 已实现；当前 macOS unpacked 的 118/118 个常规文件已通过。该证据不等于签名、公证、三次首次使用或可分发 DMG |
+| 成品首次使用 smoke | `accept:packaged` | 同一确切 `AgentDesk.app` / `win-unpacked` / portable 在一次性 userData 连续三次启动，验证首次初始化、恢复完成、完成后重启、零默认 Profile/远端连接与清理 | 脚本和 macOS/Windows CI 门禁已实现；当前未把 mac unpacked fuse/ASAR 通过误报为该 smoke 已通过 |
+| Preview 发布事务 | 受保护 Preview Tag | 精确三资产先建 Draft，两个原生系统重下载复验，再发布并无 token 匿名重下载；失败回 Draft，公开过的候选不可复用 | 代码已实现，发布安全 14/14；`stableAllowed=false`。真实签名凭据、受保护环境和真实 Tag 尚未执行，当前没有公开 Preview |
 | Personal Mesh 身份与设备 | 顶栏“设备”、添加设备、权限、撤销 | 建立系统保护身份、一次性加密配对、设备权限与可删到零的成员目录 | 代码已实现；LAN 临时入口、签名成员事件和撤销防复活均有自动化 |
 | 全局 Agent 目录与跨设备库存 | 设备 Lens、设备“查看会话”、Agent/会话列表、远端“重扫” | 签名事件目录独立同步长期员工；设备库存只同步来源 Slot/会话，先展示单目标缓存再按需刷新 | 代码已实现；精确协商 `catalog.events.v1` / `catalog.snapshot.v1` / `inventory.device-facts.v1`。目录无固定主机，按来源向量补事件；并发字段自动收敛，关系事务受基线/缺口门禁，删除 tombstone 防旧端复活；0.9.4 走快照兼容，更旧端 inventory-only。现代 inventory 无 Agent/Binding/tombstone；进入明确远端只刷新该 `deviceId`，失败保留缓存；首库存落库前按 canonical Slot 改写会话；库存 4 分钟全快照保持，inventory revision delta 仍待演进 |
 | 远端打开与有人准备 | Agent 面板主动作 | ready Deployment 用固定 `profile.launch`；没有 Slot 时用固定 `agent.prepare` 请求目标机有人值守准备 | 代码已实现；请求只含稳定 ID/受限枚举，安装、登录和系统权限留在目标机。确认排队前和允许后重读当前授权并绑定连接代次，撤权/断连/替换后的迟到允许不产生 Job |
@@ -40,7 +43,7 @@
 | 多设备控制台 | 右下 Remote Surface 单屏/网格 | 最多四路、一个活动画质、唯一输入目标和公开网络统计 | 代码已实现；切换/断线/撤销均释放按键 |
 | 公网会合与诊断 | 设备“网络设置”“连接诊断” | HTTPS 信令、STUN、短期 TURN、LAN/直连/中继状态 | 代码已实现；服务端可自托管，不接收业务内容；真实 NAT/coturn 待物理验收 |
 | UI 上下文 | Device Lens、Agent、Slot、focus/checked、副本、设备详情、全局弹窗、远控、传输草稿 | 保持每种对象和动作目标独立，并提供原子导航 | 已实现；`utilityDialog` 不写入 workspace/detail，render/filter 无选择副作用 |
-| 自动化与真实窗口验收 | `npm test`、`npm run accept:ui`、双端 E2E | Node 领域/安全回归、临时 userData 的 21 条真实窗口路径、局域网与本机 signaling 两种隔离双端链 | Node 490 项中 489 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25，首用/向导/配对/Main IPC/TaskPackage UI 相关定向 47/47，UI 21/21。两种 E2E 均完成认证、签名目录/库存、刷新、SessionPointer、184,333 字节文件与合成远控画面，但 runner 未发送 TaskPackage；这些本机证据不替代物理设备 |
+| 自动化与真实窗口验收 | `npm test`、`npm run accept:ui`、双端 E2E | Node 领域/安全回归、临时 userData 的 21 条真实窗口路径、局域网与本机 signaling 两种隔离双端链 | Node 517 项中 516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25、发布安全 14/14、UI 21/21。两种 E2E 均完成既有认证数据面，但 runner 未发送 TaskPackage；这些本机证据不替代物理设备 |
 | 物理双 Mac 局域网库存 | 两台实际 Mac、host/UDP DataChannel | 设备证书认证、目录、大库存、显式刷新、4 分钟全快照与短时稳定 | 已验证窄范围：562,009 字节、9 Slot、638 SessionReplica、revision 7 → 8 → 9、5 分钟稳定；远控、断网/睡眠、公网 NAT/TURN 和 Windows 不在该证据中 |
 
 ## 3. 会话复制的唯一契约
@@ -105,6 +108,6 @@
 - 双 Mac 局域网大库存、显式刷新和当前 4 分钟全快照恢复基线已经有窄真机证据；长连接可达性/断网与睡眠恢复、真实家庭 NAT/CGNAT、coturn UDP/TCP/TLS、远控媒体/输入，以及 macOS/Windows 四向权限、DPI 和 IME 尚未完成验收。当前定向验证环境也未配置或验证长期可达的公网 signaling endpoint。这些开放项是发布门禁，不是用更多本机模拟测试可以替代的功能描述。
 - 无人值守仍未获 Phase 9 单独批准；当前不能把 portable 有人值守端写成开机服务、锁屏控制或登录界面控制。
 - 同 Mesh TaskPackage 已有代码纵向与 UI 状态投影，但隔离 Electron E2E 尚未发送 TaskPackage；物理双机直送/接受/拒绝/撤权/断线恢复、真实公网 NAT/TURN、Windows 文件句柄与清理矩阵，以及跨 Mesh 身份确认、更多客户端原生导入和客户端精确聚焦仍需后续验收或实现，不能写成完整 P2P 迁移已经交付。
-- 当前候选为 `0.10.1-preview.1`；历史 `0.10.0` 不补发为稳定版。上述物理门禁关闭前，只允许签名、公证且明确标为 Preview 的安装产物。
+- 当前候选为 `0.10.1-preview.1`；历史 `0.10.0` 不补发为稳定版。发布事务代码和 14/14 不表示 Release 已产生：真实签名/公证、受保护 `preview-release` 环境、真实 Tag、匿名公开重下载、浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC 与物理干净机首启仍未完成，因此当前没有公开 Preview。
 
 这些项不应通过新增模板、更多复制类别或新的编排层解决。

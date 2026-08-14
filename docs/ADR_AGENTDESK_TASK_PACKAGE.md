@@ -4,7 +4,7 @@
 >
 > 日期：2026-08-14
 >
-> 对应产品基线：`PERSONAL_AGENT_MESH_PLAN.md` 1.27
+> 对应产品基线：`PERSONAL_AGENT_MESH_PLAN.md` 1.28
 >
 > 首个格式版本：`.agentdesk-task` schema v1
 
@@ -248,6 +248,6 @@ Preload 继续暴露逐项白名单方法，没有通用 `invoke(channel, payloa
 
 - `test/task-package.test.js`：容器加密、错误码、清单与类型关系、跨平台路径碰撞、稳定 Git 现场、附件不可变快照、Codex 根/child、冲突、幂等、标题和启动失败提交点；
 - `test/task-package-ui.test.js`：动作层级、接收预览、弹窗固定头尾、滚动所有权和窄 IPC；
-- `test/task-package-transfer.test.js`、`test/mesh-transfer.test.js`、`test/mesh-peer-compatibility.test.js`：目标设备独占 envelope、逐消息 feature/capability、逐次接受、完整哈希后解封、TTL、consumed ledger、清理和同快照便携回退；
-- 当前全量 Node 490 项中 489 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，真实 Electron UI 21/21 中的直送只覆盖资格与状态投影。现有隔离双 endpoint E2E 尚未发送 TaskPackage；
+- `test/task-package-transfer.test.js`、`test/mesh-transfer.test.js`、`test/mesh-peer-compatibility.test.js`：目标设备独占 envelope、逐消息 feature/capability、逐次接受、完整哈希后解封、TTL、consumed ledger、清理和同快照便携回退；Windows 受控清理根使用目标平台路径规则，只把大小写/分隔符等价的同一精确根视为相同，兄弟目录、子目录和异盘继续拒绝；
+- 当前全量 Node 517 项中 516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，真实 Electron UI 21/21 中的直送只覆盖资格与状态投影。现有隔离双 endpoint E2E 尚未发送 TaskPackage；
 - 全量 `npm test`、`npm run check` 与真实 Electron UI 验收继续作为提交门禁。

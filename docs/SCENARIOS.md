@@ -141,7 +141,11 @@ AgentDesk 不替用户补充说明，不合并多个会话，也不会把历史�
 
 ## 13. 当前验证边界
 
-当前 `0.10.1-preview.1` 的证据分层如下：完整 Node 套件共 490 项，489 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，首次使用、设备向导、配对、Main IPC 与 TaskPackage UI 相关定向 47/47。临时 userData 下真实 1040 × 840 Electron UI 为 21/21，覆盖全新首 Agent、重启恢复、设备向导 Shell 与状态投影、TaskPackage 直送资格和状态投影，以及既有固定几何、弹窗、会话、传输和远控任务路径。
+当前 `0.10.1-preview.1` 的证据分层如下：完整 Node 套件共 517 项，516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14。临时 userData 下真实 1040 × 840 Electron UI 为 21/21，覆盖全新首 Agent、重启恢复、设备向导 Shell 与状态投影、TaskPackage 直送资格和状态投影，以及既有固定几何、弹窗、会话、传输和远控任务路径。
+
+成品证据单独记账：当前 macOS unpacked `AgentDesk.app` 已通过独立 fuse/ASAR verifier，118/118 个常规文件的整文件/分块 SHA-256、五项 fuse 和 `ElectronAsarIntegrity` header hash 均符合实际字节，且不存在 `default_app.asar`。这个 ad-hoc unpacked 结果不证明三次首次使用 smoke、Developer ID、公证、Gatekeeper 或可分发 DMG 已通过。
+
+发布事务代码已把稳定开关固定为 `stableAllowed=false`，并要求精确 DMG、portable、`SHA256SUMS.txt` 三项资产依次经过 Draft、macOS/Windows 原生 runner 重下载、发布后无 token 匿名重下载与失败回 Draft；公开过再失败的 candidate 不得复用 Tag/version。14/14 只证明这些策略的纯代码边界。目前尚未配置真实签名凭据、受保护 `preview-release` 环境或真实 Preview Tag，因此没有公开 `v0.10.1-preview.1`。
 
 两个隔离 endpoint 的真实 Electron WebRTC 分别在局域网直连和本机 signaling 路径完成设备认证、签名目录/库存、显式刷新、SessionPointer、184,333 字节文件和合成远控画面。这个 E2E runner **尚未发送 TaskPackage**：它证明既有认证传输底座仍贯通，不是 TaskPackage 直送数据面的 Electron E2E 证据。
 
@@ -153,4 +157,4 @@ AgentDesk 不替用户补充说明，不合并多个会话，也不会把历史�
 - Windows portable 包内 helper 的真机编译、权限和 UAC 降级行为。
 - 断网重连、睡眠/唤醒、长期可达与撤销后的物理防重连。
 
-因此“代码纵向链路与本机自动化已实现”和“局域网库存有物理证据”都不表示 TaskPackage 已完成物理双机直送，也不表示公网与跨平台物理矩阵已经验收。物理双机 TaskPackage 接受/拒绝/撤权/断线恢复、真实公网 NAT/TURN、长期连接恢复和 Windows 文件句柄/清理矩阵仍开放。门禁关闭前，可安装产物必须签名、公证并明确标记为 Preview；当前候选是 `0.10.1-preview.1`，历史 `0.10.0` 不补发为稳定版。无人值守、登录界面、UAC 安全桌面、通用远程 Shell 和任意命令仍明确不做。
+因此“代码纵向链路与本机自动化已实现”“unpacked verifier 已通过”和“局域网库存有物理证据”都不表示他人已经可以下载安装。GitHub-hosted runner 未来完成匿名重下载，也只证明 URL、字节、摘要、签名与自动化首次使用，不替代浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC 和物理干净机首启。物理双机 TaskPackage 接受/拒绝/撤权/断线恢复、真实公网 NAT/TURN、长期连接恢复和 Windows 文件句柄/清理矩阵仍开放。当前候选是 `0.10.1-preview.1`，历史 `0.10.0` 不补发为稳定版；无人值守、登录界面、UAC 安全桌面、通用远程 Shell 和任意命令仍明确不做。

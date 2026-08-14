@@ -1664,7 +1664,7 @@ class TransferService {
       finalPaths.push(...(Array.isArray(local?.finalPaths) ? local.finalPaths : []));
       if (packageRoot && local?.tempDir) {
         const expected = path.resolve(packageRoot, `.agentdesk-receive-${transferDirectoryName(job.transferId)}`);
-        if (path.resolve(local.tempDir) === expected) {
+        if (sameResolvedPath(local.tempDir, expected)) {
           removePrivatePath(expected, { directory: true });
         }
       }
@@ -1682,12 +1682,12 @@ class TransferService {
     for (const filePath of finalPaths) {
       if (!packageRoot || !filePath) continue;
       const resolved = path.resolve(filePath);
-      if (path.dirname(resolved) !== packageRoot) continue;
+      if (!sameResolvedPath(path.dirname(resolved), packageRoot)) continue;
       removePrivatePath(resolved);
     }
     const incomingParent = path.resolve(this.spoolRoot, 'incoming');
     const stateDirectory = path.resolve(path.dirname(this.fileLocalStatePath(job)));
-    if (path.dirname(stateDirectory) === incomingParent) {
+    if (sameResolvedPath(path.dirname(stateDirectory), incomingParent)) {
       removePrivatePath(stateDirectory, { directory: true });
     }
     return true;
@@ -1725,14 +1725,16 @@ class TransferService {
   writeTaskPackageCleanupDescriptor(job, local) {
     if (job.type !== 'task-package' || job.direction !== 'incoming') return false;
     const packageRoot = fs.realpathSync(path.resolve(this.spoolRoot, 'task-packages'));
-    if (path.resolve(local.destinationRoot) !== packageRoot) {
+    if (!sameResolvedPath(local.destinationRoot, packageRoot)) {
       throw new Error('task-package-cleanup-root');
     }
     const finalNames = (Array.isArray(local.finalPaths) ? local.finalPaths : [])
       .filter(Boolean)
       .map((filePath) => {
         const resolved = path.resolve(filePath);
-        if (path.dirname(resolved) !== packageRoot) throw new Error('task-package-cleanup-final-boundary');
+        if (!sameResolvedPath(path.dirname(resolved), packageRoot)) {
+          throw new Error('task-package-cleanup-final-boundary');
+        }
         const name = path.basename(resolved).normalize('NFC');
         if (safeTaskPackageName(name) !== name) throw new Error('task-package-cleanup-final-name');
         return name;
@@ -1765,7 +1767,7 @@ class TransferService {
     const receivedBytes = previous ? await this.incomingBytes(job, manifest, previous) : 0;
     ensureDiskSpace(root, Math.max(0, manifest.bytesTotal - receivedBytes));
     if (previous) {
-      if (path.resolve(previous.destinationRoot) !== path.resolve(root)) {
+      if (!sameResolvedPath(previous.destinationRoot, root)) {
         throw new Error('file-destination-already-selected');
       }
       return previous;
@@ -2391,6 +2393,13 @@ function safeChildPath(root, name) {
   return target;
 }
 
+function sameResolvedPath(left, right, pathApi = path) {
+  if (typeof left !== 'string' || typeof right !== 'string' || !left || !right) return false;
+  const leftPath = pathApi.resolve(left);
+  const rightPath = pathApi.resolve(right);
+  return pathApi.relative(leftPath, rightPath) === '';
+}
+
 async function regularFileSize(filePath) {
   try {
     const stat = await fs.promises.lstat(filePath);
@@ -2512,5 +2521,6 @@ module.exports = {
   POINTER_MESSAGE_LIMIT,
   TransferService,
   normalizeSelections,
+  sameResolvedPath,
   secureContext
 };

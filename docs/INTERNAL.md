@@ -161,6 +161,12 @@ services/signaling/       可自托管最小信令与 TURN REST 凭据服务
 
 scripts/
   ui-acceptance.js        临时 userData 下的真实 1040 × 840 Electron 任务验收
+  verify-electron-package-integrity.js  流式核验成品 fuse、ASAR 每个文件及 macOS/Windows header 绑定
+  packaged-first-use-smoke.js  对同一确切成品执行首次初始化、恢复完成和完成后重启
+  github-release-gate.js  校验 Preview 策略、三资产、Draft/公开状态、摘要与实际下载字节
+  verify-windows-portable-package.ps1  解开无签名兼容 portable 并核验其真实内层成品
+  verify-windows-release.ps1  验证 portable、包内主程序与 input helper 的 Authenticode/时间戳
+  verify-windows-publisher.ps1  把三层 Windows 可执行文件绑定到受保护发布者 thumbprint
   check-docs.js           当前状态文档的链接、权威版本、证据与发布口径检查
 ```
 
@@ -379,11 +385,15 @@ npm run accept:ui
 npm run build:mac:dir
 ```
 
-当前完整 Node 套件共 490 项（489 通过、1 项仅 Windows 跳过、0 失败）；其中 TaskPackage 安全定向 25/25，首用/设备向导/配对/Main IPC/TaskPackage UI 相关定向 47/47。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均复跑完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；该 runner 尚未发送 TaskPackage，因此它既不是直送数据面证据，也不是物理双机或真实 NAT/TURN 证据。
+当前完整 Node 套件共 517 项（516 通过、1 项仅 Windows 跳过、0 失败）；其中 TaskPackage 安全定向 25/25，发布安全定向 14/14。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均复跑完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；该 runner 尚未发送 TaskPackage，因此它既不是直送数据面证据，也不是物理双机或真实 NAT/TURN 证据。
 
 物理证据单独存在：两台 Mac 在同一局域网通过 host/UDP 建立认证 DataChannel，562,009 字节库存中的 9 个 Slot 与 638 条 SessionReplica 完整落库，显式刷新与 4 分钟全快照把 revision 从 7 推进到 8 和 9，连接连续 5 分钟无错误或断开。该记录不覆盖远控媒体/输入权限、断网/睡眠恢复、公网 NAT/coturn 或 Windows。
 
 `npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前通过 21/21 条任务路径：新增全新首 Agent 的真实本机事务与无网络断言、首次使用重启恢复且不生成默认 Profile、设备任务向导固定 Shell/分层状态，以及 TaskPackage 直送资格和接收阶段投影；原有 58/244/316/38 固定几何、Compact 无横滚、会话选择、庭院/卡片、三语/明暗主题、父子弹窗、小视口、目录对象、传输草稿和 Remote Surface 契约继续覆盖。直送窗口验收只证明 UI 资格、状态与明文码不可见，不代表真实 WebRTC 数据面已经传过 TaskPackage。
+
+成品验证分成两层。`verify-electron-package-integrity.js` 不启动应用，直接证明 `app.asar` 存在、`default_app.asar` 不存在，流式复算每个常规文件的整文件与 4 MiB 分块 SHA-256，拒绝缺失元数据、链接、范围空洞/重叠和尾部载荷；`RunAsNode` 仅作为固定 CLI launcher 的兼容 fuse 保留，`NODE_OPTIONS`/inspect 关闭、embedded integrity/only-load-from-ASAR 开启，archive header 再绑定 macOS `Info.plist` 或 Windows PE 的唯一 `INTEGRITY/ELECTRONASAR`。当前 macOS unpacked 成品的 118/118 个常规文件已通过这一层。`packaged-first-use-smoke.js` 才会对同一确切 `AgentDesk.app`、`win-unpacked` 或带版本 portable 使用临时 userData 连续启动三次，核对固定窗口、首次初始化/恢复、零默认 Profile、零 Mesh 网络，以及原始启动句柄和回环调试端点清理；随机 launch token 与 Browser command line 防止同机其他页面冒充本次产物。脚本与 CI 门禁已经存在，但当前 macOS verifier 结果不能替代一次真实 smoke 通过记录；macOS `safeStorage` 仍可接触 runner 的系统 Keychain，临时 userData 不等于物理用户的 Keychain 隔离。
+
+发布事务再高一层：`github-release-gate.js` 与 Preview-only workflow 把 `stableAllowed=false`、精确 DMG + portable + `SHA256SUMS.txt`、Draft 双原生端重下载、发布后无 token 匿名公开重下载、摘要/清单/字节一致、失败回 Draft 与 candidate-burned 固化为门禁；诊断只保留为 Actions artifact，不进入 Release。发布安全 14/14 证明门禁逻辑，尚未用真实签名凭据、受保护 `preview-release` 环境和真实 Tag 执行，因此当前没有公开 Preview。
 
 测试除了扫描器和纯函数，还包含以下边界契约：
 
@@ -391,6 +401,9 @@ npm run build:mac:dir
 - 已退休的执行与自动交接编排模块不存在；focused/checked 会话只形成临时动作集合，并只调用最小定位格式。TaskPackage 只从一条聚焦本机会话显式建立不可变快照；
 - 工具发现不携带协议或会话参数；
 - package 不包含会话协议 SDK；
+- Electron 成品必须只从 `app.asar` 加载且匹配五项 fuse；`RunAsNode` 的调用面不得超出现有 `cli-discovery.js` 与 `codex-quota.js` 两个固定 launcher；
+- 成品首次使用 smoke 必须使用同一确切产物完成三次启动，产物类型、版本、UI、首次使用状态、零 Mesh 网络、进程与回环调试端点都有白名单；
+- Preview 发布只接受受保护的 Preview Tag、精确三资产、Draft/公开状态与摘要/实际下载字节一致；公开后失败必须回 Draft 并烧毁候选版本；
 - 庭院只暴露三类核心意图。
 - Mesh 账号关联键在同 Mesh 内稳定、跨 Mesh 不可关联，成员证书和握手证明可检测篡改与过期；
 - 签名目录事件、来源连续向量、字段并发合并、同字段稳定冲突、结构事务门禁、删除 tombstone 与 0.9.4 快照兼容；inventory 不能越权修改全局目录；
@@ -407,6 +420,6 @@ npm run build:mac:dir
 - Renderer 任务结果测试和真实窗口验收共同证明 UI 上下文互不覆盖，render/filter 不自动制造选择。
 - TaskPackage 回归覆盖错误密钥与密文保密、清单类型/路径/总量边界、Git 只携带已跟踪差异、Codex 根会话/internal-child 原生导入、来源标题、目标冲突、独立 consumed ledger，以及客户端打开失败后仍保留已提交内容；直送额外覆盖目标设备独占 envelope、逐消息 capability/feature、完整哈希后解封、拒绝/过期/撤权/撤销清理和同快照便携回退。UI 契约证明它是单会话次级动作，导入/历史属于活动弹窗，两个事务弹窗固定 Header/Footer 且只有 Content 滚动。
 
-这些自动化不能替代物理设备；已有双 Mac 局域网库存证据也不能替代完整设备向导、TaskPackage 直送、真实 NAT/coturn、断网/睡眠恢复和 macOS/Windows 权限矩阵。对应门禁见 `PERSONAL_AGENT_MESH_PLAN.md`。门禁关闭前只允许签名、公证且明确标记的 Preview；当前源码版本为 `0.10.1-preview.1`，`0.10.0` 不补发为稳定版。
+这些自动化不能替代物理设备；已有双 Mac 局域网库存证据也不能替代完整设备向导、TaskPackage 直送、真实 NAT/coturn、断网/睡眠恢复和 macOS/Windows 权限矩阵。托管 runner 的未来匿名下载也不能替代浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC 与物理干净机首启。当前没有公开 `v0.10.1-preview.1`；真实签名/公证、受保护环境和真实 Tag 仍未执行，`0.10.0` 不补发为稳定版。
 
 发布要求见 [RELEASING.md](RELEASING.md)。

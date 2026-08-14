@@ -19,7 +19,7 @@
 
 ![AgentDesk](assets/screenshots/app.png)
 
-> **Development status:** the `0.10.1-preview.1` source implements versioned first use, the guided device journey, and same-Mesh TaskPackage delivery as attended Preview code paths. The full Node suite passed 489 of 490 tests with one Windows-only skip and no failures; TaskPackage security passed 25/25, the related first-use/journey/pairing/Main-IPC/TaskPackage-UI batch passed 47/47, and real Electron UI acceptance passed 21/21. The two isolated endpoint E2E runs also passed over direct LAN and local signaling, covering authentication, catalog/inventory, refresh, SessionPointer, a 184,333-byte file, and synthetic remote view; that runner does not send a TaskPackage, so direct TaskPackage delivery has no Electron data-plane or physical two-device result yet. A separate physical two-Mac LAN run verified an authenticated host/UDP channel and a 562,009-byte inventory (9 slots, 638 session replicas, revisions 7 → 8 → 9) over five stable minutes. Public NAT/CGNAT, forced coturn UDP/TCP/TLS relay, disconnect/sleep recovery, physical TaskPackage delivery, and the macOS/Windows screen/input/permission matrix remain open release gates. Installable artifacts must be signed/notarized and explicitly marked **Preview**, not stable.
+> **Development status:** the `0.10.1-preview.1` source implements versioned first use, the guided device journey, and same-Mesh TaskPackage delivery as attended Preview code paths. The full Node suite has 517 tests: 516 pass, one Windows-only test is skipped, and none fail; TaskPackage security is 25/25, release-security tests are 14/14, and real Electron UI acceptance is 21/21. The current macOS unpacked app also passes the independent Electron fuse/ASAR verifier. These results prove source and local-package invariants, not a distributable release. The two isolated endpoint E2E runs passed over direct LAN and local signaling, while a separate physical two-Mac LAN run verified an authenticated host/UDP channel and a 562,009-byte inventory (9 slots, 638 session replicas, revisions 7 → 8 → 9) over five stable minutes. The endpoint runner still does not send a TaskPackage. Public NAT/CGNAT, forced coturn UDP/TCP/TLS relay, disconnect/sleep recovery, physical TaskPackage delivery, and the macOS/Windows screen/input/permission matrix remain open. The Draft/native-redownload/public-anonymous-redownload release transaction is implemented but has not been executed with real signing credentials, the protected environment, and a real tag, so there is currently **no public Preview matching this source**.
 
 ## What AgentDesk does
 
@@ -74,14 +74,15 @@ Use the **Yard / Cards** segment to change the presenter without changing any da
 
 ## Install
 
-Install only a signed build from [GitHub Releases](https://github.com/shuqianglin1997/agent-desk/releases) whose status matches the current documentation:
+There is currently no public `v0.10.1-preview.1` build to install. Do not treat an older GitHub Release as this source version. When a matching Preview passes the release gate, [GitHub Releases](https://github.com/shuqianglin1997/agent-desk/releases) will contain exactly:
 
 - macOS: `AgentDesk-<version>-universal.dmg`
 - Windows: `AgentDesk-<version>-portable-x64.exe`
+- checksums: `SHA256SUMS.txt`
 
 > Security note: do not install the old v0.9.0 macOS image; Apple reports that unsigned package as revoked. Use a current signed and notarized release.
 
-The current source version is `0.10.1-preview.1`. It is a Preview candidate, not a stable release, and does not retroactively turn the `0.10.0` development baseline into one. Do not infer that an older GitHub Release contains this branch.
+The current source version is `0.10.1-preview.1`. It is only a Preview candidate, not a stable or published release, and does not retroactively turn the `0.10.0` development baseline into one. Private signing credentials, repository/organization Actions variables `APPLE_TEAM_ID` and `WIN_SIGNER_THUMBPRINT`, the protected `preview-release` environment, a real Preview tag, anonymous public-download verification, and physical clean-machine install checks are still required.
 
 On macOS, move AgentDesk.app into `/Applications` and open it normally. Do not bypass Gatekeeper for an unsigned or revoked package. On Windows, see [docs/WINDOWS.md](docs/WINDOWS.md) for Store/MSIX path handling.
 
@@ -145,7 +146,7 @@ Start with the [documentation map and evidence ledger](docs/README.md), then see
 
 AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
-> **开发状态：** `0.10.1-preview.1` 源码已经接通版本化首次使用、设备任务向导和同 Mesh TaskPackage 直送的有人值守 Preview 路径。全量 Node 490 项中 489 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，首用/向导/配对/Main IPC/TaskPackage UI 相关定向 47/47，真实 Electron UI 21/21。隔离双 endpoint 的局域网直连与本机 signaling E2E 也已复跑，均完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件和合成远控画面；该 runner 尚未发送 TaskPackage，因此直送数据面没有 Electron E2E 或物理双机证据。另一次物理双 Mac 局域网验证已完成认证 host/UDP 通道和 562,009 字节库存（9 个 Slot、638 条 SessionReplica、revision 7 → 8 → 9），连续 5 分钟稳定。真实公网 NAT/CGNAT、coturn UDP/TCP/TLS 强制中继、断网/睡眠恢复、TaskPackage 物理直送，以及 macOS/Windows 屏幕、输入和权限矩阵仍是开放门禁。可安装产物必须签名、公证并明确标为 **Preview**，不能称为稳定版。
+> **开发状态：** `0.10.1-preview.1` 源码已经接通版本化首次使用、设备任务向导和同 Mesh TaskPackage 直送的有人值守 Preview 路径。全量 Node 517 项中 516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14，真实 Electron UI 21/21。当前 macOS unpacked 成品也已通过独立的 Electron fuse/ASAR verifier；这些证据证明源码与本机成品边界，不等于可分发版本已经产生。隔离双 endpoint 的局域网直连与本机 signaling E2E 已完成既有数据面，物理双 Mac 局域网则完成认证 host/UDP 通道和 562,009 字节库存（9 个 Slot、638 条 SessionReplica、revision 7 → 8 → 9），连续 5 分钟稳定；runner 仍未发送 TaskPackage。Draft、原生双端重下载、公开后匿名重下载和失败回 Draft 的发布事务已经进入代码，但尚未用真实签名凭据、受保护环境与真实 Tag 执行，因此当前没有与该源码匹配的公开 Preview。真实公网 NAT/CGNAT、coturn 强制中继、断网/睡眠恢复、TaskPackage 物理直送，以及 macOS/Windows 权限矩阵也继续开放。
 
 ## 核心能力
 
@@ -186,7 +187,7 @@ Personal Mesh 当前只做有人值守：应用退出后不在线，不控制登
 
 ## 安装与开发
 
-可安装产物见 [Releases](https://github.com/shuqianglin1997/agent-desk/releases)。当前源码版本为 `0.10.1-preview.1`，它是 Preview 候选，不是稳定版，也不会把 `0.10.0` 开发基线补发成稳定版。macOS 请正常拖入 `/Applications` 并通过 Gatekeeper 校验；Windows 的 Store/MSIX 与 portable 说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
+当前没有可供下载的 `v0.10.1-preview.1` 公开 Preview，不要把 [Releases](https://github.com/shuqianglin1997/agent-desk/releases) 中的旧版本当成本源码。首个候选只有在真实签名/公证、仓库或组织 Actions variables `APPLE_TEAM_ID` / `WIN_SIGNER_THUMBPRINT`、受保护 `preview-release` 环境、真实 Tag、Draft 与公开匿名重下载以及物理干净机检查完成后才可供他人安装；届时 Release 只应包含 DMG、portable 和 `SHA256SUMS.txt`。当前源码仍只是 Preview 候选，不是稳定版，也不会把 `0.10.0` 开发基线补发成稳定版。Windows 的 Store/MSIX 与 portable 说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
 
 ```bash
 npm ci

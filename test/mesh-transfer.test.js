@@ -17,7 +17,7 @@ const { encryptSecurePayload, decryptSecurePayload } = require('../src/mesh/prot
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { MeshStore } = require('../src/mesh/storage/mesh-store');
 const { MeshService } = require('../src/mesh/main/mesh-service');
-const { TransferService } = require('../src/mesh/main/transfer-service');
+const { TransferService, sameResolvedPath } = require('../src/mesh/main/transfer-service');
 
 test('纯本地模式查看活动不会提前创建不完整 Mesh 数据库', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-transfer-local-'));
@@ -91,6 +91,53 @@ test('文件 manifest 拒绝危险名称并稳定避免覆盖同名文件', () =
     ...manifest,
     files: [{ ...manifest.files[0], name: '../unsafe.txt' }]
   }), /name/);
+});
+
+test('清理根路径按平台规范化后仍要求同一个精确目录', () => {
+  assert.equal(sameResolvedPath(
+    '/private/agentdesk/spool/task-packages',
+    '/private/agentdesk/spool/./task-packages/',
+    path.posix
+  ), true);
+  assert.equal(sameResolvedPath(
+    '/private/agentdesk/spool/task-packages',
+    '/private/agentdesk/spool/task-packages-saved',
+    path.posix
+  ), false);
+  assert.equal(sameResolvedPath(
+    '/private/agentdesk/spool/task-packages',
+    '/private/agentdesk/spool/task-packages/child',
+    path.posix
+  ), false);
+  assert.equal(sameResolvedPath(
+    '/private/agentdesk/spool/task-packages',
+    '/private/agentdesk/spool/Task-Packages',
+    path.posix
+  ), false);
+});
+
+test('Windows 清理根接受等价大小写和分隔符但拒绝兄弟目录、子目录与异盘', () => {
+  const controlledRoot = 'C:\\Users\\RUNNERADMIN\\AgentDesk\\spool\\task-packages';
+  assert.equal(sameResolvedPath(
+    controlledRoot,
+    'c:/users/runneradmin/AgentDesk/spool/./task-packages/',
+    path.win32
+  ), true);
+  assert.equal(sameResolvedPath(
+    controlledRoot,
+    'C:\\Users\\RUNNERADMIN\\AgentDesk\\spool\\task-packages-saved',
+    path.win32
+  ), false);
+  assert.equal(sameResolvedPath(
+    controlledRoot,
+    'C:\\Users\\RUNNERADMIN\\AgentDesk\\spool\\task-packages\\child',
+    path.win32
+  ), false);
+  assert.equal(sameResolvedPath(
+    controlledRoot,
+    'D:\\Users\\RUNNERADMIN\\AgentDesk\\spool\\task-packages',
+    path.win32
+  ), false);
 });
 
 test('SessionPointer 在线送达、离线密文排队、上线重试和本机项目映射', async () => {

@@ -4,7 +4,7 @@
 
 AgentDesk 以“单人 Personal Agent Mesh”为长期主轴：先把本机多账号、逻辑会话和工具维护做准，再扩展为同一个人在多台可信设备上的全局 Agent 目录、会话索引、显式发送和受限控制。整项工作可以通过不可变加密 TaskPackage 交给另一个 Agent、设备或人；同一快照既可保存为便携文件，也可在同一 Mesh 内直接发送。这项能力传递一次快照，不把 Personal Mesh 扩张为团队平台、聊天壳或任务执行编排器。
 
-Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于 2026-08-13 获批，便携 TaskPackage 基线于 2026-08-14 写入 1.25；1.26 批准的版本化首次使用、设备任务向导、同 Mesh TaskPackage 直接发送和 Preview 发布门禁已经在 1.27 进入代码。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；Phase 4A 已贯通便携加密文件、同 Mesh Preview 直送、人工检查点、Git/附件捕获、Codex 原生导入和活动历史。固定 Header/三面板/Footer 页面骨架、四个独立全局弹窗与独立 UI 上下文保持不变。TaskPackage 的 Electron E2E 数据面、完整物理双机向导与直送、真实公网/coturn、断网/睡眠恢复和跨平台权限矩阵仍未关闭，所以稳定版门禁继续开放。
+Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于 2026-08-13 获批，便携 TaskPackage 基线于 2026-08-14 写入 1.25；1.27 已把版本化首次使用、设备任务向导和同 Mesh TaskPackage 直送带入代码，1.28 又固化成品 fuse/ASAR、三次首次使用 smoke 与 Preview Draft/公开重下载事务。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；固定 Header/三面板/Footer 页面骨架、四个独立全局弹窗与独立 UI 上下文保持不变。当前没有公开 Preview：真实签名凭据、受保护环境、真实 Tag、物理下载/安装与 TaskPackage/公网/跨平台矩阵仍未关闭，稳定版门禁继续开放。
 
 ## 当前基线
 
@@ -15,6 +15,8 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 共用状态的猫猫庭院与卡片名册、单一场景 Popover；
 - 桌面 App / CLI 发现、版本检查、打开和显式维护；
 - macOS / Windows 打包、更新与发布校验；
+- Electron 成品 `app.asar` 逐文件/分块哈希、header 绑定与五项 fuse 独立 verifier；当前 macOS unpacked 的 118/118 个常规文件已通过该层，`RunAsNode` 只为两个固定 CLI launcher 保留；
+- 跨 `AgentDesk.app`、`win-unpacked` 与 portable 的三次首次使用 smoke，以及 Preview-only 三资产 Draft/公开匿名重下载、失败回 Draft 和候选不可复用门禁代码；
 - Personal Mesh 初始化、一次性加密配对、设备权限/撤销、全局 Agent 目录、设备 Lens 与可删到零语义；
 - 版本化首次使用：真实空 Profile 目录、创建首个 Agent/本机设备身份的无网络事务、既有 Profile 无损迁移预览与重启恢复；
 - 添加设备任务向导：加入端验签预览、邀请端签证前确认、成员信任、认证连接、目录与库存屏障的独立状态；
@@ -30,7 +32,7 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
 - 已就绪远端固定 `profile.launch`、未就绪远端有人值守 `agent.prepare`，以及确认后撤权/断连的副作用阻断；
 - Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
-- 完整 Node 套件 490 项中 489 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，首次使用、设备向导、配对、Main IPC 与 TaskPackage UI 相关定向 47/47；临时 userData 下真实 1040 × 840 Electron UI 为 21/21。
+- 完整 Node 套件 517 项中 516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14；临时 userData 下真实 1040 × 840 Electron UI 为 21/21。
 - 隔离双 endpoint 的局域网直连与本机 signaling E2E 均完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件和合成远控画面；runner 尚未发送 TaskPackage，不能作为直送数据面的 Electron E2E 证据。
 - 物理双 Mac 在同一局域网完成 host/UDP 认证 DataChannel、562,009 字节库存、9 个 Slot、638 条 SessionReplica、revision 7 → 8 → 9 和连续 5 分钟稳定；该证据只关闭大库存、显式刷新与当前 4 分钟全快照恢复基线。
 
@@ -53,11 +55,13 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 
 ### 3. 发布与运行加固
 
-- macOS Developer ID、公证、staple、Gatekeeper 全链验证，并确认通用 input helper 位于最终 DMG 且签名有效；
-- Windows CI/真机确认 MSVC helper 编译、portable 打包、checksum、升级回滚和 UIPI/UAC 降级；
+- 已实现：Electron 成品只从 `app.asar` 加载、逐文件/分块哈希、五项 fuse、macOS/Windows header 绑定、同一候选三次首次使用 smoke，以及 macOS universal 与 Windows unpacked/portable 兼容门禁；当前 macOS unpacked verifier 已通过；
+- 已实现：`stableAllowed=false` 的 Preview-only 发布事务，精确 DMG + portable + `SHA256SUMS.txt` 三资产先建 Draft，由两个原生 runner 重下载复验，再公开并无 token 匿名重下载；后续失败回 Draft，公开候选标记 burned；发布安全 14/14；
+- 待配置并实跑：macOS Developer ID/公证凭据、Windows Authenticode 凭据与受保护 `WIN_SIGNER_THUMBPRINT`、受保护 `preview-release` 环境和真实 Preview Tag；
+- 待物理验收：浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC、干净机安装/首启/两次重启、MSVC helper、portable 升级回滚与 UIPI 降级；托管 runner 不能替代这些检查；
 - 公网 Signaling Gateway 增加 TLS 入口、容量监控、短期状态存储方案和运维手册；
 - 打包后检查已退休模块、凭据和服务端源码没有错误进入桌面运行路径；
-- 当前候选为 `v0.10.1-preview.1`；历史 `0.10.0` 不补发为稳定版。物理门禁关闭前只发布签名、公证且明确标为 Preview 的候选，全部关闭后再发布稳定 `v0.10.1`。
+- 当前没有公开 `v0.10.1-preview.1`；历史 `0.10.0` 不补发为稳定版。上述配置、真实 Tag 与物理门禁完成前不得声称他人可以下载安装；稳定 `v0.10.1` 仍需另行关闭全部产品门禁。
 
 ### 4. 扫描可靠性
 
