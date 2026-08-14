@@ -27,6 +27,27 @@ test('首次使用复用有界 Dialog，不改变 Header/Footer/三面板骨架'
   assert.match(html, /id="onboardingFooter" class="utility-dialog-footer/);
   assert.match(html, /id="welcomeDialogCloseBtn"[^>]*type="button"/);
   assert.match(html, /id="welcomeDialog"[^>]*aria-labelledby="welcomeDialogTitle"[^>]*aria-describedby="welcomeDialogLead"/);
+  const boot = renderer.slice(
+    renderer.indexOf("window.addEventListener('DOMContentLoaded'"),
+    renderer.indexOf('const LEGACY_SETTING_KEYS')
+  );
+  const profileLoader = renderer.slice(
+    renderer.indexOf('async function loadProfiles('),
+    renderer.indexOf('async function loadSessions()')
+  );
+  const startupProfiles = boot.indexOf("await loadProfiles(null, { presentFirstUseBeforeSessions: true });");
+  const startupHistory = boot.indexOf('await loadTaskPackageHistory();');
+  const listProfiles = profileLoader.indexOf('await window.manager.listProfiles();');
+  const presentFirstUse = profileLoader.indexOf('maybeShowWelcome();');
+  const renderAccounts = profileLoader.indexOf('renderAccounts();');
+  const loadSessions = profileLoader.indexOf('await loadSessions();');
+  for (const index of [startupProfiles, startupHistory, listProfiles, presentFirstUse, renderAccounts, loadSessions]) {
+    assert.ok(index >= 0, 'first-use startup ordering contract must remain explicit');
+  }
+  assert.ok(startupProfiles < startupHistory);
+  assert.ok(listProfiles < presentFirstUse);
+  assert.ok(presentFirstUse < renderAccounts);
+  assert.ok(presentFirstUse < loadSessions);
 });
 
 test('首个 Agent 只提交稳定 Profile ID、名称和客户端枚举，不回退旧联网初始化', () => {

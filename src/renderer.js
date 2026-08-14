@@ -23,6 +23,7 @@ const state = {
   yardPositions: {},
   welcomed: false,
   onboardingProgress: { completedVersion: 0, completedAt: null },
+  startupStage: 'created',
   firstUse: {
     mode: 'guide',
     model: null,
@@ -548,6 +549,7 @@ let quotaRequestedAt = 0;
 const QUOTA_REFRESH_INTERVAL = 5 * 60_000;
 
 window.addEventListener('DOMContentLoaded', async () => {
+  state.startupStage = 'settings-loading';
   await loadUserSettings();
   initTheme();
   mountWorkspaceSurfaces();
@@ -557,8 +559,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   initYard();
   initCompanion();
   applyView();
-  await loadProfiles();
+  state.startupStage = 'profiles-loading';
+  await loadProfiles(null, { presentFirstUseBeforeSessions: true });
+  state.startupStage = 'task-package-history-loading';
   await loadTaskPackageHistory();
+  state.startupStage = 'ready';
   loadActivity();
   loadQuotas();
   // 庭院和经典卡片都会展示活动状态/最近活跃，因此两种 Presenter 可见时都要刷新。
@@ -585,7 +590,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     loadActivity();
     if (Date.now() - quotaRequestedAt >= QUOTA_REFRESH_INTERVAL) loadQuotas();
   });
-  maybeShowWelcome();
 });
 
 const LEGACY_SETTING_KEYS = {
@@ -2871,6 +2875,17 @@ async function loadProfiles(preferredId = null, options = {}) {
     setProfileContext(state.profiles[0].id);
   }
   validateUiContext();
+  if (options.presentFirstUseBeforeSessions === true) {
+    // Profiles are the last fact required for migration preview. Present first
+    // use before workspace rendering, session scans, TaskPackage history,
+    // activity or quota work so none of those secondary tasks can strand a
+    // fresh user on an empty workspace.
+    state.startupStage = 'first-use-presenting';
+    maybeShowWelcome();
+    state.startupStage = els.welcomeDialog?.open
+      ? 'first-use-presented'
+      : 'first-use-not-required';
+  }
   renderAccounts();
   renderAccountHeader();
   renderSessionControls();
