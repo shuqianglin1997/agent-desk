@@ -22,26 +22,198 @@ const {
   MAX_SESSION_POINTERS
 } = require('../domain/session-pointer');
 const { normalizeTransferJob, publicTransferJob } = require('../domain/transfer-job');
+const {
+  TASK_PACKAGE_TRANSFER_FEATURE,
+  createTaskPackageTransferManifest,
+  normalizeTaskPackageTransferManifest,
+  sealTaskPackageUnlockCode,
+  openTaskPackageUnlockCode,
+  safeTaskPackageName
+} = require('../domain/task-package-transfer');
 const { decryptSecurePayload, encryptSecurePayload } = require('../protocol/secure-payload');
 const { MeshStore } = require('../storage/mesh-store');
 
 const POINTER_MESSAGE_LIMIT = 400 * 1024;
 const FILE_ACK_TIMEOUT_MS = 30_000;
 const FILE_DISK_MARGIN_BYTES = 64 * 1024 * 1024;
+const TASK_PACKAGE_ENVELOPE_TTL_MS = 24 * 60 * 60_000;
+const TASK_PACKAGE_SECRET_TTL_MS = TASK_PACKAGE_ENVELOPE_TTL_MS;
 
 class TransferService {
   constructor(options = {}) {
     this.databasePath = options.databasePath;
     this.meshService = options.meshService;
     this.peerManagerProvider = options.peerManagerProvider;
+    this.taskPackageServiceProvider = options.taskPackageServiceProvider || (() => null);
     this.spoolRoot = options.spoolRoot || path.join(path.dirname(this.databasePath), 'mesh-transfer-spool');
     this.now = options.now || (() => new Date().toISOString());
     this.randomUUID = options.randomUUID || crypto.randomUUID;
     this.onChange = options.onChange || (() => {});
+    this.stopped = false;
     this.inFlight = new Set();
     this.activeFileSends = new Map();
     this.pendingChunkAcks = new Map();
     this.progressNotificationAt = new Map();
+    this.outgoingTaskSecrets = new Map();
+    this.pendingTaskEnvelopes = new Map();
+    this.incomingTaskSecrets = new Map();
+    this.taskMaterialTimers = new Map();
+    this.taskPackageSecretTtlMs = positiveDuration(
+      options.taskPackageSecretTtlMs,
+      TASK_PACKAGE_SECRET_TTL_MS,
+      'task-package-secret-ttl'
+    );
+    this.taskPackageEnvelopeTtlMs = positiveDuration(
+      options.taskPackageEnvelopeTtlMs,
+      TASK_PACKAGE_ENVELOPE_TTL_MS,
+      'task-package-envelope-ttl'
+    );
+    this.reconcileTaskPackagesAfterRestart();
+  }
+
+  reconcileTaskPackagesAfterRestart() {
+    if (!this.databasePath || !fs.existsSync(this.databasePath)) return false;
+    let changed = false;
+    for (const job of this.listRaw().filter((item) => item.type === 'task-package')) {
+      if (job.direction === 'outgoing') {
+        this.removeOutgoingSpool(job.transferId);
+        if (!['completed', 'cancelled', 'expired'].includes(job.state)) {
+          const failed = this.update(job, {
+            state: 'failed',
+            lastError: 'task-package-secret-unavailable'
+          }, { notify: false });
+          this.recordTaskPackageTransferHistory(failed, 'failed');
+          changed = true;
+        }
+        continue;
+      }
+      this.removeIncomingTaskSpool(job);
+      if (job.state === 'completed' && this.hasImportedTaskPackage(job.transferId)) continue;
+      if (!['cancelled', 'expired'].includes(job.state)
+        && (job.state !== 'failed' || job.lastError !== 'task-package-secret-unavailable')) {
+        this.update(job, {
+          state: 'failed',
+          lastError: 'task-package-secret-unavailable'
+        }, { notify: false });
+        changed = true;
+      }
+    }
+    if (changed) this.changed();
+    return changed;
+  }
+
+  hasImportedTaskPackage(transferId) {
+    try {
+      return this.taskPackageServiceProvider?.()?.hasConsumedTransferId?.(transferId) === true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  setTaskMaterial(kind, transferId, value, expiresAt) {
+    this.clearTaskMaterial(kind, transferId);
+    const map = this.taskMaterialMap(kind);
+    const stored = kind === 'envelope' ? value : {
+      ...value,
+      unlockCode: Buffer.from(String(value?.unlockCode || ''), 'utf8')
+    };
+    map.set(transferId, stored);
+    const maximum = kind === 'envelope'
+      ? this.taskPackageEnvelopeTtlMs
+      : this.taskPackageSecretTtlMs;
+    const remaining = Date.parse(expiresAt) - Date.parse(this.now());
+    const delay = Math.max(1, Math.min(maximum, Number.isFinite(remaining) ? remaining : maximum));
+    const key = `${kind}:${transferId}`;
+    const timer = setTimeout(() => this.expireTaskMaterial(kind, transferId), delay);
+    timer.unref?.();
+    this.taskMaterialTimers.set(key, timer);
+    return stored;
+  }
+
+  taskMaterialMap(kind) {
+    if (kind === 'outgoing') return this.outgoingTaskSecrets;
+    if (kind === 'incoming') return this.incomingTaskSecrets;
+    if (kind === 'envelope') return this.pendingTaskEnvelopes;
+    throw new Error('task-package-material-kind');
+  }
+
+  clearTaskMaterial(kind, transferId) {
+    const key = `${kind}:${transferId}`;
+    const timer = this.taskMaterialTimers.get(key);
+    if (timer) clearTimeout(timer);
+    this.taskMaterialTimers.delete(key);
+    const map = this.taskMaterialMap(kind);
+    const value = map.get(transferId);
+    if (Buffer.isBuffer(value?.unlockCode)) value.unlockCode.fill(0);
+    map.delete(transferId);
+  }
+
+  clearAllTaskMaterial(transferId) {
+    this.clearTaskMaterial('outgoing', transferId);
+    this.clearTaskMaterial('incoming', transferId);
+    this.clearTaskMaterial('envelope', transferId);
+  }
+
+  expireTaskMaterial(kind, transferId) {
+    this.clearTaskMaterial(kind, transferId);
+    const job = this.read(transferId);
+    if (!job || job.type !== 'task-package') return false;
+    if (['cancelled', 'expired'].includes(job.state)) return true;
+    if (kind === 'outgoing' && job.direction === 'outgoing' && job.state !== 'completed') {
+      const expired = this.update(job, {
+        state: 'expired',
+        lastError: 'task-package-secret-expired'
+      });
+      this.rejectTransferAcks(transferId, new Error('task-package-secret-expired'));
+      this.cleanupOutgoingSpoolWhenIdle(transferId);
+      this.recordTaskPackageTransferHistory(expired, 'expired');
+      void this.sendChunkSemantic(job, 'cancel', {
+        transferId,
+        reasonCode: 'task-package-secret-expired'
+      }).catch(() => false);
+    }
+    if (kind === 'incoming' && job.direction === 'incoming' && !this.hasImportedTaskPackage(transferId)) {
+      this.clearTaskMaterial('envelope', transferId);
+      this.removeIncomingTaskSpool(job);
+      this.update(job, {
+        state: 'expired',
+        lastError: 'task-package-secret-expired'
+      });
+    }
+    if (kind === 'envelope' && job.direction === 'incoming' && !this.hasImportedTaskPackage(transferId)) {
+      this.clearTaskMaterial('incoming', transferId);
+      this.removeIncomingTaskSpool(job);
+      const expired = this.update(job, {
+        state: 'expired',
+        lastError: 'task-package-secret-expired'
+      });
+      void this.sendChunkSemantic(expired, 'cancel', {
+        transferId,
+        reasonCode: 'task-package-secret-expired'
+      }).catch(() => false);
+    }
+    return true;
+  }
+
+  taskUnlockCode(secret) {
+    if (!secret) throw new Error('task-package-secret-unavailable');
+    return Buffer.isBuffer(secret.unlockCode)
+      ? secret.unlockCode.toString('utf8')
+      : String(secret.unlockCode || '');
+  }
+
+  requireTaskPackageContext(context) {
+    requireTaskPackageFeature(context);
+    const remoteDeviceId = requiredText(context?.peer?.remote?.deviceId, 'sourceDeviceId', 128);
+    const current = this.meshService.getPeerContext(remoteDeviceId);
+    if (current.mesh.meshId !== context.peer.mesh.meshId
+      || current.local.deviceId !== context.peer.local.deviceId
+      || current.remote.deviceId !== remoteDeviceId) {
+      throw new Error('task-package-peer-context-changed');
+    }
+    requireCapability(current.remote, 'task.package.receive');
+    context.peer.remote = { ...context.peer.remote, ...current.remote };
+    return current;
   }
 
   async createSessionPointerTransfer(input = {}) {
@@ -128,12 +300,184 @@ class TransferService {
     }
   }
 
+  async createTaskPackageTransfer(input = {}) {
+    const targetDeviceId = requiredText(input.targetDeviceId, 'targetDeviceId', 128);
+    const peer = this.meshService.getPeerContext(targetDeviceId);
+    requireCapability(peer.remote, 'task.package.receive');
+    const manager = this.peerManagerProvider?.();
+    requireDirectTaskPackageConnection(manager, targetDeviceId);
+    const taskPackages = this.taskPackageServiceProvider?.();
+    if (!taskPackages || typeof taskPackages.exportPackage !== 'function') {
+      throw new Error('task-package-service-unavailable');
+    }
+    const transferId = this.randomUUID();
+    ensurePrivateDirectory(this.spoolRoot);
+    ensurePrivateDirectory(path.join(this.spoolRoot, 'outgoing'));
+    const directory = this.outgoingSpoolDirectory(transferId);
+    await fs.promises.mkdir(directory, { mode: 0o700 });
+    const destinationPath = this.outgoingSpoolFile(transferId, 0);
+    try {
+      const exported = await taskPackages.exportPackage({
+        ...input,
+        transferId,
+        destinationPath,
+        deliveryMode: 'mesh-direct',
+        targetDeviceName: peer.remote.name,
+        recordHistory: false
+      });
+      const stat = await fs.promises.lstat(destinationPath);
+      if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('task-package-spool-invalid');
+      ensureDiskSpace(this.spoolRoot, stat.size);
+      const packageHash = await hashFile(destinationPath);
+      const taskManifest = createTaskPackageTransferManifest({
+        transferId,
+        packageId: exported.packageId,
+        packageHash,
+        fileName: safeTaskPackageName(`${exported.packageId}.agentdesk-task`),
+        bytesTotal: stat.size,
+        summary: taskPackageSummary(exported.manifest)
+      }, { now: this.now() });
+      const files = [{
+        index: 0,
+        fileId: exported.packageId,
+        name: taskManifest.fileName,
+        size: stat.size,
+        sha256: packageHash,
+        mtimeMs: stat.mtimeMs
+      }];
+      const fileManifest = createFileManifest({ transferId, files }, {
+        now: taskManifest.createdAt,
+        expiresAt: taskManifest.expiresAt
+      });
+      const encryptedPayload = encryptSecurePayload(
+        { fileManifest, taskManifest },
+        secureContext(peer, transferId, 'task-package-manifest')
+      );
+      this.setTaskMaterial('outgoing', transferId, {
+        packageId: exported.packageId,
+        packageHash,
+        unlockCode: exported.unlockCode
+      }, taskManifest.expiresAt);
+      const job = normalizeTransferJob({
+        transferId,
+        direction: 'outgoing',
+        type: 'task-package',
+        sourceDeviceId: peer.local.deviceId,
+        targetDeviceId,
+        state: 'queued',
+        itemCount: 1,
+        bytesTotal: stat.size,
+        bytesTransferred: 0,
+        retryCount: 0,
+        createdAt: taskManifest.createdAt,
+        updatedAt: taskManifest.createdAt,
+        expiresAt: taskManifest.expiresAt,
+        encryptedPayload,
+        targetName: peer.remote.name
+      });
+      this.save(job);
+      taskPackages.tryRecordHistory?.({
+        packageId: exported.packageId,
+        direction: 'exported',
+        deliveryMode: 'mesh-direct',
+        state: 'sending',
+        createdAt: taskManifest.createdAt,
+        title: taskManifest.summary.title,
+        sourceAgentName: taskManifest.summary.sourceAgentName,
+        targetAgentName: null,
+        sourceDeviceName: peer.local.name,
+        targetDeviceName: peer.remote.name,
+        transferId,
+        appId: exported.manifest?.source?.appId || null,
+        sessionMode: taskManifest.summary.sessionMode,
+        localPath: null,
+        bytesTotal: stat.size
+      });
+      await this.dispatch(transferId);
+      return this.publicJob(this.read(transferId));
+    } catch (error) {
+      this.clearTaskMaterial('outgoing', transferId);
+      this.removeOutgoingSpool(transferId);
+      throw error;
+    }
+  }
+
+  async saveTaskPackageFallback(transferId, destinationPath) {
+    const job = this.read(requiredText(transferId, 'transferId', 128));
+    if (!job || job.type !== 'task-package' || job.direction !== 'outgoing') {
+      throw new Error('task-package-fallback-not-found');
+    }
+    if (['completed', 'expired'].includes(job.state)) throw new Error('task-package-fallback-unavailable');
+    const secret = this.outgoingTaskSecrets.get(job.transferId);
+    if (!secret) throw new Error('task-package-secret-unavailable');
+    const manifests = this.taskPackageManifests(job);
+    if (secret.packageId !== manifests.taskManifest.packageId
+      || secret.packageHash !== manifests.taskManifest.packageHash) {
+      throw new Error('task-package-secret-mismatch');
+    }
+    const sourcePath = this.outgoingSpoolFile(job.transferId, 0);
+    await verifyFileHash(
+      sourcePath,
+      manifests.taskManifest.packageHash,
+      manifests.taskManifest.bytesTotal
+    );
+    const target = portableTaskPackageDestination(destinationPath);
+    ensureDiskSpace(path.dirname(target), manifests.taskManifest.bytesTotal);
+    const sourceStat = await fs.promises.stat(sourcePath);
+    const copied = await copySelectedFile({
+      sourcePath,
+      size: manifests.taskManifest.bytesTotal,
+      mtimeMs: sourceStat.mtimeMs
+    }, target);
+    if (copied.sha256 !== manifests.taskManifest.packageHash
+      || copied.size !== manifests.taskManifest.bytesTotal) {
+      await fs.promises.unlink(target).catch(() => false);
+      throw new Error('task-package-fallback-copy-mismatch');
+    }
+    const unlockCode = this.taskUnlockCode(secret);
+    this.taskPackageServiceProvider?.()?.tryRecordHistory?.({
+      packageId: manifests.taskManifest.packageId,
+      direction: 'exported',
+      deliveryMode: 'portable-file',
+      state: 'ready',
+      createdAt: manifests.taskManifest.createdAt,
+      title: manifests.taskManifest.summary.title,
+      sourceAgentName: manifests.taskManifest.summary.sourceAgentName,
+      targetAgentName: null,
+      sourceDeviceName: localDeviceName(this.meshService.getOverview()),
+      targetDeviceName: job.targetName,
+      transferId: job.transferId,
+      appId: manifests.taskManifest.summary.appId || null,
+      sessionMode: manifests.taskManifest.summary.sessionMode,
+      localPath: target,
+      bytesTotal: manifests.taskManifest.bytesTotal
+    });
+    const cancelled = this.update(job, {
+      state: 'cancelled',
+      lastError: 'task-package-portable-fallback-saved'
+    });
+    this.rejectTransferAcks(job.transferId, new Error('task-package-portable-fallback-saved'));
+    this.clearTaskMaterial('outgoing', job.transferId);
+    void this.sendChunkSemantic(cancelled, 'cancel', {
+      transferId: job.transferId,
+      reasonCode: 'task-package-portable-fallback-saved'
+    }).catch(() => false);
+    this.cleanupOutgoingSpoolWhenIdle(job.transferId);
+    return {
+      packageId: manifests.taskManifest.packageId,
+      transferId: job.transferId,
+      savedPath: target,
+      unlockCode
+    };
+  }
+
   async dispatch(transferId) {
+    if (this.stopped) throw new Error('transfer-service-stopped');
     if (this.inFlight.has(transferId)) return this.read(transferId);
     const job = this.read(transferId);
     if (!job || job.direction !== 'outgoing') return job;
     if (['completed', 'cancelled', 'expired'].includes(job.state)) return job;
-    if (Date.parse(job.expiresAt) <= Date.now()) return this.update(job, { state: 'expired' });
+    if (Date.parse(job.expiresAt) <= Date.now()) return this.expire(job);
     const manager = this.peerManagerProvider?.();
     const connected = manager?.listConnections().some((item) => (
       item.deviceId === job.targetDeviceId && item.authenticated
@@ -141,6 +485,7 @@ class TransferService {
     if (!connected) return this.update(job, { state: 'queued', lastError: null });
 
     if (job.type === 'file') return this.dispatchFileOffer(job, manager);
+    if (job.type === 'task-package') return this.dispatchTaskPackageOffer(job, manager);
 
     this.inFlight.add(transferId);
     try {
@@ -174,11 +519,11 @@ class TransferService {
       job.direction === 'outgoing'
       && job.targetDeviceId === String(deviceId || '')
       && (['queued', 'failed', 'awaiting-ack'].includes(job.state)
-        || (job.type === 'file' && ['awaiting-accept', 'sending'].includes(job.state)))
+        || (isChunkedTransfer(job) && ['awaiting-accept', 'sending'].includes(job.state)))
     ));
     for (const job of jobs) await this.dispatch(job.transferId);
     const incoming = this.listRaw().filter((job) => (
-      job.type === 'file'
+      isChunkedTransfer(job)
       && job.direction === 'incoming'
       && job.sourceDeviceId === String(deviceId || '')
       && job.state === 'receiving'
@@ -188,6 +533,10 @@ class TransferService {
   }
 
   async handleEnvelope({ context, envelope }) {
+    if (this.stopped) throw new Error('transfer-service-stopped');
+    if (String(envelope?.messageType || '').startsWith('task.package.')) {
+      this.requireTaskPackageContext(context);
+    }
     if (envelope.messageType === 'session.pointer.offer') {
       return this.receiveSessionPointers(context, envelope.payload);
     }
@@ -201,6 +550,13 @@ class TransferService {
     if (envelope.messageType === 'file.complete') return this.receiveFileComplete(context, envelope.payload);
     if (envelope.messageType === 'file.cancel') return this.receiveFileCancel(context, envelope.payload);
     if (envelope.messageType === 'file.error') return this.receiveFileError(context, envelope.payload);
+    if (envelope.messageType === 'task.package.offer') return this.receiveTaskPackageOffer(context, envelope.payload);
+    if (envelope.messageType === 'task.package.accept') return this.receiveFileAccept(context, envelope.payload);
+    if (envelope.messageType === 'task.package.chunk') return this.receiveFileChunk(context, envelope.payload);
+    if (envelope.messageType === 'task.package.chunk.ack') return this.receiveFileChunkAck(context, envelope.payload);
+    if (envelope.messageType === 'task.package.complete') return this.receiveFileComplete(context, envelope.payload);
+    if (envelope.messageType === 'task.package.cancel') return this.receiveFileCancel(context, envelope.payload);
+    if (envelope.messageType === 'task.package.error') return this.receiveFileError(context, envelope.payload);
     return false;
   }
 
@@ -291,6 +647,330 @@ class TransferService {
     }
   }
 
+  async dispatchTaskPackageOffer(job, manager) {
+    if (this.inFlight.has(job.transferId)) return this.read(job.transferId);
+    requireDirectTaskPackageConnection(manager, job.targetDeviceId);
+    const peer = this.meshService.getPeerContext(job.targetDeviceId);
+    requireCapability(peer.remote, 'task.package.receive');
+    const manifests = this.taskPackageManifests(job);
+    const secret = this.outgoingTaskSecrets.get(job.transferId);
+    if (!secret || secret.packageId !== manifests.taskManifest.packageId
+      || secret.packageHash !== manifests.taskManifest.packageHash) {
+      return this.update(job, { state: 'failed', lastError: 'task-package-secret-unavailable' });
+    }
+    this.assertOutgoingSpool(job.transferId, manifests.fileManifest);
+    const unlockEnvelope = sealTaskPackageUnlockCode({
+      packageId: secret.packageId,
+      packageHash: secret.packageHash,
+      unlockCode: this.taskUnlockCode(secret)
+    }, taskPackageUnlockSealContext(peer, job.transferId));
+    this.inFlight.add(job.transferId);
+    try {
+      const sending = this.update(job, {
+        state: 'sending',
+        retryCount: job.retryCount + 1,
+        lastError: null
+      });
+      this.update(sending, { state: 'awaiting-accept' });
+      await manager.sendSemantic(job.targetDeviceId, 'task.package.offer', 'task.package.receive', {
+        transferId: job.transferId,
+        encryptedManifest: job.encryptedPayload,
+        unlockEnvelope
+      });
+      return this.read(job.transferId);
+    } catch (error) {
+      const failed = this.update(this.read(job.transferId) || job, {
+        state: 'failed',
+        lastError: safeError(error)
+      });
+      this.recordTaskPackageTransferHistory(failed, 'failed');
+      return failed;
+    } finally {
+      this.inFlight.delete(job.transferId);
+    }
+  }
+
+  async receiveTaskPackageOffer(context, payload = {}) {
+    const transferId = requiredText(payload.transferId, 'transferId', 128);
+    const peer = this.requireTaskPackageContext(context);
+    const manifests = decryptTaskPackageManifests(
+      payload.encryptedManifest,
+      secureContext(peer, transferId, 'task-package-manifest', { incoming: true }),
+      { now: this.now() }
+    );
+    if (manifests.taskManifest.transferId !== transferId
+      || manifests.fileManifest.transferId !== transferId) {
+      throw new Error('task-package-transfer-mismatch');
+    }
+    if (Date.parse(manifests.taskManifest.expiresAt) <= Date.parse(this.now())) {
+      throw new Error('task-package-transfer-expired');
+    }
+    const existing = this.read(transferId);
+    if (existing && (existing.type !== 'task-package' || existing.direction !== 'incoming'
+      || existing.sourceDeviceId !== peer.remote.deviceId)) {
+      throw new Error('transfer-id-conflict');
+    }
+    if (existing) {
+      const previous = this.taskPackageManifests(existing);
+      if (!sameTaskPackageManifests(previous, manifests)) {
+        throw new Error('task-package-manifest-conflict');
+      }
+    }
+    const deliveryIdentity = taskPackageDeliveryIdentity(peer, manifests);
+    const taskPackages = this.taskPackageServiceProvider?.();
+    if (taskPackages?.hasConsumedTransfer?.(deliveryIdentity)
+      || taskPackages?.hasActiveImportTransfer?.(deliveryIdentity)) {
+      if (existing && existing.state !== 'completed') {
+        this.update(existing, {
+          state: 'completed',
+          bytesTransferred: manifests.fileManifest.bytesTotal,
+          lastError: null
+        });
+      }
+      const acknowledged = this.read(transferId) || existing || {
+        ...normalizeTransferJob({
+          transferId,
+          direction: 'incoming',
+          type: 'task-package',
+          sourceDeviceId: peer.remote.deviceId,
+          targetDeviceId: peer.local.deviceId,
+          state: 'completed',
+          itemCount: 1,
+          bytesTotal: manifests.fileManifest.bytesTotal,
+          bytesTransferred: manifests.fileManifest.bytesTotal,
+          retryCount: 0,
+          createdAt: manifests.taskManifest.createdAt,
+          updatedAt: this.now(),
+          expiresAt: manifests.taskManifest.expiresAt,
+          encryptedPayload: payload.encryptedManifest,
+          receivedFromName: peer.remote.name
+        })
+      };
+      await this.sendChunkSemantic(acknowledged, 'complete', { transferId });
+      return true;
+    }
+    let state = 'received';
+    let bytesTransferred = 0;
+    let lastError = null;
+    let retainEnvelope = true;
+    if (existing && ['cancelled', 'expired'].includes(existing.state)) {
+      state = existing.state;
+      bytesTransferred = existing.bytesTransferred;
+    } else if (existing?.state === 'completed') {
+      if (await this.verifyIncomingTaskPackageSnapshot(existing, manifests)) {
+        state = 'completed';
+        bytesTransferred = manifests.fileManifest.bytesTotal;
+      } else {
+        this.removeIncomingTaskSpool(existing);
+        state = 'failed';
+        lastError = 'task-package-received-file-missing';
+        retainEnvelope = false;
+      }
+    } else if (existing && ['receiving', 'failed'].includes(existing.state)) {
+      try {
+        const local = this.readFileLocalState(existing);
+        if (local) {
+          state = local.completed ? 'completed' : 'receiving';
+          bytesTransferred = local.completed
+            ? manifests.fileManifest.bytesTotal
+            : await this.incomingBytes(existing, manifests.fileManifest, local);
+          if (local.completed && !(await this.verifyIncomingTaskPackageSnapshot(existing, manifests))) {
+            this.removeIncomingTaskSpool(existing);
+            state = 'received';
+            bytesTransferred = 0;
+          }
+        }
+      } catch (_error) {
+        this.removeIncomingTaskSpool(existing);
+        state = 'received';
+        bytesTransferred = 0;
+      }
+    }
+    if (retainEnvelope && !['cancelled', 'expired'].includes(state)) {
+      this.setTaskMaterial('envelope', transferId, payload.unlockEnvelope, manifests.taskManifest.expiresAt);
+    } else {
+      this.clearTaskMaterial('envelope', transferId);
+    }
+    const now = this.now();
+    const job = this.save(normalizeTransferJob({
+      transferId,
+      direction: 'incoming',
+      type: 'task-package',
+      sourceDeviceId: peer.remote.deviceId,
+      targetDeviceId: peer.local.deviceId,
+      state,
+      itemCount: 1,
+      bytesTotal: manifests.fileManifest.bytesTotal,
+      bytesTransferred,
+      retryCount: existing?.retryCount || 0,
+      createdAt: existing?.createdAt || manifests.taskManifest.createdAt,
+      updatedAt: now,
+      expiresAt: manifests.taskManifest.expiresAt,
+      encryptedPayload: payload.encryptedManifest,
+      receivedFromName: peer.remote.name,
+      lastError
+    }));
+    if (job.state === 'cancelled' || job.state === 'expired') {
+      await this.sendChunkSemantic(job, 'cancel', { transferId });
+    } else if (job.state === 'receiving') {
+      await this.sendFileAccept(job);
+    } else if (job.state === 'completed') {
+      await this.sendChunkSemantic(job, 'complete', { transferId });
+    } else if (job.lastError === 'task-package-received-file-missing') {
+      await this.sendChunkSemantic(job, 'error', {
+        transferId,
+        reasonCode: job.lastError
+      }).catch(() => false);
+    }
+    return true;
+  }
+
+  async verifyIncomingTaskPackageSnapshot(job, manifests = this.taskPackageManifests(job)) {
+    try {
+      const local = this.readFileLocalState(job);
+      const packagePath = local?.completed === true ? local.finalPaths?.[0] : null;
+      if (!packagePath || !isRegularFile(packagePath)) return false;
+      await verifyFileHash(
+        packagePath,
+        manifests.taskManifest.packageHash,
+        manifests.taskManifest.bytesTotal
+      );
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  async acceptTaskPackageTransfer(transferId) {
+    const job = this.read(requiredText(transferId, 'transferId', 128));
+    if (!job || job.type !== 'task-package' || job.direction !== 'incoming') {
+      throw new Error('task-package-transfer-not-found');
+    }
+    if (!['received', 'failed', 'receiving'].includes(job.state)) {
+      throw new Error('task-package-transfer-cannot-accept');
+    }
+    if (Date.parse(job.expiresAt) <= Date.parse(this.now())) throw new Error('task-package-transfer-expired');
+    this.requireTaskPackageImportAuthorization(job);
+    if (!this.pendingTaskEnvelopes.has(job.transferId)
+      && !this.incomingTaskSecrets.has(job.transferId)) {
+      throw new Error('task-package-secret-unavailable');
+    }
+    ensurePrivateDirectory(this.spoolRoot);
+    const root = path.join(this.spoolRoot, 'task-packages');
+    ensurePrivateDirectory(root);
+    const manifest = this.fileManifest(job);
+    await this.prepareIncomingDestination(job, manifest, root);
+    const receiving = this.update(job, { state: 'receiving', lastError: null });
+    await this.sendFileAccept(receiving);
+    return this.publicJob(this.read(job.transferId));
+  }
+
+  rejectTaskPackageTransfer(transferId) {
+    const job = this.read(requiredText(transferId, 'transferId', 128));
+    if (!job || job.type !== 'task-package' || job.direction !== 'incoming') {
+      throw new Error('task-package-transfer-not-found');
+    }
+    if (!['received', 'failed', 'receiving'].includes(job.state)) {
+      throw new Error('task-package-transfer-cannot-reject');
+    }
+    const cancelled = this.update(job, { state: 'cancelled', lastError: 'task-package-rejected' });
+    this.clearTaskMaterial('envelope', job.transferId);
+    this.clearTaskMaterial('incoming', job.transferId);
+    this.removeIncomingTaskSpool(job);
+    void this.sendChunkSemantic(job, 'cancel', {
+      transferId: job.transferId,
+      reasonCode: 'task-package-rejected'
+    }).catch(() => false);
+    return this.publicJob(cancelled);
+  }
+
+  async prepareTaskPackageImport(transferId) {
+    let job = this.read(requiredText(transferId, 'transferId', 128));
+    if (!job || job.type !== 'task-package' || job.direction !== 'incoming' || job.state !== 'completed') {
+      throw new Error('task-package-transfer-not-completed');
+    }
+    let draft = null;
+    let packagePath = null;
+    let taskPackages = null;
+    try {
+      this.requireTaskPackageImportAuthorization(job);
+      if (!(await this.verifyIncomingTaskPackageSnapshot(job))) {
+        throw new Error('task-package-received-file-invalid');
+      }
+      const secret = await this.restoreIncomingTaskSecret(job);
+      const local = this.readFileLocalState(job);
+      packagePath = local?.finalPaths?.[0];
+      if (!packagePath || !isRegularFile(packagePath)) throw new Error('task-package-received-file-missing');
+      taskPackages = this.taskPackageServiceProvider?.();
+      if (!taskPackages) throw new Error('task-package-service-unavailable');
+      const manifests = this.taskPackageManifests(job);
+      const peer = this.meshService.getPeerContext(job.sourceDeviceId);
+      draft = taskPackages.createImportDraft(packagePath);
+      taskPackages.attachImportDelivery?.(draft.token, {
+        deliveryMode: 'mesh-direct',
+        meshId: peer.mesh.meshId,
+        transferId: job.transferId,
+        packageId: manifests.taskManifest.packageId,
+        packageHash: manifests.taskManifest.packageHash,
+        sourceDeviceId: job.sourceDeviceId,
+        sourceDeviceName: job.receivedFromName,
+        targetDeviceId: job.targetDeviceId,
+        targetDeviceName: localDeviceName(this.meshService.getOverview())
+      });
+      const inspected = await taskPackages.inspectImportWithUnlockCode(
+        draft.token,
+        this.taskUnlockCode(secret)
+      );
+      job = this.read(job.transferId) || job;
+      this.requireTaskPackageImportAuthorization(job);
+      if (job.state !== 'completed' || this.incomingTaskSecrets.get(job.transferId) !== secret) {
+        throw new Error('task-package-import-expired');
+      }
+      this.clearAllTaskMaterial(job.transferId);
+      this.removeIncomingTaskSpool(job, [packagePath]);
+      return { draft, inspected };
+    } catch (error) {
+      if (draft?.token) taskPackages?.cancelImport?.(draft.token);
+      this.clearAllTaskMaterial(job.transferId);
+      this.removeIncomingTaskSpool(job, [packagePath]);
+      const latest = this.read(job.transferId) || job;
+      if (!['cancelled', 'expired'].includes(latest.state)) {
+        this.update(latest, { state: 'failed', lastError: safeError(error) });
+      }
+      throw error;
+    }
+  }
+
+  async restoreIncomingTaskSecret(job) {
+    if (job.state !== 'completed' || !(await this.verifyIncomingTaskPackageSnapshot(job))) {
+      throw new Error('task-package-ciphertext-not-verified');
+    }
+    const peer = this.requireTaskPackageImportAuthorization(job);
+    if (this.incomingTaskSecrets.has(job.transferId)) return this.incomingTaskSecrets.get(job.transferId);
+    const envelope = this.pendingTaskEnvelopes.get(job.transferId);
+    if (!envelope) throw new Error('task-package-secret-unavailable');
+    const taskManifest = this.taskPackageManifests(job).taskManifest;
+    const unlockCode = openTaskPackageUnlockCode(
+      envelope,
+      taskManifest,
+      taskPackageUnlockOpenContext(peer, job.transferId, this.now())
+    );
+    const secret = {
+      packageId: taskManifest.packageId,
+      packageHash: taskManifest.packageHash,
+      unlockCode
+    };
+    this.clearTaskMaterial('envelope', job.transferId);
+    return this.setTaskMaterial('incoming', job.transferId, secret, taskManifest.expiresAt);
+  }
+
+  requireTaskPackageImportAuthorization(job) {
+    const peer = this.meshService.getPeerContext(job.sourceDeviceId);
+    requireCapability(peer.remote, 'task.package.receive');
+    requireDirectTaskPackageConnection(this.peerManagerProvider?.(), job.sourceDeviceId);
+    return peer;
+  }
+
   async receiveFileOffer(context, payload = {}) {
     const transferId = requiredText(payload.transferId, 'transferId', 128);
     const peer = context.peer;
@@ -328,9 +1008,9 @@ class TransferService {
       lastError: null
     }));
     if (job.state === 'completed') {
-      await this.sendFileSemantic(job.sourceDeviceId, 'file.complete', { transferId });
+      await this.sendChunkSemantic(job, 'complete', { transferId });
     } else if (job.state === 'cancelled' || job.state === 'expired') {
-      await this.sendFileSemantic(job.sourceDeviceId, 'file.cancel', { transferId });
+      await this.sendChunkSemantic(job, 'cancel', { transferId });
     } else if (job.state === 'receiving') {
       await this.sendFileAccept(job);
     }
@@ -362,7 +1042,7 @@ class TransferService {
       item.deviceId === job.sourceDeviceId && item.authenticated
     ));
     if (!connected) return false;
-    await this.sendFileSemantic(job.sourceDeviceId, 'file.accept', {
+    await this.sendChunkSemantic(job, 'accept', {
       transferId: job.transferId,
       offsets
     });
@@ -372,16 +1052,16 @@ class TransferService {
   receiveFileAccept(context, payload = {}) {
     const transferId = requiredText(payload.transferId, 'transferId', 128);
     const job = this.read(transferId);
-    if (!job || job.type !== 'file' || job.direction !== 'outgoing'
+    if (!job || !isChunkedTransfer(job) || job.direction !== 'outgoing'
       || job.targetDeviceId !== context.peer.remote.deviceId) {
       throw new Error('file-accept-unexpected');
     }
     if (job.state === 'completed') {
-      void this.sendFileSemantic(job.targetDeviceId, 'file.complete', { transferId }).catch(() => false);
+      void this.sendChunkSemantic(job, 'complete', { transferId }).catch(() => false);
       return true;
     }
     if (['cancelled', 'expired'].includes(job.state)) {
-      void this.sendFileSemantic(job.targetDeviceId, 'file.cancel', { transferId }).catch(() => false);
+      void this.sendChunkSemantic(job, 'cancel', { transferId }).catch(() => false);
       return true;
     }
     const manifest = this.fileManifest(job);
@@ -398,8 +1078,9 @@ class TransferService {
         if (!latest || ['completed', 'cancelled', 'expired'].includes(latest.state)
           || error?.message === 'file-resume-replaced') return;
         const reasonCode = safeError(error);
-        this.update(latest, { state: 'failed', lastError: reasonCode });
-        await this.sendFileSemantic(job.targetDeviceId, 'file.error', { transferId, reasonCode })
+        const failed = this.update(latest, { state: 'failed', lastError: reasonCode });
+        if (job.type === 'task-package') this.recordTaskPackageTransferHistory(failed, 'failed');
+        await this.sendChunkSemantic(job, 'error', { transferId, reasonCode })
           .catch(() => false);
       })
       .finally(() => this.activeFileSends.delete(transferId));
@@ -424,6 +1105,7 @@ class TransferService {
       const handle = await openRegularFile(this.outgoingSpoolFile(job.transferId, file.index));
       try {
         while (offset < file.size) {
+          if (this.stopped) throw new Error('transfer-service-stopped');
           const latest = this.read(job.transferId);
           if (!latest || ['cancelled', 'expired', 'completed'].includes(latest.state)) return latest;
           const length = Math.min(FILE_CHUNK_BYTES, file.size - offset);
@@ -434,12 +1116,12 @@ class TransferService {
           const encryptedChunk = encryptSecurePayload({
             bytes: bytes.toString('base64'),
             sha256: sha256(bytes)
-          }, secureContext(peer, job.transferId, fileChunkType(file.index, offset)));
+          }, secureContext(peer, job.transferId, chunkPayloadType(job, file.index, offset)));
           const ackKey = fileAckKey(job.transferId, file.index, offset);
           const ack = timedDeferred(FILE_ACK_TIMEOUT_MS, 'file-chunk-ack-timeout');
           this.pendingChunkAcks.set(ackKey, ack);
           try {
-            await this.sendFileSemantic(job.targetDeviceId, 'file.chunk', {
+            await this.sendChunkSemantic(job, 'chunk', {
               transferId: job.transferId,
               fileIndex: file.index,
               offset,
@@ -474,12 +1156,12 @@ class TransferService {
   async receiveFileChunk(context, payload = {}) {
     const transferId = requiredText(payload.transferId, 'transferId', 128);
     const job = this.read(transferId);
-    if (!job || job.type !== 'file' || job.direction !== 'incoming'
+    if (!job || !isChunkedTransfer(job) || job.direction !== 'incoming'
       || job.sourceDeviceId !== context.peer.remote.deviceId) {
       throw new Error('file-chunk-unexpected');
     }
     if (job.state === 'completed') {
-      await this.sendFileSemantic(job.sourceDeviceId, 'file.complete', { transferId });
+      await this.sendChunkSemantic(job, 'complete', { transferId });
       return true;
     }
     if (job.state !== 'receiving') throw new Error('file-chunk-not-accepted');
@@ -489,7 +1171,7 @@ class TransferService {
       const offset = boundedInteger(payload.offset, 0, manifest.files[fileIndex].size, 'file-offset');
       const decrypted = decryptSecurePayload(
         payload.encryptedChunk,
-        secureContext(context.peer, transferId, fileChunkType(fileIndex, offset), { incoming: true })
+        secureContext(context.peer, transferId, chunkPayloadType(job, fileIndex, offset), { incoming: true })
       );
       const bytes = decodeBase64(decrypted.bytes);
       if (!bytes.length || bytes.length > FILE_CHUNK_BYTES) throw new Error('file-chunk-size');
@@ -505,7 +1187,7 @@ class TransferService {
         bytesTransferred,
         lastError: null
       });
-      await this.sendFileSemantic(job.sourceDeviceId, 'file.chunk.ack', {
+      await this.sendChunkSemantic(job, 'chunk.ack', {
         transferId,
         fileIndex,
         offset,
@@ -518,7 +1200,12 @@ class TransferService {
       if (latest && !['completed', 'cancelled'].includes(latest.state)) {
         this.update(latest, { state: 'failed', lastError: safeError(error) });
       }
-      await this.sendFileSemantic(job.sourceDeviceId, 'file.error', {
+      if (job.type === 'task-package') {
+        this.clearTaskMaterial('envelope', transferId);
+        this.clearTaskMaterial('incoming', transferId);
+        this.removeIncomingTaskSpool(latest || job);
+      }
+      await this.sendChunkSemantic(job, 'error', {
         transferId,
         reasonCode: safeError(error)
       }).catch(() => false);
@@ -529,7 +1216,7 @@ class TransferService {
   receiveFileChunkAck(context, payload = {}) {
     const transferId = requiredText(payload.transferId, 'transferId', 128);
     const job = this.read(transferId);
-    if (!job || job.type !== 'file' || job.direction !== 'outgoing'
+    if (!job || !isChunkedTransfer(job) || job.direction !== 'outgoing'
       || job.targetDeviceId !== context.peer.remote.deviceId) {
       throw new Error('file-chunk-ack-unexpected');
     }
@@ -543,28 +1230,61 @@ class TransferService {
   receiveFileComplete(context, payload = {}) {
     const transferId = requiredText(payload.transferId, 'transferId', 128);
     const job = this.read(transferId);
-    if (!job || job.type !== 'file' || job.direction !== 'outgoing'
+    if (!job || !isChunkedTransfer(job) || job.direction !== 'outgoing'
       || job.targetDeviceId !== context.peer.remote.deviceId) {
       throw new Error('file-complete-unexpected');
     }
     if (['cancelled', 'expired'].includes(job.state)) return true;
     if (job.state === 'completed') return true;
+    if (job.type === 'task-package'
+      && (job.state !== 'awaiting-ack' || job.bytesTransferred !== job.bytesTotal)) {
+      const active = this.activeFileSends.get(transferId);
+      if (active) {
+        void active.then(() => this.receiveFileComplete(context, payload)).catch(() => false);
+        return true;
+      }
+      throw new Error('task-package-complete-before-ciphertext-sent');
+    }
     this.update(job, { state: 'completed', bytesTransferred: job.bytesTotal, lastError: null });
     this.rejectTransferAcks(transferId, new Error('file-transfer-completed'));
     this.cleanupOutgoingSpoolWhenIdle(transferId);
+    if (job.type === 'task-package') {
+      this.clearTaskMaterial('outgoing', transferId);
+      this.recordTaskPackageTransferHistory(job, 'delivered');
+    }
     return true;
   }
 
   receiveFileCancel(context, payload = {}) {
     const transferId = requiredText(payload.transferId, 'transferId', 128);
     const job = this.read(transferId);
-    if (!job || job.type !== 'file') throw new Error('file-cancel-unexpected');
+    if (!job || !isChunkedTransfer(job)) throw new Error('file-cancel-unexpected');
     const expected = job.direction === 'outgoing' ? job.targetDeviceId : job.sourceDeviceId;
     if (expected !== context.peer.remote.deviceId) throw new Error('file-cancel-device');
     if (['completed', 'cancelled', 'expired'].includes(job.state)) return true;
-    this.update(job, { state: 'cancelled', lastError: null });
+    const reasonCode = cleanReasonCode(payload.reasonCode);
+    if (job.type === 'task-package' && job.direction === 'outgoing'
+      && reasonCode === 'task-package-rejected') {
+      const rejected = this.update(job, { state: 'failed', lastError: reasonCode });
+      this.rejectTransferAcks(transferId, new Error(reasonCode));
+      this.recordTaskPackageTransferHistory(rejected, 'rejected');
+      return true;
+    }
+    const remotelyExpired = job.type === 'task-package'
+      && reasonCode === 'task-package-secret-expired';
+    const stopped = this.update(job, {
+      state: remotelyExpired ? 'expired' : 'cancelled',
+      lastError: reasonCode
+    });
     this.rejectTransferAcks(transferId, new Error('file-transfer-cancelled'));
     if (job.direction === 'outgoing') this.cleanupOutgoingSpoolWhenIdle(transferId);
+    if (job.type === 'task-package') {
+      this.clearAllTaskMaterial(transferId);
+      if (job.direction === 'incoming') this.removeIncomingTaskSpool(job);
+      if (job.direction === 'outgoing') {
+        this.recordTaskPackageTransferHistory(stopped, remotelyExpired ? 'expired' : 'cancelled');
+      }
+    }
     // Receiver `.part` files remain isolated and recoverable; completed user
     // files are never removed by a remote cancellation.
     return true;
@@ -573,12 +1293,24 @@ class TransferService {
   receiveFileError(context, payload = {}) {
     const transferId = requiredText(payload.transferId, 'transferId', 128);
     const job = this.read(transferId);
-    if (!job || job.type !== 'file') throw new Error('file-error-unexpected');
+    if (!job || !isChunkedTransfer(job)) throw new Error('file-error-unexpected');
     const expected = job.direction === 'outgoing' ? job.targetDeviceId : job.sourceDeviceId;
     if (expected !== context.peer.remote.deviceId) throw new Error('file-error-device');
     if (['completed', 'cancelled', 'expired'].includes(job.state)) return true;
-    this.update(job, { state: 'failed', lastError: safeError(payload.reasonCode || 'file-transfer-failed') });
+    const failed = this.update(job, {
+      state: 'failed',
+      lastError: safeError(payload.reasonCode || 'file-transfer-failed')
+    });
     this.rejectTransferAcks(transferId, new Error('file-transfer-failed'));
+    if (job.type === 'task-package') {
+      if (job.direction === 'incoming') {
+        this.clearTaskMaterial('envelope', transferId);
+        this.clearTaskMaterial('incoming', transferId);
+        this.removeIncomingTaskSpool(job);
+      } else {
+        this.recordTaskPackageTransferHistory(failed, 'failed');
+      }
+    }
     return true;
   }
 
@@ -588,13 +1320,34 @@ class TransferService {
 
   publicJob(job) {
     const result = publicTransferJob(job);
-    if (job.type === 'file') {
+    if (isChunkedTransfer(job)) {
       try {
         const manifest = this.fileManifest(job);
         result.files = manifest.files.map((file) => ({ name: file.name, size: file.size }));
         result.acceptRequired = job.direction === 'incoming' && job.state === 'received';
-        result.canOpen = job.direction === 'incoming' && job.state === 'completed'
-          && Boolean(this.readFileLocalState(job)?.completed);
+        if (job.type === 'file') {
+          result.canOpen = job.direction === 'incoming' && job.state === 'completed'
+            && Boolean(this.readFileLocalState(job)?.completed);
+        } else {
+          const taskManifest = this.taskPackageManifests(job).taskManifest;
+          result.taskPackage = taskManifest.summary;
+          result.packageId = taskManifest.packageId;
+          const secretAvailable = job.direction === 'outgoing'
+            ? this.outgoingTaskSecrets.has(job.transferId)
+            : (this.incomingTaskSecrets.has(job.transferId)
+              || this.pendingTaskEnvelopes.has(job.transferId));
+          result.canImport = job.direction === 'incoming' && job.state === 'completed'
+            && Boolean(this.readFileLocalState(job)?.completed)
+            && (this.incomingTaskSecrets.has(job.transferId)
+              || this.pendingTaskEnvelopes.has(job.transferId));
+          result.canSavePortable = job.direction === 'outgoing'
+            && !['completed', 'cancelled', 'expired'].includes(job.state)
+            && this.outgoingTaskSecrets.has(job.transferId)
+            && isRegularFile(this.outgoingSpoolFile(job.transferId, 0));
+          result.secretUnavailable = !secretAvailable;
+          result.requiresNewPackage = !secretAvailable && !result.canSavePortable
+            && !['cancelled', 'expired'].includes(job.state);
+        }
       } catch (error) {
         result.payloadError = safeError(error);
       }
@@ -632,15 +1385,19 @@ class TransferService {
   cancel(transferId) {
     const job = this.read(requiredText(transferId, 'transferId', 128));
     if (!job) throw new Error('transfer-not-found');
-    if (job.type === 'file') {
+    if (isChunkedTransfer(job)) {
       if (['completed', 'cancelled', 'expired'].includes(job.state)) throw new Error('transfer-cannot-cancel');
       const cancelled = this.update(job, { state: 'cancelled', lastError: null });
       this.rejectTransferAcks(job.transferId, new Error('file-transfer-cancelled'));
       // Only the sender-side duplicate spool is removed. Original selected files
       // and every completed receiver file are outside this directory and untouched.
       if (job.direction === 'outgoing') this.cleanupOutgoingSpoolWhenIdle(job.transferId);
-      const remoteId = job.direction === 'outgoing' ? job.targetDeviceId : job.sourceDeviceId;
-      void this.sendFileSemantic(remoteId, 'file.cancel', { transferId: job.transferId }).catch(() => false);
+      void this.sendChunkSemantic(job, 'cancel', { transferId: job.transferId }).catch(() => false);
+      if (job.type === 'task-package') {
+        this.clearAllTaskMaterial(job.transferId);
+        if (job.direction === 'incoming') this.removeIncomingTaskSpool(job);
+        if (job.direction === 'outgoing') this.recordTaskPackageTransferHistory(job, 'cancelled');
+      }
       return this.publicJob(cancelled);
     }
     if (job.direction !== 'outgoing' || ['completed', 'received'].includes(job.state)) {
@@ -653,7 +1410,14 @@ class TransferService {
     const job = this.read(requiredText(transferId, 'transferId', 128));
     if (!job) throw new Error('transfer-not-found');
     if (Date.parse(job.expiresAt) <= Date.now()) throw new Error('transfer-expired');
-    if (job.type === 'file' && job.direction === 'incoming') {
+    if (job.type === 'task-package') {
+      const secretAvailable = job.direction === 'outgoing'
+        ? this.outgoingTaskSecrets.has(job.transferId)
+        : (this.incomingTaskSecrets.has(job.transferId)
+          || this.pendingTaskEnvelopes.has(job.transferId));
+      if (!secretAvailable) throw new Error('task-package-secret-unavailable');
+    }
+    if (isChunkedTransfer(job) && job.direction === 'incoming') {
       if (!this.readFileLocalState(job)) throw new Error('file-destination-required');
       const receiving = this.update(job, { state: 'receiving', lastError: null });
       return this.sendFileAccept(receiving).then(() => this.publicJob(this.read(job.transferId)));
@@ -683,7 +1447,82 @@ class TransferService {
         this.update(job, { state: 'cancelled', lastError: 'device-revoked' });
       }
       this.rejectTransferAcks(job.transferId, new Error('device-revoked'));
-      if (job.type === 'file' && job.direction === 'outgoing') this.cleanupOutgoingSpoolWhenIdle(job.transferId);
+      if (isChunkedTransfer(job) && job.direction === 'outgoing') this.cleanupOutgoingSpoolWhenIdle(job.transferId);
+      if (job.type === 'task-package') {
+        this.clearAllTaskMaterial(job.transferId);
+        if (job.direction === 'incoming') this.removeIncomingTaskSpool(job);
+        if (job.direction === 'outgoing') this.recordTaskPackageTransferHistory(job, 'revoked');
+      }
+    }
+  }
+
+  stop() {
+    this.stopped = true;
+    for (const job of this.listRaw().filter((item) => item.type === 'task-package')) {
+      this.rejectTransferAcks(job.transferId, new Error('transfer-service-stopped'));
+      if (job.direction === 'outgoing') {
+        if (!['completed', 'cancelled', 'expired'].includes(job.state)) {
+          const failed = this.update(job, {
+            state: 'failed',
+            lastError: 'task-package-secret-unavailable'
+          });
+          this.recordTaskPackageTransferHistory(failed, 'failed');
+        }
+        this.cleanupOutgoingSpoolWhenIdle(job.transferId);
+      } else {
+        if (!['cancelled', 'expired'].includes(job.state) && !this.hasImportedTaskPackage(job.transferId)) {
+          this.update(job, {
+            state: 'failed',
+            lastError: 'task-package-secret-unavailable'
+          });
+        }
+        this.removeIncomingTaskSpool(job);
+      }
+      this.clearAllTaskMaterial(job.transferId);
+    }
+    for (const timer of this.taskMaterialTimers.values()) clearTimeout(timer);
+    this.taskMaterialTimers.clear();
+    return true;
+  }
+
+  expire(job) {
+    const expired = this.update(job, { state: 'expired', lastError: 'transfer-expired' });
+    this.rejectTransferAcks(job.transferId, new Error('transfer-expired'));
+    if (isChunkedTransfer(job) && job.direction === 'outgoing') {
+      this.cleanupOutgoingSpoolWhenIdle(job.transferId);
+    }
+    if (job.type === 'task-package') {
+      this.clearAllTaskMaterial(job.transferId);
+      if (job.direction === 'incoming') this.removeIncomingTaskSpool(job);
+      if (job.direction === 'outgoing') this.recordTaskPackageTransferHistory(job, 'expired');
+    }
+    return expired;
+  }
+
+  recordTaskPackageTransferHistory(job, state) {
+    try {
+      const manifest = this.taskPackageManifests(job).taskManifest;
+      const overview = this.meshService.getOverview();
+      const sourceIsLocal = job.direction === 'outgoing';
+      return this.taskPackageServiceProvider?.()?.tryRecordHistory?.({
+        packageId: manifest.packageId,
+        direction: 'exported',
+        deliveryMode: 'mesh-direct',
+        state,
+        createdAt: manifest.createdAt,
+        title: manifest.summary.title,
+        sourceAgentName: manifest.summary.sourceAgentName,
+        targetAgentName: null,
+        sourceDeviceName: sourceIsLocal ? localDeviceName(overview) : job.receivedFromName,
+        targetDeviceName: sourceIsLocal ? job.targetName : localDeviceName(overview),
+        transferId: job.transferId,
+        appId: manifest.summary.appId || null,
+        sessionMode: manifest.summary.sessionMode,
+        localPath: null,
+        bytesTotal: manifest.bytesTotal
+      }) || false;
+    } catch (_error) {
+      return false;
     }
   }
 
@@ -711,12 +1550,24 @@ class TransferService {
   fileManifest(job) {
     const deviceId = job.direction === 'incoming' ? job.sourceDeviceId : job.targetDeviceId;
     const peer = this.meshService.getPeerContext(deviceId);
+    if (job.type === 'task-package') return this.taskPackageManifests(job).fileManifest;
     return decryptFileManifest(job.encryptedPayload, secureContext(
       peer,
       job.transferId,
       'file-manifest',
       { incoming: job.direction === 'incoming' }
     ));
+  }
+
+  taskPackageManifests(job) {
+    const deviceId = job.direction === 'incoming' ? job.sourceDeviceId : job.targetDeviceId;
+    const peer = this.meshService.getPeerContext(deviceId);
+    return decryptTaskPackageManifests(job.encryptedPayload, secureContext(
+      peer,
+      job.transferId,
+      'task-package-manifest',
+      { incoming: job.direction === 'incoming' }
+    ), { now: this.now() });
   }
 
   async spoolSelectedFiles(transferId, value) {
@@ -794,7 +1645,105 @@ class TransferService {
     if (path.dirname(directory) !== parent) throw new Error('file-spool-boundary');
     // This directory contains only AgentDesk-created copies. The original files
     // selected in the OS picker are never located below this boundary.
-    fs.rmSync(directory, { recursive: true, force: true });
+    removePrivatePath(directory, { directory: true });
+  }
+
+  removeIncomingTaskSpool(job, knownFinalPaths = []) {
+    if (!job || job.type !== 'task-package' || job.direction !== 'incoming') return false;
+    const requestedPackageRoot = path.resolve(this.spoolRoot, 'task-packages');
+    let packageRoot = null;
+    try {
+      const rootStat = fs.lstatSync(requestedPackageRoot);
+      if (!rootStat.isSymbolicLink() && rootStat.isDirectory()) {
+        packageRoot = fs.realpathSync(requestedPackageRoot);
+      }
+    } catch (_error) { /* package root may not have been created yet */ }
+    const finalPaths = Array.isArray(knownFinalPaths) ? [...knownFinalPaths] : [];
+    try {
+      const local = this.readFileLocalState(job);
+      finalPaths.push(...(Array.isArray(local?.finalPaths) ? local.finalPaths : []));
+      if (packageRoot && local?.tempDir) {
+        const expected = path.resolve(packageRoot, `.agentdesk-receive-${transferDirectoryName(job.transferId)}`);
+        if (path.resolve(local.tempDir) === expected) {
+          removePrivatePath(expected, { directory: true });
+        }
+      }
+    } catch (_error) {
+      // A rejected offer may not have a destination yet, and a corrupt local
+      // state must not expand the deletion boundary.
+    }
+    try {
+      const cleanup = this.readTaskPackageCleanupDescriptor(job);
+      if (packageRoot && cleanup) {
+        removePrivatePath(path.join(packageRoot, cleanup.tempDirectoryName), { directory: true });
+        finalPaths.push(...cleanup.finalNames.map((name) => path.join(packageRoot, name)));
+      }
+    } catch (_error) { /* an invalid descriptor is ignored, never broadened */ }
+    for (const filePath of finalPaths) {
+      if (!packageRoot || !filePath) continue;
+      const resolved = path.resolve(filePath);
+      if (path.dirname(resolved) !== packageRoot) continue;
+      removePrivatePath(resolved);
+    }
+    const incomingParent = path.resolve(this.spoolRoot, 'incoming');
+    const stateDirectory = path.resolve(path.dirname(this.fileLocalStatePath(job)));
+    if (path.dirname(stateDirectory) === incomingParent) {
+      removePrivatePath(stateDirectory, { directory: true });
+    }
+    return true;
+  }
+
+  taskPackageCleanupDescriptorPath(job) {
+    return path.join(path.dirname(this.fileLocalStatePath(job)), 'cleanup.json');
+  }
+
+  readTaskPackageCleanupDescriptor(job) {
+    const stored = readJsonStore(this.taskPackageCleanupDescriptorPath(job), (value) => (
+      value?.schemaVersion === 1 && value?.transferId === job.transferId
+    ));
+    if (!stored) return null;
+    const value = stored.parsed;
+    const expectedTemp = `.agentdesk-receive-${transferDirectoryName(job.transferId)}`;
+    if (value.tempDirectoryName !== expectedTemp) throw new Error('task-package-cleanup-temp');
+    const finalNames = Array.isArray(value.finalNames) ? value.finalNames : [];
+    if (finalNames.length > 1) throw new Error('task-package-cleanup-final-count');
+    const normalized = finalNames.map((name) => {
+      const text = String(name || '').normalize('NFC');
+      if (safeTaskPackageName(text) !== text || path.basename(text) !== text) {
+        throw new Error('task-package-cleanup-final-name');
+      }
+      return text;
+    });
+    return {
+      schemaVersion: 1,
+      transferId: job.transferId,
+      tempDirectoryName: expectedTemp,
+      finalNames: normalized
+    };
+  }
+
+  writeTaskPackageCleanupDescriptor(job, local) {
+    if (job.type !== 'task-package' || job.direction !== 'incoming') return false;
+    const packageRoot = fs.realpathSync(path.resolve(this.spoolRoot, 'task-packages'));
+    if (path.resolve(local.destinationRoot) !== packageRoot) {
+      throw new Error('task-package-cleanup-root');
+    }
+    const finalNames = (Array.isArray(local.finalPaths) ? local.finalPaths : [])
+      .filter(Boolean)
+      .map((filePath) => {
+        const resolved = path.resolve(filePath);
+        if (path.dirname(resolved) !== packageRoot) throw new Error('task-package-cleanup-final-boundary');
+        const name = path.basename(resolved).normalize('NFC');
+        if (safeTaskPackageName(name) !== name) throw new Error('task-package-cleanup-final-name');
+        return name;
+      });
+    writeJsonStore(this.taskPackageCleanupDescriptorPath(job), {
+      schemaVersion: 1,
+      transferId: job.transferId,
+      tempDirectoryName: `.agentdesk-receive-${transferDirectoryName(job.transferId)}`,
+      finalNames
+    }, { skipBackup: true });
+    return true;
   }
 
   cleanupOutgoingSpoolWhenIdle(transferId) {
@@ -825,6 +1774,15 @@ class TransferService {
     const targetNames = uniqueTargetNames(manifest.files, existingNames);
     const tempDir = path.join(root, `.agentdesk-receive-${transferDirectoryName(job.transferId)}`);
     await fs.promises.mkdir(tempDir, { mode: 0o700 });
+    const tempStat = await fs.promises.lstat(tempDir);
+    if (tempStat.isSymbolicLink() || !tempStat.isDirectory()) {
+      throw new Error('file-destination-temp-invalid');
+    }
+    try { await fs.promises.chmod(tempDir, 0o700); } catch (_error) { /* Windows does not enforce POSIX modes. */ }
+    const securedTemp = await fs.promises.lstat(tempDir);
+    if (process.platform !== 'win32' && (securedTemp.mode & 0o077) !== 0) {
+      throw new Error('file-destination-temp-permissions');
+    }
     const local = normalizeFileLocalState({
       schemaVersion: 1,
       transferId: job.transferId,
@@ -850,7 +1808,7 @@ class TransferService {
     const peer = this.meshService.getPeerContext(job.sourceDeviceId);
     const decrypted = decryptSecurePayload(
       loaded.parsed,
-      secureContext(peer, job.transferId, 'file-local-state', { incoming: true })
+      secureContext(peer, job.transferId, `${job.type}-local-state`, { incoming: true })
     );
     return normalizeFileLocalState(decrypted.state, this.fileManifest(job));
   }
@@ -860,11 +1818,12 @@ class TransferService {
     const peer = this.meshService.getPeerContext(job.sourceDeviceId);
     const encrypted = encryptSecurePayload(
       { state: normalized },
-      secureContext(peer, job.transferId, 'file-local-state', { incoming: true })
+      secureContext(peer, job.transferId, `${job.type}-local-state`, { incoming: true })
     );
     const filePath = this.fileLocalStatePath(job);
     ensurePrivateDirectory(path.dirname(filePath));
     writeJsonStore(filePath, encrypted, { skipBackup: true });
+    this.writeTaskPackageCleanupDescriptor(job, normalized);
     return normalized;
   }
 
@@ -972,12 +1931,21 @@ class TransferService {
       bytesTransferred: manifest.bytesTotal,
       lastError: null
     });
-    await this.sendFileSemantic(job.sourceDeviceId, 'file.complete', { transferId: job.transferId })
+    await this.sendChunkSemantic(job, 'complete', { transferId: job.transferId })
       .catch(() => false);
   }
 
-  async sendFileSemantic(deviceId, messageType, payload) {
-    return this.peerManagerProvider().sendSemantic(deviceId, messageType, 'file.receive', payload);
+  async sendChunkSemantic(job, action, payload) {
+    if (this.stopped) throw new Error('transfer-service-stopped');
+    const deviceId = job.direction === 'outgoing' ? job.targetDeviceId : job.sourceDeviceId;
+    const prefix = job.type === 'task-package' ? 'task.package' : 'file';
+    const capability = job.type === 'task-package' ? 'task.package.receive' : 'file.receive';
+    if (job.type === 'task-package') {
+      const peer = this.meshService.getPeerContext(deviceId);
+      requireCapability(peer.remote, capability);
+      requireDirectTaskPackageConnection(this.peerManagerProvider?.(), deviceId);
+    }
+    return this.peerManagerProvider().sendSemantic(deviceId, `${prefix}.${action}`, capability, payload);
   }
 
   rejectTransferAcks(transferId, error) {
@@ -1050,9 +2018,112 @@ function secureContext(peer, transferId, type, options = {}) {
   };
 }
 
+function taskPackageUnlockSealContext(peer, transferId) {
+  return {
+    meshId: peer.mesh.meshId,
+    transferId,
+    sourceDeviceId: peer.local.deviceId,
+    targetDeviceId: peer.remote.deviceId,
+    targetDevicePublicKey: peer.remote.devicePublicKey
+  };
+}
+
+function taskPackageUnlockOpenContext(peer, transferId, now) {
+  return {
+    meshId: peer.mesh.meshId,
+    transferId,
+    sourceDeviceId: peer.remote.deviceId,
+    targetDeviceId: peer.local.deviceId,
+    targetDevicePrivateKey: peer.secrets.devicePrivateKey,
+    now
+  };
+}
+
 function decryptFileManifest(encryptedPayload, context) {
   const decrypted = decryptSecurePayload(encryptedPayload, context);
   return normalizeFileManifest(decrypted.manifest);
+}
+
+function decryptTaskPackageManifests(encryptedPayload, context, options = {}) {
+  const decrypted = decryptSecurePayload(encryptedPayload, context);
+  const fileManifest = normalizeFileManifest(decrypted.fileManifest);
+  const taskManifest = normalizeTaskPackageTransferManifest(decrypted.taskManifest, options);
+  if (fileManifest.transferId !== taskManifest.transferId
+    || fileManifest.files.length !== 1
+    || fileManifest.bytesTotal !== taskManifest.bytesTotal
+    || fileManifest.files[0].sha256 !== taskManifest.packageHash
+    || fileManifest.files[0].name !== taskManifest.fileName) {
+    throw new Error('task-package-manifest-mismatch');
+  }
+  return { fileManifest, taskManifest };
+}
+
+function sameTaskPackageManifests(left, right) {
+  return Boolean(left && right
+    && JSON.stringify(left.fileManifest) === JSON.stringify(right.fileManifest)
+    && JSON.stringify(left.taskManifest) === JSON.stringify(right.taskManifest));
+}
+
+function taskPackageDeliveryIdentity(peer, manifests) {
+  return {
+    meshId: peer.mesh.meshId,
+    transferId: manifests.taskManifest.transferId,
+    packageId: manifests.taskManifest.packageId,
+    packageHash: manifests.taskManifest.packageHash,
+    sourceDeviceId: peer.remote.deviceId,
+    targetDeviceId: peer.local.deviceId
+  };
+}
+
+function requireDirectTaskPackageConnection(manager, targetDeviceId) {
+  const connection = manager?.listConnections?.().find((item) => (
+    item.deviceId === targetDeviceId && item.authenticated
+  ));
+  if (!connection) throw new Error('task-package-direct-connection-required');
+  if (!Array.isArray(connection.protocolFeatures)
+    || !connection.protocolFeatures.includes(TASK_PACKAGE_TRANSFER_FEATURE)) {
+    throw new Error('task-package-direct-feature-unavailable');
+  }
+  return connection;
+}
+
+function requireTaskPackageFeature(context) {
+  if (!Array.isArray(context?.negotiatedProtocolFeatures)
+    || !context.negotiatedProtocolFeatures.includes(TASK_PACKAGE_TRANSFER_FEATURE)) {
+    throw new Error('task-package-direct-feature-unavailable');
+  }
+  return true;
+}
+
+function isChunkedTransfer(job) {
+  return job?.type === 'file' || job?.type === 'task-package';
+}
+
+function chunkPayloadType(job, index, offset) {
+  const base = fileChunkType(index, offset);
+  return job?.type === 'task-package' ? base.replace(/^file-/, 'task-package-') : base;
+}
+
+function taskPackageSummary(manifest = {}) {
+  const entries = Array.isArray(manifest.entries) ? manifest.entries : [];
+  return {
+    title: manifest.session?.originalTitle || null,
+    sourceAgentName: manifest.source?.agentName || null,
+    appId: manifest.source?.appId || null,
+    senderLabel: manifest.source?.senderLabel || null,
+    objective: manifest.checkpoint?.objective || null,
+    sessionMode: manifest.session?.mode,
+    attachmentCount: entries.filter((entry) => entry.kind === 'attachment').length
+  };
+}
+
+function localDeviceName(overview = {}) {
+  const localDeviceId = String(overview.localDeviceId || '');
+  const devices = Array.isArray(overview.devices) ? overview.devices : [];
+  const local = devices.find((device) => (
+    device && (device.isLocal === true || String(device.deviceId || '') === localDeviceId)
+  ));
+  return requiredText(local?.name || 'This device', 'localDeviceName', 160);
 }
 
 function transferDirectoryName(transferId) {
@@ -1064,6 +2135,45 @@ function ensurePrivateDirectory(directory) {
   const stat = fs.lstatSync(directory);
   if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('file-spool-directory-invalid');
   try { fs.chmodSync(directory, 0o700); } catch (_error) { /* best effort on Windows */ }
+  const secured = fs.lstatSync(directory);
+  if (process.platform !== 'win32' && (secured.mode & 0o077) !== 0) {
+    throw new Error('file-spool-directory-permissions');
+  }
+}
+
+function portableTaskPackageDestination(value) {
+  const requested = String(value || '').trim();
+  if (!requested || !path.isAbsolute(requested) || requested.includes('\0')) {
+    throw new TypeError('task-package-fallback-destination');
+  }
+  const baseName = path.basename(requested).normalize('NFC');
+  if (safeTaskPackageName(baseName) !== baseName) {
+    throw new Error('task-package-fallback-file-name');
+  }
+  const parent = fs.realpathSync(path.dirname(path.resolve(requested)));
+  const parentStat = fs.lstatSync(parent);
+  if (parentStat.isSymbolicLink() || !parentStat.isDirectory()) {
+    throw new Error('task-package-fallback-parent');
+  }
+  const destination = path.join(parent, baseName);
+  if (fs.existsSync(destination)) throw new Error('task-package-fallback-exists');
+  return destination;
+}
+
+function removePrivatePath(target, options = {}) {
+  try {
+    const stat = fs.lstatSync(target);
+    if (stat.isSymbolicLink() || stat.isFile()) {
+      fs.unlinkSync(target);
+      return true;
+    }
+    if (stat.isDirectory()) {
+      fs.rmSync(target, { recursive: true, force: true });
+      return true;
+    }
+    if (options.directory !== true) fs.unlinkSync(target);
+  } catch (_error) { /* best effort inside an exact private boundary */ }
+  return false;
 }
 
 function ensureDiskSpace(directory, requiredBytes) {
@@ -1153,6 +2263,25 @@ async function verifyFileHash(filePath, expectedHash, expectedSize) {
   }
 }
 
+async function hashFile(filePath) {
+  const handle = await openRegularFile(filePath);
+  try {
+    const stat = await handle.stat();
+    const hash = crypto.createHash('sha256');
+    const buffer = Buffer.allocUnsafe(1024 * 1024);
+    let offset = 0;
+    while (offset < stat.size) {
+      const { bytesRead } = await handle.read(buffer, 0, Math.min(buffer.length, stat.size - offset), offset);
+      if (!bytesRead) throw new Error('file-hash-short-read');
+      hash.update(buffer.subarray(0, bytesRead));
+      offset += bytesRead;
+    }
+    return hash.digest('hex');
+  } finally {
+    await handle.close();
+  }
+}
+
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
@@ -1165,6 +2294,10 @@ function timedDeferred(timeoutMs, reason) {
     resolvePromise = resolve;
     rejectPromise = reject;
   });
+  // A send can still be awaiting the transport call when cancellation rejects
+  // its ACK. Attach a sink immediately so that cancellation is observable by
+  // the eventual await without briefly becoming an unhandled rejection.
+  promise.catch(() => false);
   const timer = setTimeout(() => {
     if (settled) return;
     settled = true;
@@ -1353,6 +2486,19 @@ function requiredText(value, field, limit) {
   const text = String(value || '').trim();
   if (!text) throw new TypeError(`${field} is required`);
   return text.slice(0, limit);
+}
+
+function positiveDuration(value, fallback, errorCode) {
+  if (value === undefined) return fallback;
+  const duration = Number(value);
+  if (!Number.isSafeInteger(duration) || duration < 1 || duration > TASK_PACKAGE_ENVELOPE_TTL_MS) {
+    throw new TypeError(errorCode);
+  }
+  return duration;
+}
+
+function cleanReasonCode(value) {
+  return safeError(value || 'file-transfer-cancelled');
 }
 
 function safeError(error) {

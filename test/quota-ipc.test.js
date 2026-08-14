@@ -16,6 +16,6 @@ test('额度 IPC 与 8 秒 activity 探测分离，并支持手动 force', () =>
 });
 
 test('账号路径或槽位移除时额度缓存会失效', () => {
-  assert.match(main, /quotaService\.invalidate\(input\.id\)/);
+  assert.match(main, /quotaService\.invalidate\(boundedText\(input\.id, 128\)\)/);
   assert.match(main, /quotaService\.invalidate\(id\)/);
 });

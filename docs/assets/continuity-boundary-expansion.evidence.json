@@ -1,0 +1,60 @@
+{
+  "schema": "ze-figure-evidence.v1",
+  "figure_set": "多个 Agent 如何逐步负责业务环节",
+  "preset": "agentdesk-method-article-2026-08",
+  "subject_root": "docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md",
+  "dated": "2026-08-14",
+  "kinds": {
+    "verified": "由原始工程资料或本文已经建立的对象关系直接支持",
+    "synthesis": "本文把多份来源中的工程对象重新组织成一个可检验解释",
+    "interpretation": "对尚未统一的行业用语作克制解释，不当作标准或职业事实"
+  },
+  "figures": {
+    "continuity-boundary-expansion.svg": {
+      "argument": "同一项工作跨越的时间、行动、环境和责任主体越多，为了让它在中断后继续，系统必须保存的关系就越多；工程范围外扩来自连续性边界扩大。",
+      "why_this_figure_exists": "正文中的 prompt、context、loop、graph、harness、environment 和控制面容易被读成概念或职业头衔清单。图追踪同一项工作跨过五类中断后仍需保留的关系，用累积状态轨迹解释这些工程对象为什么出现。",
+      "claims": [
+        {
+          "claim": "提示保存当前目标、约束与输出要求；多轮 Agent 还要在每次推理前维护包含指令、工具、外部数据和消息历史的上下文。",
+          "kind": "verified",
+          "source": "Anthropic, Effective context engineering for AI agents, https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents；docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md 开篇术语段"
+        },
+        {
+          "claim": "Agent loop 会在一次用户请求中经历多次模型推理与工具调用，并依据工具结果继续，直到进入停止状态。",
+          "kind": "verified",
+          "source": "OpenAI, Unrolling the Codex agent loop, https://openai.com/index/unrolling-the-codex-agent-loop/"
+        },
+        {
+          "claim": "工作图用节点、状态和边表达执行路径；节点可以是固定代码、单次模型调用、工具调用或带内部循环的完整 Agent。",
+          "kind": "verified",
+          "source": "LangChain, 3 Years of Graph Engineering with LangGraph, https://www.langchain.com/blog/3-years-of-graph-engineering-with-langgraph"
+        },
+        {
+          "claim": "完整 harness 除核心 loop 外还管理线程生命周期与持久化、配置与认证、工具执行和扩展，使客户端可以在中断后重新连接到一致状态。",
+          "kind": "verified",
+          "source": "OpenAI, Unlocking the Codex harness: how we built the App Server, https://openai.com/index/unlocking-the-codex-harness/"
+        },
+        {
+          "claim": "工作跨环境以后，文件、工具、依赖、权限、沙箱和可恢复状态成为连续性的一部分；会话、harness 与执行环境可以拥有不同生命周期。",
+          "kind": "verified",
+          "source": "OpenAI, The next evolution of the Agents SDK, https://openai.com/index/the-next-evolution-of-the-agents-sdk/；Anthropic, Scaling Managed Agents: Decoupling the brain from the hands, https://www.anthropic.com/engineering/managed-agents"
+        },
+        {
+          "claim": "多 Agent 编排开始把工作事项映射到独立 Agent 工作区，并由控制面维护调度、重试、状态和人工评审连接。",
+          "kind": "verified",
+          "source": "OpenAI, An open-source spec for Codex orchestration: Symphony, https://openai.com/index/open-source-codex-orchestration-symphony/"
+        },
+        {
+          "claim": "把上述对象统一解释为连续性边界的逐级扩大，是本文基于这些工程资料形成的综合判断；工作没有跨过相应边界时，不必机械建设全部层次。",
+          "kind": "synthesis",
+          "source": "docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md 开篇连续性边界段、第四章工程对象映射表、第八章工程对象正在扩展到工作控制面"
+        },
+        {
+          "claim": "Loop Engineering、Graph Engineering 等词目前适合用来标记工程关注点，不宜画成成熟、统一的职业头衔阶梯。",
+          "kind": "interpretation",
+          "source": "LangChain 的 2026-07-22 文章明确把相关词称为新近 buzzwords，同时承认其对应真实设计问题；本文据此采用工程对象视角，不声称行业不存在任何使用这些头衔的个体。"
+        }
+      ]
+    }
+  }
+}

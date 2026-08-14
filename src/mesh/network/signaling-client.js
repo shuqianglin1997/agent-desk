@@ -7,6 +7,7 @@ const net = require('node:net');
 const MAX_RESPONSE_BYTES = 384 * 1024;
 const REQUEST_TIMEOUT_MS = 8_000;
 const SIGNAL_TIMEOUT_MS = 30_000;
+const PAIRING_APPROVAL_TIMEOUT_MS = 3 * 60_000;
 
 class SignalingClient {
   constructor(options = {}) {
@@ -383,7 +384,8 @@ async function claimPairingViaSignaling(invite, joinRequest, identity, options =
       timeoutMs
     )
   };
-  const payload = await postFirst(client, urls, '/v1/pair/claim', request, SIGNAL_TIMEOUT_MS, 'pairing-signaling-unreachable');
+  const timeoutMs = finitePairingTimeout(options.timeoutMs);
+  const payload = await postFirst(client, urls, '/v1/pair/claim', request, timeoutMs, 'pairing-signaling-unreachable');
   if (!payload.response || typeof payload.response !== 'object') throw new Error('pairing-response-invalid');
   return payload.response;
 }
@@ -455,6 +457,13 @@ function requiredIdentifier(value, field) {
   return text;
 }
 
+function finitePairingTimeout(value) {
+  const number = Number(value);
+  return Number.isFinite(number)
+    ? Math.max(10_000, Math.min(number, PAIRING_APPROVAL_TIMEOUT_MS))
+    : PAIRING_APPROVAL_TIMEOUT_MS;
+}
+
 function deferred(timeoutMs, timeoutCode) {
   let resolve;
   let reject;
@@ -493,6 +502,7 @@ module.exports = {
   MAX_RESPONSE_BYTES,
   REQUEST_TIMEOUT_MS,
   SIGNAL_TIMEOUT_MS,
+  PAIRING_APPROVAL_TIMEOUT_MS,
   SignalingClient,
   claimPairingViaSignaling,
   postJson,

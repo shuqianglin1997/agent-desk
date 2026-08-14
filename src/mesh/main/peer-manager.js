@@ -401,6 +401,7 @@ class PeerManager {
       throw new Error('peer-capability-mismatch');
     }
     assertSemanticCapability(messageType, capability);
+    assertSemanticProtocolFeature(context, messageType);
     try {
       this.requireCurrentCapability(context, capability);
     } catch (error) {
@@ -1013,6 +1014,7 @@ class PeerManager {
       throw new Error('peer-capability-mismatch');
     }
     assertSemanticCapability(messageType, capability);
+    assertSemanticProtocolFeature(context, messageType);
     this.requireCurrentCapability(context, capability);
     await context.open.promise;
     this.assertContextActive(context, context.generation);
@@ -1027,7 +1029,7 @@ class PeerManager {
     // handlePermissionsChanged. Inventory and the independent global catalog
     // additionally re-read SQLite for every message. Avoid opening SQLite for
     // high-frequency input.motion/input.keys traffic.
-    if (!['inventory.read', 'catalog.manage'].includes(capability)) {
+    if (!['inventory.read', 'catalog.manage', 'task.package.receive'].includes(capability)) {
       requireCapability(context.peer.remote, capability);
       return context.peer.remote;
     }
@@ -1295,6 +1297,18 @@ function assertSemanticCapability(messageType, capability) {
   if (['agent.prepare', 'agent.prepare.status'].includes(messageType) && capability !== 'agent.prepare') {
     throw new Error('peer-capability-mismatch');
   }
+  if (String(messageType || '').startsWith('task.package.') && capability !== 'task.package.receive') {
+    throw new Error('peer-capability-mismatch');
+  }
+}
+
+function assertSemanticProtocolFeature(context, messageType) {
+  if (!String(messageType || '').startsWith('task.package.')) return true;
+  if (!Array.isArray(context?.negotiatedProtocolFeatures)
+    || !context.negotiatedProtocolFeatures.includes(PROTOCOL_FEATURES.TASK_PACKAGE_TRANSFER_V1)) {
+    throw new Error('peer-protocol-feature-unavailable:task.package.transfer.v1');
+  }
+  return true;
 }
 
 function normalizeRuntimeMetadata(value) {

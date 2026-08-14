@@ -203,10 +203,22 @@ jobs:
             | sed -E 's#  \./[^/]+/#  #' \
             | LC_ALL=C sort > SHA256SUMS.txt
 
+      - name: Classify release channel
+        id: release_class
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ "$version" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           draft: false
+          prerelease: ${{ steps.release_class.outputs.prerelease }}
           fail_on_unmatched_files: true
           files: |
             artifacts/*/*

@@ -12,7 +12,7 @@ AgentDesk 是本地优先的账号、会话历史与工具维护器。它负责�
 - 诊断路径和安装；
 - 发现、打开并在用户确认后维护固定目录中的桌面 App / CLI。
 
-Personal Agent Mesh 的有人值守代码链路已经接入运行时：设备证书和配对、长期全局 Agent/Blueprint/Deployment/ProvisioningJob、独立签名目录、来源设备库存、SessionPointer、文件传输、远程查看/输入、多设备控制台，以及 LAN/签名信令/STUN/TURN。旧端协议 feature 降级、目录权限不对称、inventory 目录隔离和远端准备撤权竞态已有回归；独立 UI 上下文、目录对象管理和真实 1040 × 840 Electron 任务路径也已本机验收。两台物理电脑、真实公网 NAT、coturn 强制中继和跨平台权限矩阵仍未通过，因此当前是本机代码完成态而不是公开稳定验收态。
+Personal Agent Mesh 的有人值守代码链路已经接入运行时：版本化首次使用与首个 Agent 的本机无网络初始化、双方身份确认的设备任务向导、设备证书和配对、长期全局 Agent/Blueprint/Deployment/ProvisioningJob、独立签名目录、来源设备库存、SessionPointer、文件与同 Mesh TaskPackage 传输、远程查看/输入、多设备控制台，以及 LAN/签名信令/STUN/TURN。旧端协议 feature 降级、目录权限不对称、inventory 目录隔离、远端准备撤权竞态和 TaskPackage 直送安全边界已有回归；独立 UI 上下文、目录对象管理和真实 1040 × 840 Electron 任务路径也已本机验收。物理双 Mac 另有局域网认证通道与 562,009 字节大库存/刷新证据，但完整设备向导、TaskPackage 直送数据面、真实公网 NAT、coturn 强制中继、断网/睡眠恢复和 macOS/Windows 四向权限矩阵仍未通过，因此当前是“纵向代码 + 本机自动化 + 一项窄双 Mac 证据”，不是公开稳定验收态。
 
 它不包含聊天 transport、Agent 进程生命周期、任务队列、自动多会话交接编排、规划资料索引或任意命令注册。TaskPackage 是用户显式创建的一次不可变工作快照，不改变这条边界。
 
@@ -29,7 +29,7 @@ Renderer
                  ├─ CLI discovery and tool maintenance
                  ├─ MeshService / mesh.db / OS-protected key vault
                  ├─ SignalingClient / PeerManager / TransferService
-                 ├─ TaskPackageService / native-session adapters
+                 ├─ TaskPackageService / native-session adapters / consumed ledger
                  ├─ RemoteControlService / OS input adapter
                  └─ native shell/dialog/process APIs
 
@@ -56,6 +56,8 @@ src/
   main.js                 Electron 生命周期、IPC 与可信系统操作
   preload.js              窄 IPC 桥
   renderer.js             UI 状态与交互
+  onboarding-state.js     版本化首次使用的纯状态与完成门禁
+  device-journey.js       身份/信任/连接/目录/库存任务状态投影
   ui-context.js           独立 UI 上下文与无副作用状态迁移
   index.html
   styles.css              低优先级 legacy 兼容样式
@@ -65,6 +67,16 @@ src/
     format.js             流式加密容器、清单归一、逐项校验与受控解包
     codex-adapter.js      Codex 根会话/internal-child 一致捕获与事务导入
     service.js            可信来源解析、Git 检查点、附件、导入草稿和本地历史
+
+  main/
+    profile-store-policy.js 缺失 Profile 存储保持真实空目录
+    ipc/
+      first-agent-onboarding.js 首个 Agent 的本机离线事务
+      network-enrollment.js     设备联网 enrollment 门禁
+      pairing-approvals.js      加入预览、双方身份确认与批准 token
+      path-selections.js        Main 系统选择器能力票据
+      security-policy.js        主窗口 sender/frame/document 与导航策略
+      task-package-transfer.js  直送 IPC 的稳定 ID/枚举 schema
 
   apps.js                 客户端目录、默认路径、扫描器与导出能力
   sessions.js             Claude / Claude CLI / Codex / Kimi 会话扫描
@@ -80,6 +92,7 @@ src/
     project-mapping.js    目标端确认的项目根映射
     file-transfer.js      文件 manifest、命名和路径边界
     transfer-job.js       传输任务状态机
+    task-package-transfer.js TaskPackage manifest 与目标设备独占 envelope
     remote-input.js       有界键鼠/文本事件与限速
     remote-stream-budget.js 多设备画质预算与公开统计
   mesh/protocol/
@@ -105,7 +118,7 @@ src/
     peer-manager.js       设备认证、WebRTC 控制通道和库存同步
     provisioning-service.js 本机可恢复首次准备与原子提交
     agent-action-service.js 远端 profile.launch / agent.prepare 固定语义
-    transfer-service.js   SessionPointer、本机队列与文件传输
+    transfer-service.js   SessionPointer、文件与同 Mesh TaskPackage 传输
     remote-control-service.js 远程查看、同意、媒体与输入会话
     webrtc-probe.js       隐藏沙箱 Renderer 生命周期与自检结果校验
   mesh/peer/
@@ -148,6 +161,7 @@ services/signaling/       可自托管最小信令与 TURN REST 凭据服务
 
 scripts/
   ui-acceptance.js        临时 userData 下的真实 1040 × 840 Electron 任务验收
+  check-docs.js           当前状态文档的链接、权威版本、证据与发布口径检查
 ```
 
 ## 4. 数据模型
@@ -165,7 +179,7 @@ scripts/
 
 ### Settings
 
-`settings.json` 保存主题、语言、视图、会话范围/列视图、庭院时间和天气、提醒、今日账本、猫位置、HTTPS 信令地址和 STUN 地址。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。
+`settings.json` 保存主题、语言、视图、会话范围/列视图、庭院时间和天气、提醒、今日账本、猫位置、版本化 `onboarding.completedVersion/completedAt`、`meshNetworkEnrollmentEnabled`、HTTPS 信令地址和 STUN 地址。首次 Agent 事务显式把联网 enrollment 保持为 false；只有添加设备或网络动作才开启。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。
 
 ### Session
 
@@ -218,7 +232,7 @@ TaskPackage 是本地独立交付物，不写入 `mesh.db`，也不成为 `Conve
 
 Codex 适配器只信任 Profile `sessionRoot` 下 `sessions` / `archived_sessions` 的真实 JSONL 文件。活跃追加文件先取完整行边界的一致快照；根记录与归属同一 `parent_thread_id` 的 internal-child 全部重新解析身份。导入先在私有 staging 解包和验证，不覆盖目标同名或同会话 ID 的不同内容；新增文件和任务资料作为事务回滚。成功后在 `session_index.jsonl` 追加带来源的标题。提交完成后的历史写入或客户端启动是附加便利，失败不能删除已经导入的内容。
 
-`task-package-history.json` 只保存包 ID、方向、模式、展示字段、大小、本机路径和时间。导入 token 在 Main 内存映射真实路径；解密草稿 30 分钟过期，取消/成功/退出清理，启动时再清理 24 小时前的私有 staging。
+`task-package-history.json` 只保存包 ID、方向、模式、展示字段、大小、本机路径和时间。`task-package-consumed.json` 是与可裁剪展示历史分离的持久防重放账本；已导入 packageId/transferId 不能因历史清理而再次消费。导入 token 在 Main 内存映射真实路径；解密草稿 30 分钟过期，取消、成功、撤权、设备撤销、远端报错和退出都会清理，启动时再清理 24 小时前的私有 staging。直送使用同一个标准密文快照；解锁码只在完整密文和 SHA-256 验证后由目标 Main 短时解封，Renderer、历史和日志均不可见。
 
 ### 固定工作台与 CSS 层级
 
@@ -282,7 +296,9 @@ diagnostics:get
 system:pickDirectory / system:pickFile / system:showItem / system:openPath
 clipboard:writeText
 devices:list / devices:initialize / devices:rename / devices:resetMesh / devices:probeTransport
-devices:createInvite / devices:cancelInvite / devices:join / devices:setReachable
+onboarding:initializeFirstAgent
+devices:createInvite / devices:cancelInvite / devices:inspectInvite / devices:join / devices:setReachable
+devices:listPairingClaims / devices:decidePairingClaim
 devices:connect / devices:disconnect / devices:updatePermissions / devices:revoke
 devices:getDiagnostics / devices:getNetworkConfig / devices:updateNetworkConfig
 remoteInventory:listAgentSlots / remoteInventory:listSessions / remoteInventory:refresh
@@ -291,6 +307,8 @@ transfers:list / transfers:cancel / transfers:retry / transfers:openReceivedFile
 projects:chooseBinding
 taskPackages:previewExport / taskPackages:export / taskPackages:chooseImport
 taskPackages:inspectImport / taskPackages:commitImport / taskPackages:cancelImport
+taskPackages:sendToDevice / taskPackages:acceptIncoming / taskPackages:rejectIncoming
+taskPackages:prepareIncoming / taskPackages:savePortableFallback
 taskPackages:list / taskPackages:reveal
 remoteControl:open / remoteControl:list / remoteControl:setSurface
 remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
@@ -318,7 +336,7 @@ remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
 
 `PeerManager` 在隐藏沙箱 Renderer 中建立 RTCPeerConnection。WebRTC DTLS 之后仍要验证成员证书、签名信封和双方 DeviceProof，认证完成才开放库存、传输或远控消息。ICE 配置合并用户 STUN、部署静态 TURN 与网关短期 TURN；公开状态只保留 `host/srflx/prflx/relay`、UDP/TCP 和 pair state。
 
-`connection.hello/ready` 在设备签名 payload 中把协议 feature 与权限 capability 分开：只协商精确白名单 `catalog.events.v1`、`catalog.snapshot.v1` 和 `inventory.device-facts.v1`，未知值不持久化；同一握手携带当前 appVersion/protocol/platform/arch/osVersion 与目录来源向量。新端只发送对方缺少的原始签名目录事件，0.9.4 旧端继续接收快照，更旧端没有目录 feature 时走 inventory-only；双方支持目录但单边没有当前 `catalog.manage` 时交换有界 unavailable，首目录屏障结束而 `inventory.read` 不受影响。
+`connection.hello/ready` 在设备签名 payload 中把协议 feature 与权限 capability 分开：只协商精确白名单 `catalog.events.v1`、`catalog.snapshot.v1`、`inventory.device-facts.v1` 和 `task.package.transfer.v1`，未知值不持久化；同一握手携带当前 appVersion/protocol/platform/arch/osVersion 与目录来源向量。新端只发送对方缺少的原始签名目录事件，0.9.4 旧端继续接收快照，更旧端没有目录 feature 时走 inventory-only；双方支持目录但单边没有当前 `catalog.manage` 时交换有界 unavailable，首目录屏障结束而 `inventory.read` 不受影响。`task.package.*` 每条消息还要同时复核协商 feature 与当前 `task.package.receive`，握手 feature 本身不授予接收权。
 
 ### 库存和传输
 
@@ -329,7 +347,9 @@ remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
 - 文件经私有暂存固定内容和 SHA-256，以 96 KiB 加密块发送，接收端从 `.part` 实际偏移恢复；
 - 项目映射只接受目标端系统选择器返回的本机根目录，来源绝对路径从不直接执行。
 
-TaskPackage 当前不经过 `TransferService` 或 Personal Mesh 协议。它先作为用户持有的加密便携文件工作，可经任意已有文件通道跨 Agent、设备或人传递。同 Mesh 直接发送以后可以把已经生成的包作为一种已知文件载荷接入，但不得跳过包自身验证，也不得把跨 Mesh 文件交换自动升级为设备成员信任。
+TaskPackage 同时支持便携文件和同 Mesh Preview 直送。两条通道发送同一个不可变加密快照；直送由 `TransferService` 复用分块、背压、续传和整包哈希，使用独立 `task.package.receive` capability 与 `task.package.transfer.v1` feature，并要求接收端对每个包明确接受或拒绝。协议不兼容、权限关闭、拒绝或传输失败时，发送端可以把同一密文快照保存为便携文件，不自动降级成普通明文文件。
+
+一次性码使用目标设备 Ed25519 身份转换出的 X25519 公钥进行临时 ECDH，随后以 HKDF-SHA-256 和 AES-256-GCM 生成目标设备独占 envelope；认证数据绑定 Mesh、来源/目标设备、transferId、packageId、包哈希与目标公钥指纹，不依赖全 Mesh 共享 linkKey。目标 Main 只在用户已接受、完整密文与 SHA-256 均验证成功且当前 capability/feature 仍有效时解封；拒绝、过期、撤权、撤销、报错和退出清除 envelope、secret、草稿与 spool。认证传输提供来源设备 ID/名称；`sourceAgentName` 和交接人仍是受包完整性保护的发送方声明，不是经过 catalog 验证的 Agent 身份。
 
 ### 远程查看和输入
 
@@ -353,14 +373,17 @@ TaskPackage 当前不经过 `TransferService` 或 Personal Mesh 协议。它先�
 
 ```bash
 npm run check
+npm run check:docs
 npm test
 npm run accept:ui
 npm run build:mac:dir
 ```
 
-当前完整 Node 套件共 436 项（435 通过、1 项仅 Windows 跳过、0 失败）。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；它仍不是物理双机或真实 NAT/TURN 证据。
+当前完整 Node 套件共 490 项（489 通过、1 项仅 Windows 跳过、0 失败）；其中 TaskPackage 安全定向 25/25，首用/设备向导/配对/Main IPC/TaskPackage UI 相关定向 47/47。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均复跑完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；该 runner 尚未发送 TaskPackage，因此它既不是直送数据面证据，也不是物理双机或真实 NAT/TURN 证据。
 
-`npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前覆盖 18 条任务路径：58/244/316/38 固定几何与 Compact 无横滚、focus/checked/隐藏选择、庭院/卡片共享状态、Top Layer 场景 Popover、Agent 对象 Dialog、三语/明暗主题、本机新增、四个 Header 入口、固定区矩形与单一滚动所有者、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 保留上下文、Agent/Binding/Slot 管理、多副本来源、两类传输草稿、TaskPackage 导出/接收固定事务弹窗、远控后台提示、撤销后详情清理和 reduced-motion。
+物理证据单独存在：两台 Mac 在同一局域网通过 host/UDP 建立认证 DataChannel，562,009 字节库存中的 9 个 Slot 与 638 条 SessionReplica 完整落库，显式刷新与 4 分钟全快照把 revision 从 7 推进到 8 和 9，连接连续 5 分钟无错误或断开。该记录不覆盖远控媒体/输入权限、断网/睡眠恢复、公网 NAT/coturn 或 Windows。
+
+`npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前通过 21/21 条任务路径：新增全新首 Agent 的真实本机事务与无网络断言、首次使用重启恢复且不生成默认 Profile、设备任务向导固定 Shell/分层状态，以及 TaskPackage 直送资格和接收阶段投影；原有 58/244/316/38 固定几何、Compact 无横滚、会话选择、庭院/卡片、三语/明暗主题、父子弹窗、小视口、目录对象、传输草稿和 Remote Surface 契约继续覆盖。直送窗口验收只证明 UI 资格、状态与明文码不可见，不代表真实 WebRTC 数据面已经传过 TaskPackage。
 
 测试除了扫描器和纯函数，还包含以下边界契约：
 
@@ -382,8 +405,8 @@ npm run build:mac:dir
 - 嵌入式 Remote Surface/Host 使用专用沙箱 IPC，输入只接受有界固定事件且始终只有一个 owner。
 - Agent/AccountBinding/AgentSlot 的新增、归属、合并、拆分和三种删除范围走固定目录 IPC，均可删到零且不触碰官方客户端数据。
 - Renderer 任务结果测试和真实窗口验收共同证明 UI 上下文互不覆盖，render/filter 不自动制造选择。
-- TaskPackage 回归覆盖错误密钥与密文保密、清单类型/路径/总量边界、Git 只携带已跟踪差异、Codex 根会话/internal-child 原生导入、来源标题、目标冲突、历史，以及客户端打开失败后仍保留已提交内容；UI 契约证明它是单会话次级动作，导入/历史属于活动弹窗，两个事务弹窗固定 Header/Footer 且只有 Content 滚动。
+- TaskPackage 回归覆盖错误密钥与密文保密、清单类型/路径/总量边界、Git 只携带已跟踪差异、Codex 根会话/internal-child 原生导入、来源标题、目标冲突、独立 consumed ledger，以及客户端打开失败后仍保留已提交内容；直送额外覆盖目标设备独占 envelope、逐消息 capability/feature、完整哈希后解封、拒绝/过期/撤权/撤销清理和同快照便携回退。UI 契约证明它是单会话次级动作，导入/历史属于活动弹窗，两个事务弹窗固定 Header/Footer 且只有 Content 滚动。
 
-这些自动化不能替代两台物理电脑、真实 NAT/coturn 和 macOS/Windows 权限矩阵；对应门禁见 `PERSONAL_AGENT_MESH_PLAN.md`。
+这些自动化不能替代物理设备；已有双 Mac 局域网库存证据也不能替代完整设备向导、TaskPackage 直送、真实 NAT/coturn、断网/睡眠恢复和 macOS/Windows 权限矩阵。对应门禁见 `PERSONAL_AGENT_MESH_PLAN.md`。门禁关闭前只允许签名、公证且明确标记的 Preview；当前源码版本为 `0.10.1-preview.1`，`0.10.0` 不补发为稳定版。
 
 发布要求见 [RELEASING.md](RELEASING.md)。

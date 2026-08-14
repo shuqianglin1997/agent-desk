@@ -2,6 +2,7 @@ const CAPABILITY_DEFINITIONS = Object.freeze({
   'inventory.read': { defaultPaired: true, dangerous: false },
   'catalog.manage': { defaultPaired: true, dangerous: false },
   'session.pointer.receive': { defaultPaired: true, dangerous: false },
+  'task.package.receive': { defaultPaired: false, dangerous: true },
   'file.receive': { defaultPaired: false, dangerous: true },
   'profile.launch': { defaultPaired: false, dangerous: true },
   'agent.prepare': { defaultPaired: false, dangerous: true },

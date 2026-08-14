@@ -1,4 +1,4 @@
-const TRANSFER_TYPES = new Set(['session-pointer', 'file']);
+const TRANSFER_TYPES = new Set(['session-pointer', 'file', 'task-package']);
 const TRANSFER_DIRECTIONS = new Set(['outgoing', 'incoming']);
 const TRANSFER_STATES = new Set([
   'queued',

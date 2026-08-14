@@ -2,7 +2,7 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.26
+> 版本：1.27
 >
 > 日期：2026-08-14
 >
@@ -914,6 +914,8 @@ flowchart TB
 8. Codex 原生包写入目标会话根并验证可扫描性；其他来源保存只读会话内容。两种模式都保存人工检查点、Git patch 和明确附件。
 9. 导入成功后可以请求打开目标 Agent；打开失败只提示手动打开，不撤销已经提交的会话和资料。
 10. 来源保持不变。用户确认接收端可以继续以后，可自行归档来源；AgentDesk 不自动删除或合并两端。
+
+直送接收卡中的来源设备 ID 和名称来自认证连接；来源 Agent 名和交接人标签来自受包完整性保护的发送方声明，不能显示成已由来源 catalog 验证的身份。
 
 同一流程也适用于人与人交接。发送人与接收人不需要加入同一个 Personal Mesh；不在同一 Mesh 时继续由他们自行选择文件交换通道，包内容仍由一次性解锁码保护。同一 Mesh 的直接传送只改变交付通道，不建立团队成员关系，也不把接收端变成来源目录或项目的同步副本。旧端没有声明 `task.package.transfer.v1` 时必须清楚退回便携加密文件，不能静默降级为普通明文文件发送。
 
@@ -1849,7 +1851,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 旧 Agent/Binding 不再因最后一个本机 Profile 消失而被清理，既有目录在升级时由本机签名 bootstrap 事件完整覆盖；显式删除 Agent 生成事件与 tombstone，外键级联只清理 AgentDesk 运行模型，受影响 Slot 转为 suppressed。移除 Slot 或 Binding 只改变工作位置或账号关系，不删除员工。本机首次准备执行器、完整员工库工作环境 UI、事件增量/缺口补齐、0.9.4 快照兼容以及远端 `profile.launch` / 有人值守 `agent.prepare` 已落地；事件日志 checkpoint 压缩和目录冲突专用 UI 仍是后续加固项。
 
-TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本机导入/导出的包 ID、方向、交付模式、标题、来源/目标 Agent、来源/目标设备安全显示信息、会话模式、大小、可选本机位置、transferId、结果与时间；解锁码和加密 envelope 永不持久化。便携加密包由用户选择保存位置；直接传送的密文暂存与两种模式的解密草稿都进入系统临时目录下的私有 staging，并按拒绝、取消、成功、过期、应用退出和 24 小时陈旧清理规则删除。
+TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本机导入/导出的包 ID、方向、交付模式、标题、来源/目标 Agent、来源/目标设备安全显示信息、会话模式、大小、可选本机位置、transferId、结果与时间；`task-package-consumed.json` 独立保存最小已消费墓碑，不能依赖可裁剪、可清理的展示历史防止同一包重放导入。解锁码和加密 envelope 永不持久化。便携加密包由用户选择保存位置；直接传送的密文暂存与两种模式的解密草稿都进入系统临时目录下的私有 staging，并按拒绝、取消、成功、撤权、设备撤销、远端错误、过期、应用退出和 24 小时陈旧清理规则删除。
 
 ### 18.3 密钥存储
 
@@ -1877,6 +1879,8 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 
 建议新增的 Renderer 白名单方法：
 
+    onboarding:initializeFirstAgent
+
     agentCatalog:list
     agentCatalog:get
     agentCatalog:rename
@@ -1898,7 +1902,10 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 
     devices:list
     devices:createInvite
+    devices:inspectInvite
     devices:acceptInvite
+    devices:listPairingClaims
+    devices:decidePairingClaim
     devices:rename
     devices:updatePermissions
     devices:revoke
@@ -1924,6 +1931,8 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
     taskPackages:sendToDevice
     taskPackages:acceptIncoming
     taskPackages:rejectIncoming
+    taskPackages:prepareIncoming
+    taskPackages:savePortableFallback
     taskPackages:list
     taskPackages:reveal
 
@@ -2347,6 +2356,15 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
     src/
       onboarding-state.js
       device-journey.js
+      main/
+        profile-store-policy.js
+        ipc/
+          first-agent-onboarding.js
+          network-enrollment.js
+          pairing-approvals.js
+          path-selections.js
+          security-policy.js
+          task-package-transfer.js
       mesh/
         domain/
           device.js
@@ -2495,7 +2513,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 
 ### Phase 2A：永久员工库与按需就绪
 
-当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v6、经验证的一致迁移备份、初始 Blueprint/Deployment 推导、本机首次准备、完整员工库工作环境 UI、独立签名 catalog 事件增量与 0.9.4 快照兼容、版本特性协商、远端 `profile.launch` 与有人值守 `agent.prepare` 已落地**。inventory 已收窄为来源设备事实，撤权/断连后的迟到准备确认不能产生副作用；事件日志 checkpoint 压缩、冲突专用 UI 与物理双机 0.9.5 双端编辑复验继续进行。2026-08-14 所有者进一步批准“创建第一个 Agent”驱动的版本化首次使用流程与设备任务向导；该成熟化批次已获实施授权，但在代码、自动化和真实窗口任务验收完成前不得写成已落地。真实 NAT/TURN 和跨平台权限矩阵仍是未关闭门禁。
+当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v6、经验证的一致迁移备份、初始 Blueprint/Deployment 推导、本机首次准备、完整员工库工作环境 UI、独立签名 catalog 事件增量与 0.9.4 快照兼容、版本特性协商、远端 `profile.launch` 与有人值守 `agent.prepare` 已落地**。inventory 已收窄为来源设备事实，撤权/断连后的迟到准备确认不能产生副作用；事件日志 checkpoint 压缩、冲突专用 UI 与物理双机 0.9.5 双端编辑复验继续进行。版本化首次使用已经接通 Renderer、Preload、Main、本机目录/设备身份与 Provisioning；缺失 Profile 存储保持真实空目录，已有 Profile 先进入无损迁移预览。真实 Electron 已覆盖全新首 Agent、本机无网络初始化、未完成不提前记账及重启恢复。设备任务向导已接通加入端验签预览、邀请端成员证书签发前的身份确认、成员信任、认证连接、目录和库存屏障；定向状态与 IPC 回归已通过。候选安装包首启、完整物理双机向导、全应用重启后的向导恢复及公网/跨平台矩阵仍待验收，Phase 2A 继续进行。
 
 - AgentIdentity 生命周期与 Slot/Binding 解耦，可在零账号、零部署状态存在；
 - AgentBlueprint、AgentDeployment、ProvisioningJob 与 schema v6；
@@ -2561,7 +2579,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 
 ### Phase 4A：显式 TaskPackage 与整项工作交接
 
-当前状态：**便携加密文件纵向链路已实现；同 Mesh 直接传送已于 2026-08-14 获所有者实施授权，尚未落地；更多原生客户端适配器待后续**。右下单会话动作坞提供次级“交接任务”；用户填写阶段检查点，Main 捕获会话、Git 基线/已跟踪差异和明确附件，生成流式加密 `.agentdesk-task` 与只显示一次的解锁码。活动弹窗提供导入与本地历史；接收端验证后选择 Agent/Profile 和资料目录。Codex 已支持根会话与内部子记录的原生导入、冲突拒绝、来源标题和事务回滚；支持 Markdown 导出的其他客户端先保存只读会话内容。来源从不自动删除，当前跨人/跨 Mesh 通过用户选择的文件通道交换。
+当前状态：**便携加密文件与同 Mesh Preview 直送的代码纵向链路均已实现；更多原生客户端适配器待后续**。右下单会话动作坞提供次级“交接任务”；用户填写阶段检查点，Main 捕获会话、Git 基线/已跟踪差异和明确附件，生成流式加密 `.agentdesk-task`。活动弹窗提供导入、本地历史、待接收包的明确接受/拒绝和直送导入；交付方式可以选择便携文件或满足认证连接、feature 与 capability 的确切目标设备。直送发送同一个标准密文快照，使用 `task.package.transfer.v1`、`task.package.receive`、逐次接受、目标设备公钥独占 envelope、完整密文哈希、共同导入、持久 consumed ledger 和同快照便携 fallback；Renderer、Preload、Main、PeerManager、TransferService 与 TaskPackageService 用户路径已经接通。Codex 已支持根会话与内部子记录的原生导入、冲突拒绝、来源标题和事务回滚；支持 Markdown 导出的其他客户端先保存只读会话内容。安全 25/25、首用/向导/配对/Main IPC/TaskPackage UI 相关定向 47/47、真实窗口 21/21 已通过；窗口证据中的直送只覆盖资格和状态投影。现有隔离双 endpoint E2E 尚未发送 TaskPackage；真实 Electron WebRTC 数据面、物理双机直送/拒绝/撤权/断线恢复、公网与 Windows 文件清理矩阵仍开放，Phase 4A 不整体完成。
 
 - TaskPackage 清单、流式加密和逐项校验；
 - 人工阶段检查点、原生会话或 transcript、Git 现场和明确附件；
@@ -2779,6 +2797,15 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.27 — 2026-08-14
+
+- 落地版本化首次使用：Renderer、Preload、Main、本机 Mesh/设备身份、Agent/Blueprint 与 Provisioning 串成同一事务；缺失 `profiles.json` 原子初始化为真实空数组，不再预置 Claude、Codex 或 Kimi Profile，已有 Profile 由稳定 ID 进入选择性无损迁移；创建第一个 Agent 不开放监听、不发布租约、不连接远端，完成页实际展示后才记录版本，重启可从已有本机事实恢复；
+- 落地设备任务向导：加入端先由 Main 验签邀请码并以 confirmation token 绑定用户确认，邀请端在签发成员证书前展示并批准加入设备身份；成员信任、认证连接、目录落库、库存落库和可用状态分别投影，“接收连接 30 分钟”只留在高级恢复；完整物理双机任务流、全应用重启恢复和公网/跨平台矩阵继续作为开放门禁；
+- 落地同 Mesh TaskPackage Preview 直送：Renderer/Activity、Preload、Main、PeerManager、TransferService 与 TaskPackageService 全层接线，使用 `task.package.transfer.v1`、独立 `task.package.receive` 与逐次接受；标准密文包完整哈希通过后，目标设备以 Ed25519→X25519 临时 ECDH、HKDF 和 AES-GCM 独占解封绑定 Mesh/来源/目标/transfer/package/hash/目标公钥指纹的 envelope，第三台持有同 Mesh linkKey 也不能解封；
+- 补齐逐消息 capability/feature 复核、future time 门禁、不可变 manifest/hash、防重放 consumed ledger、secret/draft 真实 TTL、拒绝/过期/撤权/撤销/远端错误/退出清理，以及活动发送失败后保存同一个密文快照的便携回退。认证事实是来源设备 ID/名称；来源 Agent 名与交接人仍是受包完整性保护的发送方声明；
+- 本批全量 Node 490 项中 489 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，首用/设备向导/配对/Main IPC/TaskPackage UI 相关定向 47/47，真实 Electron UI 21/21。隔离双 endpoint 的 LAN 直连和本机 signaling E2E 均复跑完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件与合成远控画面，但 runner 尚未发送 TaskPackage；直送真实 Electron WebRTC 数据面、物理双机、公网 NAT/TURN、断线恢复和 Windows 文件句柄矩阵仍未验收；
+- 开发包版本升为 `0.10.1-preview.1`；发布工作流按预发布后缀派生 GitHub prerelease 标记。该分类不会关闭产品门禁，签名、公证和真实候选包复验仍是发布条件，稳定 `0.10.1` 继续等待物理矩阵。
 
 ### 1.26 — 2026-08-14
 

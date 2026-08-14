@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">工程范围外扩来自同一项工作必须跨越的连续性边界扩大</title>
+  <desc id="desc">同一项工作从一次请求扩展到多轮、多步执行、跨环境、跨 Agent 和持续业务责任。每多跨过一种中断，先前的目标与上下文仍要保留，并继续增加执行检查点、环境绑定、责任交接和业务状态。台阶形边界展示需要持续保存的关系怎样逐级增加。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#2C6D9E"/>
+    </marker>
+    <marker id="arrowMute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#77868C"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#172126}
+    .column{font-size:15px;font-weight:700;letter-spacing:.08em;fill:#54636A}
+    .body{font-size:13px}.small{font-size:11.5px;fill:#58666C}.tiny{font-size:10px;fill:#6A787E}
+    .stage{fill:#FFFFFF;stroke:#C3C8C8;stroke-width:1.1}.stageOn{fill:#EDF4F7;stroke:#7F9BA8;stroke-width:1.1}
+    .boundary{fill:#F7FAF9;stroke:#8FA49B;stroke-width:1.4}.step{fill:none;stroke:#2C6D9E;stroke-width:2.1}
+    .cut{fill:none;stroke:#C5CECF;stroke-width:1.1;stroke-dasharray:4 5}.thread{fill:none;stroke:#2C6D9E;stroke-width:1.8;marker-end:url(#arrow)}
+    .threadMute{fill:none;stroke:#77868C;stroke-width:1.3;stroke-dasharray:5 4;marker-end:url(#arrowMute)}
+    .guide{fill:none;stroke:#C5CECF;stroke-width:1;stroke-dasharray:3 5}.node{fill:#FFFFFF;stroke:#2C6D9E;stroke-width:1.5}
+    .accent{fill:#2C6D9E}.ok{fill:#2F7D5C}.warn{fill:#A76B2C}.mute{fill:#77868C}
+  </style>
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+
+  <text class="column" x="54" y="42">同一项工作的时间与主体</text>
+  <path class="guide" d="M54 58H1226"/>
+
+  <g transform="translate(54 78)">
+    <rect class="stage" width="142" height="58" rx="9"/>
+    <text class="body" x="71" y="24" text-anchor="middle">单次请求</text>
+    <text class="tiny" x="71" y="43" text-anchor="middle">目标进入模型</text>
+  </g>
+  <g transform="translate(244 78)">
+    <rect class="stage" width="142" height="58" rx="9"/>
+    <text class="body" x="71" y="24" text-anchor="middle">下一轮继续</text>
+    <text class="tiny" x="71" y="43" text-anchor="middle">先前决定仍有效</text>
+  </g>
+  <g transform="translate(434 78)">
+    <rect class="stage" width="142" height="58" rx="9"/>
+    <text class="body" x="71" y="24" text-anchor="middle">多步行动</text>
+    <text class="tiny" x="71" y="43" text-anchor="middle">反馈改变下一步</text>
+  </g>
+  <g transform="translate(624 78)">
+    <rect class="stage" width="142" height="58" rx="9"/>
+    <text class="body" x="71" y="24" text-anchor="middle">换环境继续</text>
+    <text class="tiny" x="71" y="43" text-anchor="middle">设备或项目改变</text>
+  </g>
+  <g transform="translate(814 78)">
+    <rect class="stage" width="142" height="58" rx="9"/>
+    <text class="body" x="71" y="24" text-anchor="middle">换 Agent 接续</text>
+    <text class="tiny" x="71" y="43" text-anchor="middle">责任经过明确交接</text>
+  </g>
+  <g transform="translate(1004 78)">
+    <rect class="stageOn" width="222" height="58" rx="9"/>
+    <text class="body" x="111" y="24" text-anchor="middle">持续业务责任</text>
+    <text class="tiny" x="111" y="43" text-anchor="middle">多次运行之间仍维护同一环节</text>
+  </g>
+
+  <path class="cut" d="M220 70V612M410 70V612M600 70V612M790 70V612M980 70V612"/>
+  <text class="tiny" x="220" y="151" text-anchor="middle">对话结束</text>
+  <text class="tiny" x="410" y="151" text-anchor="middle">行动反馈</text>
+  <text class="tiny" x="600" y="151" text-anchor="middle">现场改变</text>
+  <text class="tiny" x="790" y="151" text-anchor="middle">主体改变</text>
+  <text class="tiny" x="980" y="151" text-anchor="middle">本次运行结束</text>
+
+  <path class="boundary" d="M54 174H220V240H410V306H600V372H790V438H980V504H1226V600H54Z"/>
+  <path class="step" d="M54 174H220V240H410V306H600V372H790V438H980V504H1226"/>
+  <text class="small" x="70" y="592">台阶下沿 = 为了让同一项工作继续，系统新增的保存范围</text>
+
+  <g>
+    <rect x="72" y="188" width="132" height="26" rx="6" fill="#FFFFFF" stroke="#7F9BA8"/>
+    <text class="small" x="138" y="206" text-anchor="middle">提示 · prompt</text>
+    <text class="body" x="234" y="205">目标 · 约束 · 输出要求</text>
+    <path class="thread" d="M222 222H1208"/>
+    <circle class="node" cx="220" cy="222" r="5"/><circle class="node" cx="410" cy="222" r="5"/><circle class="node" cx="600" cy="222" r="5"/><circle class="node" cx="790" cy="222" r="5"/><circle class="node" cx="980" cy="222" r="5"/>
+  </g>
+
+  <g>
+    <rect x="262" y="254" width="148" height="26" rx="6" fill="#FFFFFF" stroke="#7F9BA8"/>
+    <text class="small" x="336" y="272" text-anchor="middle">上下文 · context</text>
+    <text class="body" x="424" y="271">相关历史 · 资料 · 工具返回 · 已有决定</text>
+    <path class="thread" d="M242 288H1208"/>
+    <circle class="node" cx="410" cy="288" r="5"/><circle class="node" cx="600" cy="288" r="5"/><circle class="node" cx="790" cy="288" r="5"/><circle class="node" cx="980" cy="288" r="5"/>
+  </g>
+
+  <g>
+    <rect x="452" y="320" width="176" height="26" rx="6" fill="#FFFFFF" stroke="#7F9BA8"/>
+    <text class="small" x="540" y="338" text-anchor="middle">loop / graph / harness</text>
+    <text class="body" x="642" y="337">行动路径 · 分支 · 检查点 · 重试与停止条件</text>
+    <path class="thread" d="M432 354H1208"/>
+    <circle class="node" cx="600" cy="354" r="5"/><circle class="node" cx="790" cy="354" r="5"/><circle class="node" cx="980" cy="354" r="5"/>
+    <path class="threadMute" d="M548 354V365H474V355"/>
+  </g>
+
+  <g>
+    <rect x="642" y="386" width="148" height="26" rx="6" fill="#FFFFFF" stroke="#7F9BA8"/>
+    <text class="small" x="716" y="404" text-anchor="middle">工作环境</text>
+    <text class="body" x="804" y="403">版本 · 依赖 · 数据 · 权限 · 运行位置</text>
+    <path class="thread" d="M622 420H1208"/>
+    <circle class="node" cx="790" cy="420" r="5"/><circle class="node" cx="980" cy="420" r="5"/>
+  </g>
+
+  <g>
+    <rect x="832" y="452" width="148" height="26" rx="6" fill="#FFFFFF" stroke="#7F9BA8"/>
+    <text class="small" x="906" y="470" text-anchor="middle">多 Agent 控制面</text>
+    <text class="body" x="994" y="469">身份 · 当前责任 · 交接 · 接受结果</text>
+    <path class="thread" d="M812 486H1208"/>
+    <circle class="node" cx="980" cy="486" r="5"/>
+  </g>
+
+  <g>
+    <rect x="1000" y="518" width="152" height="26" rx="6" fill="#FFFFFF" stroke="#7F9BA8"/>
+    <text class="small" x="1076" y="536" text-anchor="middle">持续业务状态</text>
+    <text class="small" x="1000" y="563">目标 · 待办 · 上下游</text>
+    <text class="small" x="1000" y="582">指标 · 风险 · 例外去向</text>
+    <path class="thread" d="M982 594H1208"/>
+  </g>
+
+  <path d="M1208 222V594" fill="none" stroke="#2C6D9E" stroke-width="1.8"/>
+  <circle class="accent" cx="1208" cy="222" r="4"/><circle class="accent" cx="1208" cy="288" r="4"/><circle class="accent" cx="1208" cy="354" r="4"/><circle class="accent" cx="1208" cy="420" r="4"/><circle class="accent" cx="1208" cy="486" r="4"/><circle class="accent" cx="1208" cy="594" r="4"/>
+
+  <path class="guide" d="M54 630H1226"/>
+  <line x1="72" y1="662" x2="112" y2="662" stroke="#C5CECF" stroke-width="1.1" stroke-dasharray="4 5"/>
+  <text class="small" x="124" y="666">中断、反馈或主体变化</text>
+  <line x1="374" y1="662" x2="414" y2="662" stroke="#2C6D9E" stroke-width="1.8"/>
+  <circle class="node" cx="394" cy="662" r="5"/>
+  <text class="small" x="426" y="666">仍要跨过边界的关系</text>
+  <path d="M694 653H728V671H762" fill="none" stroke="#2C6D9E" stroke-width="2.1"/>
+  <text class="small" x="776" y="666">工作延长后新增的连续性范围</text>
+</svg>

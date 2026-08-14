@@ -46,6 +46,7 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
   assert.equal(normalized.atmosTime, 'dusk');
   assert.equal(normalized.atmosWeather, 'rain');
   assert.equal(normalized.welcomed, true);
+  assert.deepEqual(normalized.onboarding, { completedVersion: 0, completedAt: null });
   assert.deepEqual(normalized.ledger.active.a, { start: 10, last: 20 });
 });
 
@@ -144,6 +145,29 @@ test('新版设置支持自动天气和持久化猫位置，损坏位置会被�
   });
 });
 
+test('首次使用完成状态按独立版本保存，旧 welcomed 不会跳过新向导', () => {
+  const legacy = normalizeSettings({ welcomed: true });
+  assert.equal(legacy.welcomed, true);
+  assert.deepEqual(legacy.onboarding, { completedVersion: 0, completedAt: null });
+
+  const completed = normalizeSettings({
+    welcomed: true,
+    onboarding: {
+      completedVersion: 1,
+      completedAt: '2026-08-14T00:00:00.000Z'
+    }
+  });
+  assert.deepEqual(completed.onboarding, {
+    completedVersion: 1,
+    completedAt: '2026-08-14T00:00:00.000Z'
+  });
+
+  const damaged = normalizeSettings({
+    onboarding: { completedVersion: -8, completedAt: 123 }
+  });
+  assert.deepEqual(damaged.onboarding, { completedVersion: 0, completedAt: null });
+});
+
 test('旧版没有天气和位置字段时迁移到自动天气与空位置表', () => {
   const normalized = normalizeSettings({ theme: 'dark' });
   assert.equal(normalized.atmosWeather, 'auto');
@@ -165,4 +189,11 @@ test('设备网络设置只保留 HTTPS/本机信令与 STUN 地址', () => {
     'http://127.0.0.1:8787'
   ]);
   assert.deepEqual(normalized.meshStunUrls, ['stun:stun.example.test:3478']);
+});
+
+test('Mesh 联网登记保持 boolean/null 三态，首次使用可明确保持离线', () => {
+  assert.equal(normalizeSettings({}).meshNetworkEnrollmentEnabled, null);
+  assert.equal(normalizeSettings({ meshNetworkEnrollmentEnabled: false }).meshNetworkEnrollmentEnabled, false);
+  assert.equal(normalizeSettings({ meshNetworkEnrollmentEnabled: true }).meshNetworkEnrollmentEnabled, true);
+  assert.equal(normalizeSettings({ meshNetworkEnrollmentEnabled: 'yes' }).meshNetworkEnrollmentEnabled, null);
 });
