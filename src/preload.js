@@ -1,5 +1,124 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+const knownProfiles = new Map();
+const pathSelections = new Map();
+
+function rememberProfiles(profiles) {
+  knownProfiles.clear();
+  for (const profile of Array.isArray(profiles) ? profiles : []) {
+    if (profile?.id) knownProfiles.set(String(profile.id), { ...profile });
+  }
+  return profiles;
+}
+
+function profilePickerContext(options = {}, kind = 'directory') {
+  const defaultPath = String(options?.defaultPath || '');
+  for (const profile of knownProfiles.values()) {
+    if (kind === 'executable' && defaultPath && defaultPath === profile.executablePath) {
+      return { profileId: profile.id };
+    }
+    if (kind === 'directory' && defaultPath && defaultPath === profile.sessionRoot) {
+      return { profileId: profile.id, field: 'sessionRoot' };
+    }
+    if (kind === 'directory' && defaultPath && defaultPath === profile.profilePath) {
+      return { profileId: profile.id, field: 'profilePath' };
+    }
+  }
+  return {};
+}
+
+function rememberPathSelection(kind, result) {
+  if (!result?.selectionId || !result?.displayPath) return null;
+  pathSelections.set(`${kind}:${result.displayPath}`, String(result.selectionId));
+  return result.displayPath;
+}
+
+function selectionId(kind, displayPath) {
+  return pathSelections.get(`${kind}:${String(displayPath || '')}`) || null;
+}
+
+async function listProfiles() {
+  return rememberProfiles(await ipcRenderer.invoke('profiles:list'));
+}
+
+async function updateProfile(input = {}) {
+  const id = String(input?.id || '');
+  const current = knownProfiles.get(id);
+  const payload = { id };
+  for (const key of ['name', 'group', 'note', 'identityKey', 'cat']) {
+    if (Object.prototype.hasOwnProperty.call(input, key)) payload[key] = input[key];
+  }
+
+  const usedSelections = [];
+  for (const [field, tokenField] of [
+    ['profilePath', 'profilePathSelectionId'],
+    ['sessionRoot', 'sessionRootSelectionId']
+  ]) {
+    if (typeof input[field] !== 'string' || input[field] === current?.[field]) continue;
+    const token = selectionId('profile-directory', input[field]);
+    if (!token) throw new Error('profile-path-requires-system-picker');
+    payload[tokenField] = token;
+    usedSelections.push(`profile-directory:${input[field]}`);
+  }
+
+  if (typeof input.executablePath === 'string' && input.executablePath !== (current?.executablePath || '')) {
+    if (!input.executablePath) {
+      payload.clearExecutablePath = true;
+    } else {
+      const token = selectionId('profile-executable', input.executablePath);
+      if (!token) throw new Error('profile-executable-requires-system-picker');
+      payload.executableSelectionId = token;
+      usedSelections.push(`profile-executable:${input.executablePath}`);
+    }
+  }
+
+  const updated = await ipcRenderer.invoke('profiles:update', payload);
+  for (const key of usedSelections) pathSelections.delete(key);
+  if (updated?.id) knownProfiles.set(String(updated.id), { ...updated });
+  return updated;
+}
+
+async function pickProfileDirectory(options = {}) {
+  const result = await ipcRenderer.invoke('system:pickDirectory', {
+    purpose: 'profile-directory',
+    ...profilePickerContext(options, 'directory')
+  });
+  return rememberPathSelection('profile-directory', result);
+}
+
+async function pickProfileExecutable(options = {}) {
+  const result = await ipcRenderer.invoke('system:pickFile', {
+    purpose: 'profile-executable',
+    ...profilePickerContext(options, 'executable')
+  });
+  return rememberPathSelection('profile-executable', result);
+}
+
+function knownProfilePath(displayPath) {
+  const value = String(displayPath || '');
+  for (const profile of knownProfiles.values()) {
+    if (value && value === profile.profilePath) {
+      return { kind: 'profile-directory', profileId: profile.id, field: 'profilePath' };
+    }
+    if (value && value === profile.sessionRoot) {
+      return { kind: 'profile-directory', profileId: profile.id, field: 'sessionRoot' };
+    }
+  }
+  return null;
+}
+
+function showKnownItem(displayPath) {
+  const target = knownProfilePath(displayPath);
+  if (!target) return Promise.resolve({ ok: false, reason: 'known-path-required' });
+  return ipcRenderer.invoke('system:showItem', target);
+}
+
+function openKnownPath(displayPath) {
+  const target = knownProfilePath(displayPath);
+  if (!target) return Promise.resolve({ ok: false, reason: 'known-path-required' });
+  return ipcRenderer.invoke('system:openPath', target);
+}
+
 contextBridge.exposeInMainWorld('manager', {
   listApps: () => ipcRenderer.invoke('apps:list'),
   getSettings: (legacySettings) => ipcRenderer.invoke('settings:get', legacySettings),
@@ -20,9 +139,10 @@ contextBridge.exposeInMainWorld('manager', {
     ipcRenderer.on('tools:progress', listener);
     return () => ipcRenderer.removeListener('tools:progress', listener);
   },
-  listProfiles: () => ipcRenderer.invoke('profiles:list'),
+  listProfiles,
   listDevices: () => ipcRenderer.invoke('devices:list'),
   initializeMesh: (input = {}) => ipcRenderer.invoke('devices:initialize', input),
+  initializeFirstAgent: (input = {}) => ipcRenderer.invoke('onboarding:initializeFirstAgent', input),
   renameDevice: (input) => ipcRenderer.invoke('devices:rename', input),
   listAgentCatalog: () => ipcRenderer.invoke('agentCatalog:list'),
   getAgentCatalog: (agentId) => ipcRenderer.invoke('agentCatalog:get', { agentId }),
@@ -55,7 +175,15 @@ contextBridge.exposeInMainWorld('manager', {
   probeMeshTransport: () => ipcRenderer.invoke('devices:probeTransport'),
   createDeviceInvite: () => ipcRenderer.invoke('devices:createInvite'),
   cancelDeviceInvite: (inviteId) => ipcRenderer.invoke('devices:cancelInvite', { inviteId }),
+  inspectDeviceInvitation: (input) => ipcRenderer.invoke('devices:inspectInvite', input),
   joinDeviceMesh: (input) => ipcRenderer.invoke('devices:join', input),
+  listPairingClaims: () => ipcRenderer.invoke('devices:listPairingClaims'),
+  decidePairingClaim: (input) => ipcRenderer.invoke('devices:decidePairingClaim', input),
+  onPairingClaimsChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('devices:pairingClaimsChanged', listener);
+    return () => ipcRenderer.removeListener('devices:pairingClaimsChanged', listener);
+  },
   setDeviceReachable: (enabled) => ipcRenderer.invoke('devices:setReachable', { enabled }),
   connectDevice: (deviceId) => ipcRenderer.invoke('devices:connect', { deviceId }),
   disconnectDevice: (deviceId) => ipcRenderer.invoke('devices:disconnect', { deviceId }),
@@ -107,6 +235,11 @@ contextBridge.exposeInMainWorld('manager', {
   },
   previewTaskPackageExport: (input) => ipcRenderer.invoke('taskPackages:previewExport', input),
   exportTaskPackage: (input) => ipcRenderer.invoke('taskPackages:export', input),
+  sendTaskPackageToDevice: (input) => ipcRenderer.invoke('taskPackages:sendToDevice', input),
+  acceptIncomingTaskPackage: (transferId) => ipcRenderer.invoke('taskPackages:acceptIncoming', { transferId }),
+  rejectIncomingTaskPackage: (transferId) => ipcRenderer.invoke('taskPackages:rejectIncoming', { transferId }),
+  prepareIncomingTaskPackage: (transferId) => ipcRenderer.invoke('taskPackages:prepareIncoming', { transferId }),
+  saveTaskPackageFallback: (transferId) => ipcRenderer.invoke('taskPackages:savePortableFallback', { transferId }),
   chooseTaskPackageImport: () => ipcRenderer.invoke('taskPackages:chooseImport'),
   inspectTaskPackageImport: (input) => ipcRenderer.invoke('taskPackages:inspectImport', input),
   commitTaskPackageImport: (input) => ipcRenderer.invoke('taskPackages:commitImport', input),
@@ -118,20 +251,31 @@ contextBridge.exposeInMainWorld('manager', {
     ipcRenderer.on('taskPackages:changed', listener);
     return () => ipcRenderer.removeListener('taskPackages:changed', listener);
   },
-  addProfile: (input) => ipcRenderer.invoke('profiles:add', input),
-  updateProfile: (input) => ipcRenderer.invoke('profiles:update', input),
+  addProfile: (input = {}) => ipcRenderer.invoke('profiles:add', {
+    appId: input.appId,
+    name: input.name,
+    group: input.group,
+    note: input.note
+  }),
+  updateProfile,
   removeProfile: (id) => ipcRenderer.invoke('profiles:remove', id),
   migrateWindowsProfilePath: (id) => ipcRenderer.invoke('profiles:migrateWindowsPath', id),
   launchProfile: (id) => ipcRenderer.invoke('profiles:launch', id),
-  listSessions: (profile) => ipcRenderer.invoke('sessions:list', profile),
-  revealSession: (input) => ipcRenderer.invoke('sessions:reveal', input),
-  exportSession: (input) => ipcRenderer.invoke('sessions:export', input),
+  listSessions: (profile) => ipcRenderer.invoke('sessions:list', { profileId: profile?.id }),
+  revealSession: (input) => ipcRenderer.invoke('sessions:reveal', {
+    profileId: input?.profileId,
+    sessionId: input?.sessionId
+  }),
+  exportSession: (input) => ipcRenderer.invoke('sessions:export', {
+    profileId: input?.profileId,
+    sessionId: input?.sessionId
+  }),
   listActivity: () => ipcRenderer.invoke('activity:all'),
   listQuotas: (options = {}) => ipcRenderer.invoke('quota:all', options),
-  getDiagnostics: (profile) => ipcRenderer.invoke('diagnostics:get', profile),
-  pickDirectory: (options) => ipcRenderer.invoke('system:pickDirectory', options),
-  pickFile: (options) => ipcRenderer.invoke('system:pickFile', options),
-  showItem: (path) => ipcRenderer.invoke('system:showItem', path),
-  openPath: (path) => ipcRenderer.invoke('system:openPath', path),
+  getDiagnostics: (profile) => ipcRenderer.invoke('diagnostics:get', { profileId: profile?.id }),
+  pickDirectory: pickProfileDirectory,
+  pickFile: pickProfileExecutable,
+  showItem: showKnownItem,
+  openPath: openKnownPath,
   writeClipboard: (value) => ipcRenderer.invoke('clipboard:writeText', value)
 });

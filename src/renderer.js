@@ -22,6 +22,12 @@ const state = {
   atmosWeather: 'auto',
   yardPositions: {},
   welcomed: false,
+  onboardingProgress: { completedVersion: 0, completedAt: null },
+  firstUse: {
+    mode: 'guide',
+    model: null,
+    busy: false
+  },
   updateInfo: null,
   tools: {
     items: [],
@@ -44,6 +50,7 @@ const state = {
     diagnosticsLoading: false,
     diagnosticsError: null,
     networkLoading: false,
+    deviceJourney: null,
     editingAgentId: null,
     removingAgentId: null,
     removingSlotKey: null,
@@ -62,9 +69,15 @@ const state = {
     exportSource: null,
     exportBusy: false,
     exportCode: null,
+    exportDelivery: 'portable',
+    directTargetDeviceId: null,
+    directTransfer: null,
+    directBusyTransferId: null,
     importDraft: null,
     importPreview: null,
-    importBusy: false
+    importBusy: false,
+    importMode: 'portable',
+    importTransferId: null
   },
   appMeta: {
     claude: { label: 'Claude', tagColor: '#d96f33', taskPackageMode: 'unsupported' },
@@ -241,6 +254,34 @@ const els = {
   copyDeviceInviteBtn: document.querySelector('#copyDeviceInviteBtn'),
   closeDeviceInviteBtn: document.querySelector('#closeDeviceInviteBtn'),
   resetMeshBtn: document.querySelector('#resetMeshBtn'),
+  deviceJourneyDialog: document.querySelector('#deviceJourneyDialog'),
+  deviceJourneyCloseBtn: document.querySelector('#deviceJourneyCloseBtn'),
+  deviceJourneyProgress: document.querySelector('#deviceJourneyProgress'),
+  deviceJourneyIdentity: document.querySelector('#deviceJourneyIdentity'),
+  deviceJourneyIdentityLead: document.querySelector('#deviceJourneyIdentityLead'),
+  deviceJourneyHost: document.querySelector('#deviceJourneyHost'),
+  deviceJourneyInviteEmpty: document.querySelector('#deviceJourneyInviteEmpty'),
+  deviceJourneyInvite: document.querySelector('#deviceJourneyInvite'),
+  deviceJourneyShortCode: document.querySelector('#deviceJourneyShortCode'),
+  deviceJourneyInviteExpiry: document.querySelector('#deviceJourneyInviteExpiry'),
+  deviceJourneyInviteCode: document.querySelector('#deviceJourneyInviteCode'),
+  deviceJourneyCopyBtn: document.querySelector('#deviceJourneyCopyBtn'),
+  deviceJourneyJoin: document.querySelector('#deviceJourneyJoin'),
+  deviceJourneyIdentityCard: document.querySelector('#deviceJourneyIdentityCard'),
+  deviceJourneyIdentityKind: document.querySelector('#deviceJourneyIdentityKind'),
+  deviceJourneyDeviceName: document.querySelector('#deviceJourneyDeviceName'),
+  deviceJourneyDeviceMeta: document.querySelector('#deviceJourneyDeviceMeta'),
+  deviceJourneyFingerprint: document.querySelector('#deviceJourneyFingerprint'),
+  deviceJourneyIdentityConfirm: document.querySelector('#deviceJourneyIdentityConfirm'),
+  deviceJourneyFacts: document.querySelector('#deviceJourneyFacts'),
+  deviceJourneyFactsLead: document.querySelector('#deviceJourneyFactsLead'),
+  deviceJourneyFactList: document.querySelector('#deviceJourneyFactList'),
+  deviceJourneyComplete: document.querySelector('#deviceJourneyComplete'),
+  deviceJourneyCompleteLead: document.querySelector('#deviceJourneyCompleteLead'),
+  deviceJourneyStatus: document.querySelector('#deviceJourneyStatus'),
+  deviceJourneyAdvancedBtn: document.querySelector('#deviceJourneyAdvancedBtn'),
+  deviceJourneySecondaryBtn: document.querySelector('#deviceJourneySecondaryBtn'),
+  deviceJourneyPrimaryBtn: document.querySelector('#deviceJourneyPrimaryBtn'),
   devicePermissionsDialog: document.querySelector('#devicePermissionsDialog'),
   devicePermissionsTitle: document.querySelector('#devicePermissionsTitle'),
   devicePermissionList: document.querySelector('#devicePermissionList'),
@@ -275,6 +316,9 @@ const els = {
   taskPackageHistoryCount: document.querySelector('#taskPackageHistoryCount'),
   taskPackageHistoryList: document.querySelector('#taskPackageHistoryList'),
   taskPackageHistoryEmpty: document.querySelector('#taskPackageHistoryEmpty'),
+  incomingTaskPackages: document.querySelector('#incomingTaskPackages'),
+  incomingTaskPackageCount: document.querySelector('#incomingTaskPackageCount'),
+  incomingTaskPackageList: document.querySelector('#incomingTaskPackageList'),
   toolCenterDialog: document.querySelector('#toolCenterDialog'),
   toolCenterStatus: document.querySelector('#toolCenterStatus'),
   toolSummary: document.querySelector('#toolSummary'),
@@ -362,14 +406,27 @@ const els = {
   taskPackageAcceptance: document.querySelector('#taskPackageAcceptance'),
   taskPackageIncludeProject: document.querySelector('#taskPackageIncludeProject'),
   taskPackageIncludeAttachments: document.querySelector('#taskPackageIncludeAttachments'),
+  taskPackageDeliveryPortable: document.querySelector('#taskPackageDeliveryPortable'),
+  taskPackageDeliveryDirect: document.querySelector('#taskPackageDeliveryDirect'),
+  taskPackageDirectTargetField: document.querySelector('#taskPackageDirectTargetField'),
+  taskPackageDirectTarget: document.querySelector('#taskPackageDirectTarget'),
+  taskPackageDirectAvailability: document.querySelector('#taskPackageDirectAvailability'),
+  taskPackageSecurity: document.querySelector('#taskPackageSecurity'),
   taskPackageExportResult: document.querySelector('#taskPackageExportResult'),
   taskPackageUnlockCode: document.querySelector('#taskPackageUnlockCode'),
   copyTaskPackageCodeBtn: document.querySelector('#copyTaskPackageCodeBtn'),
+  taskPackageDirectResult: document.querySelector('#taskPackageDirectResult'),
+  taskPackageDirectResultDetail: document.querySelector('#taskPackageDirectResultDetail'),
+  taskPackageSwitchPortableBtn: document.querySelector('#taskPackageSwitchPortableBtn'),
   taskPackageStatus: document.querySelector('#taskPackageStatus'),
   exportTaskPackageBtn: document.querySelector('#exportTaskPackageBtn'),
   taskPackageImportDialog: document.querySelector('#taskPackageImportDialog'),
   taskPackageImportCloseBtn: document.querySelector('#taskPackageImportCloseBtn'),
   taskPackageImportCancelBtn: document.querySelector('#taskPackageImportCancelBtn'),
+  taskPackagePortableImportSource: document.querySelector('#taskPackagePortableImportSource'),
+  taskPackageDirectImportSource: document.querySelector('#taskPackageDirectImportSource'),
+  taskPackageDirectImportTitle: document.querySelector('#taskPackageDirectImportTitle'),
+  taskPackageDirectImportMeta: document.querySelector('#taskPackageDirectImportMeta'),
   chooseTaskPackageFileBtn: document.querySelector('#chooseTaskPackageFileBtn'),
   taskPackageImportFile: document.querySelector('#taskPackageImportFile'),
   taskPackageImportCode: document.querySelector('#taskPackageImportCode'),
@@ -442,6 +499,32 @@ const els = {
   confirmSlotAssignmentBtn: document.querySelector('#confirmSlotAssignmentBtn'),
   groupOptions: document.querySelector('#groupOptions'),
   welcomeDialog: document.querySelector('#welcomeDialog'),
+  welcomeDialogCloseBtn: document.querySelector('#welcomeDialogCloseBtn'),
+  welcomeDialogKicker: document.querySelector('#welcomeDialogKicker'),
+  welcomeDialogTitle: document.querySelector('#welcomeDialogTitle'),
+  welcomeDialogLead: document.querySelector('#welcomeDialogLead'),
+  welcomeGuideContent: document.querySelector('#welcomeGuideContent'),
+  onboardingContent: document.querySelector('#onboardingContent'),
+  onboardingProgress: document.querySelector('#onboardingProgress'),
+  onboardingMigration: document.querySelector('#onboardingMigration'),
+  onboardingMigrationList: document.querySelector('#onboardingMigrationList'),
+  onboardingAgent: document.querySelector('#onboardingAgent'),
+  onboardingAgentName: document.querySelector('#onboardingAgentName'),
+  onboardingAgentClient: document.querySelector('#onboardingAgentClient'),
+  onboardingMigrationSummary: document.querySelector('#onboardingMigrationSummary'),
+  onboardingPreparation: document.querySelector('#onboardingPreparation'),
+  onboardingPreparationIcon: document.querySelector('#onboardingPreparationIcon'),
+  onboardingPreparationState: document.querySelector('#onboardingPreparationState'),
+  onboardingPreparationDetail: document.querySelector('#onboardingPreparationDetail'),
+  onboardingExisting: document.querySelector('#onboardingExisting'),
+  onboardingExistingAgents: document.querySelector('#onboardingExistingAgents'),
+  onboardingComplete: document.querySelector('#onboardingComplete'),
+  onboardingStatus: document.querySelector('#onboardingStatus'),
+  onboardingFooter: document.querySelector('#onboardingFooter'),
+  onboardingAdvancedBtn: document.querySelector('#onboardingAdvancedBtn'),
+  onboardingBackBtn: document.querySelector('#onboardingBackBtn'),
+  onboardingSecondaryBtn: document.querySelector('#onboardingSecondaryBtn'),
+  onboardingPrimaryBtn: document.querySelector('#onboardingPrimaryBtn'),
   pathDialog: document.querySelector('#pathDialog'),
   profilePathInput: document.querySelector('#profilePathInput'),
   sessionRootInput: document.querySelector('#sessionRootInput'),
@@ -563,6 +646,9 @@ function applyUserSettings(value = {}) {
     ? value.atmosWeather
     : 'auto';
   state.welcomed = value.welcomed === true;
+  state.onboardingProgress = window.OnboardingState
+    ? window.OnboardingState.normalizeProgress(value.onboarding)
+    : { completedVersion: 0, completedAt: null };
   state.ledger = value.ledger && typeof value.ledger === 'object' ? value.ledger : null;
   state.yardPositions = window.YardInteractions
     ? window.YardInteractions.normalizePositions(value.yardPositions)
@@ -633,11 +719,453 @@ function initTheme() {
   document.documentElement.dataset.theme = theme;
 }
 
+function onboardingNeedsPresentation() {
+  return Boolean(window.OnboardingState?.needsPresentation(
+    state.onboardingProgress,
+    window.OnboardingState.CURRENT_VERSION
+  ));
+}
+
+function onboardingClientValue(appId, clientForm = 'desktop') {
+  return `${String(appId || '')}\u001f${String(clientForm || 'desktop')}`;
+}
+
+function parseOnboardingClientValue(value) {
+  const [appId = '', clientForm = 'desktop'] = String(value || '').split('\u001f');
+  return { appId, clientForm: clientForm || 'desktop' };
+}
+
+function prepareWelcomeGuide() {
+  state.firstUse.mode = 'guide';
+  state.firstUse.model = null;
+  if (els.welcomeDialogCloseBtn) els.welcomeDialogCloseBtn.disabled = false;
+  if (els.welcomeDialogKicker) els.welcomeDialogKicker.textContent = 'AGENTDESK GUIDE';
+  if (els.welcomeDialogTitle) els.welcomeDialogTitle.textContent = tr('welcome.title');
+  if (els.welcomeDialogLead) els.welcomeDialogLead.textContent = tr('welcome.lead');
+  if (els.welcomeGuideContent) els.welcomeGuideContent.hidden = false;
+  if (els.onboardingContent) els.onboardingContent.hidden = true;
+  if (els.onboardingFooter) els.onboardingFooter.hidden = true;
+  els.welcomeDialog?.classList.remove('is-onboarding');
+}
+
+function createFirstUseModel(options = {}) {
+  const progress = options.force === true
+    ? { completedVersion: 0, completedAt: null }
+    : state.onboardingProgress;
+  return window.OnboardingState.create({
+    progress,
+    profiles: state.profiles,
+    clients: supportedProvisioningApps(),
+    overview: state.mesh.overview
+  });
+}
+
+function openFirstUseDialog(options = {}) {
+  if (!window.OnboardingState || !els.welcomeDialog) return false;
+  const model = createFirstUseModel(options);
+  if (model.phase === 'done') return false;
+  state.firstUse.mode = 'onboarding';
+  state.firstUse.model = model;
+  state.firstUse.busy = false;
+  renderFirstUse();
+  if (!els.welcomeDialog.open) els.welcomeDialog.showModal();
+  focusFirstUseControl();
+  return true;
+}
+
 function maybeShowWelcome() {
-  if (state.welcomed) return;
+  if (!onboardingNeedsPresentation()) return;
+  openFirstUseDialog();
+}
+
+function firstUseErrorText(reasonCode) {
+  if (!reasonCode) return '';
+  const known = {
+    'agent-name-required': 'onboarding.error.nameRequired',
+    'supported-client-required': 'onboarding.error.clientRequired',
+    'first-agent-api-unavailable': 'onboarding.error.contractUnavailable',
+    'first-agent-result-incomplete': 'onboarding.error.incompleteResult'
+  };
+  const key = known[reasonCode];
+  return key ? tr(key) : tr('onboarding.error.generic', { code: reasonCode });
+}
+
+function preparationStateText(preparation = {}) {
+  const key = `onboarding.prepare.state.${preparation.state || 'planning'}`;
+  const fallback = tr('onboarding.prepare.state.preparing');
+  const label = tr(key);
+  return label === key ? fallback : label;
+}
+
+function preparationDetailText(preparation = {}) {
+  const key = `onboarding.prepare.detail.${preparation.state || 'planning'}`;
+  const fallback = tr('onboarding.prepare.detail.preparing');
+  const label = tr(key);
+  if (label !== key) return label;
+  return preparation.reasonCode
+    ? tr('onboarding.error.generic', { code: preparation.reasonCode })
+    : fallback;
+}
+
+function renderOnboardingProgress(model) {
+  if (!els.onboardingProgress) return;
+  const order = { migration: 0, agent: 1, submitting: 1, preparing: 2, existing: 3, complete: 3 };
+  const current = order[model.phase] ?? 0;
+  const hasMigration = model.profiles.length > 0 && !model.initialized;
+  for (const item of els.onboardingProgress.querySelectorAll('[data-step]')) {
+    const step = item.dataset.step;
+    const index = step === 'migration' ? 0 : (step === 'agent' ? 1 : 2);
+    const skipped = step === 'migration' && !hasMigration;
+    item.dataset.state = skipped || index < current ? 'complete' : (index === current ? 'current' : 'pending');
+    item.setAttribute('aria-current', index === current && !skipped ? 'step' : 'false');
+  }
+}
+
+function renderOnboardingMigration(model) {
+  if (!els.onboardingMigrationList) return;
+  els.onboardingMigrationList.replaceChildren();
+  const selected = new Set(model.selectedProfileIds);
+  for (const profile of model.profiles) {
+    const label = document.createElement('label');
+    label.className = 'onboarding-migration-item';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = selected.has(profile.profileId);
+    checkbox.disabled = state.firstUse.busy;
+    checkbox.addEventListener('change', () => {
+      state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+        type: 'toggle-profile',
+        profileId: profile.profileId,
+        selected: checkbox.checked
+      });
+      renderFirstUse();
+    });
+    const identity = document.createElement('span');
+    const name = document.createElement('strong');
+    name.textContent = profile.name;
+    const meta = document.createElement('small');
+    meta.textContent = [appLabel(profile.appId), profile.group].filter(Boolean).join(' · ');
+    identity.append(name, meta);
+    const stateLabel = document.createElement('b');
+    stateLabel.textContent = tr(checkbox.checked
+      ? 'onboarding.migration.included'
+      : 'onboarding.migration.keptLocal');
+    label.append(checkbox, identity, stateLabel);
+    els.onboardingMigrationList.append(label);
+  }
+}
+
+function renderOnboardingClientSelect(model) {
+  if (!els.onboardingAgentClient) return;
+  const expected = onboardingClientValue(
+    model.draft.requestedAppId,
+    model.draft.requestedClientForm
+  );
+  els.onboardingAgentClient.replaceChildren();
+  for (const client of model.clients) {
+    const option = document.createElement('option');
+    option.value = onboardingClientValue(client.appId, client.clientForm);
+    option.textContent = client.label;
+    els.onboardingAgentClient.append(option);
+  }
+  if (!model.clients.length) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = tr('onboarding.agent.noClient');
+    option.disabled = true;
+    option.selected = true;
+    els.onboardingAgentClient.append(option);
+  } else {
+    els.onboardingAgentClient.value = model.clients.some((item) => (
+      onboardingClientValue(item.appId, item.clientForm) === expected
+    )) ? expected : onboardingClientValue(model.clients[0].appId, model.clients[0].clientForm);
+  }
+  els.onboardingAgentClient.disabled = state.firstUse.busy || !model.clients.length;
+}
+
+function renderOnboardingExisting(model) {
+  if (!els.onboardingExistingAgents) return;
+  els.onboardingExistingAgents.replaceChildren();
+  for (const agent of model.agents.slice(0, 8)) {
+    const item = document.createElement('span');
+    item.textContent = agent.displayName;
+    els.onboardingExistingAgents.append(item);
+  }
+  if (model.agents.length > 8) {
+    const more = document.createElement('span');
+    more.textContent = tr('onboarding.existing.more', { n: model.agents.length - 8 });
+    els.onboardingExistingAgents.append(more);
+  }
+}
+
+function renderFirstUseActions(model) {
+  const primary = els.onboardingPrimaryBtn;
+  const secondary = els.onboardingSecondaryBtn;
+  const back = els.onboardingBackBtn;
+  const advanced = els.onboardingAdvancedBtn;
+  if (!primary || !secondary || !back || !advanced) return;
+
+  primary.hidden = false;
+  primary.disabled = state.firstUse.busy;
+  secondary.hidden = true;
+  secondary.disabled = state.firstUse.busy;
+  back.hidden = !(model.phase === 'agent' && model.originPhase === 'migration');
+  back.disabled = state.firstUse.busy;
+  advanced.hidden = !['migration', 'agent'].includes(model.phase);
+  advanced.disabled = state.firstUse.busy;
+  if (els.welcomeDialogCloseBtn) els.welcomeDialogCloseBtn.disabled = state.firstUse.busy;
+
+  if (model.phase === 'migration') {
+    primary.dataset.action = 'migration';
+    primary.textContent = tr('onboarding.action.confirmMigration');
+  } else if (model.phase === 'agent') {
+    primary.dataset.action = 'create';
+    primary.textContent = tr('onboarding.action.create');
+    primary.disabled = state.firstUse.busy || !window.OnboardingState.canSubmit(model);
+  } else if (model.phase === 'existing') {
+    primary.dataset.action = 'review';
+    primary.textContent = tr('onboarding.action.review');
+  } else if (model.phase === 'preparing') {
+    primary.dataset.action = 'prepare';
+    primary.textContent = tr(['error', 'unsupported'].includes(model.preparation?.state)
+      ? 'onboarding.action.retry'
+      : 'onboarding.action.continuePrepare');
+    secondary.hidden = false;
+    secondary.dataset.action = 'later';
+    secondary.textContent = tr('onboarding.action.later');
+  } else if (model.phase === 'complete') {
+    primary.dataset.action = 'finish';
+    primary.textContent = tr('onboarding.action.enter');
+    primary.disabled = state.firstUse.busy || model.completeShown !== true;
+  } else {
+    primary.dataset.action = '';
+    primary.textContent = tr('onboarding.action.working');
+    primary.disabled = true;
+  }
+}
+
+function renderFirstUse() {
+  const model = state.firstUse.model;
+  if (!model || !els.onboardingContent) return;
+  state.firstUse.mode = 'onboarding';
+  els.welcomeDialog?.classList.add('is-onboarding');
+  if (els.welcomeDialogKicker) els.welcomeDialogKicker.textContent = 'FIRST USE · V' + model.version;
+  if (els.welcomeDialogTitle) els.welcomeDialogTitle.textContent = tr('onboarding.title');
+  if (els.welcomeDialogLead) els.welcomeDialogLead.textContent = tr('onboarding.lead');
+  if (els.welcomeGuideContent) els.welcomeGuideContent.hidden = true;
+  els.onboardingContent.hidden = false;
+  if (els.onboardingFooter) els.onboardingFooter.hidden = false;
+
+  renderOnboardingProgress(model);
+  for (const [element, phase] of [
+    [els.onboardingMigration, 'migration'],
+    [els.onboardingAgent, 'agent'],
+    [els.onboardingExisting, 'existing'],
+    [els.onboardingPreparation, 'preparing'],
+    [els.onboardingComplete, 'complete']
+  ]) {
+    if (element) element.hidden = model.phase !== phase;
+  }
+
+  if (model.phase === 'migration') renderOnboardingMigration(model);
+  if (model.phase === 'agent') {
+    if (els.onboardingAgentName && els.onboardingAgentName.value !== model.draft.displayName) {
+      els.onboardingAgentName.value = model.draft.displayName;
+    }
+    renderOnboardingClientSelect(model);
+    if (els.onboardingMigrationSummary) {
+      els.onboardingMigrationSummary.hidden = model.originPhase !== 'migration';
+      els.onboardingMigrationSummary.textContent = tr('onboarding.migration.selected', {
+        n: model.selectedProfileIds.length
+      });
+    }
+  }
+  if (model.phase === 'existing') renderOnboardingExisting(model);
+  if (model.phase === 'preparing') {
+    const preparation = model.preparation || { state: 'planning' };
+    if (els.onboardingPreparationState) els.onboardingPreparationState.textContent = preparationStateText(preparation);
+    if (els.onboardingPreparationDetail) els.onboardingPreparationDetail.textContent = preparationDetailText(preparation);
+    if (els.onboardingPreparationIcon) {
+      els.onboardingPreparationIcon.textContent = ['error', 'unsupported'].includes(preparation.state) ? '!' : '⋯';
+      els.onboardingPreparationIcon.dataset.state = preparation.state || 'planning';
+    }
+  }
+
+  const message = firstUseErrorText(model.errorCode);
+  if (els.onboardingStatus) {
+    els.onboardingStatus.hidden = !message;
+    els.onboardingStatus.textContent = message;
+  }
+  renderFirstUseActions(model);
+
+  if (model.phase === 'complete' && model.completeShown !== true) {
+    requestAnimationFrame(() => {
+      if (!els.welcomeDialog?.open || els.onboardingComplete?.hidden) return;
+      state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+        type: 'rendered',
+        phase: 'complete'
+      });
+      renderFirstUseActions(state.firstUse.model);
+    });
+  }
+}
+
+function focusFirstUseControl() {
+  const model = state.firstUse.model;
+  if (!model || !els.welcomeDialog?.open) return;
+  requestAnimationFrame(() => {
+    if (model.phase === 'migration') els.onboardingMigrationList?.querySelector('input')?.focus();
+    else if (model.phase === 'agent') els.onboardingAgentName?.focus();
+    else els.onboardingPrimaryBtn?.focus();
+  });
+}
+
+async function startFirstAgentSetup() {
+  let model = state.firstUse.model;
+  if (!model || model.phase !== 'agent' || state.firstUse.busy) return;
+  model = window.OnboardingState.transition(model, {
+    type: 'draft',
+    displayName: els.onboardingAgentName?.value,
+    ...parseOnboardingClientValue(els.onboardingAgentClient?.value)
+  });
+  model = window.OnboardingState.transition(model, { type: 'submit' });
+  state.firstUse.model = model;
+  if (model.phase !== 'submitting') {
+    renderFirstUse();
+    focusFirstUseControl();
+    return;
+  }
+
+  state.firstUse.busy = true;
+  renderFirstUse();
+  try {
+    const input = {
+      displayName: model.draft.displayName,
+      requestedAppId: model.draft.requestedAppId,
+      requestedClientForm: model.draft.requestedClientForm,
+      migrationProfileIds: [...model.selectedProfileIds],
+      baseRevision: currentCatalogRevision()
+    };
+    let result;
+    if (state.mesh.overview?.initialized) {
+      result = await window.manager.createAgent({
+        displayName: input.displayName,
+        group: '',
+        note: '',
+        baseRevision: input.baseRevision
+      });
+    } else if (typeof window.manager.initializeFirstAgent === 'function') {
+      result = await window.manager.initializeFirstAgent(input);
+    } else {
+      throw new Error('first-agent-api-unavailable');
+    }
+    if (!result?.ok) throw new Error(result?.reasonCode || 'first-agent-create-failed');
+    const overview = result.overview;
+    const agentId = result.agent?.agentId;
+    const deviceId = result.deviceId || overview?.localDeviceId;
+    const resultHasAgent = Array.isArray(overview?.agents)
+      && overview.agents.some((agent) => agent.agentId === agentId);
+    if (overview?.initialized !== true || !agentId || !deviceId || !resultHasAgent) {
+      throw new Error('first-agent-result-incomplete');
+    }
+    state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+      type: 'initialized',
+      agentId,
+      deviceId
+    });
+    if (state.firstUse.model.phase !== 'preparing') {
+      renderFirstUse();
+      return;
+    }
+    state.mesh.overview = overview;
+    rememberProvisioningChoice({ key: agentId }, deviceId, input.requestedAppId, input.requestedClientForm);
+    await refreshCatalogWorkspace(overview, { agentId });
+    renderFirstUse();
+    const initialPreparation = result.preparation || result.provisioning || null;
+    if (initialPreparation?.state) {
+      state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+        type: 'preparation-result',
+        result: initialPreparation
+      });
+      renderFirstUse();
+    } else {
+      state.firstUse.busy = false;
+      await continueFirstPreparation();
+      return;
+    }
+  } catch (error) {
+    state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+      type: 'failed',
+      returnPhase: state.firstUse.model?.agentId ? 'preparing' : 'agent',
+      reasonCode: error?.message || 'first-agent-create-failed'
+    });
+  } finally {
+    state.firstUse.busy = false;
+    renderFirstUse();
+  }
+}
+
+async function continueFirstPreparation() {
+  const model = state.firstUse.model;
+  if (!model || model.phase !== 'preparing' || state.firstUse.busy) return;
+  if (!model.agentId || !model.deviceId || typeof window.manager.ensureAgentReady !== 'function') {
+    state.firstUse.model = window.OnboardingState.transition(model, {
+      type: 'failed',
+      returnPhase: 'preparing',
+      reasonCode: 'first-agent-result-incomplete'
+    });
+    renderFirstUse();
+    return;
+  }
+  state.firstUse.busy = true;
+  state.firstUse.model = window.OnboardingState.transition(model, { type: 'retry' });
+  renderFirstUse();
+  try {
+    const result = await window.manager.ensureAgentReady({
+      agentId: model.agentId,
+      deviceId: model.deviceId,
+      requestedAppId: model.draft.requestedAppId,
+      requestedClientForm: model.draft.requestedClientForm || 'desktop'
+    });
+    if (result?.overview) state.mesh.overview = result.overview;
+    if (result?.state === 'ready') {
+      await loadProfiles(result.slot?.profileId || null, { skipDeviceOverview: true });
+    } else if (result?.overview) {
+      await refreshCatalogWorkspace(result.overview, { agentId: model.agentId });
+    }
+    state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+      type: 'preparation-result',
+      result
+    });
+    setStatus(provisioningResultMessage(result, model.draft.displayName));
+  } catch (error) {
+    state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+      type: 'failed',
+      returnPhase: 'preparing',
+      reasonCode: error?.message || 'provisioning-failed'
+    });
+  } finally {
+    state.firstUse.busy = false;
+    renderFirstUse();
+  }
+}
+
+function finishFirstUseLater() {
+  if (!state.firstUse.model || state.firstUse.busy) return;
+  state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+    type: 'finish-later'
+  });
+  renderFirstUse();
+}
+
+function finishFirstUse() {
+  const patch = window.OnboardingState?.completionPatch(state.firstUse.model);
+  if (!patch) return;
   state.welcomed = true;
-  persistSettings({ welcomed: true });
-  els.welcomeDialog.showModal();
+  state.onboardingProgress = patch.onboarding;
+  persistSettings(patch);
+  els.welcomeDialog?.close();
+  setStatus(tr('onboarding.status.complete'));
 }
 
 function closeAgentManageDialog() {
@@ -675,6 +1203,7 @@ function bindEvents() {
     setWorkspaceMode('remote');
   });
   els.addProfileBtn.addEventListener('click', () => {
+    if (onboardingNeedsPresentation() && openFirstUseDialog({ force: true })) return;
     if (state.mesh.overview?.initialized) openAgentCreationDialog();
     else openProfileCreationDialog();
   });
@@ -682,6 +1211,70 @@ function bindEvents() {
     openProfileCreationDialog({ agentId: currentAgentId() });
   });
   els.confirmAddAgentBtn?.addEventListener('click', () => void confirmAgentCreation());
+  els.onboardingAgentName?.addEventListener('input', () => {
+    if (!state.firstUse.model) return;
+    state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+      type: 'draft',
+      displayName: els.onboardingAgentName.value
+    });
+    renderFirstUseActions(state.firstUse.model);
+    if (els.onboardingStatus && state.firstUse.model.errorCode === null) {
+      els.onboardingStatus.hidden = true;
+      els.onboardingStatus.textContent = '';
+    }
+  });
+  els.onboardingAgentClient?.addEventListener('change', () => {
+    if (!state.firstUse.model) return;
+    state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+      type: 'draft',
+      ...parseOnboardingClientValue(els.onboardingAgentClient.value)
+    });
+    renderFirstUseActions(state.firstUse.model);
+  });
+  els.onboardingBackBtn?.addEventListener('click', () => {
+    if (!state.firstUse.model || state.firstUse.busy) return;
+    state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, { type: 'back' });
+    renderFirstUse();
+    focusFirstUseControl();
+  });
+  els.onboardingSecondaryBtn?.addEventListener('click', () => {
+    if (els.onboardingSecondaryBtn.dataset.action === 'later') finishFirstUseLater();
+  });
+  els.onboardingPrimaryBtn?.addEventListener('click', () => {
+    if (!state.firstUse.model || state.firstUse.busy) return;
+    const action = els.onboardingPrimaryBtn.dataset.action;
+    if (action === 'migration') {
+      state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, { type: 'continue' });
+      renderFirstUse();
+      focusFirstUseControl();
+    } else if (action === 'create') {
+      void startFirstAgentSetup();
+    } else if (action === 'review') {
+      state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, { type: 'review-complete' });
+      renderFirstUse();
+    } else if (action === 'prepare') {
+      void continueFirstPreparation();
+    } else if (action === 'finish') {
+      finishFirstUse();
+    }
+  });
+  els.onboardingAdvancedBtn?.addEventListener('click', () => {
+    if (state.firstUse.busy) return;
+    els.welcomeDialog?.close();
+    openProfileCreationDialog();
+  });
+  els.welcomeDialogCloseBtn?.addEventListener('click', () => {
+    if (state.firstUse.busy) return;
+    els.welcomeDialog?.close();
+  });
+  els.welcomeDialog?.addEventListener('cancel', (event) => {
+    if (state.firstUse.busy) event.preventDefault();
+  });
+  els.welcomeDialog?.querySelector('form')?.addEventListener('submit', (event) => {
+    if (state.firstUse.mode !== 'onboarding') return;
+    event.preventDefault();
+    if (!els.onboardingPrimaryBtn?.disabled) els.onboardingPrimaryBtn?.click();
+  });
   els.accountManage?.addEventListener('click', () => openAgentManageDialog());
   els.newProfileMode?.addEventListener('change', () => syncProfileAssignmentControls());
   els.newProfileApp?.addEventListener('change', () => syncProfileAssignmentControls());
@@ -811,6 +1404,7 @@ function bindEvents() {
   });
 
   els.helpBtn.addEventListener('click', () => {
+    prepareWelcomeGuide();
     openChildDialog(els.welcomeDialog, els.helpBtn);
   });
 
@@ -875,10 +1469,7 @@ function bindEvents() {
   });
 
   els.showJoinMeshBtn?.addEventListener('click', () => {
-    if (!els.meshJoinPanel) return;
-    els.meshJoinPanel.hidden = false;
-    els.meshJoinCode.value = '';
-    els.meshJoinCode.focus();
+    openDeviceJourney('join', els.showJoinMeshBtn);
   });
 
   els.cancelJoinMeshBtn?.addEventListener('click', () => {
@@ -890,7 +1481,78 @@ function bindEvents() {
   });
 
   els.createDeviceInviteBtn?.addEventListener('click', async () => {
-    await createDeviceInvitation();
+    openDeviceJourney('host', els.createDeviceInviteBtn);
+  });
+
+  els.deviceJourneyCloseBtn?.addEventListener('click', () => {
+    if (state.mesh.deviceJourney?.busy) return;
+    els.deviceJourneyDialog?.close();
+  });
+  els.deviceJourneyDialog?.addEventListener('cancel', (event) => {
+    if (state.mesh.deviceJourney?.busy) event.preventDefault();
+  });
+  els.deviceJourneyDialog?.addEventListener('close', () => stopDeviceJourneyPolling());
+  els.meshJoinCode?.addEventListener('input', () => {
+    if (state.mesh.deviceJourney?.role !== 'join' || state.mesh.deviceJourney.preview) return;
+    renderDeviceJourneyActions(
+      state.mesh.deviceJourney,
+      window.DeviceJourney.facts(state.mesh.deviceJourney, state.mesh.overview)
+    );
+  });
+  els.deviceJourneyIdentityConfirm?.addEventListener('change', () => {
+    if (!state.mesh.deviceJourney || state.mesh.deviceJourney.busy) return;
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'confirm-identity',
+      confirmed: els.deviceJourneyIdentityConfirm.checked
+    }, state.mesh.overview);
+    renderDeviceJourney();
+  });
+  els.deviceJourneyCopyBtn?.addEventListener('click', async () => {
+    const code = state.mesh.deviceJourney?.invitation?.code;
+    if (!code || state.mesh.deviceJourney?.busy) return;
+    await window.manager.writeClipboard(code);
+    setStatus(tr('deviceJourney.status.copied'));
+  });
+  els.deviceJourneySecondaryBtn?.addEventListener('click', async () => {
+    const model = state.mesh.deviceJourney;
+    if (!model || model.busy) return;
+    if (els.deviceJourneySecondaryBtn.dataset.action === 'edit-code') {
+      state.mesh.deviceJourney = window.DeviceJourney.transition(model, {
+        type: 'code',
+        code: els.meshJoinCode?.value
+      }, state.mesh.overview);
+      renderDeviceJourney();
+      requestAnimationFrame(() => els.meshJoinCode?.focus());
+    } else if (els.deviceJourneySecondaryBtn.dataset.action === 'cancel-invite') {
+      const inviteId = model.invitation?.inviteId;
+      setDeviceJourneyBusy(true);
+      try {
+        if (inviteId && window.manager.cancelDeviceInvite) await window.manager.cancelDeviceInvite(inviteId);
+        state.mesh.invitation = null;
+        state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+          type: 'reset-invitation'
+        }, state.mesh.overview);
+      } finally {
+        setDeviceJourneyBusy(false);
+        renderDeviceCenter();
+      }
+    } else if (els.deviceJourneySecondaryBtn.dataset.action === 'reject-claim') {
+      await decideDeviceJourneyClaim(false);
+    }
+  });
+  els.deviceJourneyPrimaryBtn?.addEventListener('click', () => {
+    const action = els.deviceJourneyPrimaryBtn.dataset.action;
+    if (action === 'invite') void createDeviceJourneyInvitation();
+    else if (action === 'inspect') void inspectDeviceJourneyInvitation();
+    else if (action === 'join') void joinFromDeviceJourney();
+    else if (action === 'approve-claim') void decideDeviceJourneyClaim(true);
+    else if (action === 'connect' || action === 'sync') void connectFromDeviceJourney();
+    else if (action === 'finish') finishDeviceJourney();
+  });
+  els.deviceJourneyAdvancedBtn?.addEventListener('click', async () => {
+    if (state.mesh.deviceJourney?.busy) return;
+    els.deviceJourneyDialog?.close();
+    await openMeshNetworkSettings(els.deviceJourneyAdvancedBtn);
   });
 
   els.receiveConnectionsBtn?.addEventListener('click', async () => {
@@ -1001,6 +1663,13 @@ function bindEvents() {
 
   if (window.manager.onDeviceConnectionState) {
     window.manager.onDeviceConnectionState((value) => {
+      if (state.mesh.deviceJourney && window.DeviceJourney) {
+        state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+          type: 'connection-state',
+          ...value
+        }, state.mesh.overview);
+        renderDeviceJourney();
+      }
       if (value?.state === 'authenticated' || value?.state === 'inventory-synced') {
         state.mesh.message = tr('devices.connection.connected', { name: value.deviceName || value.deviceId || '-' });
       } else if (value?.state === 'error') {
@@ -1023,18 +1692,28 @@ function bindEvents() {
     });
   }
 
+  if (window.manager.onPairingClaimsChanged) {
+    window.manager.onPairingClaimsChanged((claims) => {
+      applyPairingClaims(claims, { open: true });
+    });
+  }
+
   if (window.manager.onTransfersChanged) {
     window.manager.onTransfersChanged((transfers) => {
       state.mesh.transfers = Array.isArray(transfers) ? transfers : [];
       const latest = state.mesh.transfers.find((item) => item.direction === 'incoming' && item.state === 'received');
       if (latest) {
-        state.mesh.transferMessage = tr(latest.type === 'file' ? 'transfers.fileOfferReceived' : 'transfers.received', {
+        const messageKey = latest.type === 'task-package'
+          ? 'taskPackage.incoming.received'
+          : (latest.type === 'file' ? 'transfers.fileOfferReceived' : 'transfers.received');
+        state.mesh.transferMessage = tr(messageKey, {
           n: latest.itemCount,
           name: latest.receivedFromName || '-'
         });
         setStatus(state.mesh.transferMessage);
       }
       renderTransferList();
+      renderIncomingTaskPackages();
     });
   }
 
@@ -1042,6 +1721,7 @@ function bindEvents() {
     window.manager.onTaskPackagesChanged((history) => {
       state.taskPackages.history = Array.isArray(history) ? history : [];
       renderTaskPackageHistory();
+      renderIncomingTaskPackages();
     });
   }
 
@@ -1300,6 +1980,24 @@ function bindEvents() {
 
   els.exportTaskPackageBtn?.addEventListener('click', async () => {
     await exportCurrentTaskPackage();
+  });
+
+  for (const control of [els.taskPackageDeliveryPortable, els.taskPackageDeliveryDirect]) {
+    control?.addEventListener('change', () => {
+      if (!control.checked) return;
+      state.taskPackages.exportDelivery = control.value === 'direct' ? 'direct' : 'portable';
+      state.taskPackages.directTransfer = null;
+      renderTaskPackageDeliveryOptions();
+    });
+  }
+
+  els.taskPackageDirectTarget?.addEventListener('change', () => {
+    state.taskPackages.directTargetDeviceId = els.taskPackageDirectTarget.value || null;
+    renderTaskPackageDeliveryOptions();
+  });
+
+  els.taskPackageSwitchPortableBtn?.addEventListener('click', async () => {
+    await saveOrSwitchTaskPackageToPortable();
   });
 
   els.copyTaskPackageCodeBtn?.addEventListener('click', async () => {
@@ -2159,7 +2857,7 @@ function finishUpdateButton(label, title, className) {
   }, 2200);
 }
 
-async function loadProfiles(preferredId = null) {
+async function loadProfiles(preferredId = null, options = {}) {
   state.profiles = await window.manager.listProfiles();
   const liveIds = new Set(state.profiles.map((profile) => profile.id));
   state.quotas = Object.fromEntries(
@@ -2182,7 +2880,7 @@ async function loadProfiles(preferredId = null) {
   // after the first quota request, without making profile/session UI wait.
   if (quotaHasLoaded) loadQuotas();
   // Mesh 目录由本机 Profile 派生；新增、编辑或删除运行位置后同步刷新设备摘要。
-  void loadDeviceOverview({ silent: true });
+  if (options.skipDeviceOverview !== true) void loadDeviceOverview({ silent: true });
 }
 
 async function loadSessions() {
@@ -2891,6 +3589,8 @@ function updateAtmosphereReadout() {
 // ── Personal Agent Mesh / 设备中心 ──────────────────
 let remoteSurfaceLayoutFrame = null;
 let remoteSurfaceObserver = null;
+let deviceJourneyPollTimer = null;
+let deviceJourneyPollPromise = null;
 const DETAIL_MODES = new Set(['session', 'quota', 'remote']);
 const childDialogReturnFocus = new WeakMap();
 const childDialogFocusBound = new WeakSet();
@@ -3108,6 +3808,501 @@ function flushPendingDeviceOverviewReload() {
     flushPendingDeviceOverviewReload();
   };
   operation.then(finish, finish);
+}
+
+function deviceJourneyErrorText(code) {
+  if (!code) return '';
+  const known = {
+    'device-invite-inspection-unavailable': 'deviceJourney.error.inspectionUnavailable',
+    'device-invite-preview-incomplete': 'deviceJourney.error.previewIncomplete',
+    'device-identity-confirmation-required': 'deviceJourney.error.identityRequired',
+    'device-invitation-incomplete': 'deviceJourney.error.invitationIncomplete'
+  };
+  return known[code]
+    ? tr(known[code])
+    : tr('deviceJourney.error.generic', { code });
+}
+
+function deviceJourneyModel() {
+  const model = state.mesh.deviceJourney;
+  if (!model || !window.DeviceJourney) return null;
+  state.mesh.deviceJourney = window.DeviceJourney.transition(model, {
+    type: 'overview'
+  }, state.mesh.overview);
+  return state.mesh.deviceJourney;
+}
+
+function openDeviceJourney(role, trigger = document.activeElement, options = {}) {
+  if (!els.deviceJourneyDialog || !window.DeviceJourney) return;
+  const existing = state.mesh.deviceJourney;
+  const resume = existing && existing.role === role && existing.phase !== 'complete';
+  if (!resume) {
+    state.mesh.deviceJourney = window.DeviceJourney.create({
+      role,
+      baselineDeviceIds: role === 'host'
+        ? (state.mesh.overview?.devices || []).map((device) => device.deviceId)
+        : [],
+      targetDeviceId: options.targetDeviceId,
+      invitation: role === 'host' ? state.mesh.invitation : null,
+      overview: state.mesh.overview
+    });
+  }
+  renderDeviceJourney();
+  openChildDialog(els.deviceJourneyDialog, trigger);
+  startDeviceJourneyPolling();
+  if (role === 'host') void refreshPairingClaims();
+  requestAnimationFrame(() => {
+    const model = deviceJourneyModel();
+    if (model?.role === 'join' && !model.preview) els.meshJoinCode?.focus();
+    else els.deviceJourneyPrimaryBtn?.focus();
+  });
+}
+
+function applyPairingClaims(claims, options = {}) {
+  const list = Array.isArray(claims) ? claims : [];
+  const inviteId = state.mesh.deviceJourney?.invitation?.inviteId || state.mesh.invitation?.inviteId;
+  const claim = list.find((item) => !inviteId || item?.inviteId === inviteId) || null;
+  if (!claim || !window.DeviceJourney) return;
+  if (!state.mesh.deviceJourney || state.mesh.deviceJourney.role !== 'host') {
+    state.mesh.deviceJourney = window.DeviceJourney.create({
+      role: 'host',
+      baselineDeviceIds: (state.mesh.overview?.devices || []).map((device) => device.deviceId),
+      invitation: state.mesh.invitation,
+      overview: state.mesh.overview
+    });
+  }
+  state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+    type: 'claim',
+    claim
+  }, state.mesh.overview);
+  renderDeviceJourney();
+  if (options.open === true && !els.deviceJourneyDialog?.open) {
+    openDeviceJourney('host', els.createDeviceInviteBtn || document.activeElement);
+  }
+}
+
+async function refreshPairingClaims() {
+  if (typeof window.manager.listPairingClaims !== 'function') return;
+  try {
+    const result = await window.manager.listPairingClaims();
+    if (result?.ok) applyPairingClaims(result.claims);
+  } catch (_error) {
+    // A missing approval list cannot be treated as trust.
+  }
+}
+
+function stopDeviceJourneyPolling() {
+  clearInterval(deviceJourneyPollTimer);
+  deviceJourneyPollTimer = null;
+}
+
+function startDeviceJourneyPolling() {
+  stopDeviceJourneyPolling();
+  if (!els.deviceJourneyDialog?.open) return;
+  deviceJourneyPollTimer = setInterval(() => {
+    void refreshDeviceJourneyFacts();
+  }, 2500);
+}
+
+async function refreshDeviceJourneyFacts() {
+  if (
+    !els.deviceJourneyDialog?.open
+    || !window.manager.listDevices
+    || deviceJourneyPollPromise
+  ) return;
+  const operation = (async () => {
+    try {
+      const result = await window.manager.listDevices();
+      if (!result?.ok || !result.overview) return;
+      state.mesh.overview = result.overview;
+      validateUiContext();
+      state.mesh.deviceJourney = window.DeviceJourney.transition(
+        state.mesh.deviceJourney,
+        { type: 'overview' },
+        result.overview
+      );
+      renderDeviceCenter();
+      renderDeviceJourney();
+    } catch (_error) {
+      // The current facts remain visible; explicit actions surface errors.
+    }
+  })();
+  deviceJourneyPollPromise = operation;
+  try {
+    await operation;
+  } finally {
+    if (deviceJourneyPollPromise === operation) deviceJourneyPollPromise = null;
+  }
+}
+
+function renderDeviceJourneyProgress(model) {
+  if (!els.deviceJourneyProgress) return;
+  const states = window.DeviceJourney.stepStates(model, state.mesh.overview);
+  for (const item of els.deviceJourneyProgress.querySelectorAll('[data-step]')) {
+    const value = states[item.dataset.step] || 'pending';
+    item.dataset.state = value;
+    if (value === 'current') item.setAttribute('aria-current', 'step');
+    else item.removeAttribute('aria-current');
+  }
+}
+
+function deviceJourneyIdentity(model, value) {
+  if (model.role === 'join' && model.preview) {
+    return {
+      kind: tr('deviceJourney.identity.inviter'),
+      name: model.preview.sourceDeviceName || tr('devices.value.unknown'),
+      meta: [
+        platformLabel(model.preview.platform),
+        model.preview.appVersion ? `AgentDesk ${model.preview.appVersion}` : null,
+        model.preview.expiresAt ? tr('deviceJourney.identity.expires', { time: compactDate(model.preview.expiresAt) }) : null
+      ].filter(Boolean).join(' · '),
+      fingerprint: model.preview.sourceFingerprint || '—'
+    };
+  }
+  if (model.role === 'host' && model.claim) {
+    return {
+      kind: tr('deviceJourney.identity.joiner'),
+      name: model.claim.name || tr('devices.value.unknown'),
+      meta: [
+        platformLabel(model.claim.platform),
+        model.claim.arch,
+        model.claim.appVersion ? `AgentDesk ${model.claim.appVersion}` : null,
+        model.claim.expiresAt ? tr('deviceJourney.identity.expires', { time: compactDate(model.claim.expiresAt) }) : null
+      ].filter(Boolean).join(' · '),
+      fingerprint: model.claim.fingerprint || '—'
+    };
+  }
+  if (value.target) {
+    return {
+      kind: tr('deviceJourney.identity.joiner'),
+      name: value.target.name,
+      meta: [
+        platformLabel(value.target.platform),
+        value.target.arch,
+        value.target.appVersion ? `AgentDesk ${value.target.appVersion}` : null
+      ].filter(Boolean).join(' · '),
+      fingerprint: value.target.fingerprint || '—'
+    };
+  }
+  return null;
+}
+
+function renderDeviceJourneyIdentity(model, value) {
+  if (els.deviceJourneyHost) els.deviceJourneyHost.hidden = model.role !== 'host';
+  if (els.deviceJourneyJoin) els.deviceJourneyJoin.hidden = model.role !== 'join' || Boolean(model.preview);
+  if (els.deviceJourneyIdentityLead) {
+    els.deviceJourneyIdentityLead.textContent = tr(model.role === 'host'
+      ? 'deviceJourney.host.lead'
+      : 'deviceJourney.join.lead');
+  }
+  if (els.deviceJourneyInviteEmpty) els.deviceJourneyInviteEmpty.hidden = Boolean(model.invitation);
+  if (els.deviceJourneyInvite) els.deviceJourneyInvite.hidden = !model.invitation;
+  if (model.invitation) {
+    if (els.deviceJourneyShortCode) els.deviceJourneyShortCode.textContent = model.invitation.shortCode || '—';
+    if (els.deviceJourneyInviteExpiry) {
+      els.deviceJourneyInviteExpiry.textContent = model.invitation.expiresAt
+        ? tr('deviceJourney.host.expires', { time: compactDate(model.invitation.expiresAt) })
+        : '';
+    }
+    if (els.deviceJourneyInviteCode) els.deviceJourneyInviteCode.value = model.invitation.code;
+  }
+
+  const identity = deviceJourneyIdentity(model, value);
+  if (els.deviceJourneyIdentityCard) els.deviceJourneyIdentityCard.hidden = !identity;
+  if (!identity) return;
+  if (els.deviceJourneyIdentityKind) els.deviceJourneyIdentityKind.textContent = identity.kind;
+  if (els.deviceJourneyDeviceName) els.deviceJourneyDeviceName.textContent = identity.name;
+  if (els.deviceJourneyDeviceMeta) els.deviceJourneyDeviceMeta.textContent = identity.meta;
+  if (els.deviceJourneyFingerprint) els.deviceJourneyFingerprint.textContent = identity.fingerprint;
+  if (els.deviceJourneyIdentityConfirm) {
+    els.deviceJourneyIdentityConfirm.checked = model.identityConfirmed;
+    els.deviceJourneyIdentityConfirm.disabled = model.busy;
+  }
+}
+
+function deviceJourneyFactState(complete, current, unavailable = false) {
+  if (complete) return 'complete';
+  if (unavailable) return 'error';
+  return current ? 'current' : 'pending';
+}
+
+function renderDeviceJourneyFacts(model, value) {
+  if (!els.deviceJourneyFactList) return;
+  const rows = [
+    ['trust', value.trusted, model.identityConfirmed, false],
+    ['connect', value.connected, value.trusted, false],
+    ['catalog', value.catalogReady, value.connected, value.catalogUnavailable],
+    ['inventory', value.inventoryReady, value.connected, false]
+  ];
+  els.deviceJourneyFactList.replaceChildren();
+  for (const [key, complete, current, unavailable] of rows) {
+    const row = document.createElement('div');
+    const status = deviceJourneyFactState(complete, current, unavailable);
+    row.dataset.state = status;
+    const mark = document.createElement('span');
+    mark.textContent = complete ? '✓' : (unavailable ? '!' : (current ? '⋯' : '·'));
+    const copy = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = tr(`deviceJourney.fact.${key}`);
+    const detail = document.createElement('small');
+    detail.textContent = tr(`deviceJourney.fact.${key}.${status}`);
+    copy.append(title, detail);
+    row.append(mark, copy);
+    els.deviceJourneyFactList.append(row);
+  }
+  if (els.deviceJourneyFactsLead) {
+    els.deviceJourneyFactsLead.textContent = tr(`deviceJourney.phase.${model.phase}`);
+  }
+}
+
+function renderDeviceJourneyActions(model, value) {
+  const primary = els.deviceJourneyPrimaryBtn;
+  const secondary = els.deviceJourneySecondaryBtn;
+  if (!primary || !secondary) return;
+  primary.hidden = false;
+  primary.disabled = model.busy;
+  secondary.hidden = true;
+  secondary.disabled = model.busy;
+  if (els.deviceJourneyCloseBtn) els.deviceJourneyCloseBtn.disabled = model.busy;
+  if (els.deviceJourneyAdvancedBtn) els.deviceJourneyAdvancedBtn.disabled = model.busy;
+
+  if (model.role === 'host' && !model.invitation && !value.target && !model.claim) {
+    primary.dataset.action = 'invite';
+    primary.textContent = tr('deviceJourney.action.invite');
+  } else if (model.role === 'host' && !value.target && !model.claim) {
+    primary.dataset.action = '';
+    primary.textContent = tr('deviceJourney.action.waitingDevice');
+    primary.disabled = true;
+    secondary.hidden = false;
+    secondary.dataset.action = 'cancel-invite';
+    secondary.textContent = tr('deviceJourney.action.cancelInvite');
+  } else if (model.role === 'join' && !model.preview) {
+    primary.dataset.action = 'inspect';
+    primary.textContent = tr('deviceJourney.action.inspect');
+    primary.disabled = model.busy || !String(els.meshJoinCode?.value || '').trim();
+  } else if (!model.identityConfirmed) {
+    primary.dataset.action = '';
+    primary.textContent = tr('deviceJourney.action.confirmIdentity');
+    primary.disabled = true;
+    if (model.role === 'join') {
+      secondary.hidden = false;
+      secondary.dataset.action = 'edit-code';
+      secondary.textContent = tr('deviceJourney.action.editCode');
+    } else if (model.claim) {
+      secondary.hidden = false;
+      secondary.dataset.action = 'reject-claim';
+      secondary.textContent = tr('deviceJourney.action.rejectClaim');
+    }
+  } else if (!value.trusted && model.role === 'join') {
+    primary.dataset.action = 'join';
+    primary.textContent = tr('deviceJourney.action.join');
+  } else if (!value.trusted && model.role === 'host' && model.claim && !model.approvalSubmitted) {
+    primary.dataset.action = 'approve-claim';
+    primary.textContent = tr('deviceJourney.action.approveClaim');
+    secondary.hidden = false;
+    secondary.dataset.action = 'reject-claim';
+    secondary.textContent = tr('deviceJourney.action.rejectClaim');
+  } else if (!value.trusted) {
+    primary.dataset.action = '';
+    primary.textContent = tr('deviceJourney.action.waitingTrust');
+    primary.disabled = true;
+  } else if (!value.connected) {
+    primary.dataset.action = 'connect';
+    primary.textContent = tr('deviceJourney.action.connect');
+  } else if (!value.catalogReady || !value.inventoryReady) {
+    primary.dataset.action = 'sync';
+    primary.textContent = tr(value.catalogUnavailable
+      ? 'deviceJourney.action.recheck'
+      : 'deviceJourney.action.continueSync');
+  } else {
+    primary.dataset.action = 'finish';
+    primary.textContent = tr('deviceJourney.action.viewDevice');
+  }
+}
+
+function renderDeviceJourney() {
+  const model = deviceJourneyModel();
+  if (!model || !els.deviceJourneyDialog) return;
+  const value = window.DeviceJourney.facts(model, state.mesh.overview);
+  renderDeviceJourneyProgress(model);
+  if (els.deviceJourneyIdentity) els.deviceJourneyIdentity.hidden = model.identityConfirmed && Boolean(value.target);
+  if (els.deviceJourneyFacts) els.deviceJourneyFacts.hidden = !model.identityConfirmed || value.usable;
+  if (els.deviceJourneyComplete) els.deviceJourneyComplete.hidden = !value.usable;
+  renderDeviceJourneyIdentity(model, value);
+  renderDeviceJourneyFacts(model, value);
+  if (els.deviceJourneyCompleteLead) {
+    els.deviceJourneyCompleteLead.textContent = tr('deviceJourney.complete.lead', {
+      name: value.target?.name || tr('devices.value.unknown')
+    });
+  }
+  const error = deviceJourneyErrorText(model.errorCode);
+  if (els.deviceJourneyStatus) {
+    els.deviceJourneyStatus.hidden = !error;
+    els.deviceJourneyStatus.textContent = error;
+  }
+  renderDeviceJourneyActions(model, value);
+}
+
+function setDeviceJourneyBusy(busy) {
+  if (!state.mesh.deviceJourney) return;
+  state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+    type: 'busy',
+    busy
+  }, state.mesh.overview);
+  renderDeviceJourney();
+}
+
+async function createDeviceJourneyInvitation() {
+  const model = deviceJourneyModel();
+  if (!model || model.busy || !window.manager.createDeviceInvite) return;
+  setDeviceJourneyBusy(true);
+  try {
+    const result = await window.manager.createDeviceInvite();
+    if (!result?.ok || !result.invitation) throw new Error(result?.reasonCode || 'pairing-invite-failed');
+    state.mesh.invitation = result.invitation;
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'invitation',
+      invitation: result.invitation
+    }, state.mesh.overview);
+  } catch (error) {
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'failed',
+      reasonCode: error?.message || 'pairing-invite-failed'
+    }, state.mesh.overview);
+  } finally {
+    setDeviceJourneyBusy(false);
+    renderDeviceCenter();
+  }
+}
+
+async function inspectDeviceJourneyInvitation() {
+  const model = deviceJourneyModel();
+  const code = String(els.meshJoinCode?.value || '').trim();
+  if (!model || model.busy || !code) return;
+  if (typeof window.manager.inspectDeviceInvitation !== 'function') {
+    state.mesh.deviceJourney = window.DeviceJourney.transition(model, {
+      type: 'failed',
+      reasonCode: 'device-invite-inspection-unavailable'
+    }, state.mesh.overview);
+    renderDeviceJourney();
+    return;
+  }
+  state.mesh.deviceJourney = window.DeviceJourney.transition(model, { type: 'code', code }, state.mesh.overview);
+  setDeviceJourneyBusy(true);
+  try {
+    const result = await window.manager.inspectDeviceInvitation({ code });
+    if (!result?.ok || !result.preview) throw new Error(result?.reasonCode || 'device-invite-preview-incomplete');
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'preview',
+      preview: result.preview
+    }, state.mesh.overview);
+  } catch (error) {
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'failed',
+      reasonCode: error?.message || 'device-invite-preview-failed'
+    }, state.mesh.overview);
+  } finally {
+    setDeviceJourneyBusy(false);
+  }
+}
+
+async function joinFromDeviceJourney() {
+  const model = deviceJourneyModel();
+  if (!model || model.busy || !model.identityConfirmed || !model.preview || !window.manager.joinDeviceMesh) return;
+  setDeviceJourneyBusy(true);
+  try {
+    const result = await window.manager.joinDeviceMesh({
+      code: model.inviteCode,
+      inviteId: model.preview.inviteId,
+      confirmationToken: model.preview.confirmationToken
+    });
+    if (!result?.ok || !result.overview) throw new Error(result?.reasonCode || 'pairing-join-failed');
+    state.mesh.overview = result.overview;
+    const target = (result.overview.devices || []).find((device) => !device.isLocal);
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'target',
+      deviceId: target?.deviceId
+    }, result.overview);
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'connection-result',
+      ok: Boolean(result.connection),
+      reasonCode: result.connectionError
+    }, result.overview);
+    validateUiContext();
+    renderTopbarContext();
+    await loadProfiles(currentProfileId(), { skipDeviceOverview: true });
+  } catch (error) {
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'failed',
+      reasonCode: error?.message || 'pairing-join-failed'
+    }, state.mesh.overview);
+  } finally {
+    setDeviceJourneyBusy(false);
+    renderDeviceCenter();
+  }
+}
+
+async function decideDeviceJourneyClaim(confirmed) {
+  const model = deviceJourneyModel();
+  const claim = model?.claim;
+  if (!model || model.busy || !claim || typeof window.manager.decidePairingClaim !== 'function') return;
+  setDeviceJourneyBusy(true);
+  try {
+    const result = await window.manager.decidePairingClaim({
+      approvalId: claim.approvalId,
+      confirmed: confirmed === true
+    });
+    if (!result?.ok) throw new Error(result?.reasonCode || 'pairing-approval-failed');
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'claim-decision',
+      confirmed: confirmed === true
+    }, state.mesh.overview);
+    if (!confirmed) setStatus(tr('deviceJourney.status.claimRejected'));
+  } catch (error) {
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'failed',
+      reasonCode: error?.message || 'pairing-approval-failed'
+    }, state.mesh.overview);
+  } finally {
+    setDeviceJourneyBusy(false);
+    void refreshDeviceJourneyFacts();
+  }
+}
+
+async function connectFromDeviceJourney() {
+  const model = deviceJourneyModel();
+  const value = model ? window.DeviceJourney.facts(model, state.mesh.overview) : null;
+  if (!model || model.busy || !value?.target || !window.manager.connectDevice) return;
+  setDeviceJourneyBusy(true);
+  try {
+    const result = await window.manager.connectDevice(value.target.deviceId);
+    if (!result?.ok || !result.overview) throw new Error(result?.reasonCode || 'peer-connect-failed');
+    state.mesh.overview = result.overview;
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'connection-result',
+      ok: true
+    }, result.overview);
+    validateUiContext();
+    await loadSessions();
+  } catch (error) {
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'connection-result',
+      ok: false,
+      reasonCode: error?.message || 'peer-connect-failed'
+    }, state.mesh.overview);
+  } finally {
+    setDeviceJourneyBusy(false);
+    renderDeviceCenter();
+  }
+}
+
+function finishDeviceJourney() {
+  const model = deviceJourneyModel();
+  const value = model ? window.DeviceJourney.facts(model, state.mesh.overview) : null;
+  if (!value?.usable || !value.target) return;
+  state.ui = window.UiContext.selectDeviceDetail(state.ui, value.target.deviceId);
+  renderDeviceCenter();
+  els.deviceJourneyDialog?.close();
 }
 
 async function loadDeviceOverview(options = {}) {
@@ -3761,30 +4956,19 @@ async function disconnectMeshDevice(device) {
 }
 
 async function joinExistingMesh() {
-  if (state.mesh.loading || !window.manager.joinDeviceMesh) return;
   const code = String(els.meshJoinCode?.value || '').trim();
   if (!code) {
     state.mesh.errorCode = 'pairing-code-required';
     renderDeviceCenter();
     return;
   }
-  state.mesh.loading = true;
-  state.mesh.errorCode = null;
-  state.mesh.message = tr('devices.join.joining');
-  renderDeviceCenter();
-  const result = await window.manager.joinDeviceMesh({ code });
-  state.mesh.loading = false;
-  if (!result?.ok) {
-    state.mesh.errorCode = result?.reasonCode || 'pairing-join-failed';
-    state.mesh.message = '';
-  } else {
-    state.mesh.overview = result.overview;
-    state.mesh.message = tr('devices.join.done');
-    if (els.meshJoinPanel) els.meshJoinPanel.hidden = true;
-  }
-  renderDeviceCenter();
-  renderTopbarContext();
-  if (result?.ok) await loadProfiles(currentProfileId());
+  openDeviceJourney('join', els.confirmJoinMeshBtn);
+  state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+    type: 'code',
+    code
+  }, state.mesh.overview);
+  renderDeviceJourney();
+  await inspectDeviceJourneyInvitation();
 }
 
 function deviceDiagnosticsButton(device) {
@@ -4513,11 +5697,8 @@ function renderAttentionInbox() {
   if (!els.attentionInbox) return;
   const items = collectAttentionItems();
   els.attentionInbox.hidden = items.length === 0;
-  if (els.attentionEmpty) els.attentionEmpty.hidden = items.length > 0;
-  if (els.activityCountBadge) {
-    els.activityCountBadge.hidden = items.length === 0;
-    els.activityCountBadge.textContent = String(items.length);
-  }
+  if (els.attentionEmpty) els.attentionEmpty.hidden = items.length > 0 || incomingTaskPackageTransfers().length > 0;
+  updateActivityBadge(items.length);
   els.attentionCount.textContent = String(items.length);
   els.attentionItems.replaceChildren();
   for (const item of items) {
@@ -4662,6 +5843,10 @@ function rerenderLocalizedText() {
   renderLedger();
   renderToolCenter();
   renderDeviceCenter();
+  if (els.welcomeDialog?.open) {
+    if (state.firstUse.mode === 'onboarding') renderFirstUse();
+    else prepareWelcomeGuide();
+  }
   if (els.reminderToggle) els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
   updateAtmosphereReadout();
   if (yardMounted) syncYard();
@@ -5641,8 +6826,13 @@ function renderAccountHeader() {
   const localLens = !meshMode
     || currentDeviceLensId() === 'all'
     || currentDeviceLensId() === state.mesh.overview.localDeviceId;
+  const firstUseAction = onboardingNeedsPresentation() && (
+    !meshMode || !(state.mesh.overview?.agents || []).length
+  );
 
-  els.addProfileBtn.textContent = tr(meshMode ? 'account.addAgent' : 'account.addSlot');
+  els.addProfileBtn.textContent = tr(firstUseAction
+    ? 'account.createFirstAgent'
+    : (meshMode ? 'account.addAgent' : 'account.addSlot'));
   const editProfileLabel = els.editProfileBtn.querySelector(':scope > span');
   const removeProfileLabel = els.removeProfileBtn.querySelector(':scope > span');
   if (editProfileLabel) editProfileLabel.textContent = tr(meshMode ? 'account.editAgent' : 'account.edit');
@@ -5650,7 +6840,9 @@ function renderAccountHeader() {
   if (removeProfileLabel) removeProfileLabel.textContent = tr(meshMode ? 'account.removeCatalog' : 'account.remove');
   else els.removeProfileBtn.textContent = tr(meshMode ? 'account.removeCatalog' : 'account.remove');
   els.addProfileBtn.disabled = false;
-  els.addProfileBtn.title = meshMode ? tr('account.addAgentHint') : '';
+  els.addProfileBtn.title = firstUseAction
+    ? tr('account.createFirstAgentHint')
+    : (meshMode ? tr('account.addAgentHint') : '');
   if (els.addRuntimeLocationBtn) {
     els.addRuntimeLocationBtn.hidden = !meshMode;
     els.addRuntimeLocationBtn.disabled = !selectedAgent || !localLens;
@@ -5919,6 +7111,71 @@ async function openFileSendDialog(preselectedDeviceId = null, returnFocus = docu
   openChildDialog(els.fileSendDialog, returnFocus);
 }
 
+function directTaskPackageTargets() {
+  const overview = state.mesh.overview || {};
+  const connections = new Map((overview.connections || [])
+    .filter((connection) => connection?.authenticated === true)
+    .map((connection) => [connection.deviceId, connection]));
+  return (overview.devices || []).filter((device) => {
+    if (!device || device.isLocal) return false;
+    const connection = connections.get(device.deviceId);
+    return Array.isArray(device.capabilities)
+      && device.capabilities.includes('task.package.receive')
+      && Array.isArray(device.permissions)
+      && device.permissions.includes('task.package.receive')
+      && Array.isArray(connection?.protocolFeatures)
+      && connection.protocolFeatures.includes('task.package.transfer.v1');
+  });
+}
+
+function renderTaskPackageDeliveryOptions() {
+  const targets = directTaskPackageTargets();
+  const hasDirectTarget = targets.length > 0;
+  if (state.taskPackages.exportDelivery === 'direct' && !hasDirectTarget) {
+    state.taskPackages.exportDelivery = 'portable';
+    state.taskPackages.directTargetDeviceId = null;
+  }
+  if (els.taskPackageDeliveryPortable) {
+    els.taskPackageDeliveryPortable.checked = state.taskPackages.exportDelivery !== 'direct';
+  }
+  if (els.taskPackageDeliveryDirect) {
+    els.taskPackageDeliveryDirect.disabled = !hasDirectTarget;
+    els.taskPackageDeliveryDirect.checked = state.taskPackages.exportDelivery === 'direct';
+  }
+  if (els.taskPackageDirectTarget) {
+    const preferred = targets.some((item) => item.deviceId === state.taskPackages.directTargetDeviceId)
+      ? state.taskPackages.directTargetDeviceId
+      : targets[0]?.deviceId;
+    els.taskPackageDirectTarget.replaceChildren();
+    for (const device of targets) {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      option.textContent = `${device.name} · ${tr('devices.status.online')}`;
+      option.selected = device.deviceId === preferred;
+      els.taskPackageDirectTarget.append(option);
+    }
+    state.taskPackages.directTargetDeviceId = preferred || null;
+  }
+  const direct = state.taskPackages.exportDelivery === 'direct';
+  if (els.taskPackageDirectTargetField) els.taskPackageDirectTargetField.hidden = !direct;
+  if (els.taskPackageDirectAvailability) {
+    els.taskPackageDirectAvailability.textContent = hasDirectTarget
+      ? tr('taskPackage.delivery.available', { n: targets.length })
+      : tr('taskPackage.delivery.unavailable');
+  }
+  if (els.taskPackageSecurity) {
+    els.taskPackageSecurity.textContent = tr(direct
+      ? 'taskPackage.security.direct'
+      : 'taskPackage.security');
+  }
+  if (els.exportTaskPackageBtn && !state.taskPackages.exportBusy) {
+    els.exportTaskPackageBtn.textContent = tr(direct
+      ? 'taskPackage.direct.send'
+      : 'taskPackage.export');
+    els.exportTaskPackageBtn.disabled = !state.taskPackages.exportPreview || (direct && !state.taskPackages.directTargetDeviceId);
+  }
+}
+
 async function openTaskPackageExportDialog(returnFocus = document.activeElement) {
   const session = resolvedFocusedSession();
   const profile = sessionOwnerProfile(session);
@@ -5953,6 +7210,7 @@ async function openTaskPackageExportDialog(returnFocus = document.activeElement)
     conversationId: session.conversationId || null
   };
   renderTaskPackageExportPreview();
+  renderTaskPackageDeliveryOptions();
   setTaskPackageStatus('export', tr(
     result.preview.mode === 'native' ? 'taskPackage.status.nativeReady' : 'taskPackage.status.transcriptReady'
   ), 'idle');
@@ -5960,10 +7218,14 @@ async function openTaskPackageExportDialog(returnFocus = document.activeElement)
 }
 
 function resetTaskPackageExportState() {
+  if (els.taskPackageDialog) delete els.taskPackageDialog.dataset.flow;
   state.taskPackages.exportPreview = null;
   state.taskPackages.exportSource = null;
   state.taskPackages.exportBusy = false;
   state.taskPackages.exportCode = null;
+  state.taskPackages.exportDelivery = 'portable';
+  state.taskPackages.directTargetDeviceId = null;
+  state.taskPackages.directTransfer = null;
   if (els.taskPackagePreview) els.taskPackagePreview.replaceChildren();
   for (const field of [
     els.taskPackageSender,
@@ -5978,15 +7240,20 @@ function resetTaskPackageExportState() {
   if (els.taskPackageIncludeProject) els.taskPackageIncludeProject.checked = true;
   if (els.taskPackageIncludeAttachments) els.taskPackageIncludeAttachments.checked = false;
   if (els.taskPackageExportResult) els.taskPackageExportResult.hidden = true;
+  if (els.taskPackageDirectResult) els.taskPackageDirectResult.hidden = true;
+  if (els.taskPackageDirectResultDetail) els.taskPackageDirectResultDetail.textContent = '';
+  if (els.taskPackageSwitchPortableBtn) els.taskPackageSwitchPortableBtn.hidden = true;
   if (els.taskPackageUnlockCode) els.taskPackageUnlockCode.textContent = '';
   if (els.taskPackageStatus) {
     els.taskPackageStatus.textContent = '';
     els.taskPackageStatus.dataset.state = 'idle';
   }
   if (els.exportTaskPackageBtn) {
+    els.exportTaskPackageBtn.hidden = false;
     els.exportTaskPackageBtn.disabled = true;
     els.exportTaskPackageBtn.textContent = tr('taskPackage.export');
   }
+  renderTaskPackageDeliveryOptions();
   lockTaskPackageDialog('export', false);
 }
 
@@ -6014,29 +7281,42 @@ async function exportCurrentTaskPackage() {
     return;
   }
   const source = state.taskPackages.exportSource;
+  const direct = state.taskPackages.exportDelivery === 'direct';
+  const targetDeviceId = state.taskPackages.directTargetDeviceId;
+  if (direct && !targetDeviceId) {
+    setTaskPackageStatus('export', tr('taskPackage.delivery.unavailable'), 'error');
+    return;
+  }
   state.taskPackages.exportBusy = true;
   lockTaskPackageDialog('export', true);
   if (els.exportTaskPackageBtn) els.exportTaskPackageBtn.disabled = true;
-  setTaskPackageStatus('export', tr('taskPackage.status.exporting'), 'busy');
+  setTaskPackageStatus('export', tr(direct
+    ? 'taskPackage.direct.status.preparing'
+    : 'taskPackage.status.exporting'), 'busy');
   let result;
+  const input = {
+    profileId: source.profileId,
+    sessionId: source.sessionId,
+    conversationId: source.conversationId,
+    senderLabel: els.taskPackageSender?.value || '',
+    checkpoint: {
+      objective: els.taskPackageObjective?.value || '',
+      completed: els.taskPackageCompleted?.value || '',
+      next: els.taskPackageNext?.value || '',
+      blockers: els.taskPackageBlockers?.value || '',
+      acceptance: els.taskPackageAcceptance?.value || ''
+    },
+    includeProject: els.taskPackageIncludeProject?.checked !== false,
+    includeAttachments: els.taskPackageIncludeAttachments?.checked === true
+  };
   try {
-    result = await window.manager.exportTaskPackage({
-      profileId: source.profileId,
-      sessionId: source.sessionId,
-      conversationId: source.conversationId,
-      senderLabel: els.taskPackageSender?.value || '',
-      checkpoint: {
-        objective: els.taskPackageObjective?.value || '',
-        completed: els.taskPackageCompleted?.value || '',
-        next: els.taskPackageNext?.value || '',
-        blockers: els.taskPackageBlockers?.value || '',
-        acceptance: els.taskPackageAcceptance?.value || ''
-      },
-      includeProject: els.taskPackageIncludeProject?.checked !== false,
-      includeAttachments: els.taskPackageIncludeAttachments?.checked === true
-    });
+    result = direct
+      ? await window.manager.sendTaskPackageToDevice({ ...input, targetDeviceId })
+      : await window.manager.exportTaskPackage(input);
   } catch (_error) {
-    result = { ok: false, reasonCode: 'task-package-export-failed' };
+    result = { ok: false, reasonCode: direct
+      ? 'task-package-direct-send-failed'
+      : 'task-package-export-failed' };
   } finally {
     state.taskPackages.exportBusy = false;
     lockTaskPackageDialog('export', false);
@@ -6049,6 +7329,45 @@ async function exportCurrentTaskPackage() {
   if (!result?.ok) {
     if (els.exportTaskPackageBtn) els.exportTaskPackageBtn.disabled = false;
     setTaskPackageStatus('export', taskPackageErrorText(result?.reasonCode), 'error');
+    if (direct && els.taskPackageDirectResult) {
+      els.taskPackageDirectResult.hidden = false;
+      if (els.taskPackageDirectResultDetail) {
+        els.taskPackageDirectResultDetail.textContent = tr('taskPackage.direct.status.fallback', {
+          reason: taskPackageErrorText(result?.reasonCode)
+        });
+      }
+      if (els.taskPackageSwitchPortableBtn) els.taskPackageSwitchPortableBtn.hidden = false;
+    }
+    return;
+  }
+  if (direct) {
+    state.taskPackages.directTransfer = result.transfer || null;
+    state.mesh.transfers = result.transfers || state.mesh.transfers;
+    state.taskPackages.history = result.history || state.taskPackages.history;
+    if (els.taskPackageDirectResult) els.taskPackageDirectResult.hidden = false;
+    if (els.taskPackageExportResult) els.taskPackageExportResult.hidden = true;
+    const target = directTaskPackageTargets().find((item) => item.deviceId === targetDeviceId);
+    const failed = result.transfer?.state === 'failed';
+    if (els.taskPackageDirectResultDetail) {
+      els.taskPackageDirectResultDetail.textContent = failed
+        ? tr('taskPackage.direct.status.fallback', {
+            reason: taskPackageErrorText(result.transfer?.lastError)
+          })
+        : tr('taskPackage.direct.status.queued', { name: target?.name || '-' });
+    }
+    if (els.taskPackageSwitchPortableBtn) {
+      els.taskPackageSwitchPortableBtn.hidden = !failed;
+    }
+    if (els.exportTaskPackageBtn) {
+      els.exportTaskPackageBtn.disabled = true;
+      els.exportTaskPackageBtn.textContent = tr('taskPackage.direct.sent');
+    }
+    setTaskPackageStatus('export', failed
+      ? tr('taskPackage.direct.status.failed')
+      : tr('taskPackage.direct.status.waiting'), failed ? 'error' : 'idle');
+    renderTransferList();
+    renderIncomingTaskPackages();
+    renderTaskPackageHistory();
     return;
   }
   state.taskPackages.exportCode = result.exported.unlockCode;
@@ -6063,9 +7382,73 @@ async function exportCurrentTaskPackage() {
   renderTaskPackageHistory();
 }
 
-function openTaskPackageImportDialog(returnFocus = document.activeElement) {
+async function saveOrSwitchTaskPackageToPortable() {
+  const transfer = state.taskPackages.directTransfer;
+  if (transfer?.canSavePortable && window.manager.saveTaskPackageFallback) {
+    state.taskPackages.exportBusy = true;
+    lockTaskPackageDialog('export', true);
+    setTaskPackageStatus('export', tr('taskPackage.direct.status.savingFallback'), 'busy');
+    let result;
+    try {
+      result = await window.manager.saveTaskPackageFallback(transfer.transferId);
+    } catch (_error) {
+      result = { ok: false, reasonCode: 'task-package-portable-fallback-failed' };
+    } finally {
+      state.taskPackages.exportBusy = false;
+      lockTaskPackageDialog('export', false);
+    }
+    if (result?.cancelled) {
+      setTaskPackageStatus('export', tr('taskPackage.status.cancelled'), 'idle');
+      return;
+    }
+    if (!result?.ok) {
+      setTaskPackageStatus('export', taskPackageErrorText(result?.reasonCode), 'error');
+      return;
+    }
+    state.taskPackages.exportCode = result.saved.unlockCode;
+    state.mesh.transfers = result.transfers || state.mesh.transfers;
+    if (els.taskPackageUnlockCode) els.taskPackageUnlockCode.textContent = result.saved.unlockCode;
+    if (els.taskPackageExportResult) els.taskPackageExportResult.hidden = false;
+    if (els.taskPackageDirectResult) els.taskPackageDirectResult.hidden = true;
+    if (els.taskPackageSwitchPortableBtn) els.taskPackageSwitchPortableBtn.hidden = true;
+    setTaskPackageStatus('export', tr('taskPackage.direct.status.fallbackSaved'), 'idle');
+    renderTransferList();
+    return;
+  }
+  state.taskPackages.exportDelivery = 'portable';
+  state.taskPackages.directTransfer = null;
+  if (els.taskPackageDirectResult) els.taskPackageDirectResult.hidden = true;
+  if (els.taskPackageSwitchPortableBtn) els.taskPackageSwitchPortableBtn.hidden = true;
+  renderTaskPackageDeliveryOptions();
+  setTaskPackageStatus('export', tr('taskPackage.direct.status.switchedPortable'), 'idle');
+}
+
+function openTaskPackageImportDialog(returnFocus = document.activeElement, options = {}) {
   if (!els.taskPackageImportDialog) return;
   resetTaskPackageImportState();
+  if (options.mode === 'direct' && options.prepared?.draft && options.prepared?.inspected) {
+    state.taskPackages.importMode = 'direct';
+    state.taskPackages.importTransferId = options.transfer?.transferId || null;
+    state.taskPackages.importDraft = options.prepared.draft;
+    state.taskPackages.importPreview = options.prepared.inspected;
+    if (els.taskPackagePortableImportSource) els.taskPackagePortableImportSource.hidden = true;
+    if (els.taskPackageDirectImportSource) els.taskPackageDirectImportSource.hidden = false;
+    const manifest = options.prepared.inspected.manifest;
+    if (els.taskPackageDirectImportTitle) {
+      els.taskPackageDirectImportTitle.textContent = manifest.session.originalTitle;
+    }
+    if (els.taskPackageDirectImportMeta) {
+      els.taskPackageDirectImportMeta.textContent = [
+        options.transfer?.receivedFromName,
+        manifest.source.agentName,
+        formatBytes(manifest.bytesTotal)
+      ].filter(Boolean).join(' · ');
+    }
+    renderTaskPackageImportPreview();
+    setTaskPackageStatus('import', options.prepared.inspected.compatibleProfiles.length
+      ? tr('taskPackage.import.status.verified')
+      : tr('taskPackage.import.status.noTarget'), options.prepared.inspected.compatibleProfiles.length ? 'idle' : 'error');
+  }
   openChildDialog(els.taskPackageImportDialog, returnFocus);
 }
 
@@ -6073,6 +7456,12 @@ function resetTaskPackageImportState() {
   state.taskPackages.importDraft = null;
   state.taskPackages.importPreview = null;
   state.taskPackages.importBusy = false;
+  state.taskPackages.importMode = 'portable';
+  state.taskPackages.importTransferId = null;
+  if (els.taskPackagePortableImportSource) els.taskPackagePortableImportSource.hidden = false;
+  if (els.taskPackageDirectImportSource) els.taskPackageDirectImportSource.hidden = true;
+  if (els.taskPackageDirectImportTitle) els.taskPackageDirectImportTitle.textContent = '';
+  if (els.taskPackageDirectImportMeta) els.taskPackageDirectImportMeta.textContent = '';
   if (els.taskPackageImportFile) els.taskPackageImportFile.textContent = tr('taskPackage.import.noFile');
   if (els.taskPackageImportCode) els.taskPackageImportCode.value = '';
   if (els.taskPackageImportPreview) {
@@ -6287,6 +7676,7 @@ async function commitTaskPackageImport() {
   }
   state.taskPackages.history = result.history || state.taskPackages.history;
   state.taskPackages.importDraft = null;
+  state.taskPackages.importTransferId = null;
   if (els.commitTaskPackageBtn) {
     els.commitTaskPackageBtn.disabled = true;
     els.commitTaskPackageBtn.textContent = tr('taskPackage.import.done');
@@ -6303,6 +7693,7 @@ async function commitTaskPackageImport() {
     : completedText, result.imported.openFailed ? 'error' : 'idle');
   setStatus(tr('taskPackage.status.received', { name: targetName }));
   renderTaskPackageHistory();
+  renderIncomingTaskPackages();
   if (result.imported.sessionMode === 'native') await loadProfiles();
 }
 
@@ -6341,6 +7732,238 @@ async function loadTaskPackageHistory() {
   const result = await window.manager.listTaskPackages();
   if (result?.ok) state.taskPackages.history = result.history || [];
   renderTaskPackageHistory();
+  renderIncomingTaskPackages();
+}
+
+function handledIncomingTaskPackageTransferIds() {
+  return new Set((state.taskPackages.history || [])
+    .filter((item) => item.direction === 'imported' && item.transferId)
+    .map((item) => item.transferId));
+}
+
+function incomingTaskPackageTransfers() {
+  const handled = handledIncomingTaskPackageTransferIds();
+  return (state.mesh.transfers || []).filter((transfer) => (
+    transfer.type === 'task-package'
+      && transfer.direction === 'incoming'
+      && !handled.has(transfer.transferId)
+  ));
+}
+
+function pendingIncomingTaskPackageCount() {
+  return incomingTaskPackageTransfers().filter((transfer) => (
+    transfer.acceptRequired
+      || transfer.state === 'receiving'
+      || (transfer.state === 'completed' && transfer.canImport)
+  )).length;
+}
+
+function updateActivityBadge(attentionCount = collectAttentionItems().length) {
+  if (!els.activityCountBadge) return;
+  const total = Number(attentionCount || 0) + pendingIncomingTaskPackageCount();
+  els.activityCountBadge.hidden = total === 0;
+  els.activityCountBadge.textContent = String(total);
+}
+
+function renderIncomingTaskPackages() {
+  if (!els.incomingTaskPackages || !els.incomingTaskPackageList) return;
+  const transfers = incomingTaskPackageTransfers();
+  els.incomingTaskPackages.hidden = transfers.length === 0;
+  els.incomingTaskPackageList.replaceChildren();
+  if (els.incomingTaskPackageCount) els.incomingTaskPackageCount.textContent = String(transfers.length);
+  for (const transfer of transfers) {
+    els.incomingTaskPackageList.append(createIncomingTaskPackageCard(transfer));
+  }
+  if (els.attentionEmpty) {
+    els.attentionEmpty.hidden = transfers.length > 0 || collectAttentionItems().length > 0;
+  }
+  updateActivityBadge();
+}
+
+function createIncomingTaskPackageCard(transfer) {
+  const summary = transfer.taskPackage || {};
+  const card = document.createElement('article');
+  card.className = 'incoming-task-package-card';
+  const head = document.createElement('div');
+  head.className = 'incoming-task-package-card-head';
+  const identity = document.createElement('div');
+  const title = document.createElement('strong');
+  title.textContent = summary.title || tr('taskPackage.history.untitled');
+  const meta = document.createElement('small');
+  meta.textContent = [
+    transfer.receivedFromName,
+    summary.sourceAgentName,
+    summary.senderLabel,
+    summary.appId ? appLabel(summary.appId) : null,
+    formatBytes(transfer.bytesTotal || 0)
+  ].filter(Boolean).join(' · ');
+  identity.append(title, meta);
+  const status = document.createElement('span');
+  status.className = 'incoming-task-package-state';
+  status.textContent = taskPackageTransferStateText(transfer);
+  head.append(identity, status);
+  card.append(head);
+  if (summary.objective) {
+    const objective = document.createElement('small');
+    objective.textContent = summary.objective;
+    card.append(objective);
+  }
+  if (summary.attachmentCount) {
+    const attachments = document.createElement('small');
+    attachments.textContent = tr('taskPackage.incoming.attachments', { n: summary.attachmentCount });
+    card.append(attachments);
+  }
+  if (['receiving', 'sending'].includes(transfer.state)) {
+    const progress = document.createElement('progress');
+    progress.max = Math.max(1, transfer.bytesTotal || 0);
+    progress.value = Math.min(progress.max, transfer.bytesTransferred || 0);
+    progress.setAttribute('aria-label', tr('transfers.progress'));
+    card.append(progress);
+  }
+  const actions = createTaskPackageTransferActions(transfer, { returnFocus: null });
+  if (actions.childElementCount) card.append(actions);
+  return card;
+}
+
+function taskPackageTransferStateText(transfer) {
+  if (transfer.acceptRequired) return tr('taskPackage.incoming.state.awaiting');
+  if (transfer.state === 'receiving') return tr('taskPackage.incoming.state.receiving');
+  if (transfer.state === 'completed' && transfer.canImport) return tr('taskPackage.incoming.state.ready');
+  if (transfer.requiresNewPackage || transfer.secretUnavailable) return tr('taskPackage.incoming.state.resend');
+  return tr(`transfers.state.${transfer.state}`);
+}
+
+function createTaskPackageTransferActions(transfer, options = {}) {
+  const actions = document.createElement('div');
+  actions.className = 'incoming-task-package-actions transfer-card-actions';
+  const busy = state.taskPackages.directBusyTransferId === transfer.transferId;
+  const add = (label, primary, handler) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    if (primary) button.className = 'primary';
+    button.textContent = label;
+    button.disabled = busy;
+    button.addEventListener('click', () => handler(button));
+    actions.append(button);
+  };
+  if (transfer.direction === 'incoming' && transfer.acceptRequired) {
+    add(tr('taskPackage.incoming.accept'), true, (button) => acceptIncomingTaskPackage(transfer, button));
+    add(tr('taskPackage.incoming.reject'), false, (button) => rejectIncomingTaskPackage(transfer, button));
+  } else if (transfer.direction === 'incoming' && transfer.state === 'completed' && transfer.canImport) {
+    add(tr('taskPackage.incoming.inspect'), true, (button) => prepareIncomingTaskPackage(transfer, button));
+  }
+  if (transfer.direction === 'outgoing' && transfer.state === 'failed' && transfer.canSavePortable) {
+    add(tr('taskPackage.direct.savePortable'), false, (button) => saveTaskPackageTransferFallback(transfer, button, options.returnFocus));
+  }
+  return actions;
+}
+
+async function acceptIncomingTaskPackage(transfer) {
+  if (state.taskPackages.directBusyTransferId || !window.manager.acceptIncomingTaskPackage) return;
+  state.taskPackages.directBusyTransferId = transfer.transferId;
+  renderIncomingTaskPackages();
+  let result;
+  try {
+    result = await window.manager.acceptIncomingTaskPackage(transfer.transferId);
+  } catch (_error) {
+    result = { ok: false, reasonCode: 'task-package-direct-accept-failed' };
+  } finally {
+    state.taskPackages.directBusyTransferId = null;
+  }
+  if (result?.ok) {
+    state.mesh.transfers = result.transfers || state.mesh.transfers;
+    setStatus(tr('taskPackage.incoming.accepted'));
+  } else {
+    setStatus(taskPackageErrorText(result?.reasonCode));
+  }
+  renderIncomingTaskPackages();
+  renderTransferList();
+}
+
+async function rejectIncomingTaskPackage(transfer) {
+  if (state.taskPackages.directBusyTransferId || !window.manager.rejectIncomingTaskPackage) return;
+  state.taskPackages.directBusyTransferId = transfer.transferId;
+  renderIncomingTaskPackages();
+  let result;
+  try {
+    result = await window.manager.rejectIncomingTaskPackage(transfer.transferId);
+  } catch (_error) {
+    result = { ok: false, reasonCode: 'task-package-direct-reject-failed' };
+  } finally {
+    state.taskPackages.directBusyTransferId = null;
+  }
+  if (result?.ok) {
+    state.mesh.transfers = result.transfers || state.mesh.transfers;
+    setStatus(tr('taskPackage.incoming.rejected'));
+  } else {
+    setStatus(taskPackageErrorText(result?.reasonCode));
+  }
+  renderIncomingTaskPackages();
+  renderTransferList();
+}
+
+async function prepareIncomingTaskPackage(transfer, returnFocus = document.activeElement) {
+  if (state.taskPackages.directBusyTransferId || !window.manager.prepareIncomingTaskPackage) return;
+  state.taskPackages.directBusyTransferId = transfer.transferId;
+  renderIncomingTaskPackages();
+  let result;
+  try {
+    result = await window.manager.prepareIncomingTaskPackage(transfer.transferId);
+  } catch (_error) {
+    result = { ok: false, reasonCode: 'task-package-direct-prepare-failed' };
+  } finally {
+    state.taskPackages.directBusyTransferId = null;
+  }
+  if (!result?.ok) {
+    setStatus(taskPackageErrorText(result?.reasonCode));
+    if (result?.transfers) state.mesh.transfers = result.transfers;
+    renderIncomingTaskPackages();
+    renderTransferList();
+    return;
+  }
+  state.mesh.transfers = result.transfers || state.mesh.transfers;
+  openTaskPackageImportDialog(returnFocus, {
+    mode: 'direct',
+    transfer,
+    prepared: { draft: result.draft, inspected: result.inspected }
+  });
+  renderIncomingTaskPackages();
+  renderTransferList();
+}
+
+async function saveTaskPackageTransferFallback(transfer, returnFocus = document.activeElement) {
+  if (state.taskPackages.directBusyTransferId || !window.manager.saveTaskPackageFallback) return;
+  state.taskPackages.directBusyTransferId = transfer.transferId;
+  renderTransferList();
+  let result;
+  try {
+    result = await window.manager.saveTaskPackageFallback(transfer.transferId);
+  } catch (_error) {
+    result = { ok: false, reasonCode: 'task-package-portable-fallback-failed' };
+  } finally {
+    state.taskPackages.directBusyTransferId = null;
+  }
+  if (result?.cancelled) {
+    setStatus(tr('taskPackage.status.cancelled'));
+  } else if (!result?.ok) {
+    setStatus(taskPackageErrorText(result?.reasonCode));
+  } else {
+    state.mesh.transfers = result.transfers || state.mesh.transfers;
+    showTaskPackageFallbackResult(result.saved, returnFocus);
+  }
+  renderTransferList();
+}
+
+function showTaskPackageFallbackResult(saved, returnFocus = document.activeElement) {
+  if (!saved?.unlockCode || !els.taskPackageDialog) return;
+  resetTaskPackageExportState();
+  els.taskPackageDialog.dataset.flow = 'fallback';
+  state.taskPackages.exportCode = saved.unlockCode;
+  if (els.taskPackageUnlockCode) els.taskPackageUnlockCode.textContent = saved.unlockCode;
+  if (els.taskPackageExportResult) els.taskPackageExportResult.hidden = false;
+  if (els.exportTaskPackageBtn) els.exportTaskPackageBtn.hidden = true;
+  setTaskPackageStatus('export', tr('taskPackage.direct.status.fallbackSaved'), 'idle');
+  openChildDialog(els.taskPackageDialog, returnFocus);
 }
 
 function renderTaskPackageHistory() {
@@ -6387,6 +8010,12 @@ function setTaskPackageStatus(kind, message, tone = 'idle') {
 
 function taskPackageErrorText(code) {
   const value = String(code || 'task-package-failed');
+  if (/task-package-rejected/.test(value)) return tr('taskPackage.error.rejected');
+  if (/direct-connection|required.*connection|peer-not-connected|device-offline/.test(value)) return tr('taskPackage.error.directOffline');
+  if (/feature-unavailable|protocol-feature-unavailable|unsupported.*task/.test(value)) return tr('taskPackage.error.directFeature');
+  if (/capability|permission/.test(value)) return tr('taskPackage.error.directPermission');
+  if (/secret-unavailable|requires-new-package/.test(value)) return tr('taskPackage.error.resend');
+  if (/portable-fallback/.test(value)) return tr('taskPackage.error.fallback');
   if (/unlock|decrypt/.test(value)) return tr('taskPackage.error.unlock');
   if (/session-conflict|file-conflict/.test(value)) return tr('taskPackage.error.conflict');
   if (/target-(incompatible|not-codex)|native-adapter-unsupported/.test(value)) return tr('taskPackage.error.target');
@@ -6502,6 +8131,7 @@ async function loadTransfers() {
   renderSessionSendStatus();
   renderFileSendStatus();
   renderTransferList();
+  renderIncomingTaskPackages();
 }
 
 function renderSessionSendStatus() {
@@ -6545,16 +8175,26 @@ function renderTransferList() {
     const head = document.createElement('div');
     head.className = 'transfer-card-head';
     const title = document.createElement('strong');
-    title.textContent = tr(transfer.direction === 'incoming' ? 'transfers.incoming' : 'transfers.outgoing', {
-      n: transfer.itemCount,
-      name: transfer.receivedFromName || transfer.targetName || '-'
-    });
+    title.textContent = transfer.type === 'task-package'
+      ? tr(transfer.direction === 'incoming'
+        ? 'taskPackage.transfer.incoming'
+        : 'taskPackage.transfer.outgoing', {
+          title: transfer.taskPackage?.title || tr('taskPackage.history.untitled'),
+          name: transfer.receivedFromName || transfer.targetName || '-'
+        })
+      : tr(transfer.direction === 'incoming' ? 'transfers.incoming' : 'transfers.outgoing', {
+          n: transfer.itemCount,
+          name: transfer.receivedFromName || transfer.targetName || '-'
+        });
     const stateLabel = document.createElement('span');
     stateLabel.dataset.state = transfer.state;
     stateLabel.textContent = tr(`transfers.state.${transfer.state}`);
     head.append(title, stateLabel);
     const meta = document.createElement('small');
-    meta.textContent = `${compactDate(transfer.updatedAt)} · ${transfer.type === 'file' ? tr('transfers.type.file') : tr('transfers.type.pointer')}`;
+    const typeLabel = transfer.type === 'task-package'
+      ? tr('transfers.type.taskPackage')
+      : tr(transfer.type === 'file' ? 'transfers.type.file' : 'transfers.type.pointer');
+    meta.textContent = `${compactDate(transfer.updatedAt)} · ${typeLabel}`;
     card.append(head, meta);
 
     if (transfer.direction === 'incoming' && Array.isArray(transfer.items)) {
@@ -6625,17 +8265,29 @@ function renderTransferList() {
       progress.setAttribute('aria-label', tr('transfers.progress'));
       card.append(files, progress);
     }
+    if (transfer.type === 'task-package') {
+      const progress = document.createElement('progress');
+      progress.className = 'transfer-progress';
+      progress.max = Math.max(1, transfer.bytesTotal || 0);
+      progress.value = Math.min(progress.max, transfer.bytesTransferred || 0);
+      progress.setAttribute('aria-label', tr('transfers.progress'));
+      card.append(progress);
+    }
 
     const canRetry = transfer.state === 'failed'
       && (transfer.direction === 'outgoing' || transfer.type === 'file');
-    const canCancel = transfer.type === 'file'
+    const canCancel = ['file', 'task-package'].includes(transfer.type)
       ? !['completed', 'cancelled', 'expired'].includes(transfer.state)
       : transfer.direction === 'outgoing' && ['queued', 'failed', 'awaiting-ack'].includes(transfer.state);
     const canAccept = transfer.type === 'file' && transfer.direction === 'incoming' && transfer.acceptRequired;
     const canOpen = transfer.type === 'file' && transfer.direction === 'incoming' && transfer.canOpen;
-    if (canRetry || canCancel || canAccept || canOpen) {
+    const taskActions = transfer.type === 'task-package'
+      ? createTaskPackageTransferActions(transfer, { returnFocus: els.transferCenterDialog })
+      : null;
+    if (canRetry || canCancel || canAccept || canOpen || taskActions?.childElementCount) {
       const actions = document.createElement('div');
       actions.className = 'transfer-card-actions';
+      if (taskActions?.childElementCount) actions.append(...taskActions.children);
       if (canAccept) {
         const accept = document.createElement('button');
         accept.type = 'button';
@@ -6673,7 +8325,7 @@ function renderTransferList() {
         });
         actions.append(retry);
       }
-      if (canCancel) {
+      if (canCancel && !(transfer.type === 'task-package' && transfer.direction === 'incoming' && transfer.acceptRequired)) {
         const cancel = document.createElement('button');
         cancel.type = 'button';
         cancel.textContent = tr('transfers.cancel');

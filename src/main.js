@@ -2,7 +2,7 @@ const {
   app,
   BrowserWindow,
   WebContentsView,
-  ipcMain,
+  ipcMain: electronIpcMain,
   shell,
   clipboard,
   dialog,
@@ -16,6 +16,7 @@ const {
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const crypto = require('node:crypto');
 const { spawn, execFileSync } = require('node:child_process');
 const { Transform } = require('node:stream');
@@ -63,6 +64,26 @@ const {
   publicIceDiagnostics
 } = require('./mesh/network/ice-config');
 const { normalizeServiceUrls } = require('./mesh/protocol/signaling-auth');
+const {
+  MAIN_DOCUMENT_CSP,
+  createTrustedIpcMain,
+  installMainWindowSecurity
+} = require('./main/ipc/security-policy');
+const { PathSelectionRegistry } = require('./main/ipc/path-selections');
+const { derivedNetworkEnrollment } = require('./main/ipc/network-enrollment');
+const { initializeFirstAgent } = require('./main/ipc/first-agent-onboarding');
+const {
+  normalizeTaskPackageSendInput,
+  normalizeTaskPackageTransferInput
+} = require('./main/ipc/task-package-transfer');
+const {
+  InvitationInspectionRegistry,
+  PairingApprovalRegistry,
+  normalizeInvitationInspectionInput,
+  normalizeConfirmedJoinInput,
+  normalizePairingDecisionInput
+} = require('./main/ipc/pairing-approvals');
+const { resolveProfileStore } = require('./main/profile-store-policy');
 
 // 主进程当前界面语言：直接读持久化 settings 文件（无副作用；renderer 切语言时已写入）。
 function currentLang() {
@@ -86,6 +107,7 @@ function currentLang() {
 const t = (key, params) => mt(currentLang(), key, params);
 
 const APP_NAME = 'AgentDesk';
+const MAIN_DOCUMENT_URL = pathToFileURL(path.join(__dirname, 'index.html')).href;
 const STORE_VERSION = 2;
 const WINDOWS_DISCOVERY_TTL = 30_000;
 const UPDATE_CACHE_TTL = 5 * 60_000;
@@ -116,6 +138,15 @@ let pairingEndpointTimer = null;
 let meshReachabilityEnabled = false;
 let pairingEndpointExpiresAt = null;
 const quotaService = new QuotaService();
+const pathSelectionRegistry = new PathSelectionRegistry();
+const invitationInspectionRegistry = new InvitationInspectionRegistry();
+const pairingApprovalRegistry = new PairingApprovalRegistry({
+  onChange: (claims) => {
+    if (claims.length) showMainWindow();
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('devices:pairingClaimsChanged', claims);
+  }
+});
 const PROFILE_COPY_EXCLUDES = new Set([
   'cache',
   'code cache',
@@ -144,6 +175,11 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true
     }
+  });
+
+  installMainWindowSecurity(mainWindow, {
+    allowedUrl: MAIN_DOCUMENT_URL,
+    csp: MAIN_DOCUMENT_CSP
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -211,7 +247,10 @@ if (!hasSingleInstanceLock) {
 
   app.on('before-quit', () => {
     clearTimeout(pairingEndpointTimer);
+    invitationInspectionRegistry.clear();
+    pairingApprovalRegistry.stop('app-quit');
     provisioningService?.stop();
+    transferService?.stop();
     taskPackageService?.stop();
     agentActionService?.stop('app-quit');
     globalShortcut.unregisterAll();
@@ -225,6 +264,14 @@ if (!hasSingleInstanceLock) {
 }
 
 function registerIpc() {
+  // Every public main-window channel passes through one sender/frame/document
+  // check. Probe, peer and remote-surface channels keep their own token-bound
+  // registrars and receive the raw Electron ipcMain instance explicitly.
+  const ipcMain = createTrustedIpcMain({
+    ipcMain: electronIpcMain,
+    getWindow: () => mainWindow,
+    allowedUrl: MAIN_DOCUMENT_URL
+  });
   ipcMain.handle('apps:list', () => {
     return apps.listApps().map((entry) => {
       const descriptor = provisioningAdapterDescriptor(entry.id, 'desktop');
@@ -279,16 +326,43 @@ function registerIpc() {
 
   ipcMain.handle('devices:list', () => {
     const result = meshCall(() => getMeshService().getOverview());
-    if (result.ok && result.overview?.initialized) void ensureSignalingOnline().catch(() => {});
+    if (
+      result.ok
+      && result.overview?.initialized
+      && meshNetworkEnrollmentEnabled(result.overview)
+    ) void ensureSignalingOnline().catch(() => {});
     return result;
   });
 
+  ipcMain.handle('onboarding:initializeFirstAgent', (_event, input = {}) => {
+    try {
+      const result = initializeFirstAgent(input, {
+        isKnownApp: (appId) => apps.isKnownApp(appId),
+        listProfiles: () => loadProfiles(),
+        meshService: getMeshService(),
+        deviceName: os.hostname(),
+        setNetworkEnrollmentEnabled: setMeshNetworkEnrollmentEnabled
+      });
+      return {
+        ok: true,
+        ...result,
+        overview: withMeshRuntime(result.overview)
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        reasonCode: boundedText(error?.message || 'first-agent-initialization-failed', 160)
+      };
+    }
+  });
+
   ipcMain.handle('devices:initialize', (_event, input = {}) => {
+    const before = getMeshService().getOverview();
+    if (!before.initialized) setMeshNetworkEnrollmentEnabled(false);
     const result = meshCall(() => getMeshService().initialize({
       deviceName: boundedText(input.deviceName, 80),
       displayName: boundedText(input.displayName, 80)
     }));
-    if (result.ok) void ensureSignalingOnline().catch(() => {});
     return result;
   });
 
@@ -514,18 +588,22 @@ function registerIpc() {
   });
 
   ipcMain.handle('devices:resetMesh', async () => {
+    invitationInspectionRegistry.clear();
+    pairingApprovalRegistry.stop('mesh-reset');
     provisioningService?.stop();
     provisioningService = null;
     agentActionService?.stop('mesh-reset');
     agentActionService = null;
+    transferService?.stop();
+    transferService = null;
     await remoteControlService?.stopAll('mesh-reset');
     peerManager?.disconnectAll('mesh-reset');
     await signalingClient?.stop('mesh-reset');
     signalingClient = null;
     meshReachabilityEnabled = false;
+    setMeshNetworkEnrollmentEnabled(false);
     await closePairingEndpoint();
     const result = meshCall(() => getMeshService().reset());
-    transferService = null;
     return result;
   });
 
@@ -533,7 +611,7 @@ function registerIpc() {
     try {
       const result = await runWebRtcProbe({
         BrowserWindow,
-        ipcMain,
+        ipcMain: electronIpcMain,
         probeDirectory: path.join(__dirname, 'mesh', 'probe')
       });
       return { ok: true, result };
@@ -547,6 +625,8 @@ function registerIpc() {
 
   ipcMain.handle('devices:createInvite', async () => {
     try {
+      pairingApprovalRegistry.stop('pairing-invite-replaced');
+      setMeshNetworkEnrollmentEnabled(true);
       try { await ensureSignalingOnline(); } catch (_error) { /* LAN invitation remains available. */ }
       await openPairingEndpoint();
       return { ok: true, invitation: getMeshService().createInvite() };
@@ -557,17 +637,49 @@ function registerIpc() {
   });
 
   ipcMain.handle('devices:cancelInvite', async (_event, input = {}) => {
-    getMeshService().cancelInvite({ inviteId: boundedText(input.inviteId, 128) });
+    const inviteId = boundedText(input.inviteId, 128);
+    getMeshService().cancelInvite({ inviteId });
+    if (inviteId) pairingApprovalRegistry.cancelInvite(inviteId);
+    else pairingApprovalRegistry.stop('pairing-invite-cancelled');
     if (!meshReachabilityEnabled) await closePairingEndpoint();
     return { ok: true };
   });
 
+  ipcMain.handle('devices:inspectInvite', (_event, input = {}) => {
+    try {
+      const normalized = normalizeInvitationInspectionInput(input);
+      const preview = getMeshService().inspectInvite(normalized);
+      return {
+        ok: true,
+        preview: invitationInspectionRegistry.issue(normalized.code, preview)
+      };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'pairing-invite-preview-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('devices:listPairingClaims', () => ({
+    ok: true,
+    claims: pairingApprovalRegistry.list()
+  }));
+
+  ipcMain.handle('devices:decidePairingClaim', (_event, input = {}) => {
+    try {
+      pairingApprovalRegistry.decide(normalizePairingDecisionInput(input));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'pairing-approval-failed', 160) };
+    }
+  });
+
   ipcMain.handle('devices:join', async (_event, input = {}) => {
     try {
+      const normalized = normalizeConfirmedJoinInput(input);
+      invitationInspectionRegistry.consume(normalized);
+      setMeshNetworkEnrollmentEnabled(true);
       await openPairingEndpoint({ ttlMs: 2 * 60_000 });
       const joined = await getMeshService().join({
-        code: boundedText(input.code, 64 * 1024),
-        deviceName: boundedText(input.deviceName, 80)
+        code: normalized.code
       });
       signalingClient = null;
       try { await ensureSignalingOnline(); } catch (_error) { /* Pairing succeeded; diagnostics shows signaling state. */ }
@@ -599,6 +711,7 @@ function registerIpc() {
     try {
       if (input.enabled === true) {
         if (!getMeshService().getOverview().initialized) throw new Error('mesh-not-initialized');
+        setMeshNetworkEnrollmentEnabled(true);
         meshReachabilityEnabled = true;
         await openPairingEndpoint({ ttlMs: 30 * 60_000 });
       } else {
@@ -614,6 +727,7 @@ function registerIpc() {
 
   ipcMain.handle('devices:connect', async (_event, input = {}) => {
     try {
+      setMeshNetworkEnrollmentEnabled(true);
       try { await ensureSignalingOnline(); } catch (_error) { /* LAN is still attempted first. */ }
       const connection = await getPeerManager().connect(boundedText(input.deviceId, 128));
       return { ok: true, connection, overview: withMeshRuntime(getMeshService().getOverview()) };
@@ -658,7 +772,11 @@ function registerIpc() {
     try {
       const signalingUrls = normalizeServiceUrls(input.signalingUrls);
       const stunUrls = normalizeStunUrls(input.stunUrls);
-      updateSettings({ meshSignalingUrls: signalingUrls, meshStunUrls: stunUrls });
+      updateSettings({
+        meshSignalingUrls: signalingUrls,
+        meshStunUrls: stunUrls,
+        meshNetworkEnrollmentEnabled: true
+      });
       await signalingClient?.stop('network-config-changed');
       signalingClient = null;
       try { getMeshService().updateLocalSignalUrls(configuredSignalingUrls()); } catch (_error) { /* Mesh can be local-only. */ }
@@ -763,6 +881,7 @@ function registerIpc() {
 
   ipcMain.handle('remoteInventory:refresh', async (_event, input = {}) => {
     try {
+      setMeshNetworkEnrollmentEnabled(true);
       try { await ensureSignalingOnline(); } catch (_error) { /* LAN is still attempted first. */ }
       const connection = await getPeerManager().refreshInventory(boundedText(input.deviceId, 128));
       return {
@@ -908,6 +1027,103 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('taskPackages:sendToDevice', async (_event, input = {}) => {
+    try {
+      const request = normalizeTaskPackageSendInput(input);
+      const preview = getTaskPackageService().previewExport({
+        profileId: request.profileId,
+        sessionId: request.sessionId
+      });
+      if (!preview.supported) throw new Error('task-package-source-unsupported');
+      let attachmentPaths = [];
+      if (request.includeAttachments) {
+        const attachmentResult = await dialog.showOpenDialog(mainWindow, {
+          title: t('main.taskPackage.attachmentsTitle'),
+          properties: ['openFile', 'multiSelections']
+        });
+        if (attachmentResult.canceled) return { ok: true, cancelled: true };
+        attachmentPaths = attachmentResult.filePaths.slice(0, 32);
+      }
+      const transfer = await getTransferService().createTaskPackageTransfer({
+        targetDeviceId: request.targetDeviceId,
+        profileId: request.profileId,
+        sessionId: request.sessionId,
+        conversationId: request.conversationId,
+        senderLabel: request.senderLabel,
+        checkpoint: request.checkpoint,
+        includeProject: request.includeProject,
+        attachmentPaths
+      });
+      return {
+        ok: true,
+        transfer,
+        transfers: getTransferService().list(),
+        history: getTaskPackageService().listHistory()
+      };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-direct-send-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:acceptIncoming', async (_event, input = {}) => {
+    try {
+      const { transferId } = normalizeTaskPackageTransferInput(input);
+      const transfer = await getTransferService().acceptTaskPackageTransfer(transferId);
+      return { ok: true, transfer, transfers: getTransferService().list() };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-direct-accept-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:rejectIncoming', (_event, input = {}) => {
+    try {
+      const { transferId } = normalizeTaskPackageTransferInput(input);
+      const transfer = getTransferService().rejectTaskPackageTransfer(transferId);
+      return { ok: true, transfer, transfers: getTransferService().list() };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-direct-reject-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:prepareIncoming', async (_event, input = {}) => {
+    try {
+      const { transferId } = normalizeTaskPackageTransferInput(input);
+      const prepared = await getTransferService().prepareTaskPackageImport(transferId);
+      return { ok: true, ...prepared, transfers: getTransferService().list() };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-direct-prepare-failed', 160) };
+    }
+  });
+
+  ipcMain.handle('taskPackages:savePortableFallback', async (_event, input = {}) => {
+    try {
+      const { transferId } = normalizeTaskPackageTransferInput(input);
+      const transfer = getTransferService().list().find((item) => item.transferId === transferId);
+      if (!transfer || transfer.type !== 'task-package' || transfer.direction !== 'outgoing') {
+        throw new Error('task-package-transfer-not-found');
+      }
+      if (!transfer.canSavePortable) throw new Error('task-package-portable-fallback-unavailable');
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: t('main.taskPackage.exportTitle'),
+        defaultPath: path.join(
+          app.getPath('desktop'),
+          taskPackageSuggestedName(transfer.taskPackage?.title || 'task-package')
+        ),
+        filters: [{ name: 'AgentDesk Task Package', extensions: ['agentdesk-task'] }]
+      });
+      if (result.canceled || !result.filePath) return { ok: true, cancelled: true };
+      const saved = await getTransferService().saveTaskPackageFallback(transferId, result.filePath);
+      return {
+        ok: true,
+        saved,
+        transfers: getTransferService().list(),
+        history: getTaskPackageService().listHistory()
+      };
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-portable-fallback-failed', 160) };
+    }
+  });
+
   ipcMain.handle('taskPackages:chooseImport', async () => {
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
@@ -1002,36 +1218,58 @@ function registerIpc() {
   });
 
   ipcMain.handle('profiles:add', (_event, input) => {
-    return createStoredProfile(input);
+    return createStoredProfile({
+      appId: boundedText(input?.appId, 80),
+      name: boundedText(input?.name, 80),
+      group: boundedText(input?.group, 80),
+      note: boundedText(input?.note, 1000)
+    });
   });
 
-  ipcMain.handle('profiles:update', (_event, input) => {
-    const updated = updateStoredProfile(input.id, (profile) => {
+  ipcMain.handle('profiles:update', (_event, input = {}) => {
+    if (['profilePath', 'sessionRoot', 'executablePath'].some((key) => (
+      Object.prototype.hasOwnProperty.call(input, key)
+    ))) throw new Error('profile-path-input-forbidden');
+    const profilePathSelectionId = boundedText(input.profilePathSelectionId, 128);
+    const sessionRootSelectionId = boundedText(input.sessionRootSelectionId, 128);
+    const executableSelectionId = boundedText(input.executableSelectionId, 128);
+    const profilePath = profilePathSelectionId
+      ? pathSelectionRegistry.resolve(profilePathSelectionId, 'profile-directory')
+      : null;
+    const sessionRoot = sessionRootSelectionId
+      ? pathSelectionRegistry.resolve(sessionRootSelectionId, 'profile-directory')
+      : null;
+    const executablePath = executableSelectionId
+      ? pathSelectionRegistry.resolve(executableSelectionId, 'profile-executable')
+      : null;
+    const updated = updateStoredProfile(boundedText(input.id, 128), (profile) => {
       const next = { ...profile };
-      if (typeof input.name === 'string') next.name = input.name.trim() || next.name;
-      if (typeof input.profilePath === 'string' && input.profilePath.trim()) {
-        const profilePath = normalizeConfiguredPath(input.profilePath);
-        if (!pathsEqual(profilePath, next.profilePath)) next.profilePathMode = 'custom';
-        next.profilePath = profilePath;
+      if (typeof input.name === 'string') next.name = boundedText(input.name, 80) || next.name;
+      if (profilePath) {
+        const normalizedProfilePath = normalizeConfiguredPath(profilePath);
+        if (!pathsEqual(normalizedProfilePath, next.profilePath)) next.profilePathMode = 'custom';
+        next.profilePath = normalizedProfilePath;
       }
-      if (typeof input.sessionRoot === 'string' && input.sessionRoot.trim()) {
-        const sessionRoot = normalizeConfiguredPath(input.sessionRoot);
-        if (!pathsEqual(sessionRoot, next.sessionRoot)) next.sessionRootMode = 'custom';
-        next.sessionRoot = sessionRoot;
+      if (sessionRoot) {
+        const normalizedSessionRoot = normalizeConfiguredPath(sessionRoot);
+        if (!pathsEqual(normalizedSessionRoot, next.sessionRoot)) next.sessionRootMode = 'custom';
+        next.sessionRoot = normalizedSessionRoot;
       }
-      if (typeof input.executablePath === 'string') {
-        next.executablePath = input.executablePath.trim()
-          ? normalizeConfiguredPath(input.executablePath)
-          : null;
-      }
-      if (typeof input.group === 'string') next.group = input.group.trim();
-      if (typeof input.note === 'string') next.note = input.note;
+      if (executablePath) next.executablePath = normalizeConfiguredPath(executablePath);
+      if (input.clearExecutablePath === true) next.executablePath = null;
+      if (typeof input.group === 'string') next.group = boundedText(input.group, 80);
+      if (typeof input.note === 'string') next.note = String(input.note).slice(0, 1000);
       // 同账号标识：同一登录身份的多个客户端槽位共用一个 key（空 = 不关联）
-      if (typeof input.identityKey === 'string') next.identityKey = input.identityKey.trim() || null;
+      if (typeof input.identityKey === 'string') next.identityKey = boundedText(input.identityKey, 160) || null;
       if (input.cat && typeof input.cat === 'object') next.cat = { ...next.cat, ...input.cat };
       return next;
     });
-    quotaService.invalidate(input.id);
+    pathSelectionRegistry.consume([
+      profilePathSelectionId,
+      sessionRootSelectionId,
+      executableSelectionId
+    ]);
+    quotaService.invalidate(boundedText(input.id, 128));
     return updated;
   });
 
@@ -1067,10 +1305,10 @@ function registerIpc() {
     return result;
   });
 
-  ipcMain.handle('sessions:list', (_event, profile) => {
+  ipcMain.handle('sessions:list', (_event, input = {}) => {
+    const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
     if (!profile) return [];
-    const normalized = normalizeProfile(profile);
-    return apps.getApp(normalized.appId).scan(normalized);
+    return apps.getApp(profile.appId).scan(profile);
   });
 
   ipcMain.handle('sessions:reveal', async (_event, input = {}) => {
@@ -1098,25 +1336,38 @@ function registerIpc() {
     });
   });
 
-  ipcMain.handle('diagnostics:get', (_event, profile) => {
+  ipcMain.handle('diagnostics:get', (_event, input = {}) => {
+    const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
     if (!profile) return null;
-    return diagnoseProfile(normalizeProfile(profile));
+    return diagnoseProfile(profile);
   });
 
-  ipcMain.handle('system:pickDirectory', async (_event, options = {}) => {
+  ipcMain.handle('system:pickDirectory', async (_event, input = {}) => {
+    if (boundedText(input.purpose, 80) !== 'profile-directory') {
+      throw new Error('directory-picker-purpose-invalid');
+    }
+    const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
+    const field = ['profilePath', 'sessionRoot'].includes(input.field) ? input.field : 'profilePath';
     const result = await dialog.showOpenDialog({
-      title: options.title || t('main.picker.dir'),
-      defaultPath: options.defaultPath || app.getPath('home'),
+      title: t('main.picker.dir'),
+      defaultPath: profile?.[field] || app.getPath('home'),
       properties: ['openDirectory', 'createDirectory']
     });
     if (result.canceled || !result.filePaths.length) return null;
-    return result.filePaths[0];
+    return pathSelectionRegistry.issue({
+      kind: 'profile-directory',
+      path: result.filePaths[0]
+    });
   });
 
-  ipcMain.handle('system:pickFile', async (_event, options = {}) => {
+  ipcMain.handle('system:pickFile', async (_event, input = {}) => {
+    if (boundedText(input.purpose, 80) !== 'profile-executable') {
+      throw new Error('file-picker-purpose-invalid');
+    }
+    const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
     const dialogOptions = {
-      title: options.title || t('main.picker.file'),
-      defaultPath: options.defaultPath || app.getPath('home'),
+      title: t('main.picker.file'),
+      defaultPath: profile?.executablePath || app.getPath('home'),
       properties: ['openFile']
     };
     if (process.platform === 'win32') {
@@ -1127,15 +1378,18 @@ function registerIpc() {
     }
     const result = await dialog.showOpenDialog(dialogOptions);
     if (result.canceled || !result.filePaths.length) return null;
-    return result.filePaths[0];
+    return pathSelectionRegistry.issue({
+      kind: 'profile-executable',
+      path: result.filePaths[0]
+    });
   });
 
-  ipcMain.handle('system:showItem', async (_event, itemPath) => {
-    return revealPath(itemPath);
+  ipcMain.handle('system:showItem', async (_event, input = {}) => {
+    return revealPath(resolveKnownProfilePath(input));
   });
 
-  ipcMain.handle('system:openPath', async (_event, itemPath) => {
-    return openPathSafely(itemPath);
+  ipcMain.handle('system:openPath', async (_event, input = {}) => {
+    return openPathSafely(resolveKnownProfilePath(input));
   });
 
   ipcMain.handle('clipboard:writeText', (_event, value) => {
@@ -1151,6 +1405,17 @@ function finiteRevision(value) {
     throw new Error('catalog-revision-invalid');
   }
   return revision;
+}
+
+function resolveKnownProfilePath(input = {}) {
+  if (boundedText(input.kind, 80) !== 'profile-directory') {
+    throw new Error('known-path-kind-invalid');
+  }
+  const field = ['profilePath', 'sessionRoot'].includes(input.field) ? input.field : null;
+  if (!field) throw new Error('known-path-field-invalid');
+  const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
+  if (!profile) throw new Error('profile-not-found');
+  return profile[field];
 }
 
 function createStoredProfile(input = {}) {
@@ -1222,7 +1487,7 @@ function getMeshService() {
       const failures = [];
       if (Array.isArray(invite?.endpoints) && invite.endpoints.length) {
         try {
-          return await claimPairing(invite, request, { timeoutMs: 4_000 });
+          return await claimPairing(invite, request, { timeoutMs: 3 * 60_000 });
         } catch (error) {
           failures.push(boundedText(error?.message || error, 160));
         }
@@ -1230,7 +1495,8 @@ function getMeshService() {
       if (Array.isArray(invite?.signalUrls) && invite.signalUrls.length) {
         try {
           return await claimPairingViaSignaling(invite, request, identity, {
-            allowInsecure: process.env.AGENTDESK_ALLOW_INSECURE_SIGNALING === '1'
+            allowInsecure: process.env.AGENTDESK_ALLOW_INSECURE_SIGNALING === '1',
+            timeoutMs: 3 * 60_000
           });
         } catch (error) {
           failures.push(boundedText(error?.message || error, 160));
@@ -1363,7 +1629,7 @@ function getPeerManager() {
   if (peerManager) return peerManager;
   peerManager = new PeerManager({
     BrowserWindow,
-    ipcMain,
+    ipcMain: electronIpcMain,
     peerDirectory: path.join(__dirname, 'mesh', 'peer'),
     meshService: getMeshService(),
     sendSignal: (remote, envelope) => sendPeerSignalWithFallback(remote, envelope),
@@ -1422,7 +1688,18 @@ async function confirmRemoteAgentPreparation({ sourceDevice, agent, request }) {
   return result.response === 0;
 }
 
+async function requestPairingClaimApproval(body) {
+  const preview = getMeshService().previewClaimInvite(body);
+  const approved = await pairingApprovalRegistry.request(preview);
+  const fresh = getMeshService().previewClaimInvite(body);
+  if (fresh.requestDigest !== approved.requestDigest) throw new Error('pairing-approval-mismatch');
+  return getMeshService().claimInvite(body);
+}
+
 function getSignalingClient() {
+  let overview = null;
+  try { overview = getMeshService().getOverview(); } catch (_error) { /* uninitialized */ }
+  if (!meshNetworkEnrollmentEnabled(overview)) return null;
   if (signalingClient) return signalingClient;
   let serviceUrls = configuredSignalingUrls();
   if (!serviceUrls.length) {
@@ -1438,7 +1715,7 @@ function getSignalingClient() {
     allowInsecure: process.env.AGENTDESK_ALLOW_INSECURE_SIGNALING === '1' || serviceUrls.every(isLoopbackService),
     identityProvider: () => getMeshService().getSignalingContext(),
     onPeerSignal: (envelope) => getPeerManager().receiveSignal(envelope),
-    onPairClaim: (body) => getMeshService().claimInvite(body),
+    onPairClaim: (body) => requestPairingClaimApproval(body),
     onState: () => {
       if (!mainWindow || mainWindow.isDestroyed()) return;
       mainWindow.webContents.send('devices:networkState', publicNetworkRuntime());
@@ -1448,6 +1725,9 @@ function getSignalingClient() {
 }
 
 async function ensureSignalingOnline() {
+  let overview = null;
+  try { overview = getMeshService().getOverview(); } catch (_error) { /* uninitialized */ }
+  if (!meshNetworkEnrollmentEnabled(overview)) return false;
   const client = getSignalingClient();
   if (!client) return false;
   getMeshService().updateLocalSignalUrls(client.serviceUrls);
@@ -1482,6 +1762,7 @@ function getTransferService() {
     spoolRoot: path.join(app.getPath('userData'), 'mesh-transfer-spool'),
     meshService: getMeshService(),
     peerManagerProvider: () => getPeerManager(),
+    taskPackageServiceProvider: () => getTaskPackageService(),
     onChange: emitTransferChange
   });
   return transferService;
@@ -1510,7 +1791,7 @@ function getRemoteControlService() {
   remoteControlService = new RemoteControlService({
     BrowserWindow,
     WebContentsView,
-    ipcMain,
+    ipcMain: electronIpcMain,
     desktopCapturer,
     screen,
     systemPreferences,
@@ -1652,6 +1933,19 @@ function configuredSignalingUrls() {
   });
 }
 
+function meshNetworkEnrollmentEnabled(overview = null) {
+  const current = loadSettings();
+  return derivedNetworkEnrollment({
+    storedValue: current.meshNetworkEnrollmentEnabled,
+    overview,
+    configuredSignalingUrls: configuredSignalingUrls()
+  });
+}
+
+function setMeshNetworkEnrollmentEnabled(enabled) {
+  updateSettings({ meshNetworkEnrollmentEnabled: enabled === true });
+}
+
 function withMeshRuntime(overview) {
   if (!overview || typeof overview !== 'object') return overview;
   return {
@@ -1659,6 +1953,7 @@ function withMeshRuntime(overview) {
     reachability: {
       active: Boolean(pairingEndpoint),
       userEnabled: meshReachabilityEnabled,
+      networkEnrollmentEnabled: meshNetworkEnrollmentEnabled(overview),
       endpointCount: pairingEndpoint?.endpoints().length || 0,
       expiresAt: pairingEndpointExpiresAt,
       ...publicNetworkRuntime()
@@ -1703,7 +1998,8 @@ function deviceDiagnostics(deviceId) {
       screen: device.isLocal ? localScreenPermission() : permissionState(device.permissions, 'screen.view'),
       input: device.isLocal ? (input?.permission || 'unknown') : permissionState(device.permissions, 'input.control'),
       file: permissionState(device.permissions, 'file.receive'),
-      sessionPointer: permissionState(device.permissions, 'session.pointer.receive')
+      sessionPointer: permissionState(device.permissions, 'session.pointer.receive'),
+      taskPackage: permissionState(device.permissions, 'task.package.receive')
     },
     localEndpoint: {
       active: Boolean(pairingEndpoint),
@@ -1764,7 +2060,7 @@ async function openPairingEndpoint(options = {}) {
   const createEndpoint = (port) => new LanEndpoint({
     port,
     onPairClaim: async (body) => {
-      const result = getMeshService().claimInvite(body);
+      const result = await requestPairingClaimApproval(body);
       if (!meshReachabilityEnabled) schedulePairingEndpointClose(2 * 60_000);
       return result;
     },
@@ -2247,29 +2543,14 @@ function updateErrorMessage(error) {
 function loadProfiles() {
   const storeFile = profilesFile();
   ensureDir(path.dirname(storeFile));
-
-  const loaded = [
-    storeFile,
-    profilesBackupFile(),
-    profilesPreUpdateBackupFile()
-  ].map(readProfileStore).find(Boolean);
-  if (!loaded) {
-    const initial = bootstrapProfiles();
-    saveProfiles(initial, { skipBackup: true });
-    return initial;
-  }
-
-  const rawProfiles = Array.isArray(loaded.parsed) ? loaded.parsed : loaded.parsed.profiles;
-  const normalized = normalizeProfileList(rawProfiles || []);
-  const normalizedPayload = { version: STORE_VERSION, profiles: normalized };
-  const currentPayload = Array.isArray(loaded.parsed)
-    ? { version: 0, profiles: loaded.parsed }
-    : { version: loaded.parsed.version || 0, profiles: loaded.parsed.profiles || [] };
-
-  if (loaded.filePath !== storeFile || JSON.stringify(currentPayload) !== JSON.stringify(normalizedPayload)) {
-    saveProfiles(normalized, { skipBackup: loaded.filePath !== storeFile });
-  }
-  return normalized;
+  return resolveProfileStore({
+    candidates: [storeFile, profilesBackupFile(), profilesPreUpdateBackupFile()],
+    exists: fs.existsSync,
+    read: readProfileStore,
+    normalize: normalizeProfileList,
+    persist: saveProfiles,
+    version: STORE_VERSION
+  });
 }
 
 function saveProfiles(profiles, options = {}) {
@@ -2354,107 +2635,6 @@ function readProfileStore(filePath) {
 
 function readSettingsStore(filePath) {
   return readJsonStore(filePath, (parsed) => Boolean(settings.settingsFromPayload(parsed)));
-}
-
-function bootstrapProfiles() {
-  const profiles = [
-    {
-      id: crypto.randomUUID(),
-      appId: 'claude',
-      name: '默认 Claude',
-      profilePath: defaultProfilePath('claude'),
-      sessionRoot: defaultProfilePath('claude'),
-      profilePathMode: 'auto',
-      sessionRootMode: 'auto',
-      isProtected: true,
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: crypto.randomUUID(),
-      appId: 'codex',
-      name: '默认 Codex',
-      profilePath: defaultProfilePath('codex'),
-      sessionRoot: defaultSessionRoot('codex', defaultProfilePath('codex'), true),
-      profilePathMode: 'auto',
-      sessionRootMode: 'auto',
-      isProtected: true,
-      createdAt: new Date().toISOString()
-    }
-  ];
-
-  // Discovery only seeds a brand-new store. Once profiles.json exists, even
-  // an empty list is authoritative: deleted accounts must never be recreated.
-  if (hasLocalKimiCodeData()) {
-    profiles.push({
-      id: crypto.randomUUID(),
-      appId: 'kimi',
-      name: '默认 Kimi Code',
-      profilePath: defaultProfilePath('kimi'),
-      sessionRoot: defaultSessionRoot('kimi', defaultProfilePath('kimi'), true),
-      profilePathMode: 'auto',
-      sessionRootMode: 'auto',
-      isProtected: true,
-      identityKey: 'Kimi',
-      createdAt: new Date().toISOString()
-    });
-  }
-  if (hasLocalKimiWorkData()) {
-    profiles.push({
-      id: crypto.randomUUID(),
-      appId: 'kimi-work',
-      name: '默认 Kimi Work',
-      profilePath: defaultProfilePath('kimi-work'),
-      sessionRoot: defaultSessionRoot('kimi-work', defaultProfilePath('kimi-work'), true),
-      profilePathMode: 'auto',
-      sessionRootMode: 'auto',
-      isProtected: true,
-      identityKey: 'Kimi',
-      createdAt: new Date().toISOString()
-    });
-  }
-  if (hasLocalClaudeCliData()) {
-    profiles.push({
-      id: crypto.randomUUID(),
-      appId: 'claude-cli',
-      name: '默认 Claude CLI',
-      profilePath: defaultProfilePath('claude-cli'),
-      sessionRoot: defaultSessionRoot('claude-cli', defaultProfilePath('claude-cli'), true),
-      profilePathMode: 'auto',
-      sessionRootMode: 'auto',
-      isProtected: true,
-      createdAt: new Date().toISOString()
-    });
-  }
-
-  return normalizeProfileList(profiles);
-}
-
-// Kimi 与 Claude/Codex 不同：不是人人都装。只在首次建账时检测本机数据，
-// 避免多数人看到空槽；已有账本绝不按平台自动补回被删除的账号。
-function hasLocalKimiCodeData() {
-  try {
-    return fs.existsSync(path.join(os.homedir(), '.kimi-code', 'sessions'));
-  } catch (_error) {
-    return false;
-  }
-}
-
-// Kimi Work 同理：桌面 App 的 daimon 数据根初始化过才补默认槽位。
-function hasLocalKimiWorkData() {
-  try {
-    return fs.existsSync(path.join(apps.defaultProfilePath('kimi-work'), 'daimon-share', 'daimon', 'agents'));
-  } catch (_error) {
-    return false;
-  }
-}
-
-// Claude Code CLI（用户自己终端里的 claude）同理：有 ~/.claude/projects 才补。
-function hasLocalClaudeCliData() {
-  try {
-    return fs.existsSync(path.join(os.homedir(), '.claude', 'projects'));
-  } catch (_error) {
-    return false;
-  }
 }
 
 function normalizeProfileList(profiles) {
@@ -3884,7 +4064,7 @@ function shouldCopyProfileItem(sourcePath) {
 // 过期路径；写盘位置由系统保存对话框决定，渲染进程不提交任意路径。
 async function exportSessionTranscript(input) {
   const profiles = loadProfiles();
-  const profile = profiles.find((item) => item.id === input.profileId);
+  const profile = profiles.find((item) => item.id === boundedText(input?.profileId, 128));
   if (!profile) return { ok: false, reason: t('main.err.slotNotFoundDot') };
 
   const app_ = apps.getApp(profile.appId);
@@ -3893,7 +4073,7 @@ async function exportSessionTranscript(input) {
   }
 
   const records = app_.scan(profile);
-  const session = records.find((item) => item.id === input.sessionId);
+  const session = records.find((item) => item.id === boundedText(input?.sessionId, 256));
   if (!session) return { ok: false, reason: t('main.exp.sessionNotFound') };
 
   let exported;
@@ -3920,12 +4100,12 @@ async function exportSessionTranscript(input) {
 
 async function revealSessionFile(input) {
   const profiles = loadProfiles();
-  const profile = profiles.find((item) => item.id === input.profileId);
+  const profile = profiles.find((item) => item.id === boundedText(input?.profileId, 128));
   if (!profile) return { ok: false, reason: t('main.err.slotNotFoundDot') };
 
   const sessions = apps.getApp(profile.appId).scan(profile);
-  const refreshed = sessions.find((session) => session.id === input.sessionId);
-  const itemPath = refreshed?.filePath || input.filePath || null;
+  const refreshed = sessions.find((session) => session.id === boundedText(input?.sessionId, 256));
+  const itemPath = refreshed?.filePath || null;
   const result = await revealPath(itemPath, profile.sessionRoot);
   if (!refreshed && result.ok) {
     return {

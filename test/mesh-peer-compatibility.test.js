@@ -23,6 +23,7 @@ test('协议特性只接受有界精确白名单，未知、重复和畸形值�
     null,
     'x'.repeat(200),
     PROTOCOL_FEATURES.INVENTORY_DEVICE_FACTS_V1,
+    PROTOCOL_FEATURES.TASK_PACKAGE_TRANSFER_V1,
     ...Array.from({ length: MAX_PROTOCOL_FEATURES + 10 }, () => 'unknown.feature')
   ];
   assert.deepEqual(normalizeProtocolFeatures(noisy), [...KNOWN_PROTOCOL_FEATURES].sort());
@@ -126,12 +127,49 @@ test('认证握手更新远端运行版本，目录事件连接优先发送增�
   assert.equal(modern.sent.some((item) => item.messageType === 'catalog.events.complete'), true);
 });
 
+test('TaskPackage 全消息族同时绑定独立 capability 与协商 feature，撤权后下一条消息立即失败', async () => {
+  const taskPermission = ['inventory.read', 'catalog.manage', 'task.package.receive'];
+  const endpoint = harness({ permissions: taskPermission });
+  const send = endpoint.realSendDataEnvelope;
+
+  await assert.rejects(() => send(
+    endpoint.context,
+    'task.package.offer',
+    'file.receive',
+    { transferId: 'transfer-a' }
+  ), /peer-capability-mismatch/);
+  await assert.rejects(() => send(
+    endpoint.context,
+    'task.package.offer',
+    'task.package.receive',
+    { transferId: 'transfer-a' }
+  ), /peer-protocol-feature-unavailable/);
+
+  endpoint.context.negotiatedProtocolFeatures = [PROTOCOL_FEATURES.TASK_PACKAGE_TRANSFER_V1];
+  await send(
+    endpoint.context,
+    'task.package.chunk',
+    'task.package.receive',
+    { transferId: 'transfer-a' }
+  );
+  assert.equal(endpoint.wire.at(-1).payload.message.messageType, 'task.package.chunk');
+
+  endpoint.manager.handlePermissionsChanged('remote-device', ['inventory.read', 'catalog.manage']);
+  await assert.rejects(() => send(
+    endpoint.context,
+    'task.package.chunk.ack',
+    'task.package.receive',
+    { transferId: 'transfer-a' }
+  ), /capability-denied:task\.package\.receive/);
+});
+
 function harness(options = {}) {
   const permissions = options.permissions || ['inventory.read', 'catalog.manage'];
   const snapshotOptions = [];
   const sent = [];
   const runtimeMetadata = [];
   const catalogEventSyncs = [];
+  const wire = [];
   let catalogSnapshots = 0;
   const peer = {
     mesh: { meshId: 'mesh-compat' },
@@ -185,7 +223,7 @@ function harness(options = {}) {
     connectionId: 'connection-compat',
     role: 'offerer',
     peer,
-    window: { isDestroyed: () => false, webContents: { send: () => {} } },
+    window: { isDestroyed: () => false, webContents: { send: (...args) => wire.push({ channel: args[0], payload: args[1] }) } },
     authenticated: true,
     closed: false,
     generation: 0,
@@ -210,6 +248,7 @@ function harness(options = {}) {
   };
   manager.connectionsById.set(context.connectionId, context);
   manager.connectionsByDevice.set(peer.remote.deviceId, context);
+  const realSendDataEnvelope = manager.sendDataEnvelope.bind(manager);
   manager.sendDataEnvelope = async (_context, messageType, capability, payload) => {
     sent.push({ messageType, capability, payload });
     if (messageType === 'inventory.chunk') {
@@ -226,6 +265,8 @@ function harness(options = {}) {
     snapshotOptions,
     runtimeMetadata,
     catalogEventSyncs,
+    realSendDataEnvelope,
+    wire,
     get catalogSnapshots() { return catalogSnapshots; }
   };
 }

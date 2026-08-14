@@ -10,6 +10,24 @@ const { normalizeServiceUrls } = require('./signaling-auth');
 const PAIRING_SCHEMA_VERSION = 1;
 const INVITE_PREFIX = 'AD1.';
 const MAX_INVITE_TTL_MS = 10 * 60_000;
+const JOIN_REQUEST_KEYS = new Set([
+  'schemaVersion',
+  'inviteId',
+  'meshId',
+  'deviceId',
+  'devicePublicKey',
+  'name',
+  'platform',
+  'arch',
+  'osVersion',
+  'appVersion',
+  'protocolVersion',
+  'endpoints',
+  'signalUrls',
+  'exchangePublicKey',
+  'nonce',
+  'secretProof'
+]);
 
 function createPairingInvite(input, identity, options = {}) {
   const nowMs = options.now ? Date.parse(options.now) : Date.now();
@@ -23,6 +41,10 @@ function createPairingInvite(input, identity, options = {}) {
     rootPublicKey: requiredText(input.rootPublicKey, 'rootPublicKey'),
     sourceDeviceId: requiredText(input.sourceDeviceId, 'sourceDeviceId'),
     sourceDeviceName: cleanText(input.sourceDeviceName, 'AgentDesk device', 80),
+    sourcePlatform: cleanText(input.sourcePlatform, 'unknown', 32),
+    sourceArch: cleanText(input.sourceArch, 'unknown', 32),
+    sourceOsVersion: cleanText(input.sourceOsVersion, 'unknown', 120),
+    sourceAppVersion: cleanText(input.sourceAppVersion, 'unknown', 40),
     sourceCertificate: input.sourceCertificate,
     sourceCertificateChain: Array.isArray(input.sourceCertificateChain) ? input.sourceCertificateChain : [],
     exchangePublicKey: exportPublicKey(exchange.publicKey),
@@ -66,6 +88,28 @@ function decodeInvitation(code, options = {}) {
   const valid = verifyInvite(invite, options);
   if (!valid.ok) throw new Error(valid.reason);
   return invite;
+}
+
+function inspectInvitation(code, options = {}) {
+  const invite = decodeInvitation(code, options);
+  const verified = verifyMembershipChain(
+    invite.sourceCertificate,
+    invite.sourceCertificateChain,
+    invite.rootPublicKey,
+    options
+  );
+  if (!verified.ok) throw new Error(verified.reason);
+  return {
+    inviteId: invite.inviteId,
+    sourceDeviceId: invite.sourceDeviceId,
+    sourceDeviceName: invite.sourceDeviceName,
+    sourceFingerprint: publicKeyFingerprint(verified.payload.devicePublicKey),
+    platform: invite.sourcePlatform || null,
+    arch: invite.sourceArch || null,
+    osVersion: invite.sourceOsVersion || null,
+    appVersion: invite.sourceAppVersion || null,
+    expiresAt: invite.expiresAt
+  };
 }
 
 function verifyInvite(invite, options = {}) {
@@ -126,18 +170,9 @@ function createJoinRequest(invite, device, options = {}) {
 }
 
 function acceptJoinRequest(inviteRecord, request, context, options = {}) {
+  previewJoinRequest(inviteRecord, request, options);
   const invite = inviteRecord?.invite;
   const privateState = inviteRecord?.privateState;
-  const valid = verifyInvite(invite, options);
-  if (!valid.ok) throw new Error(valid.reason);
-  if (!privateState || privateState.consumed) throw new Error('pairing-consumed');
-  if (sha256(invite.secret) !== privateState.secretDigest) throw new Error('pairing-secret-state');
-  if (request?.schemaVersion !== PAIRING_SCHEMA_VERSION || request.inviteId !== invite.inviteId || request.meshId !== invite.meshId) {
-    throw new Error('pairing-request-mismatch');
-  }
-  const core = joinRequestCore(request);
-  const expectedProof = crypto.createHmac('sha256', invite.secret).update(canonicalEncode(core)).digest('base64url');
-  if (!safeEqual(expectedProof, request.secretProof)) throw new Error('pairing-secret-proof');
 
   const roles = Array.isArray(context.roles) && context.roles.length
     ? context.roles
@@ -172,6 +207,38 @@ function acceptJoinRequest(inviteRecord, request, context, options = {}) {
     response: encryptJson(plaintext, key, invite.inviteId),
     membershipCertificate: certificate,
     membershipChain: plaintext.membershipChain
+  };
+}
+
+function previewJoinRequest(inviteRecord, request, options = {}) {
+  const invite = inviteRecord?.invite;
+  const privateState = inviteRecord?.privateState;
+  const valid = verifyInvite(invite, options);
+  if (!valid.ok) throw new Error(valid.reason);
+  if (!privateState || privateState.consumed) throw new Error('pairing-consumed');
+  if (sha256(invite.secret) !== privateState.secretDigest) throw new Error('pairing-secret-state');
+  assertExactObject(request, JOIN_REQUEST_KEYS, 'pairing-request-schema');
+  if (request.schemaVersion !== PAIRING_SCHEMA_VERSION || request.inviteId !== invite.inviteId || request.meshId !== invite.meshId) {
+    throw new Error('pairing-request-mismatch');
+  }
+  requiredText(request.deviceId, 'deviceId');
+  const devicePublicKey = requiredText(request.devicePublicKey, 'devicePublicKey');
+  requiredText(request.exchangePublicKey, 'exchangePublicKey');
+  requiredText(request.nonce, 'nonce');
+  const core = joinRequestCore(request);
+  const expectedProof = crypto.createHmac('sha256', invite.secret).update(canonicalEncode(core)).digest('base64url');
+  if (!safeEqual(expectedProof, request.secretProof)) throw new Error('pairing-secret-proof');
+  return {
+    inviteId: invite.inviteId,
+    deviceId: request.deviceId,
+    name: cleanText(request.name, 'AgentDesk device', 80),
+    fingerprint: publicKeyFingerprint(devicePublicKey),
+    platform: cleanText(request.platform, 'unknown', 32),
+    arch: cleanText(request.arch, 'unknown', 32),
+    osVersion: cleanText(request.osVersion, 'unknown', 120),
+    appVersion: cleanText(request.appVersion, 'unknown', 40),
+    expiresAt: invite.expiresAt,
+    requestDigest: crypto.createHash('sha256').update(canonicalEncode(request)).digest('hex')
   };
 }
 
@@ -257,6 +324,18 @@ function importPublicKey(value) {
   return crypto.createPublicKey({ key: Buffer.from(value, 'base64url'), type: 'spki', format: 'der' });
 }
 
+function publicKeyFingerprint(value) {
+  let key;
+  try {
+    key = crypto.createPublicKey(value);
+  } catch (_error) {
+    throw new Error('pairing-device-public-key');
+  }
+  if (key.asymmetricKeyType !== 'ed25519') throw new Error('pairing-device-public-key');
+  const der = key.export({ type: 'spki', format: 'der' });
+  return `SHA256:${crypto.createHash('sha256').update(der).digest('base64url')}`;
+}
+
 function sign(value, privateKey) {
   return crypto.sign(null, Buffer.from(canonicalEncode(value)), privateKey).toString('base64');
 }
@@ -291,6 +370,13 @@ function cleanText(value, fallback, limit) {
   return (text || fallback).slice(0, limit);
 }
 
+function assertExactObject(value, allowed, reason) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(reason);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) throw new Error(reason);
+  }
+}
+
 function clampInteger(value, min, max, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(min, Math.min(max, Math.round(number))) : fallback;
@@ -305,8 +391,10 @@ module.exports = {
   INVITE_PREFIX,
   createPairingInvite,
   decodeInvitation,
+  inspectInvitation,
   verifyInvite,
   createJoinRequest,
+  previewJoinRequest,
   acceptJoinRequest,
   decryptJoinResponse,
   encodeInvitation

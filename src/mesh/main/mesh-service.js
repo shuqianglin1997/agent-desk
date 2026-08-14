@@ -43,7 +43,9 @@ const {
 const {
   createPairingInvite,
   decodeInvitation,
+  inspectInvitation,
   createJoinRequest,
+  previewJoinRequest,
   acceptJoinRequest,
   decryptJoinResponse
 } = require('../protocol/pairing');
@@ -213,13 +215,22 @@ class MeshService {
       signalUrls: this.currentSignalingUrls()
     }, { randomUUID: this.randomUUID, now });
     const profiles = this.currentProfiles();
-    const catalog = reconcileLocalCatalog({}, profiles, {
+    const discoveredCatalog = reconcileLocalCatalog({}, profiles, {
       deviceId,
       linkKey: bundle.identityLinkKey,
       sessionCounts: this.sessionCounts(profiles),
       randomUUID: this.randomUUID,
       now
     });
+    const catalog = Array.isArray(input.migrationProfileIds)
+      ? applyInitialMigrationSelection(
+          discoveredCatalog,
+          profiles,
+          input.migrationProfileIds,
+          deviceId,
+          now
+        )
+      : discoveredCatalog;
     const mesh = {
       meshId,
       displayName: cleanName(input.displayName) || 'Personal Agent Mesh',
@@ -268,6 +279,10 @@ class MeshService {
         rootPublicKey: snapshot.mesh.rootPublicKey,
         sourceDeviceId: local.deviceId,
         sourceDeviceName: local.name,
+        sourcePlatform: local.platform,
+        sourceArch: local.arch,
+        sourceOsVersion: local.osVersion,
+        sourceAppVersion: local.appVersion,
         sourceCertificate: local.membershipCertificate,
         sourceCertificateChain: local.membershipChain,
         endpoints: this.currentEndpoints(),
@@ -296,6 +311,30 @@ class MeshService {
     if (inviteId) this.activeInvites.delete(inviteId);
     else this.activeInvites.clear();
     return true;
+  }
+
+  inspectInvite(input = {}) {
+    return inspectInvitation(input.code, { now: this.now() });
+  }
+
+  previewClaimInvite(input = {}) {
+    this.pruneInvites();
+    const request = input.request;
+    const record = this.activeInvites.get(String(request?.inviteId || ''));
+    if (!record) throw new Error('pairing-invite-not-found');
+    const preview = previewJoinRequest(record, request, { now: this.now() });
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) throw new Error('mesh-not-initialized');
+      if (store.isDeviceRevoked(request.deviceId)) throw new Error('device-revoked');
+      if (snapshot.devices.some((device) => device.deviceId === request.deviceId)) {
+        throw new Error('device-already-paired');
+      }
+      return preview;
+    } finally {
+      store.close();
+    }
   }
 
   claimInvite(input = {}) {
@@ -1653,6 +1692,35 @@ function publicKeyFingerprint(publicKey) {
 
 function defaultDeviceName(hostname) {
   return cleanName(String(hostname || '').replace(/\.local$/i, '')) || 'This device';
+}
+
+function applyInitialMigrationSelection(catalog, profiles, profileIds, deviceId, now) {
+  const knownProfileIds = new Set((Array.isArray(profiles) ? profiles : [])
+    .map((profile) => String(profile?.id || ''))
+    .filter(Boolean));
+  const selectedProfileIds = new Set((Array.isArray(profileIds) ? profileIds : [])
+    .map((value) => String(value || '').trim())
+    .filter((value) => knownProfileIds.has(value)));
+  const slots = catalog.slots.map((slot) => {
+    if (slot.deviceId !== deviceId || selectedProfileIds.has(slot.profileId)) return { ...slot };
+    return {
+      ...slot,
+      agentId: null,
+      accountBindingId: null,
+      assignmentState: 'suppressed',
+      lastUpdatedAt: now
+    };
+  });
+  const liveAgentIds = new Set(slots.map((slot) => slot.agentId).filter(Boolean));
+  const liveBindingIds = new Set(slots.map((slot) => slot.accountBindingId).filter(Boolean));
+  return {
+    ...catalog,
+    agents: catalog.agents.filter((agent) => liveAgentIds.has(agent.agentId)),
+    accountBindings: catalog.accountBindings.filter((binding) => (
+      liveBindingIds.has(binding.accountBindingId) && liveAgentIds.has(binding.agentId)
+    )),
+    slots
+  };
 }
 
 function cleanName(value) {

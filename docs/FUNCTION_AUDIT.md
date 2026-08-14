@@ -4,7 +4,7 @@
 
 ## 1. 产品主轴
 
-当前开发版同时管理本机账号槽位、逻辑会话、本机工具和一个人的可信设备网。Personal Agent Mesh 已贯通有人值守跨设备代码链路，但仍不替用户组织接下来的对话，也不把历史会话变成持续任务。0.10.0 新增的 TaskPackage 由用户从一条本机会话显式创建，只固定当时的会话、人工检查点、Git 现场和明确附件，供另一个 Agent、设备或人接手；它不是任务队列、自动编排或双向同步。当前定向验证环境没有配置或验证长期可达的公网 signaling endpoint，物理双机、长连接/断网恢复、真实公网和跨平台权限矩阵仍属于发布验收。
+当前开发版 `0.10.1-preview.1` 同时管理本机账号槽位、逻辑会话、本机工具和一个人的可信设备网。Personal Agent Mesh 已贯通有人值守跨设备代码链路，但仍不替用户组织接下来的对话，也不把历史会话变成持续任务。TaskPackage 由用户从一条本机会话显式创建，只固定当时的会话、人工检查点、Git 现场和明确附件，供另一个 Agent、设备或人接手；它不是任务队列、自动编排或双向同步。证据分层记账：本机 Node/安全定向与真实 Electron UI；隔离双 endpoint WebRTC；物理双 Mac 局域网认证通道与大库存/刷新。物理双 Mac 已完成 562,009 字节、9 个 Slot、638 条 SessionReplica、revision 7 → 8 → 9 和连续 5 分钟稳定；隔离 E2E runner 尚未发送 TaskPackage。两者都不覆盖 TaskPackage 物理双机数据面、长连接/断网恢复、真实公网 NAT/coturn 和跨平台权限矩阵。
 
 ## 2. 功能地图
 
@@ -13,12 +13,15 @@
 | Header | Device Lens、设备、工具、活动、设置 | 选择全部设备/某台设备；四个入口各自打开独立弹窗，更新/帮助/语言/主题归设置弹窗 | 已收敛；弹窗不替换右下详情，无“更多”杂物菜单、无来源不明状态点；四个弹窗统一固定 Header/Command/Footer 与单一 Content 滚动区 |
 | 固定页面骨架 | 顶部 Agent、左下会话、右下详情、Footer | 庭院/卡片与 Agent/Slot 操作归顶部，会话浏览归左下；右下只承载会话、额度、远控，Footer 只保留全局状态 | 已实现；58px Header、244px Agent、316px 详情、38px Footer，主区恰好三个面板且 Compact 无横滚 |
 | Agent 员工库与运行位置 | 打开账号、首次准备、新增运行位置、运行位置选择、管理 Agent | 长期保存 Agent/Blueprint，以 Deployment 表达当前工作环境就绪状态；准备成功后才产生 Profile/Slot，既有动作落到确切 Slot | 已实现；每个工作环境显示完整员工库，零 Binding/Slot 员工不消失；schema v6 保留 nullable suppressed Slot，增加 Blueprint/Deployment/ProvisioningJob、签名事件目录与一致迁移备份 |
+| 版本化首次使用 | “创建第一个 Agent”、已有 Profile 迁移预览 | 原子建立本机 Agent 目录与设备身份，不打开网络；随后进入首次准备 | 已实现；缺失 Profile 存储保持真实空数组，已有 Profile 先预览选择性无损迁移；真实 Electron 覆盖全新首 Agent、本机无网络初始化、完成页后记账和重启恢复，候选安装包首启仍待发布验收 |
+| 设备任务向导 | 设备中心“添加设备” | 分别呈现身份确认、成员信任、认证连接、目录落库、库存落库和可以使用 | 代码与 UI 路径已实现；加入端验签预览、邀请端签证前确认和各屏障独立投影均有定向回归；“接收连接 30 分钟”只在高级恢复。完整物理双机向导、全应用重启后的双端恢复和公网/跨平台矩阵仍开放 |
 | 目录纠错 | 合并 Agent、拆分绑定、移除运行位置/登录账号/Agent | 修改 AgentIdentity、AccountBinding、AgentSlot 目录关系并预览影响 | 已实现；三种删除范围均经过 MeshService → SQLite → 关闭重开的回归，不触碰官方客户端数据 |
 | 身份归组 | 运行位置选择、强账号标识、显式归属 | 把同一实际登录的跨设备/跨客户端位置归入一只猫 | 已实现；跨平台或无强标识时不按名称猜测 |
 | 会话列表 | 当前 Agent/全部 Agent、显示、搜索、表头排序 | 与 Device Lens 正交地只读浏览各客户端历史 | 保留；不产生任务或运行状态 |
 | 会话选择 | 行 focus、显式 checkbox、清空选择 | focus 查看详情；checked 构成批量动作集合，隐藏选择有计数 | 已实现；搜索、排序和 render 不自动改写选择 |
 | 会话操作 | 右下会话详情底部动作坞 | 聚焦单条时复制/发送/定位/导出；显式勾选后原位切换为批量摘要/取消/复制/发送 | 收紧；复制只有一种格式，动作不进入 Footer 或列表上方 |
-| 整项工作交接 | 聚焦单条的次级“交接任务”；活动弹窗的“导入任务包”与历史 | 人工阶段说明 + 原生会话/只读内容 + Git 基线和已跟踪差异 + 明确附件，生成/导入加密 `.agentdesk-task` | 已实现便携文件纵向链路；Codex 可原生导入根会话和内部记录，其他可导出来源使用只读内容；来源保留、冲突拒绝、导入失败回滚。直接同 Mesh 传送和更多原生适配器待后续 |
+| 整项工作交接 | 聚焦单条的次级“交接任务”；活动弹窗的“导入任务包”与历史 | 人工阶段说明 + 原生会话/只读内容 + Git 基线和已跟踪差异 + 明确附件，生成/导入同一种不可变加密快照 | 便携文件纵向链路已实现；Codex 可原生导入根会话和内部记录，其他可导出来源使用只读内容；来源保留、冲突拒绝、导入失败回滚。更多原生适配器待后续 |
+| 同 Mesh TaskPackage 直送 | 活动弹窗的接收确认、交接任务的目标设备选择 | `task.package.transfer.v1` 复用标准密文包与分块续传；`task.package.receive` 独立授权并逐次确认 | 代码纵向与 UI 路径已实现：目标设备公钥独占 envelope、完整密文哈希、逐消息 feature/capability 复核、consumed ledger、TTL/拒绝/撤权/错误清理和同密文便携回退均有安全定向测试；来源设备 ID/名称是认证传输事实，来源 Agent/交接人是包内声明。Electron E2E runner 尚未发送 TaskPackage，物理双机数据面仍开放 |
 | 会话身份 | Codex 根 thread、压缩检查点、guardian/subagent rollout | 一条用户逻辑会话对应一行，物理文件与内部执行单独分类 | 第一批已实现；父缺失的内部记录也不提升为用户会话 |
 | 状态 | 活动弹窗、额度详情、Footer 全局状态 | 提醒路径异常、显示本地活动和官方可得额度；Footer 显示今日账本与提醒总开关 | 保留；持久告警只进入活动弹窗，额度才使用右下详情，二者都不占页面行或庭院气泡 |
 | 猫猫庭院 | 顶部 Agent 面板内的庭院/卡片分段、排行、场景 Popover | 同一账号/会话数据的可视化 | 保留；两种模式共用选择，时间/天气进入 Top Layer，拖放只打开账号、聚焦会话或保存位置 |
@@ -37,7 +40,8 @@
 | 多设备控制台 | 右下 Remote Surface 单屏/网格 | 最多四路、一个活动画质、唯一输入目标和公开网络统计 | 代码已实现；切换/断线/撤销均释放按键 |
 | 公网会合与诊断 | 设备“网络设置”“连接诊断” | HTTPS 信令、STUN、短期 TURN、LAN/直连/中继状态 | 代码已实现；服务端可自托管，不接收业务内容；真实 NAT/coturn 待物理验收 |
 | UI 上下文 | Device Lens、Agent、Slot、focus/checked、副本、设备详情、全局弹窗、远控、传输草稿 | 保持每种对象和动作目标独立，并提供原子导航 | 已实现；`utilityDialog` 不写入 workspace/detail，render/filter 无选择副作用 |
-| 自动化与真实窗口验收 | `npm test`、`npm run accept:ui`、双端 E2E | Node 领域/安全回归、临时 userData 的 18 条真实窗口路径、局域网与本机 signaling 两种隔离双端链 | 436 项 Node 中 435 通过、1 项仅 Windows 跳过、0 失败；UI 18/18；两种 E2E 均完成认证、签名目录事件/库存、刷新、SessionPointer、184,333 字节文件与合成屏幕。均不替代物理双机/真实 NAT/TURN |
+| 自动化与真实窗口验收 | `npm test`、`npm run accept:ui`、双端 E2E | Node 领域/安全回归、临时 userData 的 21 条真实窗口路径、局域网与本机 signaling 两种隔离双端链 | Node 490 项中 489 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25，首用/向导/配对/Main IPC/TaskPackage UI 相关定向 47/47，UI 21/21。两种 E2E 均完成认证、签名目录/库存、刷新、SessionPointer、184,333 字节文件与合成远控画面，但 runner 未发送 TaskPackage；这些本机证据不替代物理设备 |
+| 物理双 Mac 局域网库存 | 两台实际 Mac、host/UDP DataChannel | 设备证书认证、目录、大库存、显式刷新、4 分钟全快照与短时稳定 | 已验证窄范围：562,009 字节、9 Slot、638 SessionReplica、revision 7 → 8 → 9、5 分钟稳定；远控、断网/睡眠、公网 NAT/TURN 和 Windows 不在该证据中 |
 
 ## 3. 会话复制的唯一契约
 
@@ -75,6 +79,7 @@
 - 详情里的线程 ID、文件、会话标识三处重复信息合并为“坐标”。
 - 恢复轻量多选，但其状态只服务复制/发送定位信息等明确动作，不恢复旧交接功能或任务状态。
 - 默认账号、独立账号和最后一个账号使用同一删除规则；schema v6 保留 suppressed Slot 目录外键可空并新增员工运行模型与签名目录事件，三种删除范围关闭重开后不复活，零 Slot/零 Binding Agent 仍长期存在。
+- “删除后不补回”和“全新存储真实为空”已经收敛：缺失 `profiles.json` 时权威值为 `[]`，不会预置 Claude、Codex 或 Kimi；既有 Profile 先进入选择性无损迁移预览。首次向导只在完成页实际展示后按版本记账，重启恢复不重复造 Agent、设备或 Slot。
 - Codex 使用用户根 `session_id` 作为列表身份；压缩不新增行，guardian/subagent 默认隐藏。
 - Device、AgentIdentity、AccountBinding、AgentBlueprint、AgentDeployment、ProvisioningJob、AgentSlot 和远端库存已进入独立 Mesh 存储；v6 升级前的 `VACUUM INTO` 回滚点包含已提交 WAL 并经过版本/完整性/外键校验。同账号跨设备/形态不重复、同机多账号不误合并。签名 catalog 事件与来源设备 inventory 已按精确 feature 分离：普通字段并发自动合并，同字段稳定收敛并留审计，关系事务受 revision/因果缺口门禁，删除后旧 Slot、旧快照和并发旧编辑不能复活同一 ID；0.9.4 快照和更旧 inventory-only 路径安全降级。`inventory.read` 不再能提交目录 tombstone、覆盖 Binding 或裁剪零 Slot 员工。明确远端 Lens/设备“查看会话”已收敛为缓存优先、单目标按需刷新，启动/all 不 fan-out，失败不丢离线快照。首库存落库屏障、4 分钟全快照恢复基线和持久化前 canonical Slot 会话投影已经补齐，强会话按 canonical Binding 折叠，弱会话/replica 稳定，tombstone/suppressed 不留旧会话。
 - 已就绪远端打开和有人值守首次准备已接入固定语义；准备确认绑定原连接，并在产生副作用前重新核对当前设备与授权，撤权、撤销、断连或替换后的迟到允许不能启动本机 Job。
@@ -82,6 +87,7 @@
 - 会话副本只在强身份成立时折叠，动作始终落到确切 replica；压缩与 internal-child 不增加用户会话行。
 - SessionPointer、文件、屏幕与输入分别授权；“发送到设备”没有发展成第二套复制格式或交接模板。
 - TaskPackage 与 SessionPointer 分开：前者是用户人工补齐的一次不可变工作快照，后者只是在同一 Mesh 中发送位置。加密包隐藏业务元数据、逐项校验、只显示一次解锁码；Codex 原生导入不覆盖同 ID 异内容，标题标注来源，来源会话与文件不自动删除。
+- 同 Mesh TaskPackage 直送与便携文件复用同一个不可变密文快照和导入验证路径。接收能力、逐次接受、目标设备公钥独占 envelope、密文哈希、重放墓碑、TTL/清理和失败后的同密文便携回退已经进入代码及安全自动化；认证来源只到设备 ID/名称，来源 Agent 名与交接人仍是包内声明。
 - 远控媒体独立于普通 Main Renderer，视觉上只替换右下详情；目标端持续可见并可立即停止，多设备模式始终只有一个输入目标。
 - 公网信令只转发固定配对和 offer/answer，TURN 凭据短期存在内存，诊断不显示 IP、SDP 或凭据。
 - Agent、Device Lens、Slot、Conversation、SessionReplica 与 `utilityDialog` 的 UI 上下文已经拆开；四个全局弹窗和设备详情导航都不会再用旧 Profile 状态静默改写底层工作台或动作目标。
@@ -96,8 +102,9 @@
 - “刷新会话”“刷新额度”“检查工具”“检查更新”需要持续保持动词和作用域清晰。
 - 诊断文本包含较多本机路径，公开粘贴前应提供隐私提醒或脱敏选项。
 - 大目录扫描目前缺少耗时和局部失败摘要，路径问题仍可能只表现为“没有会话”。
-- 两台物理电脑、长连接可达性/断网恢复、真实家庭 NAT/CGNAT、coturn UDP/TCP/TLS、macOS/Windows 四向权限、DPI 和 IME 尚未完成验收；当前定向验证环境也未配置或验证长期可达的公网 signaling endpoint。这属于发布门禁，不是用更多本机模拟测试可以替代的功能描述。
+- 双 Mac 局域网大库存、显式刷新和当前 4 分钟全快照恢复基线已经有窄真机证据；长连接可达性/断网与睡眠恢复、真实家庭 NAT/CGNAT、coturn UDP/TCP/TLS、远控媒体/输入，以及 macOS/Windows 四向权限、DPI 和 IME 尚未完成验收。当前定向验证环境也未配置或验证长期可达的公网 signaling endpoint。这些开放项是发布门禁，不是用更多本机模拟测试可以替代的功能描述。
 - 无人值守仍未获 Phase 9 单独批准；当前不能把 portable 有人值守端写成开机服务、锁屏控制或登录界面控制。
-- TaskPackage 当前需要用户自行传递文件和分开发送解锁码；同 Mesh 直接发送、跨 Mesh 身份确认、更多客户端原生导入和客户端精确聚焦仍需后续实现，不能写成自动 P2P 迁移已经完成。
+- 同 Mesh TaskPackage 已有代码纵向与 UI 状态投影，但隔离 Electron E2E 尚未发送 TaskPackage；物理双机直送/接受/拒绝/撤权/断线恢复、真实公网 NAT/TURN、Windows 文件句柄与清理矩阵，以及跨 Mesh 身份确认、更多客户端原生导入和客户端精确聚焦仍需后续验收或实现，不能写成完整 P2P 迁移已经交付。
+- 当前候选为 `0.10.1-preview.1`；历史 `0.10.0` 不补发为稳定版。上述物理门禁关闭前，只允许签名、公证且明确标为 Preview 的安装产物。
 
 这些项不应通过新增模板、更多复制类别或新的编排层解决。

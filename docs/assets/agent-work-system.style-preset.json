@@ -2,9 +2,10 @@
   "schema": "ze-figure-style-preset.v1",
   "preset_id": "agentdesk-method-article-2026-08",
   "name": "AgentDesk 方法文章图解",
-  "note": "从同文既有 task-package-handoff.svg 取样，保持白底、低饱和蓝灰、细线、系统字体与信息图密度。",
+  "note": "从同文既有 task-package-handoff.svg 与 agent-work-system.svg 取样，保持白底、低饱和蓝灰、细线、系统字体与机制图密度。",
   "sampled_from": [
-    "docs/assets/task-package-handoff.svg"
+    "docs/assets/task-package-handoff.svg",
+    "docs/assets/agent-work-system.svg"
   ],
   "canvas": {
     "width": 1280,
@@ -66,12 +67,14 @@
     "inner_card": "rx=9, white fill, 1.1px stroke",
     "primary_flow": "1.7px #263238 with arrow",
     "execution_flow": "1.8px #2C6D9E with arrow",
-    "feedback_flow": "1.3px dashed #77868C with arrow"
+    "feedback_flow": "1.3px dashed #77868C with arrow",
+    "interruption_cut": "1.1px dashed #C5CECF; only marks a continuity boundary"
   },
   "hard_rules": [
-    "一张图只解释一项工作怎样从持续责任进入执行并由证据返回",
+    "每张图只解释一个机制：运行回路、连续性边界外扩或两条交付通道汇入同一验证",
     "不放大标题或结论卡，列名只负责定位阅读方向",
     "每个术语都必须落到图中的真实对象、动作或记录",
-    "文字和箭头必须留在所属面板内，不用视觉装饰代替关系"
+    "文字和箭头必须留在所属面板内，不用视觉装饰代替关系",
+    "代码纵向事实与开放物理门禁必须使用不同证据 kind"
   ]
 }

@@ -22,8 +22,32 @@ test('任务交接只作为单会话次级动作，并把导入与历史放入�
   assert.doesNotMatch(focusedActions, /class="[^"]*primary/);
 
   const activity = dialogSlice(html, 'activityCenterDialog');
-  assert.match(activity, /id="importTaskPackageBtn"[\s\S]*?id="taskPackageHistory"/);
+  assert.match(activity, /id="importTaskPackageBtn"[\s\S]*?id="incomingTaskPackages"[\s\S]*?id="taskPackageHistory"/);
   assert.doesNotMatch(html, /handoffBulkBar|copySelectedHandoffBtn|handoffPlan/);
+});
+
+test('同 Mesh 直送复用同一导出与导入弹窗，并在活动中逐次接受', () => {
+  const html = read('src/index.html');
+  const renderer = read('src/renderer.js');
+  const exportDialog = dialogSlice(html, 'taskPackageDialog');
+  const importDialog = dialogSlice(html, 'taskPackageImportDialog');
+  assert.match(exportDialog, /id="taskPackageDeliveryPortable"[\s\S]*?id="taskPackageDeliveryDirect"[\s\S]*?id="taskPackageDirectTarget"/);
+  assert.match(exportDialog, /id="taskPackageExportResult"[\s\S]*?id="taskPackageDirectResult"/);
+  assert.match(importDialog, /id="taskPackagePortableImportSource"[\s\S]*?id="taskPackageDirectImportSource"[\s\S]*?id="taskPackageImportPreview"/);
+  assert.match(renderer, /directTaskPackageTargets[\s\S]*?task\.package\.receive[\s\S]*?task\.package\.transfer\.v1/);
+  assert.match(renderer, /sendTaskPackageToDevice[\s\S]*?acceptIncomingTaskPackage[\s\S]*?rejectIncomingTaskPackage[\s\S]*?prepareIncomingTaskPackage/);
+  assert.match(renderer, /prepareIncomingTaskPackage[\s\S]*?openTaskPackageImportDialog[\s\S]*?mode:\s*'direct'/);
+});
+
+test('直送失败的便携回退由 Main 选择路径并只向 UI 返回一次密钥', () => {
+  const renderer = read('src/renderer.js');
+  const preload = read('src/preload.js');
+  const main = read('src/main.js');
+  assert.match(preload, /saveTaskPackageFallback:[\s\S]*?taskPackages:savePortableFallback/);
+  assert.match(main, /ipcMain\.handle\('taskPackages:savePortableFallback'[\s\S]*?showSaveDialog[\s\S]*?saveTaskPackageFallback/);
+  assert.match(renderer, /saveTaskPackageTransferFallback[\s\S]*?showTaskPackageFallbackResult/);
+  assert.match(renderer, /saved\.unlockCode[\s\S]*?taskPackageUnlockCode/);
+  assert.doesNotMatch(preload, /saveTaskPackageFallback:\s*\([^)]*destination|savePortableFallback[^\n]*filePath/);
 });
 
 test('任务包导出与导入弹窗固定头尾，仅内容区滚动且关闭始终在顶部', () => {
@@ -55,7 +79,7 @@ test('任务包 IPC 保持窄桥接，Main 负责选择路径并重新解析 Pro
   const preload = read('src/preload.js');
   const main = read('src/main.js');
   const apps = read('src/apps.js');
-  assert.match(preload, /previewTaskPackageExport:[\s\S]*?exportTaskPackage:[\s\S]*?chooseTaskPackageImport:[\s\S]*?commitTaskPackageImport:/);
+  assert.match(preload, /previewTaskPackageExport:[\s\S]*?exportTaskPackage:[\s\S]*?sendTaskPackageToDevice:[\s\S]*?acceptIncomingTaskPackage:[\s\S]*?chooseTaskPackageImport:[\s\S]*?commitTaskPackageImport:/);
   assert.doesNotMatch(preload, /taskPackages:invoke|taskPackages:openPath/);
   assert.match(main, /ipcMain\.handle\('taskPackages:export'[\s\S]*?showSaveDialog[\s\S]*?exportPackage/);
   assert.match(main, /ipcMain\.handle\('taskPackages:commitImport'[\s\S]*?showOpenDialog[\s\S]*?commitImport/);

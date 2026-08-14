@@ -569,14 +569,6 @@
               <button id="initializeMeshBtn" type="button" class="primary device-primary-action" data-i18n="devices.initialize">建立本机设备身份</button>
               <button id="showJoinMeshBtn" type="button" data-i18n="devices.join.show">加入已有设备网</button>
             </div>
-            <div id="meshJoinPanel" class="mesh-code-panel" hidden>
-              <label for="meshJoinCode" data-i18n="devices.join.label">粘贴另一台设备生成的一次性配对码</label>
-              <textarea id="meshJoinCode" rows="3" autocomplete="off" spellcheck="false"></textarea>
-              <div>
-                <button id="cancelJoinMeshBtn" type="button" data-i18n="dialog.cancel">取消</button>
-                <button id="confirmJoinMeshBtn" type="button" class="primary" data-i18n="devices.join.action">加入设备网</button>
-              </div>
-            </div>
           </section>
 
           <section id="meshReadyState" class="mesh-ready-state" hidden>
@@ -625,6 +617,92 @@
             </div>
           </section>
         </div>
+      </form>
+    </dialog>
+
+    <dialog id="deviceJourneyDialog" class="device-journey-dialog" aria-labelledby="deviceJourneyTitle" aria-describedby="deviceJourneyLead">
+      <form method="dialog" class="dialog-body utility-dialog-shell child-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
+          <div>
+            <span data-i18n="deviceJourney.kicker">ADD A WORK ENVIRONMENT</span>
+            <h3 id="deviceJourneyTitle" data-i18n="deviceJourney.title">添加设备</h3>
+            <p id="deviceJourneyLead" data-i18n="deviceJourney.lead">每一步都对应一个独立事实；建立信任不等于已经连接，连接也不等于目录和库存已经落库。</p>
+          </div>
+          <button id="deviceJourneyCloseBtn" class="utility-dialog-close" type="button" data-i18n="dialog.close">关闭</button>
+        </header>
+
+        <div class="utility-dialog-content device-journey-content">
+          <ol id="deviceJourneyProgress" class="device-journey-progress" aria-label="添加设备进度" data-i18n-aria="deviceJourney.progressLabel">
+            <li data-step="identity"><span>1</span><b data-i18n="deviceJourney.step.identity">确认身份</b></li>
+            <li data-step="trust"><span>2</span><b data-i18n="deviceJourney.step.trust">建立信任</b></li>
+            <li data-step="connect"><span>3</span><b data-i18n="deviceJourney.step.connect">连接设备</b></li>
+            <li data-step="catalog"><span>4</span><b data-i18n="deviceJourney.step.catalog">同步目录</b></li>
+            <li data-step="inventory"><span>5</span><b data-i18n="deviceJourney.step.inventory">取得库存</b></li>
+          </ol>
+
+          <section id="deviceJourneyIdentity" class="device-journey-section" aria-labelledby="deviceJourneyIdentityTitle">
+            <header>
+              <span data-i18n="deviceJourney.identity.kicker">VERIFY THE DEVICE</span>
+              <h4 id="deviceJourneyIdentityTitle" data-i18n="deviceJourney.identity.title">先确认你正在连接哪台设备</h4>
+              <p id="deviceJourneyIdentityLead"></p>
+            </header>
+
+            <div id="deviceJourneyHost" class="device-journey-host" hidden>
+              <div id="deviceJourneyInviteEmpty" class="device-journey-empty">
+                <strong data-i18n="deviceJourney.host.readyTitle">为这次添加生成一次性配对码</strong>
+                <p data-i18n="deviceJourney.host.readyBody">配对码只用于建议本次信任；把它交给另一台电脑后，留在这里查看对方设备身份和后续进度。</p>
+              </div>
+              <div id="deviceJourneyInvite" class="device-journey-invite" hidden>
+                <div><span data-i18n="deviceJourney.host.shortCode">核对码</span><b id="deviceJourneyShortCode">—</b><small id="deviceJourneyInviteExpiry"></small></div>
+                <textarea id="deviceJourneyInviteCode" rows="3" readonly spellcheck="false" aria-label="一次性配对码" data-i18n-aria="deviceJourney.host.codeLabel"></textarea>
+                <button id="deviceJourneyCopyBtn" type="button" data-i18n="deviceJourney.action.copy">复制配对码</button>
+              </div>
+            </div>
+
+            <div id="deviceJourneyJoin" class="device-journey-join" hidden>
+              <label for="meshJoinCode">
+                <span data-i18n="deviceJourney.join.code">另一台设备生成的一次性配对码</span>
+                <textarea id="meshJoinCode" rows="3" autocomplete="off" spellcheck="false"></textarea>
+              </label>
+              <p data-i18n="deviceJourney.join.inspectNote">AgentDesk 会先在本机验签并显示邀请设备，再由你确认；检查本身不会加入设备网。</p>
+            </div>
+
+            <article id="deviceJourneyIdentityCard" class="device-journey-identity-card" hidden>
+              <span id="deviceJourneyIdentityKind"></span>
+              <strong id="deviceJourneyDeviceName">—</strong>
+              <small id="deviceJourneyDeviceMeta"></small>
+              <code id="deviceJourneyFingerprint"></code>
+              <label><input id="deviceJourneyIdentityConfirm" type="checkbox"><span data-i18n="deviceJourney.identity.confirm">我已通过另一条渠道核对设备名称和安全指纹</span></label>
+            </article>
+          </section>
+
+          <section id="deviceJourneyFacts" class="device-journey-section" aria-labelledby="deviceJourneyFactsTitle" hidden>
+            <header>
+              <span data-i18n="deviceJourney.facts.kicker">CURRENT FACTS</span>
+              <h4 id="deviceJourneyFactsTitle" data-i18n="deviceJourney.facts.title">正在完成设备任务</h4>
+              <p id="deviceJourneyFactsLead"></p>
+            </header>
+            <div id="deviceJourneyFactList" class="device-journey-fact-list" aria-live="polite"></div>
+          </section>
+
+          <section id="deviceJourneyComplete" class="device-journey-complete" aria-labelledby="deviceJourneyCompleteTitle" hidden>
+            <span aria-hidden="true">✓</span>
+            <div>
+              <small data-i18n="deviceJourney.complete.kicker">WORK ENVIRONMENT READY</small>
+              <h4 id="deviceJourneyCompleteTitle" data-i18n="deviceJourney.complete.title">这台设备已经可以使用</h4>
+              <p id="deviceJourneyCompleteLead"></p>
+            </div>
+          </section>
+
+          <p id="deviceJourneyStatus" class="onboarding-status" role="status" aria-live="polite" hidden></p>
+        </div>
+
+        <footer class="utility-dialog-footer device-journey-footer">
+          <button id="deviceJourneyAdvancedBtn" type="button" data-i18n="deviceJourney.action.advanced">高级恢复</button>
+          <span></span>
+          <button id="deviceJourneySecondaryBtn" type="button" hidden></button>
+          <button id="deviceJourneyPrimaryBtn" type="button" class="primary"></button>
+        </footer>
       </form>
     </dialog>
 
@@ -770,6 +848,10 @@
           </div>
         </div>
         <div class="utility-dialog-content activity-center-content">
+          <section id="incomingTaskPackages" class="incoming-task-packages" aria-live="polite" hidden>
+            <header><div><span data-i18n="taskPackage.incoming.kicker">INCOMING WORK</span><b data-i18n="taskPackage.incoming.title">待接收任务</b></div><strong id="incomingTaskPackageCount">0</strong></header>
+            <div id="incomingTaskPackageList" class="incoming-task-package-list"></div>
+          </section>
           <section id="taskPackageHistory" class="task-package-history" aria-live="polite">
             <header><div><span data-i18n="taskPackage.history.kicker">TASK PACKAGES</span><b data-i18n="taskPackage.history.title">任务交接</b></div><strong id="taskPackageHistoryCount">0</strong></header>
             <div id="taskPackageHistoryList" class="task-package-history-list"></div>
@@ -814,13 +896,37 @@
             <label><input id="taskPackageIncludeProject" type="checkbox" checked><span data-i18n="taskPackage.includeProject">包含 Git 提交、分支和已跟踪文件差异</span></label>
             <label><input id="taskPackageIncludeAttachments" type="checkbox"><span data-i18n="taskPackage.includeAttachments">导出时再选择附件</span></label>
           </div>
-          <p class="task-package-security" data-i18n="taskPackage.security">任务包包含完整会话正文，可能带有敏感信息；只选择确实需要的附件。来源会话会保留。文件使用一次性密钥加密，密钥不写入文件或历史，请分开发送。</p>
+          <fieldset class="task-package-delivery">
+            <legend data-i18n="taskPackage.delivery.title">交付方式</legend>
+            <label class="task-package-delivery-option">
+              <input id="taskPackageDeliveryPortable" type="radio" name="taskPackageDelivery" value="portable" checked>
+              <span><b data-i18n="taskPackage.delivery.portable">保存便携加密文件</b><small data-i18n="taskPackage.delivery.portableHint">适合发给其他人或不在同一设备网的电脑；文件与一次性密钥分开发送。</small></span>
+            </label>
+            <label class="task-package-delivery-option">
+              <input id="taskPackageDeliveryDirect" type="radio" name="taskPackageDelivery" value="direct">
+              <span><b><span data-i18n="taskPackage.delivery.direct">直接发送到可信设备</span><em data-i18n="common.preview">Preview</em></b><small data-i18n="taskPackage.delivery.directHint">只列出已认证、协议兼容并已开启任务包接收权限的同 Mesh 设备。</small></span>
+            </label>
+            <div id="taskPackageDirectTargetField" class="task-package-direct-target" hidden>
+              <label class="task-package-field">
+                <span data-i18n="taskPackage.delivery.target">接收设备</span>
+                <select id="taskPackageDirectTarget"></select>
+              </label>
+              <p id="taskPackageDirectAvailability" class="task-package-delivery-note" aria-live="polite"></p>
+            </div>
+          </fieldset>
+          <p id="taskPackageSecurity" class="task-package-security" data-i18n="taskPackage.security">任务包包含完整会话正文，可能带有敏感信息；只选择确实需要的附件。来源会话会保留。文件使用一次性密钥加密，密钥不写入文件或历史，请分开发送。</p>
           <section id="taskPackageExportResult" class="task-package-result" hidden>
             <span data-i18n="taskPackage.result.kicker">UNLOCK CODE</span>
             <strong data-i18n="taskPackage.result.title">任务包已生成</strong>
             <code id="taskPackageUnlockCode"></code>
             <button id="copyTaskPackageCodeBtn" type="button" data-i18n="taskPackage.result.copy">复制解锁密钥</button>
             <small data-i18n="taskPackage.result.hint">这是唯一一次显示。把任务包文件和密钥分开发给对方。</small>
+          </section>
+          <section id="taskPackageDirectResult" class="task-package-result task-package-direct-result" hidden>
+            <span data-i18n="taskPackage.direct.result.kicker">ENCRYPTED TRANSFER</span>
+            <strong data-i18n="taskPackage.direct.result.title">加密任务包已进入发送队列</strong>
+            <small id="taskPackageDirectResultDetail" data-i18n="taskPackage.direct.result.hint">接收设备仍需逐次确认；来源会话与项目不会被删除。</small>
+            <button id="taskPackageSwitchPortableBtn" type="button" hidden data-i18n="taskPackage.direct.switchPortable">改为保存便携加密文件</button>
           </section>
           <p id="taskPackageStatus" class="device-center-status" data-state="idle" aria-live="polite"></p>
         </div>
@@ -843,15 +949,23 @@
           <button id="taskPackageImportCloseBtn" type="button" class="utility-dialog-close" data-i18n="dialog.close">关闭</button>
         </header>
         <div class="utility-dialog-content task-package-content">
-          <div class="task-package-import-source">
-            <button id="chooseTaskPackageFileBtn" type="button" data-i18n="taskPackage.import.choose">选择 .agentdesk-task 文件</button>
-            <strong id="taskPackageImportFile" data-i18n="taskPackage.import.noFile">尚未选择文件</strong>
+          <div id="taskPackagePortableImportSource" class="task-package-portable-import-source">
+            <div class="task-package-import-source">
+              <button id="chooseTaskPackageFileBtn" type="button" data-i18n="taskPackage.import.choose">选择 .agentdesk-task 文件</button>
+              <strong id="taskPackageImportFile" data-i18n="taskPackage.import.noFile">尚未选择文件</strong>
+            </div>
+            <label class="task-package-field">
+              <span data-i18n="taskPackage.import.code">解锁密钥</span>
+              <input id="taskPackageImportCode" type="text" maxlength="100" autocomplete="off" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX">
+            </label>
+            <button id="inspectTaskPackageBtn" type="button" data-i18n="taskPackage.import.inspect">验证并读取</button>
           </div>
-          <label class="task-package-field">
-            <span data-i18n="taskPackage.import.code">解锁密钥</span>
-            <input id="taskPackageImportCode" type="text" maxlength="100" autocomplete="off" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX">
-          </label>
-          <button id="inspectTaskPackageBtn" type="button" data-i18n="taskPackage.import.inspect">验证并读取</button>
+          <section id="taskPackageDirectImportSource" class="task-package-direct-import-source" hidden>
+            <span data-i18n="taskPackage.import.directKicker">VERIFIED MESH DELIVERY</span>
+            <strong id="taskPackageDirectImportTitle"></strong>
+            <small id="taskPackageDirectImportMeta"></small>
+            <p data-i18n="taskPackage.import.directReady">密文已完整接收并通过整包哈希；解锁材料只在 Main 的受控导入事务中短时使用。</p>
+          </section>
           <section id="taskPackageImportPreview" class="task-package-import-preview" hidden></section>
           <label id="taskPackageTargetField" class="task-package-field" hidden>
             <span data-i18n="taskPackage.import.target">接收这项工作的本机 Agent 与运行位置</span>
@@ -954,21 +1068,104 @@
       <form method="dialog" class="dialog-body utility-dialog-shell child-dialog-shell">
         <header class="utility-dialog-head utility-dialog-header">
           <div>
-            <span aria-hidden="true">AGENTDESK GUIDE</span>
-            <h3 id="welcomeDialogTitle">AgentDesk</h3>
+            <span id="welcomeDialogKicker" aria-hidden="true">AGENTDESK GUIDE</span>
+            <h3 id="welcomeDialogTitle" data-i18n="welcome.title">AgentDesk 使用说明</h3>
             <p id="welcomeDialogLead" class="welcome-lead" data-i18n="welcome.lead">管理多个 Claude / Codex 账号，不保存任何密码 —— 登录始终发生在官方 App 里。</p>
           </div>
-          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
+          <button id="welcomeDialogCloseBtn" class="utility-dialog-close" type="button" data-i18n="dialog.close">关闭</button>
         </header>
         <div class="utility-dialog-content welcome-dialog-content">
-          <ol class="welcome-steps">
-            <li data-i18n-html="welcome.step1"><b>新增</b>一个账号槽位（工作号 / 个人号 / 备用号……）。</li>
-            <li data-i18n-html="welcome.step2">选中它点<b>打开账号</b>，在弹出的官方 App 里登录。</li>
-            <li data-i18n-html="welcome.step3">用过之后，这个账号的本地会话会<b>自动出现</b>在中间列表。</li>
-            <li data-i18n-html="welcome.step4">单选或勾选多条会话后可<b>复制路径与坐标</b>；支持的客户端还能导出 Markdown。</li>
-          </ol>
-          <p class="welcome-tip" data-i18n-html="welcome.tip">每个槽位是独立登录、互不挤下线，可加备注和分组管理。读不到会话时点<b>诊断</b>，或用<b>路径</b>手动指定会话目录。</p>
+          <section id="welcomeGuideContent" class="welcome-guide-content">
+            <ol class="welcome-steps">
+              <li data-i18n-html="welcome.step1"><b>Agent</b> 是长期工作对象，可以在不同设备和客户端上拥有运行位置。</li>
+              <li data-i18n-html="welcome.step2">选定工作环境后点<b>打开账号</b>；第一次会进入受控准备，登录仍在官方客户端完成。</li>
+              <li data-i18n-html="welcome.step3">使用后，本地会话会<b>自动出现</b>在会话列表。</li>
+              <li data-i18n-html="welcome.step4">聚焦或勾选会话后可<b>复制路径与坐标</b>，也可以显式发送或交接。</li>
+            </ol>
+            <p class="welcome-tip" data-i18n-html="welcome.tip">日常只需管理 Agent 和运行位置。手动账号槽位、路径与诊断保留在<b>高级管理</b>中。</p>
+          </section>
+
+          <section id="onboardingContent" class="onboarding-content" hidden>
+            <ol id="onboardingProgress" class="onboarding-progress" aria-label="首次使用进度" data-i18n-aria="onboarding.progressLabel">
+              <li data-step="migration"><span>1</span><b data-i18n="onboarding.progress.migration">确认现有账号</b></li>
+              <li data-step="agent"><span>2</span><b data-i18n="onboarding.progress.agent">创建 Agent</b></li>
+              <li data-step="preparing"><span>3</span><b data-i18n="onboarding.progress.prepare">首次准备</b></li>
+            </ol>
+
+            <section id="onboardingMigration" class="onboarding-step" aria-labelledby="onboardingMigrationTitle" hidden>
+              <header>
+                <span data-i18n="onboarding.migration.kicker">LOCAL ACCOUNTS</span>
+                <h4 id="onboardingMigrationTitle" data-i18n="onboarding.migration.title">确认已有登录</h4>
+                <p data-i18n="onboarding.migration.lead">选择要放进初始 Agent 库的现有账号。只建立目录关系，不移动账号目录、会话或登录信息。</p>
+              </header>
+              <fieldset class="onboarding-migration-fieldset">
+                <legend data-i18n="onboarding.migration.legend">本机发现的账号</legend>
+                <div id="onboardingMigrationList" class="onboarding-migration-list"></div>
+              </fieldset>
+              <p class="onboarding-safety-note"><span aria-hidden="true">◇</span><span data-i18n="onboarding.migration.safety">没有选中的账号继续留在原处，之后仍可从高级管理导入。</span></p>
+            </section>
+
+            <section id="onboardingAgent" class="onboarding-step" aria-labelledby="onboardingAgentTitle" hidden>
+              <header>
+                <span data-i18n="onboarding.agent.kicker">FIRST AGENT</span>
+                <h4 id="onboardingAgentTitle" data-i18n="onboarding.agent.title">创建第一个 Agent</h4>
+                <p data-i18n="onboarding.agent.lead">先确定它是谁、使用哪个受支持客户端。AgentDesk 随后为本机准备运行位置。</p>
+              </header>
+              <div class="onboarding-agent-form">
+                <label>
+                  <span data-i18n="onboarding.agent.name">Agent 名称</span>
+                  <input id="onboardingAgentName" type="text" maxlength="80" autocomplete="off" data-i18n-placeholder="onboarding.agent.namePlaceholder" placeholder="例如：研究助理" />
+                </label>
+                <label>
+                  <span data-i18n="onboarding.agent.client">首选客户端</span>
+                  <select id="onboardingAgentClient" data-i18n-aria="onboarding.agent.client" aria-label="首选客户端"></select>
+                </label>
+              </div>
+              <p id="onboardingMigrationSummary" class="onboarding-selection-summary"></p>
+              <p class="onboarding-safety-note"><span aria-hidden="true">■</span><span data-i18n="onboarding.agent.localOnly">确认后只建立本机 Agent 目录和设备身份；不会开放端口、发布在线租约、连接其他设备或授予远端权限。</span></p>
+            </section>
+
+            <section id="onboardingPreparation" class="onboarding-step onboarding-preparation" aria-labelledby="onboardingPreparationTitle" hidden>
+              <header>
+                <span data-i18n="onboarding.prepare.kicker">FIRST PREPARATION</span>
+                <h4 id="onboardingPreparationTitle" data-i18n="onboarding.prepare.title">准备本机运行位置</h4>
+                <p data-i18n="onboarding.prepare.lead">AgentDesk 只创建受管目录并打开白名单内的官方客户端。安装、登录、验证码和系统权限仍由你在本机完成。</p>
+              </header>
+              <div class="onboarding-preparation-card" aria-live="polite">
+                <span id="onboardingPreparationIcon" aria-hidden="true">⋯</span>
+                <div><strong id="onboardingPreparationState"></strong><small id="onboardingPreparationDetail"></small></div>
+              </div>
+            </section>
+
+            <section id="onboardingExisting" class="onboarding-step" aria-labelledby="onboardingExistingTitle" hidden>
+              <header>
+                <span data-i18n="onboarding.existing.kicker">AGENT LIBRARY</span>
+                <h4 id="onboardingExistingTitle" data-i18n="onboarding.existing.title">你的 Agent 库已经就绪</h4>
+                <p data-i18n="onboarding.existing.lead">这次更新把 Agent 作为长期工作对象；设备是工作环境，客户端槽位只是它在某处的运行位置。</p>
+              </header>
+              <div id="onboardingExistingAgents" class="onboarding-existing-agents"></div>
+              <p class="onboarding-safety-note"><span aria-hidden="true">↳</span><span data-i18n="onboarding.existing.safety">现有账号、会话、路径和登录状态保持原样。</span></p>
+            </section>
+
+            <section id="onboardingComplete" class="onboarding-step onboarding-complete" aria-labelledby="onboardingCompleteTitle" hidden>
+              <span class="onboarding-complete-mark" aria-hidden="true">✓</span>
+              <div>
+                <span data-i18n="onboarding.complete.kicker">READY</span>
+                <h4 id="onboardingCompleteTitle" data-i18n="onboarding.complete.title">可以开始工作了</h4>
+                <p data-i18n="onboarding.complete.lead">主工作台仍按 Agent、会话和详情组织。第一次打开未准备的 Agent 时，可从同一位置继续安装或登录。</p>
+              </div>
+            </section>
+
+            <p id="onboardingStatus" class="onboarding-status" role="status" aria-live="polite" hidden></p>
+          </section>
         </div>
+        <footer id="onboardingFooter" class="utility-dialog-footer onboarding-footer" hidden>
+          <button id="onboardingAdvancedBtn" type="button" class="onboarding-advanced" data-i18n="onboarding.advanced">高级：手动导入运行位置</button>
+          <span></span>
+          <button id="onboardingBackBtn" type="button" data-i18n="dialog.back">返回</button>
+          <button id="onboardingSecondaryBtn" type="button" hidden></button>
+          <button id="onboardingPrimaryBtn" type="button" class="primary"></button>
+        </footer>
       </form>
     </dialog>
 
@@ -994,6 +1191,8 @@
     <script src="./session-table.js"></script>
     <script src="./session-location.js"></script>
     <script src="./agent-workspace.js"></script>
+    <script src="./device-journey.js"></script>
+    <script src="./onboarding-state.js"></script>
     <script src="./ui-context.js"></script>
     <script src="./yard/companion.js"></script>
     <script src="./yard/workload.js"></script>

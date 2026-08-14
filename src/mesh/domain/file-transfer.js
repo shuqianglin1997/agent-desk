@@ -40,7 +40,7 @@ function createFileManifest(input = {}, options = {}) {
     files: input.files,
     bytesTotal: (input.files || []).reduce((sum, file) => sum + Number(file.size || 0), 0),
     createdAt,
-    expiresAt: new Date(Date.parse(createdAt) + FILE_TRANSFER_TTL_MS).toISOString()
+    expiresAt: options.expiresAt || new Date(Date.parse(createdAt) + FILE_TRANSFER_TTL_MS).toISOString()
   });
 }
 

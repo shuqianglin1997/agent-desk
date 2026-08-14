@@ -1,5 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -86,6 +87,104 @@ test('任务包容器逐项校验、错误密钥拒绝且解密内容不出现�
   assert.equal(archive.manifest.packageId, 'package-format');
   await extractTaskPackageEntry({ plainPath, entry: archive.entries[0], destinationPath: outputPath });
   assert.equal(fs.readFileSync(outputPath, 'utf8'), secret.toString('utf8'));
+});
+
+test('导入草稿在解密进行中停止或过期后等待句柄关闭并清除明文', async (t) => {
+  const root = tempRoot('agentdesk-task-draft-lifecycle-');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const packagePath = path.join(root, 'incoming.agentdesk-task');
+  fs.writeFileSync(packagePath, 'encrypted-placeholder', { mode: 0o600 });
+
+  async function exerciseCancellation(kind) {
+    const stagingRoot = path.join(root, kind);
+    let releaseDecrypt;
+    let reportPlainPath;
+    let decryptActive = false;
+    let removalAttempts = 0;
+    const plainReady = new Promise((resolve) => { reportPlainPath = resolve; });
+    const service = new TaskPackageService({
+      profileProvider: () => [],
+      historyFile: path.join(root, `${kind}-history.json`),
+      stagingRoot,
+      importDraftTtlMs: kind === 'ttl' ? 10 : 60_000,
+      randomUUID: () => `${kind}-draft`,
+      decryptTaskPackage: async ({ plainPath }) => {
+        decryptActive = true;
+        fs.writeFileSync(plainPath, 'temporary decrypted content', { mode: 0o600 });
+        reportPlainPath(plainPath);
+        await new Promise((resolve) => { releaseDecrypt = resolve; });
+        decryptActive = false;
+        return { manifest: transcriptManifest(), entries: [], plainPath };
+      },
+      removeDraftRoot: (draftRoot) => {
+        removalAttempts += 1;
+        if (decryptActive) {
+          const error = new Error('simulated-windows-open-handle');
+          error.code = 'EBUSY';
+          throw error;
+        }
+        fs.rmSync(draftRoot, { recursive: true, force: true });
+      }
+    });
+    const draft = service.createImportDraft(packagePath);
+    const draftRoot = path.join(stagingRoot, `import-${draft.token}`);
+    const inspection = service.inspectImport({ token: draft.token, unlockCode: 'ABCDE-FGHIJ-KLMNO-PQRST' });
+    const plainPath = await plainReady;
+    assert.equal(fs.existsSync(plainPath), true);
+
+    if (kind === 'stop') service.stop();
+    else await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(service.importDrafts.has(draft.token), false);
+    assert.equal(removalAttempts, 1);
+
+    releaseDecrypt();
+    await assert.rejects(inspection, /task-package-import-cancelled/);
+    assert.equal(removalAttempts >= 2, true);
+    assert.equal(fs.existsSync(plainPath), false);
+    assert.equal(fs.existsSync(draftRoot), false);
+    assert.equal(service.importDraftTimers.has(draft.token), false);
+    service.stop();
+  }
+
+  await exerciseCancellation('stop');
+  await exerciseCancellation('ttl');
+});
+
+test('私有 staging 拒绝符号链接与根替换，并把根和草稿权限收紧为 0700', {
+  skip: process.platform === 'win32'
+}, (t) => {
+  const root = tempRoot('agentdesk-task-staging-policy-');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const external = path.join(root, 'external');
+  const linkedRoot = path.join(root, 'linked-staging');
+  fs.mkdirSync(external, { mode: 0o700 });
+  fs.symlinkSync(external, linkedRoot, 'dir');
+  assert.throws(() => new TaskPackageService({
+    historyFile: path.join(root, 'linked-history.json'),
+    stagingRoot: linkedRoot
+  }), /task-package-staging-root-invalid/);
+
+  const stagingRoot = path.join(root, 'staging');
+  fs.mkdirSync(stagingRoot, { mode: 0o777 });
+  fs.chmodSync(stagingRoot, 0o777);
+  const packagePath = path.join(root, 'placeholder.agentdesk-task');
+  fs.writeFileSync(packagePath, 'encrypted-placeholder', { mode: 0o600 });
+  const service = new TaskPackageService({
+    historyFile: path.join(root, 'history.json'),
+    stagingRoot,
+    randomUUID: () => 'mode-draft'
+  });
+  assert.equal(fs.statSync(stagingRoot).mode & 0o077, 0);
+  const draft = service.createImportDraft(packagePath);
+  const draftRoot = path.join(stagingRoot, `import-${draft.token}`);
+  assert.equal(fs.statSync(draftRoot).mode & 0o077, 0);
+  service.cancelImport(draft.token);
+
+  fs.rmdirSync(stagingRoot);
+  fs.symlinkSync(external, stagingRoot, 'dir');
+  assert.throws(() => service.createImportDraft(packagePath), /task-package-staging-root-invalid/);
+  assert.deepEqual(fs.readdirSync(external), []);
+  service.stop();
 });
 
 test('任务包清单拒绝总量越界、重复逻辑路径和伪装成会话的附件', () => {
@@ -302,4 +401,117 @@ test('Codex 原生任务包携带根会话和内部记录，导入后历史可�
   assert.equal(importedWithoutLaunch.opened, false);
   assert.equal(fs.existsSync(importedWithoutLaunch.artifactDirectory), true);
   assert.equal(scanCodex(failedOpenProfile)[0].id, 'conversation-a');
+});
+
+test('直送导入以独立 consumed ledger 阻断重放，并分别记录真实来源与目标客户端', async (t) => {
+  const root = tempRoot('agentdesk-task-consumed-ledger-');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const packagePath = path.join(root, 'direct.agentdesk-task');
+  const historyFile = path.join(root, 'task-package-history.json');
+  const consumedFile = path.join(root, 'task-package-consumed.json');
+  const stagingRoot = path.join(root, 'staging');
+  const targetRoot = path.join(root, 'target-codex');
+  fs.mkdirSync(targetRoot, { recursive: true });
+  const targetProfile = {
+    id: 'target-profile',
+    name: 'Target Codex Agent',
+    appId: 'codex',
+    profilePath: targetRoot,
+    sessionRoot: targetRoot
+  };
+  const unlockCode = 'ABCDE-FGHIJ-KLMNO-PQRST';
+  const manifest = transcriptManifest({
+    packageId: 'package-direct-ledger',
+    source: {
+      senderLabel: 'Source Operator',
+      deviceId: 'source-device',
+      deviceName: 'Untrusted manifest device name',
+      agentId: 'source-agent',
+      agentName: 'Source Kimi Agent',
+      profileId: 'source-profile',
+      appId: 'kimi'
+    }
+  });
+  await writeEncryptedTaskPackage({
+    destinationPath: packagePath,
+    unlockCode,
+    manifest,
+    entries: [{
+      entryId: 'content',
+      kind: 'conversation-transcript',
+      name: 'conversation/conversation.md',
+      buffer: Buffer.from('# source transcript\n', 'utf8'),
+      metadata: {}
+    }]
+  });
+  const packageHash = crypto.createHash('sha256').update(fs.readFileSync(packagePath)).digest('hex');
+  const delivery = {
+    meshId: 'mesh-a',
+    transferId: 'transfer-direct-ledger',
+    packageId: 'package-direct-ledger',
+    packageHash,
+    sourceDeviceId: 'source-device',
+    targetDeviceId: 'target-device'
+  };
+  const service = new TaskPackageService({
+    profileProvider: () => [targetProfile],
+    meshOverviewProvider: () => ({
+      initialized: true,
+      localDeviceId: 'target-device',
+      devices: [{ deviceId: 'target-device', name: 'Target Mac' }],
+      agents: [{ agentId: 'target-agent', displayName: 'Target Codex Agent' }],
+      slots: [{ deviceId: 'target-device', profileId: 'target-profile', agentId: 'target-agent' }]
+    }),
+    historyFile,
+    consumedFile,
+    stagingRoot,
+    randomUUID: () => 'direct-ledger-draft',
+    now: () => '2026-08-14T03:00:00.000Z'
+  });
+  const draft = service.createImportDraft(packagePath);
+  await service.inspectImport({ token: draft.token, unlockCode });
+  service.attachImportDelivery(draft.token, {
+    deliveryMode: 'mesh-direct',
+    ...delivery,
+    sourceDeviceName: 'Authenticated Source Mac',
+    targetDeviceName: 'Target Mac'
+  });
+  const committed = await service.commitImport({
+    token: draft.token,
+    targetProfileId: targetProfile.id,
+    artifactDirectory: path.join(root, 'received'),
+    openAfterImport: false
+  });
+  assert.equal(committed.consumedRecorded, true);
+  assert.equal(service.hasConsumedTransfer(delivery), true);
+  assert.equal(service.hasConsumedTransferId(delivery.transferId), true);
+
+  const importedHistory = service.listHistory().find((entry) => entry.direction === 'imported');
+  assert.equal(importedHistory.appId, 'kimi');
+  assert.equal(importedHistory.targetAppId, 'codex');
+  assert.equal(importedHistory.sourceDeviceName, 'Authenticated Source Mac');
+  assert.equal(importedHistory.sourceDeviceId, 'source-device');
+  assert.equal(importedHistory.targetDeviceId, 'target-device');
+
+  fs.writeFileSync(historyFile, JSON.stringify({ schemaVersion: 1, entries: [] }), { mode: 0o600 });
+  assert.deepEqual(service.listHistory(), []);
+  assert.equal(service.hasConsumedTransfer(delivery), true);
+  service.stop();
+
+  const restarted = new TaskPackageService({
+    profileProvider: () => [targetProfile],
+    historyFile,
+    consumedFile,
+    stagingRoot: path.join(root, 'restarted-staging')
+  });
+  assert.equal(restarted.hasConsumedTransfer(delivery), true);
+  assert.equal(restarted.hasConsumedTransferId(delivery.transferId), true);
+  assert.throws(() => restarted.recordConsumedTransfer({
+    ...delivery,
+    packageHash: 'f'.repeat(64),
+    state: 'consumed',
+    createdAt: '2026-08-14T03:00:00.000Z',
+    consumedAt: '2026-08-14T03:00:00.000Z'
+  }), /task-package-consumed-conflict/);
+  restarted.stop();
 });

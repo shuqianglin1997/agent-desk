@@ -100,7 +100,7 @@ class LanEndpoint {
 async function claimPairing(invite, request, options = {}) {
   return postEndpoints(invite.endpoints, '/v1/pair/claim', { request }, {
     ...options,
-    timeoutMs: finiteTimeout(options.timeoutMs, 12_000),
+    timeoutMs: finiteTimeout(options.timeoutMs, 12_000, 3 * 60_000),
     failureCode: 'pairing-endpoint-unreachable',
     responseCode: 'pairing-response-too-large'
   });
@@ -227,9 +227,9 @@ function safeError(error) {
     .slice(0, 160) || 'endpoint-failed';
 }
 
-function finiteTimeout(value, fallback) {
+function finiteTimeout(value, fallback, maximum = 30_000) {
   const number = Number(value);
-  return Number.isFinite(number) ? Math.max(1_000, Math.min(number, 30_000)) : fallback;
+  return Number.isFinite(number) ? Math.max(1_000, Math.min(number, maximum)) : fallback;
 }
 
 module.exports = {

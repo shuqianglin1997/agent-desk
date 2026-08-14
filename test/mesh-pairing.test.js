@@ -139,20 +139,33 @@ test('两个隔离端点通过一次性加密邀请码配对、跨设备账号�
     now: () => NOW,
     pairingTransport: (invite, request) => claimPairing(invite, request)
   });
+  let pendingPreview = null;
+  let approvePairing;
+  const pairingApproval = new Promise((resolve) => { approvePairing = resolve; });
 
   try {
     host.initialize();
     endpoint = new LanEndpoint({
       host: '127.0.0.1',
       port: 0,
-      onPairClaim: (body) => host.claimInvite(body)
+      onPairClaim: async (body) => {
+        pendingPreview = host.previewClaimInvite(body);
+        await pairingApproval;
+        return host.claimInvite(body);
+      }
     });
     await endpoint.start();
     const invitation = host.createInvite();
     assert.match(invitation.code, /^AD1\./);
     assert.equal(invitation.shortCode.length, 8);
 
-    const joined = await joiner.join({ code: invitation.code, deviceName: 'GPU Workstation' });
+    const joining = joiner.join({ code: invitation.code, deviceName: 'GPU Workstation' });
+    await waitFor(() => pendingPreview);
+    assert.equal(pendingPreview.name, 'GPU Workstation');
+    assert.match(pendingPreview.fingerprint, /^SHA256:/);
+    assert.equal(host.getOverview().devices.length, 1, 'identity preview must not issue a membership certificate');
+    approvePairing();
+    const joined = await joining;
     assert.equal(joined.devices.length, 2);
     assert.equal(joined.agents.length, 1);
     assert.equal(joined.accountBindings.length, 1);
@@ -198,4 +211,12 @@ function fakeProtector() {
     encryptString: (value) => Buffer.from(`protected:${Buffer.from(value).toString('base64')}`),
     decryptString: (buffer) => Buffer.from(buffer.toString().replace(/^protected:/, ''), 'base64').toString()
   };
+}
+
+async function waitFor(predicate, timeoutMs = 1_000) {
+  const started = Date.now();
+  while (!predicate()) {
+    if (Date.now() - started > timeoutMs) throw new Error('wait-timeout');
+    await new Promise((resolve) => setImmediate(resolve));
+  }
 }

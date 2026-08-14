@@ -1,149 +1,184 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
-  <title id="title">一项持续工作如何固定成任务包并由接收方继续</title>
-  <desc id="desc">左侧持续工作现场的人工检查点、会话、代码和明确附件在同一时刻固定到加密任务包。接收方完整验证后，把原生会话或只读内容及任务资料落入本机，来源现场保持不变。</desc>
+  <title id="title">同一种不可变加密任务包通过两条交付通道汇入同一验证与导入</title>
+  <desc id="desc">责任检查点、会话、代码现场和明确附件先固定成同一种不可变加密 TaskPackage。便携通道发送标准文件并通过另一条路径发送一次性解锁码；同 Mesh 通道发送密文分块和目标绑定 envelope，并由接收端逐次接受。两条通道取得完整密文后汇入同一认证、清单、哈希验证和导入事务。来源现场继续保留。同 Mesh 物理双机验收仍未关闭。</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
       <path d="M0 0L10 5L0 10Z" fill="#263238"/>
     </marker>
     <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-      <path d="M0 0L10 5L0 10Z" fill="#2c6d9e"/>
+      <path d="M0 0L10 5L0 10Z" fill="#2C6D9E"/>
+    </marker>
+    <marker id="arrowMute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#77868C"/>
     </marker>
     <pattern id="cipher" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
-      <rect width="12" height="12" fill="#edf4f7"/>
-      <rect width="3" height="12" fill="#d8e8ee"/>
+      <rect width="12" height="12" fill="#EDF4F7"/>
+      <rect width="3" height="12" fill="#D8E8EE"/>
     </pattern>
   </defs>
   <style>
     text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#172126}
     .mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
-    .column{font-size:15px;font-weight:700;letter-spacing:.08em;fill:#54636a}
-    .lane{font-size:14px;font-weight:700}.body{font-size:13px}.small{font-size:11.5px;fill:#58666c}.tiny{font-size:10px;fill:#6a787e}
-    .source{fill:#fbfaf7;stroke:#a7a39a;stroke-width:1.4}.snapshot{fill:url(#cipher);stroke:#285a73;stroke-width:2}.receiver{fill:#f7faf9;stroke:#8fa49b;stroke-width:1.4}
-    .cell{fill:#fff;stroke:#c3c8c8;stroke-width:1.1}.inner{fill:#fff;fill-opacity:.78;stroke:#7f9ba8;stroke-width:1}.gate{fill:#263238;stroke:#263238}.output{fill:#fff;stroke:#71867c;stroke-width:1.2}
-    .line{fill:none;stroke:#263238;stroke-width:1.7;marker-end:url(#arrow)}.blue{fill:none;stroke:#2c6d9e;stroke-width:1.8;marker-end:url(#arrowBlue)}
-    .dashed{fill:none;stroke:#77868c;stroke-width:1.3;stroke-dasharray:6 5;marker-end:url(#arrow)}.guide{fill:none;stroke:#c5cecf;stroke-width:1;stroke-dasharray:3 5}
-    .hash{fill:#285a73}.ok{fill:#2f7d5c}.warn{fill:#a76b2c}.white{fill:#fff}.accent{fill:#2c6d9e}.muted{fill:#64747a}
+    .column{font-size:15px;font-weight:700;letter-spacing:.08em;fill:#54636A}
+    .lane{font-size:14px;font-weight:700}.body{font-size:13px}.small{font-size:11.5px;fill:#58666C}.tiny{font-size:10px;fill:#6A787E}
+    .source{fill:#FBFAF7;stroke:#A7A39A;stroke-width:1.4}.snapshot{fill:url(#cipher);stroke:#285A73;stroke-width:2}
+    .channel{fill:#F7FAF9;stroke:#8FA49B;stroke-width:1.4}.verify{fill:#EDF4F7;stroke:#285A73;stroke-width:1.6}
+    .cell{fill:#FFFFFF;stroke:#C3C8C8;stroke-width:1.1}.inner{fill:#FFFFFF;fill-opacity:.82;stroke:#7F9BA8;stroke-width:1}
+    .line{fill:none;stroke:#263238;stroke-width:1.7;marker-end:url(#arrow)}.blue{fill:none;stroke:#2C6D9E;stroke-width:1.8;marker-end:url(#arrowBlue)}
+    .dashed{fill:none;stroke:#77868C;stroke-width:1.3;stroke-dasharray:6 5;marker-end:url(#arrowMute)}.guide{fill:none;stroke:#C5CECF;stroke-width:1;stroke-dasharray:3 5}
+    .accent{fill:#2C6D9E}.deep{fill:#285A73}.ok{fill:#2F7D5C}.warn{fill:#A76B2C}.white{fill:#FFFFFF}.mute{fill:#77868C}
   </style>
-  <rect width="1280" height="720" fill="#ffffff"/>
+  <rect width="1280" height="720" fill="#FFFFFF"/>
 
-  <text class="column" x="54" y="45">持续工作现场</text>
-  <text class="column" x="484" y="45">T 时刻快照</text>
-  <text class="column" x="894" y="45">接收与继续</text>
+  <text class="column" x="54" y="45">固定现场</text>
+  <text class="column" x="332" y="45">同一种密文快照</text>
+  <text class="column" x="626" y="45">两种交付通道</text>
+  <text class="column" x="1000" y="45">共同验证与导入</text>
   <path class="guide" d="M54 62H1226"/>
 
-  <rect class="source" x="54" y="84" width="334" height="484" rx="16"/>
-  <path class="guide" d="M78 194H364M78 304H364M78 414H364"/>
-
-  <g transform="translate(78 110)">
-    <rect class="cell" width="286" height="62" rx="9"/>
-    <text class="lane" x="14" y="22">责任检查点</text>
-    <text class="small" x="14" y="43">目标 · 已完成 · 下一步 · 风险 · 验收</text>
-    <circle cx="260" cy="21" r="4" class="warn"/><circle cx="274" cy="21" r="4" class="ok"/>
+  <rect class="source" x="54" y="84" width="246" height="484" rx="16"/>
+  <g transform="translate(76 108)">
+    <rect class="cell" width="202" height="82" rx="5"/>
+    <text class="lane" x="14" y="25">责任检查点</text>
+    <text class="small" x="14" y="49">目标 · 已完成 · 下一步</text>
+    <text class="small" x="14" y="67">风险 · 验收</text>
   </g>
-  <g transform="translate(78 220)">
-    <rect class="cell" width="286" height="62" rx="9"/>
-    <text class="lane" x="14" y="22">会话现场</text>
-    <text class="small" x="14" y="43">根记录 + 内部记录 / 只读内容</text>
-    <path d="M239 20h16v18h-16zM253 27h16v18h-16z" fill="none" stroke="#2c6d9e" stroke-width="1.4"/>
+  <g transform="translate(76 226)">
+    <rect class="cell" width="202" height="82" rx="5"/>
+    <text class="lane" x="14" y="25">会话现场</text>
+    <text class="small" x="14" y="49">原生根与内部记录</text>
+    <text class="small" x="14" y="67">或保持顺序的只读内容</text>
   </g>
-  <g transform="translate(78 330)">
-    <rect class="cell" width="286" height="62" rx="9"/>
-    <text class="lane" x="14" y="22">代码现场</text>
-    <text class="small mono" x="14" y="43">remote · branch · HEAD · tracked diff</text>
-    <path d="M246 18v25m0-16h24m-24 10h14" fill="none" stroke="#2c6d9e" stroke-width="1.5"/>
-    <circle cx="246" cy="18" r="3" class="accent"/><circle cx="270" cy="27" r="3" class="accent"/><circle cx="260" cy="37" r="3" class="accent"/>
+  <g transform="translate(76 344)">
+    <rect class="cell" width="202" height="82" rx="5"/>
+    <text class="lane" x="14" y="25">代码现场</text>
+    <text class="small mono" x="14" y="49">remote · branch · HEAD</text>
+    <text class="small mono" x="14" y="67">status · tracked diff</text>
   </g>
-  <g transform="translate(78 440)">
-    <rect class="cell" width="286" height="62" rx="9"/>
-    <text class="lane" x="14" y="22">明确附件</text>
-    <text class="small" x="14" y="43">只取系统选择器中确认的文件</text>
-    <path d="M247 18h22v27h-22zM251 14h14l4 4" fill="none" stroke="#2c6d9e" stroke-width="1.5"/>
+  <g transform="translate(76 462)">
+    <rect class="cell" width="202" height="82" rx="5"/>
+    <text class="lane" x="14" y="25">明确附件</text>
+    <text class="small" x="14" y="49">只取系统选择器中</text>
+    <text class="small" x="14" y="67">由人确认加入的文件</text>
   </g>
 
-  <path class="blue" d="M364 141H452"/>
-  <path class="blue" d="M364 251H452"/>
-  <path class="blue" d="M364 361H452"/>
-  <path class="blue" d="M364 471H452"/>
-  <text class="tiny" x="399" y="126">同一时刻固定</text>
+  <path class="blue" d="M300 326H332"/>
+  <text class="tiny" x="316" y="310" text-anchor="middle">T 时刻固定</text>
 
-  <rect class="snapshot" x="452" y="84" width="324" height="484" rx="18"/>
-  <rect x="476" y="103" width="276" height="34" rx="17" fill="#285a73"/>
-  <text class="body white" x="614" y="125" text-anchor="middle">TaskPackage · 认证加密容器</text>
+  <rect class="snapshot" x="332" y="84" width="260" height="484" rx="18"/>
+  <rect x="354" y="104" width="216" height="34" rx="17" fill="#285A73"/>
+  <text class="body white" x="462" y="126" text-anchor="middle">TaskPackage · 不可变加密快照</text>
+  <g transform="translate(354 158)">
+    <rect class="inner" width="216" height="70" rx="5"/>
+    <text class="body" x="13" y="24">checkpoint.json</text>
+    <text class="tiny mono" x="13" y="47">length · sha256 · entry type</text>
+    <rect class="deep" x="181" y="20" width="22" height="5" rx="2"/><rect class="deep" x="169" y="31" width="34" height="5" rx="2"/>
+  </g>
+  <g transform="translate(354 248)">
+    <rect class="inner" width="216" height="70" rx="5"/>
+    <text class="body" x="13" y="24">conversation/*</text>
+    <text class="tiny mono" x="13" y="47">native records | transcript</text>
+    <rect class="deep" x="181" y="20" width="22" height="5" rx="2"/><rect class="deep" x="169" y="31" width="34" height="5" rx="2"/>
+  </g>
+  <g transform="translate(354 338)">
+    <rect class="inner" width="216" height="70" rx="5"/>
+    <text class="body" x="13" y="24">project/*</text>
+    <text class="tiny mono" x="13" y="47">Git baseline + tracked patch</text>
+    <rect class="deep" x="181" y="20" width="22" height="5" rx="2"/><rect class="deep" x="169" y="31" width="34" height="5" rx="2"/>
+  </g>
+  <g transform="translate(354 428)">
+    <rect class="inner" width="216" height="70" rx="5"/>
+    <text class="body" x="13" y="24">attachments/*</text>
+    <text class="tiny mono" x="13" y="47">explicit files only</text>
+    <rect class="deep" x="181" y="20" width="22" height="5" rx="2"/><rect class="deep" x="169" y="31" width="34" height="5" rx="2"/>
+  </g>
+  <text class="tiny" x="462" y="534" text-anchor="middle">标题、Agent、项目和文件名位于密文内</text>
 
-  <g transform="translate(476 154)">
-    <rect class="inner" width="276" height="76" rx="9"/>
-    <text class="body" x="14" y="25">checkpoint.json</text>
-    <text class="tiny mono" x="14" y="48">length  •  sha256  •  entry type</text>
-    <rect class="hash" x="238" y="20" width="22" height="5" rx="2"/><rect class="hash" x="226" y="31" width="34" height="5" rx="2"/><rect class="hash" x="234" y="42" width="26" height="5" rx="2"/>
-  </g>
-  <g transform="translate(476 244)">
-    <rect class="inner" width="276" height="76" rx="9"/>
-    <text class="body" x="14" y="25">conversation/*</text>
-    <text class="tiny mono" x="14" y="48">native root + children  |  transcript</text>
-    <rect class="hash" x="238" y="20" width="22" height="5" rx="2"/><rect class="hash" x="226" y="31" width="34" height="5" rx="2"/><rect class="hash" x="234" y="42" width="26" height="5" rx="2"/>
-  </g>
-  <g transform="translate(476 334)">
-    <rect class="inner" width="276" height="76" rx="9"/>
-    <text class="body" x="14" y="25">project/working-tree.patch</text>
-    <text class="tiny mono" x="14" y="48">Git baseline + tracked changes</text>
-    <rect class="hash" x="238" y="20" width="22" height="5" rx="2"/><rect class="hash" x="226" y="31" width="34" height="5" rx="2"/><rect class="hash" x="234" y="42" width="26" height="5" rx="2"/>
-  </g>
-  <g transform="translate(476 424)">
-    <rect class="inner" width="276" height="76" rx="9"/>
-    <text class="body" x="14" y="25">attachments/*</text>
-    <text class="tiny mono" x="14" y="48">explicit files only</text>
-    <rect class="hash" x="238" y="20" width="22" height="5" rx="2"/><rect class="hash" x="226" y="31" width="34" height="5" rx="2"/><rect class="hash" x="234" y="42" width="26" height="5" rx="2"/>
-  </g>
-  <text class="tiny" x="614" y="535" text-anchor="middle">标题、Agent、项目和文件名均位于密文内</text>
+  <path d="M592 326H610V202H626M610 326V446H626" fill="none" stroke="#2C6D9E" stroke-width="1.8"/>
+  <circle class="accent" cx="610" cy="326" r="5"/>
 
-  <path class="line" d="M776 326H838"/>
-  <g transform="translate(838 272)">
-    <rect class="gate" width="84" height="108" rx="12"/>
-    <text class="small white" x="42" y="30" text-anchor="middle">完整验证</text>
-    <text class="tiny white" x="42" y="51" text-anchor="middle">认证标签</text>
-    <text class="tiny white" x="42" y="68" text-anchor="middle">清单关系</text>
-    <text class="tiny white" x="42" y="85" text-anchor="middle">逐项哈希</text>
+  <rect class="channel" x="626" y="84" width="344" height="218" rx="16"/>
+  <text class="lane" x="648" y="113">便携文件</text>
+  <text class="tiny" x="948" y="113" text-anchor="end">跨 Mesh / 人与人</text>
+  <g transform="translate(648 132)">
+    <rect class="cell" width="134" height="86" rx="5"/>
+    <path d="M18 16h31l12 12v39H18zM49 16v12h12" fill="none" stroke="#2C6D9E" stroke-width="1.5"/>
+    <text class="tiny mono" x="68" y="29">.agentdesk-</text>
+    <text class="tiny mono" x="68" y="44">task</text>
+    <text class="tiny" x="68" y="64">标准密文文件</text>
   </g>
+  <g transform="translate(814 132)">
+    <rect class="cell" width="134" height="86" rx="5"/>
+    <text class="small" x="67" y="29" text-anchor="middle">一次性解锁码</text>
+    <path class="dashed" d="M18 47H116"/>
+    <text class="tiny" x="67" y="70" text-anchor="middle">经另一条通信路径送达</text>
+  </g>
+  <path class="blue" d="M626 202H636V124H715V132"/>
+  <path class="dashed" d="M636 124H881V132"/>
+  <text class="small" x="648" y="254">接收者同时取得密文文件与分开发送的解锁信息</text>
+  <path class="line" d="M948 202H986V310H1000"/>
 
-  <rect class="receiver" x="954" y="84" width="272" height="484" rx="16"/>
-  <path class="line" d="M922 326H954"/>
-  <g transform="translate(980 111)">
-    <rect class="output" width="220" height="80" rx="9"/>
-    <text class="lane" x="14" y="24">先读交接内容</text>
-    <text class="small" x="14" y="46">检查目标、进展、下一步、风险</text>
-    <text class="small" x="14" y="64">再选择本机 Agent 与运行位置</text>
+  <rect class="channel" x="626" y="326" width="344" height="242" rx="16"/>
+  <text class="lane" x="648" y="355">同 Mesh 直送</text>
+  <rect x="884" y="338" width="64" height="25" rx="12" fill="#EDF4F7" stroke="#A76B2C"/>
+  <text class="tiny" x="916" y="355" text-anchor="middle">PREVIEW</text>
+  <text class="small" x="648" y="387">同一份密文按块发送</text>
+  <g transform="translate(648 402)">
+    <rect class="deep" width="32" height="24" rx="4"/><rect x="40" class="deep" width="32" height="24" rx="4"/><rect x="80" class="deep" width="32" height="24" rx="4"/><rect x="120" class="deep" width="32" height="24" rx="4"/>
+    <path class="blue" d="M160 12H202"/>
+    <text class="tiny" x="0" y="45">分块 · 背压 · 续传 · 整包哈希</text>
   </g>
-  <path class="line" d="M1090 191V219"/>
-  <g transform="translate(980 219)">
-    <rect class="output" width="220" height="84" rx="9"/>
-    <text class="lane" x="14" y="24">会话落点</text>
-    <text class="small" x="14" y="47">Codex 原生记录 → 会话目录</text>
-    <text class="small" x="14" y="66">其他来源 → 只读会话内容</text>
+  <g transform="translate(814 380)">
+    <rect class="cell" width="134" height="80" rx="5"/>
+    <text class="small" x="67" y="24" text-anchor="middle">目标绑定 envelope</text>
+    <text class="tiny" x="10" y="45">来源 + 目标 + transferId</text>
+    <text class="tiny" x="10" y="62">包哈希 + 一次性解锁信息</text>
   </g>
-  <path class="line" d="M1090 303V331"/>
-  <g transform="translate(980 331)">
-    <rect class="output" width="220" height="84" rx="9"/>
-    <text class="lane" x="14" y="24">任务资料落点</text>
-    <text class="small" x="14" y="47">交接说明 · Git patch · 附件</text>
-    <text class="small" x="14" y="66">写入独立、无覆盖的资料目录</text>
+  <g transform="translate(648 476)">
+    <rect class="cell" width="300" height="48" rx="5"/>
+    <circle class="warn" cx="18" cy="24" r="5"/>
+    <text class="small" x="32" y="21">接收端查看来源与摘要后逐次接受</text>
+    <text class="tiny" x="32" y="37">拒绝、取消或过期时清除本次暂存与内存秘密</text>
   </g>
-  <path class="line" d="M1090 415V443"/>
-  <g transform="translate(980 443)">
-    <rect class="output" width="220" height="86" rx="9"/>
-    <text class="lane" x="14" y="24">继续推进</text>
-    <text class="small" x="14" y="47">接收方形成新的工作现场</text>
-    <text class="small" x="14" y="66">后续变化各自记录，不自动合并</text>
-  </g>
+  <text class="tiny" x="648" y="548">代码纵向路径已覆盖 · 物理双机直送门禁仍开放</text>
+  <path class="line" d="M970 446H986V344H1000"/>
 
-  <path class="dashed" d="M222 568V626H1090V538"/>
-  <rect x="87" y="593" width="270" height="64" rx="10" fill="#fbfaf7" stroke="#a7a39a" stroke-width="1.2"/>
-  <text class="body" x="222" y="619" text-anchor="middle">来源会话、项目与文件继续保留</text>
-  <text class="small" x="222" y="640" text-anchor="middle">确认接收端可继续后，再由人按需归档</text>
-
-  <path class="dashed" d="M566 568V670H1014V558"/>
-  <g transform="translate(477 642)">
-    <rect width="178" height="48" rx="24" fill="#fff" stroke="#a76b2c" stroke-width="1.3" stroke-dasharray="5 4"/>
-    <text class="small" x="89" y="21" text-anchor="middle">一次性解锁码</text>
-    <text class="tiny" x="89" y="36" text-anchor="middle">与文件分开发送</text>
+  <rect class="verify" x="1000" y="84" width="226" height="484" rx="16"/>
+  <g transform="translate(1022 108)">
+    <rect class="inner" width="182" height="62" rx="5"/>
+    <text class="lane" x="91" y="25" text-anchor="middle">取得完整密文</text>
+    <text class="tiny" x="91" y="45" text-anchor="middle">两条通道在这里汇合</text>
   </g>
+  <path class="line" d="M1113 170V194"/>
+  <g transform="translate(1022 194)">
+    <rect class="inner" width="182" height="98" rx="5"/>
+    <text class="lane" x="91" y="24" text-anchor="middle">完整验证</text>
+    <circle class="ok" cx="20" cy="46" r="4"/><text class="small" x="32" y="50">加密认证与包身份</text>
+    <circle class="ok" cx="20" cy="67" r="4"/><text class="small" x="32" y="71">清单关系与逻辑路径</text>
+    <circle class="ok" cx="20" cy="88" r="4"/><text class="small" x="32" y="92">整包与逐项 SHA-256</text>
+  </g>
+  <path class="line" d="M1113 292V316"/>
+  <g transform="translate(1022 316)">
+    <rect class="inner" width="182" height="72" rx="5"/>
+    <text class="lane" x="91" y="25" text-anchor="middle">选择本机落点</text>
+    <text class="small" x="91" y="48" text-anchor="middle">Agent · 运行位置 · 资料目录</text>
+  </g>
+  <path class="line" d="M1113 388V412"/>
+  <g transform="translate(1022 412)">
+    <rect class="inner" width="182" height="104" rx="5"/>
+    <text class="lane" x="91" y="25" text-anchor="middle">同一导入事务</text>
+    <text class="small" x="14" y="49">原生会话或只读内容</text>
+    <text class="small" x="14" y="69">交接说明 · Git patch · 附件</text>
+    <text class="tiny" x="14" y="90">校验或写入失败即回滚</text>
+  </g>
+  <path class="line" d="M1113 516V542"/>
+  <text class="small" x="1113" y="558" text-anchor="middle">接收方从新工作现场继续</text>
+
+  <path class="guide" d="M54 600H1226"/>
+  <path class="dashed" d="M177 568V642H1113V576"/>
+  <circle class="ok" cx="72" cy="642" r="5"/>
+  <text class="body" x="86" y="646">来源会话、项目和文件继续保留</text>
+  <text class="small" x="416" y="646">接收端确认可继续以后，再由人按需归档来源</text>
+  <line x1="782" y1="642" x2="822" y2="642" stroke="#2C6D9E" stroke-width="1.8"/>
+  <text class="small" x="834" y="646">两条通道共享同一快照、验证和导入语义</text>
 </svg>

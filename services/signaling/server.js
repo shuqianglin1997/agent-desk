@@ -9,6 +9,7 @@ const MAX_QUEUED_MESSAGE_BYTES = 256 * 1024;
 const MAX_POLL_RESPONSE_BYTES = 352 * 1024;
 const DEFAULT_LEASE_TTL_MS = 60_000;
 const DEFAULT_POLL_TIMEOUT_MS = 20_000;
+const DEFAULT_PAIR_RESPONSE_TIMEOUT_MS = 3 * 60_000;
 const MAX_QUEUE_MESSAGES = 64;
 const SIGNAL_TTL_MS = 45_000;
 
@@ -19,6 +20,12 @@ class SignalingGateway {
     this.now = options.now || Date.now;
     this.leaseTtlMs = clamp(options.leaseTtlMs, 20_000, 120_000, DEFAULT_LEASE_TTL_MS);
     this.pollTimeoutMs = clamp(options.pollTimeoutMs, 1_000, 25_000, DEFAULT_POLL_TIMEOUT_MS);
+    this.pairResponseTimeoutMs = clamp(
+      options.pairResponseTimeoutMs,
+      1_000,
+      DEFAULT_PAIR_RESPONSE_TIMEOUT_MS,
+      DEFAULT_PAIR_RESPONSE_TIMEOUT_MS
+    );
     this.turnSecret = cleanText(options.turnSecret, 4096);
     this.turnUrls = normalizeTurnUrls(options.turnUrls);
     this.turnTtlSeconds = clamp(options.turnTtlSeconds, 60, 86_400, 3_600);
@@ -41,6 +48,7 @@ class SignalingGateway {
     });
     this.server.keepAliveTimeout = 30_000;
     this.server.headersTimeout = 35_000;
+    this.server.requestTimeout = this.pairResponseTimeoutMs + 30_000;
     await listen(this.server, this.port, this.host);
     return this.address();
   }
@@ -301,7 +309,7 @@ class SignalingGateway {
       const timer = setTimeout(() => {
         this.pairWaiters.delete(pairRequestId);
         reject(codeError('pairing-response-timeout', 504));
-      }, Math.min(25_000, this.pollTimeoutMs + 5_000));
+      }, this.pairResponseTimeoutMs);
       this.pairWaiters.set(pairRequestId, { targetDeviceId, joiningDeviceId, resolve, reject, timer });
     });
   }

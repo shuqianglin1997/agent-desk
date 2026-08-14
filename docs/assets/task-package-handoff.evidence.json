@@ -1,0 +1,55 @@
+{
+  "schema": "ze-figure-evidence.v1",
+  "figure_set": "多个 Agent 如何逐步负责业务环节",
+  "preset": "agentdesk-method-article-2026-08",
+  "subject_root": "docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md",
+  "dated": "2026-08-14",
+  "kinds": {
+    "verified_product": "所有者批准的产品语义与安全边界",
+    "verified_code": "当前代码纵向链路和隔离端点自动化已经覆盖",
+    "open_gate": "仍需物理设备、真实网络或发布矩阵关闭的验收门禁"
+  },
+  "figures": {
+    "task-package-handoff.svg": {
+      "argument": "TaskPackage 的内容与验证语义只生成一次；便携文件和同 Mesh 直送是两条密文交付通道，最终必须汇入同一完整验证与导入事务。",
+      "why_this_figure_exists": "旧图只画便携文件与分开发送的解锁码，读者无法看见同 Mesh 直送复用的是同一不可变加密快照，也无法区分代码纵向事实与尚未关闭的物理双机门禁。",
+      "claims": [
+        {
+          "claim": "人工检查点、会话内容、Git 基线与已跟踪差异、明确附件在同一时刻固定为不可变 TaskPackage，来源现场继续保留。",
+          "kind": "verified_product",
+          "source": "docs/PERSONAL_AGENT_MESH_PLAN.md §7.10、§10.6.1、§12.5；docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md §5.4"
+        },
+        {
+          "claim": "便携通道生成标准 .agentdesk-task 密文文件，并要求一次性解锁码与文件分开发送；包内清单和每项内容带长度与 SHA-256。",
+          "kind": "verified_code",
+          "source": "src/task-package/format.js:36-90, 102-188, 408-443；test/task-package.test.js:56-88, 205-282"
+        },
+        {
+          "claim": "同 Mesh 直送只在协商 task.package.transfer.v1 且目标具有 task.package.receive 能力时建立，接收端逐次接受。",
+          "kind": "verified_code",
+          "source": "src/mesh/domain/capabilities.js:5；src/mesh/protocol/features.js；src/mesh/main/transfer-service.js:143-149, 417-530, 1518-1535；test/mesh-transfer.test.js:285-369"
+        },
+        {
+          "claim": "直送仍先生成标准密文包，再复用分块、背压、续传和整包哈希通道；一次性解锁信息进入绑定 Mesh、来源设备、目标设备、transferId 与包哈希的加密 envelope。",
+          "kind": "verified_code",
+          "source": "src/mesh/domain/task-package-transfer.js:15-84；src/mesh/main/transfer-service.js:160-201, 417-445, 582-600, 1487-1515, 1538-1545；test/task-package-transfer.test.js:41-69"
+        },
+        {
+          "claim": "便携与直送取得完整密文后都进入同一个 TaskPackage inspect/import 语义，验证包身份、清单关系、逻辑路径和逐项哈希，再选择本机 Agent、运行位置与资料目录。",
+          "kind": "verified_code",
+          "source": "src/task-package/format.js:149-188, 408-443；src/task-package/service.js:226-290；src/mesh/main/transfer-service.js:549-579"
+        },
+        {
+          "claim": "两个隔离 MeshService 端点通过定向语义传输桩的自动化，已覆盖同 Mesh offer、明确接受、密文分块传输、公共状态与持久化不含解锁码，以及用 Main 内部解锁信息准备导入；这不是物理网络证据。",
+          "kind": "verified_code",
+          "source": "test/mesh-transfer.test.js:285-369；test/task-package-transfer.test.js:41-69"
+        },
+        {
+          "claim": "同 Mesh TaskPackage 的物理双机直送、断线恢复和真实网络路径仍未完成门禁，当前只能按 Preview 边界表述。",
+          "kind": "open_gate",
+          "source": "docs/PERSONAL_AGENT_MESH_PLAN.md Phase 4A、§29.43-44、版本 1.26 变更记录"
+        }
+      ]
+    }
+  }
+}

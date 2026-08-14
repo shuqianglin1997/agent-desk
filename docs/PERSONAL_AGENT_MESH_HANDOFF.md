@@ -4,7 +4,7 @@
 >
 > 当前分支：`main`
 >
-> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.25，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
+> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.27，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
 >
 > 仓库：`shuqianglin1997/agent-desk`
 >
@@ -12,7 +12,7 @@
 
 ## 1. 当前结论
 
-1.14 批准的主窗口层级、排版与全局弹窗 Shell 已经进入真实产品代码；1.24 的签名事件目录和 1.25 的 TaskPackage 在这套固定骨架内继续实现：
+1.14 批准的主窗口层级、排版与全局弹窗 Shell 已经进入真实产品代码；1.24 的签名事件目录、1.25 的便携 TaskPackage 和 1.27 的首用/设备向导/同 Mesh Preview 直送都在这套固定骨架内实现：
 
 - 主窗口固定为一个 Header、一个 Footer，以及顶部 Agent、左下会话、右下详情三个面板；1040 × 840 尺寸不变。
 - Renderer 几何冻结为 58px Header、244px Agent 面板、316px 详情、38px Footer，工作区使用 12px/10px padding 与 10px gap；Compact 会话表没有水平滚动。
@@ -26,6 +26,9 @@
 - 会话动作只进入右下会话详情底部动作坞：聚焦单条时集中提供复制、发送、打开、交接任务和 Markdown 导出；显式勾选后原位切为批量摘要、取消、复制和发送。“复制会话信息”仍是唯一填充主按钮，内容仍严格只有路径和坐标。
 - “交接任务”从一条本机会话生成便携加密 `.agentdesk-task`：人工目标/进展/下一步/风险/验收、原生会话或只读内容、Git 基线/已跟踪差异和明确附件；来源始终保留。
 - “活动”弹窗提供任务包导入和本地历史。接收者完整验证后先看检查点、项目状态和附件数量，再选择本机 Agent/Profile 与资料目录；弹窗继续使用固定 Header、滚动 Content 和固定事务 Footer。
+- 全新用户从版本化“创建第一个 Agent”进入，本机目录、设备身份、Agent/Blueprint 与首次准备由一个可恢复事务建立；缺失 Profile 存储保持空数组，不生成 Claude/Codex/Kimi 默认项，且该动作不开放监听或发布租约。
+- “添加设备”使用固定 Header/滚动 Content/固定 Footer 的任务向导，分别显示双方身份确认、成员信任、认证连接、目录落库、库存落库和可用状态；30 分钟接收入口只留在高级恢复。
+- 同 Mesh TaskPackage 直送要求认证目标、`task.package.transfer.v1`、`task.package.receive` 和逐次接受。密文包完整哈希后才由目标设备独占 envelope 解封；拒绝、撤权、撤销、过期和错误会清理，失败可把同一密文快照保存为便携文件。
 - Codex 原生适配器携带根会话与 internal-child，目标端重新验证身份、拒绝同 ID 异内容覆盖、失败回滚、重复导入幂等，并把标题标注为来自交接人/来源 Agent。其他支持来源当前只保存只读会话内容。
 - Footer 只承担全局状态、今日完成数、陪伴分钟与提醒总开关；庭院内部不再叠加小账本或提醒条。
 - 路径、额度等持久待处理事项只进入 Header 的活动弹窗；庭院只保留 Agent Presenter 和摸猫/拖放后的短暂直接反馈。
@@ -82,27 +85,29 @@
 - `src/styles.css`：低优先级 legacy 兼容样式，不再决定工作台几何。
 - `src/yard/yard.css`：低优先级庭院 legacy 皮肤，不参与页面骨架排版。
 - `src/renderer.js`：Header 弹窗入口、utilityDialog/detailMode、Remote Surface 返回与选择状态。
+- `src/onboarding-state.js`、`src/device-journey.js`：版本化首用和设备任务状态投影。
+- `src/main/profile-store-policy.js`、`src/main/ipc/{first-agent-onboarding,pairing-approvals,task-package-transfer}.js`：空 Profile 策略、双方确认与直送稳定 IPC。
 - `src/ui-context.js`：Device Lens、Agent、Slot、focused/checked Conversation、Replica、设备详情、远控和传输草稿的独立状态。
-- `src/mesh/main/transfer-service.js`：纯本地只读活动不创建 Mesh 数据库。
+- `src/mesh/domain/task-package-transfer.js`、`src/mesh/main/transfer-service.js`：目标设备独占 envelope、SessionPointer/文件/TaskPackage 分块传输及纯本地只读无存储副作用。
 - `src/task-package/format.js`：TaskPackage schema v1、流式认证加密、清单/路径/大小/哈希校验。
 - `src/task-package/codex-adapter.js`：Codex 一致快照、根/内部记录捕获、原生导入、冲突与回滚。
 - `src/task-package/service.js`：人工检查点、Git/附件捕获、导入事务、历史与来源保留。
 - `src/i18n/{zh,en,ja}.js`：Header 与详情的三语文案，key 集合一致。
-- `scripts/ui-acceptance.js`：真实 Electron 的 18 条任务路径，另含 760 × 560 小视口矩阵。
+- `scripts/ui-acceptance.js`：真实 Electron 的 21 条任务路径，另含全新首 Agent/重启恢复、设备向导、直送状态投影和 760 × 560 小视口矩阵。
 - `test/ui-redesign.test.js`、`test/ui.test.js`、`test/mesh-ui.test.js`、`test/quota-ui.test.js`、`test/mesh-remote-control.test.js`：固定结构与交互契约。
 - `test/mesh-transfer.test.js`：纯本地活动查询无存储副作用。
-- `test/task-package.test.js`、`test/task-package-ui.test.js`：容器、稳定 Git 现场、附件不可变快照、Codex 原生导入、接收预览、固定弹窗和窄 IPC。
+- `test/task-package.test.js`、`test/task-package-transfer.test.js`、`test/mesh-transfer.test.js`、`test/task-package-ui.test.js`：容器、稳定 Git 现场、附件不可变快照、Codex 原生导入、直送安全、接收预览、固定弹窗和窄 IPC。
 
 ## 5. 已验证结果
 
 当前工作现场已经取得以下证据：
 
-- 当前完整 Node 套件为 436 项：435 通过、1 项仅 Windows 跳过、0 失败。TaskPackage 定向回归覆盖认证加密、错误码、清单关系、稳定 Git 现场、附件不可变快照、Codex 根/child、幂等、标题、启动失败提交点、接收预览与窄 IPC。
-- 当前工作树的真实 Electron 窗口验收以 18/18 任务路径通过；新增路径实际打开 TaskPackage 导出和接收弹窗，把 Content 滚到底并确认 Header、关闭按钮和 Footer 的矩形不移动，子层关闭后焦点回到活动弹窗。
+- 当前完整 Node 套件为 490 项：489 通过、1 项仅 Windows 跳过、0 失败。TaskPackage 安全定向 25/25，首用/设备向导/配对/Main IPC/TaskPackage UI 相关定向 47/47。
+- 当前工作树的真实 Electron 窗口验收以 21/21 任务路径通过；覆盖全新首 Agent 的本机无网络事务、首次使用重启恢复、设备向导 Shell/状态层级和 TaskPackage 直送资格/阶段投影。直送窗口证据不代表真实 WebRTC 数据面。
 - 实窗覆盖 58/244/316/38 固定几何、Compact 无横滚、focus/checked、庭院/卡片、Top Layer 场景 Popover、Agent 对象 Dialog、三语、明暗主题、本机新增、四个 Header 入口、固定区矩形不随 Content 滚动、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 上下文、Agent/Binding/Slot 管理、多副本来源、SessionPointer/文件/历史分离、远控返回/断开、撤销清理和 reduced-motion。
 - `git diff --check` 通过。
-- 0.10.0 macOS arm64 测试包已构建到 `release/mac-arm64/AgentDesk.app`；包内输入 helper 为 arm64/x86_64 universal，`codesign --verify --deep --strict` 通过，`app.asar` 已核对包含 TaskPackage 三项实现和 0.10.0 清单。
-- 最终测试包已安装到 `/Applications/AgentDesk.app`，安装后 `app.asar` SHA-256 与最终构建产物均为 `d29aef36bf2887bbf9af26b461f8c54441bffdcae605982a876ce09cd2f01b79`，并已从该路径成功启动；开发前回滚版继续保留在 `/Applications/AgentDesk.app.pre-task-package-c42ac57`，被最终包替换的中间构建保留在 `/Applications/AgentDesk.app.pre-task-package-0.10.0-intermediate-d29aef36`，均未删除。
+- `0.10.1-preview.1` macOS arm64 本地测试包已构建到 `release/mac-arm64/AgentDesk.app`；主程序为 arm64，包内输入 helper 为 arm64/x86_64 universal，`codesign --verify --deep --strict` 通过，`app.asar` 已核对包含版本化首次使用、设备任务向导与同 Mesh TaskPackage 直送实现。该目录构建使用 ad-hoc 本地签名并明确关闭公证，只用于本机测试，不是可公开发布的签名、公证 Preview。
+- 最新测试包已安装到 `/Applications/AgentDesk.app`，安装后 `app.asar` SHA-256 与构建产物均为 `6c6966ba8fdbb172e24e6164aad139f34cfb7f890a673a991f6adeb7fff05e4c`，已从该路径成功启动并确认运行版本为 `0.10.1-preview.1`。被替换的 `0.10.0` 完整应用保留在 `/Applications/AgentDesk.app.pre-0.10.1-preview.1-20260814-131032`，可直接用于回滚；既有更早备份未删除。
 - 本轮审阅截图在临时目录 `/private/tmp/agentdesk-ui-1.14-acceptance/`；它们不是产品数据，也不应作为运行时依赖。
 
 交付前仍应以当前工作树重新运行：
@@ -118,12 +123,12 @@ git diff --check
 
 ## 6. 文档权威关系
 
-- `PERSONAL_AGENT_MESH_PLAN.md` 1.25 是实施权威。
+- `PERSONAL_AGENT_MESH_PLAN.md` 1.27 是实施权威。
 - `AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html` 是 1.13 主窗口层级、几何与临时层蓝图；全局弹窗内部 Shell 与父子层级以 1.14 计划和真实产品代码为准。
 - `AGENTDESK_WORKSPACE_REDESIGN_REVIEW.html` 是 1.12 页面结构的历史审阅稿；若与 1.14 冲突，以计划和真实产品代码为准。
 - `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md` 已修订为固定三面板与右下 Remote Surface。
 - 旧 owner review、旧会话身份 review、文章插图和规划变更记录中出现的“七行/第六行”只代表当时的历史方案，不能覆盖 1.10。
-- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器和当前限制；它服从 1.25 产品基线。
+- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器、同 Mesh Preview 直送和当前限制；它服从 1.27 产品基线。
 
 ## 7. 不得误报为已完成
 
@@ -133,7 +138,7 @@ git diff --check
 - macOS helper 空载验证不等于 Windows helper 或跨平台输入通过。
 - Phase 2–8 的纵向链路和本机 UI 收口不等于公开 Beta 门禁关闭。
 - 当前没有无人值守、登录界面、UAC 安全桌面、远程 Shell 或通用命令能力。
-- 当前任务包通过便携加密文件交换；同 Mesh 直接发送、跨 Mesh 身份确认和非 Codex 原生导入尚未完成。
+- 同 Mesh TaskPackage 的代码与本机 UI 路径已接通，但现有 Electron E2E runner 尚未发送 TaskPackage；物理双机、断线恢复、Windows 文件句柄矩阵、跨 Mesh 身份确认和非 Codex 原生导入尚未完成。
 
 ## 8. 后续真实任务
 
@@ -144,7 +149,7 @@ git diff --check
 3. 完成 macOS → macOS、macOS ↔ Windows、Windows → Windows 的屏幕、键鼠、DPI、多显示器和 IME 矩阵。
 4. 完成 macOS Developer ID/公证/Gatekeeper 与 Windows helper/portable/UIPI/UAC 发布验证。
 5. 无人值守若要进入开发，必须先通过 Phase 9 的独立产品与安全评审。
-6. 在既有受认证文件通道上接入 TaskPackage 之前，先完成同 Mesh 目标确认、进度/取消和包内外双重加密的 ADR；跨 Mesh 直连另行评审。
+6. 在真实 Electron WebRTC 与物理双机上验证 TaskPackage 接受、拒绝、撤权、断线恢复、导入和同快照便携回退；跨 Mesh 直连另行评审。
 
 ## 9. 工作树保护
 

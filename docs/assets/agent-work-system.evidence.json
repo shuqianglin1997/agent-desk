@@ -4,6 +4,7 @@
   "preset": "agentdesk-method-article-2026-08",
   "subject_root": "docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md",
   "dated": "2026-08-14",
+  "registry_role": "agent-work-system.svg 的单图证据侧车；同组新增图各自使用同名 .evidence.json，避免把开放门禁混入已验证事实。",
   "kinds": {
     "verified": "已经由本文现有方法结构或项目规划明确",
     "external": "由外部原始资料支持，用于解释行业术语",
@@ -27,7 +28,7 @@
         {
           "claim": "运行框架装配上下文、组织循环或工作图、调用工具、保存状态并执行验证。",
           "kind": "external",
-          "source": "OpenAI, Unrolling the Codex agent loop；OpenAI, Harness engineering；Anthropic, Effective harnesses for long-running agents"
+          "source": "OpenAI, https://openai.com/index/unrolling-the-codex-agent-loop/；OpenAI, https://openai.com/index/harness-engineering/；Anthropic, https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents"
         },
         {
           "claim": "工作环境包含运行位置、工程现场和资源边界；工具动作在这些真实条件中发生。",

@@ -9,8 +9,9 @@
 const { normalizePositions } = require('./yard/interactions');
 const { normalizeServiceUrls } = require('./mesh/protocol/signaling-auth');
 const { normalizeStunUrls } = require('./mesh/network/ice-config');
+const { normalizeProgress: normalizeOnboardingProgress } = require('./onboarding-state');
 
-const SETTINGS_VERSION = 2;
+const SETTINGS_VERSION = 3;
 const THEMES = new Set(['light', 'dark']);
 const VIEWS = new Set(['yard', 'classic']);
 const LANGS = new Set(['zh', 'en', 'ja']);
@@ -29,7 +30,12 @@ const DEFAULT_SETTINGS = Object.freeze({
   atmosTime: 'auto',
   atmosWeather: 'auto',
   welcomed: false,
+  onboarding: Object.freeze({ completedVersion: 0, completedAt: null }),
   ledger: null,
+  // null preserves the compatibility inference for installations created
+  // before explicit network enrollment existed. First-use initialization
+  // writes false; only an explicit device/network action may turn it on.
+  meshNetworkEnrollmentEnabled: null,
   meshSignalingUrls: Object.freeze([]),
   meshStunUrls: Object.freeze([]),
   yardPositions: Object.freeze({})
@@ -100,7 +106,14 @@ function normalizeSettings(value) {
       ? input.atmosWeather
       : DEFAULT_SETTINGS.atmosWeather,
     welcomed: input.welcomed === true,
+    // `welcomed` is retained only for old builds. A legacy boolean never
+    // suppresses a newer first-use contract: each onboarding revision must be
+    // completed explicitly after its completion screen was actually shown.
+    onboarding: normalizeOnboardingProgress(input.onboarding),
     ledger: normalizeLedger(input.ledger),
+    meshNetworkEnrollmentEnabled: typeof input.meshNetworkEnrollmentEnabled === 'boolean'
+      ? input.meshNetworkEnrollmentEnabled
+      : null,
     meshSignalingUrls: normalizeServiceUrls(input.meshSignalingUrls),
     meshStunUrls: normalizeStunUrls(input.meshStunUrls),
     yardPositions: normalizePositions(input.yardPositions)

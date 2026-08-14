@@ -4,7 +4,7 @@
 >
 > 日期：2026-08-14
 >
-> 对应产品基线：`PERSONAL_AGENT_MESH_PLAN.md` 1.25
+> 对应产品基线：`PERSONAL_AGENT_MESH_PLAN.md` 1.27
 >
 > 首个格式版本：`.agentdesk-task` schema v1
 
@@ -44,17 +44,18 @@ AgentDesk 已有的几种传输能力各自覆盖其中一部分：
 
 ## 3. 当前决策
 
-AgentDesk 提供一个便携加密文件作为第一版交接通道：
+AgentDesk 生成一种标准加密快照，并提供便携文件与同 Mesh Preview 直送两种交接通道：
 
 - 用户在一条来源明确的本机会话上选择“交接任务”；
 - 用户亲自填写目标、已完成、下一步、阻塞/风险和验收标准；
 - Main 在导出时重新解析来源 Profile 与 Session，固定会话和项目现场；
-- 文件扩展名为 `.agentdesk-task`，包与一次性解锁码分开发送；
+- 便携模式使用 `.agentdesk-task`，包与一次性解锁码分开发送；
+- 同 Mesh 模式要求认证目标设备、`task.package.transfer.v1` feature、`task.package.receive` capability 和接收端逐次确认；密文分块传送，一次性码只进入目标设备独占 envelope；
 - 接收方先验证整包，再选择本机 Agent、Profile 和任务资料目录；
 - Codex schema v1 支持原生 rollout 导入；已有 Markdown 导出能力的其他客户端接收只读会话内容；
 - 本地历史只记录包的方向、展示信息、模式、时间和位置，不记录解锁码。
 
-当前便携文件可以通过用户选择的任意文件通道交给另一个人。直接复用 Personal Mesh 的文件通道属于后续优化；跨 Mesh 直连还需要双方身份、接受权限、滥用控制和审计设计，当前实现不宣称具备这些能力。
+便携文件可以通过用户选择的任意文件通道交给另一个人。同 Mesh 直送复用 `TransferService` 的分块、背压、续传和整包哈希，但传输的仍是同一个不可变密文快照；协议不兼容、接收权限关闭、接收方拒绝或发送失败时，可以把同一密文快照保存为便携文件。跨 Mesh 直连仍需要双方身份、接受权限、滥用控制和审计设计，当前实现不宣称具备这些能力。
 
 ## 4. 容器格式
 
@@ -157,6 +158,8 @@ Main 在一次尝试中读取 `HEAD`、分支、远端、状态和二进制差�
 
 应用退出、用户取消、导入成功或 draft 过期会清理当前解密目录；启动时还会清理 24 小时以上的遗留 staging。
 
+成功提交直送包时，Main 还会把 packageId/transferId 写入独立的 consumed ledger。它与可以裁剪或清理的展示历史分离；应用重启、历史清理或发送端重放都不能使同一包再次进入导入事务。
+
 ## 7. Codex 原生导入
 
 原生导入重新验证每个提取出的 JSONL：
@@ -187,6 +190,10 @@ Main 负责：
 
 Preload 继续暴露逐项白名单方法，没有通用 `invoke(channel, payload)` 或任意路径打开接口。
 
+直送时，发送 Main 把目标设备 Ed25519 身份转换为 X25519 公钥，使用临时 ECDH、HKDF-SHA-256 和 AES-256-GCM 封装一次性码；AAD 绑定 Mesh、来源/目标设备、transferId、packageId、密文哈希和目标公钥指纹。目标 Main 只有在用户接受、完整密文与 SHA-256 通过、当前 feature/capability 仍有效时才短时解封。第三台设备即使持有同一 Mesh linkKey 也不能解封；Renderer、历史、日志和持久化任务状态均不取得明文码。只有用户显式把失败直送保存为便携包时，Main 才一次返回该便携包的解锁码。
+
+直送历史中的来源设备 ID 与名称取自认证传输事实。`sourceAgentName` 和交接人标签仍是受包完整性保护的发送方声明，不是经来源 catalog 验证的 Agent 身份。
+
 ## 9. 界面位置
 
 - “交接任务”位于右下单会话动作坞，是次级动作；
@@ -213,7 +220,7 @@ Preload 继续暴露逐项白名单方法，没有通用 `invoke(channel, payloa
 ## 11. 当前限制与后续扩展
 
 1. 原生适配器当前只有 Codex rollout schema v1；Claude CLI、Kimi Code、Kimi Work 等使用 transcript。
-2. 当前文件交换通道由用户选择；同 Mesh 直接发送 TaskPackage 尚未接入 TransferService。
+2. 同 Mesh 直送已经接入 Preview 代码路径，但真实 Electron WebRTC 数据面、物理双机接受/拒绝/撤权/断线恢复和 Windows 文件句柄清理矩阵尚未验收。
 3. 跨 Mesh 直接传送尚未设计双方身份和接受权限。
 4. Git patch 只覆盖已跟踪工作树差异；完整项目继续依赖正常 Git 远端或用户现有同步方式。
 5. TaskPackage 是检查点，不持续反映来源端后来发生的修改。
@@ -227,6 +234,10 @@ Preload 继续暴露逐项白名单方法，没有通用 `invoke(channel, payloa
 - `src/task-package/format.js`
 - `src/task-package/codex-adapter.js`
 - `src/task-package/service.js`
+- `src/mesh/domain/task-package-transfer.js`
+- `src/mesh/main/transfer-service.js`
+- `src/mesh/main/peer-manager.js`
+- `src/main/ipc/task-package-transfer.js`
 - `src/main.js`
 - `src/preload.js`
 - `src/renderer.js`
@@ -237,4 +248,6 @@ Preload 继续暴露逐项白名单方法，没有通用 `invoke(channel, payloa
 
 - `test/task-package.test.js`：容器加密、错误码、清单与类型关系、跨平台路径碰撞、稳定 Git 现场、附件不可变快照、Codex 根/child、冲突、幂等、标题和启动失败提交点；
 - `test/task-package-ui.test.js`：动作层级、接收预览、弹窗固定头尾、滚动所有权和窄 IPC；
+- `test/task-package-transfer.test.js`、`test/mesh-transfer.test.js`、`test/mesh-peer-compatibility.test.js`：目标设备独占 envelope、逐消息 feature/capability、逐次接受、完整哈希后解封、TTL、consumed ledger、清理和同快照便携回退；
+- 当前全量 Node 490 项中 489 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，真实 Electron UI 21/21 中的直送只覆盖资格与状态投影。现有隔离双 endpoint E2E 尚未发送 TaskPackage；
 - 全量 `npm test`、`npm run check` 与真实 Electron UI 验收继续作为提交门禁。

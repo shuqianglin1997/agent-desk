@@ -263,6 +263,10 @@ function seedUserData(userData) {
       atmosTime: 'day',
       atmosWeather: 'clear',
       welcomed: true,
+      onboarding: {
+        completedVersion: 1,
+        completedAt: '2026-08-14T00:00:00.000Z'
+      },
       ledger: null,
       meshSignalingUrls: [],
       meshStunUrls: [],
@@ -1218,6 +1222,48 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(independence.lens, 'all', 'left-side device selection must not change the topbar Lens');
     assert.ok(independence.detailName.length > 0 && independence.actionCount >= 3);
 
+    await client.evaluate(`document.querySelector('#createDeviceInviteBtn').click()`);
+    await waitFor(
+      client,
+      `document.querySelector('#deviceCenterDialog').open && document.querySelector('#deviceJourneyDialog').open`,
+      'Add Device task journey over Device Center'
+    );
+    let journeySnapshot = await dialogSnapshot(client, '#deviceJourneyDialog');
+    assertDialogFits(journeySnapshot);
+    const journeyControls = await client.evaluate(`({
+      closeType: document.querySelector('#deviceJourneyCloseBtn').type,
+      progressSteps: document.querySelectorAll('#deviceJourneyProgress [data-step]').length,
+      currentSteps: document.querySelectorAll('#deviceJourneyProgress [data-state="current"]').length,
+      primaryAction: document.querySelector('#deviceJourneyPrimaryBtn').dataset.action,
+      receiverEntryInsideJourney: document.querySelector('#deviceJourneyDialog').contains(document.querySelector('#receiveConnectionsBtn')),
+      parentOpen: document.querySelector('#deviceCenterDialog').open
+    })`);
+    assert.deepEqual(journeyControls, {
+      closeType: 'button',
+      progressSteps: 5,
+      currentSteps: 1,
+      primaryAction: 'invite',
+      receiverEntryInsideJourney: false,
+      parentOpen: true
+    });
+    let journeyShellBefore = await utilityDialogShellSnapshot(client, '#deviceJourneyDialog');
+    assert.equal(journeyShellBefore.shellOverflowY, 'hidden');
+    await forceUtilityContentScroll(client, '#deviceJourneyDialog');
+    let journeyShellAfter = await utilityDialogShellSnapshot(client, '#deviceJourneyDialog');
+    assert.ok(journeyShellAfter.contentScrollTop > 0);
+    assert.equal(journeyShellAfter.shellScrollTop, 0);
+    for (const key of ['header', 'close', 'footer']) {
+      assertRectStable(journeyShellBefore, journeyShellAfter, key);
+    }
+    await clearUtilityContentScrollFixture(client, '#deviceJourneyDialog');
+    await client.evaluate(`document.querySelector('#deviceJourneyCloseBtn').click()`);
+    await waitFor(
+      client,
+      `document.querySelector('#deviceCenterDialog').open && !document.querySelector('#deviceJourneyDialog').open`,
+      'Add Device journey returns to Device Center'
+    );
+    await waitFor(client, `document.activeElement?.id === 'createDeviceInviteBtn'`, 'Add Device journey focus return');
+
     const deviceShellBefore = await utilityDialogShellSnapshot(client, '#deviceCenterDialog');
     assert.equal(deviceShellBefore.shellOverflowY, 'hidden');
     assert.equal(deviceShellBefore.contentOverflowY, 'hidden', 'Device Center outer content must not compete with its named panes');
@@ -1361,6 +1407,117 @@ async function runAcceptance(client, artifactDir) {
       input.value = '';
       input.dispatchEvent(new Event('input', { bubbles: true }));
     })()`);
+  });
+
+  await run('direct TaskPackage UI follows authenticated feature/capability state and explicit receive stages', async () => {
+    await client.evaluate(`(() => {
+      state.mesh.overview.devices.push({
+        deviceId: 'acceptance-direct-device',
+        name: 'Trusted Remote Mac',
+        isLocal: false,
+        status: 'online',
+        capabilities: ['task.package.receive'],
+        permissions: ['task.package.receive']
+      });
+      state.mesh.overview.connections.push({
+        deviceId: 'acceptance-direct-device',
+        authenticated: true,
+        protocolFeatures: ['task.package.transfer.v1']
+      });
+      document.querySelectorAll('#sessionRows tr:not(.empty-row)')[0].click();
+    })()`);
+    await waitFor(client, `!document.querySelector('#taskPackageActionBtn').disabled`, 'direct TaskPackage source');
+    await client.evaluate(`document.querySelector('#taskPackageActionBtn').click()`);
+    await waitFor(
+      client,
+      `document.querySelector('#taskPackageDialog').open
+        && !document.querySelector('#taskPackageDeliveryDirect').disabled
+        && !document.querySelector('#exportTaskPackageBtn').disabled`,
+      'eligible direct TaskPackage target'
+    );
+    await client.evaluate(`document.querySelector('#taskPackageDeliveryDirect').click()`);
+    const direct = await client.evaluate(`({
+      selected: document.querySelector('#taskPackageDeliveryDirect').checked,
+      targetVisible: !document.querySelector('#taskPackageDirectTargetField').hidden,
+      targetCount: document.querySelector('#taskPackageDirectTarget').options.length,
+      targetId: document.querySelector('#taskPackageDirectTarget').value,
+      security: document.querySelector('#taskPackageSecurity').textContent.trim(),
+      unlockVisible: !document.querySelector('#taskPackageExportResult').hidden,
+      unlockCode: document.querySelector('#taskPackageUnlockCode').textContent.trim()
+    })`);
+    assert.equal(direct.selected, true);
+    assert.equal(direct.targetVisible, true);
+    assert.equal(direct.targetCount, 1);
+    assert.equal(direct.targetId, 'acceptance-direct-device');
+    assert.ok(direct.security.length > 0);
+    assert.equal(direct.unlockVisible, false, 'direct send must not expose the unlock result panel');
+    assert.equal(direct.unlockCode, '', 'direct send must not place a plaintext code in the Renderer');
+    await client.evaluate(`document.querySelector('#taskPackageCloseBtn').click()`);
+    await waitFor(client, `!document.querySelector('#taskPackageDialog').open`, 'direct TaskPackage composer close');
+
+    await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
+    await waitFor(
+      client,
+      `document.querySelector('#activityCenterDialog').open && state.mesh.transferLoading === false`,
+      'activity transfer refresh before receive projection'
+    );
+    await client.evaluate(`(() => {
+      state.mesh.transfers.push({
+        transferId: 'acceptance-incoming-task-package',
+        type: 'task-package',
+        direction: 'incoming',
+        state: 'received',
+        acceptRequired: true,
+        canImport: false,
+        bytesTotal: 4096,
+        bytesTransferred: 0,
+        receivedFromName: 'Trusted Remote Mac',
+        taskPackage: {
+          packageId: 'acceptance-package',
+          title: 'Continue renderer acceptance',
+          sourceAgentName: 'Remote Research Agent',
+          senderLabel: 'QA handoff',
+          appId: 'codex',
+          objective: 'Verify the receive decision before any import.',
+          attachmentCount: 2
+        }
+      });
+      renderIncomingTaskPackages();
+    })()`);
+    await waitFor(
+      client,
+      `document.querySelector('#activityCenterDialog').open
+        && document.querySelectorAll('#incomingTaskPackageList .incoming-task-package-card').length === 1`,
+      'incoming TaskPackage decision card'
+    );
+    let actions = await client.evaluate(`({
+      count: document.querySelectorAll('#incomingTaskPackageList .incoming-task-package-actions button').length,
+      primary: document.querySelectorAll('#incomingTaskPackageList .incoming-task-package-actions button.primary').length,
+      title: document.querySelector('#incomingTaskPackageList strong').textContent.trim()
+    })`);
+    assert.deepEqual(actions, { count: 2, primary: 1, title: 'Continue renderer acceptance' });
+
+    await client.evaluate(`(() => {
+      const transfer = state.mesh.transfers.find((item) => item.transferId === 'acceptance-incoming-task-package');
+      transfer.state = 'completed';
+      transfer.acceptRequired = false;
+      transfer.canImport = true;
+      transfer.bytesTransferred = transfer.bytesTotal;
+      renderIncomingTaskPackages();
+    })()`);
+    actions = await client.evaluate(`({
+      count: document.querySelectorAll('#incomingTaskPackageList .incoming-task-package-actions button').length,
+      primary: document.querySelectorAll('#incomingTaskPackageList .incoming-task-package-actions button.primary').length
+    })`);
+    assert.deepEqual(actions, { count: 1, primary: 1 }, 'verified package must offer import instead of another accept');
+    await client.evaluate(`(() => {
+      document.querySelector('#activityCenterDialog .utility-dialog-close').click();
+      state.mesh.transfers = state.mesh.transfers.filter((item) => item.transferId !== 'acceptance-incoming-task-package');
+      state.mesh.overview.devices = state.mesh.overview.devices.filter((item) => item.deviceId !== 'acceptance-direct-device');
+      state.mesh.overview.connections = state.mesh.overview.connections.filter((item) => item.deviceId !== 'acceptance-direct-device');
+      renderIncomingTaskPackages();
+    })()`);
+    await waitFor(client, `!document.querySelector('#activityCenterDialog').open`, 'incoming TaskPackage activity close');
   });
 
   await run('Agent, binding, Slot, merge/split, and removal dialogs are explicit', async () => {
@@ -1664,6 +1821,182 @@ async function runAcceptance(client, artifactDir) {
   return checks;
 }
 
+async function readOnboardingProgress(userData) {
+  const settingsPath = path.join(userData, 'settings.json');
+  if (!fs.existsSync(settingsPath)) return { completedVersion: 0, completedAt: null };
+  const stored = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  const value = stored?.settings?.onboarding || stored?.onboarding || {};
+  return {
+    completedVersion: Number(value.completedVersion) || 0,
+    completedAt: typeof value.completedAt === 'string' ? value.completedAt : null
+  };
+}
+
+async function waitForOnboardingProgress(userData, completedVersion, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const progress = await readOnboardingProgress(userData);
+    if (progress.completedVersion === completedVersion) return progress;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Timed out waiting for onboarding completion version ${completedVersion}`);
+}
+
+async function runFreshFirstUseInitialization(client, userData, artifactDir) {
+  await client.call('Runtime.enable');
+  await client.call('Page.enable');
+  await client.call('Log.enable');
+  await waitFor(
+    client,
+    `typeof state !== 'undefined'
+      && document.querySelector('#welcomeDialog').open
+      && state.firstUse.model?.phase === 'agent'
+      && state.profiles.length === 0`,
+    'fresh first-use Agent step'
+  );
+  assert.deepEqual(await readOnboardingProgress(userData), {
+    completedVersion: 0,
+    completedAt: null
+  });
+
+  const initial = await client.evaluate(`({
+    mode: state.firstUse.mode,
+    phase: state.firstUse.model.phase,
+    version: state.firstUse.model.version,
+    initialized: state.mesh.overview?.initialized === true,
+    primaryDisabled: document.querySelector('#onboardingPrimaryBtn').disabled,
+    completeHidden: document.querySelector('#onboardingComplete').hidden,
+    safety: document.querySelector('#onboardingAgent .onboarding-safety-note')?.textContent.trim() || ''
+  })`);
+  assert.equal(initial.mode, 'onboarding');
+  assert.equal(initial.phase, 'agent');
+  assert.equal(initial.version, 1);
+  assert.equal(initial.initialized, false);
+  assert.equal(initial.primaryDisabled, true);
+  assert.equal(initial.completeHidden, true);
+  assert.ok(initial.safety.length > 0, 'first-use must explain its local-only boundary');
+
+  await client.evaluate(`(() => {
+    const name = document.querySelector('#onboardingAgentName');
+    name.value = 'Acceptance Research Agent';
+    name.dispatchEvent(new Event('input', { bubbles: true }));
+    const client = document.querySelector('#onboardingAgentClient');
+    const codex = [...client.options].find((option) => option.value.startsWith('codex\\u001f'));
+    if (codex) {
+      client.value = codex.value;
+      client.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // The first-Agent catalog/device transaction remains real. Only the next
+    // official-client launch boundary is held at waiting-login so this UI
+    // acceptance cannot open or modify a third-party application.
+    window.__acceptanceContinueFirstPreparation = continueFirstPreparation;
+    continueFirstPreparation = async () => {
+      state.firstUse.busy = false;
+      state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+        type: 'preparation-result',
+        result: { ok: false, state: 'waiting-login', reasonCode: 'official-login-required' }
+      });
+      renderFirstUse();
+    };
+  })()`);
+  await waitFor(client, `!document.querySelector('#onboardingPrimaryBtn').disabled`, 'valid first Agent draft');
+  await client.evaluate(`document.querySelector('#onboardingPrimaryBtn').click()`);
+  await waitFor(
+    client,
+    `state.mesh.overview?.initialized === true
+      && state.firstUse.model?.phase === 'preparing'
+      && state.firstUse.model?.preparation?.state === 'waiting-login'`,
+    'offline first Agent initialization',
+    20_000
+  );
+
+  const result = await client.evaluate(`({
+    agentNames: (state.mesh.overview?.agents || []).map((agent) => agent.displayName),
+    deviceCount: state.mesh.overview?.devices?.length || 0,
+    connectionCount: state.mesh.overview?.connections?.length || 0,
+    reachabilityActive: state.mesh.overview?.reachability?.active === true,
+    reachabilityEnabled: state.mesh.overview?.reachability?.userEnabled === true,
+    networkEnrollmentEnabled: state.mesh.overview?.reachability?.networkEnrollmentEnabled === true,
+    endpointCount: state.mesh.overview?.reachability?.endpointCount || 0,
+    phase: state.firstUse.model.phase,
+    primaryAction: document.querySelector('#onboardingPrimaryBtn').dataset.action,
+    laterVisible: !document.querySelector('#onboardingSecondaryBtn').hidden
+  })`);
+  assert.deepEqual(result.agentNames, ['Acceptance Research Agent']);
+  assert.equal(result.deviceCount, 1);
+  assert.equal(result.connectionCount, 0);
+  assert.equal(result.reachabilityActive, false);
+  assert.equal(result.reachabilityEnabled, false);
+  assert.equal(result.networkEnrollmentEnabled, false);
+  assert.equal(result.endpointCount, 0);
+  assert.equal(result.phase, 'preparing');
+  assert.equal(result.primaryAction, 'prepare');
+  assert.equal(result.laterVisible, true);
+  assert.deepEqual(await readOnboardingProgress(userData), {
+    completedVersion: 0,
+    completedAt: null
+  }, 'initialization must not mark the guide complete');
+  assert.ok(fs.existsSync(path.join(userData, 'mesh.db')), 'first Agent must create the local Mesh store');
+  await capture(client, artifactDir, '00-first-use-offline-agent');
+  process.stdout.write('✓ fresh first Agent creates only the local catalog/device identity\n');
+  return ['fresh first Agent creates only the local catalog/device identity'];
+}
+
+async function runFreshFirstUseRecovery(client, userData, artifactDir) {
+  await client.call('Runtime.enable');
+  await client.call('Page.enable');
+  await client.call('Log.enable');
+  await waitFor(
+    client,
+    `typeof state !== 'undefined'
+      && document.querySelector('#welcomeDialog').open
+      && state.firstUse.model?.phase === 'existing'
+      && state.mesh.overview?.initialized === true`,
+    'interrupted first-use recovery'
+  );
+  const recovered = await client.evaluate(`({
+    phase: state.firstUse.model.phase,
+    agents: state.firstUse.model.agents.map((agent) => agent.displayName),
+    completion: state.onboardingProgress.completedVersion,
+    connectionCount: state.mesh.overview?.connections?.length || 0,
+    networkEnrollmentEnabled: state.mesh.overview?.reachability?.networkEnrollmentEnabled === true,
+    primaryAction: document.querySelector('#onboardingPrimaryBtn').dataset.action
+  })`);
+  assert.equal(recovered.phase, 'existing');
+  assert.deepEqual(recovered.agents, ['Acceptance Research Agent']);
+  assert.equal(recovered.completion, 0);
+  assert.equal(recovered.connectionCount, 0);
+  assert.equal(recovered.networkEnrollmentEnabled, false);
+  assert.equal(recovered.primaryAction, 'review');
+
+  await client.evaluate(`document.querySelector('#onboardingPrimaryBtn').click()`);
+  await waitFor(
+    client,
+    `state.firstUse.model?.phase === 'complete'
+      && state.firstUse.model?.completeShown === true
+      && !document.querySelector('#onboardingPrimaryBtn').disabled`,
+    'rendered first-use completion'
+  );
+  assert.deepEqual(await readOnboardingProgress(userData), {
+    completedVersion: 0,
+    completedAt: null
+  }, 'rendering completion must still not persist completion');
+  await capture(client, artifactDir, '00-first-use-recovered');
+  await client.evaluate(`document.querySelector('#onboardingPrimaryBtn').click()`);
+  await waitFor(
+    client,
+    `!document.querySelector('#welcomeDialog').open && state.onboardingProgress.completedVersion === 1`,
+    'persisted first-use completion'
+  );
+  const progress = await waitForOnboardingProgress(userData, 1);
+  assert.ok(progress.completedAt, 'completion requires a timestamp after the complete view was shown');
+  const profiles = JSON.parse(fs.readFileSync(path.join(userData, 'profiles.json'), 'utf8'));
+  assert.deepEqual(profiles.profiles || profiles, [], 'fresh first use must not resurrect default Claude/Codex/Kimi Profiles');
+  process.stdout.write('✓ interrupted first use resumes without default Profiles and completes only after review\n');
+  return ['interrupted first use resumes without default Profiles and completes only after review'];
+}
+
 async function stopChild(child, childState) {
   if (childState.exited) return;
   child.kill('SIGTERM');
@@ -1682,48 +2015,74 @@ async function stopChild(child, childState) {
   }
 }
 
+async function launchElectronApp(userData, output) {
+  const port = await freePort();
+  const electronPath = require('electron');
+  assert.ok(fs.existsSync(electronPath), `Electron runtime not found: ${electronPath}`);
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const childState = { exited: false, code: null };
+  const child = spawn(electronPath, [
+    `--remote-debugging-port=${port}`,
+    '--remote-allow-origins=*',
+    `--user-data-dir=${userData}`,
+    APP_ROOT
+  ], {
+    cwd: APP_ROOT,
+    env,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  child.stdout.on('data', (chunk) => output.push(String(chunk)));
+  child.stderr.on('data', (chunk) => output.push(String(chunk)));
+  child.once('exit', (code) => {
+    childState.exited = true;
+    childState.code = code;
+  });
+  try {
+    const target = await waitForTarget(port, childState);
+    process.stdout.write(`Renderer target: ${target.url}\n`);
+    const client = new DevToolsClient(target.webSocketDebuggerUrl);
+    await client.connect();
+    assert.equal(await client.evaluate('1 + 1'), 2, 'DevTools renderer evaluation handshake failed');
+    return { child, childState, client };
+  } catch (error) {
+    await stopChild(child, childState);
+    throw error;
+  }
+}
+
+async function closeElectronApp(instance) {
+  if (!instance) return;
+  instance.client?.close();
+  await stopChild(instance.child, instance.childState);
+}
+
 async function main() {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-ui-acceptance-'));
   const userData = path.join(tempRoot, 'user-data');
+  const firstUseData = path.join(tempRoot, 'first-use-user-data');
   const artifactDir = process.env.AGENTDESK_UI_ACCEPTANCE_ARTIFACTS
     ? path.resolve(process.env.AGENTDESK_UI_ACCEPTANCE_ARTIFACTS)
     : null;
   const keepTemp = process.env.AGENTDESK_UI_ACCEPTANCE_KEEP_TEMP === '1';
-  let child = null;
-  let client = null;
-  const childState = { exited: false, code: null };
+  let instance = null;
   const output = [];
+  const checks = [];
 
   try {
-    seedUserData(userData);
-    const port = await freePort();
-    const electronPath = require('electron');
-    assert.ok(fs.existsSync(electronPath), `Electron runtime not found: ${electronPath}`);
-    const env = { ...process.env };
-    delete env.ELECTRON_RUN_AS_NODE;
-    child = spawn(electronPath, [
-      `--remote-debugging-port=${port}`,
-      '--remote-allow-origins=*',
-      `--user-data-dir=${userData}`,
-      APP_ROOT
-    ], {
-      cwd: APP_ROOT,
-      env,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-    child.stdout.on('data', (chunk) => output.push(String(chunk)));
-    child.stderr.on('data', (chunk) => output.push(String(chunk)));
-    child.once('exit', (code) => {
-      childState.exited = true;
-      childState.code = code;
-    });
+    instance = await launchElectronApp(firstUseData, output);
+    checks.push(...await runFreshFirstUseInitialization(instance.client, firstUseData, artifactDir));
+    await closeElectronApp(instance);
+    instance = null;
 
-    const target = await waitForTarget(port, childState);
-    process.stdout.write(`Renderer target: ${target.url}\n`);
-    client = new DevToolsClient(target.webSocketDebuggerUrl);
-    await client.connect();
-    assert.equal(await client.evaluate('1 + 1'), 2, 'DevTools renderer evaluation handshake failed');
-    const checks = await runAcceptance(client, artifactDir);
+    instance = await launchElectronApp(firstUseData, output);
+    checks.push(...await runFreshFirstUseRecovery(instance.client, firstUseData, artifactDir));
+    await closeElectronApp(instance);
+    instance = null;
+
+    seedUserData(userData);
+    instance = await launchElectronApp(userData, output);
+    checks.push(...await runAcceptance(instance.client, artifactDir));
     const seriousLogs = output.join('').split(/\r?\n/).filter((line) => (
       /\[renderer-gone\]|Uncaught (TypeError|ReferenceError|Error)|FATAL:/i.test(line)
     ));
@@ -1736,8 +2095,7 @@ async function main() {
     if (recentOutput) process.stderr.write(`\nElectron output (tail):\n${recentOutput}\n`);
     throw error;
   } finally {
-    client?.close();
-    if (child) await stopChild(child, childState);
+    await closeElectronApp(instance);
     if (keepTemp) process.stdout.write(`Temporary userData kept at: ${userData}\n`);
     else fs.rmSync(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }

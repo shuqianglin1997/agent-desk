@@ -19,7 +19,7 @@
 
 ![AgentDesk](assets/screenshots/app.png)
 
-> **Development status:** this branch contains the attended Personal Mesh code path plus the v0.10 portable TaskPackage flow: encrypted device pairing, a persistent global Agent library, independently signed catalog and source-owned inventory, SessionPointer and selected-file transfer, encrypted whole-work checkpoints, fixed remote actions, remote view/input, a four-device console, and signed signaling/STUN/TURN configuration. Codex TaskPackages preserve native root/internal records; other supported sources carry read-only transcripts. Physical computers, public NAT/coturn, long-lived reachability, and the macOS/Windows permission matrix remain release gates. Existing GitHub Releases may predate this branch.
+> **Development status:** the `0.10.1-preview.1` source implements versioned first use, the guided device journey, and same-Mesh TaskPackage delivery as attended Preview code paths. The full Node suite passed 489 of 490 tests with one Windows-only skip and no failures; TaskPackage security passed 25/25, the related first-use/journey/pairing/Main-IPC/TaskPackage-UI batch passed 47/47, and real Electron UI acceptance passed 21/21. The two isolated endpoint E2E runs also passed over direct LAN and local signaling, covering authentication, catalog/inventory, refresh, SessionPointer, a 184,333-byte file, and synthetic remote view; that runner does not send a TaskPackage, so direct TaskPackage delivery has no Electron data-plane or physical two-device result yet. A separate physical two-Mac LAN run verified an authenticated host/UDP channel and a 562,009-byte inventory (9 slots, 638 session replicas, revisions 7 → 8 → 9) over five stable minutes. Public NAT/CGNAT, forced coturn UDP/TCP/TLS relay, disconnect/sleep recovery, physical TaskPackage delivery, and the macOS/Windows screen/input/permission matrix remain open release gates. Installable artifacts must be signed/notarized and explicitly marked **Preview**, not stable.
 
 ## What AgentDesk does
 
@@ -30,10 +30,10 @@ AgentDesk keeps a small, local index around the official AI coding clients alrea
 - **Stable conversation identity.** Codex compaction checkpoints stay inside one user conversation; guardian/subagent rollouts remain hidden instead of appearing as new sessions or projects.
 - **Session location actions.** Select one or several sessions and copy one minimal location format containing only path and coordinate; reveal the active source file or export one supported transcript as Markdown.
 - **Identity grouping.** Merge multiple client forms of the same login into one account card and one yard cat while preserving the underlying slots.
-- **Personal device mesh.** Create an OS-protected device identity, pair another computer with a one-time code, revoke any device, and view one deduplicated global Agent catalog through an all-devices or single-device lens.
+- **Versioned first use and guided device mesh.** Create the first Agent and local device identity in one recoverable transaction without opening a listener, publishing a lease, or contacting another device. Existing Profiles receive a migration preview. Adding a device then separates both-side identity confirmation, member trust, authenticated connection, catalog storage, and inventory storage instead of treating pairing as “ready.”
 - **Persistent Agent library and on-demand readiness.** Keep an Agent even with zero accounts or slots, show the complete library in every device environment, and use a recoverable local preparation job before committing a new profile, slot, and deployment. Official installation, login, verification, and system permissions remain on the target computer.
 - **Cross-device sessions and files.** Exchange source-owned session inventories, send encrypted SessionPointers without changing the minimal copy format, map projects locally on the target, and transfer explicitly selected files with confirmation, hashing, chunking, and resume.
-- **Explicit task handoff.** Freeze one local conversation, a human-authored checkpoint, Git baseline/tracked changes, and explicit attachments into an encrypted `.agentdesk-task` file. The receiver verifies everything before choosing a local Agent/Profile; source data is retained. Codex supports native import, while other supported clients receive a read-only transcript.
+- **Explicit task handoff.** Freeze one local conversation, a human-authored checkpoint, Git baseline/tracked changes, and explicit attachments into one encrypted `.agentdesk-task` snapshot. Save it as a portable file with a separately delivered unlock code, or send the same ciphertext to an authenticated same-Mesh device that supports `task.package.transfer.v1` and has `task.package.receive` enabled. The receiver must explicitly accept and verify it before import; unsupported or failed direct delivery can save the same snapshot as a portable file. Transport authenticates the source device ID/name; the source Agent and handoff-person labels remain integrity-protected package declarations. Source data is retained.
 - **Independent global dialogs.** Open Devices, Tools, Activity, and Settings in four bounded dialogs without replacing the current session detail or mutating the device lens, Agent/slot, or session selection.
 - **Attended remote control.** Open an isolated Remote Surface inside the fixed right-detail panel while the Header, Agent panel, session list, and Footer stay in place; require target-side consent for screen view and input, switch displays, and monitor up to four devices while keeping exactly one input target.
 - **P2P rendezvous and diagnostics.** Prefer temporary LAN endpoints, fall back to signed HTTPS signaling, use STUN or short-lived TURN credentials, and show only sanitized LAN/direct/relay state.
@@ -74,12 +74,14 @@ Use the **Yard / Cards** segment to change the presenter without changing any da
 
 ## Install
 
-Download a signed build from [GitHub Releases](https://github.com/shuqianglin1997/agent-desk/releases):
+Install only a signed build from [GitHub Releases](https://github.com/shuqianglin1997/agent-desk/releases) whose status matches the current documentation:
 
 - macOS: `AgentDesk-<version>-universal.dmg`
 - Windows: `AgentDesk-<version>-portable-x64.exe`
 
 > Security note: do not install the old v0.9.0 macOS image; Apple reports that unsigned package as revoked. Use a current signed and notarized release.
+
+The current source version is `0.10.1-preview.1`. It is a Preview candidate, not a stable release, and does not retroactively turn the `0.10.0` development baseline into one. Do not infer that an older GitHub Release contains this branch.
 
 On macOS, move AgentDesk.app into `/Applications` and open it normally. Do not bypass Gatekeeper for an unsigned or revoked package. On Windows, see [docs/WINDOWS.md](docs/WINDOWS.md) for Store/MSIX path handling.
 
@@ -89,6 +91,7 @@ Requires Node.js 22.12 or newer.
 
 ```bash
 npm ci
+npm run check:docs
 npm start
 npm test
 npm run check
@@ -110,6 +113,8 @@ Release signing and notarization are documented in [docs/RELEASING.md](docs/RELE
 - `src/renderer.js`, `src/index.html`: UI structure and interaction.
 - `src/workspace.css`: canonical layered fixed-workspace, component, feature, and theme styles; `src/styles.css` remains the low-priority legacy compatibility layer.
 - `src/ui-context.js`: independent Device Lens, Agent, Slot, conversation, replica, remote-session, and transfer-draft state transitions.
+- `src/onboarding-state.js`, `src/main/profile-store-policy.js`, `src/main/ipc/first-agent-onboarding.js`: versioned first use, authoritative empty Profile storage, and local-only first-Agent initialization.
+- `src/device-journey.js`, `src/main/ipc/pairing-approvals.js`: guided add-device state and both-side identity confirmation before certificate issuance.
 - `scripts/ui-acceptance.js`: real 1040 × 840 Electron task-path acceptance using temporary user data.
 - `src/apps.js`: supported client catalog and session scanners.
 - `src/cli-discovery.js`: read-only CLI launcher discovery.
@@ -125,9 +130,10 @@ Release signing and notarization are documented in [docs/RELEASING.md](docs/RELE
 - `services/signaling/`: optional self-hosted short-lived rendezvous and TURN REST credential service.
 - `src/mesh/probe/`, `src/mesh/main/webrtc-probe.js`: sandboxed WebRTC placement and local DataChannel acceptance probe.
 - `src/task-package/`: encrypted TaskPackage format, Git/checkpoint capture, and the versioned Codex native adapter.
+- `src/mesh/domain/task-package-transfer.js`, `src/mesh/main/transfer-service.js`: target-device-only TaskPackage envelopes, explicit receive decisions, ciphertext transfer, cleanup, and portable fallback.
 - `src/yard/`: cat state, scene, atmosphere, and the three core drag intents.
 
-See [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), and the [full function audit](docs/FUNCTION_AUDIT.md).
+Start with the [documentation map and evidence ledger](docs/README.md), then see [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), and the [full function audit](docs/FUNCTION_AUDIT.md).
 
 ## License
 
@@ -139,7 +145,7 @@ See [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), an
 
 AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
-> **开发状态：** 当前分支已经贯通有人值守 Personal Mesh，并加入 v0.10 便携 TaskPackage：加密设备配对、长期全局员工库、签名目录事件与来源设备库存、SessionPointer 与选定文件传输、整项工作加密检查点、固定远端动作、远程查看/输入、四设备控制台，以及签名信令/STUN/TURN 配置。Codex 任务包保留原生根会话和内部记录，其他支持来源携带只读会话内容。物理双机、长期可达、真实公网/coturn 与 macOS/Windows 权限矩阵仍是发布门禁，GitHub 上已有 Release 可能尚未包含本分支。
+> **开发状态：** `0.10.1-preview.1` 源码已经接通版本化首次使用、设备任务向导和同 Mesh TaskPackage 直送的有人值守 Preview 路径。全量 Node 490 项中 489 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，首用/向导/配对/Main IPC/TaskPackage UI 相关定向 47/47，真实 Electron UI 21/21。隔离双 endpoint 的局域网直连与本机 signaling E2E 也已复跑，均完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件和合成远控画面；该 runner 尚未发送 TaskPackage，因此直送数据面没有 Electron E2E 或物理双机证据。另一次物理双 Mac 局域网验证已完成认证 host/UDP 通道和 562,009 字节库存（9 个 Slot、638 条 SessionReplica、revision 7 → 8 → 9），连续 5 分钟稳定。真实公网 NAT/CGNAT、coturn UDP/TCP/TLS 强制中继、断网/睡眠恢复、TaskPackage 物理直送，以及 macOS/Windows 屏幕、输入和权限矩阵仍是开放门禁。可安装产物必须签名、公证并明确标为 **Preview**，不能称为稳定版。
 
 ## 核心能力
 
@@ -148,10 +154,10 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 - **稳定会话身份。** Codex 上下文压缩继续属于同一条用户会话，guardian/subagent 内部 rollout 不再冒充新会话或新项目。
 - **会话定位操作。** 单选或勾选多条会话后统一复制“路径 + 坐标”；当前会话可在系统中定位来源文件，支持的来源可导出 Markdown。
 - **同账号归组。** 桌面端与 CLI 等多个形态可以合并为一个账号、一张卡、一只猫，底层槽位仍各自保留。
-- **个人设备网。** 建立系统保护的设备身份，用一次性配对码加入另一台电脑；任意设备都可撤销删除，全局 Agent 按实际登录去重，设备只是筛选轴。
+- **版本化首次使用与设备任务向导。** “创建第一个 Agent”在一个可恢复事务中建立本机 Agent 与设备身份，不开放监听、不发布租约、不连接远端；既有 Profile 先进入无损迁移预览。添加设备再把双方身份确认、成员信任、认证连接、目录落库与库存落库分别呈现，不把配对成功写成已经可用。
 - **长期员工库与按需就绪。** Agent 即使没有账号或运行位置也继续存在，每个工作环境都显示完整员工库；首次打开通过可恢复准备任务提交 Profile/Slot/Deployment，官方安装、登录、验证码和系统权限仍在目标电脑完成。
 - **跨设备会话与文件。** 同步来源设备只读库存，发送加密 SessionPointer，目标端确认项目映射；显式选取的文件经接收确认、分块、哈希和断点续传。
-- **显式任务交接。** 把一条本机会话、人工填写的阶段检查点、Git 基线/已跟踪差异和明确附件固定为加密 `.agentdesk-task`。接收方完整验证后再选择本机 Agent/Profile，来源始终保留；Codex 可原生导入，其他支持客户端接收只读会话内容。
+- **显式任务交接。** 把一条本机会话、人工填写的阶段检查点、Git 基线/已跟踪差异和明确附件固定为同一种加密 `.agentdesk-task` 快照。它既可保存为便携文件并另行发送解锁码，也可在目标设备已认证、协商 `task.package.transfer.v1` 且开启 `task.package.receive` 时直接发送同一密文；接收方仍须逐次接受和完整验证，失败或旧端可把同一快照保存为便携文件。传输层认证来源设备 ID/名称，来源 Agent 与交接人标签仍是受完整性保护的包内声明；来源始终保留。
 - **有人值守远控。** 在固定右下详情面板的隔离 Remote Surface 查看或控制目标设备，Header、顶部 Agent、左下会话和 Footer 保持原位；屏幕与输入分别需要目标端本次同意，最多同时显示四台设备，但始终只有一个输入目标。
 - **P2P 会合与诊断。** 临时 LAN 优先，失败后回退签名 HTTPS 信令，使用 STUN/短期 TURN；界面只显示 LAN、直连或中继等脱敏状态。
 - **路径与诊断。** 展示启动候选、真实数据目录、权限、扫描位置，以及 Windows Store/MSIX 和传统安装差异。
@@ -180,14 +186,15 @@ Personal Mesh 当前只做有人值守：应用退出后不在线，不控制登
 
 ## 安装与开发
 
-正式安装包见 [Releases](https://github.com/shuqianglin1997/agent-desk/releases)。macOS 请正常拖入 `/Applications` 并通过 Gatekeeper 校验；Windows 的 Store/MSIX 与 portable 说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
+可安装产物见 [Releases](https://github.com/shuqianglin1997/agent-desk/releases)。当前源码版本为 `0.10.1-preview.1`，它是 Preview 候选，不是稳定版，也不会把 `0.10.0` 开发基线补发成稳定版。macOS 请正常拖入 `/Applications` 并通过 Gatekeeper 校验；Windows 的 Store/MSIX 与 portable 说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
 
 ```bash
 npm ci
+npm run check:docs
 npm start
 npm test
 npm run check
 npm run accept:ui # 使用临时 userData，需要可用桌面会话
 ```
 
-产品边界见 [docs/PRODUCT.md](docs/PRODUCT.md)，完整功能梳理见 [docs/FUNCTION_AUDIT.md](docs/FUNCTION_AUDIT.md)，内部结构见 [docs/INTERNAL.md](docs/INTERNAL.md)，庭院语义见 [docs/YARD.md](docs/YARD.md)。
+先看[文档导航与证据台账](docs/README.md)；产品边界见 [docs/PRODUCT.md](docs/PRODUCT.md)，完整功能梳理见 [docs/FUNCTION_AUDIT.md](docs/FUNCTION_AUDIT.md)，内部结构见 [docs/INTERNAL.md](docs/INTERNAL.md)，庭院语义见 [docs/YARD.md](docs/YARD.md)。

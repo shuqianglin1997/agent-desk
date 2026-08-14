@@ -1,5 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -282,6 +283,460 @@ test('选定文件经加密分块、逐块确认和哈希验证后保存，已�
   }
 });
 
+test('同 Mesh TaskPackage 逐次接受后直送，解锁码不进入 Renderer 可见状态或持久化任务', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-task-package-direct-'));
+  const leftDir = path.join(directory, 'left');
+  const rightDir = path.join(directory, 'right');
+  fs.mkdirSync(leftDir, { recursive: true });
+  fs.mkdirSync(rightDir, { recursive: true });
+  const now = () => new Date().toISOString();
+  const unlockCode = 'ABCDE-FGHJK-MNPQR-STUVW';
+  try {
+    const left = service(leftDir, 'Left', 'left-slot', 'darwin', now);
+    const right = service(rightDir, 'Right', 'right-slot', 'win32', now, {
+      pairingTransport: async (_invite, request) => left.claimInvite({ request })
+    });
+    left.initialize();
+    await right.join({ code: left.createInvite().code });
+    const leftId = left.getOverview().localDeviceId;
+    const rightId = right.getOverview().localDeviceId;
+    left.updatePermissions({ deviceId: rightId, permissions: { 'task.package.receive': true } });
+    right.updatePermissions({ deviceId: leftId, permissions: { 'task.package.receive': true } });
+
+    const leftTaskPackages = taskPackageStub(leftDir, unlockCode);
+    const rightTaskPackages = taskPackageStub(rightDir, unlockCode);
+    let leftManager;
+    let rightManager;
+    const leftTransfer = new TransferService({
+      databasePath: path.join(leftDir, 'mesh.db'),
+      spoolRoot: path.join(leftDir, 'spool'),
+      meshService: left,
+      peerManagerProvider: () => leftManager,
+      taskPackageServiceProvider: () => leftTaskPackages,
+      now
+    });
+    const rightTransfer = new TransferService({
+      databasePath: path.join(rightDir, 'mesh.db'),
+      spoolRoot: path.join(rightDir, 'spool'),
+      meshService: right,
+      peerManagerProvider: () => rightManager,
+      taskPackageServiceProvider: () => rightTaskPackages,
+      now
+    });
+    const protocolFeatures = ['task.package.transfer.v1'];
+    leftManager = fakeManager(() => true, rightId, async (messageType, payload) => rightTransfer.handleEnvelope({
+      context: {
+        peer: right.getPeerContext(leftId),
+        negotiatedProtocolFeatures: protocolFeatures
+      },
+      envelope: { messageType, payload }
+    }), protocolFeatures);
+    rightManager = fakeManager(() => true, leftId, async (messageType, payload) => leftTransfer.handleEnvelope({
+      context: {
+        peer: left.getPeerContext(rightId),
+        negotiatedProtocolFeatures: protocolFeatures
+      },
+      envelope: { messageType, payload }
+    }), protocolFeatures);
+
+    const offered = await leftTransfer.createTaskPackageTransfer({
+      targetDeviceId: rightId,
+      profileId: 'left-slot',
+      sessionId: 'thread-shared',
+      checkpoint: { objective: '继续完成设备交接' }
+    });
+    assert.equal(offered.type, 'task-package');
+    assert.equal(offered.state, 'awaiting-accept');
+    const incoming = rightTransfer.list().find((job) => job.direction === 'incoming');
+    assert.equal(incoming.acceptRequired, true);
+    assert.equal(incoming.taskPackage.title, 'Direct handoff');
+    assert.equal(Object.hasOwn(incoming, 'packageHash'), false);
+    assert.doesNotMatch(JSON.stringify(incoming), /ABCDE|FGHJK|MNPQR|STUVW/);
+
+    const leftStore = new MeshStore(path.join(leftDir, 'mesh.db'));
+    const persisted = leftStore.readTransferJob(offered.transferId);
+    leftStore.close();
+    assert.doesNotMatch(JSON.stringify(persisted), /ABCDE|FGHJK|MNPQR|STUVW|Direct handoff/);
+
+    const outgoingSnapshotPath = path.join(
+      leftDir,
+      'spool',
+      'outgoing',
+      crypto.createHash('sha256').update(offered.transferId).digest('hex').slice(0, 32),
+      '0000.bin'
+    );
+    const offeredSnapshot = fs.readFileSync(outgoingSnapshotPath);
+    await assert.rejects(() => leftTransfer.handleEnvelope({
+      context: {
+        peer: left.getPeerContext(rightId),
+        negotiatedProtocolFeatures: protocolFeatures
+      },
+      envelope: {
+        messageType: 'task.package.complete',
+        payload: { transferId: offered.transferId }
+      }
+    }), /task-package-complete-before-ciphertext-sent/);
+    assert.deepEqual(fs.readFileSync(outgoingSnapshotPath), offeredSnapshot);
+
+    const originalOffer = leftManager.sent.find((entry) => (
+      entry.messageType === 'task.package.offer'
+      && entry.payload.transferId === offered.transferId
+    ));
+    assert.ok(originalOffer);
+    const leftPeer = left.getPeerContext(rightId);
+    const manifestContext = {
+      meshId: leftPeer.mesh.meshId,
+      transferId: offered.transferId,
+      type: 'task-package-manifest',
+      sourceDeviceId: leftId,
+      targetDeviceId: rightId,
+      linkKey: leftPeer.secrets.identityLinkKey
+    };
+    const conflicting = decryptSecurePayload(originalOffer.payload.encryptedManifest, manifestContext);
+    const conflictingHash = 'f'.repeat(64);
+    conflicting.fileManifest.files[0].sha256 = conflictingHash;
+    conflicting.taskManifest.packageHash = conflictingHash;
+    await assert.rejects(() => rightTransfer.handleEnvelope({
+      context: {
+        peer: right.getPeerContext(leftId),
+        negotiatedProtocolFeatures: protocolFeatures
+      },
+      envelope: {
+        messageType: 'task.package.offer',
+        payload: {
+          ...originalOffer.payload,
+          encryptedManifest: encryptSecurePayload(conflicting, manifestContext)
+        }
+      }
+    }), /task-package-manifest-conflict/);
+    assert.equal(rightTransfer.list().find((job) => job.transferId === offered.transferId).state, 'received');
+
+    await rightTransfer.acceptTaskPackageTransfer(incoming.transferId);
+    await waitUntil(() => (
+      leftTransfer.list().find((job) => job.transferId === incoming.transferId)?.state === 'completed'
+      && rightTransfer.list().find((job) => job.transferId === incoming.transferId)?.state === 'completed'
+    ));
+    const completed = rightTransfer.list().find((job) => job.transferId === incoming.transferId);
+    assert.equal(completed.canImport, true);
+    const prepared = await rightTransfer.prepareTaskPackageImport(incoming.transferId);
+    assert.equal(prepared.inspected.manifest.packageId, 'package-direct');
+    assert.equal(rightTaskPackages.inspectedUnlockCode, 'ABCDEFGHJKMNPQRSTUVW');
+    assert.equal(fs.existsSync(rightTaskPackages.importPackagePath), false);
+    const imported = rightTransfer.list().find((job) => job.transferId === incoming.transferId);
+    assert.equal(imported.canImport, false);
+    assert.equal(imported.secretUnavailable, true);
+    await rightTransfer.handleEnvelope({
+      context: {
+        peer: right.getPeerContext(leftId),
+        negotiatedProtocolFeatures: protocolFeatures
+      },
+      envelope: { messageType: 'task.package.offer', payload: originalOffer.payload }
+    });
+    const replayedPrepared = rightTransfer.list().find((job) => job.transferId === incoming.transferId);
+    assert.equal(replayedPrepared.state, 'completed');
+    assert.equal(replayedPrepared.acceptRequired, false);
+    await waitUntil(() => !fs.existsSync(path.join(
+      leftDir,
+      'spool',
+      'outgoing',
+      require('node:crypto').createHash('sha256').update(offered.transferId).digest('hex').slice(0, 32)
+    )));
+
+    if (process.platform !== 'win32') {
+      const symlinkOffer = await leftTransfer.createTaskPackageTransfer({
+        targetDeviceId: rightId,
+        profileId: 'left-slot',
+        sessionId: 'thread-shared',
+        checkpoint: { objective: '接收根被替换时失败关闭' }
+      });
+      const packageRoot = path.join(rightDir, 'spool', 'task-packages');
+      const savedPackageRoot = path.join(rightDir, 'spool', 'task-packages-saved');
+      const externalPackageRoot = path.join(directory, 'external-package-root');
+      assert.equal(fs.statSync(packageRoot).mode & 0o077, 0);
+      fs.mkdirSync(externalPackageRoot, { mode: 0o700 });
+      fs.renameSync(packageRoot, savedPackageRoot);
+      fs.symlinkSync(externalPackageRoot, packageRoot, 'dir');
+      try {
+        await assert.rejects(
+          () => rightTransfer.acceptTaskPackageTransfer(symlinkOffer.transferId),
+          /file-spool-directory-invalid/
+        );
+        assert.deepEqual(fs.readdirSync(externalPackageRoot), []);
+      } finally {
+        fs.unlinkSync(packageRoot);
+        fs.renameSync(savedPackageRoot, packageRoot);
+      }
+      rightTransfer.rejectTaskPackageTransfer(symlinkOffer.transferId);
+      await waitUntil(() => (
+        leftTransfer.list().find((job) => job.transferId === symlinkOffer.transferId)?.state === 'failed'
+      ));
+    }
+
+    const originalRightSend = rightManager.sendSemantic.bind(rightManager);
+    let releaseHeldAck = null;
+    let holdNextTaskAck = true;
+    rightManager.sendSemantic = async (...args) => {
+      if (holdNextTaskAck && args[1] === 'task.package.chunk.ack') {
+        holdNextTaskAck = false;
+        await new Promise((resolve) => { releaseHeldAck = resolve; });
+      }
+      return originalRightSend(...args);
+    };
+    const activeFallbackOffer = await leftTransfer.createTaskPackageTransfer({
+      targetDeviceId: rightId,
+      profileId: 'left-slot',
+      sessionId: 'thread-shared',
+      checkpoint: { objective: '活动发送时保存同一密文快照' }
+    });
+    const activeSnapshotPath = path.join(
+      leftDir,
+      'spool',
+      'outgoing',
+      crypto.createHash('sha256').update(activeFallbackOffer.transferId).digest('hex').slice(0, 32),
+      '0000.bin'
+    );
+    const activeSnapshot = fs.readFileSync(activeSnapshotPath);
+    await rightTransfer.acceptTaskPackageTransfer(activeFallbackOffer.transferId);
+    await waitUntil(() => typeof releaseHeldAck === 'function');
+    const activeFallbackPath = path.join(directory, 'active-send-fallback.agentdesk-task');
+    const activeFallback = await leftTransfer.saveTaskPackageFallback(
+      activeFallbackOffer.transferId,
+      activeFallbackPath
+    );
+    assert.equal(activeFallback.unlockCode, unlockCode);
+    assert.deepEqual(fs.readFileSync(activeFallbackPath), activeSnapshot);
+    releaseHeldAck();
+    rightManager.sendSemantic = originalRightSend;
+    await waitUntil(() => (
+      rightTransfer.list().find((job) => job.transferId === activeFallbackOffer.transferId)?.state === 'cancelled'
+      && !fs.existsSync(path.dirname(activeSnapshotPath))
+    ));
+
+    const rejectedOffer = await leftTransfer.createTaskPackageTransfer({
+      targetDeviceId: rightId,
+      profileId: 'left-slot',
+      sessionId: 'thread-shared',
+      checkpoint: { objective: '这次拒绝接收' }
+    });
+    const rejectedIncoming = rightTransfer.list().find((job) => job.transferId === rejectedOffer.transferId);
+    rightTransfer.rejectTaskPackageTransfer(rejectedIncoming.transferId);
+    await waitUntil(() => (
+      leftTransfer.list().find((job) => job.transferId === rejectedOffer.transferId)?.state === 'failed'
+    ));
+    const rejectedOutgoing = leftTransfer.list().find((job) => job.transferId === rejectedOffer.transferId);
+    assert.equal(rejectedOutgoing.lastError, 'task-package-rejected');
+    assert.equal(rejectedOutgoing.canSavePortable, true);
+    assert.equal(
+      rightTransfer.list().find((job) => job.transferId === rejectedOffer.transferId).state,
+      'cancelled'
+    );
+    const rejectedSnapshotPath = path.join(
+      leftDir,
+      'spool',
+      'outgoing',
+      crypto.createHash('sha256').update(rejectedOffer.transferId).digest('hex').slice(0, 32),
+      '0000.bin'
+    );
+    const rejectedSnapshot = fs.readFileSync(rejectedSnapshotPath);
+    const fallbackPath = path.join(directory, 'rejected-fallback.agentdesk-task');
+    const fallback = await leftTransfer.saveTaskPackageFallback(rejectedOffer.transferId, fallbackPath);
+    assert.equal(fallback.savedPath, path.join(fs.realpathSync(path.dirname(fallbackPath)), path.basename(fallbackPath)));
+    assert.equal(fallback.unlockCode, unlockCode);
+    assert.equal(fs.statSync(fallbackPath).size, 210 * 1024 + 19);
+    assert.deepEqual(fs.readFileSync(fallbackPath), rejectedSnapshot);
+    const fallbackJob = leftTransfer.list().find((job) => job.transferId === rejectedOffer.transferId);
+    assert.equal(fallbackJob.state, 'cancelled');
+    assert.equal(fallbackJob.lastError, 'task-package-portable-fallback-saved');
+    assert.equal(fallbackJob.canSavePortable, false);
+
+    const permissionOffer = await leftTransfer.createTaskPackageTransfer({
+      targetDeviceId: rightId,
+      profileId: 'left-slot',
+      sessionId: 'thread-shared',
+      checkpoint: { objective: '撤权后不得解封' }
+    });
+    await rightTransfer.acceptTaskPackageTransfer(permissionOffer.transferId);
+    await waitUntil(() => (
+      rightTransfer.list().find((job) => job.transferId === permissionOffer.transferId)?.state === 'completed'
+    ));
+    right.updatePermissions({
+      deviceId: leftId,
+      permissions: { 'task.package.receive': false }
+    });
+    await assert.rejects(
+      () => rightTransfer.prepareTaskPackageImport(permissionOffer.transferId),
+      /capability-denied:task\.package\.receive/
+    );
+    const permissionDenied = rightTransfer.list().find((job) => job.transferId === permissionOffer.transferId);
+    assert.equal(permissionDenied.state, 'failed');
+    assert.equal(permissionDenied.canImport, false);
+    assert.equal(permissionDenied.secretUnavailable, true);
+    right.updatePermissions({
+      deviceId: leftId,
+      permissions: { 'task.package.receive': true }
+    });
+
+    const downgradeOffer = await leftTransfer.createTaskPackageTransfer({
+      targetDeviceId: rightId,
+      profileId: 'left-slot',
+      sessionId: 'thread-shared',
+      checkpoint: { objective: '协议降级后不得解封' }
+    });
+    await rightTransfer.acceptTaskPackageTransfer(downgradeOffer.transferId);
+    await waitUntil(() => (
+      rightTransfer.list().find((job) => job.transferId === downgradeOffer.transferId)?.state === 'completed'
+    ));
+    protocolFeatures.length = 0;
+    await assert.rejects(
+      () => rightTransfer.prepareTaskPackageImport(downgradeOffer.transferId),
+      /task-package-direct-feature-unavailable/
+    );
+    assert.equal(
+      rightTransfer.list().find((job) => job.transferId === downgradeOffer.transferId).secretUnavailable,
+      true
+    );
+    protocolFeatures.push('task.package.transfer.v1');
+
+    const rightSendBeforeRemoteError = rightManager.sendSemantic.bind(rightManager);
+    let releaseRemoteErrorAck = null;
+    let holdRemoteErrorAck = true;
+    rightManager.sendSemantic = async (...args) => {
+      if (holdRemoteErrorAck && args[1] === 'task.package.chunk.ack') {
+        holdRemoteErrorAck = false;
+        await new Promise((resolve) => { releaseRemoteErrorAck = resolve; });
+      }
+      return rightSendBeforeRemoteError(...args);
+    };
+    const remoteErrorOffer = await leftTransfer.createTaskPackageTransfer({
+      targetDeviceId: rightId,
+      profileId: 'left-slot',
+      sessionId: 'thread-shared',
+      checkpoint: { objective: '远端错误后清理接收暂存' }
+    });
+    await rightTransfer.acceptTaskPackageTransfer(remoteErrorOffer.transferId);
+    await waitUntil(() => typeof releaseRemoteErrorAck === 'function');
+    const remoteErrorKey = crypto.createHash('sha256')
+      .update(remoteErrorOffer.transferId).digest('hex').slice(0, 32);
+    const remoteErrorStateRoot = path.join(rightDir, 'spool', 'incoming', remoteErrorKey);
+    const remoteErrorTempRoot = path.join(
+      rightDir,
+      'spool',
+      'task-packages',
+      `.agentdesk-receive-${remoteErrorKey}`
+    );
+    assert.equal(fs.existsSync(remoteErrorStateRoot), true);
+    assert.equal(fs.existsSync(remoteErrorTempRoot), true);
+    if (process.platform !== 'win32') assert.equal(fs.statSync(remoteErrorTempRoot).mode & 0o077, 0);
+    await rightTransfer.handleEnvelope({
+      context: {
+        peer: right.getPeerContext(leftId),
+        negotiatedProtocolFeatures: protocolFeatures
+      },
+      envelope: {
+        messageType: 'task.package.error',
+        payload: { transferId: remoteErrorOffer.transferId, reasonCode: 'remote-source-failed' }
+      }
+    });
+    const remoteErrorJob = rightTransfer.list().find((job) => job.transferId === remoteErrorOffer.transferId);
+    assert.equal(remoteErrorJob.state, 'failed');
+    assert.equal(remoteErrorJob.lastError, 'remote-source-failed');
+    assert.equal(rightTransfer.pendingTaskEnvelopes.has(remoteErrorOffer.transferId), false);
+    assert.equal(rightTransfer.incomingTaskSecrets.has(remoteErrorOffer.transferId), false);
+    assert.equal(fs.existsSync(remoteErrorStateRoot), false);
+    assert.equal(fs.existsSync(remoteErrorTempRoot), false);
+    leftTransfer.cancel(remoteErrorOffer.transferId);
+    releaseRemoteErrorAck();
+    rightManager.sendSemantic = rightSendBeforeRemoteError;
+    await waitUntil(() => !fs.existsSync(path.join(
+      leftDir,
+      'spool',
+      'outgoing',
+      remoteErrorKey
+    )));
+
+    leftTransfer.taskPackageSecretTtlMs = 30;
+    rightTransfer.taskPackageEnvelopeTtlMs = 30;
+    const expiringOffer = await leftTransfer.createTaskPackageTransfer({
+      targetDeviceId: rightId,
+      profileId: 'left-slot',
+      sessionId: 'thread-shared',
+      checkpoint: { objective: '验证一次性材料定时清理' }
+    });
+    await waitUntil(() => (
+      leftTransfer.list().find((job) => job.transferId === expiringOffer.transferId)?.state === 'expired'
+      && rightTransfer.list().find((job) => job.transferId === expiringOffer.transferId)?.state === 'expired'
+    ));
+    assert.equal(leftTransfer.outgoingTaskSecrets.has(expiringOffer.transferId), false);
+    assert.equal(rightTransfer.pendingTaskEnvelopes.has(expiringOffer.transferId), false);
+    const expiredSpool = path.join(
+      leftDir,
+      'spool',
+      'outgoing',
+      crypto.createHash('sha256').update(expiringOffer.transferId).digest('hex').slice(0, 32)
+    );
+    await waitUntil(() => !fs.existsSync(expiredSpool));
+    leftTransfer.taskPackageSecretTtlMs = 24 * 60 * 60_000;
+    rightTransfer.taskPackageEnvelopeTtlMs = 24 * 60 * 60_000;
+
+    const interruptedOffer = await leftTransfer.createTaskPackageTransfer({
+      targetDeviceId: rightId,
+      profileId: 'left-slot',
+      sessionId: 'thread-shared',
+      checkpoint: { objective: '模拟退出' }
+    });
+
+    const rightSendBeforeRevoke = rightManager.sendSemantic.bind(rightManager);
+    let releaseRevokeAck = null;
+    let holdRevokeAck = true;
+    rightManager.sendSemantic = async (...args) => {
+      if (holdRevokeAck && args[1] === 'task.package.chunk.ack') {
+        holdRevokeAck = false;
+        await new Promise((resolve) => { releaseRevokeAck = resolve; });
+      }
+      return rightSendBeforeRevoke(...args);
+    };
+    const revokedOffer = await leftTransfer.createTaskPackageTransfer({
+      targetDeviceId: rightId,
+      profileId: 'left-slot',
+      sessionId: 'thread-shared',
+      checkpoint: { objective: '撤销设备后清理接收暂存' }
+    });
+    await rightTransfer.acceptTaskPackageTransfer(revokedOffer.transferId);
+    await waitUntil(() => typeof releaseRevokeAck === 'function');
+    const revokedKey = crypto.createHash('sha256')
+      .update(revokedOffer.transferId).digest('hex').slice(0, 32);
+    const revokedStateRoot = path.join(rightDir, 'spool', 'incoming', revokedKey);
+    const revokedTempRoot = path.join(
+      rightDir,
+      'spool',
+      'task-packages',
+      `.agentdesk-receive-${revokedKey}`
+    );
+    assert.equal(fs.existsSync(revokedStateRoot), true);
+    assert.equal(fs.existsSync(revokedTempRoot), true);
+    right.revoke({ deviceId: leftId, remove: true });
+    rightTransfer.handleDeviceRevoked(leftId);
+    const revokedIncoming = rightTransfer.list().find((job) => job.transferId === revokedOffer.transferId);
+    assert.equal(revokedIncoming.state, 'cancelled');
+    assert.equal(revokedIncoming.lastError, 'device-revoked');
+    assert.equal(fs.existsSync(revokedStateRoot), false);
+    assert.equal(fs.existsSync(revokedTempRoot), false);
+    assert.equal(rightTransfer.pendingTaskEnvelopes.has(revokedOffer.transferId), false);
+
+    leftTransfer.stop();
+    const interrupted = leftTransfer.list().find((job) => job.transferId === interruptedOffer.transferId);
+    assert.equal(interrupted.state, 'failed');
+    assert.equal(interrupted.lastError, 'task-package-secret-unavailable');
+    assert.equal(interrupted.requiresNewPackage, true);
+    assert.throws(() => leftTransfer.retry(interrupted.transferId), /task-package-secret-unavailable/);
+    releaseRevokeAck();
+    rightManager.sendSemantic = rightSendBeforeRevoke;
+    await waitUntil(() => !fs.existsSync(path.join(leftDir, 'spool', 'outgoing', revokedKey)));
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 async function waitUntil(predicate, timeoutMs = 8_000, diagnostic = () => null) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -320,11 +775,66 @@ function service(directory, hostname, profileId, platform, now, extra = {}) {
   });
 }
 
-function fakeManager(isConnected, deviceId, deliver) {
+function fakeManager(isConnected, deviceId, deliver, protocolFeatures = []) {
+  const sent = [];
   return {
-    listConnections: () => isConnected() ? [{ deviceId, authenticated: true }] : [],
-    sendSemantic: async (_deviceId, messageType, _capability, payload) => deliver(messageType, payload)
+    sent,
+    listConnections: () => isConnected() ? [{ deviceId, authenticated: true, protocolFeatures }] : [],
+    sendSemantic: async (_deviceId, messageType, capability, payload) => {
+      sent.push({ messageType, capability, payload });
+      return deliver(messageType, payload);
+    }
   };
+}
+
+function taskPackageStub(directory, unlockCode) {
+  const state = {
+    inspectedUnlockCode: null,
+    importPackagePath: null,
+    deliveries: new Map(),
+    nextDraft: 0,
+    async exportPackage(input) {
+      fs.writeFileSync(input.destinationPath, Buffer.alloc(210 * 1024 + 19, 'direct-task-package'));
+      return {
+        packageId: 'package-direct',
+        savedPath: input.destinationPath,
+        unlockCode,
+        manifest: {
+          packageId: 'package-direct',
+          source: { agentName: 'Source Agent', senderLabel: 'hupo', appId: 'codex' },
+          checkpoint: { objective: '继续完成设备交接' },
+          session: { originalTitle: 'Direct handoff', mode: 'native' },
+          entries: [{ kind: 'native-session-root' }, { kind: 'attachment' }]
+        }
+      };
+    },
+    tryRecordHistory() { return true; },
+    createImportDraft(packagePath) {
+      assert.equal(fs.existsSync(packagePath), true);
+      state.importPackagePath = packagePath;
+      state.nextDraft += 1;
+      return {
+        token: `direct-import-token-${state.nextDraft}`,
+        fileName: path.basename(packagePath),
+        size: fs.statSync(packagePath).size
+      };
+    },
+    attachImportDelivery(token, delivery) { state.deliveries.set(token, delivery); return true; },
+    hasActiveImportTransfer(input) {
+      return [...state.deliveries.values()].some((delivery) => (
+        ['meshId', 'transferId', 'packageId', 'packageHash', 'sourceDeviceId', 'targetDeviceId']
+          .every((field) => delivery[field] === input[field])
+      ));
+    },
+    hasConsumedTransfer() { return false; },
+    hasConsumedTransferId() { return false; },
+    async inspectImportWithUnlockCode(_token, value) {
+      state.inspectedUnlockCode = String(value || '');
+      return { manifest: { packageId: 'package-direct' }, compatibleProfiles: [] };
+    },
+    cancelImport(token) { state.deliveries.delete(token); return true; }
+  };
+  return state;
 }
 
 function fakeProtector() {

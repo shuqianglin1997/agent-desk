@@ -15,13 +15,16 @@ Windows 开发版已经包含有人值守 Personal Mesh 代码和固定协议的
 支持边界：
 
 - 设备配对、跨设备库存、SessionPointer、文件传输和 Remote Console 与 macOS 使用同一设备证书和 WebRTC 协议；
+- 版本化首次使用、设备任务向导和同 Mesh TaskPackage Preview 直送已经进入跨平台代码路径；TaskPackage 直送使用目标设备公钥独占 envelope，接收方逐次接受，失败时保存同一个密文快照为便携文件；
 - 查看屏幕使用 Electron/Chromium 的系统捕获能力，目标端每次同意后才开始；
 - 键鼠控制同时需要 `input.control` 权限、目标端本次同意和可用 helper；
 - helper 使用 `SendInput`，受 UIPI 完整性级别约束，普通 AgentDesk 不能控制更高权限窗口；
 - UAC 安全桌面、Windows 登录界面、锁屏控制、系统服务和无人值守不在当前范围；
 - 断线、失焦、切换目标、撤销和 3.5 秒 helper 心跳超时都会释放按键。
 
-当前源码/CI 规则不能替代 Windows 真机验收。发布前必须完成 Windows ↔ Windows、Windows ↔ macOS 的显示器、混合 DPI、键盘布局、IME、UIPI 和 portable 升级矩阵。
+当前源码/CI 规则不能替代 Windows 真机验收。已有物理双 Mac 局域网库存证据不包含 Windows，也不包含屏幕或输入权限；隔离双 endpoint E2E 也尚未发送 TaskPackage。发布稳定版前仍必须完成 Windows ↔ Windows、Windows ↔ macOS 的显示器、混合 DPI、键盘布局、IME、UIPI、helper、portable 升级和 TaskPackage 文件句柄/清理矩阵。
+
+在这些门禁关闭前，Windows 可安装产物只能作为明确标记的 Preview 发布；当前候选是 `0.10.1-preview.1`，历史 `0.10.0` 不补发为稳定版。Preview 也必须具备匹配资产、SHA-256 和可追踪构建，不因“预览”降低完整性要求。
 
 ## GitHub 一键更新
 
@@ -44,7 +47,7 @@ Windows portable 版满足以下条件时可以自动更新：
 
 macOS、源码开发模式、只读目录、非 portable 启动方式、缺少匹配资产或 digest 时不会尝试覆盖，而是打开对应的 GitHub Release 页面供手动更新。
 
-发布流水线会校验 Git tag 与 `package.json` 版本一致，并生成 `SHA256SUMS.txt`。Release 必须先由维护者审阅并正式发布；草稿和预发布版本不会被客户端当成最新版。
+发布流水线会校验 Git tag 与 `package.json` 版本一致，并生成 `SHA256SUMS.txt`。Release 必须先由维护者审阅；草稿和预发布版本不会被客户端自动更新器当成最新版。因此 `v0.10.1-preview.1` 一类 Preview 只供用户明确下载测试，不能静默替换稳定渠道。
 
 ## Windows 上为什么不能只写死一个路径
 
@@ -164,12 +167,16 @@ CI 会在 `windows-latest` 执行纯 Node 的 Windows 路径、启动候选、MS
 13. 普通窗口的鼠标、按键、滚轮和文本输入可用；切换目标、断网和 helper 超时不会留下卡键。
 14. 混合 DPI、多显示器和旋转屏的归一化坐标正确；高权限窗口明确降级，不尝试绕过 UIPI/UAC。
 15. 在真实家庭 NAT 与强制 TURN/TCP/TLS 环境下连接诊断分别显示直连或中继，且不泄露 IP、SDP 或凭据。
+16. 全新空存储从“创建第一个 Agent”完成本机目录与设备身份初始化，全程不开放监听、不发布租约、不连接远端；关闭重开后恢复同一 Agent/设备/准备状态，不重复造数据。
+17. 两台物理设备从邀请、双方身份确认、成员信任和认证连接走到目录/库存落库；已信任但离线时从准确步骤继续，不要求重新配对，“接收连接 30 分钟”只作为高级恢复。
+18. 同 Mesh TaskPackage 在 Windows 上完成接收、拒绝、撤权、断线恢复、导入和同密文便携 fallback；验证来源设备 ID/名称来自认证连接，来源 Agent/交接人只作为包内声明，并证明拒绝、过期、退出和错误不会遗留密文或明文 staging 文件句柄。
 
 ## 构建命令
 
 ```bash
 npm install
 npm run check
+npm run check:docs
 npm test
 npm run build:win
 ```

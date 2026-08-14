@@ -1,7 +1,8 @@
 const PROTOCOL_FEATURES = Object.freeze({
   CATALOG_SNAPSHOT_V1: 'catalog.snapshot.v1',
   CATALOG_EVENTS_V1: 'catalog.events.v1',
-  INVENTORY_DEVICE_FACTS_V1: 'inventory.device-facts.v1'
+  INVENTORY_DEVICE_FACTS_V1: 'inventory.device-facts.v1',
+  TASK_PACKAGE_TRANSFER_V1: 'task.package.transfer.v1'
 });
 
 const KNOWN_PROTOCOL_FEATURES = Object.freeze(Object.values(PROTOCOL_FEATURES));
