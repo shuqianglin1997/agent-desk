@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {
   MAIN_DOCUMENT_CSP,
+  resolvePackagedDocumentPath,
   isTrustedMainSender,
   createTrustedIpcMain,
   installMainWindowSecurity
@@ -77,6 +78,27 @@ test('main IPC sender policy rejects another WebContents, a child frame, and ano
   assert.equal(isTrustedMainSender({ ...fixture.event, senderFrame: { url: MAIN_URL } }, options), false);
   fixture.mainFrame.url = 'https://attacker.invalid/';
   assert.equal(isTrustedMainSender(fixture.event, options), false);
+
+  const portableAlias = 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\portable\\resources\\app.asar\\src\\index.html';
+  const portableArchive = 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\portable\\resources\\app.asar';
+  const portableLongArchive = 'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\portable\\resources\\app.asar';
+  const nativeCalls = [];
+  assert.equal(resolvePackagedDocumentPath(portableAlias, {
+    pathApi: path.win32,
+    realpathSync: () => { throw new Error('ASAR path must not use the patched whole-path resolver'); },
+    realpathNative: (candidate) => {
+      nativeCalls.push(candidate);
+      assert.equal(candidate, portableArchive);
+      return portableLongArchive;
+    }
+  }), path.win32.join(portableLongArchive, 'src', 'index.html'));
+  assert.deepEqual(nativeCalls, [portableArchive]);
+
+  assert.equal(resolvePackagedDocumentPath('/workspace/src/index.html', {
+    pathApi: path.posix,
+    realpathSync: (candidate) => `/real${candidate}`,
+    realpathNative: () => { throw new Error('development path must not use native ASAR resolution'); }
+  }), '/real/workspace/src/index.html');
 });
 
 test('trusted IPC registrar checks the sender before invoking every registered handler', async () => {
@@ -404,7 +426,7 @@ test('pairing IPC requires a prior inspection token and exact approval fields', 
 test('main/preload source closes raw path, full-profile, sender and navigation bypasses', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
   const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
-  assert.match(main, /const MAIN_DOCUMENT_PATH = fs\.realpathSync\(path\.join\(__dirname, 'index\.html'\)\);/);
+  assert.match(main, /const MAIN_DOCUMENT_PATH = resolvePackagedDocumentPath\(path\.join\(__dirname, 'index\.html'\)\);/);
   assert.match(main, /const MAIN_DOCUMENT_URL = pathToFileURL\(MAIN_DOCUMENT_PATH\)\.href;/);
   assert.match(main, /mainWindow\.loadFile\(MAIN_DOCUMENT_PATH\)/);
   assert.match(main, /const ipcMain = createTrustedIpcMain\(/);
