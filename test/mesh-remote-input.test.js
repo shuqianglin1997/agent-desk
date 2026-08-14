@@ -109,6 +109,56 @@ test('macOS 与 Windows 助手均实现心跳释放，打包只带编译产物',
   assert.equal(pkg.build.beforePack, 'scripts/build-native-helpers.js');
   assert.deepEqual(pkg.build.extraResources[0].filter, ['AgentDeskInputHelper', 'AgentDeskInputHelper.exe']);
   assert.match(defaultInputHelperPath({ platform: 'darwin', isPackaged: true, resourcesPath: '/App/Resources' }), /Resources[\\/]native[\\/]AgentDeskInputHelper$/);
+
+  const nativeHelperBuild = require('../scripts/build-native-helpers');
+  const { createWindowsBuildInvocation, run } = nativeHelperBuild._internals;
+  const invocation = createWindowsBuildInvocation({
+    vcvars: 'C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat',
+    source: 'D:\\Agent Desk\\native\\windows\\AgentDeskInputHelper.cpp',
+    output: 'D:\\Agent Desk\\native\\bin\\AgentDeskInputHelper.exe'
+  });
+  assert.equal(invocation.command, 'cmd.exe');
+  assert.deepEqual(invocation.args.slice(0, 3), ['/d', '/s', '/c']);
+  assert.equal(invocation.windowsVerbatimArguments, true);
+  assert.equal(
+    invocation.args[3],
+    'call "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat" >nul' +
+      ' && cl.exe /nologo /O2 /std:c++17 /EHsc "D:\\Agent Desk\\native\\windows\\AgentDeskInputHelper.cpp"' +
+      ' /Fe:"D:\\Agent Desk\\native\\bin\\AgentDeskInputHelper.exe" user32.lib'
+  );
+  assert.doesNotMatch(invocation.args[3], /\\"/);
+
+  const calls = [];
+  assert.equal(run(invocation.command, invocation.args, {
+    capture: true,
+    windowsVerbatimArguments: invocation.windowsVerbatimArguments,
+    spawnSync: (command, args, options) => {
+      calls.push({ command, args, options });
+      return { status: 0, stdout: 'compiled', stderr: '' };
+    }
+  }), 'compiled');
+  assert.equal(calls[0].options.shell, false);
+  assert.equal(calls[0].options.windowsVerbatimArguments, true);
+  const directCalls = [];
+  run('cl.exe', ['/nologo', 'D:\\Agent Desk\\native\\windows\\AgentDeskInputHelper.cpp'], {
+    capture: true,
+    spawnSync: (command, args, options) => {
+      directCalls.push({ command, args, options });
+      return { status: 0, stdout: '', stderr: '' };
+    }
+  });
+  assert.equal(directCalls[0].options.shell, false);
+  assert.equal(directCalls[0].options.windowsVerbatimArguments, false);
+  assert.throws(() => run(invocation.command, invocation.args, {
+    capture: true,
+    windowsVerbatimArguments: true,
+    spawnSync: () => ({ status: 2, stdout: '', stderr: 'compiler failed' })
+  }), /native-helper-build-failed:cmd\.exe\ncompiler failed/);
+  assert.throws(() => createWindowsBuildInvocation({
+    vcvars: 'C:\\Program Files\\VS&whoami\\vcvars64.bat',
+    source: 'D:\\Agent Desk\\native\\windows\\AgentDeskInputHelper.cpp',
+    output: 'D:\\Agent Desk\\native\\bin\\AgentDeskInputHelper.exe'
+  }), /native-helper-vcvars-path-unsafe/);
 });
 
 test('控制输入只走两条固定 DataChannel，状态更新保留控制授权字段', () => {

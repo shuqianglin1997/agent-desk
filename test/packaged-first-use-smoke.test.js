@@ -234,12 +234,28 @@ test('packaged Renderer proof requires app.asar and parses the packaged version 
     outerHeight: 840,
     innerWidth: 1040,
     innerHeight: 812,
+    windowX: 0,
+    windowY: 0,
     screenWidth: 1440,
     screenHeight: 900,
+    screenLeft: 0,
+    screenTop: 0,
     screenAvailWidth: 1440,
-    screenAvailHeight: 875
+    screenAvailHeight: 875,
+    screenAvailLeft: 0,
+    screenAvailTop: 0
   };
   assert.deepEqual(assertPackagedWindowGeometry(exactGeometry), {
+    contract: { width: 1040, height: 840 },
+    displayClamped: false
+  });
+  assert.deepEqual(assertPackagedWindowGeometry({
+    ...exactGeometry,
+    screenLeft: null,
+    screenTop: null,
+    screenAvailLeft: null,
+    screenAvailTop: null
+  }), {
     contract: { width: 1040, height: 840 },
     displayClamped: false
   });
@@ -248,10 +264,16 @@ test('packaged Renderer proof requires app.asar and parses the packaged version 
     outerHeight: 796,
     innerWidth: 1024,
     innerHeight: 768,
+    windowX: 0,
+    windowY: 0,
     screenWidth: 1024,
     screenHeight: 768,
+    screenLeft: 0,
+    screenTop: 0,
     screenAvailWidth: 1024,
-    screenAvailHeight: 768
+    screenAvailHeight: 768,
+    screenAvailLeft: 0,
+    screenAvailTop: 0
   };
   assert.deepEqual(assertPackagedWindowGeometry(ciGeometry), {
     contract: { width: 1040, height: 840 },
@@ -265,6 +287,60 @@ test('packaged Renderer proof requires app.asar and parses the packaged version 
     contract: { width: 1040, height: 840 },
     displayClamped: true
   });
+  const insetMacCiGeometry = {
+    ...ciGeometry,
+    outerHeight: 681,
+    innerHeight: 653,
+    windowY: 3,
+    screenAvailHeight: 684,
+    screenLeft: null,
+    screenTop: null
+  };
+  assert.deepEqual(assertPackagedWindowGeometry(insetMacCiGeometry), {
+    contract: { width: 1040, height: 840 },
+    displayClamped: true
+  });
+  assert.deepEqual(assertPackagedWindowGeometry({
+    ...insetMacCiGeometry,
+    windowY: -1055,
+    screenAvailTop: -1058
+  }), {
+    contract: { width: 1040, height: 840 },
+    displayClamped: true
+  });
+  assert.throws(
+    () => assertPackagedWindowGeometry({
+      ...insetMacCiGeometry,
+      outerHeight: 680,
+      innerHeight: 652
+    }),
+    /neither the 840 contract nor an exact display clamp/
+  );
+  assert.throws(
+    () => assertPackagedWindowGeometry({
+      ...insetMacCiGeometry,
+      screenAvailTop: null
+    }),
+    /neither the 840 contract nor an exact display clamp/
+  );
+  assert.throws(
+    () => assertPackagedWindowGeometry({
+      ...insetMacCiGeometry,
+      outerHeight: 500,
+      innerHeight: 472,
+      windowY: 184
+    }),
+    /neither the 840 contract nor an exact display clamp/
+  );
+  assert.throws(
+    () => assertPackagedWindowGeometry({
+      ...insetMacCiGeometry,
+      outerHeight: 500,
+      innerHeight: 300,
+      windowY: 184
+    }),
+    /height frame 200 exceeds 64 CSS px/
+  );
   assert.throws(
     () => assertPackagedWindowGeometry({ ...ciGeometry, outerWidth: 1000, innerWidth: 1000 }),
     /neither the 1040 contract nor an exact display clamp/
