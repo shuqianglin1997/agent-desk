@@ -7,17 +7,45 @@ const root = path.resolve(__dirname, '..');
 const outputDirectory = path.join(root, 'native', 'bin');
 
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
+  const spawn = options.spawnSync || spawnSync;
+  const result = spawn(command, args, {
     cwd: root,
     encoding: 'utf8',
     stdio: options.capture ? 'pipe' : 'inherit',
-    windowsHide: true
+    windowsHide: true,
+    shell: false,
+    windowsVerbatimArguments: options.windowsVerbatimArguments === true
   });
   if (result.status !== 0) {
     const detail = options.capture ? `${result.stdout || ''}${result.stderr || ''}`.trim() : '';
     throw new Error(`native-helper-build-failed:${path.basename(command)}${detail ? `\n${detail}` : ''}`);
   }
   return result.stdout || '';
+}
+
+function quoteWindowsCommandPath(value, label) {
+  if (typeof value !== 'string' || !path.win32.isAbsolute(value)) {
+    throw new Error(`native-helper-${label}-path-invalid`);
+  }
+  if (/[\x00-\x1f"&|<>^%!]/.test(value)) {
+    throw new Error(`native-helper-${label}-path-unsafe`);
+  }
+  return `"${value}"`;
+}
+
+function createWindowsBuildInvocation({ vcvars, source, output }) {
+  const vcvarsPath = quoteWindowsCommandPath(vcvars, 'vcvars');
+  const sourcePath = quoteWindowsCommandPath(source, 'source');
+  const outputPath = quoteWindowsCommandPath(output, 'output');
+  const fixedCommand = [
+    `call ${vcvarsPath} >nul`,
+    `cl.exe /nologo /O2 /std:c++17 /EHsc ${sourcePath} /Fe:${outputPath} user32.lib`
+  ].join(' && ');
+  return {
+    command: 'cmd.exe',
+    args: ['/d', '/s', '/c', fixedCommand],
+    windowsVerbatimArguments: true
+  };
 }
 
 function buildMac() {
@@ -67,8 +95,12 @@ function buildWindows() {
   if (!install) throw new Error('native-helper-msvc-unavailable');
   const vcvars = path.join(install, 'VC', 'Auxiliary', 'Build', 'vcvars64.bat');
   if (!fs.existsSync(vcvars)) throw new Error('native-helper-vcvars-unavailable');
-  const fixedCommand = `call "${vcvars}" >nul && cl.exe /nologo /O2 /std:c++17 /EHsc "${source}" /Fe:"${output}" user32.lib`;
-  run('cmd.exe', ['/d', '/s', '/c', fixedCommand]);
+  const invocation = createWindowsBuildInvocation({ vcvars, source, output });
+  // cmd.exe does not understand libuv's backslash-escaped embedded quotes.
+  // This command is fully constructed above, so pass its quoting through unchanged.
+  run(invocation.command, invocation.args, {
+    windowsVerbatimArguments: invocation.windowsVerbatimArguments
+  });
   return output;
 }
 
@@ -82,6 +114,11 @@ function build() {
 module.exports = async function beforePack() {
   const output = build();
   process.stdout.write(`AgentDesk input helper built: ${output}\n`);
+};
+
+module.exports._internals = {
+  createWindowsBuildInvocation,
+  run
 };
 
 if (require.main === module) {

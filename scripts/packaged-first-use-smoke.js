@@ -32,6 +32,7 @@ const ONBOARDING = require(path.join(APP_ROOT, 'src', 'onboarding-state.js'));
 const PRODUCT_NAME = 'AgentDesk';
 const DEFAULT_TIMEOUT_MS = 45_000;
 const MAIN_WINDOW_CONTRACT = Object.freeze({ width: 1040, height: 840 });
+const MAX_OBSERVED_WINDOW_FRAME_CSS_PX = 64;
 const NETWORK_ENV_KEYS = Object.freeze([
   'AGENTDESK_ALLOW_INSECURE_SIGNALING',
   'AGENTDESK_SIGNALING_URLS',
@@ -382,7 +383,9 @@ function assertPackagedWindowGeometry(snapshot) {
       actual: snapshot.outerWidth,
       inner: snapshot.innerWidth,
       contract: MAIN_WINDOW_CONTRACT.width,
+      position: snapshot.windowX,
       available: snapshot.screenAvailWidth,
+      availableOrigin: snapshot.screenAvailLeft,
       full: snapshot.screenWidth
     },
     {
@@ -390,7 +393,9 @@ function assertPackagedWindowGeometry(snapshot) {
       actual: snapshot.outerHeight,
       inner: snapshot.innerHeight,
       contract: MAIN_WINDOW_CONTRACT.height,
+      position: snapshot.windowY,
       available: snapshot.screenAvailHeight,
+      availableOrigin: snapshot.screenAvailTop,
       full: snapshot.screenHeight
     }
   ];
@@ -409,14 +414,36 @@ function assertPackagedWindowGeometry(snapshot) {
       `packaged window inner ${dimension.name} cannot exceed its outer ${dimension.name}`
     );
     const frame = dimension.actual - dimension.inner;
+    assert.ok(
+      frame <= MAX_OBSERVED_WINDOW_FRAME_CSS_PX,
+      `packaged window ${dimension.name} frame ${frame} exceeds ${MAX_OBSERVED_WINDOW_FRAME_CSS_PX} CSS px`
+    );
     const accepted = new Set([dimension.contract]);
-    for (const displayMetric of [dimension.available, dimension.full]) {
-      accepted.add(Math.min(dimension.contract, displayMetric));
-      accepted.add(Math.min(dimension.contract, displayMetric + frame));
+    for (const displaySize of [dimension.available, dimension.full]) {
+      accepted.add(Math.min(dimension.contract, displaySize));
+      accepted.add(Math.min(dimension.contract, displaySize + frame));
+    }
+
+    // Window managers can place a fixed-size window a few frame pixels in
+    // from the available display origin before clamping its trailing edge.
+    // Electron 43 exposes screenX/screenY and availLeft/availTop, but can leave
+    // the non-standard screen.left/screen.top undefined. Use only the available
+    // origin for this extra proof and never infer or fall back to a full origin.
+    if (
+      !accepted.has(dimension.actual)
+      && Number.isFinite(dimension.position)
+      && Number.isFinite(dimension.availableOrigin)
+    ) {
+      const originInset = dimension.position - dimension.availableOrigin;
+      const remaining = dimension.available - originInset;
+      if (originInset >= 0 && originInset <= frame && remaining > 0) {
+        accepted.add(Math.min(dimension.contract, remaining));
+        accepted.add(Math.min(dimension.contract, remaining + frame));
+      }
     }
     assert.ok(
       accepted.has(dimension.actual),
-      `packaged BrowserWindow ${dimension.name} ${dimension.actual} is neither the ${dimension.contract} contract nor an exact display clamp (${[...accepted].join(', ')})`
+      `packaged BrowserWindow ${dimension.name} ${dimension.actual} is neither the ${dimension.contract} contract nor an exact display clamp (${[...accepted].join(', ')}; position ${dimension.position}; available origin ${dimension.availableOrigin})`
     );
     if (dimension.actual !== dimension.contract) displayClamped = true;
   }
@@ -1132,10 +1159,16 @@ async function assertPackagedMainWindow(instance, expectedVersion) {
     outerHeight,
     innerWidth,
     innerHeight,
+    windowX: screenX,
+    windowY: screenY,
     screenWidth: screen.width,
     screenHeight: screen.height,
+    screenLeft: Number.isFinite(screen.left) ? screen.left : null,
+    screenTop: Number.isFinite(screen.top) ? screen.top : null,
     screenAvailWidth: screen.availWidth,
     screenAvailHeight: screen.availHeight,
+    screenAvailLeft: Number.isFinite(screen.availLeft) ? screen.availLeft : null,
+    screenAvailTop: Number.isFinite(screen.availTop) ? screen.availTop : null,
     headerCount: document.querySelectorAll('.app-shell > .app-topbar').length,
     boardPanelCount: document.querySelectorAll('#mainGrid > .workspace-panel').length,
     footerCount: document.querySelectorAll('.app-shell > #statusBar').length,
@@ -1374,10 +1407,16 @@ async function runSmoke(options) {
         outerHeight: firstWindow.outerHeight,
         innerWidth: firstWindow.innerWidth,
         innerHeight: firstWindow.innerHeight,
+        windowX: firstWindow.windowX,
+        windowY: firstWindow.windowY,
         screenWidth: firstWindow.screenWidth,
         screenHeight: firstWindow.screenHeight,
+        screenLeft: firstWindow.screenLeft,
+        screenTop: firstWindow.screenTop,
         screenAvailWidth: firstWindow.screenAvailWidth,
         screenAvailHeight: firstWindow.screenAvailHeight,
+        screenAvailLeft: firstWindow.screenAvailLeft,
+        screenAvailTop: firstWindow.screenAvailTop,
         displayClamped: firstWindow.geometry.displayClamped
       },
       ...first
