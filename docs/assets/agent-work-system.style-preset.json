@@ -1,0 +1,77 @@
+{
+  "schema": "ze-figure-style-preset.v1",
+  "preset_id": "agentdesk-method-article-2026-08",
+  "name": "AgentDesk 方法文章图解",
+  "note": "从同文既有 task-package-handoff.svg 取样，保持白底、低饱和蓝灰、细线、系统字体与信息图密度。",
+  "sampled_from": [
+    "docs/assets/task-package-handoff.svg"
+  ],
+  "canvas": {
+    "width": 1280,
+    "height_range": [700, 740],
+    "aspect_range": [1.72, 1.84],
+    "content_left": 54,
+    "content_right": 1226,
+    "outer_rect": {
+      "rx": 0,
+      "fill": "#FFFFFF",
+      "stroke": "none"
+    }
+  },
+  "type_scale": [15, 14, 13, 12, 11.5, 11, 10],
+  "font_family": "-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans CJK SC','Microsoft YaHei',sans-serif",
+  "palette": {
+    "accent": "#2C6D9E",
+    "accent_deep": "#285A73",
+    "accent_fill": "#EDF4F7",
+    "accent_fill_deep": "#D8E8EE",
+    "ink": "#172126",
+    "ink_deep": "#263238",
+    "ink_soft": "#54636A",
+    "ink_mute": "#58666C",
+    "ink_faint": "#6A787E",
+    "paper": "#FBFAF7",
+    "surface": "#F7FAF9",
+    "ok": "#2F7D5C",
+    "warn": "#A76B2C",
+    "allowed": [
+      "#FFFFFF",
+      "#FBFAF7",
+      "#F7FAF9",
+      "#EDF4F7",
+      "#D8E8EE",
+      "#172126",
+      "#263238",
+      "#54636A",
+      "#58666C",
+      "#64747A",
+      "#6A787E",
+      "#71867C",
+      "#77868C",
+      "#7F9BA8",
+      "#8FA49B",
+      "#A7A39A",
+      "#C3C8C8",
+      "#C5CECF",
+      "#285A73",
+      "#2C6D9E",
+      "#2F7D5C",
+      "#A76B2C",
+      "none"
+    ]
+  },
+  "components": {
+    "column_label": "15px, 700, .08em, #54636A",
+    "outer_panel": "rx=16, 1.4px stroke, paper/surface fill",
+    "inner_card": "rx=9, white fill, 1.1px stroke",
+    "primary_flow": "1.7px #263238 with arrow",
+    "execution_flow": "1.8px #2C6D9E with arrow",
+    "feedback_flow": "1.3px dashed #77868C with arrow"
+  },
+  "hard_rules": [
+    "一张图只解释一项工作怎样从持续责任进入执行并由证据返回",
+    "不放大标题或结论卡，列名只负责定位阅读方向",
+    "每个术语都必须落到图中的真实对象、动作或记录",
+    "文字和箭头必须留在所属面板内，不用视觉装饰代替关系"
+  ]
+}

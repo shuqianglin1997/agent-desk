@@ -1,0 +1,190 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">一项工作如何穿过 Agent 运行系统并把证据带回持续责任</title>
+  <desc id="desc">持续业务状态形成当前工作包，控制面选择负责 Agent、配置和环境。运行框架为持续 Agent 身份装配上下文，按循环或工作图调用工具，在实际环境中产生结果。产物与证据写回责任状态，更新 Skill 与配置，并支持下游接受、重试、交接或升级。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#263238"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#2c6d9e"/>
+    </marker>
+    <marker id="arrowMute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#77868c"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#172126}
+    .column{font-size:15px;font-weight:700;letter-spacing:.08em;fill:#54636a}
+    .lane{font-size:14px;font-weight:700}.body{font-size:13px}.small{font-size:11.5px;fill:#58666c}.tiny{font-size:10px;fill:#6a787e}
+    .source{fill:#fbfaf7;stroke:#a7a39a;stroke-width:1.4}.runtime{fill:#f7faf9;stroke:#8fa49b;stroke-width:1.4}.environment{fill:#fbfaf7;stroke:#a7a39a;stroke-width:1.4}
+    .cell{fill:#fff;stroke:#c3c8c8;stroke-width:1.1}.identity{fill:#fff;stroke:#71867c;stroke-width:1.2}.harness{fill:#edf4f7;stroke:#285a73;stroke-width:1.8}.inner{fill:#fff;fill-opacity:.9;stroke:#7f9ba8;stroke-width:1}
+    .evidence{fill:#edf4f7;stroke:#285a73;stroke-width:1.4}.decision{fill:#f7faf9;stroke:#8fa49b;stroke-width:1.4}.update{fill:#fbfaf7;stroke:#a7a39a;stroke-width:1.4}
+    .line{fill:none;stroke:#263238;stroke-width:1.7;marker-end:url(#arrow)}.blue{fill:none;stroke:#2c6d9e;stroke-width:1.8;marker-end:url(#arrowBlue)}
+    .plain{fill:none;stroke:#2c6d9e;stroke-width:1.4}.feedback{fill:none;stroke:#77868c;stroke-width:1.3;stroke-dasharray:6 5;marker-end:url(#arrowMute)}.guide{fill:none;stroke:#c5cecf;stroke-width:1;stroke-dasharray:3 5}
+    .node{fill:#fff;stroke:#2c6d9e;stroke-width:1}.accent{fill:#2c6d9e}.ok{fill:#2f7d5c}.warn{fill:#a76b2c}.muted{fill:#64747a}.white{fill:#fff}
+  </style>
+  <rect width="1280" height="720" fill="#ffffff"/>
+
+  <text class="column" x="54" y="45">持续责任与当前工作</text>
+  <text class="column" x="360" y="45">运行中的 Agent</text>
+  <text class="column" x="920" y="45">实际工作环境</text>
+  <path class="guide" d="M54 62H1226"/>
+
+  <rect class="source" x="54" y="84" width="278" height="420" rx="16"/>
+  <g transform="translate(78 110)">
+    <rect class="cell" width="230" height="96" rx="5"/>
+    <text class="lane" x="14" y="24">持续业务状态</text>
+    <text class="small" x="14" y="48">目标 · 待办 · 上下游 · 指标</text>
+    <text class="small" x="14" y="68">已确认规则 · 风险 · 例外去向</text>
+    <circle cx="202" cy="22" r="4" class="ok"/><circle cx="216" cy="22" r="4" class="warn"/>
+  </g>
+  <path class="line" d="M193 206V232"/>
+  <g transform="translate(78 232)">
+    <rect class="cell" width="230" height="118" rx="5"/>
+    <text class="lane" x="14" y="24">当前事项 / 工作包</text>
+    <text class="small" x="14" y="49">本次目标 · 输入依据 · 验收条件</text>
+    <text class="small" x="14" y="69">依赖 · 当前状态 · 停止条件</text>
+    <path d="M14 87H202" stroke="#d8e8ee" stroke-width="5" stroke-linecap="round"/>
+    <path d="M14 87H132" stroke="#2c6d9e" stroke-width="5" stroke-linecap="round"/>
+    <text class="tiny" x="14" y="106">一项仍在推进的明确责任</text>
+  </g>
+  <path class="line" d="M193 350V380"/>
+  <g transform="translate(78 380)">
+    <rect class="cell" width="230" height="96" rx="5"/>
+    <text class="lane" x="14" y="24">控制面记录</text>
+    <text class="small" x="14" y="48">负责 Agent · 配置 · 运行位置</text>
+    <text class="small" x="14" y="68">状态 · 证据 · 交接 · 审批</text>
+    <path d="M192 20h24M192 33h24M192 46h24" stroke="#2c6d9e" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <rect class="runtime" x="360" y="84" width="532" height="420" rx="16"/>
+  <g transform="translate(382 108)">
+    <rect class="identity" width="488" height="74" rx="5"/>
+    <text class="lane" x="16" y="25">持续 Agent 身份</text>
+    <text class="small" x="16" y="49">Skill · 默认配置 · 历史决定 · 结果记录</text>
+    <text class="tiny" x="472" y="25" text-anchor="end">跨账号 / 设备 / 客户端 / 会话保持归属</text>
+    <text class="tiny" x="472" y="63" text-anchor="end">证据反复成立后更新 Skill / 配置版本</text>
+  </g>
+
+  <path class="blue" d="M308 291H404"/>
+  <path class="line" d="M626 182V204"/>
+
+  <rect class="harness" x="382" y="204" width="488" height="276" rx="14"/>
+  <rect x="404" y="222" width="444" height="30" rx="15" fill="#285a73"/>
+  <text class="body white" x="626" y="242" text-anchor="middle">运行框架 harness · 组织一次实际执行</text>
+
+  <g transform="translate(404 268)">
+    <rect class="inner" width="154" height="104" rx="5"/>
+    <text class="lane" x="13" y="23">上下文装配</text>
+    <text class="small" x="13" y="46">当前要求与工作状态</text>
+    <text class="small" x="13" y="64">相关历史、资料与决定</text>
+    <text class="small" x="13" y="82">工具说明、返回与证据</text>
+    <text class="tiny" x="13" y="98">每一轮重新选择进入模型的信息</text>
+  </g>
+  <path class="blue" d="M558 320H580"/>
+
+  <g transform="translate(580 268)">
+    <rect class="inner" width="268" height="104" rx="5"/>
+    <text class="lane" x="13" y="23">工作路径 · loop / graph</text>
+    <g transform="translate(14 37)">
+      <rect class="node" width="48" height="26" rx="4"/><text class="tiny" x="24" y="17" text-anchor="middle">调查</text>
+      <rect class="node" x="62" width="48" height="26" rx="4"/><text class="tiny" x="86" y="17" text-anchor="middle">行动</text>
+      <rect class="node" x="124" width="48" height="26" rx="4"/><text class="tiny" x="148" y="17" text-anchor="middle">观察</text>
+      <rect class="node" x="186" width="48" height="26" rx="4"/><text class="tiny" x="210" y="17" text-anchor="middle">判断</text>
+      <path class="plain" d="M48 13H62M110 13H124M172 13H186"/>
+      <path class="feedback" d="M210 26V43H86V27"/>
+    </g>
+    <text class="tiny" x="13" y="91">分支 · 并行 · 重试 · 停止 · 人工批准</text>
+  </g>
+
+  <path class="plain" d="M714 372V386H469M714 386H770"/>
+  <path class="blue" d="M469 386V396"/>
+  <path class="blue" d="M613 386V396"/>
+  <path class="blue" d="M770 386V396"/>
+
+  <g transform="translate(404 396)">
+    <rect class="inner" width="130" height="60" rx="5"/>
+    <text class="lane" x="12" y="23">工具动作</text>
+    <text class="tiny" x="12" y="43">读取 · 修改 · 运行 · 发布</text>
+  </g>
+  <g transform="translate(548 396)">
+    <rect class="inner" width="130" height="60" rx="5"/>
+    <text class="lane" x="12" y="23">状态与检查点</text>
+    <text class="tiny" x="12" y="43">会话 · 产物 · 工作状态</text>
+  </g>
+  <g transform="translate(692 396)">
+    <rect class="inner" width="156" height="60" rx="5"/>
+    <text class="lane" x="12" y="23">验证与停止判断</text>
+    <text class="tiny" x="12" y="43">测试 · 评审 · 验收 · 升级</text>
+  </g>
+
+  <rect class="environment" x="920" y="84" width="306" height="420" rx="16"/>
+  <g transform="translate(942 110)">
+    <rect class="cell" width="260" height="96" rx="5"/>
+    <text class="lane" x="14" y="24">运行位置</text>
+    <text class="small" x="14" y="48">设备 · 客户端 · 沙箱</text>
+    <text class="small" x="14" y="68">在线状态 · 系统能力</text>
+    <path d="M218 20h26v18h-26zM224 41h14" fill="none" stroke="#2c6d9e" stroke-width="1.4"/>
+  </g>
+  <g transform="translate(942 226)">
+    <rect class="cell" width="260" height="112" rx="5"/>
+    <text class="lane" x="14" y="24">工程现场</text>
+    <text class="small" x="14" y="48">项目 · 版本 · 独立目录</text>
+    <text class="small" x="14" y="68">依赖 · 数据 · 外部服务</text>
+    <text class="tiny" x="14" y="91">决定工具真正读取和改变的对象</text>
+    <path d="M220 19v28m0-18h24m-24 12h14" fill="none" stroke="#2c6d9e" stroke-width="1.4"/>
+    <circle cx="220" cy="19" r="3" class="accent"/><circle cx="244" cy="29" r="3" class="accent"/><circle cx="234" cy="41" r="3" class="accent"/>
+  </g>
+  <g transform="translate(942 358)">
+    <rect class="cell" width="260" height="110" rx="5"/>
+    <text class="lane" x="14" y="24">资源与行动边界</text>
+    <text class="small" x="14" y="48">账号 · 权限 · 预算</text>
+    <text class="small" x="14" y="68">可访问数据 · 可写范围 · 审批</text>
+    <text class="tiny" x="14" y="91">环境同时提供能力并限制风险</text>
+    <path d="M224 22a12 12 0 0 1 24 0v11h-24zM220 33h32v27h-32z" fill="none" stroke="#2c6d9e" stroke-width="1.4"/>
+  </g>
+
+  <path class="blue" d="M848 421H920"/>
+  <text class="tiny" x="842" y="408" text-anchor="end">工具动作</text>
+  <path class="line" d="M920 462H870"/>
+  <text class="tiny" x="895" y="481" text-anchor="middle">观察结果</text>
+
+  <path class="guide" d="M54 528H1226"/>
+  <rect class="update" x="54" y="558" width="278" height="120" rx="16"/>
+  <text class="lane" x="78" y="586">写回持续责任</text>
+  <text class="small" x="78" y="610">事项状态 · 待办 · 风险</text>
+  <text class="small" x="78" y="630">上下游等待 · 已确认规则</text>
+  <text class="tiny" x="78" y="655">下一次工作从更新后的状态继续</text>
+
+  <rect class="evidence" x="360" y="558" width="532" height="120" rx="16"/>
+  <text class="lane" x="382" y="584">产物与证据</text>
+  <g transform="translate(382 596)">
+    <rect class="inner" width="144" height="60" rx="5"/>
+    <text class="body" x="12" y="23">产物</text>
+    <text class="tiny" x="12" y="43">代码 · 数据 · 文档 · 业务结果</text>
+  </g>
+  <g transform="translate(544 596)">
+    <rect class="inner" width="144" height="60" rx="5"/>
+    <text class="body" x="12" y="23">证据</text>
+    <text class="tiny" x="12" y="43">测试 · 评审 · 指标 · 来源</text>
+  </g>
+  <g transform="translate(706 596)">
+    <rect class="inner" width="164" height="60" rx="5"/>
+    <text class="body" x="12" y="23">可接续记录</text>
+    <text class="tiny" x="12" y="43">决定 · 失败 · 成本 · 检查点</text>
+  </g>
+
+  <rect class="decision" x="920" y="558" width="306" height="120" rx="16"/>
+  <text class="lane" x="942" y="584">证据推动下一步</text>
+  <circle cx="950" cy="607" r="4" class="ok"/><text class="small" x="962" y="611">接受：交付下游</text>
+  <circle cx="950" cy="630" r="4" class="accent"/><text class="small" x="962" y="634">重试：回到工作路径</text>
+  <circle cx="1084" cy="607" r="4" class="accent"/><text class="small" x="1096" y="611">交接：固定现场</text>
+  <circle cx="1084" cy="630" r="4" class="warn"/><text class="small" x="1096" y="634">升级：人工决定</text>
+  <text class="tiny" x="942" y="658">每一种决定都保留依据与责任归属</text>
+
+  <path class="blue" d="M1072 504V538H626V558"/>
+  <text class="tiny" x="626" y="548" text-anchor="middle">环境结果被固定为可检查记录</text>
+  <path class="line" d="M360 620H332"/>
+  <path class="line" d="M892 620H920"/>
+  <path class="feedback" d="M814 558V536H906V145H870"/>
+</svg>

@@ -1,0 +1,50 @@
+{
+  "schema": "ze-figure-evidence.v1",
+  "figure_set": "多个 Agent 如何逐步负责业务环节",
+  "preset": "agentdesk-method-article-2026-08",
+  "subject_root": "docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md",
+  "dated": "2026-08-14",
+  "kinds": {
+    "verified": "已经由本文现有方法结构或项目规划明确",
+    "external": "由外部原始资料支持，用于解释行业术语",
+    "hypothesis": "本文面向未来提出、仍需真实运行继续验证"
+  },
+  "figures": {
+    "agent-work-system.svg": {
+      "argument": "一名 Agent 能够持续负责工作，依赖责任与当前工作包进入运行框架、在真实环境中产生行动，再由产物和证据返回状态、方法与下游决定的完整回路。",
+      "why_this_figure_exists": "正文同时涉及提示、上下文、循环、工作图、运行框架、环境、Skill、持续身份和控制面。图解追踪一项工作真实经过的对象，帮助读者看见这些概念怎样协作，而非把术语排列成层级。",
+      "claims": [
+        {
+          "claim": "业务环节保存持续目标、状态、上下游、指标和例外；当前事项与工作包保存本次目标、输入、验收和状态。",
+          "kind": "verified",
+          "source": "docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md，第一章持续状态表与第二章工作包字段表"
+        },
+        {
+          "claim": "持续 Agent 身份关联 Skill、配置、历史与结果，使更换账号、模型、设备或会话后的运行继续归入同一身份。",
+          "kind": "verified",
+          "source": "docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md，第一章第二段"
+        },
+        {
+          "claim": "运行框架装配上下文、组织循环或工作图、调用工具、保存状态并执行验证。",
+          "kind": "external",
+          "source": "OpenAI, Unrolling the Codex agent loop；OpenAI, Harness engineering；Anthropic, Effective harnesses for long-running agents"
+        },
+        {
+          "claim": "工作环境包含运行位置、工程现场和资源边界；工具动作在这些真实条件中发生。",
+          "kind": "verified",
+          "source": "docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md，开篇术语解释与第四章工程对象映射表"
+        },
+        {
+          "claim": "产物与证据支持下游接受、重试、交接或升级，并回写持续状态；反复有效的方法进入 Skill 和配置的新版本。",
+          "kind": "verified",
+          "source": "docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md，第六章状态链、第七章证据成熟度与第八章长期记录"
+        },
+        {
+          "claim": "Agent 长期负责业务环节是本文的未来组织假设，仍需责任边界、真实业务运行与长期证据验证。",
+          "kind": "hypothesis",
+          "source": "docs/MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md，第八章判断分层表"
+        }
+      ]
+    }
+  }
+}
