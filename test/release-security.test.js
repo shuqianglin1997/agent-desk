@@ -390,6 +390,25 @@ test('GitHub Release 采用 draft 预验、匿名复验和失败回草稿事务'
   assert.doesNotMatch(workflow, /uses: [^\s]+@v\d/);
   assert.doesNotMatch(workflow, /softprops\/action-gh-release|Download all build artifacts/);
   assert.doesNotMatch(workflow, /artifacts\/\*|release-assets\/\*/);
+  assert.doesNotMatch(
+    workflow,
+    /^\s{6}(?:DOWNLOAD_DIR|DIAGNOSTICS_DIR):\s+\$\{\{ runner\.temp \}\}/gm,
+    'runner.temp is unavailable in job-level env; release paths must be workspace-relative'
+  );
+  for (const workspaceRelativePath of [
+    'DOWNLOAD_DIR: agentdesk-draft-macos-release-assets',
+    'DIAGNOSTICS_DIR: agentdesk-release-diagnostics/draft-macos',
+    'DOWNLOAD_DIR: agentdesk-draft-windows-release-assets',
+    'DIAGNOSTICS_DIR: agentdesk-release-diagnostics\\draft-windows',
+    'DIAGNOSTICS_DIR: agentdesk-release-diagnostics/public-metadata',
+    'DOWNLOAD_DIR: agentdesk-public-macos-release-assets',
+    'DIAGNOSTICS_DIR: agentdesk-release-diagnostics/public-macos',
+    'DOWNLOAD_DIR: agentdesk-public-windows-release-assets',
+    'DIAGNOSTICS_DIR: agentdesk-release-diagnostics\\public-windows',
+    'DIAGNOSTICS_DIR: agentdesk-release-diagnostics/public-seal'
+  ]) {
+    assert.ok(workflow.includes(workspaceRelativePath), `missing workspace-relative release path: ${workspaceRelativePath}`);
+  }
 
   assertOrdered(workflow, [
     '  assemble-release-assets:',

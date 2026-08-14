@@ -693,8 +693,8 @@ jobs:
       EXPECTED_MANIFEST_SHA256: ${{ needs.assemble-release-assets.outputs.manifest_sha256 }}
       EXPECTED_RELEASE_ID: ${{ needs.create-draft.outputs.release_id }}
       EXPECTED_ASSET_IDENTITY: ${{ needs.create-draft.outputs.asset_identity }}
-      DOWNLOAD_DIR: ${{ runner.temp }}/agentdesk-draft-macos-release-assets
-      DIAGNOSTICS_DIR: ${{ runner.temp }}/agentdesk-release-diagnostics/draft-macos
+      DOWNLOAD_DIR: agentdesk-draft-macos-release-assets
+      DIAGNOSTICS_DIR: agentdesk-release-diagnostics/draft-macos
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -735,7 +735,7 @@ jobs:
       - name: First-use and two-restart smoke of exact draft DMG
         shell: bash
         env:
-          SMOKE_ARTIFACTS: ${{ runner.temp }}/agentdesk-release-diagnostics/draft-macos/smoke
+          SMOKE_ARTIFACTS: agentdesk-release-diagnostics/draft-macos/smoke
         run: |
           set -euo pipefail
           dmg_path="$DOWNLOAD_DIR/$DMG_NAME"
@@ -773,7 +773,7 @@ jobs:
           name: draft-macos-release-diagnostics
           if-no-files-found: ignore
           retention-days: 7
-          path: ${{ runner.temp }}/agentdesk-release-diagnostics/draft-macos
+          path: agentdesk-release-diagnostics/draft-macos
 
   verify-draft-windows:
     needs:
@@ -793,8 +793,8 @@ jobs:
       EXPECTED_MANIFEST_SHA256: ${{ needs.assemble-release-assets.outputs.manifest_sha256 }}
       EXPECTED_RELEASE_ID: ${{ needs.create-draft.outputs.release_id }}
       EXPECTED_ASSET_IDENTITY: ${{ needs.create-draft.outputs.asset_identity }}
-      DOWNLOAD_DIR: ${{ runner.temp }}\agentdesk-draft-windows-release-assets
-      DIAGNOSTICS_DIR: ${{ runner.temp }}\agentdesk-release-diagnostics\draft-windows
+      DOWNLOAD_DIR: agentdesk-draft-windows-release-assets
+      DIAGNOSTICS_DIR: agentdesk-release-diagnostics\draft-windows
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -843,7 +843,7 @@ jobs:
       - name: First-use and two-restart smoke of exact draft portable
         shell: pwsh
         env:
-          SMOKE_ARTIFACTS: ${{ runner.temp }}\agentdesk-release-diagnostics\draft-windows\smoke
+          SMOKE_ARTIFACTS: agentdesk-release-diagnostics\draft-windows\smoke
         run: npm run accept:packaged -- --artifact "$env:DOWNLOAD_DIR\$env:PORTABLE_NAME" --artifacts "$env:SMOKE_ARTIFACTS"
 
       - name: Verify draft portable bytes unchanged after smoke
@@ -861,7 +861,7 @@ jobs:
           name: draft-windows-release-diagnostics
           if-no-files-found: ignore
           retention-days: 7
-          path: ${{ runner.temp }}\agentdesk-release-diagnostics\draft-windows
+          path: agentdesk-release-diagnostics\draft-windows
 
   publish-release:
     needs:
@@ -942,7 +942,7 @@ jobs:
       EXPECTED_COMMIT_SHA: ${{ needs.release-policy.outputs.commit_sha }}
       EXPECTED_RELEASE_ID: ${{ needs.publish-release.outputs.release_id }}
       EXPECTED_ASSET_IDENTITY: ${{ needs.publish-release.outputs.asset_identity }}
-      DIAGNOSTICS_DIR: ${{ runner.temp }}/agentdesk-release-diagnostics/public-metadata
+      DIAGNOSTICS_DIR: agentdesk-release-diagnostics/public-metadata
       GITHUB_TOKEN: ""
       GH_TOKEN: ""
       RELEASE_GATE_TOKEN: ""
@@ -991,7 +991,7 @@ jobs:
           name: public-release-metadata-diagnostics
           if-no-files-found: ignore
           retention-days: 7
-          path: ${{ runner.temp }}/agentdesk-release-diagnostics/public-metadata
+          path: agentdesk-release-diagnostics/public-metadata
 
   verify-public-macos:
     needs:
@@ -1011,8 +1011,8 @@ jobs:
       EXPECTED_MANIFEST_SHA256: ${{ needs.assemble-release-assets.outputs.manifest_sha256 }}
       EXPECTED_RELEASE_ID: ${{ needs.publish-release.outputs.release_id }}
       EXPECTED_ASSET_IDENTITY: ${{ needs.publish-release.outputs.asset_identity }}
-      DOWNLOAD_DIR: ${{ runner.temp }}/agentdesk-public-macos-release-assets
-      DIAGNOSTICS_DIR: ${{ runner.temp }}/agentdesk-release-diagnostics/public-macos
+      DOWNLOAD_DIR: agentdesk-public-macos-release-assets
+      DIAGNOSTICS_DIR: agentdesk-release-diagnostics/public-macos
       GITHUB_TOKEN: ""
       GH_TOKEN: ""
       RELEASE_GATE_TOKEN: ""
@@ -1053,7 +1053,7 @@ jobs:
       - name: First-use and two-restart smoke of exact public DMG
         shell: bash
         env:
-          SMOKE_ARTIFACTS: ${{ runner.temp }}/agentdesk-release-diagnostics/public-macos/smoke
+          SMOKE_ARTIFACTS: agentdesk-release-diagnostics/public-macos/smoke
         run: |
           set -euo pipefail
           dmg_path="$DOWNLOAD_DIR/$DMG_NAME"
@@ -1091,7 +1091,7 @@ jobs:
           name: public-macos-release-diagnostics
           if-no-files-found: ignore
           retention-days: 7
-          path: ${{ runner.temp }}/agentdesk-release-diagnostics/public-macos
+          path: agentdesk-release-diagnostics/public-macos
 
   verify-public-windows:
     needs:
@@ -1111,8 +1111,8 @@ jobs:
       EXPECTED_MANIFEST_SHA256: ${{ needs.assemble-release-assets.outputs.manifest_sha256 }}
       EXPECTED_RELEASE_ID: ${{ needs.publish-release.outputs.release_id }}
       EXPECTED_ASSET_IDENTITY: ${{ needs.publish-release.outputs.asset_identity }}
-      DOWNLOAD_DIR: ${{ runner.temp }}\agentdesk-public-windows-release-assets
-      DIAGNOSTICS_DIR: ${{ runner.temp }}\agentdesk-release-diagnostics\public-windows
+      DOWNLOAD_DIR: agentdesk-public-windows-release-assets
+      DIAGNOSTICS_DIR: agentdesk-release-diagnostics\public-windows
       GITHUB_TOKEN: ""
       GH_TOKEN: ""
       RELEASE_GATE_TOKEN: ""
@@ -1161,7 +1161,7 @@ jobs:
       - name: First-use and two-restart smoke of exact public portable
         shell: pwsh
         env:
-          SMOKE_ARTIFACTS: ${{ runner.temp }}\agentdesk-release-diagnostics\public-windows\smoke
+          SMOKE_ARTIFACTS: agentdesk-release-diagnostics\public-windows\smoke
         run: npm run accept:packaged -- --artifact "$env:DOWNLOAD_DIR\$env:PORTABLE_NAME" --artifacts "$env:SMOKE_ARTIFACTS"
 
       - name: Verify public portable bytes unchanged after smoke
@@ -1179,7 +1179,7 @@ jobs:
           name: public-windows-release-diagnostics
           if-no-files-found: ignore
           retention-days: 7
-          path: ${{ runner.temp }}\agentdesk-release-diagnostics\public-windows
+          path: agentdesk-release-diagnostics\public-windows
 
   redraft-on-public-metadata-failure:
     needs:
@@ -1315,7 +1315,7 @@ jobs:
       EXPECTED_COMMIT_SHA: ${{ needs.release-policy.outputs.commit_sha }}
       EXPECTED_RELEASE_ID: ${{ needs.publish-release.outputs.release_id }}
       EXPECTED_ASSET_IDENTITY: ${{ needs.publish-release.outputs.asset_identity }}
-      DIAGNOSTICS_DIR: ${{ runner.temp }}/agentdesk-release-diagnostics/public-seal
+      DIAGNOSTICS_DIR: agentdesk-release-diagnostics/public-seal
       GITHUB_TOKEN: ""
       GH_TOKEN: ""
       RELEASE_GATE_TOKEN: ""
