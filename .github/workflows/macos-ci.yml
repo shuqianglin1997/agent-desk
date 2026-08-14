@@ -87,7 +87,7 @@ jobs:
         env:
           PACKAGED_APP: ${{ steps.packaged_app.outputs.path }}
           SMOKE_ARTIFACTS: ${{ runner.temp }}/agentdesk-smoke-macos-ci
-        run: npm run accept:packaged -- --artifact "$PACKAGED_APP" --artifacts "$SMOKE_ARTIFACTS"
+        run: npm run accept:packaged -- --artifact "$PACKAGED_APP" --artifacts "$SMOKE_ARTIFACTS" --macos-ci-mock-keychain
 
       - name: Upload macOS smoke diagnostics
         if: failure()

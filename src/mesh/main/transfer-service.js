@@ -1724,7 +1724,7 @@ class TransferService {
 
   writeTaskPackageCleanupDescriptor(job, local) {
     if (job.type !== 'task-package' || job.direction !== 'incoming') return false;
-    const packageRoot = fs.realpathSync(path.resolve(this.spoolRoot, 'task-packages'));
+    const packageRoot = realpathResolvedSync(path.resolve(this.spoolRoot, 'task-packages'));
     if (!sameResolvedPath(local.destinationRoot, packageRoot)) {
       throw new Error('task-package-cleanup-root');
     }
@@ -1760,7 +1760,11 @@ class TransferService {
   async prepareIncomingDestination(job, manifest, destinationRoot) {
     const requested = String(destinationRoot || '');
     if (!path.isAbsolute(requested) || requested.includes('\0')) throw new Error('file-destination-invalid');
-    const root = await fs.promises.realpath(requested);
+    // Keep destination resolution asynchronous: this path may be a slow UNC or
+    // network-backed directory. The later cleanup comparison normalizes the
+    // equivalent Windows namespace/casing forms without weakening the exact-root
+    // boundary captured here.
+    const root = await fs.promises.realpath(path.resolve(requested));
     const stat = await fs.promises.stat(root);
     if (!stat.isDirectory()) throw new Error('file-destination-not-directory');
     const previous = this.readFileLocalState(job);
@@ -2393,10 +2397,26 @@ function safeChildPath(root, name) {
   return target;
 }
 
+function realpathResolvedSync(value) {
+  return fs.realpathSync(path.resolve(value));
+}
+
 function sameResolvedPath(left, right, pathApi = path) {
   if (typeof left !== 'string' || typeof right !== 'string' || !left || !right) return false;
-  const leftPath = pathApi.resolve(left);
-  const rightPath = pathApi.resolve(right);
+  const windowsSemantics = pathApi === path.win32 || pathApi?.sep === '\\';
+  const comparable = (value) => {
+    if (!windowsSemantics) return pathApi.resolve(value);
+    const windowsPath = value.replace(/\//g, '\\');
+    if (/^\\\\\?\\UNC\\/i.test(windowsPath)) {
+      return pathApi.resolve(`\\\\${windowsPath.slice(8)}`);
+    }
+    if (/^\\\\\?\\[a-z]:\\/i.test(windowsPath)) {
+      return pathApi.resolve(windowsPath.slice(4));
+    }
+    return pathApi.resolve(windowsPath);
+  };
+  const leftPath = comparable(left);
+  const rightPath = comparable(right);
   return pathApi.relative(leftPath, rightPath) === '';
 }
 

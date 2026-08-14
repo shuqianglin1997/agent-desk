@@ -110,8 +110,9 @@
 - 当前工作树的真实 Electron 窗口验收以 21/21 任务路径通过；覆盖全新首 Agent 的本机无网络事务、首次使用重启恢复、设备向导 Shell/状态层级和 TaskPackage 直送资格/阶段投影。直送窗口证据不代表真实 WebRTC 数据面。
 - 实窗覆盖 58/244/316/38 固定几何、Compact 无横滚、focus/checked、庭院/卡片、Top Layer 场景 Popover、Agent 对象 Dialog、三语、明暗主题、本机新增、四个 Header 入口、固定区矩形不随 Content 滚动、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 上下文、Agent/Binding/Slot 管理、多副本来源、SessionPointer/文件/历史分离、远控返回/断开、撤销清理和 reduced-motion。
 - `git diff --check` 通过。
-- 当前 macOS unpacked 成品已通过独立 fuse/ASAR verifier：118/118 个常规文件的整文件/分块 SHA-256、`app.asar`/`default_app.asar`、五项 fuse 与 `ElectronAsarIntegrity` header hash 均符合 1.28。这个结果是当前唯一有效的本机成品证据，不等于签名、公证、Gatekeeper 或三次首次使用 smoke 已通过。
-- 本轮本机 packaged first-use smoke 没有形成通过证据：既有 Mesh 私钥的 macOS Keychain ACL 仍绑定先前 ad-hoc CDHash，新 ad-hoc bundle 无法读取该测试用户数据。该现象限定为本机历史 Keychain/签名上下文，不能写成产品首次使用失败，也不能写成 smoke 已通过；重试应使用隔离且不会碰所有者真实密钥的干净环境或最终 Developer ID 候选。
+- 本机现有确切 `release/mac-arm64/AgentDesk.app` 已通过两层成品检查：独立 fuse/ASAR verifier 核对了 118/118 个常规文件的整文件/分块 SHA-256、`app.asar`/`default_app.asar`、五项 fuse 与 `ElectronAsarIntegrity` header hash；随后使用真实语义开关 `--macos-ci-mock-keychain` 对同一确切字节完成三次 packaged first-use smoke。runner 启动前证明该 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，并在三次 Browser command line 中逐次核对唯一原生 `--use-mock-keychain`；初始化、重启恢复并完成、完成后再重启均通过，报告为 `keychainMode=mock`。
+- 这条本机记录只证明该 ad-hoc 成品在 mock Keychain 下的打包兼容性与首次使用事务。新的 GitHub macOS `main` CI 运行仍待取得结果；macOS 系统 Keychain 与 OS 密钥保护、Developer ID 签名、公证、Gatekeeper、签名 DMG、Draft/公开匿名重下载、浏览器 quarantine 和物理干净机首启仍是开放门禁。发布链路不得使用语义或原生 mock-Keychain 开关，必须继续走系统 Keychain。
+- 此前系统 Keychain 路径因既有 Mesh 私钥 ACL 绑定旧 ad-hoc CDHash 而失败，仍只属于本机历史 Keychain/签名上下文；新的 mock 兼容性通过记录没有把这条系统 Keychain 路径改写成已通过，也不构成产品首次使用失败。
 - 1.27 期间曾把早期 ad-hoc `0.10.1-preview.1` 安装到 `/Applications/AgentDesk.app` 并保留 `0.10.0` 回滚副本 `/Applications/AgentDesk.app.pre-0.10.1-preview.1-20260814-131032`。那是 fuse/发布门禁改动前的历史安装记录，不是当前候选或公开下载证据。
 - Preview-only Draft/公开重下载事务代码与 14/14 已通过，但真实签名凭据、受保护 `preview-release` 环境和真实 Tag 尚未执行；当前没有公开 `v0.10.1-preview.1`。托管 runner 未来通过也不能替代浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC 与物理干净机首启。
 - 本轮审阅截图在临时目录 `/private/tmp/agentdesk-ui-1.14-acceptance/`；它们不是产品数据，也不应作为运行时依赖。

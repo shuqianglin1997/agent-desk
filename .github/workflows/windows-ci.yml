@@ -33,7 +33,7 @@ jobs:
         run: npm run check
 
       - name: Test
-        run: npm test
+        run: npm run test:ci:windows
 
       - name: Parse Windows release verifiers
         shell: pwsh

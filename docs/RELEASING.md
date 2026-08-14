@@ -81,21 +81,34 @@ loopback cleanup. A random launch token and the Browser command line bind the
 DevTools page to that exact launch; cleanup only signals the original spawned
 process handle and never resolves a new process from a reusable PID. All three
 launches must use the same candidate bytes. On macOS, only userData is
-temporary: Electron `safeStorage` can still use the ephemeral runner's system
-Keychain, so this smoke must not be described as a fully Keychain-isolated
-physical-user test.
+temporary. The ad-hoc `main` compatibility job explicitly passes
+`--macos-ci-mock-keychain`; the smoke runner first proves the artifact is an
+ad-hoc-signed `AgentDesk.app`: it explicitly verifies every architecture,
+enumerates the main executable's slices, and displays/classifies each slice
+separately. Every slice must report exactly one ad-hoc signature, no Authority,
+and no TeamIdentifier; mixed signatures fail closed. Only then does it add
+Chromium's native mock-Keychain switch to all three launches and verify that
+exact switch in the Browser command line. This avoids coupling an ad-hoc
+compatibility run to a hosted runner's interactive Keychain ACL. It proves only
+the packaged first-use transaction, not macOS Keychain protection. Developer
+ID builds, Draft re-downloads and public re-downloads never receive either
+mock-Keychain switch and continue to exercise the system Keychain.
 
-The `main` macOS job performs these checks on an ad-hoc universal unpacked app
-and separately requires arm64 + x86_64 in the main executable and input helper.
+The `main` macOS job performs these checks on an ad-hoc universal unpacked app,
+using the narrowly gated mock-Keychain mode above, and separately requires
+arm64 + x86_64 in the main executable and input helper.
 The Windows job verifies the unsigned `win-unpacked`, extracts and verifies the
 portable's own inner app/helper, then smokes both outputs. Those
 jobs prove packaging compatibility only and upload diagnostics only on failure.
 The release transaction repeats the checks on the signed native outputs, on the
 downloaded Draft assets, and again on anonymously downloaded public assets.
-Current local evidence is limited to the macOS unpacked verifier passing all
-118 regular ASAR files, five fuses and the `Info.plist` header binding; it must
-not be rewritten as a signed, notarized, packaged-smoke, or
-public-download result.
+Current local evidence covers the exact thin-arm64
+`release/mac-arm64/AgentDesk.app`: the unpacked verifier passed all 118 regular
+ASAR files, five fuses and the `Info.plist` header binding, and the real semantic
+mock-Keychain flag passed all three first-use launches after the per-architecture
+gate classified its one arm64 slice as ad-hoc. This is not evidence for the
+universal CI build, the system Keychain, Developer ID signing, notarization,
+Draft/public downloads, or a physical clean machine.
 
 ## Required GitHub Actions variables
 
@@ -189,8 +202,11 @@ npm run verify:electron-package -- --artifact release/mac-arm64/AgentDesk.app
 ```
 
 `npm run accept:packaged -- --artifact <exact-artifact>` exercises the three
-launch first-use smoke. A local smoke result is valid only for the named bytes
-and disposable userData; it does not authorize publication.
+launch first-use smoke with the system Keychain. A local smoke result is valid
+only for the named bytes and disposable userData; it does not authorize
+publication. `--macos-ci-mock-keychain` is reserved for the `main` ad-hoc CI job
+and fails closed for Windows, unsigned bundles, or certificate-signed macOS
+apps.
 
 For a production-equivalent macOS build, export the same signing and
 notarization variables used by CI, then run:
@@ -220,8 +236,9 @@ it; checking only the outer container is insufficient.
 The current `0.10.1-preview.1` evidence is intentionally layered. The full Node
 suite contains 517 tests: 516 pass, 1 Windows-only test is skipped, and 0 fail.
 TaskPackage security is 25/25, release security is 14/14, and real Electron UI
-acceptance is 21/21. The current macOS unpacked artifact passes the independent
-fuse/ASAR verifier.
+acceptance is 21/21. The current thin-arm64 macOS unpacked artifact passes the
+independent fuse/ASAR verifier and its three-launch mock-Keychain first-use
+smoke; the universal CI and system-Keychain boundaries remain open.
 Isolated direct-LAN and local-signaling E2E runs both complete authentication,
 catalog/inventory, refresh, SessionPointer, a 184,333-byte file, and a synthetic
 remote view; that runner does not send a TaskPackage, so it is not a

@@ -116,7 +116,7 @@ test('清理根路径按平台规范化后仍要求同一个精确目录', () =>
   ), false);
 });
 
-test('Windows 清理根接受等价大小写和分隔符但拒绝兄弟目录、子目录与异盘', () => {
+test('Windows 清理根接受等价表示但拒绝兄弟目录、子目录、异盘与不同 UNC 共享', () => {
   const controlledRoot = 'C:\\Users\\RUNNERADMIN\\AgentDesk\\spool\\task-packages';
   assert.equal(sameResolvedPath(
     controlledRoot,
@@ -125,17 +125,44 @@ test('Windows 清理根接受等价大小写和分隔符但拒绝兄弟目录、
   ), true);
   assert.equal(sameResolvedPath(
     controlledRoot,
-    'C:\\Users\\RUNNERADMIN\\AgentDesk\\spool\\task-packages-saved',
+    '\\\\?\\C:\\Users\\runneradmin\\AgentDesk\\spool\\task-packages',
+    path.win32
+  ), true);
+  assert.equal(sameResolvedPath(
+    controlledRoot,
+    '//?/c:/users/RUNNERADMIN/AgentDesk/spool/task-packages/',
+    path.win32
+  ), true);
+
+  const uncRoot = '\\\\build-host\\AgentDeskShare\\spool\\task-packages';
+  assert.equal(sameResolvedPath(
+    uncRoot,
+    '\\\\?\\UNC\\BUILD-HOST\\agentdeskshare\\spool\\.\\task-packages\\',
+    path.win32
+  ), true);
+  assert.equal(sameResolvedPath(
+    controlledRoot,
+    '\\\\?\\C:\\Users\\RUNNERADMIN\\AgentDesk\\spool\\task-packages-saved',
     path.win32
   ), false);
   assert.equal(sameResolvedPath(
     controlledRoot,
-    'C:\\Users\\RUNNERADMIN\\AgentDesk\\spool\\task-packages\\child',
+    '\\\\?\\C:\\Users\\RUNNERADMIN\\AgentDesk\\spool\\task-packages\\child',
     path.win32
   ), false);
   assert.equal(sameResolvedPath(
     controlledRoot,
     'D:\\Users\\RUNNERADMIN\\AgentDesk\\spool\\task-packages',
+    path.win32
+  ), false);
+  assert.equal(sameResolvedPath(
+    '\\\\build-host\\AgentDeskShare\\spool\\task-packages',
+    '\\\\?\\UNC\\build-host\\OtherShare\\spool\\task-packages',
+    path.win32
+  ), false);
+  assert.equal(sameResolvedPath(
+    '\\\\build-host\\AgentDeskShare\\spool\\task-packages',
+    '\\\\?\\UNC\\build-host\\AgentDeskShare\\spool\\task-packages\\child',
     path.win32
   ), false);
 });
