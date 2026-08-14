@@ -404,6 +404,9 @@ test('pairing IPC requires a prior inspection token and exact approval fields', 
 test('main/preload source closes raw path, full-profile, sender and navigation bypasses', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
   const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
+  assert.match(main, /const MAIN_DOCUMENT_PATH = fs\.realpathSync\(path\.join\(__dirname, 'index\.html'\)\);/);
+  assert.match(main, /const MAIN_DOCUMENT_URL = pathToFileURL\(MAIN_DOCUMENT_PATH\)\.href;/);
+  assert.match(main, /mainWindow\.loadFile\(MAIN_DOCUMENT_PATH\)/);
   assert.match(main, /const ipcMain = createTrustedIpcMain\(/);
   assert.match(main, /installMainWindowSecurity\(mainWindow/);
   assert.match(main, /profile-path-input-forbidden/);
