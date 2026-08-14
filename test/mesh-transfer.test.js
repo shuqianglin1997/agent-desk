@@ -17,7 +17,11 @@ const { encryptSecurePayload, decryptSecurePayload } = require('../src/mesh/prot
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { MeshStore } = require('../src/mesh/storage/mesh-store');
 const { MeshService } = require('../src/mesh/main/mesh-service');
-const { TransferService, sameResolvedPath } = require('../src/mesh/main/transfer-service');
+const {
+  TransferService,
+  sameDirectoryObjectSync,
+  sameResolvedPath
+} = require('../src/mesh/main/transfer-service');
 
 test('纯本地模式查看活动不会提前创建不完整 Mesh 数据库', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-transfer-local-'));
@@ -164,6 +168,53 @@ test('Windows 清理根接受等价表示但拒绝兄弟目录、子目录、异
     '\\\\build-host\\AgentDeskShare\\spool\\task-packages',
     '\\\\?\\UNC\\build-host\\AgentDeskShare\\spool\\task-packages\\child',
     path.win32
+  ), false);
+
+  const directoryStat = (dev, ino, directory = true) => ({
+    dev,
+    ino,
+    isDirectory: () => directory
+  });
+  const identities = new Map([
+    ['C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\agentdesk\\task-packages', directoryStat(41n, 701n)],
+    ['C:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\task-packages', directoryStat(41n, 701n)],
+    ['C:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\task-packages-saved', directoryStat(41n, 702n)],
+    ['D:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\task-packages', directoryStat(42n, 701n)],
+    ['C:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\unknown-identity', directoryStat(0n, 0n)],
+    ['C:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\ordinary-file', directoryStat(41n, 701n, false)]
+  ]);
+  const statSync = (value) => {
+    const result = identities.get(value);
+    if (!result) throw new Error('missing-test-identity');
+    return result;
+  };
+  const shortAlias = 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\agentdesk\\task-packages';
+  const longAlias = 'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\task-packages';
+  assert.equal(sameDirectoryObjectSync(shortAlias, longAlias, { pathApi: path.win32, statSync }), true);
+  assert.equal(sameDirectoryObjectSync(
+    longAlias,
+    'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\task-packages-saved',
+    { pathApi: path.win32, statSync }
+  ), false);
+  assert.equal(sameDirectoryObjectSync(
+    longAlias,
+    'D:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\task-packages',
+    { pathApi: path.win32, statSync }
+  ), false);
+  assert.equal(sameDirectoryObjectSync(
+    longAlias,
+    'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\unknown-identity',
+    { pathApi: path.win32, statSync }
+  ), false);
+  assert.equal(sameDirectoryObjectSync(
+    longAlias,
+    'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\ordinary-file',
+    { pathApi: path.win32, statSync }
+  ), false);
+  assert.equal(sameDirectoryObjectSync(
+    longAlias,
+    'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\agentdesk\\missing',
+    { pathApi: path.win32, statSync }
   ), false);
 });
 
