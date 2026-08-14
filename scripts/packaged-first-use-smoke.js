@@ -851,6 +851,49 @@ async function waitFor(client, expression, label, timeoutMs) {
   throw new Error(`Timed out waiting for ${label}`);
 }
 
+async function firstUseStartupDiagnostics(instance) {
+  let renderer = null;
+  try {
+    renderer = await instance.client.evaluate(`({
+      documentReadyState: document.readyState,
+      startupStage: state.startupStage || null,
+      onboardingStateType: typeof window.OnboardingState,
+      dialogOpen: document.querySelector('#welcomeDialog')?.open === true,
+      onboardingContentHidden: document.querySelector('#onboardingContent')?.hidden !== false,
+      firstUseMode: state.firstUse?.mode || null,
+      firstUsePhase: state.firstUse?.model?.phase || null,
+      firstUseVersion: state.firstUse?.model?.version || null,
+      profileCount: Array.isArray(state.profiles) ? state.profiles.length : null,
+      meshOverviewLoaded: state.mesh?.overview !== null,
+      meshInitialized: state.mesh?.overview?.initialized === true,
+      meshLoading: state.mesh?.loading === true,
+      meshErrorCode: state.mesh?.errorCode || null,
+      onboardingProgress: state.onboardingProgress || null
+    })`);
+  } catch (error) {
+    renderer = { diagnosticError: String(error?.message || error).slice(0, 240) };
+  }
+  const runtimeExceptions = instance.client.events
+    .filter((event) => event.method === 'Runtime.exceptionThrown')
+    .slice(-4)
+    .map((event) => {
+      const details = event.params?.exceptionDetails || {};
+      return {
+        text: String(details.text || 'Renderer exception').replace(/\s+/g, ' ').slice(0, 80),
+        className: String(details.exception?.className || 'Error').slice(0, 40),
+        lineNumber: Number.isInteger(details.lineNumber) ? details.lineNumber : null,
+        columnNumber: Number.isInteger(details.columnNumber) ? details.columnNumber : null
+      };
+    });
+  return {
+    renderer,
+    runtimeExceptionCount: instance.client.events.filter((event) => (
+      event.method === 'Runtime.exceptionThrown'
+    )).length,
+    runtimeExceptions
+  };
+}
+
 async function waitForFile(filePath, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -1203,16 +1246,23 @@ async function assertPackagedMainWindow(instance, expectedVersion) {
 
 async function initializeFirstAgent(instance, userData, options) {
   const { client } = instance;
-  await waitFor(
-    client,
-    `document.querySelector('#welcomeDialog')?.open
-      && state.firstUse.model?.phase === 'agent'
-      && state.firstUse.model?.version === ${JSON.stringify(options.expectedOnboardingVersion)}
-      && state.profiles.length === 0
-      && state.mesh.overview?.initialized !== true`,
-    'fresh versioned first-use Agent step',
-    options.timeoutMs
-  );
+  try {
+    await waitFor(
+      client,
+      `document.querySelector('#welcomeDialog')?.open
+        && state.firstUse.model?.phase === 'agent'
+        && state.firstUse.model?.version === ${JSON.stringify(options.expectedOnboardingVersion)}
+        && state.profiles.length === 0
+        && state.mesh.overview?.initialized !== true`,
+      'fresh versioned first-use Agent step',
+      options.timeoutMs
+    );
+  } catch (error) {
+    const wrapped = new Error(error?.message || 'fresh-first-use-presentation-failed');
+    wrapped.cause = error;
+    wrapped.diagnostics = await firstUseStartupDiagnostics(instance);
+    throw wrapped;
+  }
   await waitForFile(path.join(userData, 'profiles.json'), options.timeoutMs);
   await waitForFile(path.join(userData, 'settings.json'), options.timeoutMs);
   assert.deepEqual(readProfiles(userData), [], 'fresh packaged userData must start with zero Profiles');
@@ -1467,6 +1517,7 @@ async function runSmoke(options) {
       name: error?.name || 'Error',
       message: error?.message || String(error)
     };
+    if (error?.diagnostics) report.diagnostics = error.diagnostics;
     if (tail) report.outputTail = tail;
     if (options.artifacts) {
       fs.mkdirSync(options.artifacts, { recursive: true });
