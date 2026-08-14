@@ -18,9 +18,11 @@ jobs:
   verify:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -37,4 +39,60 @@ jobs:
       # Production DMGs are created exclusively by release.yml with Developer
       # ID signing and notarization.
       - name: Build unpacked macOS app
-        run: npm run build:mac:dir
+        run: npm run build:mac:ci
+
+      - name: Resolve unique unpacked macOS app
+        id: packaged_app
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_paths=()
+          while IFS= read -r app_path; do
+            app_paths+=("$app_path")
+          done < <(find release -type d -name 'AgentDesk.app' -prune -print | sort)
+          if [ "${#app_paths[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one unpacked AgentDesk.app; found ${#app_paths[@]}."
+            exit 1
+          fi
+          printf 'path=%s\n' "${app_paths[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify universal macOS package shape
+        shell: bash
+        env:
+          PACKAGED_APP: ${{ steps.packaged_app.outputs.path }}
+        run: |
+          set -euo pipefail
+          app_architectures="$(lipo -archs "$PACKAGED_APP/Contents/MacOS/AgentDesk")"
+          helper_path="$PACKAGED_APP/Contents/Resources/native/AgentDeskInputHelper"
+          if [ ! -f "$helper_path" ] || [ ! -x "$helper_path" ]; then
+            echo "::error::Expected the packaged universal input helper at its fixed path."
+            exit 1
+          fi
+          helper_architectures="$(lipo -archs "$helper_path")"
+          for architectures in "$app_architectures" "$helper_architectures"; do
+            if [[ " $architectures " != *" arm64 "* ]] || [[ " $architectures " != *" x86_64 "* ]]; then
+              echo "::error::Expected arm64 and x86_64; found: $architectures"
+              exit 1
+            fi
+          done
+
+      - name: Verify Electron fuses and ASAR integrity in unpacked macOS app
+        shell: bash
+        env:
+          PACKAGED_APP: ${{ steps.packaged_app.outputs.path }}
+        run: npm run verify:electron-package -- --artifact "$PACKAGED_APP"
+
+      - name: Smoke packaged first use in unpacked macOS app
+        shell: bash
+        env:
+          PACKAGED_APP: ${{ steps.packaged_app.outputs.path }}
+          SMOKE_ARTIFACTS: ${{ runner.temp }}/agentdesk-smoke-macos-ci
+        run: npm run accept:packaged -- --artifact "$PACKAGED_APP" --artifacts "$SMOKE_ARTIFACTS"
+
+      - name: Upload macOS smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: macos-ci-smoke-diagnostics
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/agentdesk-smoke-macos-ci

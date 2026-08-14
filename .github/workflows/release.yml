@@ -1,25 +1,127 @@
 name: Build & Release
 
-# Production artifacts are built natively on each OS. The macOS job refuses to
-# upload anything unless Developer ID signing, notarization, stapling, and
-# Gatekeeper verification all succeed.
+# Production artifacts are built natively on each OS. Neither platform uploads
+# anything unless its native signing and final-artifact verification succeeds;
+# macOS additionally requires notarization, stapling, and Gatekeeper approval.
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing protected Preview tag (select this same tag as the workflow ref)
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  # Stable publication remains closed until the Plan 1.28 physical-device gates close.
+  STABLE_ALLOWED: "false"
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
+  release-policy:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.policy.outputs.tag }}
+      version: ${{ steps.policy.outputs.version }}
+      commit_sha: ${{ steps.policy.outputs.commit_sha }}
+      apple_team_id: ${{ steps.policy.outputs.apple_team_id }}
+      win_signer_thumbprint: ${{ steps.policy.outputs.win_signer_thumbprint }}
+      dmg_name: ${{ steps.policy.outputs.dmg_name }}
+      portable_name: ${{ steps.policy.outputs.portable_name }}
+    env:
+      TARGET_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      DISPATCH_REF: ${{ github.ref }}
+      REF_PROTECTED: ${{ github.ref_protected }}
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      WIN_SIGNER_THUMBPRINT: ${{ vars.WIN_SIGNER_THUMBPRINT }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.TARGET_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Enforce protected Preview-only release policy
+        id: policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$STABLE_ALLOWED" != "false" ]; then
+            echo '::error::This workflow is approved only with stableAllowed=false.'
+            exit 1
+          fi
+
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$DISPATCH_REF" != "refs/tags/$TARGET_TAG" ] || [ "$REF_PROTECTED" != "true" ]; then
+              echo '::error::Manual release runs must be dispatched from the same protected Preview tag supplied in inputs.tag.'
+              exit 1
+            fi
+          elif [ "$REF_PROTECTED" != "true" ]; then
+            echo '::error::Automatic releases require a protected tag/ruleset.'
+            exit 1
+          fi
+
+          if ! git show-ref --verify --quiet refs/remotes/origin/main ||
+             ! git merge-base --is-ancestor HEAD refs/remotes/origin/main; then
+            echo '::error::The target release tag commit must be contained in origin/main.'
+            exit 1
+          fi
+
+          if [[ ! "${APPLE_TEAM_ID:-}" =~ ^[A-Z0-9]{10}$ ]]; then
+            echo '::error::Repository or organization Actions variable APPLE_TEAM_ID must be exactly 10 uppercase letters or digits.'
+            exit 1
+          fi
+          if [[ ! "${WIN_SIGNER_THUMBPRINT:-}" =~ ^[A-Fa-f0-9]{40}$ ]]; then
+            echo '::error::Repository or organization Actions variable WIN_SIGNER_THUMBPRINT must be exactly 40 hexadecimal characters.'
+            exit 1
+          fi
+
+          if [[ ! "$TARGET_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-preview\.[0-9A-Za-z][0-9A-Za-z.-]*$ ]]; then
+            echo "::error::Only vX.Y.Z-preview.N tags are publishable while stableAllowed=false; found $TARGET_TAG."
+            exit 1
+          fi
+          version="${TARGET_TAG#v}"
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "$version" != "$package_version" ]; then
+            echo "::error::Tag $TARGET_TAG does not match package.json version $package_version."
+            exit 1
+          fi
+
+          printf 'tag=%s\n' "$TARGET_TAG" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'commit_sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          printf 'apple_team_id=%s\n' "$APPLE_TEAM_ID" >> "$GITHUB_OUTPUT"
+          printf 'win_signer_thumbprint=%s\n' "$(printf '%s' "$WIN_SIGNER_THUMBPRINT" | tr '[:lower:]' '[:upper:]')" >> "$GITHUB_OUTPUT"
+          printf 'dmg_name=AgentDesk-%s-universal.dmg\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'portable_name=AgentDesk-%s-portable-x64.exe\n' "$version" >> "$GITHUB_OUTPUT"
+
   build-macos:
+    needs: release-policy
+    environment: preview-release
     # Keep Sequoia as the release baseline while macOS 26 DMG behavior settles.
     runs-on: macos-15
+    env:
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -27,10 +129,9 @@ jobs:
       - run: npm ci
 
       - name: Verify tag matches package version
-        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          tag_version="${GITHUB_REF_NAME#v}"
+          tag_version="${RELEASE_TAG#v}"
           package_version="$(node -p "require('./package.json').version")"
           if [ "$tag_version" != "$package_version" ]; then
             echo "::error::Tag v${tag_version} does not match package.json version ${package_version}."
@@ -53,7 +154,7 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_TEAM_ID: ${{ needs.release-policy.outputs.apple_team_id }}
         run: |
           if [ -z "${CSC_LINK:-}" ] || [ -z "${CSC_KEY_PASSWORD:-}" ]; then
             echo "::error::MAC_CSC_LINK and MAC_CSC_KEY_PASSWORD are required; unsigned macOS releases are forbidden."
@@ -98,15 +199,93 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_TEAM_ID: ${{ needs.release-policy.outputs.apple_team_id }}
         run: |
           npm run build:mac 2>&1 | tee build.log
           exit "${PIPESTATUS[0]}"
 
       - name: Verify signed and notarized DMG
         env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_TEAM_ID: ${{ needs.release-policy.outputs.apple_team_id }}
         run: npm run verify:mac-release
+
+      - name: Resolve exact verified macOS DMG
+        id: mac_release
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg_paths=()
+          while IFS= read -r dmg_path; do
+            dmg_paths+=("$dmg_path")
+          done < <(find release -maxdepth 1 -type f -name 'AgentDesk-*-universal.dmg' -print | sort)
+          if [ "${#dmg_paths[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one verified universal AgentDesk DMG; found ${#dmg_paths[@]}."
+            exit 1
+          fi
+          printf 'dmg_path=%s\n' "${dmg_paths[0]}" >> "$GITHUB_OUTPUT"
+          printf 'sha256=%s\n' "$(shasum -a 256 "${dmg_paths[0]}" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke exact final DMG from a read-only mount
+        shell: bash
+        env:
+          DMG_PATH: ${{ steps.mac_release.outputs.dmg_path }}
+          EXPECTED_DMG_SHA256: ${{ steps.mac_release.outputs.sha256 }}
+          SMOKE_ARTIFACTS: ${{ runner.temp }}/agentdesk-smoke-macos-release
+        run: |
+          set -euo pipefail
+          before_sha256="$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')"
+          if [ "$before_sha256" != "$EXPECTED_DMG_SHA256" ]; then
+            echo '::error::The verified macOS DMG changed before packaged smoke.'
+            exit 1
+          fi
+
+          mount_point="$(mktemp -d "${RUNNER_TEMP}/agentdesk-final-dmg.XXXXXX")"
+          mounted=0
+          cleanup() {
+            cleanup_status=$?
+            trap - EXIT
+            if [ "$mounted" -eq 1 ]; then
+              if ! hdiutil detach "$mount_point"; then
+                echo '::error::Could not detach the final DMG; the packaged app may still be running.'
+                cleanup_status=1
+              fi
+            fi
+            if [ -d "$mount_point" ] && ! rmdir "$mount_point" 2>/dev/null; then
+              echo '::error::Could not remove the final DMG mount point.'
+              cleanup_status=1
+            fi
+            exit "$cleanup_status"
+          }
+          trap cleanup EXIT
+
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_point" "$DMG_PATH"
+          mounted=1
+
+          app_paths=()
+          while IFS= read -r app_path; do
+            app_paths+=("$app_path")
+          done < <(find "$mount_point" -maxdepth 2 -type d -name 'AgentDesk.app' -prune -print | sort)
+          if [ "${#app_paths[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one AgentDesk.app in the final DMG; found ${#app_paths[@]}."
+            exit 1
+          fi
+
+          npm run accept:packaged -- --artifact "${app_paths[0]}" --artifacts "$SMOKE_ARTIFACTS"
+
+          # A normal detach is deliberately required here. It fails if the
+          # smoke runner left the mounted application alive or files open.
+          hdiutil detach "$mount_point"
+          mounted=0
+          if [ -d "$mount_point" ]; then
+            rmdir "$mount_point"
+          fi
+          trap - EXIT
+
+          after_sha256="$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')"
+          if [ "$after_sha256" != "$EXPECTED_DMG_SHA256" ]; then
+            echo '::error::The verified macOS DMG changed during packaged smoke.'
+            exit 1
+          fi
 
       - name: Surface build error
         if: failure()
@@ -121,19 +300,35 @@ jobs:
             done || true
           fi
 
+      - name: Upload macOS smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: macos-release-smoke-diagnostics
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/agentdesk-smoke-macos-release
+          retention-days: 7
+
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dist-macos-15
           if-no-files-found: error
-          path: release/*.dmg
+          path: ${{ steps.mac_release.outputs.dmg_path }}
 
   build-windows:
+    needs: release-policy
+    environment: preview-release
     runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -141,10 +336,9 @@ jobs:
       - run: npm ci
 
       - name: Verify tag matches package version
-        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          tag_version="${GITHUB_REF_NAME#v}"
+          tag_version="${RELEASE_TAG#v}"
           package_version="$(node -p "require('./package.json').version")"
           if [ "$tag_version" != "$package_version" ]; then
             echo "::error::Tag v${tag_version} does not match package.json version ${package_version}."
@@ -157,11 +351,94 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build Windows portable
-        shell: bash
+      - name: Require Authenticode PKCS#12 credentials
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          WIN_SIGNER_THUMBPRINT: ${{ needs.release-policy.outputs.win_signer_thumbprint }}
         run: |
-          npm run build:win 2>&1 | tee build.log
-          exit "${PIPESTATUS[0]}"
+          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_LINK) -or
+              [string]::IsNullOrWhiteSpace($env:WIN_CSC_KEY_PASSWORD) -or
+              [string]::IsNullOrWhiteSpace($env:WIN_SIGNER_THUMBPRINT)) {
+            Write-Error 'WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD, and protected WIN_SIGNER_THUMBPRINT are required.'
+            exit 1
+          }
+
+      - name: Build and sign Windows portable
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          npm run build:win:release 2>&1 | Tee-Object -FilePath build.log
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Resolve signed Windows win-unpacked package
+        id: windows_unpacked
+        shell: pwsh
+        run: |
+          $unpackedCandidates = @(
+            Get-ChildItem -LiteralPath 'release' -Directory -Recurse |
+              Where-Object { $_.Name -ceq 'win-unpacked' }
+          )
+          if ($unpackedCandidates.Count -ne 1) {
+            throw "Expected exactly one signed win-unpacked directory; found $($unpackedCandidates.Count)."
+          }
+          "path=$($unpackedCandidates[0].FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Verify Electron fuses and ASAR layout in signed win-unpacked
+        shell: pwsh
+        env:
+          PACKAGED_ARTIFACT: ${{ steps.windows_unpacked.outputs.path }}
+        run: npm run verify:electron-package -- --artifact "$env:PACKAGED_ARTIFACT"
+
+      - name: Verify trusted and timestamped Windows artifact
+        shell: pwsh
+        env:
+          WIN_SIGNER_THUMBPRINT: ${{ needs.release-policy.outputs.win_signer_thumbprint }}
+        run: npm run verify:win-release
+
+      - name: Bind Windows artifact to protected publisher identity
+        shell: pwsh
+        env:
+          WIN_SIGNER_THUMBPRINT: ${{ needs.release-policy.outputs.win_signer_thumbprint }}
+        run: ./scripts/verify-windows-publisher.ps1 -ReleaseDir release
+
+      - name: Resolve exact verified Windows portable and record SHA-256
+        id: windows_release
+        shell: pwsh
+        run: |
+          $portableCandidates = @(
+            Get-ChildItem -LiteralPath 'release' -File -Filter 'AgentDesk-*-portable-x64.exe'
+          )
+          if ($portableCandidates.Count -ne 1) {
+            throw "Expected exactly one verified Windows portable executable; found $($portableCandidates.Count)."
+          }
+          $portable = $portableCandidates[0]
+          $sha256 = (Get-FileHash -LiteralPath $portable.FullName -Algorithm SHA256).Hash
+          "portable_path=$($portable.FullName)" >> $env:GITHUB_OUTPUT
+          "sha256=$sha256" >> $env:GITHUB_OUTPUT
+
+      - name: Smoke exact final Windows portable
+        shell: pwsh
+        env:
+          PORTABLE_PATH: ${{ steps.windows_release.outputs.portable_path }}
+          SMOKE_ARTIFACTS: ${{ runner.temp }}\agentdesk-smoke-windows-release
+        run: npm run accept:packaged -- --artifact "$env:PORTABLE_PATH" --artifacts "$env:SMOKE_ARTIFACTS"
+
+      - name: Verify Windows portable SHA-256 unchanged after smoke
+        shell: pwsh
+        env:
+          PORTABLE_PATH: ${{ steps.windows_release.outputs.portable_path }}
+          EXPECTED_SHA256: ${{ steps.windows_release.outputs.sha256 }}
+        run: |
+          $actualSha256 = (Get-FileHash -LiteralPath $env:PORTABLE_PATH -Algorithm SHA256).Hash
+          if ($actualSha256 -cne $env:EXPECTED_SHA256) {
+            throw 'The verified Windows portable executable changed during packaged smoke.'
+          }
 
       - name: Surface build error
         if: failure()
@@ -176,50 +453,970 @@ jobs:
             done || true
           fi
 
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload Windows smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: dist-windows
-          if-no-files-found: error
-          path: release/*.exe
+          name: windows-release-smoke-diagnostics
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/agentdesk-smoke-windows-release
+          retention-days: 7
 
-  release:
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dist-windows-signed
+          if-no-files-found: error
+          path: ${{ steps.windows_release.outputs.portable_path }}
+
+  assemble-release-assets:
     needs:
+      - release-policy
       - build-macos
       - build-windows
-    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    outputs:
+      dmg_sha256: ${{ steps.assemble.outputs.dmg_sha256 }}
+      windows_sha256: ${{ steps.assemble.outputs.windows_sha256 }}
+      manifest_sha256: ${{ steps.assemble.outputs.manifest_sha256 }}
+    env:
+      VERSION: ${{ needs.release-policy.outputs.version }}
+      DMG_NAME: ${{ needs.release-policy.outputs.dmg_name }}
+      PORTABLE_NAME: ${{ needs.release-policy.outputs.portable_name }}
     steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+      - name: Download only the named macOS build artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          path: artifacts
+          name: dist-macos-15
+          path: release-input/macos
 
-      - name: Generate SHA-256 checksums
+      - name: Download only the named Windows build artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist-windows-signed
+          path: release-input/windows
+
+      - name: Assemble exact release asset allowlist and immutable checksums
+        id: assemble
         shell: bash
         run: |
-          cd artifacts
-          find . -type f ! -name SHA256SUMS.txt -exec sha256sum {} \; \
-            | sed -E 's#  \./[^/]+/#  #' \
-            | LC_ALL=C sort > SHA256SUMS.txt
-
-      - name: Classify release channel
-        id: release_class
-        shell: bash
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          if [[ "$version" == *-* ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if [ "$STABLE_ALLOWED" != "false" ]; then
+            echo '::error::Asset assembly is closed unless stableAllowed=false.'
+            exit 1
           fi
 
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
+          input_files=()
+          while IFS= read -r input_file; do
+            input_files+=("$input_file")
+          done < <(find release-input -type f -print | LC_ALL=C sort)
+          if [ "${#input_files[@]}" -ne 2 ]; then
+            echo "::error::Expected exactly two named build artifacts; found ${#input_files[@]}."
+            exit 1
+          fi
+
+          dmg_source="release-input/macos/$DMG_NAME"
+          portable_source="release-input/windows/$PORTABLE_NAME"
+          if [ ! -f "$dmg_source" ] || [ ! -f "$portable_source" ]; then
+            echo '::error::A downloaded build artifact does not match the exact release filename allowlist.'
+            exit 1
+          fi
+
+          mkdir -p release-assets
+          cp -- "$dmg_source" "release-assets/$DMG_NAME"
+          cp -- "$portable_source" "release-assets/$PORTABLE_NAME"
+          dmg_sha256="$(sha256sum "release-assets/$DMG_NAME" | awk '{print $1}')"
+          windows_sha256="$(sha256sum "release-assets/$PORTABLE_NAME" | awk '{print $1}')"
+          {
+            printf '%s  %s\n' "$dmg_sha256" "$DMG_NAME"
+            printf '%s  %s\n' "$windows_sha256" "$PORTABLE_NAME"
+          } | LC_ALL=C sort -k2,2 > release-assets/SHA256SUMS.txt
+          manifest_sha256="$(sha256sum release-assets/SHA256SUMS.txt | awk '{print $1}')"
+
+          release_files=()
+          while IFS= read -r release_file; do
+            release_files+=("$release_file")
+          done < <(find release-assets -maxdepth 1 -type f -print | LC_ALL=C sort)
+          if [ "${#release_files[@]}" -ne 3 ]; then
+            echo "::error::Release asset directory must contain exactly three files; found ${#release_files[@]}."
+            exit 1
+          fi
+          (cd release-assets && sha256sum --check SHA256SUMS.txt)
+
+          printf 'dmg_sha256=%s\n' "$dmg_sha256" >> "$GITHUB_OUTPUT"
+          printf 'windows_sha256=%s\n' "$windows_sha256" >> "$GITHUB_OUTPUT"
+          printf 'manifest_sha256=%s\n' "$manifest_sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Stage only the three allowlisted release assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          draft: false
-          prerelease: ${{ steps.release_class.outputs.prerelease }}
-          fail_on_unmatched_files: true
-          files: |
-            artifacts/*/*
-            artifacts/SHA256SUMS.txt
+          name: release-assets-staged
+          if-no-files-found: error
+          retention-days: 1
+          path: |
+            release-assets/${{ needs.release-policy.outputs.dmg_name }}
+            release-assets/${{ needs.release-policy.outputs.portable_name }}
+            release-assets/SHA256SUMS.txt
+
+  create-draft:
+    needs:
+      - release-policy
+      - assemble-release-assets
+    runs-on: ubuntu-latest
+    environment: preview-release
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.create.outputs.release_id }}
+      asset_identity: ${{ steps.create.outputs.asset_identity }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      EXPECTED_COMMIT_SHA: ${{ needs.release-policy.outputs.commit_sha }}
+      VERSION: ${{ needs.release-policy.outputs.version }}
+      DMG_NAME: ${{ needs.release-policy.outputs.dmg_name }}
+      PORTABLE_NAME: ${{ needs.release-policy.outputs.portable_name }}
+      EXPECTED_DMG_SHA256: ${{ needs.assemble-release-assets.outputs.dmg_sha256 }}
+      EXPECTED_WINDOWS_SHA256: ${{ needs.assemble-release-assets.outputs.windows_sha256 }}
+      EXPECTED_MANIFEST_SHA256: ${{ needs.assemble-release-assets.outputs.manifest_sha256 }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Revalidate protected Preview tag identity before Draft creation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            echo '::error::The protected Preview tag was not present in the full checkout.'
+            exit 1
+          fi
+          actual_commit_sha="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [ "$(git rev-parse HEAD)" != "$EXPECTED_COMMIT_SHA" ] ||
+             [ "$actual_commit_sha" != "$EXPECTED_COMMIT_SHA" ]; then
+            echo '::error::The protected Preview tag moved after release-policy resolved its exact commit.'
+            exit 1
+          fi
+
+      - name: Download only staged release assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets-staged
+          path: release-assets
+
+      - name: Revalidate staged allowlist before granting write authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_files=()
+          while IFS= read -r release_file; do
+            release_files+=("$release_file")
+          done < <(find release-assets -maxdepth 1 -type f -print | LC_ALL=C sort)
+          if [ "${#release_files[@]}" -ne 3 ] ||
+             [ ! -f "release-assets/$DMG_NAME" ] ||
+             [ ! -f "release-assets/$PORTABLE_NAME" ] ||
+             [ ! -f release-assets/SHA256SUMS.txt ]; then
+            echo '::error::Staged release assets differ from the exact three-file allowlist.'
+            exit 1
+          fi
+          [ "$(sha256sum "release-assets/$DMG_NAME" | awk '{print $1}')" = "$EXPECTED_DMG_SHA256" ]
+          [ "$(sha256sum "release-assets/$PORTABLE_NAME" | awk '{print $1}')" = "$EXPECTED_WINDOWS_SHA256" ]
+          [ "$(sha256sum release-assets/SHA256SUMS.txt | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256" ]
+          (cd release-assets && sha256sum --check SHA256SUMS.txt)
+
+      - name: Refuse an existing or previously burned release candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="${RUNNER_TEMP}/existing-release-response.json"
+          status="$(curl -q --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --proto '=https' --proto-redir '=https' \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$GH_REPO/releases/tags/$RELEASE_TAG")"
+          if [ "$status" = "200" ]; then
+            echo '::error::This tag already has a GitHub Release. Candidates are immutable and cannot be overwritten or reused.'
+            exit 1
+          fi
+          if [ "$status" != "404" ]; then
+            echo "::error::Could not prove release-candidate absence (GitHub returned HTTP $status)."
+            exit 1
+          fi
+
+      - name: Create Preview as draft with only exact assets
+        id: create
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            "release-assets/$DMG_NAME" \
+            "release-assets/$PORTABLE_NAME" \
+            release-assets/SHA256SUMS.txt \
+            --draft \
+            --prerelease \
+            --verify-tag \
+            --title "AgentDesk $VERSION Preview" \
+            --notes "Preview candidate. GitHub-hosted macOS and Windows re-download gates must pass before publication. Physical clean-machine quarantine and SmartScreen gates remain separate."
+          release_id="$(gh api "repos/$GH_REPO/releases/tags/$RELEASE_TAG" --jq .id)"
+          if [[ ! "$release_id" =~ ^[0-9]+$ ]]; then
+            echo '::error::Draft release was created but its numeric release id could not be read back.'
+            exit 1
+          fi
+          asset_identity="$(gh api "repos/$GH_REPO/releases/$release_id" --jq '[.assets[] | [.name, (.id | tostring), (.size | tostring), .state] | join(":")] | sort | join("|")')"
+          if [ -z "$asset_identity" ]; then
+            echo '::error::Draft release was created but its immutable asset identity could not be read back.'
+            exit 1
+          fi
+          printf 'release_id=%s\n' "$release_id" >> "$GITHUB_OUTPUT"
+          printf 'asset_identity=%s\n' "$asset_identity" >> "$GITHUB_OUTPUT"
+
+  verify-draft-macos:
+    needs:
+      - release-policy
+      - assemble-release-assets
+      - create-draft
+    runs-on: macos-15
+    environment: preview-release
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      VERSION: ${{ needs.release-policy.outputs.version }}
+      DMG_NAME: ${{ needs.release-policy.outputs.dmg_name }}
+      EXPECTED_DMG_SHA256: ${{ needs.assemble-release-assets.outputs.dmg_sha256 }}
+      EXPECTED_WINDOWS_SHA256: ${{ needs.assemble-release-assets.outputs.windows_sha256 }}
+      EXPECTED_MANIFEST_SHA256: ${{ needs.assemble-release-assets.outputs.manifest_sha256 }}
+      EXPECTED_RELEASE_ID: ${{ needs.create-draft.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.create-draft.outputs.asset_identity }}
+      DOWNLOAD_DIR: ${{ runner.temp }}/agentdesk-draft-macos-release-assets
+      DIAGNOSTICS_DIR: ${{ runner.temp }}/agentdesk-release-diagnostics/draft-macos
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Re-download exact draft DMG and checksum manifest
+        env:
+          RELEASE_GATE_TOKEN: ${{ github.token }}
+        run: >-
+          node scripts/github-release-gate.js
+          --mode draft
+          --repository "${{ github.repository }}"
+          --tag "$RELEASE_TAG"
+          --version "$VERSION"
+          --release-id "$EXPECTED_RELEASE_ID"
+          --asset-identity "$EXPECTED_ASSET_IDENTITY"
+          --artifact macos
+          --output-dir "$DOWNLOAD_DIR"
+          --report "$DIAGNOSTICS_DIR/gate.json"
+          --token-env RELEASE_GATE_TOKEN
+          --macos-sha256 "$EXPECTED_DMG_SHA256"
+          --windows-sha256 "$EXPECTED_WINDOWS_SHA256"
+          --manifest-sha256 "$EXPECTED_MANIFEST_SHA256"
+
+      - name: Revalidate draft DMG signature, notarization, fuses, and ASAR
+        env:
+          APPLE_TEAM_ID: ${{ needs.release-policy.outputs.apple_team_id }}
+        run: bash scripts/verify-macos-release.sh "$DOWNLOAD_DIR"
+
+      - name: First-use and two-restart smoke of exact draft DMG
+        shell: bash
+        env:
+          SMOKE_ARTIFACTS: ${{ runner.temp }}/agentdesk-release-diagnostics/draft-macos/smoke
+        run: |
+          set -euo pipefail
+          dmg_path="$DOWNLOAD_DIR/$DMG_NAME"
+          mount_point="$(mktemp -d "${RUNNER_TEMP}/agentdesk-draft-dmg.XXXXXX")"
+          mounted=0
+          cleanup() {
+            cleanup_status=$?
+            trap - EXIT
+            if [ "$mounted" -eq 1 ] && ! hdiutil detach "$mount_point"; then cleanup_status=1; fi
+            rmdir "$mount_point" 2>/dev/null || true
+            exit "$cleanup_status"
+          }
+          trap cleanup EXIT
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_point" "$dmg_path"
+          mounted=1
+          app_paths=()
+          while IFS= read -r app_path; do app_paths+=("$app_path"); done < <(
+            find "$mount_point" -maxdepth 2 -type d -name 'AgentDesk.app' -prune -print | sort
+          )
+          if [ "${#app_paths[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one AgentDesk.app in downloaded draft DMG; found ${#app_paths[@]}."
+            exit 1
+          fi
+          npm run accept:packaged -- --artifact "${app_paths[0]}" --artifacts "$SMOKE_ARTIFACTS"
+          hdiutil detach "$mount_point"
+          mounted=0
+          rmdir "$mount_point"
+          trap - EXIT
+          [ "$(shasum -a 256 "$dmg_path" | awk '{print $1}')" = "$EXPECTED_DMG_SHA256" ]
+
+      - name: Upload draft macOS diagnostics only
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: draft-macos-release-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: ${{ runner.temp }}/agentdesk-release-diagnostics/draft-macos
+
+  verify-draft-windows:
+    needs:
+      - release-policy
+      - assemble-release-assets
+      - create-draft
+    runs-on: windows-latest
+    environment: preview-release
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      VERSION: ${{ needs.release-policy.outputs.version }}
+      PORTABLE_NAME: ${{ needs.release-policy.outputs.portable_name }}
+      EXPECTED_DMG_SHA256: ${{ needs.assemble-release-assets.outputs.dmg_sha256 }}
+      EXPECTED_WINDOWS_SHA256: ${{ needs.assemble-release-assets.outputs.windows_sha256 }}
+      EXPECTED_MANIFEST_SHA256: ${{ needs.assemble-release-assets.outputs.manifest_sha256 }}
+      EXPECTED_RELEASE_ID: ${{ needs.create-draft.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.create-draft.outputs.asset_identity }}
+      DOWNLOAD_DIR: ${{ runner.temp }}\agentdesk-draft-windows-release-assets
+      DIAGNOSTICS_DIR: ${{ runner.temp }}\agentdesk-release-diagnostics\draft-windows
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Re-download exact draft portable and checksum manifest
+        shell: pwsh
+        env:
+          RELEASE_GATE_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/github-release-gate.js `
+            --mode draft `
+            --repository "${{ github.repository }}" `
+            --tag "$env:RELEASE_TAG" `
+            --version "$env:VERSION" `
+            --release-id "$env:EXPECTED_RELEASE_ID" `
+            --asset-identity "$env:EXPECTED_ASSET_IDENTITY" `
+            --artifact windows `
+            --output-dir "$env:DOWNLOAD_DIR" `
+            --report "$env:DIAGNOSTICS_DIR\gate.json" `
+            --token-env RELEASE_GATE_TOKEN `
+            --macos-sha256 "$env:EXPECTED_DMG_SHA256" `
+            --windows-sha256 "$env:EXPECTED_WINDOWS_SHA256" `
+            --manifest-sha256 "$env:EXPECTED_MANIFEST_SHA256"
+
+      - name: Revalidate draft Authenticode, timestamp, fuses, and ASAR
+        shell: pwsh
+        env:
+          WIN_SIGNER_THUMBPRINT: ${{ needs.release-policy.outputs.win_signer_thumbprint }}
+        run: ./scripts/verify-windows-release.ps1 -ReleaseDir "$env:DOWNLOAD_DIR" -ExpectedSignerThumbprint "$env:WIN_SIGNER_THUMBPRINT"
+
+      - name: Bind draft portable to protected publisher identity
+        shell: pwsh
+        env:
+          WIN_SIGNER_THUMBPRINT: ${{ needs.release-policy.outputs.win_signer_thumbprint }}
+        run: ./scripts/verify-windows-publisher.ps1 -ReleaseDir "$env:DOWNLOAD_DIR"
+
+      - name: First-use and two-restart smoke of exact draft portable
+        shell: pwsh
+        env:
+          SMOKE_ARTIFACTS: ${{ runner.temp }}\agentdesk-release-diagnostics\draft-windows\smoke
+        run: npm run accept:packaged -- --artifact "$env:DOWNLOAD_DIR\$env:PORTABLE_NAME" --artifacts "$env:SMOKE_ARTIFACTS"
+
+      - name: Verify draft portable bytes unchanged after smoke
+        shell: pwsh
+        run: |
+          $actual = (Get-FileHash -LiteralPath "$env:DOWNLOAD_DIR\$env:PORTABLE_NAME" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -cne $env:EXPECTED_WINDOWS_SHA256) {
+            throw 'The downloaded draft portable changed during packaged smoke.'
+          }
+
+      - name: Upload draft Windows diagnostics only
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: draft-windows-release-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: ${{ runner.temp }}\agentdesk-release-diagnostics\draft-windows
+
+  publish-release:
+    needs:
+      - release-policy
+      - create-draft
+      - verify-draft-macos
+      - verify-draft-windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: preview-release
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.publish.outputs.release_id }}
+      asset_identity: ${{ steps.publish.outputs.asset_identity }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      EXPECTED_COMMIT_SHA: ${{ needs.release-policy.outputs.commit_sha }}
+      RELEASE_ID: ${{ needs.create-draft.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.create-draft.outputs.asset_identity }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Revalidate protected Preview tag identity before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            echo '::error::The protected Preview tag was not present in the full checkout.'
+            exit 1
+          fi
+          actual_commit_sha="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [ "$(git rev-parse HEAD)" != "$EXPECTED_COMMIT_SHA" ] ||
+             [ "$actual_commit_sha" != "$EXPECTED_COMMIT_SHA" ]; then
+            echo '::error::The protected Preview tag moved after native Draft verification.'
+            exit 1
+          fi
+
+      - name: Publish only the doubly re-downloaded draft
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$(gh api "repos/$GH_REPO/releases/$RELEASE_ID" --jq '[.tag_name, .draft, .prerelease, ([.assets[].name] | sort | join("|"))] | @tsv')"
+          expected_assets="${{ needs.release-policy.outputs.dmg_name }}|${{ needs.release-policy.outputs.portable_name }}|SHA256SUMS.txt"
+          expected_assets="$(printf '%s' "$expected_assets" | tr '|' '\n' | LC_ALL=C sort | paste -sd '|' -)"
+          expected_state="$(printf '%s\ttrue\ttrue\t%s' "$RELEASE_TAG" "$expected_assets")"
+          if [ "$state" != "$expected_state" ]; then
+            echo '::error::Draft state or exact asset allowlist changed after native preverification.'
+            exit 1
+          fi
+          actual_asset_identity="$(gh api "repos/$GH_REPO/releases/$RELEASE_ID" --jq '[.assets[] | [.name, (.id | tostring), (.size | tostring), .state] | join(":")] | sort | join("|")')"
+          if [ "$actual_asset_identity" != "$EXPECTED_ASSET_IDENTITY" ]; then
+            echo '::error::A draft asset id, byte size, or upload state changed after native preverification.'
+            exit 1
+          fi
+          gh api --method PATCH "repos/$GH_REPO/releases/$RELEASE_ID" -F draft=false -F prerelease=true >/dev/null
+          printf 'release_id=%s\n' "$RELEASE_ID" >> "$GITHUB_OUTPUT"
+          printf 'asset_identity=%s\n' "$EXPECTED_ASSET_IDENTITY" >> "$GITHUB_OUTPUT"
+
+  verify-public-metadata:
+    needs:
+      - release-policy
+      - publish-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      VERSION: ${{ needs.release-policy.outputs.version }}
+      EXPECTED_COMMIT_SHA: ${{ needs.release-policy.outputs.commit_sha }}
+      EXPECTED_RELEASE_ID: ${{ needs.publish-release.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.publish-release.outputs.asset_identity }}
+      DIAGNOSTICS_DIR: ${{ runner.temp }}/agentdesk-release-diagnostics/public-metadata
+      GITHUB_TOKEN: ""
+      GH_TOKEN: ""
+      RELEASE_GATE_TOKEN: ""
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Revalidate protected Preview tag identity in public metadata gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            echo '::error::The protected Preview tag was not present in the full checkout.'
+            exit 1
+          fi
+          actual_commit_sha="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [ "$(git rev-parse HEAD)" != "$EXPECTED_COMMIT_SHA" ] ||
+             [ "$actual_commit_sha" != "$EXPECTED_COMMIT_SHA" ]; then
+            echo '::error::The protected Preview tag moved after publication.'
+            exit 1
+          fi
+
+      - name: Anonymously verify published state and exact asset metadata
+        run: >-
+          node scripts/github-release-gate.js
+          --mode public
+          --repository "${{ github.repository }}"
+          --tag "$RELEASE_TAG"
+          --version "$VERSION"
+          --release-id "$EXPECTED_RELEASE_ID"
+          --asset-identity "$EXPECTED_ASSET_IDENTITY"
+          --artifact none
+          --report "$DIAGNOSTICS_DIR/gate.json"
+
+      - name: Upload public metadata diagnostics only
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: public-release-metadata-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: ${{ runner.temp }}/agentdesk-release-diagnostics/public-metadata
+
+  verify-public-macos:
+    needs:
+      - release-policy
+      - assemble-release-assets
+      - publish-release
+    runs-on: macos-15
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      VERSION: ${{ needs.release-policy.outputs.version }}
+      DMG_NAME: ${{ needs.release-policy.outputs.dmg_name }}
+      EXPECTED_DMG_SHA256: ${{ needs.assemble-release-assets.outputs.dmg_sha256 }}
+      EXPECTED_WINDOWS_SHA256: ${{ needs.assemble-release-assets.outputs.windows_sha256 }}
+      EXPECTED_MANIFEST_SHA256: ${{ needs.assemble-release-assets.outputs.manifest_sha256 }}
+      EXPECTED_RELEASE_ID: ${{ needs.publish-release.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.publish-release.outputs.asset_identity }}
+      DOWNLOAD_DIR: ${{ runner.temp }}/agentdesk-public-macos-release-assets
+      DIAGNOSTICS_DIR: ${{ runner.temp }}/agentdesk-release-diagnostics/public-macos
+      GITHUB_TOKEN: ""
+      GH_TOKEN: ""
+      RELEASE_GATE_TOKEN: ""
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Anonymously download exact public DMG and checksum manifest
+        run: >-
+          node scripts/github-release-gate.js
+          --mode public
+          --repository "${{ github.repository }}"
+          --tag "$RELEASE_TAG"
+          --version "$VERSION"
+          --release-id "$EXPECTED_RELEASE_ID"
+          --asset-identity "$EXPECTED_ASSET_IDENTITY"
+          --artifact macos
+          --output-dir "$DOWNLOAD_DIR"
+          --report "$DIAGNOSTICS_DIR/gate.json"
+          --macos-sha256 "$EXPECTED_DMG_SHA256"
+          --windows-sha256 "$EXPECTED_WINDOWS_SHA256"
+          --manifest-sha256 "$EXPECTED_MANIFEST_SHA256"
+
+      - name: Revalidate public DMG signature, notarization, fuses, and ASAR
+        env:
+          APPLE_TEAM_ID: ${{ needs.release-policy.outputs.apple_team_id }}
+        run: bash scripts/verify-macos-release.sh "$DOWNLOAD_DIR"
+
+      - name: First-use and two-restart smoke of exact public DMG
+        shell: bash
+        env:
+          SMOKE_ARTIFACTS: ${{ runner.temp }}/agentdesk-release-diagnostics/public-macos/smoke
+        run: |
+          set -euo pipefail
+          dmg_path="$DOWNLOAD_DIR/$DMG_NAME"
+          mount_point="$(mktemp -d "${RUNNER_TEMP}/agentdesk-public-dmg.XXXXXX")"
+          mounted=0
+          cleanup() {
+            cleanup_status=$?
+            trap - EXIT
+            if [ "$mounted" -eq 1 ] && ! hdiutil detach "$mount_point"; then cleanup_status=1; fi
+            rmdir "$mount_point" 2>/dev/null || true
+            exit "$cleanup_status"
+          }
+          trap cleanup EXIT
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_point" "$dmg_path"
+          mounted=1
+          app_paths=()
+          while IFS= read -r app_path; do app_paths+=("$app_path"); done < <(
+            find "$mount_point" -maxdepth 2 -type d -name 'AgentDesk.app' -prune -print | sort
+          )
+          if [ "${#app_paths[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one AgentDesk.app in anonymous public DMG; found ${#app_paths[@]}."
+            exit 1
+          fi
+          npm run accept:packaged -- --artifact "${app_paths[0]}" --artifacts "$SMOKE_ARTIFACTS"
+          hdiutil detach "$mount_point"
+          mounted=0
+          rmdir "$mount_point"
+          trap - EXIT
+          [ "$(shasum -a 256 "$dmg_path" | awk '{print $1}')" = "$EXPECTED_DMG_SHA256" ]
+
+      - name: Upload public macOS diagnostics only
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: public-macos-release-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: ${{ runner.temp }}/agentdesk-release-diagnostics/public-macos
+
+  verify-public-windows:
+    needs:
+      - release-policy
+      - assemble-release-assets
+      - publish-release
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      VERSION: ${{ needs.release-policy.outputs.version }}
+      PORTABLE_NAME: ${{ needs.release-policy.outputs.portable_name }}
+      EXPECTED_DMG_SHA256: ${{ needs.assemble-release-assets.outputs.dmg_sha256 }}
+      EXPECTED_WINDOWS_SHA256: ${{ needs.assemble-release-assets.outputs.windows_sha256 }}
+      EXPECTED_MANIFEST_SHA256: ${{ needs.assemble-release-assets.outputs.manifest_sha256 }}
+      EXPECTED_RELEASE_ID: ${{ needs.publish-release.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.publish-release.outputs.asset_identity }}
+      DOWNLOAD_DIR: ${{ runner.temp }}\agentdesk-public-windows-release-assets
+      DIAGNOSTICS_DIR: ${{ runner.temp }}\agentdesk-release-diagnostics\public-windows
+      GITHUB_TOKEN: ""
+      GH_TOKEN: ""
+      RELEASE_GATE_TOKEN: ""
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Anonymously download exact public portable and checksum manifest
+        shell: pwsh
+        run: |
+          node scripts/github-release-gate.js `
+            --mode public `
+            --repository "${{ github.repository }}" `
+            --tag "$env:RELEASE_TAG" `
+            --version "$env:VERSION" `
+            --release-id "$env:EXPECTED_RELEASE_ID" `
+            --asset-identity "$env:EXPECTED_ASSET_IDENTITY" `
+            --artifact windows `
+            --output-dir "$env:DOWNLOAD_DIR" `
+            --report "$env:DIAGNOSTICS_DIR\gate.json" `
+            --macos-sha256 "$env:EXPECTED_DMG_SHA256" `
+            --windows-sha256 "$env:EXPECTED_WINDOWS_SHA256" `
+            --manifest-sha256 "$env:EXPECTED_MANIFEST_SHA256"
+
+      - name: Revalidate public Authenticode, timestamp, fuses, and ASAR
+        shell: pwsh
+        env:
+          WIN_SIGNER_THUMBPRINT: ${{ needs.release-policy.outputs.win_signer_thumbprint }}
+        run: ./scripts/verify-windows-release.ps1 -ReleaseDir "$env:DOWNLOAD_DIR" -ExpectedSignerThumbprint "$env:WIN_SIGNER_THUMBPRINT"
+
+      - name: Bind public portable to protected publisher identity
+        shell: pwsh
+        env:
+          WIN_SIGNER_THUMBPRINT: ${{ needs.release-policy.outputs.win_signer_thumbprint }}
+        run: ./scripts/verify-windows-publisher.ps1 -ReleaseDir "$env:DOWNLOAD_DIR"
+
+      - name: First-use and two-restart smoke of exact public portable
+        shell: pwsh
+        env:
+          SMOKE_ARTIFACTS: ${{ runner.temp }}\agentdesk-release-diagnostics\public-windows\smoke
+        run: npm run accept:packaged -- --artifact "$env:DOWNLOAD_DIR\$env:PORTABLE_NAME" --artifacts "$env:SMOKE_ARTIFACTS"
+
+      - name: Verify public portable bytes unchanged after smoke
+        shell: pwsh
+        run: |
+          $actual = (Get-FileHash -LiteralPath "$env:DOWNLOAD_DIR\$env:PORTABLE_NAME" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -cne $env:EXPECTED_WINDOWS_SHA256) {
+            throw 'The anonymous public portable changed during packaged smoke.'
+          }
+
+      - name: Upload public Windows diagnostics only
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: public-windows-release-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: ${{ runner.temp }}\agentdesk-release-diagnostics\public-windows
+
+  redraft-on-public-metadata-failure:
+    needs:
+      - release-policy
+      - create-draft
+      - publish-release
+      - verify-public-metadata
+    if: >-
+      ${{
+        always() &&
+        needs.publish-release.result == 'success' &&
+        needs.verify-public-metadata.result != 'success'
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      RELEASE_ID: ${{ needs.create-draft.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.create-draft.outputs.asset_identity }}
+      PUBLICLY_EXPOSED: "true"
+      ROLLBACK_TRIGGER: verify-public-metadata failed or was cancelled
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          persist-credentials: false
+
+      - name: Immediately return the failed public candidate to Draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/redraft-github-release.sh
+
+      - name: Keep the public metadata watcher failed after rollback
+        shell: bash
+        run: exit 1
+
+  redraft-on-public-macos-failure:
+    needs:
+      - release-policy
+      - create-draft
+      - publish-release
+      - verify-public-macos
+    if: >-
+      ${{
+        always() &&
+        needs.publish-release.result == 'success' &&
+        needs.verify-public-macos.result != 'success'
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      RELEASE_ID: ${{ needs.create-draft.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.create-draft.outputs.asset_identity }}
+      PUBLICLY_EXPOSED: "true"
+      ROLLBACK_TRIGGER: verify-public-macos failed or was cancelled
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          persist-credentials: false
+
+      - name: Immediately return the failed public candidate to Draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/redraft-github-release.sh
+
+      - name: Keep the public macOS watcher failed after rollback
+        shell: bash
+        run: exit 1
+
+  redraft-on-public-windows-failure:
+    needs:
+      - release-policy
+      - create-draft
+      - publish-release
+      - verify-public-windows
+    if: >-
+      ${{
+        always() &&
+        needs.publish-release.result == 'success' &&
+        needs.verify-public-windows.result != 'success'
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      RELEASE_ID: ${{ needs.create-draft.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.create-draft.outputs.asset_identity }}
+      PUBLICLY_EXPOSED: "true"
+      ROLLBACK_TRIGGER: verify-public-windows failed or was cancelled
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          persist-credentials: false
+
+      - name: Immediately return the failed public candidate to Draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/redraft-github-release.sh
+
+      - name: Keep the public Windows watcher failed after rollback
+        shell: bash
+        run: exit 1
+
+  seal-public-release:
+    needs:
+      - release-policy
+      - publish-release
+      - verify-public-metadata
+      - verify-public-macos
+      - verify-public-windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      VERSION: ${{ needs.release-policy.outputs.version }}
+      EXPECTED_COMMIT_SHA: ${{ needs.release-policy.outputs.commit_sha }}
+      EXPECTED_RELEASE_ID: ${{ needs.publish-release.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.publish-release.outputs.asset_identity }}
+      DIAGNOSTICS_DIR: ${{ runner.temp }}/agentdesk-release-diagnostics/public-seal
+      GITHUB_TOKEN: ""
+      GH_TOKEN: ""
+      RELEASE_GATE_TOKEN: ""
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Revalidate protected Preview tag identity before final seal
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            echo '::error::The protected Preview tag was not present in the full checkout.'
+            exit 1
+          fi
+          actual_commit_sha="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [ "$(git rev-parse HEAD)" != "$EXPECTED_COMMIT_SHA" ] ||
+             [ "$actual_commit_sha" != "$EXPECTED_COMMIT_SHA" ]; then
+            echo '::error::The protected Preview tag moved before the final public seal.'
+            exit 1
+          fi
+
+      - name: Final anonymous metadata read-back
+        run: >-
+          node scripts/github-release-gate.js
+          --mode public
+          --repository "${{ github.repository }}"
+          --tag "$RELEASE_TAG"
+          --version "$VERSION"
+          --release-id "$EXPECTED_RELEASE_ID"
+          --asset-identity "$EXPECTED_ASSET_IDENTITY"
+          --artifact none
+          --report "$DIAGNOSTICS_DIR/gate.json"
+
+      - name: Record hosted-runner release seal
+        shell: bash
+        run: |
+          {
+            echo '## Public Preview release gate passed'
+            echo
+            echo '- Exact public asset allowlist: passed'
+            echo '- Pre-publication / SHA256SUMS / downloaded-byte hash agreement: passed on macOS and Windows'
+            echo '- Native signature, package-integrity, first-use, and two-restart smoke: passed'
+            echo '- This is GitHub-hosted-runner evidence only. Browser quarantine, SmartScreen reputation, and clean physical-machine gates remain open.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  redraft-on-release-failure:
+    needs:
+      - release-policy
+      - create-draft
+      - verify-draft-macos
+      - verify-draft-windows
+      - publish-release
+      - verify-public-metadata
+      - verify-public-macos
+      - verify-public-windows
+      - seal-public-release
+    if: >-
+      ${{
+        always() &&
+        needs.create-draft.result == 'success' &&
+        (
+          needs.verify-draft-macos.result != 'success' ||
+          needs.verify-draft-windows.result != 'success' ||
+          needs.publish-release.result != 'success' ||
+          needs.verify-public-metadata.result != 'success' ||
+          needs.verify-public-macos.result != 'success' ||
+          needs.verify-public-windows.result != 'success' ||
+          needs.seal-public-release.result != 'success'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.release-policy.outputs.tag }}
+      RELEASE_ID: ${{ needs.create-draft.outputs.release_id }}
+      EXPECTED_ASSET_IDENTITY: ${{ needs.create-draft.outputs.asset_identity }}
+      PUBLICLY_EXPOSED: ${{ needs.publish-release.result == 'success' }}
+      ROLLBACK_TRIGGER: final release-transaction fallback
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-policy.outputs.commit_sha }}
+          persist-credentials: false
+
+      - name: Fail closed by returning any exposed release to draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/redraft-github-release.sh
+
+      - name: Keep the release workflow failed after rollback
+        shell: bash
+        run: exit 1

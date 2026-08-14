@@ -13,12 +13,14 @@ AgentDesk 是一个本地优先的个人 Agent 控制台：它整理 AI 编码�
 | 层级 | 当前结论 |
 |---|---|
 | 代码 | 版本化首次使用、设备任务向导、便携与同 Mesh TaskPackage 已接通 Renderer、Preload、Main、领域和服务；“代码存在”不等于发布门禁关闭。 |
-| 本机自动化 | 全量 Node 490 项中 489 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25，首用/向导/配对/Main IPC/TaskPackage UI 相关定向 47/47，真实 Electron UI 21/21。直送窗口证据只覆盖资格、阶段投影与明文码不进入 Renderer。 |
+| 本机自动化 | 全量 Node 517 项中 516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25，发布安全 14/14，真实 Electron UI 21/21。直送窗口证据只覆盖资格、阶段投影与明文码不进入 Renderer。 |
+| 当前 macOS unpacked 成品 | 独立 verifier 已流式复算 118/118 个常规文件的整文件/分块 SHA-256，证明无 `default_app.asar`、五项 Electron fuse 与 macOS `ElectronAsarIntegrity` header hash 一致。该 ad-hoc unpacked 证据不等于签名、公证、首次使用 smoke 或可分发 DMG。 |
+| Preview 发布事务 | 代码已实现 `stableAllowed=false`、精确三资产、Draft 双原生端重下载、公开后无 token 匿名重下载、失败回 Draft 与 candidate-burned；发布安全 14/14。真实凭据、受保护环境和真实 Tag 尚未执行。 |
 | 隔离双 endpoint | 局域网直连与本机 signaling E2E 均完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件和合成远控画面；runner 尚未发送 TaskPackage，不能据此声称直送数据面已验。 |
 | 物理双 Mac | 同一局域网 host/UDP 认证 DataChannel 已完成 562,009 字节库存、9 个 Slot、638 条 SessionReplica 落库；revision 7 → 8 → 9，连接连续 5 分钟稳定。该证据只关闭大库存、显式刷新与当前 4 分钟全快照恢复基线。 |
-| 开放门禁 | TaskPackage 物理双机直送、真实公网 NAT/CGNAT、coturn UDP/TCP/TLS、断网/睡眠恢复、macOS/Windows 四向屏幕/输入/权限/DPI/IME、Windows helper/portable 真机仍未关闭。 |
+| 开放门禁 | 当前没有公开 `v0.10.1-preview.1`。真实签名/公证、受保护 `preview-release` 环境、真实 Tag、浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC、物理干净机首次使用，以及 TaskPackage/公网/权限矩阵仍未关闭。 |
 
-发布口径：当前源码版本 `0.10.1-preview.1` 是 Preview 候选，不是稳定版，也不把 `0.10.0` 开发基线补发为稳定版。开放门禁关闭前，安装产物必须签名、公证并明确标记为 Preview。
+发布口径：当前源码版本 `0.10.1-preview.1` 是 Preview 候选，不是稳定版，也不是已经公开的 Release；`0.10.0` 开发基线不会补发为稳定版。公开候选必须先通过真实签名/公证、精确三资产 Draft、原生双端重下载、公开匿名重下载和物理干净机门禁。
 
 ## 核心对象
 
@@ -159,7 +161,8 @@ Personal Mesh 只能同步必要的目录与只读索引、显式发送会话信
 - 会话来源只读；导出写入用户通过原生保存框选择的位置。
 - TaskPackage 只在用户显式操作后读取一条可信本机会话；文件和附件路径来自 Main 的原生选择器。导入先验证加密、清单、整包与逐项哈希、适配器与冲突，再写入目标；解锁码不持久化。直送解锁材料只进入目标设备公钥独占并绑定 Mesh、来源/目标、transferId 与包哈希的 envelope，不使用 Mesh link key，也不进入 Renderer、历史或日志。
 - 工具更新由用户明确触发，只使用固定目录生成的计划，不调用 sudo。
-- AgentDesk 自更新必须校验 Release 元数据和 SHA-256；正式 macOS 包必须签名、公证并通过 Gatekeeper。
+- Electron 成品必须从 `app.asar` 加载且不存在 `default_app.asar`；每个常规文件的整文件与分块 SHA-256 都必须匹配，archive header 必须绑定 macOS `Info.plist` 或 Windows PE 资源；`RunAsNode` 只服务现有两个固定 CLI launcher，`NODE_OPTIONS` 与 inspect fuse 关闭，embedded ASAR integrity 与 only-load-from-ASAR 开启。
+- AgentDesk 自更新必须校验 Release 元数据和 SHA-256；公开 Preview 只允许精确 DMG、portable 与 `SHA256SUMS.txt`，先 Draft 重下载、再公开匿名重下载，失败回到 Draft；正式 macOS 包必须签名、公证并通过 Gatekeeper，Windows 包必须绑定受保护的可信发布者身份。
 - Mesh 私钥不进入 Renderer、日志或普通数据库；设备 IPC 只接受固定 ID 和有界名称，不暴露通用 channel、命令或路径。
 - WebRTC 传输加密不能替代设备认证；offer/answer 只能通过双方共同登记且持有有效租约的信令服务交换，消息不能指定任意回复 URL。
 - 远程输入只通过固定键鼠事件协议进入原生 helper；断线、失焦、切换目标、撤销和紧急停止都会释放按键。
@@ -178,4 +181,5 @@ Personal Mesh 只能同步必要的目录与只读索引、显式发送会话信
 - SessionPointer、文件、屏幕和输入都遵守独立权限、目标端同意、大小上限和失败清理。
 - TaskPackage 的错误密钥、篡改、类型伪装、重复路径、容量越界、目标冲突和重复导入都会在写入前停止；直送逐消息复核 feature/capability，拒绝、报错、撤销、TTL 和便携回退都清理受控暂存。Codex 原生导入保留根会话与内部记录并标注包内声明的来源，打开客户端失败不会回滚已保存内容。
 - 公网信令不可用时局域网和已建立连接不受影响；诊断能区分 LAN、直连和 TURN 中继。
-- 双 Mac 局域网库存证据、真实 NAT/TURN、断网/睡眠恢复以及 macOS/Windows 权限矩阵分别记账；只有所有稳定版门禁通过后，才能把有人值守 Personal Mesh 标记为公开稳定版本。在此之前只能发布签名、公证且明确标记的 Preview。
+- 成品首次使用必须让同一个确切候选在一次性 userData 中连续经历首次初始化、重启恢复完成和完成后再重启，并确认零默认 Profile、零远端设备、零 Mesh 连接及进程/调试端点清理。
+- 双 Mac 局域网库存、托管 runner 下载与物理用户安装分别记账。首个公开 Preview 仍需真实签名凭据、受保护环境、真实 Tag、匿名下载及浏览器 quarantine / Windows MOTW、SmartScreen、Defender、UAC 和物理干净机首启；只有稳定版全部门禁通过后，才能把有人值守 Personal Mesh 标记为公开稳定版本。

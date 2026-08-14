@@ -8,6 +8,14 @@ Windows 版使用 electron-builder 的 portable 目标：
 
 不需要安装。AgentDesk 自己的配置仍保存在稳定的 `%APPDATA%\AgentDesk`，不会跟随 portable exe 的临时解压目录。
 
+公开 Release 中的 portable 必须经过可信 Authenticode SHA-256 签名和 RFC 3161 时间戳。发布流水线会从最终 portable 中解出并分别验证外层 EXE、包内 `AgentDesk.exe`、`resources/native/AgentDeskInputHelper.exe`；三者必须签名有效、带时间戳且匹配受保护的 `WIN_SIGNER_THUMBPRINT`。任何一项不满足都不会进入 Draft。
+
+候选只允许与 DMG、`SHA256SUMS.txt` 一起成为精确三资产 Preview Draft；Windows 原生 runner 先从 Draft 重新下载并复验，发布后再在无 GitHub token 的条件下从公开 URL 匿名重下载，重复摘要、清单、实际字节、签名、fuse/ASAR 和三次首次使用 smoke。后续失败会把 Release 退回 Draft；曾公开的候选 Tag/version 不得复用。
+
+`main` 分支的 Windows CI 只做无签名的打包兼容检查：先对 `win-unpacked` 核对五项 fuse、每个 ASAR 文件和 PE `INTEGRITY/ELECTRONASAR`，再解开带版本 portable 并对它自己的内层主程序、ASAR 与固定 helper 重做同一检查，最后分别执行三次首次使用 smoke。它只在失败时上传诊断，不上传可安装产物，也不能替代 Authenticode、公开 URL 或物理 Windows 验收。
+
+截至 2026-08-14，真实 Windows 签名凭据、受保护 `preview-release` 环境和真实 Preview Tag 尚未用于执行该事务，因此当前没有可供下载的公开 `v0.10.1-preview.1`；不要把旧 Release 或本地无签名 portable 当成本候选。
+
 ## Personal Mesh 与远控状态
 
 Windows 开发版已经包含有人值守 Personal Mesh 代码和固定协议的 `AgentDeskInputHelper.exe` 构建规则。electron-builder 在 Windows runner 上使用 MSVC 编译 helper，并把它作为固定 `extraResources` 放入 portable 包；Renderer 不能传命令、路径或参数给 helper。
@@ -24,7 +32,7 @@ Windows 开发版已经包含有人值守 Personal Mesh 代码和固定协议的
 
 当前源码/CI 规则不能替代 Windows 真机验收。已有物理双 Mac 局域网库存证据不包含 Windows，也不包含屏幕或输入权限；隔离双 endpoint E2E 也尚未发送 TaskPackage。发布稳定版前仍必须完成 Windows ↔ Windows、Windows ↔ macOS 的显示器、混合 DPI、键盘布局、IME、UIPI、helper、portable 升级和 TaskPackage 文件句柄/清理矩阵。
 
-在这些门禁关闭前，Windows 可安装产物只能作为明确标记的 Preview 发布；当前候选是 `0.10.1-preview.1`，历史 `0.10.0` 不补发为稳定版。Preview 也必须具备匹配资产、SHA-256 和可追踪构建，不因“预览”降低完整性要求。
+在这些门禁关闭前，Windows 可安装产物只能作为明确标记的 Preview 发布；当前源码候选是 `0.10.1-preview.1`，但当前没有公开 Preview，历史 `0.10.0` 也不补发为稳定版。Preview 必须具备可信 Authenticode/时间戳、受保护发布者 thumbprint、精确资产、SHA-256 和可追踪构建，不因“预览”降低完整性要求。
 
 ## GitHub 一键更新
 
@@ -170,6 +178,8 @@ CI 会在 `windows-latest` 执行纯 Node 的 Windows 路径、启动候选、MS
 16. 全新空存储从“创建第一个 Agent”完成本机目录与设备身份初始化，全程不开放监听、不发布租约、不连接远端；关闭重开后恢复同一 Agent/设备/准备状态，不重复造数据。
 17. 两台物理设备从邀请、双方身份确认、成员信任和认证连接走到目录/库存落库；已信任但离线时从准确步骤继续，不要求重新配对，“接收连接 30 分钟”只作为高级恢复。
 18. 同 Mesh TaskPackage 在 Windows 上完成接收、拒绝、撤权、断线恢复、导入和同密文便携 fallback；验证来源设备 ID/名称来自认证连接，来源 Agent/交接人只作为包内声明，并证明拒绝、过期、退出和错误不会遗留密文或明文 staging 文件句柄。
+19. 用真实浏览器从公开 Release 下载 portable，确认文件带 Mark-of-the-Web；在未导入开发证书的干净 Windows 用户环境中复核 `SHA256SUMS.txt`、数字签名、时间戳与受保护发布者身份，并记录 SmartScreen、Defender、UAC 和系统策略的实际行为。
+20. 对同一个公开下载 portable 完成首次初始化、恢复完成、完成后重启，确认零默认 Profile、零远端设备/连接及退出后的进程和回环调试端点清理。GitHub-hosted runner 的匿名下载不能替代这项物理检查。
 
 ## 构建命令
 
@@ -179,6 +189,8 @@ npm run check
 npm run check:docs
 npm test
 npm run build:win
+npm run verify:electron-package -- --artifact release/win-unpacked
+npm run accept:packaged -- --artifact release/win-unpacked
 ```
 
-生成的 `AgentDesk-<version>-portable-x64.exe` 在 `release/` 目录下。Windows 包应优先在 Windows runner 或 Windows 真机上构建。
+`npm run build:win` 生成的 `AgentDesk-<version>-portable-x64.exe` 在 `release/` 目录下，但它只是本机无签名兼容构建，不得对外分发。公开发布必须在受保护环境设置 `WIN_CSC_LINK`、`WIN_CSC_KEY_PASSWORD` 与 `WIN_SIGNER_THUMBPRINT`，运行 `npm run build:win:release` 和 `npm run verify:win-release`，再继续完成 Draft 与匿名公开重下载；单独运行这些本地命令不能创建可分发版本。

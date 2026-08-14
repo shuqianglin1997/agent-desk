@@ -4,7 +4,7 @@
 >
 > 当前分支：`main`
 >
-> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.27，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
+> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.28，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
 >
 > 仓库：`shuqianglin1997/agent-desk`
 >
@@ -12,7 +12,7 @@
 
 ## 1. 当前结论
 
-1.14 批准的主窗口层级、排版与全局弹窗 Shell 已经进入真实产品代码；1.24 的签名事件目录、1.25 的便携 TaskPackage 和 1.27 的首用/设备向导/同 Mesh Preview 直送都在这套固定骨架内实现：
+1.14 批准的主窗口层级、排版与全局弹窗 Shell 已经进入真实产品代码；1.24 的签名事件目录、1.25 的便携 TaskPackage、1.27 的首用/设备向导/同 Mesh Preview 直送，以及 1.28 的 Electron 成品与 Preview 发布门禁都在同一获批基线上实现：
 
 - 主窗口固定为一个 Header、一个 Footer，以及顶部 Agent、左下会话、右下详情三个面板；1040 × 840 尺寸不变。
 - Renderer 几何冻结为 58px Header、244px Agent 面板、316px 详情、38px Footer，工作区使用 12px/10px padding 与 10px gap；Compact 会话表没有水平滚动。
@@ -94,6 +94,10 @@
 - `src/task-package/service.js`：人工检查点、Git/附件捕获、导入事务、历史与来源保留。
 - `src/i18n/{zh,en,ja}.js`：Header 与详情的三语文案，key 集合一致。
 - `scripts/ui-acceptance.js`：真实 Electron 的 21 条任务路径，另含全新首 Agent/重启恢复、设备向导、直送状态投影和 760 × 560 小视口矩阵。
+- `scripts/verify-electron-package-integrity.js`：直接流式核验成品 `app.asar` 每个常规文件、五项 fuse 与 macOS/Windows header 绑定，不依赖应用自报。
+- `scripts/packaged-first-use-smoke.js`：对同一确切 `AgentDesk.app`、`win-unpacked` 或 portable 使用一次性 userData 连续启动三次并核对零默认 Profile/远端连接与清理。
+- `scripts/github-release-gate.js`、`.github/workflows/release.yml`：Preview-only 三资产 Draft、原生双端重下载、公开匿名重下载、失败回 Draft 与候选不可复用事务。
+- `scripts/verify-windows-release.ps1`、`scripts/verify-windows-publisher.ps1`：Windows 三层 Authenticode/时间戳与受保护发布者 thumbprint 校验。
 - `test/ui-redesign.test.js`、`test/ui.test.js`、`test/mesh-ui.test.js`、`test/quota-ui.test.js`、`test/mesh-remote-control.test.js`：固定结构与交互契约。
 - `test/mesh-transfer.test.js`：纯本地活动查询无存储副作用。
 - `test/task-package.test.js`、`test/task-package-transfer.test.js`、`test/mesh-transfer.test.js`、`test/task-package-ui.test.js`：容器、稳定 Git 现场、附件不可变快照、Codex 原生导入、直送安全、接收预览、固定弹窗和窄 IPC。
@@ -102,12 +106,14 @@
 
 当前工作现场已经取得以下证据：
 
-- 当前完整 Node 套件为 490 项：489 通过、1 项仅 Windows 跳过、0 失败。TaskPackage 安全定向 25/25，首用/设备向导/配对/Main IPC/TaskPackage UI 相关定向 47/47。
+- 当前完整 Node 套件为 517 项：516 通过、1 项仅 Windows 跳过、0 失败。TaskPackage 安全定向 25/25，发布安全定向 14/14。
 - 当前工作树的真实 Electron 窗口验收以 21/21 任务路径通过；覆盖全新首 Agent 的本机无网络事务、首次使用重启恢复、设备向导 Shell/状态层级和 TaskPackage 直送资格/阶段投影。直送窗口证据不代表真实 WebRTC 数据面。
 - 实窗覆盖 58/244/316/38 固定几何、Compact 无横滚、focus/checked、庭院/卡片、Top Layer 场景 Popover、Agent 对象 Dialog、三语、明暗主题、本机新增、四个 Header 入口、固定区矩形不随 Content 滚动、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 上下文、Agent/Binding/Slot 管理、多副本来源、SessionPointer/文件/历史分离、远控返回/断开、撤销清理和 reduced-motion。
 - `git diff --check` 通过。
-- `0.10.1-preview.1` macOS arm64 本地测试包已构建到 `release/mac-arm64/AgentDesk.app`；主程序为 arm64，包内输入 helper 为 arm64/x86_64 universal，`codesign --verify --deep --strict` 通过，`app.asar` 已核对包含版本化首次使用、设备任务向导与同 Mesh TaskPackage 直送实现。该目录构建使用 ad-hoc 本地签名并明确关闭公证，只用于本机测试，不是可公开发布的签名、公证 Preview。
-- 最新测试包已安装到 `/Applications/AgentDesk.app`，安装后 `app.asar` SHA-256 与构建产物均为 `6c6966ba8fdbb172e24e6164aad139f34cfb7f890a673a991f6adeb7fff05e4c`，已从该路径成功启动并确认运行版本为 `0.10.1-preview.1`。被替换的 `0.10.0` 完整应用保留在 `/Applications/AgentDesk.app.pre-0.10.1-preview.1-20260814-131032`，可直接用于回滚；既有更早备份未删除。
+- 当前 macOS unpacked 成品已通过独立 fuse/ASAR verifier：118/118 个常规文件的整文件/分块 SHA-256、`app.asar`/`default_app.asar`、五项 fuse 与 `ElectronAsarIntegrity` header hash 均符合 1.28。这个结果是当前唯一有效的本机成品证据，不等于签名、公证、Gatekeeper 或三次首次使用 smoke 已通过。
+- 本轮本机 packaged first-use smoke 没有形成通过证据：既有 Mesh 私钥的 macOS Keychain ACL 仍绑定先前 ad-hoc CDHash，新 ad-hoc bundle 无法读取该测试用户数据。该现象限定为本机历史 Keychain/签名上下文，不能写成产品首次使用失败，也不能写成 smoke 已通过；重试应使用隔离且不会碰所有者真实密钥的干净环境或最终 Developer ID 候选。
+- 1.27 期间曾把早期 ad-hoc `0.10.1-preview.1` 安装到 `/Applications/AgentDesk.app` 并保留 `0.10.0` 回滚副本 `/Applications/AgentDesk.app.pre-0.10.1-preview.1-20260814-131032`。那是 fuse/发布门禁改动前的历史安装记录，不是当前候选或公开下载证据。
+- Preview-only Draft/公开重下载事务代码与 14/14 已通过，但真实签名凭据、受保护 `preview-release` 环境和真实 Tag 尚未执行；当前没有公开 `v0.10.1-preview.1`。托管 runner 未来通过也不能替代浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC 与物理干净机首启。
 - 本轮审阅截图在临时目录 `/private/tmp/agentdesk-ui-1.14-acceptance/`；它们不是产品数据，也不应作为运行时依赖。
 
 交付前仍应以当前工作树重新运行：
@@ -123,12 +129,12 @@ git diff --check
 
 ## 6. 文档权威关系
 
-- `PERSONAL_AGENT_MESH_PLAN.md` 1.27 是实施权威。
+- `PERSONAL_AGENT_MESH_PLAN.md` 1.28 是实施权威。
 - `AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html` 是 1.13 主窗口层级、几何与临时层蓝图；全局弹窗内部 Shell 与父子层级以 1.14 计划和真实产品代码为准。
 - `AGENTDESK_WORKSPACE_REDESIGN_REVIEW.html` 是 1.12 页面结构的历史审阅稿；若与 1.14 冲突，以计划和真实产品代码为准。
 - `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md` 已修订为固定三面板与右下 Remote Surface。
 - 旧 owner review、旧会话身份 review、文章插图和规划变更记录中出现的“七行/第六行”只代表当时的历史方案，不能覆盖 1.10。
-- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器、同 Mesh Preview 直送和当前限制；它服从 1.27 产品基线。
+- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器、同 Mesh Preview 直送和当前限制；它服从 1.28 产品基线。
 
 ## 7. 不得误报为已完成
 
@@ -139,6 +145,7 @@ git diff --check
 - Phase 2–8 的纵向链路和本机 UI 收口不等于公开 Beta 门禁关闭。
 - 当前没有无人值守、登录界面、UAC 安全桌面、远程 Shell 或通用命令能力。
 - 同 Mesh TaskPackage 的代码与本机 UI 路径已接通，但现有 Electron E2E runner 尚未发送 TaskPackage；物理双机、断线恢复、Windows 文件句柄矩阵、跨 Mesh 身份确认和非 Codex 原生导入尚未完成。
+- 14/14 发布安全与当前 macOS unpacked fuse/ASAR 通过不等于公开 Preview 已产生；签名、公证、受保护环境、真实 Tag、Draft/公开重下载实跑和物理下载安装仍未完成。
 
 ## 8. 后续真实任务
 
@@ -147,7 +154,7 @@ git diff --check
 1. 两台真实电脑完成配对、库存、SessionPointer、文件、断网恢复、睡眠唤醒和撤销防重连。
 2. 覆盖家庭 NAT、对称 NAT、CGNAT、IPv4/IPv6、UDP 禁用和 coturn UDP/TCP/TLS relay。
 3. 完成 macOS → macOS、macOS ↔ Windows、Windows → Windows 的屏幕、键鼠、DPI、多显示器和 IME 矩阵。
-4. 完成 macOS Developer ID/公证/Gatekeeper 与 Windows helper/portable/UIPI/UAC 发布验证。
+4. 配置受保护 `preview-release` 环境、macOS Developer ID/公证、Windows Authenticode 与 `WIN_SIGNER_THUMBPRINT`，用全新 Tag 实跑 Draft/原生双端重下载/公开匿名重下载；随后在物理干净机覆盖 Gatekeeper/quarantine 与 Windows MOTW/SmartScreen/Defender/UAC、首次使用和两次重启。
 5. 无人值守若要进入开发，必须先通过 Phase 9 的独立产品与安全评审。
 6. 在真实 Electron WebRTC 与物理双机上验证 TaskPackage 接受、拒绝、撤权、断线恢复、导入和同快照便携回退；跨 Mesh 直连另行评审。
 

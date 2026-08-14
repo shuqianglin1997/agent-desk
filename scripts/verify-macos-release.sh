@@ -50,6 +50,10 @@ if [ "$actual_identifier" != "$expected_identifier" ]; then
   exit 1
 fi
 
+repository_root="$(cd "$(dirname "$0")/.." && pwd)"
+echo "Verifying Electron fuses and packaged ASAR integrity"
+node "$repository_root/scripts/verify-electron-package-integrity.js" --artifact "$app_path"
+
 app_executable="${app_path}/Contents/MacOS/AgentDesk"
 architectures="$(lipo -archs "$app_executable")"
 if [[ " ${architectures} " != *" arm64 "* ]] || [[ " ${architectures} " != *" x86_64 "* ]]; then

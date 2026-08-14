@@ -2,13 +2,13 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.27
+> 版本：1.28
 >
 > 日期：2026-08-14
 >
 > 工作分支：main
 >
-> 当前授权：所有者已于 2026-08-10 明确批准本基准并要求开始开发，于 2026-08-13 审阅“全局员工库 + 工作环境 + 按需就绪”规划后明确要求直接实施，并于 2026-08-14 批准“首次使用、设备任务向导、同 Mesh TaskPackage 直接交接、安全边界与预览发布”成熟化实施规划；允许按本文阶段和门禁实施，任何后续方向变化仍须先写回本文件。
+> 当前授权：所有者已于 2026-08-10 明确批准本基准并要求开始开发，于 2026-08-13 审阅“全局员工库 + 工作环境 + 按需就绪”规划后明确要求直接实施，并于 2026-08-14 批准“首次使用、设备任务向导、同 Mesh TaskPackage 直接交接、安全边界与预览发布”成熟化实施规划，随后要求在提交推送前收口 macOS/Windows 他人下载、安装和首次使用的发布门禁；允许按本文阶段和门禁实施，任何后续方向变化仍须先写回本文件。
 >
 > 完整产品审阅稿：`docs/PERSONAL_AGENT_MESH_OWNER_REVIEW.html`。UI 层级与排版实施蓝图：`docs/AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html`，已于 2026-08-12 获所有者批准。“全局员工库 + 工作环境 + 按需就绪”的实施细化见 `docs/AGENT_LIBRARY_ON_DEMAND_PROVISIONING_PLAN.md`。`docs/PERSONAL_AGENT_MESH_REVIEW.html` 保留为会话身份问题的专项技术图解。本文仍是实施时必须完整重读的单一基准；细化稿不得覆盖本文。
 
@@ -1987,7 +1987,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 | 剪贴板泄漏 | 仅显式发送、能力开关、类型和大小白名单、不持续双向同步 |
 | 恶意大包耗尽内存 | 消息大小上限、流式分块、背压、磁盘配额 |
 | 版本降级 | 签名版本协商、最低安全版本、拒绝未知 major |
-| 更新供应链攻击 | 签名、公证、哈希校验、固定发布源、回滚 |
+| 更新供应链攻击 | 受保护的发布者身份、签名、公证、精确资产白名单、发布前摘要、匿名公开重下载、失败回到 Draft 和候选版本不复用 |
 | 服务端收集业务元数据 | 端到端加密 inventory，服务端不记录账号/路径/标题 |
 | 撤销设备离线后重现 | 签名撤销日志、连接前同步 revocation revision |
 | 相同名称导致账号误合并 | 只用 Mesh 范围 HMAC 强标识；否则用户显式关联 |
@@ -2174,6 +2174,9 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - 不恢复 handoff、artifact、runtime 旧模块；
 - Renderer 保持 sandbox 和窄 IPC；
 - 工具维护仍不接受任意命令。
+- Electron 成品必须只从 `app.asar` 加载业务应用，不得回落到 `default_app.asar`；最终可执行文件的 fuse 状态和 ASAR 完整性由独立验证器检查。
+- 候选包首次使用必须在一次性 userData 中经过首次初始化、重启恢复并完成、完成后再重启；三次启动都必须使用同一个确切成品。
+- 可公开的 Preview 必须经过精确三资产 Draft、两个原生系统的 Draft 重下载验证、发布后无 token 匿名重下载和失败回 Draft；诊断附件不得混入 Release 资产。
 
 ### 25.2 新单元测试
 
@@ -2222,6 +2225,9 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - 设备任务向导的 trust、paired、connected、catalog-ready、inventory-ready 与 usable 状态独立推导；关闭重开、离线、重试和旧成员关系都恢复到准确步骤，不把配对成功冒充库存可用；
 - 同 Mesh TaskPackage 的协议 feature、接收 capability、逐次接受、目标绑定密钥 envelope、断点续传、哈希不一致、拒绝/取消/过期清理和旧端便携回退；任何路径都不把明文解锁码交给 Renderer 或持久化；
 - 脱敏诊断。
+- Electron fuse、ASAR 布局与 macOS `ElectronAsarIntegrity` 校验；`RunAsNode` 只允许现有两个固定 CLI launcher 使用，不得新增调用面。
+- 成品首次使用 smoke 的产物白名单、版本/窗口骨架、零默认 Profile、零 Mesh 网络、三次启动、进程与回环调试端点清理。
+- Preview-only 发布策略、受保护 Tag/发布者身份、三资产白名单、Draft/公开状态、发布前摘要/`SHA256SUMS.txt`/实际下载字节三方一致，以及公开后失败的回 Draft 与 candidate-burned 语义。
 
 ### 25.3 集成测试
 
@@ -2513,7 +2519,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 
 ### Phase 2A：永久员工库与按需就绪
 
-当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v6、经验证的一致迁移备份、初始 Blueprint/Deployment 推导、本机首次准备、完整员工库工作环境 UI、独立签名 catalog 事件增量与 0.9.4 快照兼容、版本特性协商、远端 `profile.launch` 与有人值守 `agent.prepare` 已落地**。inventory 已收窄为来源设备事实，撤权/断连后的迟到准备确认不能产生副作用；事件日志 checkpoint 压缩、冲突专用 UI 与物理双机 0.9.5 双端编辑复验继续进行。版本化首次使用已经接通 Renderer、Preload、Main、本机目录/设备身份与 Provisioning；缺失 Profile 存储保持真实空目录，已有 Profile 先进入无损迁移预览。真实 Electron 已覆盖全新首 Agent、本机无网络初始化、未完成不提前记账及重启恢复。设备任务向导已接通加入端验签预览、邀请端成员证书签发前的身份确认、成员信任、认证连接、目录和库存屏障；定向状态与 IPC 回归已通过。候选安装包首启、完整物理双机向导、全应用重启后的向导恢复及公网/跨平台矩阵仍待验收，Phase 2A 继续进行。
+当前状态：**所有者已于 2026-08-13 批准并要求实施；永久员工生命周期、schema v6、经验证的一致迁移备份、初始 Blueprint/Deployment 推导、本机首次准备、完整员工库工作环境 UI、独立签名 catalog 事件增量与 0.9.4 快照兼容、版本特性协商、远端 `profile.launch` 与有人值守 `agent.prepare` 已落地**。inventory 已收窄为来源设备事实，撤权/断连后的迟到准备确认不能产生副作用；事件日志 checkpoint 压缩、冲突专用 UI 与物理双机 0.9.5 双端编辑复验继续进行。版本化首次使用已经接通 Renderer、Preload、Main、本机目录/设备身份与 Provisioning；缺失 Profile 存储保持真实空目录，已有 Profile 先进入无损迁移预览。真实 Electron 已覆盖全新首 Agent、本机无网络初始化、未完成不提前记账及重启恢复。设备任务向导已接通加入端验签预览、邀请端成员证书签发前的身份确认、成员信任、认证连接、目录和库存屏障；定向状态与 IPC 回归已通过。成品首次使用 smoke、Electron fuse/ASAR 验证和 Preview Draft/匿名公开重下载事务已进入代码；当前 macOS unpacked 包已通过 fuse/ASAR verifier。真实签名 Tag 事务、物理干净机首启、完整物理双机向导、全应用重启后的向导恢复及公网/跨平台矩阵仍待验收，Phase 2A 继续进行。
 
 - AgentIdentity 生命周期与 Slot/Binding 解耦，可在零账号、零部署状态存在；
 - AgentBlueprint、AgentDeployment、ProvisioningJob 与 schema v6；
@@ -2699,6 +2705,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 42. 添加设备的普通路径能让用户在一个可恢复向导里看见并完成身份确认、成员信任、认证连接、目录落库和首份库存落库；每一步失败给出准确下一步，已配对但离线不会被误报为未配对或要求重来。
 43. 同一 Mesh 的目标设备支持协议且开启 `task.package.receive` 时，用户可以直接发送并由接收端逐次确认 TaskPackage；明文解锁码不进入 Renderer、包、历史、日志或持久化，拒绝、取消、篡改、断线和旧端回退均不损伤来源。
 44. 未完成真实公网 NAT/TURN、长连接恢复和 macOS/Windows 权限矩阵时，所有可安装交付物都明确标为签名公证 Preview；只有相关物理门禁关闭后才可发布稳定版本。
+45. 任何公开 Preview 必须只包含确切 DMG、portable 与 `SHA256SUMS.txt`，并经过 Draft 原生双端重下载、公开后无 token 匿名重下载、发布前摘要/清单/实际字节一致、签名与成品首次使用复验；失败候选不得被覆盖或以同一 Tag/version 重用。
 
 ## 30. 主要风险
 
@@ -2797,6 +2804,16 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.28 — 2026-08-14
+
+- 修复 Windows TaskPackage 受控清理根判定：使用目标平台路径规则规范化，只接受同一精确根；Windows 大小写和分隔符等价不再误拒，兄弟目录、子目录和异盘继续拒绝。
+- 固化 Electron 成品边界：强制 `app.asar`、禁止 `default_app.asar`；逐项流式复算常规文件的整文件与 4 MiB 分块 SHA-256，拒绝缺失元数据、链接、范围空洞/重叠和尾部载荷；archive header 同时绑定 macOS `Info.plist` 或 Windows PE 的唯一 `INTEGRITY/ELECTRONASAR`。最终可执行文件固定五项 fuse，`RunAsNode` 只为既有两个固定 CLI launcher 保留，`NODE_OPTIONS` 与 CLI inspect 关闭，启用 embedded ASAR integrity 与 only-load-from-ASAR；当前 macOS unpacked 的 118/118 个常规文件已通过。
+- 新增成品首次使用 smoke：只接受 `AgentDesk.app`、`win-unpacked` 或带版本 portable，以临时 userData 完成首次初始化、重启恢复并完成、完成后再重启；随机 launch token 与 Browser command line 绑定本次启动，只向原始 spawn 句柄发终止信号，验证固定窗口骨架、唯一 Agent/本机设备、零默认 Profile、零远端设备、零 Mesh 连接及进程/回环调试端点清理。macOS `safeStorage` 仍可能接触 runner 的系统 Keychain，因此该证据不冒充完全隔离的物理用户环境。
+- `main` 的 macOS CI 构建 ad-hoc universal unpacked 包，核对主程序/helper 双架构并执行 fuse/ASAR 与首次使用 smoke；Windows CI 先核对无签名 `win-unpacked`，再解开 portable 并复验其真实内层主程序/ASAR/helper，随后分别执行 smoke。它们是打包兼容证据，不是可分发的签名产物。
+- Preview 发布收敛为不可覆盖事务：`stableAllowed=false`，只接受受保护的 Preview Tag；macOS Developer ID/公证与 Windows Authenticode/RFC 3161/受保护发布者身份通过后，只组装 DMG、portable 和 `SHA256SUMS.txt` 三项资产。先创建 Draft，由两个原生 runner 重新下载复验，再发布 prerelease；随后无 token 从公开 URL 匿名重下载，核对发布前摘要、清单与实际字节，并重做签名、fuse/ASAR 和首次使用 smoke。后续失败立即回到 Draft；公开过的候选标记 burned，Tag/version 不得复用。
+- 当前完整 Node 套件 517 项中 516 通过、1 项仅 Windows 跳过、0 失败；真实 Electron UI 21/21，发布安全定向 14/14。当前 macOS unpacked 包已通过 fuse/ASAR verifier。
+- 本轮尚未配置真实签名凭据、受保护 `preview-release` 环境和首个 Preview Tag，因此没有生成可供其他人下载的 `v0.10.1-preview.1`。GitHub-hosted runner 的未来匿名下载证据仍不能替代浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC 和物理干净机首启验收；公网 NAT/TURN、断线恢复及 macOS/Windows 权限矩阵继续开放。
 
 ### 1.27 — 2026-08-14
 
