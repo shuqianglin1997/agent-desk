@@ -1727,10 +1727,11 @@ class TransferService {
     const packageRoot = realpathResolvedSync(path.resolve(this.spoolRoot, 'task-packages'));
     // The destination is captured by async realpath so ordinary file receives
     // never block Main on a slow UNC path. TaskPackage uses AgentDesk's local
-    // private spool, so canonicalize that captured root once with the same sync
-    // implementation used for packageRoot before enforcing exact equality.
+    // private spool, so canonicalize that captured root with the native sync
+    // implementation. If Windows still returns a different alias, require the
+    // same non-zero volume and file identity before accepting the exact root.
     const destinationRoot = realpathResolvedSync(local.destinationRoot);
-    if (!sameResolvedPath(destinationRoot, packageRoot)) {
+    if (!sameDirectoryObjectSync(destinationRoot, packageRoot)) {
       throw new Error('task-package-cleanup-root');
     }
     const finalNames = (Array.isArray(local.finalPaths) ? local.finalPaths : [])
@@ -1738,13 +1739,13 @@ class TransferService {
       .map((filePath) => {
         const resolved = path.resolve(filePath);
         // finalPaths are captured before the descriptor is rewritten. Resolve
-        // their existing parent with the same filesystem canonicalization as
-        // both roots so Windows namespace/8.3 aliases cannot fail the second
-        // boundary check after the exact destination-root check has passed.
+        // their existing parent with the same filesystem canonicalization and
+        // directory identity check as both roots, so Windows namespace/8.3
+        // aliases cannot fail after the exact destination-root check passed.
         const finalParent = realpathResolvedSync(path.dirname(resolved));
         if (
-          !sameResolvedPath(finalParent, destinationRoot)
-          || !sameResolvedPath(finalParent, packageRoot)
+          !sameDirectoryObjectSync(finalParent, destinationRoot)
+          || !sameDirectoryObjectSync(finalParent, packageRoot)
         ) {
           throw new Error('task-package-cleanup-final-boundary');
         }
@@ -2411,7 +2412,10 @@ function safeChildPath(root, name) {
 }
 
 function realpathResolvedSync(value) {
-  return fs.realpathSync(path.resolve(value));
+  const resolved = path.resolve(value);
+  return typeof fs.realpathSync.native === 'function'
+    ? fs.realpathSync.native(resolved)
+    : fs.realpathSync(resolved);
 }
 
 function sameResolvedPath(left, right, pathApi = path) {
@@ -2431,6 +2435,36 @@ function sameResolvedPath(left, right, pathApi = path) {
   const leftPath = comparable(left);
   const rightPath = comparable(right);
   return pathApi.relative(leftPath, rightPath) === '';
+}
+
+function sameDirectoryObjectSync(left, right, {
+  pathApi = path,
+  statSync = (value) => fs.statSync(value, { bigint: true })
+} = {}) {
+  if (sameResolvedPath(left, right, pathApi)) return true;
+  // libuv exposes a Windows volume serial as dev and a filesystem file ID as
+  // ino. Both must be present and match; an unsupported zero identity fails
+  // closed instead of turning a path alias into a broader cleanup boundary.
+  try {
+    const leftStat = statSync(left);
+    const rightStat = statSync(right);
+    if (!leftStat?.isDirectory?.() || !rightStat?.isDirectory?.()) return false;
+    if (
+      typeof leftStat.dev !== 'bigint'
+      || typeof rightStat.dev !== 'bigint'
+      || typeof leftStat.ino !== 'bigint'
+      || typeof rightStat.ino !== 'bigint'
+      || leftStat.dev <= 0n
+      || rightStat.dev <= 0n
+      || leftStat.ino <= 0n
+      || rightStat.ino <= 0n
+    ) {
+      return false;
+    }
+    return leftStat.dev === rightStat.dev && leftStat.ino === rightStat.ino;
+  } catch (_error) {
+    return false;
+  }
 }
 
 async function regularFileSize(filePath) {
@@ -2554,6 +2588,7 @@ module.exports = {
   POINTER_MESSAGE_LIMIT,
   TransferService,
   normalizeSelections,
+  sameDirectoryObjectSync,
   sameResolvedPath,
   secureContext
 };
