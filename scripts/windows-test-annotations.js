@@ -69,6 +69,21 @@ function failureDisplayName(data) {
   return sanitizeFailureName(fileLabel ? `${fileLabel} › ${testName}` : testName);
 }
 
+function safeStackLocation(data) {
+  const stack = String(data?.details?.error?.stack || '');
+  for (const stackLine of stack.split(/\r?\n/)) {
+    const match = stackLine.match(/(?:\(|\s)((?:file:\/\/\/|[A-Za-z]:[\\/]|\\\\|\/).+):(\d+):(\d+)\)?\s*$/);
+    if (!match) continue;
+    const fileLabel = safeFileLabel(match[1]);
+    const line = Number(match[2]);
+    const column = Number(match[3]);
+    if (!fileLabel || !Number.isSafeInteger(line) || line < 1
+      || !Number.isSafeInteger(column) || column < 1) continue;
+    return `${fileLabel}:${line}:${column}`;
+  }
+  return null;
+}
+
 module.exports = async function* windowsTestAnnotations(source) {
   let emitted = 0;
   let omitted = 0;
@@ -84,7 +99,9 @@ module.exports = async function* windowsTestAnnotations(source) {
     }
     emitted += 1;
     const name = failureDisplayName(data || {});
-    yield `::error title=Windows Node test failed::${escapeWorkflowCommandData(name)}\n`;
+    const location = safeStackLocation(data || {});
+    const message = location ? `${name} [${location}]` : name;
+    yield `::error title=Windows Node test failed::${escapeWorkflowCommandData(message)}\n`;
   }
 
   if (omitted > 0) {
@@ -94,4 +111,5 @@ module.exports = async function* windowsTestAnnotations(source) {
 
 module.exports.escapeWorkflowCommandData = escapeWorkflowCommandData;
 module.exports.failureDisplayName = failureDisplayName;
+module.exports.safeStackLocation = safeStackLocation;
 module.exports.sanitizeFailureName = sanitizeFailureName;
