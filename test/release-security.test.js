@@ -381,6 +381,26 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
     windowsTestAnnotations.sanitizeFailureName('request used Bearer private-bearer'),
     'request used Bearer <redacted>'
   );
+  assert.equal(
+    windowsTestAnnotations.safeStackLocation({
+      details: {
+        error: {
+          stack: 'AssertionError\n    at TestContext.<anonymous> (C:\\a\\agent-desk\\test\\release-security.test.js:612:5)'
+        }
+      }
+    }),
+    'release-security.test.js:612:5'
+  );
+  assert.equal(
+    windowsTestAnnotations.safeStackLocation({
+      details: {
+        error: {
+          stack: 'AssertionError\n    at TestContext.<anonymous> (\\\\server\\share\\agent desk\\test\\mesh-transfer.test.js:414:9)'
+        }
+      }
+    }),
+    'mesh-transfer.test.js:414:9'
+  );
   assert.doesNotMatch(
     annotationOutput,
     /Alice|Company Secret|Client Secret|do-not-publish|short-secret|private-bearer|private stack/
@@ -485,7 +505,10 @@ test('桌面包只携带固定名称的原生输入 helper', () => {
 });
 
 test('GitHub Release 采用 draft 预验、匿名复验和失败回草稿事务', () => {
-  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8');
+  const workflow = fs.readFileSync(
+    path.join(root, '.github', 'workflows', 'release.yml'),
+    'utf8'
+  ).replace(/\r\n/g, '\n');
   const publicGate = fs.readFileSync(path.join(root, 'scripts', 'github-release-gate.js'), 'utf8');
   const releaseRollback = fs.readFileSync(
     path.join(root, 'scripts', 'redraft-github-release.sh'),

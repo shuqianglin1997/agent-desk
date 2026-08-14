@@ -24,12 +24,14 @@ const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
+const { loadElectronBuilderDependency } = require('./verify-electron-package-integrity');
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const PACKAGE = require(path.join(APP_ROOT, 'package.json'));
 const ONBOARDING = require(path.join(APP_ROOT, 'src', 'onboarding-state.js'));
 const PRODUCT_NAME = 'AgentDesk';
 const DEFAULT_TIMEOUT_MS = 45_000;
+const MAIN_WINDOW_CONTRACT = Object.freeze({ width: 1040, height: 840 });
 const NETWORK_ENV_KEYS = Object.freeze([
   'AGENTDESK_ALLOW_INSECURE_SIGNALING',
   'AGENTDESK_SIGNALING_URLS',
@@ -333,6 +335,95 @@ function resolvePackagedArtifact(inputPath, platform = process.platform) {
     throw new Error('Source Electron runtime is forbidden; provide a packaged AgentDesk artifact');
   }
   return platform === 'darwin' ? resolveMacBundle(absolute) : resolveWindowsArtifact(absolute);
+}
+
+function readPackagedMainSource(artifact, asarApi = null) {
+  assert.ok(artifact?.asarPath, 'packaged main-window contract requires an unpacked app.asar');
+  const api = asarApi || loadElectronBuilderDependency('@electron/asar');
+  assert.equal(typeof api?.extractFile, 'function', 'packaged main-window contract requires ASAR extraction support');
+  let source;
+  try {
+    source = api.extractFile(artifact.asarPath, 'src/main.js');
+  } catch (error) {
+    throw new Error(`Unable to read packaged src/main.js from app.asar: ${error?.message || error}`);
+  }
+  const buffer = Buffer.isBuffer(source) ? source : Buffer.from(source || '');
+  assert.ok(buffer.length > 0, 'packaged src/main.js is empty');
+  return buffer.toString('utf8');
+}
+
+function assertPackagedFixedWindowContract(artifact, asarApi = null) {
+  const source = readPackagedMainSource(artifact, asarApi);
+  const match = source.match(
+    /function\s+createWindow\s*\(\s*\)\s*\{[\s\S]*?mainWindow\s*=\s*new\s+BrowserWindow\s*\(\s*\{([\s\S]*?)\n\s*\}\s*\)\s*;\s*\n\s*installMainWindowSecurity\s*\(/
+  );
+  assert.ok(match, 'packaged src/main.js is missing the main BrowserWindow construction');
+  const optionsSource = match[1];
+  for (const [name, expected] of Object.entries({
+    width: MAIN_WINDOW_CONTRACT.width,
+    height: MAIN_WINDOW_CONTRACT.height,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false
+  })) {
+    const property = new RegExp(`^\\s*${name}\\s*:\\s*(${typeof expected === 'boolean' ? 'true|false' : '\\d+'})\\s*,?\\s*$`, 'gm');
+    const values = [...optionsSource.matchAll(property)].map((item) => (
+      typeof expected === 'boolean' ? item[1] === 'true' : Number(item[1])
+    ));
+    assert.deepEqual(values, [expected], `packaged main BrowserWindow must declare exactly one ${name}: ${expected}`);
+  }
+  return true;
+}
+
+function assertPackagedWindowGeometry(snapshot) {
+  const dimensions = [
+    {
+      name: 'width',
+      actual: snapshot.outerWidth,
+      inner: snapshot.innerWidth,
+      contract: MAIN_WINDOW_CONTRACT.width,
+      available: snapshot.screenAvailWidth,
+      full: snapshot.screenWidth
+    },
+    {
+      name: 'height',
+      actual: snapshot.outerHeight,
+      inner: snapshot.innerHeight,
+      contract: MAIN_WINDOW_CONTRACT.height,
+      available: snapshot.screenAvailHeight,
+      full: snapshot.screenHeight
+    }
+  ];
+  let displayClamped = false;
+  for (const dimension of dimensions) {
+    for (const [label, value] of Object.entries({
+      actual: dimension.actual,
+      inner: dimension.inner,
+      available: dimension.available,
+      full: dimension.full
+    })) {
+      assert.ok(Number.isFinite(value) && value > 0, `packaged window ${dimension.name} ${label} metric is invalid`);
+    }
+    assert.ok(
+      dimension.inner <= dimension.actual,
+      `packaged window inner ${dimension.name} cannot exceed its outer ${dimension.name}`
+    );
+    const frame = dimension.actual - dimension.inner;
+    const accepted = new Set([dimension.contract]);
+    for (const displayMetric of [dimension.available, dimension.full]) {
+      accepted.add(Math.min(dimension.contract, displayMetric));
+      accepted.add(Math.min(dimension.contract, displayMetric + frame));
+    }
+    assert.ok(
+      accepted.has(dimension.actual),
+      `packaged BrowserWindow ${dimension.name} ${dimension.actual} is neither the ${dimension.contract} contract nor an exact display clamp (${[...accepted].join(', ')})`
+    );
+    if (dimension.actual !== dimension.contract) displayClamped = true;
+  }
+  return {
+    contract: MAIN_WINDOW_CONTRACT,
+    displayClamped
+  };
 }
 
 function assertAdHocMacSignatureSlice(details, architecture) {
@@ -1039,6 +1130,12 @@ async function assertPackagedMainWindow(instance, expectedVersion) {
     userAgent: navigator.userAgent,
     outerWidth,
     outerHeight,
+    innerWidth,
+    innerHeight,
+    screenWidth: screen.width,
+    screenHeight: screen.height,
+    screenAvailWidth: screen.availWidth,
+    screenAvailHeight: screen.availHeight,
     headerCount: document.querySelectorAll('.app-shell > .app-topbar').length,
     boardPanelCount: document.querySelectorAll('#mainGrid > .workspace-panel').length,
     footerCount: document.querySelectorAll('.app-shell > #statusBar').length,
@@ -1050,8 +1147,7 @@ async function assertPackagedMainWindow(instance, expectedVersion) {
   assertPackagedRendererUrl(snapshot.url);
   assert.equal(snapshot.title, PRODUCT_NAME);
   assert.equal(runtimeVersionFromUserAgent(snapshot.userAgent), expectedVersion, 'packaged runtime version must match the release candidate');
-  assert.equal(snapshot.outerWidth, 1040, 'packaged BrowserWindow width must be 1040');
-  assert.equal(snapshot.outerHeight, 840, 'packaged BrowserWindow height must be 840');
+  snapshot.geometry = assertPackagedWindowGeometry(snapshot);
   assert.equal(snapshot.headerCount, 1, 'packaged window must have one Header');
   assert.equal(snapshot.boardPanelCount, 3, 'packaged window must have exactly three workspace panels');
   assert.equal(snapshot.footerCount, 1, 'packaged window must have one Footer');
@@ -1241,6 +1337,11 @@ function assertNoRuntimeExceptions(instance, label) {
 async function runSmoke(options) {
   const artifact = resolvePackagedArtifact(options.artifact);
   const keychainMode = resolveSmokeKeychainMode(options, artifact);
+  // Unpacked artifacts expose their actual packaged source, so prove the
+  // requested fixed size before allowing an OS display clamp at runtime. A
+  // standalone Windows portable has no directly addressable app.asar here;
+  // release verification separately checks its signed inner win-unpacked app.
+  if (artifact.asarPath) assertPackagedFixedWindowContract(artifact);
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-packaged-smoke-'));
   const userData = path.join(tempRoot, 'user-data');
   const output = [];
@@ -1265,7 +1366,22 @@ async function runSmoke(options) {
     const firstWindow = await assertPackagedMainWindow(instance, options.expectedVersion);
     const first = await initializeFirstAgent(instance, userData, options);
     assertNoRuntimeExceptions(instance, 'packaged local initialization');
-    report.phases.push({ name: 'local-initialization', url: firstWindow.url, ...first });
+    report.phases.push({
+      name: 'local-initialization',
+      url: firstWindow.url,
+      windowGeometry: {
+        outerWidth: firstWindow.outerWidth,
+        outerHeight: firstWindow.outerHeight,
+        innerWidth: firstWindow.innerWidth,
+        innerHeight: firstWindow.innerHeight,
+        screenWidth: firstWindow.screenWidth,
+        screenHeight: firstWindow.screenHeight,
+        screenAvailWidth: firstWindow.screenAvailWidth,
+        screenAvailHeight: firstWindow.screenAvailHeight,
+        displayClamped: firstWindow.geometry.displayClamped
+      },
+      ...first
+    });
     process.stdout.write('✓ packaged executable created one local Agent/device with Mesh networking disabled\n');
     await stopPackagedApp(instance);
     instance = null;
@@ -1376,11 +1492,14 @@ module.exports = {
   assertAdHocMacSignatureDetails,
   assertBrowserLaunchIdentity,
   assertLocalOnlyOverview,
+  assertPackagedFixedWindowContract,
   assertPackagedRendererUrl,
+  assertPackagedWindowGeometry,
   browserWebSocketFromOutput,
   parseArguments,
   packagedRendererPath,
   readMacSignatureDetails,
+  readPackagedMainSource,
   resolvePackagedArtifact,
   resolveSmokeKeychainMode,
   runtimeVersionFromUserAgent,

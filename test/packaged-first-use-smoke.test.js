@@ -9,7 +9,9 @@ const {
   assertAdHocMacSignatureDetails,
   assertBrowserLaunchIdentity,
   assertLocalOnlyOverview,
+  assertPackagedFixedWindowContract,
   assertPackagedRendererUrl,
+  assertPackagedWindowGeometry,
   browserWebSocketFromOutput,
   parseArguments,
   readMacSignatureDetails,
@@ -212,6 +214,65 @@ test('packaged Renderer proof requires app.asar and parses the packaged version 
   );
   assert.equal(runtimeVersionFromUserAgent('Mozilla/5.0 agent-desk/1.2.3'), '1.2.3');
   assert.equal(runtimeVersionFromUserAgent('Mozilla/5.0 Electron/43.3.0'), null);
+
+  const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'));
+  const asarApi = { extractFile: (_asarPath, archivePath) => {
+    assert.equal(archivePath, 'src/main.js');
+    return mainSource;
+  } };
+  assert.equal(assertPackagedFixedWindowContract({ asarPath: '/fixture/app.asar' }, asarApi), true);
+  assert.throws(
+    () => assertPackagedFixedWindowContract(
+      { asarPath: '/fixture/app.asar' },
+      { extractFile: () => Buffer.from(String(mainSource).replace('width: 1040', 'width: 1024')) }
+    ),
+    /exactly one width: 1040/
+  );
+
+  const exactGeometry = {
+    outerWidth: 1040,
+    outerHeight: 840,
+    innerWidth: 1040,
+    innerHeight: 812,
+    screenWidth: 1440,
+    screenHeight: 900,
+    screenAvailWidth: 1440,
+    screenAvailHeight: 875
+  };
+  assert.deepEqual(assertPackagedWindowGeometry(exactGeometry), {
+    contract: { width: 1040, height: 840 },
+    displayClamped: false
+  });
+  const ciGeometry = {
+    outerWidth: 1024,
+    outerHeight: 796,
+    innerWidth: 1024,
+    innerHeight: 768,
+    screenWidth: 1024,
+    screenHeight: 768,
+    screenAvailWidth: 1024,
+    screenAvailHeight: 768
+  };
+  assert.deepEqual(assertPackagedWindowGeometry(ciGeometry), {
+    contract: { width: 1040, height: 840 },
+    displayClamped: true
+  });
+  assert.deepEqual(assertPackagedWindowGeometry({
+    ...ciGeometry,
+    outerHeight: 768,
+    innerHeight: 740
+  }), {
+    contract: { width: 1040, height: 840 },
+    displayClamped: true
+  });
+  assert.throws(
+    () => assertPackagedWindowGeometry({ ...ciGeometry, outerWidth: 1000, innerWidth: 1000 }),
+    /neither the 1040 contract nor an exact display clamp/
+  );
+  assert.throws(
+    () => assertPackagedWindowGeometry({ ...ciGeometry, screenWidth: 1440, screenAvailWidth: 1440 }),
+    /neither the 1040 contract nor an exact display clamp/
+  );
 });
 
 test('browser discovery accepts only the spawned loopback DevTools endpoint', () => {

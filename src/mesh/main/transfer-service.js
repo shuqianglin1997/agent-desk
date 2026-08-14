@@ -1725,14 +1725,27 @@ class TransferService {
   writeTaskPackageCleanupDescriptor(job, local) {
     if (job.type !== 'task-package' || job.direction !== 'incoming') return false;
     const packageRoot = realpathResolvedSync(path.resolve(this.spoolRoot, 'task-packages'));
-    if (!sameResolvedPath(local.destinationRoot, packageRoot)) {
+    // The destination is captured by async realpath so ordinary file receives
+    // never block Main on a slow UNC path. TaskPackage uses AgentDesk's local
+    // private spool, so canonicalize that captured root once with the same sync
+    // implementation used for packageRoot before enforcing exact equality.
+    const destinationRoot = realpathResolvedSync(local.destinationRoot);
+    if (!sameResolvedPath(destinationRoot, packageRoot)) {
       throw new Error('task-package-cleanup-root');
     }
     const finalNames = (Array.isArray(local.finalPaths) ? local.finalPaths : [])
       .filter(Boolean)
       .map((filePath) => {
         const resolved = path.resolve(filePath);
-        if (!sameResolvedPath(path.dirname(resolved), packageRoot)) {
+        // finalPaths are captured before the descriptor is rewritten. Resolve
+        // their existing parent with the same filesystem canonicalization as
+        // both roots so Windows namespace/8.3 aliases cannot fail the second
+        // boundary check after the exact destination-root check has passed.
+        const finalParent = realpathResolvedSync(path.dirname(resolved));
+        if (
+          !sameResolvedPath(finalParent, destinationRoot)
+          || !sameResolvedPath(finalParent, packageRoot)
+        ) {
           throw new Error('task-package-cleanup-final-boundary');
         }
         const name = path.basename(resolved).normalize('NFC');
