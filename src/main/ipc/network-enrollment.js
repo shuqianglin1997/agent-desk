@@ -9,4 +9,13 @@ function derivedNetworkEnrollment(input = {}) {
   return Array.isArray(input.configuredSignalingUrls) && input.configuredSignalingUrls.length > 0;
 }
 
-module.exports = { derivedNetworkEnrollment };
+function shouldDeferSecureMeshStartup(input = {}) {
+  if (input.platform !== 'darwin' || input.isPackaged !== true) return false;
+  const signature = String(input.signatureText || '');
+  const isAdHoc = /^\s*Signature=adhoc\s*$/mi.test(signature);
+  const hasNoTeam = /^\s*TeamIdentifier=not set\s*$/mi.test(signature);
+  const hasAuthority = /^\s*Authority=/mi.test(signature);
+  return isAdHoc && hasNoTeam && !hasAuthority;
+}
+
+module.exports = { derivedNetworkEnrollment, shouldDeferSecureMeshStartup };

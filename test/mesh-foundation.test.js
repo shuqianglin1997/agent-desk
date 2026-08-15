@@ -499,6 +499,18 @@ test('独立 mesh.db + OS 加密密钥文件完成初始化、重命名、同步
     assert.equal('rootPublicKey' in initialized.mesh, false);
     assert.equal('meshScopedAccountKey' in initialized.accountBindings[0], false);
 
+    const originalKeyLoad = service.keyVault.load.bind(service.keyVault);
+    let deferredKeyLoads = 0;
+    service.keyVault.load = () => {
+      deferredKeyLoads += 1;
+      return originalKeyLoad();
+    };
+    const deferred = service.getOverview({ deferKeyAccess: true });
+    assert.equal(deferred.keyState, 'deferred');
+    assert.equal(deferredKeyLoads, 0);
+    assert.equal(deferred.agents.length, 1);
+    service.keyVault.load = originalKeyLoad;
+
     const encryptedText = fs.readFileSync(keyPath, 'utf8');
     assert.doesNotMatch(encryptedText, /BEGIN PRIVATE KEY/);
     assert.doesNotMatch(encryptedText, /identityLinkKey"\s*:\s*"BwcH/);

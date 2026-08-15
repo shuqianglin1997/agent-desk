@@ -11,7 +11,10 @@ const {
   installMainWindowSecurity
 } = require('../src/main/ipc/security-policy');
 const { PathSelectionRegistry } = require('../src/main/ipc/path-selections');
-const { derivedNetworkEnrollment } = require('../src/main/ipc/network-enrollment');
+const {
+  derivedNetworkEnrollment,
+  shouldDeferSecureMeshStartup
+} = require('../src/main/ipc/network-enrollment');
 const {
   normalizeFirstAgentInput,
   initializeFirstAgent
@@ -181,6 +184,21 @@ test('network enrollment defaults preserve existing networked Meshes but explici
   assert.equal(derivedNetworkEnrollment({ storedValue: false, overview: existing }), false);
   assert.equal(derivedNetworkEnrollment({ storedValue: true, overview: {} }), true);
   assert.equal(derivedNetworkEnrollment({ overview: { devices: [] } }), false);
+  assert.equal(shouldDeferSecureMeshStartup({
+    platform: 'darwin',
+    isPackaged: true,
+    signatureText: 'Signature=adhoc\nTeamIdentifier=not set\n'
+  }), true);
+  assert.equal(shouldDeferSecureMeshStartup({
+    platform: 'darwin',
+    isPackaged: true,
+    signatureText: 'Signature=adhoc\nAuthority=Developer ID Application: Example\nTeamIdentifier=TEAM123\n'
+  }), false);
+  assert.equal(shouldDeferSecureMeshStartup({
+    platform: 'win32',
+    isPackaged: true,
+    signatureText: 'Signature=adhoc\nTeamIdentifier=not set\n'
+  }), false);
 });
 
 test('a missing Profile store starts empty and remains empty after restart', () => {
@@ -439,6 +457,10 @@ test('main/preload source closes raw path, full-profile, sender and navigation b
   assert.match(preload, /getDiagnostics: \(profile\) => ipcRenderer\.invoke\('diagnostics:get', \{ profileId: profile\?\.id \}\)/);
   assert.doesNotMatch(preload, /ipcRenderer\.invoke\('system:(?:showItem|openPath)',\s*(?:path|displayPath)\b/);
   assert.match(main, /devices:list'[\s\S]*?meshNetworkEnrollmentEnabled\(result\.overview\)/);
+  assert.match(main, /detectSecureMeshStartupDeferral\(\)/);
+  assert.match(main, /getOverview\(\{ deferKeyAccess \}\)/);
+  assert.match(main, /if \(!deferSecureMeshStartup\) getProvisioningService\(\)\.resumeActiveJobs\(\)/);
+  assert.match(preload, /requestSecureAccess: options\.requestSecureAccess === true/);
   const legacyInitialize = main.match(/ipcMain\.handle\('devices:initialize'[\s\S]*?\n\s*}\);/)?.[0] || '';
   assert.match(legacyInitialize, /setMeshNetworkEnrollmentEnabled\(false\)/);
   assert.doesNotMatch(legacyInitialize, /ensureSignalingOnline/);

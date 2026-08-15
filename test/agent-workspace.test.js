@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   projectMeshAgentGroups,
+  resolveUnambiguousLocalSelection,
   resolveReadiness,
   isPreparationActive
 } = require('../src/agent-workspace');
@@ -60,8 +61,9 @@ test('每个工作环境都投影完整员工库，没有 Slot 的 Agent 不消�
 
 test('Presenter 使用稳定 Agent 身份，Slot 只作为动作位置', () => {
   const overview = overviewFixture();
-  const all = projectMeshAgentGroups({ overview, lensId: 'all' });
-  const local = projectMeshAgentGroups({ overview, lensId: 'local' });
+  const profiles = [{ id: 'profile-a', name: 'peter', appId: 'codex' }];
+  const all = projectMeshAgentGroups({ overview, profiles, lensId: 'all' });
+  const local = projectMeshAgentGroups({ overview, profiles, lensId: 'local' });
   const allPeter = all.find((group) => group.key === 'agent-a');
   const localPeter = local.find((group) => group.key === 'agent-a');
 
@@ -70,6 +72,37 @@ test('Presenter 使用稳定 Agent 身份，Slot 只作为动作位置', () => {
   assert.equal(localPeter.primary.name, 'peter');
   assert.equal(localPeter.members[0]._meshSlotKey, 'local:profile-a');
   assert.equal(localPeter.primary._presentationOnly, true);
+
+  assert.deepEqual(resolveUnambiguousLocalSelection({ overview, profiles }), {
+    agentId: 'agent-a',
+    slotKey: 'local:profile-a'
+  });
+
+  const twoSlotsOneAgent = structuredClone(overview);
+  twoSlotsOneAgent.slots.push({
+    ...twoSlotsOneAgent.slots[0],
+    accountBindingId: 'binding-a-2',
+    profileId: 'profile-a-2'
+  });
+  assert.deepEqual(resolveUnambiguousLocalSelection({
+    overview: twoSlotsOneAgent,
+    profiles: [...profiles, { id: 'profile-a-2', name: 'peter 2', appId: 'codex' }]
+  }), { agentId: 'agent-a', slotKey: null });
+
+  const ambiguous = structuredClone(overview);
+  ambiguous.accountBindings.push({
+    accountBindingId: 'binding-b', agentId: 'agent-b', displayAlias: 'mary-codex', providerNamespace: 'codex'
+  });
+  ambiguous.slots.push({
+    ...ambiguous.slots[0],
+    agentId: 'agent-b',
+    accountBindingId: 'binding-b',
+    profileId: 'profile-b'
+  });
+  assert.equal(resolveUnambiguousLocalSelection({
+    overview: ambiguous,
+    profiles: [...profiles, { id: 'profile-b', name: 'mary', appId: 'codex' }]
+  }), null);
 });
 
 test('准备中状态优先于空缺，已就绪但所有来源离线时诚实显示离线', () => {

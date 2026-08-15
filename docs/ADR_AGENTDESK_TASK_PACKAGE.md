@@ -4,7 +4,7 @@
 >
 > 日期：2026-08-14
 >
-> 对应产品基线：`PERSONAL_AGENT_MESH_PLAN.md` 1.29
+> 对应产品基线：`PERSONAL_AGENT_MESH_PLAN.md` 1.31
 >
 > 首个格式版本：`.agentdesk-task` schema v1
 

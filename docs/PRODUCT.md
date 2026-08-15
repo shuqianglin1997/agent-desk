@@ -123,6 +123,8 @@ CLI discovery 是只读能力：只解析启动器，不附加工作参数，不
 - 设备库存只允许来源设备写自己的 Slot 和会话副本；新连接在首份完整库存事务落库后才报告可用，已认证连接重新连接或显式“重扫”会通过固定 `remoteInventory:refresh` 请求新快照，并在连接存续期间每 4 分钟发布一次有界全量恢复快照；库存收发重读当前 `inventory.read` 权限，撤权立即终止现有连接，显式刷新按连接单飞、节流并限制等待队列；
 - 现代 `inventory.device-facts.v1` 快照不携带全局 Agent、AccountBinding 或 tombstone；旧端兼容投影仅在接收端当前具备 `catalog.manage` 时增补本地未知对象，不能覆盖既有关系、提交删除或裁剪零 Slot/零 Binding 员工；
 - 进入一个明确远端 Device Lens，或从设备中心查看该设备会话时，先渲染已落库缓存，再只对这一设备按需走固定刷新；应用启动、本机 Lens 和“全部设备”不 fan-out。无认证连接、临时 LAN 或已配置可达 signaling 路由时，刷新失败但保留离线快照，不冒充已同步；
+- Mesh 密钥保护、会话聚合 IPC 或远端库存失败时，全部/本机 Lens 必须回退到当前 Agent 所属本机 Profile 的只读扫描，并明确标出本地模式；不得用空远端结果覆盖健康本地会话。此时远端会话、SessionPointer、文件和 TaskPackage 直送暂停，本地复制、定位、导出与便携 TaskPackage 仍可使用；
+- 精确识别为 ad-hoc、无 Authority、无 TeamIdentifier 的已打包 macOS 开发版，普通启动会先用持久 Mesh 快照展示 Agent/Slot 与本地会话，不让重签名后的 Keychain ACL 阻断工作台。用户显式打开“设备”时才请求密钥访问和远端功能；正式 Developer ID 包、Windows 和开发态保持原有安全启动路径；
 - 远端库存会话在落库前按接收端 canonical Slot 改写 Agent/AccountBinding：强会话使用 canonical Binding 重算 `conversationId`，弱会话继续使用来源设备作用域并保持 `conversationId`/`replicaId` 稳定；tombstone 或 suppressed/unassigned 已排除的 Slot 不会以旧会话残留。同一强账号键归并，同一强会话键折叠，弱标识不按名称、路径或时间猜测；
 - “复制会话信息”仍只输出路径与坐标；“发送到设备”传输端到端加密 SessionPointer，离线时只在发送端本机密文队列等待；
 - 文件必须由发送端系统选择器选取、接收端明确选择保存目录，采用分块、哈希、背压和断点续传；
@@ -131,7 +133,7 @@ CLI discovery 是只读能力：只解析启动器，不附加工作参数，不
 - 已就绪远端只接受 `requestId + agentId + profileId` 的固定 `profile.launch`；首次准备只接受 Agent 与受限客户端枚举。目标端确认排队前、用户允许后且产生任何副作用前重新读取当前设备/权限并核对原连接代次，撤权、撤销、断连或连接替换后的迟到允许不能创建 ProvisioningJob；
 - 局域网连接只在用户临时开放时监听；公网会合使用签名短租约，公开地址要求 HTTPS，TURN 长期 secret 只留在服务端，桌面只在内存持有短期凭据；
 - 设备诊断只显示服务状态、候选类型、传输协议、LAN/直连/中继和权限，不显示 IP、SDP、完整密钥或 TURN 凭据。
-- 主 Renderer 的 Device Lens、Agent、Slot、focused/checked 会话、SessionReplica、`utilityDialog`、设备详情、活动远控和两类传输草稿彼此独立；打开或关闭全局弹窗以及 render、搜索、刷新都不会自动选择第一项或静默改写动作目标。
+- 主 Renderer 的 Device Lens、Agent、Slot、focused/checked 会话、SessionReplica、`utilityDialog`、设备详情、活动远控和两类传输草稿彼此独立；Device Lens / Agent / Slot 的显式选择写入稳定设置并在重启后恢复。旧设置没有这组记忆时，只在全部 linked 本地 Profile 唯一归属同一 Agent 时恢复该 Agent，不选列表第一项。打开或关闭全局弹窗以及 render、搜索、刷新都不会静默改写动作目标。
 - 卡片名册会显式重置通用按钮的 32px 高度、inline-flex 和不换行规则；卡宽固定为 164px，1–4 个 Agent 左对齐而不均分拉伸，5 个以上由名册自身横向滚动，选中远端卡片会自动露出。卡内下方只复用既有缓存：最近活跃的有效历史时间正常显示，缺失/不可解析/仅远端未同步时显示未知，混合来源只把已知时间标为“本机活跃”；额度只接受本机、成功、新鲜、未过重置点、provider/source 匹配且同一登录来源一致的快照，其他情况显示未知，冲突明确显示“来源不一致”，不伪装为休息或 0。
 
 当前开发版不包含无人值守、远程 Shell、任意命令、服务端业务邮箱或自动任务调度。当前定向验证环境没有配置或验证长期可达的公网 signaling endpoint，隔离 Electron E2E 也尚未发送 TaskPackage；虽然双 Mac 局域网库存链路已有窄真机证据，公开稳定版前仍需完成 TaskPackage 物理双机直送与恢复、长连接/断网恢复、真实公网和跨平台网络/权限矩阵。

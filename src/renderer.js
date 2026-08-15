@@ -42,6 +42,8 @@ const state = {
   },
   mesh: {
     overview: null,
+    sessionSource: 'none',
+    sessionErrorCode: null,
     loading: false,
     errorCode: null,
     message: '',
@@ -644,7 +646,13 @@ function legacyUserSettings() {
 function applyUserSettings(value = {}) {
   state.theme = value.theme === 'light' || value.theme === 'dark' ? value.theme : null;
   state.view = value.view === 'yard' ? 'yard' : 'classic';
-  state.ui = window.UiContext.setAgentScope(state.ui, value.sessionScope === 'all' ? 'all' : 'current');
+  state.ui = window.UiContext.create({
+    ...state.ui,
+    selectedDeviceLensId: value.selectedDeviceLensId || 'all',
+    selectedAgentIdByDeviceLens: value.selectedAgentIdByDeviceLens,
+    selectedSlotKeyByAgentAndLens: value.selectedSlotKeyByAgentAndLens,
+    agentScope: value.sessionScope === 'all' ? 'all' : 'current'
+  });
   state.sessionView = value.sessionView === 'detail' ? 'detail' : 'compact';
   state.remindersOn = value.remindersOn !== false;
   state.profileQuitBehavior = value.profileQuitBehavior === 'keep' ? 'keep' : 'close';
@@ -722,6 +730,18 @@ function persistSettings(patch) {
     request
   ]).then(([, saved]) => saved);
   return request;
+}
+
+function uiSelectionSettingsPatch() {
+  return {
+    selectedDeviceLensId: currentDeviceLensId(),
+    selectedAgentIdByDeviceLens: { ...state.ui.selectedAgentIdByDeviceLens },
+    selectedSlotKeyByAgentAndLens: { ...state.ui.selectedSlotKeyByAgentAndLens }
+  };
+}
+
+function persistUiSelectionMemory(extra = {}) {
+  return persistSettings({ ...uiSelectionSettingsPatch(), ...extra });
 }
 
 function initTheme() {
@@ -1453,7 +1473,7 @@ function bindEvents() {
 
   els.deviceCenterBtn?.addEventListener('click', async () => {
     openUtilityDialog('devices');
-    await loadDeviceOverview();
+    await loadDeviceOverview({ requestSecureAccess: true });
     ensureDeviceDetailForEntry();
     renderDeviceCenter();
   });
@@ -2459,6 +2479,7 @@ async function refreshCatalogWorkspace(overview, options = {}) {
         slotKey: member?._meshSlotKey || member?.id
       });
       if (!member) state.ui = window.UiContext.setSlot(state.ui, null);
+      persistUiSelectionMemory();
     }
   }
   validateUiContext();
@@ -2920,11 +2941,26 @@ async function loadProfiles(preferredId = null, options = {}) {
     Object.entries(state.quotas).filter(([profileId]) => liveIds.has(profileId))
   );
   if (preferredId) {
-    setProfileContext(preferredId);
+    if (setProfileContext(preferredId)) persistUiSelectionMemory();
   } else if (!state.mesh.overview?.initialized && !currentAgentId() && state.profiles[0]) {
     // Pure-local mode keeps the released product's first-slot startup behavior.
     // Mesh mode intentionally starts with no implicit Agent selection.
     setProfileContext(state.profiles[0].id);
+  } else if (
+    state.mesh.overview?.initialized
+    && !currentAgentId()
+    && ['all', state.mesh.overview.localDeviceId].includes(currentDeviceLensId())
+  ) {
+    const selection = window.AgentWorkspace.resolveUnambiguousLocalSelection({
+      overview: state.mesh.overview,
+      profiles: state.profiles
+    });
+    if (selection) {
+      state.ui = window.UiContext.setAgent(state.ui, selection.agentId, {
+        slotKey: selection.slotKey
+      });
+      persistUiSelectionMemory();
+    }
   }
   validateUiContext();
   if (options.presentFirstUseBeforeSessions === true) {
@@ -2951,29 +2987,62 @@ async function loadProfiles(preferredId = null, options = {}) {
 }
 
 async function loadSessions() {
-  const profile = selectedProfile();
-  if (!profile && state.ui.agentScope === 'current') {
+  if (!currentAgentId() && state.ui.agentScope === 'current') {
     state.sessions = [];
+    state.mesh.sessionSource = 'none';
+    state.mesh.sessionErrorCode = null;
     validateSessionContext();
     applySessionFilter();
     return;
   }
 
   if (state.mesh.overview?.initialized && window.manager.listMeshSessions) {
-    await loadMeshSessions();
+    const keyState = state.mesh.overview?.keyState || 'available';
+    const meshResult = keyState === 'available'
+      ? await loadMeshSessions()
+      : { ok: false, reasonCode: keyState };
+    if (meshResult.ok) return;
+
+    const lens = currentDeviceLensId();
+    const canShowLocal = lens === 'all' || lens === state.mesh.overview.localDeviceId;
+    if (canShowLocal) {
+      const localResult = await loadLocalSessions({ source: 'local-fallback' });
+      state.mesh.sessionErrorCode = meshResult.reasonCode;
+      setStatus(tr('status.sessionsLocalFallback', {
+        n: localResult.count,
+        code: meshResult.reasonCode
+      }));
+      return;
+    }
+
+    // A local fallback must never masquerade as the selected remote device.
+    // Retain only rows already proven to belong to that lens; otherwise show
+    // an honest empty result until the encrypted inventory is available.
+    state.sessions = state.sessions.filter((row) => row._deviceId === lens && row._localFallback !== true);
+    state.mesh.sessionSource = 'remote-unavailable';
+    state.mesh.sessionErrorCode = meshResult.reasonCode;
+    validateSessionContext();
+    applySessionFilter();
+    setStatus(tr('status.sessionsRemoteUnavailable', { code: meshResult.reasonCode }));
     return;
   }
 
+  await loadLocalSessions({ source: 'local' });
+}
+
+async function loadLocalSessions(options = {}) {
   // 当前账号：合流同一登录身份的全部形态；全部账号：一次扫描所有身份组。
   // 每条记录都带归属槽位 + 账号组元数据，跨账号排序、选择和操作仍能回到正确槽位。
   const groups = identityGroups();
-  const currentGroup = profile ? groupOfProfile(profile.id) : null;
+  const currentGroup = groups.find((group) => group.key === currentAgentId()) || null;
   const scopedGroups = state.ui.agentScope === 'all'
     ? groups
     : (currentGroup ? [currentGroup] : []);
+  const localProfileIds = new Set(state.profiles.map((profile) => String(profile.id)));
   const descriptors = new Map();
   for (const group of scopedGroups) {
     for (const member of group.members) {
+      if (!localProfileIds.has(String(member.id))) continue;
       descriptors.set(member.id, {
         member,
         accountKey: group.key,
@@ -2997,7 +3066,17 @@ async function loadSessions() {
           _accountKey: accountKey,
           _accountName: accountName,
           _profileName: member.name,
-          _appLabel: appLabel(record.appId || member.appId)
+          _appLabel: appLabel(record.appId || member.appId),
+          _agentId: accountKey,
+          _accountBindingId: member._accountBindingId || null,
+          _deviceId: member._meshDeviceId || state.mesh.overview?.localDeviceId || null,
+          _deviceName: member._meshDeviceName || tr('devices.device.local'),
+          _replicaId: member._meshDeviceId
+            ? `${member._meshDeviceId}:${member.id}:${record.address || record.id || record.filePath || ''}`
+            : null,
+          _remote: false,
+          _stale: false,
+          _localFallback: options.source === 'local-fallback'
         }))
       };
     } catch (_error) {
@@ -3013,6 +3092,9 @@ async function loadSessions() {
     ));
   validateSessionContext();
   applySessionFilter();
+  state.mesh.sessionSource = options.source === 'local-fallback' ? 'local-fallback' : 'local';
+  if (options.source !== 'local-fallback') state.mesh.sessionErrorCode = null;
+  return { ok: true, count: state.sessions.length };
 }
 
 async function loadMeshSessions(prefetchedRows = null) {
@@ -3020,10 +3102,12 @@ async function loadMeshSessions(prefetchedRows = null) {
   if (!Array.isArray(prefetchedRows)) {
     try {
       const result = await window.manager.listMeshSessions();
-      if (!result?.ok || !Array.isArray(result.sessions)) throw new Error(result?.reasonCode || 'inventory-list-failed');
+      if (!result?.ok || !Array.isArray(result.sessions)) {
+        return { ok: false, reasonCode: result?.reasonCode || 'inventory-list-failed' };
+      }
       rows = result.sessions;
-    } catch (_error) {
-      rows = [];
+    } catch (error) {
+      return { ok: false, reasonCode: error?.message || 'inventory-list-failed' };
     }
   }
   const overview = state.mesh.overview;
@@ -3040,8 +3124,11 @@ async function loadMeshSessions(prefetchedRows = null) {
     rows = agentId ? rows.filter((row) => row._agentId === agentId) : [];
   }
   state.sessions = rows.map((row) => enrichMeshSession(row, overview));
+  state.mesh.sessionSource = 'mesh';
+  state.mesh.sessionErrorCode = null;
   validateSessionContext();
   applySessionFilter();
+  return { ok: true, count: state.sessions.length };
 }
 
 function sessionAtReplica(row, replica, overview) {
@@ -4382,7 +4469,9 @@ async function loadDeviceOverview(options = {}) {
     renderDeviceCenter();
   }
   try {
-    const result = await window.manager.listDevices();
+    const result = await window.manager.listDevices({
+      requestSecureAccess: options.requestSecureAccess === true
+    });
     if (!result?.ok) throw new Error(result?.reasonCode || 'mesh-operation-failed');
     state.mesh.overview = result.overview;
     validateUiContext();
@@ -4736,6 +4825,7 @@ function refreshRemoteInventoryForDevice(deviceOrId) {
 async function viewDeviceSessions(device, overview) {
   closeUtilityDialog(els.deviceCenterDialog);
   updateUi(window.UiContext.viewDeviceSessions(state.ui, device.deviceId));
+  persistUiSelectionMemory({ sessionScope: 'all' });
   setWorkspaceMode('sessions');
   renderDeviceLens(overview);
   if (els.searchInput) els.searchInput.value = state.query;
@@ -4754,6 +4844,7 @@ async function viewDeviceAgentSessions(device, agent, overview) {
     agentId: agent.agentId,
     slotKey: slot?._meshSlotKey || slot?.id
   }));
+  persistUiSelectionMemory({ sessionScope: 'current' });
   closeUtilityDialog(els.deviceCenterDialog);
   setWorkspaceMode('sessions');
   renderDeviceLens(overview);
@@ -4817,7 +4908,10 @@ function renderSelectedDeviceActions(device, connection, overview) {
   const transfer = deviceActionButton(
     tr('devices.transfer.files'),
     () => void openFileSendDialog(device.deviceId, transfer),
-    { disabled: state.mesh.loading }
+    {
+      disabled: state.mesh.loading || crossDeviceActionsPaused(),
+      title: crossDeviceActionsPaused() ? tr('status.crossDevicePaused') : ''
+    }
   );
   const permissions = deviceActionButton(
     tr('devices.permissions.action'),
@@ -6532,6 +6626,7 @@ async function selectDeviceLens(lensId) {
   updateUi(window.UiContext.setDeviceLens(state.ui, lensId, {
     validAgentIds: groups.map((group) => group.key)
   }));
+  persistUiSelectionMemory();
   renderDeviceLens(state.mesh.overview);
   renderAccounts();
   renderAccountHeader();
@@ -6561,6 +6656,7 @@ function populateIdentityDatalist() {
 
 async function selectProfile(profileId) {
   if (!setProfileContext(profileId)) return;
+  persistUiSelectionMemory();
   renderAccounts();
   renderAccountHeader();
   await loadSessions();
@@ -6569,6 +6665,7 @@ async function selectProfile(profileId) {
 
 async function selectAgent(agentId) {
   if (!setAgentContext(agentId)) return;
+  persistUiSelectionMemory();
   renderAccounts();
   renderAccountHeader();
   await loadSessions();
@@ -6580,6 +6677,7 @@ function selectSlot(profileId) {
   const member = group?.members.find((item) => item.id === profileId);
   if (!group || !member || group.key !== currentAgentId()) return;
   updateUi(window.UiContext.setSlot(state.ui, member._meshSlotKey || member.id));
+  persistUiSelectionMemory();
   renderAccounts();
   renderAccountHeader();
   renderInspector();
@@ -7137,18 +7235,31 @@ function renderSessionCopyControl() {
     : tr('session.copyInfoHint');
   if (els.sendSessionInfoBtn) {
     const remotes = (state.mesh.overview?.devices || []).filter((device) => !device.isLocal);
-    els.sendSessionInfoBtn.disabled = count === 0 || unresolved.length > 0 || remotes.length === 0;
+    const paused = crossDeviceActionsPaused();
+    els.sendSessionInfoBtn.disabled = count === 0 || unresolved.length > 0 || remotes.length === 0 || paused;
     els.sendSessionInfoBtn.textContent = count > 1
       ? tr('session.sendInfoCount', { n: count })
       : tr('session.sendInfo');
-    els.sendSessionInfoBtn.title = unresolved.length
-      ? tr('session.replica.requiredAction')
-      : tr('session.sendInfoHint');
+    els.sendSessionInfoBtn.title = paused
+      ? tr('status.crossDevicePaused')
+      : (unresolved.length
+          ? tr('session.replica.requiredAction')
+          : tr('session.sendInfoHint'));
   }
+}
+
+function crossDeviceActionsPaused() {
+  return state.mesh.sessionSource === 'local-fallback'
+    || state.mesh.sessionSource === 'remote-unavailable'
+    || Boolean(state.mesh.sessionErrorCode);
 }
 
 async function openSessionSendDialog(preselectedDeviceId = null, returnFocus = document.activeElement) {
   if (!els.sessionSendDialog) return;
+  if (crossDeviceActionsPaused()) {
+    setStatus(tr('status.crossDevicePaused'));
+    return;
+  }
   const sessions = resolvedActionSessions();
   const selections = sessions.map((session) => ({
     conversationId: session.conversationId,
@@ -7168,6 +7279,10 @@ async function openSessionSendDialog(preselectedDeviceId = null, returnFocus = d
 
 async function openFileSendDialog(preselectedDeviceId = null, returnFocus = document.activeElement) {
   if (!els.fileSendDialog) return;
+  if (crossDeviceActionsPaused()) {
+    setStatus(tr('status.crossDevicePaused'));
+    return;
+  }
   const remotes = (state.mesh.overview?.devices || []).filter((device) => !device.isLocal);
   const targetDeviceId = populateTransferTargets(els.fileSendTarget, remotes, preselectedDeviceId);
   state.ui = window.UiContext.createFileDraft(state.ui, {
@@ -7179,6 +7294,7 @@ async function openFileSendDialog(preselectedDeviceId = null, returnFocus = docu
 }
 
 function directTaskPackageTargets() {
+  if (crossDeviceActionsPaused()) return [];
   const overview = state.mesh.overview || {};
   const connections = new Map((overview.connections || [])
     .filter((connection) => connection?.authenticated === true)
@@ -7350,6 +7466,13 @@ async function exportCurrentTaskPackage() {
   const source = state.taskPackages.exportSource;
   const direct = state.taskPackages.exportDelivery === 'direct';
   const targetDeviceId = state.taskPackages.directTargetDeviceId;
+  if (direct && crossDeviceActionsPaused()) {
+    state.taskPackages.exportDelivery = 'portable';
+    state.taskPackages.directTargetDeviceId = null;
+    renderTaskPackageDeliveryOptions();
+    setTaskPackageStatus('export', tr('status.crossDevicePaused'), 'error');
+    return;
+  }
   if (direct && !targetDeviceId) {
     setTaskPackageStatus('export', tr('taskPackage.delivery.unavailable'), 'error');
     return;
