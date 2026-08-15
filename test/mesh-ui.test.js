@@ -122,6 +122,10 @@ test('工作环境始终投影完整员工库，并用同一主按钮确保就�
   assert.match(renderer, /function openCurrentAgent\(\)[\s\S]*?ensureAgentReady\(\{[\s\S]*?agentId:[\s\S]*?deviceId:[\s\S]*?requestedAppId:/);
   assert.match(renderer, /deployment\.action\.firstOpen/);
   assert.match(renderer, /if \(!members\.length && state\.mesh\.overview\?\.initialized\)[\s\S]*?deployment\.client\.unprepared/);
+  assert.match(renderer, /resolveUnambiguousLocalSelection\(\{[\s\S]*?overview: state\.mesh\.overview,[\s\S]*?profiles: state\.profiles/);
+  assert.match(renderer, /selectedDeviceLensId: currentDeviceLensId\(\)[\s\S]*?selectedAgentIdByDeviceLens:[\s\S]*?selectedSlotKeyByAgentAndLens:/);
+  assert.match(renderer, /function selectDeviceLens[\s\S]*?persistUiSelectionMemory\(\)/);
+  assert.match(renderer, /function selectAgent[\s\S]*?persistUiSelectionMemory\(\)/);
 });
 
 test('全局员工目录通过独立 catalog 通道同步，先于来源设备 inventory 完成', () => {
@@ -257,6 +261,18 @@ test('会话发送是复制主按钮旁的次级动作，只提交稳定 ID，�
   assert.match(main, /ipcMain\.handle\('transfers:createSessionPointer'/);
   assert.match(main, /ipcMain\.handle\('projects:chooseBinding'[\s\S]*?dialog\.showOpenDialog/);
   assert.match(html, /不生成交接模板/);
+  assert.match(renderer, /const keyState = state\.mesh\.overview\?\.keyState \|\| 'available';[\s\S]*?keyState === 'available'[\s\S]*?await loadMeshSessions\(\)[\s\S]*?loadLocalSessions\(\{ source: 'local-fallback' \}\)/);
+  assert.match(renderer, /loadDeviceOverview\(\{ requestSecureAccess: true \}\)/);
+  assert.match(renderer, /function loadMeshSessions[\s\S]*?return \{ ok: false, reasonCode:[\s\S]*?state\.mesh\.sessionSource = 'mesh'/);
+  assert.match(renderer, /const localProfileIds = new Set\(state\.profiles[\s\S]*?if \(!localProfileIds\.has\(String\(member\.id\)\)\) continue/);
+  assert.match(renderer, /function crossDeviceActionsPaused[\s\S]*?sessionSource === 'local-fallback'[\s\S]*?sessionErrorCode/);
+  assert.match(renderer, /function directTaskPackageTargets\(\) \{[\s\S]*?if \(crossDeviceActionsPaused\(\)\) return \[\]/);
+  for (const locale of ['zh', 'en', 'ja']) {
+    const dictionary = read(`src/i18n/${locale}.js`);
+    assert.match(dictionary, /'status\.sessionsLocalFallback':/);
+    assert.match(dictionary, /'status\.sessionsRemoteUnavailable':/);
+    assert.match(dictionary, /'status\.crossDevicePaused':/);
+  }
 });
 
 test('文件传输路径只来自 Main 系统选择器，Renderer 只提交设备和传输 ID', () => {

@@ -25,6 +25,9 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
     view: 'classic',
     sessionScope: 'all',
     sessionView: 'detail',
+    selectedDeviceLensId: 'device-local',
+    selectedAgentIdByDeviceLens: { all: 'agent-peter', 'device-local': 'agent-peter' },
+    selectedSlotKeyByAgentAndLens: { 'device-local::agent-peter': 'device-local:profile-peter' },
     remindersOn: false,
     profileQuitBehavior: 'keep',
     atmosTime: 'dusk',
@@ -43,6 +46,14 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
   assert.equal(normalized.view, 'classic');
   assert.equal(normalized.sessionScope, 'all');
   assert.equal(normalized.sessionView, 'detail');
+  assert.equal(normalized.selectedDeviceLensId, 'device-local');
+  assert.deepEqual(normalized.selectedAgentIdByDeviceLens, {
+    all: 'agent-peter',
+    'device-local': 'agent-peter'
+  });
+  assert.deepEqual(normalized.selectedSlotKeyByAgentAndLens, {
+    'device-local::agent-peter': 'device-local:profile-peter'
+  });
   assert.equal(normalized.remindersOn, false);
   assert.equal(normalized.profileQuitBehavior, 'keep');
   assert.equal(normalized.atmosTime, 'dusk');
@@ -58,6 +69,9 @@ test('非法设置安全回落默认值，损坏账本不会阻断启动', () =>
     view: 'unknown',
     sessionScope: 'some',
     sessionView: 'cards',
+    selectedDeviceLensId: '',
+    selectedAgentIdByDeviceLens: ['agent-a'],
+    selectedSlotKeyByAgentAndLens: { all: '' },
     remindersOn: 'no',
     atmosTime: 'sunset',
     atmosWeather: 'storm',

@@ -18,7 +18,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const crypto = require('node:crypto');
-const { spawn, execFileSync } = require('node:child_process');
+const { spawn, spawnSync, execFileSync } = require('node:child_process');
 const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const apps = require('./apps');
@@ -72,7 +72,10 @@ const {
   installMainWindowSecurity
 } = require('./main/ipc/security-policy');
 const { PathSelectionRegistry } = require('./main/ipc/path-selections');
-const { derivedNetworkEnrollment } = require('./main/ipc/network-enrollment');
+const {
+  derivedNetworkEnrollment,
+  shouldDeferSecureMeshStartup
+} = require('./main/ipc/network-enrollment');
 const { initializeFirstAgent } = require('./main/ipc/first-agent-onboarding');
 const {
   normalizeTaskPackageSendInput,
@@ -118,6 +121,28 @@ const STORE_VERSION = 2;
 const WINDOWS_DISCOVERY_TTL = 30_000;
 const UPDATE_CACHE_TTL = 5 * 60_000;
 const UPDATE_CHECK_TIMEOUT = 15_000;
+let deferSecureMeshStartup = false;
+let secureMeshAccessUnlocked = false;
+
+function detectSecureMeshStartupDeferral() {
+  if (process.platform !== 'darwin' || !app.isPackaged) return false;
+  const result = spawnSync('/usr/bin/codesign', [
+    '--display',
+    '--verbose=4',
+    process.execPath
+  ], {
+    encoding: 'utf8',
+    timeout: 3000,
+    maxBuffer: 256 * 1024,
+    windowsHide: true
+  });
+  if (result.error || result.status !== 0) return false;
+  return shouldDeferSecureMeshStartup({
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    signatureText: `${result.stdout || ''}\n${result.stderr || ''}`
+  });
+}
 const UPDATE_DOWNLOAD_TIMEOUT = 30 * 60_000;
 const TOOL_MAINTENANCE_CACHE_TTL = 10 * 60_000;
 const TOOL_MAINTENANCE_FETCH_TIMEOUT = 15_000;
@@ -240,11 +265,12 @@ if (!hasSingleInstanceLock) {
     if (process.platform === 'darwin' && !app.isPackaged && app.dock) {
       try { app.dock.setIcon(path.join(__dirname, '..', 'assets', 'icon.png')); } catch (_error) { /* best effort */ }
     }
+    deferSecureMeshStartup = detectSecureMeshStartupDeferral();
     registerIpc();
     registerRemoteEmergencyStop();
     getProfileRuntimeSupervisor().start(loadProfiles());
     createWindow();
-    getProvisioningService().resumeActiveJobs();
+    if (!deferSecureMeshStartup) getProvisioningService().resumeActiveJobs();
 
     app.on('activate', () => {
       showMainWindow();
@@ -369,10 +395,20 @@ function registerIpc() {
     }));
   });
 
-  ipcMain.handle('devices:list', () => {
-    const result = meshCall(() => getMeshService().getOverview());
+  ipcMain.handle('devices:list', (_event, input = {}) => {
+    const requestSecureAccess = input?.requestSecureAccess === true;
+    const deferKeyAccess = deferSecureMeshStartup
+      && !secureMeshAccessUnlocked
+      && !requestSecureAccess;
+    const result = meshCall(() => getMeshService().getOverview({ deferKeyAccess }));
+    if (result.ok && result.overview?.keyState === 'available') {
+      const newlyUnlocked = !secureMeshAccessUnlocked;
+      secureMeshAccessUnlocked = true;
+      if (newlyUnlocked && deferSecureMeshStartup) getProvisioningService().resumeActiveJobs();
+    }
     if (
       result.ok
+      && result.overview?.keyState === 'available'
       && result.overview?.initialized
       && meshNetworkEnrollmentEnabled(result.overview)
     ) void ensureSignalingOnline().catch(() => {});

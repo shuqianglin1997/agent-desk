@@ -110,6 +110,40 @@
     });
   }
 
+  function resolveUnambiguousLocalSelection(input = {}) {
+    const overview = input.overview;
+    const profiles = Array.isArray(input.profiles) ? input.profiles : [];
+    if (!overview?.initialized || !overview.localDeviceId || !profiles.length) return null;
+
+    const localProfileIds = new Set(profiles.map((profile) => String(profile?.id || '')).filter(Boolean));
+    const liveAgentIds = new Set((overview.agents || []).map((agent) => String(agent?.agentId || '')).filter(Boolean));
+    const slotsByAgent = new Map();
+    for (const slot of overview.slots || []) {
+      const agentId = String(slot?.agentId || '');
+      if (
+        slot?.deviceId !== overview.localDeviceId
+        || slot?.assignmentState !== 'linked'
+        || !slot?.accountBindingId
+        || !liveAgentIds.has(agentId)
+        || !localProfileIds.has(String(slot?.profileId || ''))
+      ) continue;
+      const slots = slotsByAgent.get(agentId) || [];
+      slots.push(slot);
+      slotsByAgent.set(agentId, slots);
+    }
+
+    if (slotsByAgent.size !== 1) return null;
+    const [[agentId, slots]] = slotsByAgent.entries();
+    slots.sort((left, right) => slotKey(left).localeCompare(slotKey(right)));
+    return {
+      agentId,
+      // Selecting the sole linked local Agent is unambiguous. If it has more
+      // than one local runtime, leave the action Slot unresolved so the user
+      // still chooses the exact side-effect target.
+      slotKey: slots.length === 1 ? slotKey(slots[0]) : null
+    };
+  }
+
   function memberFromSlot(input) {
     const { slot, agent, overview, devices, bindings, localProfiles } = input;
     const device = devices.get(slot.deviceId) || {};
@@ -220,6 +254,7 @@
   return {
     ACTIVE_PREPARATION_STATES,
     projectMeshAgentGroups,
+    resolveUnambiguousLocalSelection,
     resolveReadiness,
     isPreparationActive,
     slotKey

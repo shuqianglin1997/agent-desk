@@ -140,7 +140,9 @@ contextBridge.exposeInMainWorld('manager', {
     return () => ipcRenderer.removeListener('tools:progress', listener);
   },
   listProfiles,
-  listDevices: () => ipcRenderer.invoke('devices:list'),
+  listDevices: (options = {}) => ipcRenderer.invoke('devices:list', {
+    requestSecureAccess: options.requestSecureAccess === true
+  }),
   initializeMesh: (input = {}) => ipcRenderer.invoke('devices:initialize', input),
   initializeFirstAgent: (input = {}) => ipcRenderer.invoke('onboarding:initializeFirstAgent', input),
   renameDevice: (input) => ipcRenderer.invoke('devices:rename', input),

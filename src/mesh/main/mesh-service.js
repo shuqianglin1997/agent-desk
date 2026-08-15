@@ -93,7 +93,7 @@ class MeshService {
     this.activeInvites = new Map();
   }
 
-  getOverview() {
+  getOverview(options = {}) {
     if (!fs.existsSync(this.databasePath)) return this.uninitializedOverview();
     const store = new MeshStore(this.databasePath);
     try {
@@ -114,29 +114,32 @@ class MeshService {
           device.devicePublicKey = membership.payload.devicePublicKey;
         }
       }
-      let keyState = 'available';
+      const deferKeyAccess = options.deferKeyAccess === true;
+      let keyState = deferKeyAccess ? 'deferred' : 'available';
       let catalog = normalizeCatalog(snapshot);
-      try {
-        const secrets = this.keyVault.load();
-        this.ensureCatalogEventCoverage(store, snapshot);
-        snapshot = store.readSnapshot();
-        const profiles = this.currentProfiles();
-        catalog = reconcileLocalCatalog(snapshot, profiles, {
-          deviceId: snapshot.mesh.localDeviceId,
-          linkKey: secrets.identityLinkKey,
-          sessionCounts: this.sessionCounts(profiles),
-          randomUUID: this.randomUUID,
-          now: this.now()
-        });
-        this.saveLocalCatalogMutation(
-          store,
-          snapshot,
-          catalog,
-          'catalog.local-reconciled',
-          'ordinary'
-        );
-      } catch (error) {
-        keyState = error?.message || 'mesh-keys-unavailable';
+      if (!deferKeyAccess) {
+        try {
+          const secrets = this.keyVault.load();
+          this.ensureCatalogEventCoverage(store, snapshot);
+          snapshot = store.readSnapshot();
+          const profiles = this.currentProfiles();
+          catalog = reconcileLocalCatalog(snapshot, profiles, {
+            deviceId: snapshot.mesh.localDeviceId,
+            linkKey: secrets.identityLinkKey,
+            sessionCounts: this.sessionCounts(profiles),
+            randomUUID: this.randomUUID,
+            now: this.now()
+          });
+          this.saveLocalCatalogMutation(
+            store,
+            snapshot,
+            catalog,
+            'catalog.local-reconciled',
+            'ordinary'
+          );
+        } catch (error) {
+          keyState = error?.message || 'mesh-keys-unavailable';
+        }
       }
 
       const local = snapshot.devices.find((device) => device.deviceId === snapshot.mesh.localDeviceId);

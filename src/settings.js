@@ -11,7 +11,7 @@ const { normalizeServiceUrls } = require('./mesh/protocol/signaling-auth');
 const { normalizeStunUrls } = require('./mesh/network/ice-config');
 const { normalizeProgress: normalizeOnboardingProgress } = require('./onboarding-state');
 
-const SETTINGS_VERSION = 3;
+const SETTINGS_VERSION = 4;
 const THEMES = new Set(['light', 'dark']);
 const VIEWS = new Set(['yard', 'classic']);
 const LANGS = new Set(['zh', 'en', 'ja']);
@@ -27,6 +27,9 @@ const DEFAULT_SETTINGS = Object.freeze({
   lang: null, // null = 跟随系统语言（中 / 英 / 日）
   sessionScope: 'current',
   sessionView: 'compact',
+  selectedDeviceLensId: 'all',
+  selectedAgentIdByDeviceLens: Object.freeze({}),
+  selectedSlotKeyByAgentAndLens: Object.freeze({}),
   remindersOn: true,
   profileQuitBehavior: 'close',
   atmosTime: 'auto',
@@ -60,6 +63,24 @@ function settingsFromPayload(payload) {
 
 function finiteNonNegative(value, fallback = 0) {
   return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function boundedId(value, maxLength = 256) {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized && normalized.length <= maxLength ? normalized : null;
+}
+
+function normalizeSelectionMap(value, options = {}) {
+  if (!isPlainObject(value)) return {};
+  const maxEntries = Number.isInteger(options.maxEntries) ? options.maxEntries : 200;
+  const normalized = {};
+  for (const [rawKey, rawValue] of Object.entries(value).slice(0, maxEntries)) {
+    const key = boundedId(rawKey);
+    const selection = boundedId(rawValue);
+    if (key && selection) normalized[key] = selection;
+  }
+  return normalized;
 }
 
 function normalizeLedger(value) {
@@ -100,6 +121,9 @@ function normalizeSettings(value) {
     sessionView: SESSION_VIEWS.has(input.sessionView)
       ? input.sessionView
       : DEFAULT_SETTINGS.sessionView,
+    selectedDeviceLensId: boundedId(input.selectedDeviceLensId) || DEFAULT_SETTINGS.selectedDeviceLensId,
+    selectedAgentIdByDeviceLens: normalizeSelectionMap(input.selectedAgentIdByDeviceLens),
+    selectedSlotKeyByAgentAndLens: normalizeSelectionMap(input.selectedSlotKeyByAgentAndLens),
     remindersOn: typeof input.remindersOn === 'boolean'
       ? input.remindersOn
       : DEFAULT_SETTINGS.remindersOn,

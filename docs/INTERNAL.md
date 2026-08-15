@@ -192,7 +192,7 @@ scripts/
 
 ### Settings
 
-`settings.json` 保存主题、语言、视图、会话范围/列视图、庭院时间和天气、提醒、今日账本、猫位置、版本化 `onboarding.completedVersion/completedAt`、`meshNetworkEnrollmentEnabled`、HTTPS 信令地址和 STUN 地址。首次 Agent 事务显式把联网 enrollment 保持为 false；只有添加设备或网络动作才开启。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。
+`settings.json` 保存主题、语言、视图、会话范围/列视图、Device Lens / Agent / Slot 选择记忆、庭院时间和天气、提醒、今日账本、猫位置、版本化 `onboarding.completedVersion/completedAt`、`meshNetworkEnrollmentEnabled`、HTTPS 信令地址和 STUN 地址。首次 Agent 事务显式把联网 enrollment 保持为 false；只有添加设备或网络动作才开启。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。
 
 ### Session
 
@@ -213,6 +213,10 @@ scripts/
 ```
 
 Renderer 会附加所属 profile 和账号组信息，但不会修改原始会话文件。
+
+Mesh 会话聚合返回结构化失败时，Renderer 不再把当前会话设为空数组。全部/本机 Lens 改用相同的本地扫描器，但只扫描当前 catalog 关系中真实存在于本机 `profiles.json` 的 Profile；远端伪 Profile 不进入本地 IPC。该结果标记为 local fallback，SessionPointer、文件传输与 TaskPackage 直送不取用其临时位置信息；本地只读操作继续可用。
+
+已打包 macOS 开发版还有一条精确限定的启动路径：Main 使用固定 `/usr/bin/codesign` 检查自身主可执行文件，只有 `Signature=adhoc`、无 `Authority`、`TeamIdentifier=not set` 同时成立才延后系统密钥访问。启动期 `devices:list` 请求 `MeshService.getOverview({deferKeyAccess:true})`，读取已验证的持久目录/设备快照并返回 `keyState=deferred`，不加载 KeyVault、不启动 signaling、不恢复 ProvisioningJob。Renderer 看到密钥未可用就直接走本地只读会话，不再发出一次会阻塞的 Mesh 会话 IPC。只有 Header 的“设备”这一显式用户动作会传 `requestSecureAccess=true`；解锁成功后才恢复准备任务和按 enrollment 开启联网。检测失败、Developer ID 包、Windows 与开发态均保持原路径，没有通用密钥降级开关。
 
 Codex 额外区分：
 

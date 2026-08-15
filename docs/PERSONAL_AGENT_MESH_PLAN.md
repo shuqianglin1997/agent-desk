@@ -2,13 +2,13 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.29
+> 版本：1.31
 >
-> 日期：2026-08-15
+> 日期：2026-08-16
 >
 > 工作分支：main
 >
-> 当前授权：所有者已于 2026-08-10 明确批准本基准并要求开始开发，于 2026-08-13 审阅“全局员工库 + 工作环境 + 按需就绪”规划后明确要求直接实施，并于 2026-08-14 批准“首次使用、设备任务向导、同 Mesh TaskPackage 直接交接、安全边界与预览发布”成熟化实施规划，随后要求在提交推送前收口 macOS/Windows 他人下载、安装和首次使用的发布门禁；2026-08-15 又批准针对 AgentDesk 所启动官方客户端的进程归属、退出策略、Crashpad 资源上限、熔断与安全清理实施完整保护。允许按本文阶段和门禁实施，任何后续方向变化仍须先写回本文件。
+> 当前授权：所有者已于 2026-08-10 明确批准本基准并要求开始开发，于 2026-08-13 审阅“全局员工库 + 工作环境 + 按需就绪”规划后明确要求直接实施，并于 2026-08-14 批准“首次使用、设备任务向导、同 Mesh TaskPackage 直接交接、安全边界与预览发布”成熟化实施规划，随后要求在提交推送前收口 macOS/Windows 他人下载、安装和首次使用的发布门禁；2026-08-15 又批准针对 AgentDesk 所启动官方客户端的进程归属、退出策略、Crashpad 资源上限、熔断与安全清理实施完整保护；2026-08-16 进一步要求全面修复 Mesh 密钥或远端库存不可用时本机会话被误清空、选择不恢复和跨设备动作未停用的问题，并确认普通启动不应因本地 ad-hoc 包的 Keychain 访问而阻断本地会话。允许按本文阶段和门禁实施，任何后续方向变化仍须先写回本文件。
 >
 > 完整产品审阅稿：`docs/PERSONAL_AGENT_MESH_OWNER_REVIEW.html`。UI 层级与排版实施蓝图：`docs/AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html`，已于 2026-08-12 获所有者批准。“全局员工库 + 工作环境 + 按需就绪”的实施细化见 `docs/AGENT_LIBRARY_ON_DEMAND_PROVISIONING_PLAN.md`。`docs/PERSONAL_AGENT_MESH_REVIEW.html` 保留为会话身份问题的专项技术图解。本文仍是实施时必须完整重读的单一基准；细化稿不得覆盖本文。
 
@@ -114,6 +114,8 @@ AgentDesk Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控�
 28. 同一 Personal Mesh 内可以直接发送 TaskPackage，但必须使用独立 `task.package.receive` 能力和显式接收确认。包格式、不可变语义、来源保留和逐项校验不变；一次性解锁码只允许进入绑定目标设备与 transferId 的加密 envelope，明文不得进入 Renderer、包、历史、日志或持久化存储。旧端不支持该协议时退回便携加密文件。
 29. 未关闭真实公网 NAT/TURN、长连接恢复与 macOS/Windows 权限矩阵前，只允许发布签名、公证并明确标记的 Preview，不得称为稳定 Personal Mesh。当前开发基线 0.10.0 不补发为稳定版本；成熟化批次建议使用 `v0.10.1-preview.1`，完整门禁关闭后再发布 `v0.10.1`。
 30. AgentDesk 启动的官方桌面客户端属于受管本机资源，不等于 Agent 对话执行器。默认退出 AgentDesk 时必须关闭这些客户端及同一 Profile 的 Crashpad 进程；用户可显式选择保留后台运行，但界面必须说明 AgentDesk 退出后不再监控。每个受管 Profile 的 `Crashpad/pending` 默认最多保留 100 个文件或 200 MiB，任一上限先到即按完整事件清理最旧报告；一分钟内出现 5 个同尺寸 dump 视为崩溃风暴并熔断该 Profile。普通关闭与正常退出仍只处理当前 AgentDesk 明确拥有的进程；只有路径位于 AgentDesk 自己的受管 Profiles 根、且已确认崩溃风暴或容量无法安全收敛时，磁盘保护才可按精确 `user-data-dir` 停止旧版本、强制退出或重启后遗留的匹配进程。没有当前所有权记录的官方默认目录或任意 custom 目录不得被后台清理或停机。安全清理只允许删除 `Crashpad/pending` 直属的 `.dmp` 与 `_sidecar.json`，绝不触碰会话、归档、配置、SQLite、`codex-home` 或留存样本。
+31. Mesh 会话聚合、系统密钥保护或远端库存暂不可用时，健康的本地 Profile 会话必须继续由本机只读扫描器展示，不能被空远端结果覆盖；界面要明确标记“仅本机会话”，并暂停远端会话与跨设备动作。Device Lens、Agent 与 Slot 的明确选择需写入稳定设置并在重启后恢复；旧安装没有选择记忆时，只允许在“本机所有 linked Profile 唯一归属于同一个 Agent”这一可证明无歧义的情况下恢复该 Agent，多个候选时仍保持未选择，绝不取列表第一项。
+32. 本地 ad-hoc 打包的 macOS 开发版可能因重签名后 Keychain ACL 不再匹配而阻塞密钥解密。对精确识别为 `Signature=adhoc`、无 Authority、无 TeamIdentifier 的已打包 macOS 开发版，普通启动只读持久 Mesh 快照并标记 `keyState=deferred`，先展示本地最新会话、暂停跨设备动作；只有用户显式打开设备功能时才请求密钥访问并恢复联网与准备任务。Developer ID 签名包、Windows 和开发源码态不走该延后路径；检测失败必须回到原安全路径，不能为了可用性普遍绕过系统密钥保护。
 
 ## 4. 所有者已批准的实施默认值
 
@@ -2814,6 +2816,18 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.31 — 2026-08-16
+
+- 将 macOS ad-hoc 本地开发包的启动与 Mesh Keychain 解密解耦：只在精确检出 ad-hoc、无 Authority、无 TeamIdentifier 的已打包主程序时，普通启动以 `keyState=deferred` 只读已持久目录/设备快照，不调用 Keychain、不恢复联网或准备任务；用户显式打开“设备”时再解锁。正式 Developer ID 包、Windows 与开发态保持原安全路径。
+- 普通启动的 Renderer 在密钥延后或 Mesh 解密失败时不再调用远端会话 IPC，而是直接进入本机只读扫描。新构建安装后已在不使用 mock Keychain 的普通启动与再次重启中都展示 22 条本地会话，恢复同一 Agent/Slot，其中最新一条更新到 2026-08-15T18:44:36.917Z，并确认跨设备发送停用；这项证据不声称 Mesh 密钥已恢复或远端数据已同步。
+- 当前完整 Node 套件 526 项中 525 通过、1 项仅 Windows 跳过、0 失败；新构建的 macOS arm64 成品通过 119/119 个 ASAR 常规文件完整性与五项 fuse 校验。这仍是 ad-hoc 本地开发包证据，不替代 Developer ID/公证、公开下载或物理设备门禁。
+
+### 1.30 — 2026-08-16
+
+- 修复 Mesh 密钥或统一库存读取失败时本机会话被一并清空的问题：远端聚合失败只暂停远端会话与跨设备动作，本机 Profile 继续走既有只读扫描器，来源与动作仍落到确切本机 Slot，不重置 Mesh、不移动或重写任何会话数据。
+- Device Lens、每个 Lens 的 Agent 与每个 Agent/Lens 的 Slot 明确选择进入稳定设置并在重启后恢复；旧安装没有选择记忆时，只在全部本机 linked Profile 唯一映射到同一个 Agent 时恢复该 Agent，多个本机 Agent 继续保持未选择，禁止按数组顺序猜测。
+- 增加“仅本机会话”可见状态与三语文案；远端 Lens 没有可验证缓存时不拿本机会话冒充远端结果，既有有效远端快照仍按原缓存保留规则处理。
 
 ### 1.29 — 2026-08-15
 

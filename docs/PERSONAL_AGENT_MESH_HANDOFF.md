@@ -4,7 +4,7 @@
 >
 > 当前分支：`main`
 >
-> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.29，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
+> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.31，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
 >
 > 仓库：`shuqianglin1997/agent-desk`
 >
@@ -12,11 +12,14 @@
 
 ## 1. 当前结论
 
-1.14 批准的主窗口层级、排版与全局弹窗 Shell 已经进入真实产品代码；1.24 的签名事件目录、1.25 的便携 TaskPackage、1.27 的首用/设备向导/同 Mesh Preview 直送、1.28 的 Electron 成品与 Preview 发布门禁，以及 1.29 的 Profile 资源监管都在同一获批基线上实现：
+1.14 批准的主窗口层级、排版与全局弹窗 Shell 已经进入真实产品代码；1.24 的签名事件目录、1.25 的便携 TaskPackage、1.27 的首用/设备向导/同 Mesh Preview 直送、1.28 的 Electron 成品与 Preview 发布门禁、1.29 的 Profile 资源监管、1.30 的本地会话失效隔离与选择恢复，以及 1.31 的 ad-hoc macOS 安全延后解锁都在同一获批基线上实现：
 
 - 主窗口固定为一个 Header、一个 Footer，以及顶部 Agent、左下会话、右下详情三个面板；1040 × 840 尺寸不变。
 - Renderer 几何冻结为 58px Header、244px Agent 面板、316px 详情、38px Footer，工作区使用 12px/10px padding 与 10px gap；Compact 会话表没有水平滚动。
 - Header 直接保留 Device Lens、设备、工具、活动、设置；不存在全局“更多”杂物菜单，也不显示没有来源的状态圆点。
+- Mesh 密钥、库存 IPC 或远端源失败时，本机 Profile 继续用只读扫描展示会话，不再被空 Mesh 结果覆盖；跨设备动作暂停，Device Lens / Agent / Slot 选择在稳定设置中恢复。
+- 精确 ad-hoc 的已打包 macOS 开发版普通启动不先调 Keychain；它用持久快照找回 Agent/Slot 并展示本地最新会话，点击“设备”才显式请求密钥访问。正式 Developer ID 包、Windows 和开发态不走此路径。
+- 新安装的 ad-hoc arm64 成品已在不使用 mock Keychain 的普通启动与重启中两次恢复同一 Agent/Slot，页面都显示 22 条本地会话，最新记录时间为 2026-08-15T18:44:36.917Z，且跨设备发送处于停用状态。
 - 顶部 Agent 面板同时承载庭院/卡片当前模式分段、排行、当前 Agent、始终可见的运行位置、打开、新增、管理和紧凑额度。
 - 时间/天气进入一个原生 Top Layer 场景 Popover；原七项菜单进入分“全局 Agent / 当前运行位置”的对象 Dialog，不再依赖裁切面板内的绝对定位菜单。
 - 左下只负责会话范围、搜索、显示设置和列表；右下只承载会话详情及其底部动作坞、额度和隔离 Remote Surface。
@@ -131,12 +134,12 @@ git diff --check
 
 ## 6. 文档权威关系
 
-- `PERSONAL_AGENT_MESH_PLAN.md` 1.29 是实施权威。
+- `PERSONAL_AGENT_MESH_PLAN.md` 1.31 是实施权威。
 - `AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html` 是 1.13 主窗口层级、几何与临时层蓝图；全局弹窗内部 Shell 与父子层级以 1.14 计划和真实产品代码为准。
 - `AGENTDESK_WORKSPACE_REDESIGN_REVIEW.html` 是 1.12 页面结构的历史审阅稿；若与 1.14 冲突，以计划和真实产品代码为准。
 - `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md` 已修订为固定三面板与右下 Remote Surface。
 - 旧 owner review、旧会话身份 review、文章插图和规划变更记录中出现的“七行/第六行”只代表当时的历史方案，不能覆盖 1.10。
-- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器、同 Mesh Preview 直送和当前限制；它服从 1.29 产品基线。
+- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器、同 Mesh Preview 直送和当前限制；它服从 1.31 产品基线。
 
 ## 7. 不得误报为已完成
 
