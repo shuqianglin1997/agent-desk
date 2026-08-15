@@ -147,6 +147,7 @@ test('相同尺寸转储一分钟内达到五次后熔断并关闭 AgentDesk 所
   const inheritedSupervisor = new ProfileRuntimeSupervisor({
     stateFile: path.join(inherited.root, 'profile-runtime.json'),
     now: () => now,
+    isManagedProfile: (item) => item.id === inheritedProfile.id,
     snapshotProcessRecords: () => inheritedProcesses,
     signalProcess: (pid) => {
       inheritedProcesses = inheritedProcesses.filter((item) => item.pid !== pid);
@@ -161,6 +162,33 @@ test('相同尺寸转储一分钟内达到五次后熔断并关闭 AgentDesk 所
   assert.equal(inheritedStatus.active, false);
   assert.equal(inheritedStatus.owned, false);
   assert.equal(inheritedProcesses.length, 0);
+
+  const external = fixture();
+  for (let index = 0; index < 5; index += 1) {
+    writeReport(external.pendingPath, `external-${index}`, 165_168, now - index);
+  }
+  const externalProfile = { id: 'external-default-profile', profilePath: external.profilePath };
+  let externalProcesses = [{
+    pid: 9003,
+    ppid: 1,
+    pgid: 9003,
+    command: `/Applications/ChatGPT.app/Contents/MacOS/ChatGPT --user-data-dir=${external.profilePath} --type=browser`
+  }];
+  const externalSupervisor = new ProfileRuntimeSupervisor({
+    stateFile: path.join(external.root, 'profile-runtime.json'),
+    now: () => now,
+    isManagedProfile: () => false,
+    snapshotProcessRecords: () => externalProcesses,
+    signalProcess: (pid) => {
+      externalProcesses = externalProcesses.filter((item) => item.pid !== pid);
+    },
+    limits: { terminateGraceMs: 0, burstLimit: 5, burstWindowMs: 60_000 }
+  });
+  externalSupervisor.updateProfiles([externalProfile]);
+  await externalSupervisor.tick();
+
+  assert.equal(externalSupervisor.status(externalProfile).fusedAt, null);
+  assert.equal(externalProcesses.length, 1);
 });
 
 test('重复启动同一 user-data-dir 会被识别，不会产生第二个实例', async () => {
@@ -225,6 +253,7 @@ test('安全清理会解除熔断，但不会删除 Profile 数据库或会话',
   const supervisor = new ProfileRuntimeSupervisor({
     stateFile: path.join(root, 'profile-runtime.json'),
     now: () => now,
+    isManagedProfile: (item) => item.id === profile.id,
     snapshotProcessRecords: () => [],
     limits: { terminateGraceMs: 0 }
   });

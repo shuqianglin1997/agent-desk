@@ -15,7 +15,7 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 共用状态的猫猫庭院与卡片名册、单一场景 Popover；
 - 桌面 App / CLI 发现、版本检查、打开和显式维护；
 - macOS / Windows 打包、更新与发布校验；
-- AgentDesk 所启动 Profile 的精确进程归属、重复启动阻断、正常退出默认收口，以及 Crashpad pending 的 100 文件/200 MiB 双上限、5 次风暴熔断、旧版/异常退出遗留进程的事故级精确停机和窄范围安全清理；
+- AgentDesk 所启动 Profile 的精确进程归属、重复启动阻断、正常退出默认收口，以及受管 Profiles 根 Crashpad pending 的 100 文件/200 MiB 双上限、5 次风暴熔断、旧版/异常退出遗留进程的事故级精确停机和窄范围安全清理；无所有权的官方默认/custom 目录不进入后台清理或停机；
 - Electron 成品 `app.asar` 逐文件/分块哈希、header 绑定与五项 fuse 独立 verifier；当前 macOS unpacked 的 118/118 个常规文件已通过该层，`RunAsNode` 只为两个固定 CLI launcher 保留；
 - 跨 `AgentDesk.app`、`win-unpacked` 与 portable 的三次首次使用 smoke，以及 Preview-only 三资产 Draft/公开匿名重下载、失败回 Draft 和候选不可复用门禁代码；
 - Personal Mesh 初始化、一次性加密配对、设备权限/撤销、全局 Agent 目录、设备 Lens 与可删到零语义；
