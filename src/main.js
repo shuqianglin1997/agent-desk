@@ -2804,6 +2804,7 @@ function getProfileRuntimeSupervisor() {
   }
   profileRuntimeSupervisor = new ProfileRuntimeSupervisor({
     stateFile: profileRuntimeStateFile(),
+    isManagedProfile: (profile) => isManagedProfilePath(profile?.profilePath),
     onIncident: (incident) => {
       if (!mainWindow || mainWindow.isDestroyed()) return;
       mainWindow.webContents.send('profiles:runtimeIncident', {

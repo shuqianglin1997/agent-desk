@@ -8,7 +8,7 @@ AgentDesk 的文档必须把下面七种状态分开，不能都写成“已完�
 
 | 状态 | 当前事实 | 能说明什么 | 不能说明什么 |
 |---|---|---|---|
-| 已进入代码 | 有人值守 Mesh 的版本化首次使用、双方身份确认的设备任务向导、目录/库存、SessionPointer、文件、便携与同 Mesh TaskPackage 已有纵向实现；直送使用独立 `task.package.transfer.v1`。AgentDesk 的 Profile 所有权退出收口、Crashpad 有界保护及事故级遗留进程熔断也已接通 | Renderer、Preload、Main、领域与服务主流程存在 | 不等于真实网络、操作系统权限、真实客户端崩溃注入和长期运行已经验收 |
+| 已进入代码 | 有人值守 Mesh 的版本化首次使用、双方身份确认的设备任务向导、目录/库存、SessionPointer、文件、便携与同 Mesh TaskPackage 已有纵向实现；直送使用独立 `task.package.transfer.v1`。AgentDesk 的 Profile 所有权退出收口、受管根 Crashpad 有界保护及事故级遗留进程熔断也已接通 | Renderer、Preload、Main、领域与服务主流程存在 | 不等于真实网络、操作系统权限、真实客户端崩溃注入和长期运行已经验收 |
 | 本机自动化已验 | Node 526 项中 525 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25、发布安全 14/14、真实 Electron UI 21/21 | 领域规则、IPC/协议、成品/发布门禁纯代码与真实窗口路径可重复验证 | 自动化通过不等于签名产物、GitHub Release 或物理安装已产生 |
 | 当前 macOS unpacked 已验 | 本机现有确切 `release/mac-arm64/AgentDesk.app` 已通过 fuse/ASAR verifier，并以真实语义开关 `--macos-ci-mock-keychain` 通过同一字节的三次首次使用 smoke | 118/118 个常规文件、五项 fuse 与 macOS ASAR header 一致；ad-hoc/无 Team 预检和逐次 Browser 原生开关绑定后，初始化、恢复完成与完成后重启在 mock Keychain 下通过 | 新的 GitHub macOS `main` CI 运行仍待结果；ad-hoc 包不可分发，这也不证明系统 Keychain/OS 密钥保护、Developer ID/公证、Draft/公开重下载、Gatekeeper 或物理干净机 |
 | 发布事务已进入代码 | Preview-only 策略、三资产白名单、Draft 双原生端重下载、发布后匿名公开重下载、失败回 Draft 与 candidate-burned 语义已实现；发布安全 14/14 | 发布状态机和失败关闭规则有可重复的纯代码证据 | 尚未使用真实签名凭据、受保护环境和真实 Tag 执行，当前没有公开 Preview |

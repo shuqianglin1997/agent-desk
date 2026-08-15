@@ -29,7 +29,7 @@
 - 全新用户从版本化“创建第一个 Agent”进入，本机目录、设备身份、Agent/Blueprint 与首次准备由一个可恢复事务建立；缺失 Profile 存储保持空数组，不生成 Claude/Codex/Kimi 默认项，且该动作不开放监听或发布租约。
 - “添加设备”使用固定 Header/滚动 Content/固定 Footer 的任务向导，分别显示双方身份确认、成员信任、认证连接、目录落库、库存落库和可用状态；30 分钟接收入口只留在高级恢复。
 - 同 Mesh TaskPackage 直送要求认证目标、`task.package.transfer.v1`、`task.package.receive` 和逐次接受。密文包完整哈希后才由目标设备独占 envelope 解封；拒绝、撤权、撤销、过期和错误会清理，失败可把同一密文快照保存为便携文件。
-- AgentDesk 启动前精确检查同一 `user-data-dir`，默认在正常退出时关闭自己启动的 Profile；每个 Profile 的 `Crashpad/pending` 受 100 文件/200 MiB 双上限和一分钟 5 个同尺寸 dump 的持久熔断保护。普通关闭只处理 owned 进程，事故熔断还会按已登记 Profile 的精确路径停止旧版/异常退出遗留进程。安全清理只删除直属 dump/sidecar，不读取转储、不触碰 Agent 会话、归档、配置、SQLite、`codex-home` 或留存诊断样本。
+- AgentDesk 启动前精确检查同一 `user-data-dir`，默认在正常退出时关闭自己启动的 Profile；每个受管 Profile 的 `Crashpad/pending` 受 100 文件/200 MiB 双上限和一分钟 5 个同尺寸 dump 的持久熔断保护。普通关闭只处理 owned 进程，事故熔断还会按精确路径停止 AgentDesk 自己 Profiles 根内的旧版/异常退出遗留进程；无所有权的官方默认/custom 目录不做后台清理或停机。安全清理只删除直属 dump/sidecar，不读取转储、不触碰 Agent 会话、归档、配置、SQLite、`codex-home` 或留存诊断样本。
 - Codex 原生适配器携带根会话与 internal-child，目标端重新验证身份、拒绝同 ID 异内容覆盖、失败回滚、重复导入幂等，并把标题标注为来自交接人/来源 Agent。其他支持来源当前只保存只读会话内容。
 - Footer 只承担全局状态、今日完成数、陪伴分钟与提醒总开关；庭院内部不再叠加小账本或提醒条。
 - 路径、额度等持久待处理事项只进入 Header 的活动弹窗；庭院只保留 Agent Presenter 和摸猫/拖放后的短暂直接反馈。

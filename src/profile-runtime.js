@@ -350,6 +350,9 @@ class ProfileRuntimeSupervisor {
     this.snapshot = options.snapshotProcessRecords || snapshotProcessRecords;
     this.signal = options.signalProcess || ((pid, signal) => process.kill(pid, signal));
     this.platform = options.platform || process.platform;
+    this.isManagedProfile = typeof options.isManagedProfile === 'function'
+      ? options.isManagedProfile
+      : () => false;
     this.limits = { ...DEFAULT_LIMITS, ...(options.limits || {}) };
     this.onIncident = typeof options.onIncident === 'function' ? options.onIncident : () => {};
     this.profiles = new Map();
@@ -560,7 +563,8 @@ class ProfileRuntimeSupervisor {
     const record = this.records.get(profile.id);
     // Emergency disk containment may stop an inherited exact-profile process.
     // User/quit lifecycle calls never set allowUnowned and remain ownership-bound.
-    if (!record?.owned && options.allowUnowned !== true) {
+    const mayContainInheritedManagedProcess = options.allowUnowned === true && this.isManagedProfile(profile);
+    if (!record?.owned && !mayContainInheritedManagedProcess) {
       return { ok: false, reasonCode: 'profile-process-not-owned' };
     }
     if (!record) return { ok: false, reasonCode: 'profile-runtime-record-missing' };
@@ -631,7 +635,7 @@ class ProfileRuntimeSupervisor {
 
   async performTick() {
     for (const profile of this.profiles.values()) {
-      const record = this.records.get(profile.id);
+      let record = this.records.get(profile.id);
       if (record?.owned && record.active) {
         const processes = this.processRecords(profile);
         if (Array.isArray(processes) && processes.length === 0) {
@@ -644,8 +648,13 @@ class ProfileRuntimeSupervisor {
             stopReason: 'observed-exit'
           });
           this.saveState();
+          record = this.records.get(profile.id);
         }
       }
+      // AgentDesk-created isolated directories are always safe to contain by
+      // exact path after an upgrade. Default/custom official-client profiles
+      // are observed only while this manager has an explicit ownership record.
+      if (!this.isManagedProfile(profile) && !(record?.owned && record.active)) continue;
       const crashpad = await this.refreshCrashpadStatus(profile);
       if (crashpad.errorCode) continue;
       let bounded = crashpad;
