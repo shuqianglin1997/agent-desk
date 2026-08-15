@@ -13,7 +13,7 @@
 | Header | Device Lens、设备、工具、活动、设置 | 选择全部设备/某台设备；四个入口各自打开独立弹窗，更新/帮助/语言/主题归设置弹窗 | 已收敛；弹窗不替换右下详情，无“更多”杂物菜单、无来源不明状态点；四个弹窗统一固定 Header/Command/Footer 与单一 Content 滚动区 |
 | 固定页面骨架 | 顶部 Agent、左下会话、右下详情、Footer | 庭院/卡片与 Agent/Slot 操作归顶部，会话浏览归左下；右下只承载会话、额度、远控，Footer 只保留全局状态 | 已实现；58px Header、244px Agent、316px 详情、38px Footer，主区恰好三个面板且 Compact 无横滚 |
 | Agent 员工库与运行位置 | 打开账号、首次准备、新增运行位置、运行位置选择、管理 Agent | 长期保存 Agent/Blueprint，以 Deployment 表达当前工作环境就绪状态；准备成功后才产生 Profile/Slot，既有动作落到确切 Slot | 已实现；每个工作环境显示完整员工库，零 Binding/Slot 员工不消失；schema v6 保留 nullable suppressed Slot，增加 Blueprint/Deployment/ProvisioningJob、签名事件目录与一致迁移备份 |
-| Profile 进程与磁盘保护 | 打开账号、管理 Agent、设置 | 精确识别同一 `user-data-dir`，监管 AgentDesk 所启动的官方客户端；默认退出收口，限制 Crashpad pending 并提供窄范围清理 | 已实现；每 Profile 100 文件/200 MiB，1 分钟 5 个同尺寸 dump 熔断。只删除直属 `.dmp`/`_sidecar.json`，不读转储、不触碰会话/归档/配置/SQLite/`codex-home`/留存样本；强制结束管理器后的 OS 级持续守护仍不是当前能力 |
+| Profile 进程与磁盘保护 | 打开账号、管理 Agent、设置 | 精确识别同一 `user-data-dir`，监管 AgentDesk 所启动的官方客户端；默认退出收口，限制 Crashpad pending 并提供窄范围清理 | 已实现；每 Profile 100 文件/200 MiB，1 分钟 5 个同尺寸 dump 熔断。普通关闭只处理 owned 进程；已确认磁盘事故可按已登记 Profile 的精确路径停止旧版/异常退出遗留进程。只删除直属 `.dmp`/`_sidecar.json`，不读转储、不触碰会话/归档/配置/SQLite/`codex-home`/留存样本；管理器不运行期间的 OS 级持续守护仍不是当前能力 |
 | 版本化首次使用 | “创建第一个 Agent”、已有 Profile 迁移预览 | 原子建立本机 Agent 目录与设备身份，不打开网络；随后进入首次准备 | 已实现；缺失 Profile 存储保持真实空数组，已有 Profile 先预览选择性无损迁移；真实 Electron 覆盖全新首 Agent、本机无网络初始化、完成页后记账和重启恢复，候选安装包首启仍待发布验收 |
 | 设备任务向导 | 设备中心“添加设备” | 分别呈现身份确认、成员信任、认证连接、目录落库、库存落库和可以使用 | 代码与 UI 路径已实现；加入端验签预览、邀请端签证前确认和各屏障独立投影均有定向回归；“接收连接 30 分钟”只在高级恢复。完整物理双机向导、全应用重启后的双端恢复和公网/跨平台矩阵仍开放 |
 | 目录纠错 | 合并 Agent、拆分绑定、移除运行位置/登录账号/Agent | 修改 AgentIdentity、AccountBinding、AgentSlot 目录关系并预览影响 | 已实现；三种删除范围均经过 MeshService → SQLite → 关闭重开的回归，不触碰官方客户端数据 |

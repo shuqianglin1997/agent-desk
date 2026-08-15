@@ -113,7 +113,7 @@ AgentDesk Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控�
 27. 第一次点击“创建第一个 Agent”可以同时显式建立本机 Agent 目录和本机设备身份，使普通首次使用不必先理解或进入设备中心；该动作不得开放局域网端口、发布公网租约、连接其他设备或授予任何远端权限。已有 Profile 时先预览无损迁移，不能用首次向导绕过既有目录与身份规则。
 28. 同一 Personal Mesh 内可以直接发送 TaskPackage，但必须使用独立 `task.package.receive` 能力和显式接收确认。包格式、不可变语义、来源保留和逐项校验不变；一次性解锁码只允许进入绑定目标设备与 transferId 的加密 envelope，明文不得进入 Renderer、包、历史、日志或持久化存储。旧端不支持该协议时退回便携加密文件。
 29. 未关闭真实公网 NAT/TURN、长连接恢复与 macOS/Windows 权限矩阵前，只允许发布签名、公证并明确标记的 Preview，不得称为稳定 Personal Mesh。当前开发基线 0.10.0 不补发为稳定版本；成熟化批次建议使用 `v0.10.1-preview.1`，完整门禁关闭后再发布 `v0.10.1`。
-30. AgentDesk 启动的官方桌面客户端属于受管本机资源，不等于 Agent 对话执行器。默认退出 AgentDesk 时必须关闭这些客户端及同一 Profile 的 Crashpad 进程；用户可显式选择保留后台运行，但界面必须说明 AgentDesk 退出后不再监控。每个受管 Profile 的 `Crashpad/pending` 默认最多保留 100 个文件或 200 MiB，任一上限先到即按完整事件清理最旧报告；一分钟内出现 5 个同尺寸 dump 视为崩溃风暴并熔断该 Profile。安全清理只允许删除 `Crashpad/pending` 直属的 `.dmp` 与 `_sidecar.json`，绝不触碰会话、归档、配置、SQLite、`codex-home` 或留存样本。
+30. AgentDesk 启动的官方桌面客户端属于受管本机资源，不等于 Agent 对话执行器。默认退出 AgentDesk 时必须关闭这些客户端及同一 Profile 的 Crashpad 进程；用户可显式选择保留后台运行，但界面必须说明 AgentDesk 退出后不再监控。每个受管 Profile 的 `Crashpad/pending` 默认最多保留 100 个文件或 200 MiB，任一上限先到即按完整事件清理最旧报告；一分钟内出现 5 个同尺寸 dump 视为崩溃风暴并熔断该 Profile。普通关闭与正常退出仍只处理当前 AgentDesk 明确拥有的进程；只有已确认的崩溃风暴或容量无法安全收敛时，磁盘保护才可按已登记 Profile 的精确 `user-data-dir` 停止旧版本、强制退出或重启后遗留的匹配进程。安全清理只允许删除 `Crashpad/pending` 直属的 `.dmp` 与 `_sidecar.json`，绝不触碰会话、归档、配置、SQLite、`codex-home` 或留存样本。
 
 ## 4. 所有者已批准的实施默认值
 
@@ -2102,7 +2102,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 | 磁盘空间不足 | 传输前检查，过程中安全停止 |
 | 同一设备被两处控制 | 默认只允许一个 input.control owner；其他为仅查看 |
 | 设备被撤销 | 立即断开、清缓存、拒绝重连 |
-| Profile 的 Crashpad handler 陷入重复自崩溃 | 100 文件或 200 MiB 硬上限持续生效；一分钟内 5 个同尺寸 dump 触发持久熔断并关闭 AgentDesk 所启动的该 Profile，禁止自动重复启动 |
+| Profile 的 Crashpad handler 陷入重复自崩溃 | 100 文件或 200 MiB 硬上限持续生效；一分钟内 5 个同尺寸 dump 触发持久熔断，并按精确 `user-data-dir` 关闭该受管 Profile，包括旧版本或管理器异常退出后留下的孤儿进程；禁止自动重复启动 |
 | 退出 AgentDesk 时仍有其启动的 Profile 在运行 | 默认先终止并复核同一 `user-data-dir` 的受管进程；不能安全收口则取消退出并提示。只有用户显式选择“保留客户端”才允许退出，且明确提示退出期间不再监控 |
 
 ## 24. 可观测性、诊断与隐私
@@ -2181,7 +2181,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Electron 成品必须只从 `app.asar` 加载业务应用，不得回落到 `default_app.asar`；最终可执行文件的 fuse 状态和 ASAR 完整性由独立验证器检查。
 - 候选包首次使用必须在一次性 userData 中经过首次初始化、重启恢复并完成、完成后再重启；三次启动都必须使用同一个确切成品。
 - 可公开的 Preview 必须经过精确三资产 Draft、两个原生系统的 Draft 重下载验证、发布后无 token 匿名重下载和失败回 Draft；诊断附件不得混入 Release 资产。
-- AgentDesk 所启动的 Profile 默认随管理器正常退出而关闭；同一 `user-data-dir` 不重复启动，外部启动的同路径进程在 AgentDesk 解除所有权后不能被误杀。
+- AgentDesk 所启动的 Profile 默认随管理器正常退出而关闭；同一 `user-data-dir` 不重复启动，外部启动的同路径进程在 AgentDesk 解除所有权后不能被普通关闭误杀。只有崩溃风暴或容量无法安全收敛这一磁盘事故路径可以按已登记 Profile 的精确路径停止无当前所有权记录的遗留进程。
 - Crashpad 只扫描、限额和清理 `Crashpad/pending` 的直属 `.dmp` / `_sidecar.json`；符号链接、越界路径和不明文件失败关闭，会话、归档、配置、SQLite 与留存样本必须保持原样。
 
 ### 25.2 新单元测试
@@ -2234,7 +2234,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Electron fuse、ASAR 布局与 macOS `ElectronAsarIntegrity` 校验；`RunAsNode` 只允许现有两个固定 CLI launcher 使用，不得新增调用面。
 - 成品首次使用 smoke 的产物白名单、版本/窗口骨架、零默认 Profile、零 Mesh 网络、三次启动、进程与回环调试端点清理。
 - Preview-only 发布策略、受保护 Tag/发布者身份、三资产白名单、Draft/公开状态、发布前摘要/`SHA256SUMS.txt`/实际下载字节三方一致，以及公开后失败的回 Draft 与 candidate-burned 语义。
-- Profile 进程精确匹配、重复启动、所有权自然释放、正常退出收口、Crashpad 100 文件/200 MiB 双上限、5 次风暴熔断、熔断恢复及安全清理边界。
+- Profile 进程精确匹配、重复启动、所有权自然释放、正常退出收口、Crashpad 100 文件/200 MiB 双上限、5 次风暴熔断、旧版/异常退出遗留进程的事故级精确停机、熔断恢复及安全清理边界。
 
 ### 25.3 集成测试
 
@@ -2714,7 +2714,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 43. 同一 Mesh 的目标设备支持协议且开启 `task.package.receive` 时，用户可以直接发送并由接收端逐次确认 TaskPackage；明文解锁码不进入 Renderer、包、历史、日志或持久化，拒绝、取消、篡改、断线和旧端回退均不损伤来源。
 44. 未完成真实公网 NAT/TURN、长连接恢复和 macOS/Windows 权限矩阵时，所有可安装交付物都明确标为签名公证 Preview；只有相关物理门禁关闭后才可发布稳定版本。
 45. 任何公开 Preview 必须只包含确切 DMG、portable 与 `SHA256SUMS.txt`，并经过 Draft 原生双端重下载、公开后无 token 匿名重下载、发布前摘要/清单/实际字节一致、签名与成品首次使用复验；失败候选不得被覆盖或以同一 Tag/version 重用。
-46. AgentDesk 启动同一 Profile 前必须识别既有 `user-data-dir` 实例；其正常退出默认关闭所启动的 Profile，Crashpad 风暴不得无限写盘。持续一小时的故障注入中，每个 Profile 的 `Crashpad/pending` 不得超过 100 个文件或 200 MiB；安全清理后会话、归档、配置、SQLite、`codex-home` 与留存诊断样本保持完整，多 Profile 的限额和熔断互不串扰。
+46. AgentDesk 启动同一 Profile 前必须识别既有 `user-data-dir` 实例；其正常退出默认关闭所启动的 Profile，Crashpad 风暴不得无限写盘。升级、管理器强制退出或重启后，同一已登记 Profile 的精确匹配孤儿进程若继续制造已确认的崩溃风暴，也必须被事故熔断停止；普通用户关闭仍不得越过进程所有权。持续一小时的故障注入中，每个 Profile 的 `Crashpad/pending` 不得超过 100 个文件或 200 MiB；安全清理后会话、归档、配置、SQLite、`codex-home` 与留存诊断样本保持完整，多 Profile 的限额和熔断互不串扰。
 
 ## 30. 主要风险
 
@@ -2822,6 +2822,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - 为每个 Profile 的 `Crashpad/pending` 增加 100 文件与 200 MiB 双硬上限，每 2 秒检查；大目录扫描、统计与删除使用异步有界并发，已有十万级积压不会把 Electron Main 同步锁死。一分钟内 5 个同尺寸 dump 触发持久熔断并停止 AgentDesk 所有的该 Profile。启动前再次复核熔断，只有用户执行窄范围安全清理后才解除；无法安全收敛容量时同样熔断并停止受管进程。
 - 清理边界固定为 `Crashpad/pending` 直属 `.dmp` 与 `_sidecar.json`；Profile 根、Crashpad/pending 符号链接、目录逃逸和非普通文件全部失败关闭，不读取 dump/sidecar 内容，不触碰 `codex-home`、sessions、archived sessions、Cookies、SQLite、配置或 `saved-diagnostic-*` 留存样本。诊断和 Agent 管理 UI 只通过稳定 profileId 请求 Main 重新查表。
 - 当前完整 Node 套件 526 项中 525 通过、1 项仅 Windows 跳过、0 失败；新增回归覆盖容量上限、崩溃风暴熔断、重复启动、所有权自然释放、退出收口契约、符号链接边界和数据保留。真实 Codex `invalid capability (20)` 故障注入、一小时持续运行、AgentDesk 被强制结束后的操作系统级守护，以及 macOS/Windows 多 Profile 物理矩阵仍需候选包验收，不能由单元测试冒充关闭。
+- 补齐升级与异常退出后的孤儿进程边界：普通关闭和正常退出仍严格要求当前 AgentDesk 所有权；只有已确认的 5 次同尺寸 dump 风暴或 Crashpad 容量无法安全收敛时，监管器才按已登记 Profile 的精确 `user-data-dir` 停止匹配进程。成功停止后立即清除持久所有权与 launch PID，防止后来用户启动的同路径进程被普通关闭误认。
 
 ### 1.28 — 2026-08-14
 

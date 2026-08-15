@@ -128,9 +128,39 @@ test('相同尺寸转储一分钟内达到五次后熔断并关闭 AgentDesk 所
   const status = supervisor.status(profile);
   assert.equal(status.fusedAt !== null, true);
   assert.equal(status.active, false);
+  assert.equal(status.owned, false);
   assert.equal(status.lastIncident.burstCount, 5);
   assert.equal(incidents.length, 1);
   assert.equal((await supervisor.preflight(profile)).reasonCode, 'profile-crashpad-fused');
+
+  const inherited = fixture();
+  for (let index = 0; index < 5; index += 1) {
+    writeReport(inherited.pendingPath, `inherited-${index}`, 165_168, now - index);
+  }
+  const inheritedProfile = { id: 'inherited-codex-profile', profilePath: inherited.profilePath };
+  let inheritedProcesses = [{
+    pid: 9002,
+    ppid: 1,
+    pgid: 9002,
+    command: `/Applications/ChatGPT.app/Contents/MacOS/ChatGPT --user-data-dir=${inherited.profilePath} --type=browser`
+  }];
+  const inheritedSupervisor = new ProfileRuntimeSupervisor({
+    stateFile: path.join(inherited.root, 'profile-runtime.json'),
+    now: () => now,
+    snapshotProcessRecords: () => inheritedProcesses,
+    signalProcess: (pid) => {
+      inheritedProcesses = inheritedProcesses.filter((item) => item.pid !== pid);
+    },
+    limits: { terminateGraceMs: 0, burstLimit: 5, burstWindowMs: 60_000 }
+  });
+  inheritedSupervisor.updateProfiles([inheritedProfile]);
+  await inheritedSupervisor.tick();
+
+  const inheritedStatus = inheritedSupervisor.status(inheritedProfile);
+  assert.equal(inheritedStatus.fusedAt !== null, true);
+  assert.equal(inheritedStatus.active, false);
+  assert.equal(inheritedStatus.owned, false);
+  assert.equal(inheritedProcesses.length, 0);
 });
 
 test('重复启动同一 user-data-dir 会被识别，不会产生第二个实例', async () => {

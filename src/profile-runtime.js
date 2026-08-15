@@ -4,7 +4,9 @@
  * The official desktop clients own their Crashpad implementation. AgentDesk
  * still owns the resource boundary of every Profile it launches: duplicate
  * launch prevention, process lifecycle, bounded pending crash reports and a
- * burst fuse that stops an AgentDesk-owned Profile before it can fill disk.
+ * burst fuse that stops the exact managed Profile before it can fill disk.
+ * Ordinary lifecycle actions remain ownership-bound; only a confirmed disk
+ * incident may also stop an inherited process left behind by an older manager.
  */
 
 const fs = require('node:fs');
@@ -554,13 +556,25 @@ class ProfileRuntimeSupervisor {
     return next;
   }
 
-  async terminateProcesses(profile, reason = 'user-request') {
+  async terminateProcesses(profile, reason = 'user-request', options = {}) {
     const record = this.records.get(profile.id);
-    if (!record?.owned) return { ok: false, reasonCode: 'profile-process-not-owned' };
+    // Emergency disk containment may stop an inherited exact-profile process.
+    // User/quit lifecycle calls never set allowUnowned and remain ownership-bound.
+    if (!record?.owned && options.allowUnowned !== true) {
+      return { ok: false, reasonCode: 'profile-process-not-owned' };
+    }
+    if (!record) return { ok: false, reasonCode: 'profile-runtime-record-missing' };
     const matched = this.processRecords(profile);
     if (matched === null) return { ok: false, reasonCode: 'profile-process-snapshot-unavailable' };
     if (!matched.length) {
-      this.records.set(profile.id, { ...record, active: false });
+      this.records.set(profile.id, {
+        ...record,
+        active: false,
+        owned: false,
+        launchPid: null,
+        stoppedAt: new Date(this.now()).toISOString(),
+        stopReason: reason
+      });
       this.saveState();
       return { ok: true, stopped: 0, remaining: 0 };
     }
@@ -580,6 +594,8 @@ class ProfileRuntimeSupervisor {
     const next = {
       ...record,
       active: remaining !== 0,
+      owned: remaining === 0 ? false : record.owned,
+      launchPid: remaining === 0 ? null : record.launchPid,
       stoppedAt: new Date(this.now()).toISOString(),
       stopReason: reason
     };
@@ -652,14 +668,14 @@ class ProfileRuntimeSupervisor {
             ...crashpad,
             errorCode: String(error?.message || 'crashpad-prune-failed')
           });
-          const failedRecord = this.setFuse(profile, crashpad, 'crashpad-prune-failed');
-          if (failedRecord.owned) await this.terminateProcesses(profile, 'crashpad-prune-failed');
+          this.setFuse(profile, crashpad, 'crashpad-prune-failed');
+          await this.terminateProcesses(profile, 'crashpad-prune-failed', { allowUnowned: true });
           continue;
         }
       }
       if (crashpad.burstCount >= this.limits.burstLimit) {
-        const fusedRecord = this.setFuse(profile, crashpad, 'crashpad-repeated-signature');
-        if (fusedRecord.owned) await this.terminateProcesses(profile, 'crashpad-fuse');
+        this.setFuse(profile, crashpad, 'crashpad-repeated-signature');
+        await this.terminateProcesses(profile, 'crashpad-fuse', { allowUnowned: true });
       } else if (bounded.removedFiles > 0) {
         this.onIncident({
           profileId: profile.id,
