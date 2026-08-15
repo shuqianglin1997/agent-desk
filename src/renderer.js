@@ -18,6 +18,7 @@ const state = {
   quotaOverviewOpen: false, // 「全院」chip 展开跨账号额度总览带
   ledger: null,
   remindersOn: true,
+  profileQuitBehavior: 'close',
   atmosTime: 'auto',
   atmosWeather: 'auto',
   yardPositions: {},
@@ -336,6 +337,7 @@ const els = {
   leaderboardDialog: document.querySelector('#leaderboardDialog'),
   leaderboardBody: document.querySelector('#leaderboardBody'),
   themeToggle: document.querySelector('#themeToggle'),
+  profileQuitBehavior: document.querySelector('#profileQuitBehavior'),
   updateBtn: document.querySelector('#updateBtn'),
   helpBtn: document.querySelector('#helpBtn'),
   addProfileBtn: document.querySelector('#addProfileBtn'),
@@ -345,6 +347,8 @@ const els = {
   launchBtn: document.querySelector('#launchBtn'),
   pathConfigBtn: document.querySelector('#pathConfigBtn'),
   diagnosticsBtn: document.querySelector('#diagnosticsBtn'),
+  stopProfileBtn: document.querySelector('#stopProfileBtn'),
+  cleanCrashpadBtn: document.querySelector('#cleanCrashpadBtn'),
   profileFolderBtn: document.querySelector('#profileFolderBtn'),
   refreshBtn: document.querySelector('#refreshBtn'),
   accountTitle: document.querySelector('#accountTitle'),
@@ -643,6 +647,8 @@ function applyUserSettings(value = {}) {
   state.ui = window.UiContext.setAgentScope(state.ui, value.sessionScope === 'all' ? 'all' : 'current');
   state.sessionView = value.sessionView === 'detail' ? 'detail' : 'compact';
   state.remindersOn = value.remindersOn !== false;
+  state.profileQuitBehavior = value.profileQuitBehavior === 'keep' ? 'keep' : 'close';
+  if (els.profileQuitBehavior) els.profileQuitBehavior.value = state.profileQuitBehavior;
   state.atmosTime = ['auto', 'day', 'dusk', 'night'].includes(value.atmosTime)
     ? value.atmosTime
     : 'auto';
@@ -1178,6 +1184,7 @@ function closeAgentManageDialog() {
 
 function renderAgentManageContext() {
   const profile = selectedProfile();
+  const localProfile = Boolean(profile && profile._remote !== true);
   const agent = catalogAgentById(currentAgentId());
   const group = identityGroups().find((item) => item.key === currentAgentId()) || null;
   const agentName = agent?.displayName || group?.primary?.name || profile?.name || tr('account.noneAgent');
@@ -1190,6 +1197,8 @@ function renderAgentManageContext() {
       ? [profile._meshDeviceName, profile.name, appLabel(profile.appId)].filter(Boolean).join(' · ')
       : (group ? deploymentStateLabel(group.readiness?.state) : tr('devices.slot.choose'));
   }
+  if (els.stopProfileBtn) els.stopProfileBtn.disabled = !localProfile;
+  if (els.cleanCrashpadBtn) els.cleanCrashpadBtn.disabled = !localProfile;
 }
 
 function openAgentManageDialog() {
@@ -1369,12 +1378,32 @@ function bindEvents() {
     handleUpdateProgress(progress);
   });
 
+  window.manager.onProfileRuntimeIncident?.((incident) => {
+    if (incident?.reason === 'crashpad-repeated-signature') {
+      setStatus(tr('status.crashpadFused'));
+    } else if (incident?.reason === 'crashpad-limit-pruned') {
+      setStatus(tr('status.crashpadPruned', { n: incident.removedFiles || 0 }));
+    }
+  });
+
+  window.manager.onProfileQuitBlocked?.(() => {
+    setStatus(tr('status.profileQuitBlocked'));
+  });
+
   els.themeToggle.addEventListener('click', () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     state.theme = next;
     document.documentElement.dataset.theme = next;
     persistSettings({ theme: next });
     syncYard();
+  });
+
+  els.profileQuitBehavior?.addEventListener('change', () => {
+    state.profileQuitBehavior = els.profileQuitBehavior.value === 'keep' ? 'keep' : 'close';
+    persistSettings({ profileQuitBehavior: state.profileQuitBehavior });
+    setStatus(tr(state.profileQuitBehavior === 'keep'
+      ? 'status.profileQuitKeep'
+      : 'status.profileQuitClose'));
   });
 
   // 语言切换：循环 中 → EN → 日 → 中，持久化到 settings；setLang 已替换静态文案，
@@ -1825,6 +1854,29 @@ function bindEvents() {
   els.diagnosticsBtn.addEventListener('click', async () => {
     closeAgentManageDialog();
     await showDiagnostics();
+  });
+
+  els.stopProfileBtn?.addEventListener('click', async () => {
+    const profile = selectedProfile();
+    if (!profile) return;
+    if (!window.confirm(tr('status.stopProfileConfirm', { name: profile.name }))) return;
+    const result = await window.manager.stopProfile(profile.id);
+    setStatus(result.ok
+      ? tr('status.profileStopped', { name: profile.name })
+      : tr('status.profileStopFailed', { code: result.reasonCode || 'profile-stop-failed' }));
+    closeAgentManageDialog();
+    await loadActivity();
+  });
+
+  els.cleanCrashpadBtn?.addEventListener('click', async () => {
+    const profile = selectedProfile();
+    if (!profile) return;
+    if (!window.confirm(tr('status.cleanCrashpadConfirm', { name: profile.name }))) return;
+    const result = await window.manager.cleanProfileCrashpad(profile.id);
+    setStatus(result.ok
+      ? tr('status.crashpadCleaned', { n: result.removedFiles || 0 })
+      : tr('status.crashpadCleanFailed', { code: result.reasonCode || 'crashpad-clean-failed' }));
+    closeAgentManageDialog();
   });
 
   els.copyDiagnosticsBtn.addEventListener('click', async () => {
@@ -8696,13 +8748,19 @@ function renderDiagnostics(diagnostics) {
   els.diagnosticsBody.replaceChildren();
   if (!diagnostics) return;
 
+  const runtime = diagnostics.runtime || {};
+  const crashpad = runtime.crashpad || {};
+
   const summary = document.createElement('div');
   summary.className = 'diagnostics-summary';
   summary.append(
     diagnosticBadge(diagnostics.executable.launchable ? 'ok' : 'warn', diagnostics.executable.launchable ? tr('diag.appLaunchable') : tr('diag.appNotFound')),
     diagnosticBadge(diagnostics.profilePath.exists ? 'ok' : 'warn', diagnostics.profilePath.exists ? tr('diag.profileDirExists') : tr('diag.profileDirMissing')),
     diagnosticBadge(diagnostics.sessionRoot.exists && diagnostics.sessionRoot.readable ? 'ok' : 'warn', diagnostics.sessionRoot.exists ? tr('diag.sessionDirReadable') : tr('diag.sessionDirMissing')),
-    diagnosticBadge(diagnostics.sessionCount > 0 ? 'ok' : 'warn', tr('diag.sessionCount', { n: diagnostics.sessionCount }))
+    diagnosticBadge(diagnostics.sessionCount > 0 ? 'ok' : 'warn', tr('diag.sessionCount', { n: diagnostics.sessionCount })),
+    diagnosticBadge(runtime.fusedAt ? 'warn' : 'ok', runtime.fusedAt
+      ? tr('diag.crashpadFused')
+      : tr('diag.crashpadBounded'))
   );
   els.diagnosticsBody.append(summary);
 
@@ -8764,7 +8822,24 @@ function renderDiagnostics(diagnostics) {
     [tr('diag.row.profileDir'), diagnostics.profilePath.path],
     [tr('diag.row.sessionRoot'), diagnostics.sessionRoot.path],
     [tr('diag.row.systemDefault'), `${diagnostics.defaultProfile.source} · ${diagnostics.defaultProfile.path}`],
-    [tr('diag.row.configFile'), diagnostics.storeFile]
+    [tr('diag.row.configFile'), diagnostics.storeFile],
+    [tr('diag.row.runtimeOwnership'), runtime.owned
+      ? tr('diag.runtimeOwned')
+      : tr('diag.runtimeUnowned')],
+    [tr('diag.row.runtimeProcesses'), runtime.processCount === null || runtime.processCount === undefined
+      ? tr('diag.notSet')
+      : String(runtime.processCount)],
+    [tr('diag.row.crashpadUsage'), crashpad.fileCount === null || crashpad.fileCount === undefined
+      ? tr('diag.crashpadUnavailable')
+      : tr('diag.crashpadUsage', {
+          files: crashpad.fileCount,
+          size: formatBytes(crashpad.totalBytes || 0),
+          maxFiles: crashpad.limits?.maxFiles || 100,
+          maxSize: formatBytes(crashpad.limits?.maxBytes || 0)
+        })],
+    [tr('diag.row.crashpadFuse'), runtime.fusedAt
+      ? `${tr('diag.crashpadFused')} · ${runtime.fusedAt}`
+      : tr('diag.crashpadReady')]
   ].forEach(([label, value]) => appendDiagnosticRow(tbody, label, value));
   const executableCandidates = diagnostics.executable.candidateDetails || [];
   if (executableCandidates.length) {
@@ -8827,7 +8902,18 @@ function formatDiagnosticsText(diagnostics) {
     tr('diag.txt.profileDir', { v: diagnostics.profilePath.path }),
     tr('diag.txt.sessionRoot', { v: diagnostics.sessionRoot.path }),
     tr('diag.txt.sessionCount', { v: diagnostics.sessionCount }),
-    tr('diag.txt.configFile', { v: diagnostics.storeFile })
+    tr('diag.txt.configFile', { v: diagnostics.storeFile }),
+    tr('diag.txt.runtimeOwnership', { v: diagnostics.runtime?.owned ? tr('diag.runtimeOwned') : tr('diag.runtimeUnowned') }),
+    tr('diag.txt.crashpadUsage', {
+      v: diagnostics.runtime?.crashpad?.fileCount === null || diagnostics.runtime?.crashpad?.fileCount === undefined
+        ? tr('diag.crashpadUnavailable')
+        : tr('diag.crashpadUsage', {
+            files: diagnostics.runtime.crashpad.fileCount,
+            size: formatBytes(diagnostics.runtime.crashpad.totalBytes || 0),
+            maxFiles: diagnostics.runtime.crashpad.limits?.maxFiles || 100,
+            maxSize: formatBytes(diagnostics.runtime.crashpad.limits?.maxBytes || 0)
+          })
+    })
   ];
 
   if (diagnostics.warnings.length) {

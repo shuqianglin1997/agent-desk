@@ -4423,6 +4423,31 @@ body[data-view="classic"] .agent-panel .account-card {
   background: var(--accent-wash);
 }
 
+.settings-runtime-policy {
+  display: grid;
+  gap: 7px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  color: var(--ink-secondary);
+  font-size: 11.5px;
+}
+
+.settings-runtime-policy > span {
+  color: var(--ink-primary);
+  font-weight: 700;
+}
+
+.settings-runtime-policy select {
+  width: 100%;
+}
+
+.settings-runtime-policy small {
+  color: var(--ink-tertiary);
+  line-height: 1.5;
+}
+
 .quota-surface .quota-summary,
 .quota-surface .quota-overview {
   max-width: none;

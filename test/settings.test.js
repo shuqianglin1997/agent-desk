@@ -26,6 +26,7 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
     sessionScope: 'all',
     sessionView: 'detail',
     remindersOn: false,
+    profileQuitBehavior: 'keep',
     atmosTime: 'dusk',
     atmosWeather: 'rain',
     welcomed: true,
@@ -43,6 +44,7 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
   assert.equal(normalized.sessionScope, 'all');
   assert.equal(normalized.sessionView, 'detail');
   assert.equal(normalized.remindersOn, false);
+  assert.equal(normalized.profileQuitBehavior, 'keep');
   assert.equal(normalized.atmosTime, 'dusk');
   assert.equal(normalized.atmosWeather, 'rain');
   assert.equal(normalized.welcomed, true);
@@ -90,6 +92,7 @@ test('局部设置更新不会覆盖其他颜色、视图和账本设置', () =>
   assert.equal(next.atmosTime, 'night');
   assert.equal(next.atmosWeather, 'snow');
   assert.equal(next.remindersOn, false);
+  assert.equal(next.profileQuitBehavior, 'close');
   assert.deepEqual(next.ledger, current.ledger);
 });
 

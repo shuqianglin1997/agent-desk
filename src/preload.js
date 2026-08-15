@@ -261,6 +261,19 @@ contextBridge.exposeInMainWorld('manager', {
   removeProfile: (id) => ipcRenderer.invoke('profiles:remove', id),
   migrateWindowsProfilePath: (id) => ipcRenderer.invoke('profiles:migrateWindowsPath', id),
   launchProfile: (id) => ipcRenderer.invoke('profiles:launch', id),
+  getProfileRuntimeStatus: (id) => ipcRenderer.invoke('profiles:runtimeStatus', id),
+  stopProfile: (id) => ipcRenderer.invoke('profiles:stop', id),
+  cleanProfileCrashpad: (id) => ipcRenderer.invoke('profiles:cleanCrashpad', id),
+  onProfileRuntimeIncident: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('profiles:runtimeIncident', listener);
+    return () => ipcRenderer.removeListener('profiles:runtimeIncident', listener);
+  },
+  onProfileQuitBlocked: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('profiles:quitBlocked', listener);
+    return () => ipcRenderer.removeListener('profiles:quitBlocked', listener);
+  },
   listSessions: (profile) => ipcRenderer.invoke('sessions:list', { profileId: profile?.id }),
   revealSession: (input) => ipcRenderer.invoke('sessions:reveal', {
     profileId: input?.profileId,

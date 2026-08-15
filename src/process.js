@@ -62,6 +62,49 @@ function isRunningIn(psText, profilePath) {
   return matchesDataDir(psText, profilePath);
 }
 
+function normalizeCommandPath(value, windowsPath) {
+  let output = String(value || '').replace(/^\\\\\?\\/, '');
+  if (windowsPath) output = output.replace(/\//g, '\\').toLowerCase();
+  return output;
+}
+
+function matchesCrashpadDatabase(command, profilePath) {
+  if (!command || !profilePath || !/crashpad/i.test(command)) return false;
+  const windowsPath = /^[a-z]:[\\/]|^\\\\/i.test(profilePath);
+  const normalizedCommand = normalizeCommandPath(command, windowsPath);
+  const normalizedProfile = normalizeCommandPath(profilePath, windowsPath).replace(/[\\/]+$/, '');
+  const separator = windowsPath ? '\\' : '/';
+  const crashpadRoot = `${normalizedProfile}${separator}${windowsPath ? 'crashpad' : 'Crashpad'}`;
+  const needles = [
+    `--database=${crashpadRoot}`,
+    `--database="${crashpadRoot}`,
+    `"--database=${crashpadRoot}`,
+    `--database ${crashpadRoot}`,
+    `--database "${crashpadRoot}`
+  ];
+  for (const needle of needles) {
+    let index = normalizedCommand.indexOf(needle);
+    while (index !== -1) {
+      let end = index + needle.length;
+      if (normalizedCommand.charAt(end) === '"' || normalizedCommand.charAt(end) === "'") end += 1;
+      const after = normalizedCommand.charAt(end);
+      if (after === '' || after === '\n' || after === '\r' || after === ' ' || after === '\t') return true;
+      index = normalizedCommand.indexOf(needle, index + needle.length);
+    }
+  }
+  return false;
+}
+
+function findProfileProcesses(records, profilePath) {
+  if (!Array.isArray(records) || !profilePath) return [];
+  return records.filter((record) => (
+    record && Number.isInteger(record.pid) && record.pid > 0 && (
+      matchesDataDir(record.command, profilePath) ||
+      matchesCrashpadDatabase(record.command, profilePath)
+    )
+  ));
+}
+
 // Windows 默认 Store/MSIX 槽位不传 --user-data-dir，无法按账号目录匹配。
 // 只匹配没有隔离参数的桌面 App 进程，并排除常见 CLI shim 路径。
 function isDefaultWindowsAppRunning(psText, executableNames) {
@@ -120,4 +163,63 @@ function snapshotProcesses() {
   }
 }
 
-module.exports = { isDefaultWindowsAppRunning, isRunningIn, snapshotProcesses };
+// Structured process records are used only for exact Profile lifecycle
+// ownership. Collection failure is represented as null so callers fail closed
+// instead of killing an unverified PID.
+function snapshotProcessRecords() {
+  try {
+    if (process.platform === 'win32') {
+      const options = {
+        encoding: 'utf8', timeout: 5000, maxBuffer: 16 * 1024 * 1024, windowsHide: true
+      };
+      const script = [
+        'Get-CimInstance Win32_Process',
+        '| Select-Object ProcessId,ParentProcessId,CommandLine',
+        '| ConvertTo-Json -Compress'
+      ].join(' ');
+      for (const powershell of ['powershell.exe', 'pwsh.exe']) {
+        try {
+          const text = execFileSync(powershell, [
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script
+          ], options).trim();
+          if (!text) return [];
+          const parsed = JSON.parse(text);
+          return (Array.isArray(parsed) ? parsed : [parsed]).map((item) => ({
+            pid: Number(item.ProcessId),
+            ppid: Number(item.ParentProcessId),
+            pgid: null,
+            command: String(item.CommandLine || '')
+          })).filter((item) => Number.isInteger(item.pid) && item.pid > 0);
+        } catch (_error) {
+          // Try the next PowerShell host.
+        }
+      }
+      return null;
+    }
+
+    const text = execFileSync('ps', ['-axww', '-o', 'pid=,ppid=,pgid=,command='], {
+      encoding: 'utf8', timeout: 4000, maxBuffer: 24 * 1024 * 1024
+    });
+    return text.split(/\r?\n/).map((line) => {
+      const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/);
+      if (!match) return null;
+      return {
+        pid: Number(match[1]),
+        ppid: Number(match[2]),
+        pgid: Number(match[3]),
+        command: match[4]
+      };
+    }).filter(Boolean);
+  } catch (_error) {
+    return null;
+  }
+}
+
+module.exports = {
+  isDefaultWindowsAppRunning,
+  isRunningIn,
+  snapshotProcesses,
+  snapshotProcessRecords,
+  findProfileProcesses,
+  matchesCrashpadDatabase
+};

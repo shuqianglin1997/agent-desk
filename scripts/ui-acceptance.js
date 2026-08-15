@@ -869,11 +869,13 @@ async function runAcceptance(client, artifactDir) {
       summary: document.querySelector('#agentManageSummary').textContent.trim(),
       runtime: document.querySelector('#agentManageRuntimeLabel').textContent.trim()
     })`);
-    assert.deepEqual({ globalActions: sections.globalActions, runtimeActions: sections.runtimeActions }, { globalActions: 3, runtimeActions: 5 });
+    assert.deepEqual({ globalActions: sections.globalActions, runtimeActions: sections.runtimeActions }, { globalActions: 3, runtimeActions: 7 });
     assert.deepEqual(sections.runtimeActionIds, [
       'addRuntimeLocationBtn',
       'pathConfigBtn',
       'diagnosticsBtn',
+      'stopProfileBtn',
+      'cleanCrashpadBtn',
       'refreshBtn',
       'profileFolderBtn'
     ]);

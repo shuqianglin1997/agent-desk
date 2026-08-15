@@ -1,6 +1,6 @@
 # AgentDesk 全功能梳理
 
-更新时间：2026-08-14
+更新时间：2026-08-15
 
 ## 1. 产品主轴
 
@@ -13,6 +13,7 @@
 | Header | Device Lens、设备、工具、活动、设置 | 选择全部设备/某台设备；四个入口各自打开独立弹窗，更新/帮助/语言/主题归设置弹窗 | 已收敛；弹窗不替换右下详情，无“更多”杂物菜单、无来源不明状态点；四个弹窗统一固定 Header/Command/Footer 与单一 Content 滚动区 |
 | 固定页面骨架 | 顶部 Agent、左下会话、右下详情、Footer | 庭院/卡片与 Agent/Slot 操作归顶部，会话浏览归左下；右下只承载会话、额度、远控，Footer 只保留全局状态 | 已实现；58px Header、244px Agent、316px 详情、38px Footer，主区恰好三个面板且 Compact 无横滚 |
 | Agent 员工库与运行位置 | 打开账号、首次准备、新增运行位置、运行位置选择、管理 Agent | 长期保存 Agent/Blueprint，以 Deployment 表达当前工作环境就绪状态；准备成功后才产生 Profile/Slot，既有动作落到确切 Slot | 已实现；每个工作环境显示完整员工库，零 Binding/Slot 员工不消失；schema v6 保留 nullable suppressed Slot，增加 Blueprint/Deployment/ProvisioningJob、签名事件目录与一致迁移备份 |
+| Profile 进程与磁盘保护 | 打开账号、管理 Agent、设置 | 精确识别同一 `user-data-dir`，监管 AgentDesk 所启动的官方客户端；默认退出收口，限制 Crashpad pending 并提供窄范围清理 | 已实现；每 Profile 100 文件/200 MiB，1 分钟 5 个同尺寸 dump 熔断。只删除直属 `.dmp`/`_sidecar.json`，不读转储、不触碰会话/归档/配置/SQLite/`codex-home`/留存样本；强制结束管理器后的 OS 级持续守护仍不是当前能力 |
 | 版本化首次使用 | “创建第一个 Agent”、已有 Profile 迁移预览 | 原子建立本机 Agent 目录与设备身份，不打开网络；随后进入首次准备 | 已实现；缺失 Profile 存储保持真实空数组，已有 Profile 先预览选择性无损迁移；真实 Electron 覆盖全新首 Agent、本机无网络初始化、完成页后记账和重启恢复，候选安装包首启仍待发布验收 |
 | 设备任务向导 | 设备中心“添加设备” | 分别呈现身份确认、成员信任、认证连接、目录落库、库存落库和可以使用 | 代码与 UI 路径已实现；加入端验签预览、邀请端签证前确认和各屏障独立投影均有定向回归；“接收连接 30 分钟”只在高级恢复。完整物理双机向导、全应用重启后的双端恢复和公网/跨平台矩阵仍开放 |
 | 目录纠错 | 合并 Agent、拆分绑定、移除运行位置/登录账号/Agent | 修改 AgentIdentity、AccountBinding、AgentSlot 目录关系并预览影响 | 已实现；三种删除范围均经过 MeshService → SQLite → 关闭重开的回归，不触碰官方客户端数据 |
@@ -43,7 +44,7 @@
 | 多设备控制台 | 右下 Remote Surface 单屏/网格 | 最多四路、一个活动画质、唯一输入目标和公开网络统计 | 代码已实现；切换/断线/撤销均释放按键 |
 | 公网会合与诊断 | 设备“网络设置”“连接诊断” | HTTPS 信令、STUN、短期 TURN、LAN/直连/中继状态 | 代码已实现；服务端可自托管，不接收业务内容；真实 NAT/coturn 待物理验收 |
 | UI 上下文 | Device Lens、Agent、Slot、focus/checked、副本、设备详情、全局弹窗、远控、传输草稿 | 保持每种对象和动作目标独立，并提供原子导航 | 已实现；`utilityDialog` 不写入 workspace/detail，render/filter 无选择副作用 |
-| 自动化与真实窗口验收 | `npm test`、`npm run accept:ui`、双端 E2E | Node 领域/安全回归、临时 userData 的 21 条真实窗口路径、局域网与本机 signaling 两种隔离双端链 | Node 517 项中 516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25、发布安全 14/14、UI 21/21。两种 E2E 均完成既有认证数据面，但 runner 未发送 TaskPackage；这些本机证据不替代物理设备 |
+| 自动化与真实窗口验收 | `npm test`、`npm run accept:ui`、双端 E2E | Node 领域/安全回归、临时 userData 的 21 条真实窗口路径、局域网与本机 signaling 两种隔离双端链 | Node 526 项中 525 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25、发布安全 14/14、UI 21/21。两种 E2E 均完成既有认证数据面，但 runner 未发送 TaskPackage；这些本机证据不替代物理设备 |
 | 物理双 Mac 局域网库存 | 两台实际 Mac、host/UDP DataChannel | 设备证书认证、目录、大库存、显式刷新、4 分钟全快照与短时稳定 | 已验证窄范围：562,009 字节、9 Slot、638 SessionReplica、revision 7 → 8 → 9、5 分钟稳定；远控、断网/睡眠、公网 NAT/TURN 和 Windows 不在该证据中 |
 
 ## 3. 会话复制的唯一契约
@@ -66,7 +67,7 @@
 
 ## 4. 明确不做
 
-- 内嵌聊天、终端或 Agent 进程管理；
+- 内嵌聊天、终端或 Agent 对话进程执行；官方桌面客户端的监管只用于 AgentDesk 自己启动的 Profile 生命周期和磁盘安全；
 - 任务队列、并行/串行编排、优先级计划；
 - 多会话合并、自动上下文拼接、自动交接清单或持续交接编排；
 - 规划文档、任务材料索引、自动总结；

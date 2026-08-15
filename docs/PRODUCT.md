@@ -13,7 +13,7 @@ AgentDesk 是一个本地优先的个人 Agent 控制台：它整理 AI 编码�
 | 层级 | 当前结论 |
 |---|---|
 | 代码 | 版本化首次使用、设备任务向导、便携与同 Mesh TaskPackage 已接通 Renderer、Preload、Main、领域和服务；“代码存在”不等于发布门禁关闭。 |
-| 本机自动化 | 全量 Node 517 项中 516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25，发布安全 14/14，真实 Electron UI 21/21。直送窗口证据只覆盖资格、阶段投影与明文码不进入 Renderer。 |
+| 本机自动化 | 全量 Node 526 项中 525 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25，发布安全 14/14，真实 Electron UI 21/21。直送窗口证据只覆盖资格、阶段投影与明文码不进入 Renderer。 |
 | 当前 macOS unpacked 成品 | 独立 verifier 已流式复算 118/118 个常规文件的整文件/分块 SHA-256，证明无 `default_app.asar`、五项 Electron fuse 与 macOS `ElectronAsarIntegrity` header hash 一致。该 ad-hoc unpacked 证据不等于签名、公证、首次使用 smoke 或可分发 DMG。 |
 | Preview 发布事务 | 代码已实现 `stableAllowed=false`、精确三资产、Draft 双原生端重下载、公开后无 token 匿名重下载、失败回 Draft 与 candidate-burned；发布安全 14/14。真实凭据、受保护环境和真实 Tag 尚未执行。 |
 | 隔离双 endpoint | 局域网直连与本机 signaling E2E 均完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件和合成远控画面；runner 尚未发送 TaskPackage，不能据此声称直送数据面已验。 |
@@ -57,6 +57,8 @@ Personal Agent Mesh 稳定区分全局 AgentIdentity、实际登录 AccountBindi
 
 - profile/session 路径可自动推断或手动设置；
 - 受支持的桌面 App 使用所选 profile 启动；
+- 启动前精确检查同一 `user-data-dir`，不重复拉起；AgentDesk 正常退出默认关闭自己启动的 Profile，显式选择保留时说明退出期间不再监管；
+- 每个 Profile 的 `Crashpad/pending` 受 100 文件/200 MiB 双上限和一分钟 5 个同尺寸 dump 的风暴熔断保护；安全清理只删除直属 dump/sidecar，不触碰 Agent 数据；
 - 同一登录可通过手动 identityKey 或本地指纹归组；
 - Windows 支持传统安装与 Store/MSIX 路径；
 - 配置使用本地 JSON、原子写入和备份。
