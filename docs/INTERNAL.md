@@ -188,7 +188,7 @@ scripts/
 
 `profile-runtime.json` 只保存本机 Profile 的受管状态：稳定 `profileId`、Profile 路径、启动 PID/时间、是否仍归 AgentDesk 所有、熔断时间与脱敏事件计数。它不保存 dump 内容、sidecar 内容、会话标题、账号凭据或客户端数据库。Main 每次仍由稳定 `profileId` 重新查 `profiles.json`；Renderer 不能提交路径或 PID。
 
-每个 Profile 的 `Crashpad/pending` 默认限制为 100 个直属文件或 200 MiB，每 2 秒复核；一分钟内 5 个同尺寸 dump 触发持久熔断。清理只接受普通 `.dmp` 与 `_sidecar.json`，拒绝符号链接、目录逃逸和非普通文件，不触碰 `codex-home`、sessions、archives、配置、SQLite 或 `saved-diagnostic-*`。AgentDesk 正常退出默认终止并复核自己启动的匹配进程；用户显式选择保留后台时停止监管并在设置中显示风险。强制结束 AgentDesk 不等于系统级守护保证。
+每个 Profile 的 `Crashpad/pending` 默认限制为 100 个直属文件或 200 MiB，每 2 秒复核；一分钟内 5 个同尺寸 dump 触发持久熔断。普通停止与正常退出只允许终止当前记录为 AgentDesk 所有的进程；事故熔断或容量无法安全收敛时，允许按 profiles.json 中稳定 profileId 重新查得的精确 `user-data-dir` 终止旧版本、强制退出或重启后遗留的匹配进程，不能扩展成按应用名或路径前缀清理。终止成功后清除 `owned` 与 `launchPid`。清理只接受普通 `.dmp` 与 `_sidecar.json`，拒绝符号链接、目录逃逸和非普通文件，不触碰 `codex-home`、sessions、archives、配置、SQLite 或 `saved-diagnostic-*`。用户显式选择保留后台时停止监管并在设置中显示风险。强制结束 AgentDesk 不等于系统级持续守护保证；下一次管理器启动后恢复限额与事故熔断。
 
 ### Settings
 

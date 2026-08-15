@@ -58,7 +58,7 @@ Personal Agent Mesh 稳定区分全局 AgentIdentity、实际登录 AccountBindi
 - profile/session 路径可自动推断或手动设置；
 - 受支持的桌面 App 使用所选 profile 启动；
 - 启动前精确检查同一 `user-data-dir`，不重复拉起；AgentDesk 正常退出默认关闭自己启动的 Profile，显式选择保留时说明退出期间不再监管；
-- 每个 Profile 的 `Crashpad/pending` 受 100 文件/200 MiB 双上限和一分钟 5 个同尺寸 dump 的风暴熔断保护；安全清理只删除直属 dump/sidecar，不触碰 Agent 数据；
+- 每个 Profile 的 `Crashpad/pending` 受 100 文件/200 MiB 双上限和一分钟 5 个同尺寸 dump 的风暴熔断保护；普通关闭只处理 AgentDesk owned 进程，已确认磁盘事故可按精确 Profile 路径停止升级/异常退出遗留进程；安全清理只删除直属 dump/sidecar，不触碰 Agent 数据；
 - 同一登录可通过手动 identityKey 或本地指纹归组；
 - Windows 支持传统安装与 Store/MSIX 路径；
 - 配置使用本地 JSON、原子写入和备份。
