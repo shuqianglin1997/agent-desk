@@ -234,7 +234,7 @@ it; checking only the outer container is insufficient.
 ## Personal Mesh evidence and release classes
 
 The current `0.10.1-preview.1` evidence is intentionally layered. The full Node
-suite contains 517 tests: 516 pass, 1 Windows-only test is skipped, and 0 fail.
+suite contains 526 tests: 525 pass, 1 Windows-only test is skipped, and 0 fail.
 TaskPackage security is 25/25, release security is 14/14, and real Electron UI
 acceptance is 21/21. The current thin-arm64 macOS unpacked artifact passes the
 independent fuse/ASAR verifier and its three-launch mock-Keychain first-use

@@ -5,6 +5,7 @@
 AgentDesk 是本地优先的账号、会话历史与工具维护器。它负责：
 
 - 保存和启动受支持客户端的账号槽位；
+- 对 AgentDesk 自己启动的官方桌面 Profile 建立精确进程归属、重复启动阻断、正常退出收口与 Crashpad 磁盘保护；
 - 只读扫描本地会话元数据；
 - 定位或导出单个会话；
 - 从一条明确本机会话生成或导入经过验证的 TaskPackage；
@@ -14,7 +15,7 @@ AgentDesk 是本地优先的账号、会话历史与工具维护器。它负责�
 
 Personal Agent Mesh 的有人值守代码链路已经接入运行时：版本化首次使用与首个 Agent 的本机无网络初始化、双方身份确认的设备任务向导、设备证书和配对、长期全局 Agent/Blueprint/Deployment/ProvisioningJob、独立签名目录、来源设备库存、SessionPointer、文件与同 Mesh TaskPackage 传输、远程查看/输入、多设备控制台，以及 LAN/签名信令/STUN/TURN。旧端协议 feature 降级、目录权限不对称、inventory 目录隔离、远端准备撤权竞态和 TaskPackage 直送安全边界已有回归；独立 UI 上下文、目录对象管理和真实 1040 × 840 Electron 任务路径也已本机验收。物理双 Mac 另有局域网认证通道与 562,009 字节大库存/刷新证据，但完整设备向导、TaskPackage 直送数据面、真实公网 NAT、coturn 强制中继、断网/睡眠恢复和 macOS/Windows 四向权限矩阵仍未通过，因此当前是“纵向代码 + 本机自动化 + 一项窄双 Mac 证据”，不是公开稳定验收态。
 
-它不包含聊天 transport、Agent 进程生命周期、任务队列、自动多会话交接编排、规划资料索引或任意命令注册。TaskPackage 是用户显式创建的一次不可变工作快照，不改变这条边界。
+它不包含聊天 transport、Agent 对话生命周期、任务队列、自动多会话交接编排、规划资料索引或任意命令注册。官方桌面客户端的进程监管只服务 AgentDesk 自己启动的 Profile 生命周期和磁盘安全，不启动、续接或编排对话。TaskPackage 是用户显式创建的一次不可变工作快照，不改变这条边界。
 
 ## 2. 进程边界
 
@@ -26,6 +27,7 @@ Renderer
                  ├─ profile/settings JSON store
                  ├─ app/session scanners
                  ├─ diagnostics and quota
+                 ├─ ProfileRuntimeSupervisor / bounded Crashpad retention
                  ├─ CLI discovery and tool maintenance
                  ├─ MeshService / mesh.db / OS-protected key vault
                  ├─ SignalingClient / PeerManager / TransferService
@@ -58,6 +60,7 @@ src/
   renderer.js             UI 状态与交互
   onboarding-state.js     版本化首次使用的纯状态与完成门禁
   device-journey.js       身份/信任/连接/目录/库存任务状态投影
+  profile-runtime.js      Profile 进程归属、重复启动、退出收口、Crashpad 限额/熔断与窄范围清理
   ui-context.js           独立 UI 上下文与无副作用状态迁移
   index.html
   styles.css              低优先级 legacy 兼容样式
@@ -182,6 +185,10 @@ scripts/
 - 猫外观与创建/最近打开时间。
 
 归一化保留未知字段，方便未来版本向前兼容。局部更新合并猫外观，不回写过期整表快照。
+
+`profile-runtime.json` 只保存本机 Profile 的受管状态：稳定 `profileId`、Profile 路径、启动 PID/时间、是否仍归 AgentDesk 所有、熔断时间与脱敏事件计数。它不保存 dump 内容、sidecar 内容、会话标题、账号凭据或客户端数据库。Main 每次仍由稳定 `profileId` 重新查 `profiles.json`；Renderer 不能提交路径或 PID。
+
+每个 Profile 的 `Crashpad/pending` 默认限制为 100 个直属文件或 200 MiB，每 2 秒复核；一分钟内 5 个同尺寸 dump 触发持久熔断。清理只接受普通 `.dmp` 与 `_sidecar.json`，拒绝符号链接、目录逃逸和非普通文件，不触碰 `codex-home`、sessions、archives、配置、SQLite 或 `saved-diagnostic-*`。AgentDesk 正常退出默认终止并复核自己启动的匹配进程；用户显式选择保留后台时停止监管并在设置中显示风险。强制结束 AgentDesk 不等于系统级守护保证。
 
 ### Settings
 
@@ -385,7 +392,7 @@ npm run accept:ui
 npm run build:mac:dir
 ```
 
-当前完整 Node 套件共 517 项（516 通过、1 项仅 Windows 跳过、0 失败）；其中 TaskPackage 安全定向 25/25，发布安全定向 14/14。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均复跑完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；该 runner 尚未发送 TaskPackage，因此它既不是直送数据面证据，也不是物理双机或真实 NAT/TURN 证据。
+当前完整 Node 套件共 526 项（525 通过、1 项仅 Windows 跳过、0 失败）；其中 TaskPackage 安全定向 25/25，发布安全定向 14/14。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均复跑完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；该 runner 尚未发送 TaskPackage，因此它既不是直送数据面证据，也不是物理双机或真实 NAT/TURN 证据。
 
 物理证据单独存在：两台 Mac 在同一局域网通过 host/UDP 建立认证 DataChannel，562,009 字节库存中的 9 个 Slot 与 638 条 SessionReplica 完整落库，显式刷新与 4 分钟全快照把 revision 从 7 推进到 8 和 9，连接连续 5 分钟无错误或断开。该记录不覆盖远控媒体/输入权限、断网/睡眠恢复、公网 NAT/coturn 或 Windows。
 

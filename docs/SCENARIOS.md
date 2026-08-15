@@ -139,9 +139,22 @@ AgentDesk 不替用户补充说明，不合并多个会话，也不会把历史�
 - 当前目标使用用户选择的画质，后台目标自动降为 360p/2fps 缩略图；诊断显示 LAN、P2P 直连或 TURN 中继，不显示候选地址或凭据。
 - “返回工作台”先释放全部远端输入并降为仅查看，画面连接可留在后台且顶栏显示活动提示；“断开”才结束对应媒体会话。
 
-## 13. 当前验证边界
+## 13. Profile 客户端或 Crashpad 失控
 
-当前 `0.10.1-preview.1` 的证据分层如下：完整 Node 套件共 517 项，516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14。临时 userData 下真实 1040 × 840 Electron UI 为 21/21，覆盖全新首 Agent、重启恢复、设备向导 Shell 与状态投影、TaskPackage 直送资格和状态投影，以及既有固定几何、弹窗、会话、传输和远控任务路径。
+用户通过 AgentDesk 打开一个隔离 Profile，官方客户端或它的 Crashpad handler 随后陷入重复崩溃。
+
+- 启动前先检查同一 `user-data-dir`；已有实例时不再拉起第二个。
+- AgentDesk 每 2 秒检查该 Profile 的 `Crashpad/pending`，只统计直属 `.dmp` 与 `_sidecar.json`，不读取转储内容。
+- pending 达到 100 个文件或 200 MiB 时，按完整事件清理最旧报告，两个上限都必须满足。
+- 一分钟内出现 5 个同尺寸 dump 时，Profile 被持久熔断；AgentDesk 停止自己启动的匹配进程，并在清理前拒绝再次打开。
+- “管理 Agent → 清理崩溃报告”只删除 pending 的 dump/sidecar；会话、归档、配置、SQLite、`codex-home` 与 `saved-diagnostic-*` 留存样本原样保留。
+- 正常退出 AgentDesk 默认关闭它启动的客户端。设置中可以显式选择保留，但界面会说明管理器退出后不再监控磁盘增长。
+
+这条保护管理的是官方客户端的本机资源边界，不接管 Agent 对话执行。强制结束 AgentDesk 或操作系统崩溃时，当前版本没有独立系统服务继续监管；下一次启动会根据持久记录和精确 Profile 路径恢复。
+
+## 14. 当前验证边界
+
+当前 `0.10.1-preview.1` 的证据分层如下：完整 Node 套件共 526 项，525 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14。临时 userData 下真实 1040 × 840 Electron UI 为 21/21，覆盖全新首 Agent、重启恢复、设备向导 Shell 与状态投影、TaskPackage 直送资格和状态投影，以及既有固定几何、弹窗、会话、传输和远控任务路径。
 
 成品证据单独记账：本机现有确切 `release/mac-arm64/AgentDesk.app` 已通过独立 fuse/ASAR verifier，118/118 个常规文件的整文件/分块 SHA-256、五项 fuse 和 `ElectronAsarIntegrity` header hash 均符合实际字节，且不存在 `default_app.asar`；同一确切字节随后使用真实语义开关 `--macos-ci-mock-keychain` 通过初始化、重启恢复并完成、完成后再重启三次 packaged first-use smoke。runner 先证明 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，并逐次从 Browser command line 核对唯一原生 `--use-mock-keychain`。这证明的是本机 ad-hoc 成品在 mock Keychain 下的打包与首次使用事务；新的 GitHub macOS `main` CI 运行仍待结果，macOS 系统 Keychain/OS 密钥保护、Developer ID、公证、Gatekeeper、签名 DMG、Draft/公开重下载和物理干净机仍未由这条记录覆盖。
 

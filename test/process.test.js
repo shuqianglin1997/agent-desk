@@ -2,7 +2,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { isDefaultWindowsAppRunning, isRunningIn } = require('../src/process');
+const {
+  isDefaultWindowsAppRunning,
+  isRunningIn,
+  findProfileProcesses,
+  matchesCrashpadDatabase
+} = require('../src/process');
 
 const H = '/Users/hupo/Library/Application Support';
 // 模拟 ps 输出：路径含空格、且短路径是长路径的前缀
@@ -65,4 +70,19 @@ test('Windows 默认槽位：独立账号进程和 CLI shim 不会冒充默认 A
     'C:\\Users\\Alice\\AppData\\Roaming\\npm\\claude.exe --version'
   ].join('\n');
   assert.equal(isDefaultWindowsAppRunning(ps, ['Claude.exe']), false);
+});
+
+test('Profile 进程集合同时识别主进程参数和该 Profile 的 Crashpad 数据库', () => {
+  const profilePath = '/Users/alice/Library/Application Support/AgentDesk/Profiles/Codex/peter';
+  const records = [
+    { pid: 1, command: `ChatGPT --user-data-dir="${profilePath}" --type=browser` },
+    { pid: 2, command: `browser_crashpad_handler --database="${profilePath}/Crashpad"` },
+    { pid: 3, command: 'browser_crashpad_handler --database="/tmp/other/Crashpad"' }
+  ];
+  assert.equal(matchesCrashpadDatabase(records[1].command, profilePath), true);
+  assert.deepEqual(findProfileProcesses(records, profilePath).map((item) => item.pid), [1, 2]);
+  assert.equal(matchesCrashpadDatabase(
+    `browser_crashpad_handler --database="/tmp${profilePath}/Crashpad"`,
+    profilePath
+  ), false);
 });

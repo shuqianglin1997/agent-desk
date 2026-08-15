@@ -25,6 +25,7 @@ const apps = require('./apps');
 const { identityFingerprint } = require('./identity');
 const { probeActivity } = require('./activity');
 const { isDefaultWindowsAppRunning, isRunningIn, snapshotProcesses } = require('./process');
+const { ProfileRuntimeSupervisor } = require('./profile-runtime');
 const { readJsonStore, writeJsonStore, snapshotFile } = require('./json-store');
 const { nearestExistingDirectory } = require('./path-utils');
 const settings = require('./settings');
@@ -142,6 +143,9 @@ let pairingEndpoint = null;
 let pairingEndpointTimer = null;
 let meshReachabilityEnabled = false;
 let pairingEndpointExpiresAt = null;
+let profileRuntimeSupervisor = null;
+let profileQuitInProgress = false;
+let profileQuitApproved = false;
 const quotaService = new QuotaService();
 const pathSelectionRegistry = new PathSelectionRegistry();
 const invitationInspectionRegistry = new InvitationInspectionRegistry();
@@ -238,6 +242,7 @@ if (!hasSingleInstanceLock) {
     }
     registerIpc();
     registerRemoteEmergencyStop();
+    getProfileRuntimeSupervisor().start(loadProfiles());
     createWindow();
     getProvisioningService().resumeActiveJobs();
 
@@ -250,7 +255,42 @@ if (!hasSingleInstanceLock) {
     if (process.platform !== 'darwin') app.quit();
   });
 
-  app.on('before-quit', () => {
+  app.on('before-quit', (event) => {
+    const quitBehavior = loadSettings().profileQuitBehavior;
+    if (!profileQuitApproved && quitBehavior !== 'keep') {
+      event.preventDefault();
+      if (profileQuitInProgress) return;
+      profileQuitInProgress = true;
+      void getProfileRuntimeSupervisor().stopAll({
+        terminateOwned: true,
+        reason: 'app-quit'
+      }).then((result) => {
+        if (!result.ok) {
+          profileQuitInProgress = false;
+          getProfileRuntimeSupervisor().start(loadProfiles());
+          showMainWindow();
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('profiles:quitBlocked', {
+              reasonCode: 'profile-process-still-running'
+            });
+          }
+          return;
+        }
+        profileQuitApproved = true;
+        app.quit();
+      }).catch(() => {
+        profileQuitInProgress = false;
+        getProfileRuntimeSupervisor().start(loadProfiles());
+        showMainWindow();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('profiles:quitBlocked', {
+            reasonCode: 'profile-process-stop-failed'
+          });
+        }
+      });
+      return;
+    }
+    profileRuntimeSupervisor?.stopMonitoring();
     clearTimeout(pairingEndpointTimer);
     invitationInspectionRegistry.clear();
     pairingApprovalRegistry.stop('app-quit');
@@ -1231,7 +1271,7 @@ function registerIpc() {
     });
   });
 
-  ipcMain.handle('profiles:update', (_event, input = {}) => {
+  ipcMain.handle('profiles:update', async (_event, input = {}) => {
     if (['profilePath', 'sessionRoot', 'executablePath'].some((key) => (
       Object.prototype.hasOwnProperty.call(input, key)
     ))) throw new Error('profile-path-input-forbidden');
@@ -1247,6 +1287,14 @@ function registerIpc() {
     const executablePath = executableSelectionId
       ? pathSelectionRegistry.resolve(executableSelectionId, 'profile-executable')
       : null;
+    const currentProfile = loadProfiles().find((profile) => profile.id === boundedText(input.id, 128));
+    if (currentProfile && (profilePath || sessionRoot || executablePath)) {
+      const runtime = getProfileRuntimeSupervisor().status(currentProfile);
+      if (runtime.owned && runtime.active === true) {
+        const stopped = await getProfileRuntimeSupervisor().stopProfile(currentProfile, 'profile-path-change');
+        if (!stopped.ok) throw new Error(stopped.reasonCode || 'profile-process-stop-failed');
+      }
+    }
     const updated = updateStoredProfile(boundedText(input.id, 128), (profile) => {
       const next = { ...profile };
       if (typeof input.name === 'string') next.name = boundedText(input.name, 80) || next.name;
@@ -1278,10 +1326,15 @@ function registerIpc() {
     return updated;
   });
 
-  ipcMain.handle('profiles:remove', (_event, id) => {
+  ipcMain.handle('profiles:remove', async (_event, id) => {
     const profiles = loadProfiles();
     const target = profiles.find((profile) => profile.id === id);
     if (!target) return { ok: false, reason: t('main.err.slotNotFound') };
+    const runtime = getProfileRuntimeSupervisor().status(target);
+    if (runtime.owned && runtime.active === true) {
+      const stopped = await getProfileRuntimeSupervisor().stopProfile(target, 'profile-remove');
+      if (!stopped.ok) return { ok: false, reason: stopped.reasonCode || 'profile-process-stop-failed' };
+    }
     saveProfiles(profiles.filter((profile) => profile.id !== id));
     quotaService.invalidate(id);
     return { ok: true };
@@ -1308,6 +1361,28 @@ function registerIpc() {
       }));
     }
     return result;
+  });
+
+  ipcMain.handle('profiles:runtimeStatus', (_event, id) => {
+    const profile = loadProfiles().find((item) => item.id === boundedText(id, 128));
+    if (!profile) return { ok: false, reasonCode: 'profile-not-found' };
+    return { ok: true, runtime: getProfileRuntimeSupervisor().status(profile) };
+  });
+
+  ipcMain.handle('profiles:stop', async (_event, id) => {
+    const profile = loadProfiles().find((item) => item.id === boundedText(id, 128));
+    if (!profile) return { ok: false, reasonCode: 'profile-not-found' };
+    return getProfileRuntimeSupervisor().stopProfile(profile, 'user-request');
+  });
+
+  ipcMain.handle('profiles:cleanCrashpad', async (_event, id) => {
+    const profile = loadProfiles().find((item) => item.id === boundedText(id, 128));
+    if (!profile) return { ok: false, reasonCode: 'profile-not-found' };
+    try {
+      return await getProfileRuntimeSupervisor().cleanCrashpad(profile);
+    } catch (error) {
+      return { ok: false, reasonCode: boundedText(error?.message || 'crashpad-clean-failed', 160) };
+    }
   });
 
   ipcMain.handle('sessions:list', (_event, input = {}) => {
@@ -2564,6 +2639,7 @@ function saveProfiles(profiles, options = {}) {
     { version: STORE_VERSION, profiles },
     { ...options, backupFile: profilesBackupFile() }
   );
+  profileRuntimeSupervisor?.updateProfiles(profiles);
 }
 
 function updateStoredProfile(id, mutator) {
@@ -2717,6 +2793,33 @@ function profilesPreUpdateBackupFile() {
   return `${profilesFile()}.pre-update.bak`;
 }
 
+function profileRuntimeStateFile() {
+  return path.join(app.getPath('userData'), 'profile-runtime.json');
+}
+
+function getProfileRuntimeSupervisor() {
+  if (profileRuntimeSupervisor) {
+    profileRuntimeSupervisor.updateProfiles(loadProfiles());
+    return profileRuntimeSupervisor;
+  }
+  profileRuntimeSupervisor = new ProfileRuntimeSupervisor({
+    stateFile: profileRuntimeStateFile(),
+    onIncident: (incident) => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      mainWindow.webContents.send('profiles:runtimeIncident', {
+        profileId: boundedText(incident.profileId, 128),
+        occurredAt: incident.occurredAt || null,
+        reason: boundedText(incident.reason, 80),
+        fileCount: Number.isFinite(incident.fileCount) ? incident.fileCount : null,
+        totalBytes: Number.isFinite(incident.totalBytes) ? incident.totalBytes : null,
+        removedFiles: Number.isFinite(incident.removedFiles) ? incident.removedFiles : null
+      });
+    }
+  });
+  profileRuntimeSupervisor.updateProfiles(loadProfiles());
+  return profileRuntimeSupervisor;
+}
+
 function settingsFile() {
   return path.join(app.getPath('userData'), 'settings.json');
 }
@@ -2855,6 +2958,27 @@ async function launchProfile(profile) {
   }
   const appName = app_.appName;
   const windowsDefault = usesWindowsOfficialDefault(profile);
+  const runtimeSupervisor = getProfileRuntimeSupervisor();
+
+  if (!windowsDefault) {
+    const preflight = await runtimeSupervisor.preflight(profile);
+    if (!preflight.ok) {
+      return {
+        ok: false,
+        reasonCode: preflight.reasonCode,
+        reason: preflight.reasonCode === 'profile-crashpad-fused'
+          ? t('main.launch.crashpadFused')
+          : t('main.launch.runtimeCheckFailed', { code: preflight.reasonCode })
+      };
+    }
+    if (preflight.alreadyRunning) {
+      return {
+        ok: true,
+        alreadyRunning: true,
+        warning: t('main.launch.alreadyRunning')
+      };
+    }
+  }
 
   // Store/MSIX owns the default profile directory and may virtualize it. Let
   // the packaged app create that location itself. Managed profiles live
@@ -2874,15 +2998,20 @@ async function launchProfile(profile) {
   const env = app_.launchEnv(profile, { ...process.env });
   if (process.platform === 'win32') windowsDiscoveryCache.clear();
   const launcher = findExecutable(profile);
+  const launchOwned = async (command, launchArgs, launchEnv) => {
+    const launched = await spawnDetached(command, launchArgs, launchEnv);
+    const runtime = windowsDefault ? null : runtimeSupervisor.registerLaunch(profile, launched);
+    return { launched, runtime };
+  };
 
   try {
     if (process.platform === 'darwin') {
       if (launcher.found) {
-        await spawnDetached(launcher.path, args, env);
+        await launchOwned(launcher.path, args, env);
         return { ok: true, command: launcher.path, source: launcher.source };
       }
 
-      await spawnDetached('/usr/bin/open', ['-n', '-a', appName, '--args', ...args], env);
+      await launchOwned('/usr/bin/open', ['-n', '-a', appName, '--args', ...args], env);
       return { ok: true, command: `open -a ${appName}`, warning: t('main.launch.launchServices') };
     }
 
@@ -2890,7 +3019,7 @@ async function launchProfile(profile) {
       const failures = [];
       for (const executable of launcher.candidateDetails.filter((item) => item.exists)) {
         try {
-          await spawnDetached(executable.path, args, env);
+          await launchOwned(executable.path, args, env);
           return {
             ok: true,
             command: executable.path,
@@ -2921,7 +3050,7 @@ async function launchProfile(profile) {
       };
     }
 
-    await spawnDetached(launcher.path || appName.toLowerCase(), args, env);
+    await launchOwned(launcher.path || appName.toLowerCase(), args, env);
     return { ok: true, command: launcher.path || appName.toLowerCase() };
   } catch (error) {
     return { ok: false, reason: error.message };
@@ -2945,6 +3074,7 @@ function diagnoseProfile(profile) {
   const warnings = [];
   const defaultProfile = apps.defaultProfilePathInfo(profile.appId);
   const migration = windowsMigrationInfo(profile);
+  const runtime = getProfileRuntimeSupervisor().status(profile);
 
   if (!executable.found && !executable.protocolUsable) {
     warnings.push(t('main.warn.appNotFound', { appName }));
@@ -2968,6 +3098,8 @@ function diagnoseProfile(profile) {
   if (process.platform === 'win32' && migration.needed) {
     warnings.push(t('main.warn.appDataProfile'));
   }
+  if (runtime.fusedAt) warnings.push(t('main.warn.crashpadFused'));
+  if (runtime.crashpad.errorCode) warnings.push(t('main.warn.crashpadUnsafe'));
   if (
     process.platform === 'win32' &&
     !usesWindowsOfficialDefault(profile) &&
@@ -2997,6 +3129,7 @@ function diagnoseProfile(profile) {
     userData: app.getPath('userData'),
     defaultProfile,
     migration,
+    runtime,
     warnings
   };
 }
@@ -3284,13 +3417,17 @@ function spawnDetached(command, args, env) {
     };
     child.once('error', (error) => finish(reject, error));
     child.once('spawn', () => {
+      const launched = {
+        pid: Number.isInteger(child.pid) ? child.pid : null,
+        processGroupId: process.platform === 'win32' ? null : child.pid
+      };
       const timer = setTimeout(() => {
         child.unref();
-        finish(resolve);
+        finish(resolve, launched);
       }, 350);
       child.once('exit', (code, signal) => {
         clearTimeout(timer);
-        if (code === 0) finish(resolve);
+        if (code === 0) finish(resolve, launched);
         else finish(reject, new Error(t('main.err.procExited', { code, signal: signal || '-' })));
       });
     });

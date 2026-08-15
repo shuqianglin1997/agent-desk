@@ -4,7 +4,7 @@
 
 AgentDesk 以“单人 Personal Agent Mesh”为长期主轴：先把本机多账号、逻辑会话和工具维护做准，再扩展为同一个人在多台可信设备上的全局 Agent 目录、会话索引、显式发送和受限控制。整项工作可以通过不可变加密 TaskPackage 交给另一个 Agent、设备或人；同一快照既可保存为便携文件，也可在同一 Mesh 内直接发送。这项能力传递一次快照，不把 Personal Mesh 扩张为团队平台、聊天壳或任务执行编排器。
 
-Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于 2026-08-13 获批，便携 TaskPackage 基线于 2026-08-14 写入 1.25；1.27 已把版本化首次使用、设备任务向导和同 Mesh TaskPackage 直送带入代码，1.28 又固化成品 fuse/ASAR、三次首次使用 smoke 与 Preview Draft/公开重下载事务。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；固定 Header/三面板/Footer 页面骨架、四个独立全局弹窗与独立 UI 上下文保持不变。当前没有公开 Preview：真实签名凭据、受保护环境、真实 Tag、物理下载/安装与 TaskPackage/公网/跨平台矩阵仍未关闭，稳定版门禁继续开放。
+Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于 2026-08-13 获批，便携 TaskPackage 基线于 2026-08-14 写入 1.25；1.27 已把版本化首次使用、设备任务向导和同 Mesh TaskPackage 直送带入代码，1.28 又固化成品 fuse/ASAR、三次首次使用 smoke 与 Preview Draft/公开重下载事务，1.29 增加 AgentDesk 所启动 Profile 的进程归属、退出收口和 Crashpad 资源熔断。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；固定 Header/三面板/Footer 页面骨架、四个独立全局弹窗与独立 UI 上下文保持不变。当前没有公开 Preview：真实签名凭据、受保护环境、真实 Tag、物理下载/安装与 TaskPackage/公网/跨平台矩阵仍未关闭，稳定版门禁继续开放。
 
 ## 当前基线
 
@@ -15,6 +15,7 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 共用状态的猫猫庭院与卡片名册、单一场景 Popover；
 - 桌面 App / CLI 发现、版本检查、打开和显式维护；
 - macOS / Windows 打包、更新与发布校验；
+- AgentDesk 所启动 Profile 的精确进程归属、重复启动阻断、正常退出默认收口，以及 Crashpad pending 的 100 文件/200 MiB 双上限、5 次风暴熔断和窄范围安全清理；
 - Electron 成品 `app.asar` 逐文件/分块哈希、header 绑定与五项 fuse 独立 verifier；当前 macOS unpacked 的 118/118 个常规文件已通过该层，`RunAsNode` 只为两个固定 CLI launcher 保留；
 - 跨 `AgentDesk.app`、`win-unpacked` 与 portable 的三次首次使用 smoke，以及 Preview-only 三资产 Draft/公开匿名重下载、失败回 Draft 和候选不可复用门禁代码；
 - Personal Mesh 初始化、一次性加密配对、设备权限/撤销、全局 Agent 目录、设备 Lens 与可删到零语义；
@@ -32,7 +33,7 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
 - 已就绪远端固定 `profile.launch`、未就绪远端有人值守 `agent.prepare`，以及确认后撤权/断连的副作用阻断；
 - Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
-- 完整 Node 套件 517 项中 516 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14；临时 userData 下真实 1040 × 840 Electron UI 为 21/21。
+- 完整 Node 套件 526 项中 525 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14；临时 userData 下真实 1040 × 840 Electron UI 为 21/21。
 - 隔离双 endpoint 的局域网直连与本机 signaling E2E 均完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件和合成远控画面；runner 尚未发送 TaskPackage，不能作为直送数据面的 Electron E2E 证据。
 - 物理双 Mac 在同一局域网完成 host/UDP 认证 DataChannel、562,009 字节库存、9 个 Slot、638 条 SessionReplica、revision 7 → 8 → 9 和连续 5 分钟稳定；该证据只关闭大库存、显式刷新与当前 4 分钟全快照恢复基线。
 
@@ -62,6 +63,7 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 公网 Signaling Gateway 增加 TLS 入口、容量监控、短期状态存储方案和运维手册；
 - 打包后检查已退休模块、凭据和服务端源码没有错误进入桌面运行路径；
 - 当前没有公开 `v0.10.1-preview.1`；历史 `0.10.0` 不补发为稳定版。上述配置、真实 Tag 与物理门禁完成前不得声称他人可以下载安装；稳定 `v0.10.1` 仍需另行关闭全部产品门禁。
+- 在候选 macOS/Windows 包中用真实官方客户端复验 Crashpad 风暴：持续一小时不超过 100 文件/200 MiB，正常退出无残留写盘进程，多 Profile 互不串扰，清理后会话/归档/配置/SQLite 完整；强制结束管理器后的独立 OS 级守护若需要，必须作为新的服务化安全设计单独评审。
 
 ### 4. 扫描可靠性
 

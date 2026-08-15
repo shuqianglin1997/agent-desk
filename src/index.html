@@ -252,6 +252,8 @@
               <button id="addRuntimeLocationBtn" type="button"><span data-i18n="account.addRuntimeAdvanced">导入运行位置</span><small data-i18n="account.addRuntimeAdvancedHint">仅用于登记已有登录或修复位置关系</small></button>
               <button id="pathConfigBtn" type="button"><span data-i18n="account.path">路径</span><small data-i18n="account.pathHint">账号数据目录与会话根目录</small></button>
               <button id="diagnosticsBtn" type="button"><span data-i18n="account.diagnostics">诊断</span><small data-i18n="account.diagnosticsHint">客户端、目录、会话与启动状态</small></button>
+              <button id="stopProfileBtn" type="button"><span data-i18n="account.stopRuntime">关闭客户端</span><small data-i18n="account.stopRuntimeHint">只关闭由 AgentDesk 启动的当前 Profile 进程</small></button>
+              <button id="cleanCrashpadBtn" type="button"><span data-i18n="account.cleanCrashpad">清理崩溃报告</span><small data-i18n="account.cleanCrashpadHint">只删除 Crashpad/pending 中的转储和 sidecar</small></button>
               <button id="refreshBtn" type="button"><span data-i18n="account.refresh">重扫</span><small data-i18n="account.refreshHint">重新读取当前来源的会话与状态</small></button>
               <button id="profileFolderBtn" type="button"><span data-i18n="account.folder">打开位置</span><small data-i18n="account.folderHint">在本机文件管理器中显示账号目录</small></button>
             </div>
@@ -999,6 +1001,14 @@
             <button id="langToggle" type="button" data-i18n-title="topbar.lang.title">文</button>
             <button id="themeToggle" type="button" data-i18n-title="topbar.theme.title">◐ <span data-i18n="topbar.theme">外观</span></button>
           </div>
+          <label class="settings-runtime-policy" for="profileQuitBehavior">
+            <span data-i18n="settings.profileLifecycle">Profile 后台生命周期</span>
+            <select id="profileQuitBehavior">
+              <option value="close" data-i18n="settings.profileQuit.close">退出 AgentDesk 时关闭所启动的客户端</option>
+              <option value="keep" data-i18n="settings.profileQuit.keep">退出 AgentDesk 后保留客户端运行</option>
+            </select>
+            <small data-i18n="settings.profileQuit.hint">默认关闭可避免失控的后台进程继续生成崩溃报告；选择保留后，AgentDesk 退出期间无法继续监控磁盘增长。</small>
+          </label>
         </div>
       </form>
     </dialog>

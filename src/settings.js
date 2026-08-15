@@ -19,6 +19,7 @@ const SESSION_SCOPES = new Set(['current', 'all']);
 const SESSION_VIEWS = new Set(['compact', 'detail']);
 const YARD_TIMES = new Set(['auto', 'day', 'dusk', 'night']);
 const YARD_WEATHER = new Set(['auto', 'clear', 'cloudy', 'rain', 'snow']);
+const PROFILE_QUIT_BEHAVIORS = new Set(['close', 'keep']);
 
 const DEFAULT_SETTINGS = Object.freeze({
   theme: null,
@@ -27,6 +28,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   sessionScope: 'current',
   sessionView: 'compact',
   remindersOn: true,
+  profileQuitBehavior: 'close',
   atmosTime: 'auto',
   atmosWeather: 'auto',
   welcomed: false,
@@ -101,6 +103,9 @@ function normalizeSettings(value) {
     remindersOn: typeof input.remindersOn === 'boolean'
       ? input.remindersOn
       : DEFAULT_SETTINGS.remindersOn,
+    profileQuitBehavior: PROFILE_QUIT_BEHAVIORS.has(input.profileQuitBehavior)
+      ? input.profileQuitBehavior
+      : DEFAULT_SETTINGS.profileQuitBehavior,
     atmosTime: YARD_TIMES.has(input.atmosTime) ? input.atmosTime : DEFAULT_SETTINGS.atmosTime,
     atmosWeather: YARD_WEATHER.has(input.atmosWeather)
       ? input.atmosWeather
