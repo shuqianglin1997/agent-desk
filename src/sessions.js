@@ -107,7 +107,15 @@ function scanCodex(profile) {
       const indexed = index.get(text(payload.session_id) || id);
       const title = cleanTitle(indexed?.title) || cleanTitle(payload.title) || `Codex 会话 ${id.slice(0, 8)}`;
       const createdAt = parseDate(first?.timestamp) || stat?.birthtime?.toISOString() || null;
-      const updatedAt = indexed?.updatedAt || stat?.mtime?.toISOString() || createdAt;
+      // session_index.jsonl is a title index, not a reliable live activity log:
+      // an ongoing rollout can keep appending for days after its index row stops
+      // moving. Prefer the newest trustworthy content timestamp while retaining
+      // the index value for clients that do keep it current. File mtime remains a
+      // last-resort fallback for old or malformed records without event times.
+      const contentUpdatedAt = parseDate(lastEventTimestamp(filePath));
+      const updatedAt = latestDate(indexed?.updatedAt, contentUpdatedAt)
+        || stat?.mtime?.toISOString()
+        || createdAt;
       const rootRevisionAt = stat?.mtime?.toISOString() || createdAt;
       const projectPath = text(payload.cwd) || text(payload.current_dir) || null;
       const model = text(payload.model) || text(payload.model_provider) || null;
@@ -174,6 +182,20 @@ function preferCodexRoot(candidate, candidateRevisionAt, current, currentRevisio
 function dateMillis(value) {
   const timestamp = new Date(value || 0).getTime();
   return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function latestDate(...values) {
+  let latest = null;
+  let latestMillis = 0;
+  for (const value of values) {
+    const parsed = parseDate(value);
+    const millis = dateMillis(parsed);
+    if (millis > latestMillis) {
+      latest = parsed;
+      latestMillis = millis;
+    }
+  }
+  return latest;
 }
 
 // Claude Code CLI（用户自己终端里跑的 claude）：<root>/projects/<路径slug>/<uuid>.jsonl，

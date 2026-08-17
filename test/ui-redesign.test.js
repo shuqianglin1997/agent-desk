@@ -66,7 +66,8 @@ test('卡片名册使用固定宽度与可信摘要，并用真实窗口验收�
   assert.match(identityGroups, /function cardActivityEvidence[\s\S]*?remoteUnknown[\s\S]*?function resolveCardActivityState/);
   assert.match(renderer, /const activityEvidence = window\.IdentityGroups[\s\S]*?resolveCardActivityState[\s\S]*?tr\('card\.activityUnknown'\)/);
   assert.match(renderer, /setInterval\(\(\) => \{\s*if \(!document\.hidden\) loadActivity\(\);/);
-  assert.match(renderer, /visibilitychange[\s\S]*?if \(document\.hidden\) return;\s*loadActivity\(\);/);
+  assert.match(renderer, /visibilitychange[\s\S]*?if \(document\.hidden\) return;\s*refreshSessionsOnForeground\(\);\s*loadActivity\(\);/);
+  assert.match(renderer, /window\.addEventListener\('focus', refreshSessionsOnForeground\)/);
   assert.match(renderer, /function syncYard\(\)[\s\S]*?\}\s*renderAccountRoster\(\);\s*renderTopbarContext\(\);/);
   assert.match(renderer, /const positions = \(group\.allMembers \|\| group\.members\)\.length;[\s\S]*?_deviceStatus === 'online'/);
   assert.match(renderer, /account-card-last-active[\s\S]*?account-card-quota-summary[\s\S]*?details\.append\(lastActive, quotaSummary, quotaTrack\)/);
