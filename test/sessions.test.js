@@ -89,6 +89,30 @@ test('scanCodex resolves title via session_index keyed by session_id', () => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('scanCodex keeps an indexed title but uses newer rollout activity', () => {
+  const root = mkTmp();
+  const sdir = path.join(root, 'sessions');
+  fs.mkdirSync(sdir, { recursive: true });
+  const filePath = path.join(sdir, 'rollout-live-thread.jsonl');
+  fs.writeFileSync(filePath,
+    JSON.stringify({
+      timestamp: '2026-07-10T00:00:00.000Z',
+      type: 'session_meta',
+      payload: { id: 'physical-live', session_id: 'thread-live', cwd: '/Users/x/live' }
+    }) + '\n' +
+    JSON.stringify({ timestamp: '2026-07-12T03:04:05.000Z', type: 'event_msg' }) + '\n');
+  fs.writeFileSync(
+    path.join(root, 'session_index.jsonl'),
+    JSON.stringify({ id: 'thread-live', thread_name: 'Still working', updated_at: '2026-07-11T00:00:00.000Z' }) + '\n'
+  );
+
+  const recs = scanSessions({ appId: 'codex', sessionRoot: root });
+  assert.equal(recs.length, 1);
+  assert.equal(recs[0].title, 'Still working');
+  assert.equal(recs[0].updatedAt, '2026-07-12T03:04:05.000Z');
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test('scanCodex falls back to a placeholder title when unindexed', () => {
   const root = mkTmp();
   const sdir = path.join(root, 'sessions');

@@ -552,7 +552,17 @@ let updateButtonTimer = null;
 let quotaRequest = null;
 let quotaHasLoaded = false;
 let quotaRequestedAt = 0;
+let foregroundSessionRefreshAt = 0;
 const QUOTA_REFRESH_INTERVAL = 5 * 60_000;
+const FOREGROUND_SESSION_REFRESH_INTERVAL = 2_000;
+
+function refreshSessionsOnForeground() {
+  if (document.hidden || state.startupStage !== 'ready') return;
+  const now = Date.now();
+  if (now - foregroundSessionRefreshAt < FOREGROUND_SESSION_REFRESH_INTERVAL) return;
+  foregroundSessionRefreshAt = now;
+  void loadSessions();
+}
 
 window.addEventListener('DOMContentLoaded', async () => {
   state.startupStage = 'settings-loading';
@@ -593,9 +603,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   // 从最小化/后台切回前台时立刻刷新一次，别等下一轮
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
+    refreshSessionsOnForeground();
     loadActivity();
     if (Date.now() - quotaRequestedAt >= QUOTA_REFRESH_INTERVAL) loadQuotas();
   });
+  window.addEventListener('focus', refreshSessionsOnForeground);
 });
 
 const LEGACY_SETTING_KEYS = {
