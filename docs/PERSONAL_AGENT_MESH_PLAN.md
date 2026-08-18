@@ -2,13 +2,13 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.31
+> 版本：1.32
 >
-> 日期：2026-08-16
+> 日期：2026-08-18
 >
 > 工作分支：main
 >
-> 当前授权：所有者已于 2026-08-10 明确批准本基准并要求开始开发，于 2026-08-13 审阅“全局员工库 + 工作环境 + 按需就绪”规划后明确要求直接实施，并于 2026-08-14 批准“首次使用、设备任务向导、同 Mesh TaskPackage 直接交接、安全边界与预览发布”成熟化实施规划，随后要求在提交推送前收口 macOS/Windows 他人下载、安装和首次使用的发布门禁；2026-08-15 又批准针对 AgentDesk 所启动官方客户端的进程归属、退出策略、Crashpad 资源上限、熔断与安全清理实施完整保护；2026-08-16 进一步要求全面修复 Mesh 密钥或远端库存不可用时本机会话被误清空、选择不恢复和跨设备动作未停用的问题，并确认普通启动不应因本地 ad-hoc 包的 Keychain 访问而阻断本地会话。允许按本文阶段和门禁实施，任何后续方向变化仍须先写回本文件。
+> 当前授权：所有者已于 2026-08-10 明确批准本基准并要求开始开发，于 2026-08-13 审阅“全局员工库 + 工作环境 + 按需就绪”规划后明确要求直接实施，并于 2026-08-14 批准“首次使用、设备任务向导、同 Mesh TaskPackage 直接交接、安全边界与预览发布”成熟化实施规划，随后要求在提交推送前收口 macOS/Windows 他人下载、安装和首次使用的发布门禁；2026-08-15 又批准针对 AgentDesk 所启动官方客户端的进程归属、退出策略、Crashpad 资源上限、熔断与安全清理实施完整保护；2026-08-16 进一步要求全面修复 Mesh 密钥或远端库存不可用时本机会话被误清空、选择不恢复和跨设备动作未停用的问题，并确认普通启动不应因本地 ad-hoc 包的 Keychain 访问而阻断本地会话；2026-08-18 明确要求 Codex 以及其他受支持桌面 Agent 客户端统一支持同一官方程序下的多 Profile 并行。允许按本文阶段和门禁实施，任何后续方向变化仍须先写回本文件。
 >
 > 完整产品审阅稿：`docs/PERSONAL_AGENT_MESH_OWNER_REVIEW.html`。UI 层级与排版实施蓝图：`docs/AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html`，已于 2026-08-12 获所有者批准。“全局员工库 + 工作环境 + 按需就绪”的实施细化见 `docs/AGENT_LIBRARY_ON_DEMAND_PROVISIONING_PLAN.md`。`docs/PERSONAL_AGENT_MESH_REVIEW.html` 保留为会话身份问题的专项技术图解。本文仍是实施时必须完整重读的单一基准；细化稿不得覆盖本文。
 
@@ -116,6 +116,7 @@ AgentDesk Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控�
 30. AgentDesk 启动的官方桌面客户端属于受管本机资源，不等于 Agent 对话执行器。默认退出 AgentDesk 时必须关闭这些客户端及同一 Profile 的 Crashpad 进程；用户可显式选择保留后台运行，但界面必须说明 AgentDesk 退出后不再监控。每个受管 Profile 的 `Crashpad/pending` 默认最多保留 100 个文件或 200 MiB，任一上限先到即按完整事件清理最旧报告；一分钟内出现 5 个同尺寸 dump 视为崩溃风暴并熔断该 Profile。普通关闭与正常退出仍只处理当前 AgentDesk 明确拥有的进程；只有路径位于 AgentDesk 自己的受管 Profiles 根、且已确认崩溃风暴或容量无法安全收敛时，磁盘保护才可按精确 `user-data-dir` 停止旧版本、强制退出或重启后遗留的匹配进程。没有当前所有权记录的官方默认目录或任意 custom 目录不得被后台清理或停机。安全清理只允许删除 `Crashpad/pending` 直属的 `.dmp` 与 `_sidecar.json`，绝不触碰会话、归档、配置、SQLite、`codex-home` 或留存样本。
 31. Mesh 会话聚合、系统密钥保护或远端库存暂不可用时，健康的本地 Profile 会话必须继续由本机只读扫描器展示，不能被空远端结果覆盖；界面要明确标记“仅本机会话”，并暂停远端会话与跨设备动作。Device Lens、Agent 与 Slot 的明确选择需写入稳定设置并在重启后恢复；旧安装没有选择记忆时，只允许在“本机所有 linked Profile 唯一归属于同一个 Agent”这一可证明无歧义的情况下恢复该 Agent，多个候选时仍保持未选择，绝不取列表第一项。
 32. 本地 ad-hoc 打包的 macOS 开发版可能因重签名后 Keychain ACL 不再匹配而阻塞密钥解密。对精确识别为 `Signature=adhoc`、无 Authority、无 TeamIdentifier 的已打包 macOS 开发版，普通启动只读持久 Mesh 快照并标记 `keyState=deferred`，先展示本地最新会话、暂停跨设备动作；只有用户显式打开设备功能时才请求密钥访问并恢复联网与准备任务。Developer ID 签名包、Windows 和开发源码态不走该延后路径；检测失败必须回到原安全路径，不能为了可用性普遍绕过系统密钥保护。
+33. 桌面客户端的产品显示名、macOS 包名、可执行文件名和账号数据目录是四个独立事实，必须由客户端注册表显式声明，不能互相猜测。同一个受信任官方可执行文件可以由多个 Profile 复用，但每次启动必须携带该 Profile 独立的数据目录与客户端专用会话环境；同一 Profile 阻止重复启动，不同 Profile 允许并行。已知不接受独立数据目录的客户端只能打开官方默认槽位，受管多 Profile 必须失败关闭，不能伪装隔离后串用账号数据。
 
 ## 4. 所有者已批准的实施默认值
 
@@ -2237,6 +2238,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - 成品首次使用 smoke 的产物白名单、版本/窗口骨架、零默认 Profile、零 Mesh 网络、三次启动、进程与回环调试端点清理。
 - Preview-only 发布策略、受保护 Tag/发布者身份、三资产白名单、Draft/公开状态、发布前摘要/`SHA256SUMS.txt`/实际下载字节三方一致，以及公开后失败的回 Draft 与 candidate-burned 语义。
 - Profile 进程精确匹配、重复启动、所有权自然释放、正常退出收口、Crashpad 100 文件/200 MiB 双上限、5 次风暴熔断、旧版/异常退出遗留进程的事故级精确停机、熔断恢复及安全清理边界。
+- 每个可启动客户端都显式声明官方启动器身份与 Profile 隔离模式；同一 Profile 的重复进程被阻止，不同 Profile 生成不同数据目录参数并可并行；macOS Codex 同时兼容当前 `ChatGPT.app` 与旧 `Codex.app`，标准候选的 bundle identity 不匹配时拒绝；不支持独立目录的客户端不能创建受管多开。
 
 ### 25.3 集成测试
 
@@ -2816,6 +2818,13 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.32 — 2026-08-18
+
+- 将桌面客户端的显示名、macOS 包名、可执行文件名和 Profile 隔离能力拆成注册表事实；Main 不再用 `appName` 拼出唯一启动路径，也不再把所有 Electron 客户端默认当成支持 `--user-data-dir`。
+- Codex 的 macOS 官方启动器优先识别当前 `/Applications/ChatGPT.app/Contents/MacOS/ChatGPT` 与 `com.openai.codex`，并保留旧 `Codex.app` 兼容；同一结果同时供首次准备安装检查、工具扫描、诊断和实际启动使用，避免本地已安装却打开下载页。
+- Claude、Codex、Kimi Code 与 Cursor 的受管 Profile 统一生成各自独立的 `--user-data-dir`，并保留 CODEX_HOME、KIMI_CODE_HOME 等客户端专用会话环境；运行监管只按精确 Profile 阻止重复，因此不同 Profile 可以并行。Kimi Work 当前已知不接受独立数据目录，非默认受管槽位失败关闭，不再假装隔离。
+- 定向回归覆盖官方启动器候选、四类客户端的不同 Profile 参数、同 Profile 防重复/不同 Profile 不互斥，以及 Kimi Work 默认槽位/受管槽位的安全分界；当前完整 Node 套件 527 项中 526 通过、1 项仅 Windows 跳过、0 失败。
 
 ### 1.31 — 2026-08-16
 

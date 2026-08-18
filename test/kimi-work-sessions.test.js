@@ -119,6 +119,27 @@ test('注册表 kimi-work：会话根指向 daimon 数据目录，声明可导�
   assert.equal(byId['kimi-work'].canExportTranscript, true);
   // Kimi Code 与 Kimi Work 并存后，label 必须能区分
   assert.equal(byId.kimi.label, 'Kimi Code');
+  assert.equal(byId['kimi-work'].supportsManagedProfiles, false);
+  assert.deepEqual(apps.profileLaunchPlan({
+    appId: 'kimi-work',
+    profilePath: '/tmp/managed-kimi-work',
+    profilePathMode: 'managed',
+    isProtected: false
+  }), {
+    ok: false,
+    reasonCode: 'profile-isolation-unsupported',
+    args: []
+  });
+  assert.deepEqual(apps.profileLaunchPlan({
+    appId: 'kimi-work',
+    profilePath: '/tmp/default-kimi-work',
+    profilePathMode: 'auto',
+    isProtected: true
+  }), {
+    ok: true,
+    isolated: false,
+    args: []
+  });
 });
 
 test('注册表 kimi-work：默认数据目录名是 kimi-desktop（Electron userData），不是 App 显示名', () => {

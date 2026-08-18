@@ -28,8 +28,8 @@ const EVIDENCE_DOCS = [
 ];
 
 const errors = [];
-const CURRENT_NODE_TOTAL = '526';
-const CURRENT_NODE_PASSED = '525';
+const CURRENT_NODE_TOTAL = '527';
+const CURRENT_NODE_PASSED = '526';
 const CURRENT_UI_RESULT = '21/21';
 const CURRENT_RELEASE_SECURITY_RESULT = '14/14';
 

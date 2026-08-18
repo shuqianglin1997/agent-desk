@@ -151,13 +151,36 @@ test('注册表 kimi：启动环境注入 KIMI_CODE_HOME 指向会话根（官�
   assert.equal(env.PATH, '/usr/bin');
 });
 
-test('注册表：只有声明 exportTranscript 的客户端标记可导出', () => {
+test('注册表：导出能力与所有受支持桌面客户端的多 Profile 启动契约均显式声明', () => {
   const list = apps.listApps();
   const byId = Object.fromEntries(list.map((item) => [item.id, item]));
   assert.equal(byId.kimi.canExportTranscript, true);
   assert.equal(byId.claude.canExportTranscript, false);
   assert.equal(byId.codex.canExportTranscript, false);
   assert.equal(byId.cursor.canExportTranscript, false);
+
+  for (const appId of ['claude', 'codex', 'kimi', 'cursor']) {
+    assert.equal(byId[appId].supportsManagedProfiles, true, `${appId} should support managed Profiles`);
+    const first = apps.profileLaunchPlan({ appId, profilePath: `/profiles/${appId}/first` });
+    const second = apps.profileLaunchPlan({ appId, profilePath: `/profiles/${appId}/second` });
+    assert.deepEqual(first, {
+      ok: true,
+      isolated: true,
+      args: [`--user-data-dir=/profiles/${appId}/first`]
+    });
+    assert.notDeepEqual(first.args, second.args);
+  }
+
+  const codexLaunchers = apps.macLauncherCandidates('codex', {
+    home: '/Users/tester'
+  });
+  assert.equal(codexLaunchers[0].path, '/Applications/ChatGPT.app/Contents/MacOS/ChatGPT');
+  assert.deepEqual(codexLaunchers[0].bundleIdentifiers, ['com.openai.codex']);
+  assert.equal(
+    codexLaunchers.some((item) => item.path === '/Applications/Codex.app/Contents/MacOS/Codex'),
+    true
+  );
+  assert.equal(apps.macLaunchAppName('codex'), 'ChatGPT');
 });
 
 test('注册表 kimi：exportTranscript 输出 markdown 和清洗后的文件名', () => {

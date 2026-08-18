@@ -45,7 +45,7 @@
 | 多设备控制台 | 右下 Remote Surface 单屏/网格 | 最多四路、一个活动画质、唯一输入目标和公开网络统计 | 代码已实现；切换/断线/撤销均释放按键 |
 | 公网会合与诊断 | 设备“网络设置”“连接诊断” | HTTPS 信令、STUN、短期 TURN、LAN/直连/中继状态 | 代码已实现；服务端可自托管，不接收业务内容；真实 NAT/coturn 待物理验收 |
 | UI 上下文 | Device Lens、Agent、Slot、focus/checked、副本、设备详情、全局弹窗、远控、传输草稿 | 保持每种对象和动作目标独立，并提供原子导航 | 已实现；`utilityDialog` 不写入 workspace/detail，render/filter 无选择副作用 |
-| 自动化与真实窗口验收 | `npm test`、`npm run accept:ui`、双端 E2E | Node 领域/安全回归、临时 userData 的 21 条真实窗口路径、局域网与本机 signaling 两种隔离双端链 | Node 526 项中 525 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25、发布安全 14/14、UI 21/21。两种 E2E 均完成既有认证数据面，但 runner 未发送 TaskPackage；这些本机证据不替代物理设备 |
+| 自动化与真实窗口验收 | `npm test`、`npm run accept:ui`、双端 E2E | Node 领域/安全回归、临时 userData 的 21 条真实窗口路径、局域网与本机 signaling 两种隔离双端链 | Node 527 项中 526 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全 25/25、发布安全 14/14、UI 21/21。两种 E2E 均完成既有认证数据面，但 runner 未发送 TaskPackage；这些本机证据不替代物理设备 |
 | 物理双 Mac 局域网库存 | 两台实际 Mac、host/UDP DataChannel | 设备证书认证、目录、大库存、显式刷新、4 分钟全快照与短时稳定 | 已验证窄范围：562,009 字节、9 Slot、638 SessionReplica、revision 7 → 8 → 9、5 分钟稳定；远控、断网/睡眠、公网 NAT/TURN 和 Windows 不在该证据中 |
 
 ## 3. 会话复制的唯一契约

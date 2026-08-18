@@ -34,12 +34,23 @@ function appSupportDir(appName) {
 const matchLocalJson = (name) => /^local_.*\.json$/i.test(name);
 const matchJsonl = (name) => name.endsWith('.jsonl');
 
+const CHROMIUM_PROFILE_ISOLATION = Object.freeze({
+  mode: 'chromium-user-data-dir'
+});
+const OFFICIAL_DEFAULT_ONLY = Object.freeze({
+  mode: 'official-default-only'
+});
+
 const APPS = {
   claude: {
     id: 'claude',
     label: 'Claude',
     tagColor: '#d96f33',
     appName: 'Claude', // /Applications/Claude.app、可执行文件同名
+    mac: {
+      launchers: [{ bundleName: 'Claude', executableName: 'Claude' }]
+    },
+    profileIsolation: CHROMIUM_PROFILE_ISOLATION,
     windows: {
       executableNames: ['Claude.exe'],
       aliases: ['Claude.exe'],
@@ -72,6 +83,7 @@ const APPS = {
     // 没有可启动的桌面 App —— 用户在自己的终端里跑 claude，
     // 这个槽位负责识别、索引与导出它的会话。
     noLaunch: true,
+    profileIsolation: Object.freeze({ mode: 'external-only' }),
     windows: {
       executableNames: [],
       aliases: [],
@@ -107,6 +119,24 @@ const APPS = {
     label: 'Codex',
     tagColor: '#2f9e8f',
     appName: 'Codex',
+    // 2026 年官方 macOS 客户端的产品名仍显示 Codex，但包名和可执行文件
+    // 已经是 ChatGPT。启动器身份不能继续由 UI 标签猜测；保留 Codex.app
+    // 仅用于兼容旧版官方包，并用官方 bundle id 阻止同名冒充。
+    mac: {
+      launchers: [
+        {
+          bundleName: 'ChatGPT',
+          executableName: 'ChatGPT',
+          bundleIdentifiers: ['com.openai.codex']
+        },
+        {
+          bundleName: 'Codex',
+          executableName: 'Codex',
+          bundleIdentifiers: ['com.openai.codex']
+        }
+      ]
+    },
+    profileIsolation: CHROMIUM_PROFILE_ISOLATION,
     windows: {
       executableNames: ['Codex.exe'],
       aliases: ['Codex.exe'],
@@ -139,6 +169,10 @@ const APPS = {
     label: 'Kimi Code',
     tagColor: '#2f6bff',
     appName: 'Kimi', // /Applications/Kimi.app（桌面客户端）；会话数据来自 Kimi Code CLI / VS Code 插件
+    mac: {
+      launchers: [{ bundleName: 'Kimi', executableName: 'Kimi' }]
+    },
+    profileIsolation: CHROMIUM_PROFILE_ISOLATION,
     windows: {
       executableNames: ['Kimi.exe'],
       aliases: ['Kimi.exe'],
@@ -186,6 +220,12 @@ const APPS = {
     label: 'Kimi Work',
     tagColor: '#8a63d2',
     appName: 'Kimi', // 与 Kimi Code 同一个桌面 App（com.moonshot.kimichat），open -a Kimi
+    mac: {
+      launchers: [{ bundleName: 'Kimi', executableName: 'Kimi' }]
+    },
+    // Kimi Work 当前会忽略 --user-data-dir。只允许官方默认槽位启动，
+    // 不能把多个受管 Profile 假装成隔离账号。
+    profileIsolation: OFFICIAL_DEFAULT_ONLY,
     // Electron userData 目录叫 kimi-desktop，与 App 显示名不同
     profileDirName: 'kimi-desktop',
     windows: {
@@ -233,6 +273,10 @@ const APPS = {
     label: 'Cursor',
     tagColor: '#6b7cff',
     appName: 'Cursor', // /Applications/Cursor.app，VSCode 分支，认 --user-data-dir
+    mac: {
+      launchers: [{ bundleName: 'Cursor', executableName: 'Cursor' }]
+    },
+    profileIsolation: CHROMIUM_PROFILE_ISOLATION,
     windows: {
       executableNames: ['Cursor.exe'],
       aliases: ['Cursor.exe'],
@@ -285,8 +329,69 @@ function listApps() {
     taskPackageMode: id === 'codex'
       ? 'native'
       : (typeof APPS[id].exportTranscript === 'function' ? 'transcript' : 'unsupported'),
-    canLaunch: APPS[id].noLaunch !== true
+    canLaunch: APPS[id].noLaunch !== true,
+    supportsManagedProfiles: APPS[id].profileIsolation?.mode === 'chromium-user-data-dir'
   }));
+}
+
+function macLauncherCandidates(appId, options = {}) {
+  const app_ = getApp(appId);
+  const home = options.home || os.homedir();
+  const roots = options.applicationRoots || [
+    '/Applications',
+    path.join(home, 'Applications')
+  ];
+  const launchers = app_.mac?.launchers || [{
+    bundleName: app_.appName,
+    executableName: app_.appName
+  }];
+  const candidates = [];
+  for (const launcher of launchers) {
+    for (const root of roots) {
+      const bundlePath = path.join(root, `${launcher.bundleName}.app`);
+      candidates.push({
+        bundleName: launcher.bundleName,
+        executableName: launcher.executableName,
+        bundlePath,
+        path: path.join(bundlePath, 'Contents', 'MacOS', launcher.executableName),
+        bundleIdentifiers: [...(launcher.bundleIdentifiers || [])]
+      });
+    }
+  }
+  return candidates;
+}
+
+function macLaunchAppName(appId) {
+  return getApp(appId).mac?.launchers?.[0]?.bundleName || getApp(appId).appName;
+}
+
+function profileLaunchPlan(profile = {}, options = {}) {
+  const app_ = getApp(profile.appId);
+  if (app_.noLaunch === true) {
+    return { ok: false, reasonCode: 'client-form-unsupported', args: [] };
+  }
+  if (options.useOfficialDefault === true) {
+    return { ok: true, isolated: false, args: [] };
+  }
+  const mode = app_.profileIsolation?.mode;
+  if (mode === 'chromium-user-data-dir') {
+    const profilePath = String(profile.profilePath || '').trim();
+    if (!profilePath) {
+      return { ok: false, reasonCode: 'profile-path-required', args: [] };
+    }
+    return {
+      ok: true,
+      isolated: true,
+      args: [`--user-data-dir=${profilePath}`]
+    };
+  }
+  if (mode === 'official-default-only') {
+    const officialDefault = profile.isProtected === true && profile.profilePathMode === 'auto';
+    return officialDefault
+      ? { ok: true, isolated: false, args: [] }
+      : { ok: false, reasonCode: 'profile-isolation-unsupported', args: [] };
+  }
+  return { ok: false, reasonCode: 'profile-isolation-unsupported', args: [] };
 }
 
 // 数据目录名默认与 App 显示名一致；Electron App 的 userData 可能不同（如 Kimi → kimi-desktop）
@@ -322,6 +427,9 @@ module.exports = {
   isKnownApp,
   appIds,
   listApps,
+  macLauncherCandidates,
+  macLaunchAppName,
+  profileLaunchPlan,
   defaultProfilePath,
   defaultProfilePathInfo,
   legacyDefaultProfilePath,
