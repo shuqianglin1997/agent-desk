@@ -209,6 +209,13 @@ test('重复启动同一 user-data-dir 会被识别，不会产生第二个实�
     alreadyRunning: true,
     processCount: 1
   });
+  assert.deepEqual(await supervisor.preflight({
+    id: 'different-profile',
+    profilePath: path.join(root, 'Another-Profile')
+  }), {
+    ok: true,
+    alreadyRunning: false
+  });
 });
 
 test('AgentDesk 启动的进程自然退出后解除所有权，不会误关后来由用户启动的同路径进程', async () => {

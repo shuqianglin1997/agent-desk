@@ -33,7 +33,7 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
 - 已就绪远端固定 `profile.launch`、未就绪远端有人值守 `agent.prepare`，以及确认后撤权/断连的副作用阻断；
 - Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
-- 完整 Node 套件 526 项中 525 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14；临时 userData 下真实 1040 × 840 Electron UI 为 21/21。
+- 完整 Node 套件 527 项中 526 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14；临时 userData 下真实 1040 × 840 Electron UI 为 21/21。
 - 隔离双 endpoint 的局域网直连与本机 signaling E2E 均完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件和合成远控画面；runner 尚未发送 TaskPackage，不能作为直送数据面的 Electron E2E 证据。
 - 物理双 Mac 在同一局域网完成 host/UDP 认证 DataChannel、562,009 字节库存、9 个 Slot、638 条 SessionReplica、revision 7 → 8 → 9 和连续 5 分钟稳定；该证据只关闭大库存、显式刷新与当前 4 分钟全快照恢复基线。
 

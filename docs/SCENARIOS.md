@@ -145,7 +145,9 @@ AgentDesk 不替用户补充说明，不合并多个会话，也不会把历史�
 
 用户通过 AgentDesk 打开一个隔离 Profile，官方客户端或它的 Crashpad handler 随后陷入重复崩溃。
 
+- 同一官方程序可以同时服务多个 Profile；Claude、Codex、Kimi Code 与 Cursor 各次启动都带自己的 `user-data-dir` 和客户端专用会话环境。macOS Codex 即使安装包名为 ChatGPT，也由官方 bundle identity 识别，不再误导用户重新下载。
 - 启动前先检查同一 `user-data-dir`；已有实例时不再拉起第二个。
+- 不同 `user-data-dir` 不互相阻断；已知不接受独立目录的 Kimi Work 非默认槽位直接说明不支持，不能退化为共用官方默认账号。
 - AgentDesk 每 2 秒检查该 Profile 的 `Crashpad/pending`，只统计直属 `.dmp` 与 `_sidecar.json`，不读取转储内容。
 - pending 达到 100 个文件或 200 MiB 时，按完整事件清理最旧报告，两个上限都必须满足。
 - 一分钟内出现 5 个同尺寸 dump 时，Profile 被持久熔断；AgentDesk 停止当前 owned 的匹配进程，并在清理前拒绝再次打开。若路径位于 AgentDesk 自己的受管 Profiles 根，这个事故路径也覆盖旧版本升级或管理器异常退出后留下的精确匹配孤儿客户端。
@@ -156,7 +158,7 @@ AgentDesk 不替用户补充说明，不合并多个会话，也不会把历史�
 
 ## 14. 当前验证边界
 
-当前 `0.10.1-preview.1` 的证据分层如下：完整 Node 套件共 526 项，525 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14。临时 userData 下真实 1040 × 840 Electron UI 为 21/21，覆盖全新首 Agent、重启恢复、设备向导 Shell 与状态投影、TaskPackage 直送资格和状态投影，以及既有固定几何、弹窗、会话、传输和远控任务路径。
+当前 `0.10.1-preview.1` 的证据分层如下：完整 Node 套件共 527 项，526 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14。临时 userData 下真实 1040 × 840 Electron UI 为 21/21，覆盖全新首 Agent、重启恢复、设备向导 Shell 与状态投影、TaskPackage 直送资格和状态投影，以及既有固定几何、弹窗、会话、传输和远控任务路径。
 
 成品证据单独记账：本机现有确切 `release/mac-arm64/AgentDesk.app` 已通过独立 fuse/ASAR verifier，118/118 个常规文件的整文件/分块 SHA-256、五项 fuse 和 `ElectronAsarIntegrity` header hash 均符合实际字节，且不存在 `default_app.asar`；同一确切字节随后使用真实语义开关 `--macos-ci-mock-keychain` 通过初始化、重启恢复并完成、完成后再重启三次 packaged first-use smoke。runner 先证明 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，并逐次从 Browser command line 核对唯一原生 `--use-mock-keychain`。这证明的是本机 ad-hoc 成品在 mock Keychain 下的打包与首次使用事务；新的 GitHub macOS `main` CI 运行仍待结果，macOS 系统 Keychain/OS 密钥保护、Developer ID、公证、Gatekeeper、签名 DMG、Draft/公开重下载和物理干净机仍未由这条记录覆盖。
 

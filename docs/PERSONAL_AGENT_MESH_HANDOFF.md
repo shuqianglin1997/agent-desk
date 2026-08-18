@@ -4,7 +4,7 @@
 >
 > 当前分支：`main`
 >
-> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.31，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
+> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.32，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
 >
 > 仓库：`shuqianglin1997/agent-desk`
 >
@@ -12,7 +12,7 @@
 
 ## 1. 当前结论
 
-1.14 批准的主窗口层级、排版与全局弹窗 Shell 已经进入真实产品代码；1.24 的签名事件目录、1.25 的便携 TaskPackage、1.27 的首用/设备向导/同 Mesh Preview 直送、1.28 的 Electron 成品与 Preview 发布门禁、1.29 的 Profile 资源监管、1.30 的本地会话失效隔离与选择恢复，以及 1.31 的 ad-hoc macOS 安全延后解锁都在同一获批基线上实现：
+1.14 批准的主窗口层级、排版与全局弹窗 Shell 已经进入真实产品代码；1.24 的签名事件目录、1.25 的便携 TaskPackage、1.27 的首用/设备向导/同 Mesh Preview 直送、1.28 的 Electron 成品与 Preview 发布门禁、1.29 的 Profile 资源监管、1.30 的本地会话失效隔离与选择恢复、1.31 的 ad-hoc macOS 安全延后解锁，以及 1.32 的通用客户端多 Profile 启动契约都在同一获批基线上实现：
 
 - 主窗口固定为一个 Header、一个 Footer，以及顶部 Agent、左下会话、右下详情三个面板；1040 × 840 尺寸不变。
 - Renderer 几何冻结为 58px Header、244px Agent 面板、316px 详情、38px Footer，工作区使用 12px/10px padding 与 10px gap；Compact 会话表没有水平滚动。
@@ -110,7 +110,7 @@
 
 当前工作现场已经取得以下证据：
 
-- 当前完整 Node 套件为 526 项：525 通过、1 项仅 Windows 跳过、0 失败。TaskPackage 安全定向 25/25，发布安全定向 14/14。
+- 当前完整 Node 套件为 527 项：526 通过、1 项仅 Windows 跳过、0 失败。TaskPackage 安全定向 25/25，发布安全定向 14/14。
 - 当前工作树的真实 Electron 窗口验收以 21/21 任务路径通过；覆盖全新首 Agent 的本机无网络事务、首次使用重启恢复、设备向导 Shell/状态层级和 TaskPackage 直送资格/阶段投影。直送窗口证据不代表真实 WebRTC 数据面。
 - 实窗覆盖 58/244/316/38 固定几何、Compact 无横滚、focus/checked、庭院/卡片、Top Layer 场景 Popover、Agent 对象 Dialog、三语、明暗主题、本机新增、四个 Header 入口、固定区矩形不随 Content 滚动、父子 Esc/焦点栈、760 × 560 小视口、设备中心与原子导航、Slot 上下文、Agent/Binding/Slot 管理、多副本来源、SessionPointer/文件/历史分离、远控返回/断开、撤销清理和 reduced-motion。
 - `git diff --check` 通过。
@@ -134,12 +134,12 @@ git diff --check
 
 ## 6. 文档权威关系
 
-- `PERSONAL_AGENT_MESH_PLAN.md` 1.31 是实施权威。
+- `PERSONAL_AGENT_MESH_PLAN.md` 1.32 是实施权威。
 - `AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html` 是 1.13 主窗口层级、几何与临时层蓝图；全局弹窗内部 Shell 与父子层级以 1.14 计划和真实产品代码为准。
 - `AGENTDESK_WORKSPACE_REDESIGN_REVIEW.html` 是 1.12 页面结构的历史审阅稿；若与 1.14 冲突，以计划和真实产品代码为准。
 - `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md` 已修订为固定三面板与右下 Remote Surface。
 - 旧 owner review、旧会话身份 review、文章插图和规划变更记录中出现的“七行/第六行”只代表当时的历史方案，不能覆盖 1.10。
-- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器、同 Mesh Preview 直送和当前限制；它服从 1.31 产品基线。
+- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器、同 Mesh Preview 直送和当前限制；它服从 1.32 产品基线。
 
 ## 7. 不得误报为已完成
 

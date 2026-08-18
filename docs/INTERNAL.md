@@ -186,6 +186,8 @@ scripts/
 
 归一化保留未知字段，方便未来版本向前兼容。局部更新合并猫外观，不回写过期整表快照。
 
+Profile 的启动隔离由 `apps.js` 声明，不从显示名推断。每个桌面客户端必须提供官方启动器身份与 `profileIsolation`：支持受管多开的客户端每次生成该 Profile 唯一的 `--user-data-dir`，并叠加 CODEX_HOME、KIMI_CODE_HOME 等客户端专用环境；同一可执行文件可被不同 Profile 复用。Main 只按精确 Profile 路径做重复进程检查。已知不接受独立目录的客户端使用 `official-default-only`，非默认受管槽位在产生副作用前失败关闭。
+
 `profile-runtime.json` 只保存本机 Profile 的受管状态：稳定 `profileId`、Profile 路径、启动 PID/时间、是否仍归 AgentDesk 所有、熔断时间与脱敏事件计数。它不保存 dump 内容、sidecar 内容、会话标题、账号凭据或客户端数据库。Main 每次仍由稳定 `profileId` 重新查 `profiles.json`；Renderer 不能提交路径或 PID。
 
 每个受管 Profile 的 `Crashpad/pending` 默认限制为 100 个直属文件或 200 MiB，每 2 秒复核；一分钟内 5 个同尺寸 dump 触发持久熔断。普通停止与正常退出只允许终止当前记录为 AgentDesk 所有的进程。事故熔断或容量无法安全收敛时，可以按 profiles.json 中稳定 profileId 重新查得的精确 `user-data-dir` 终止旧版本、强制退出或重启后遗留的匹配进程，但无所有权例外只允许路径落在 AgentDesk 自己的受管 Profiles 根；官方默认目录和任意 custom 目录不进入后台扫描、删除或停机。该边界不能扩展成按应用名或路径前缀清理。终止成功后清除 `owned` 与 `launchPid`。清理只接受普通 `.dmp` 与 `_sidecar.json`，拒绝符号链接、目录逃逸和非普通文件，不触碰 `codex-home`、sessions、archives、配置、SQLite 或 `saved-diagnostic-*`。用户显式选择保留后台时停止监管并在设置中显示风险。强制结束 AgentDesk 不等于系统级持续守护保证；下一次管理器启动后恢复受管根限额与事故熔断。
@@ -267,12 +269,14 @@ Codex 适配器只信任 Profile `sessionRoot` 下 `sessions` / `archived_sessio
 
 `apps.js` 是唯一客户端目录。每个条目声明：
 
-- 平台启动信息与默认数据目录；
+- 产品显示名、平台官方包/可执行文件身份、Profile 隔离模式与默认数据目录；
 - 默认会话根目录和诊断位置；
 - scan 函数、活动探针；
 - 是否允许启动与是否支持 Markdown 导出。
 
 当前来源为 Claude Desktop、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work。新增来源时，在目录中增加条目和独立扫描器；不要把客户端分支散落到 renderer。会话适配器必须先把物理载体归一为用户逻辑会话，不能让文件数量直接决定表格行数。
+
+macOS 标准候选由注册表给出并在存在已知 bundle id 时重新读取 `Info.plist` 核对；Codex 当前优先定位 `ChatGPT.app/Contents/MacOS/ChatGPT` 与 `com.openai.codex`，旧 `Codex.app` 只作为同 bundle identity 的兼容候选。用户经系统选择器明确登记的 executablePath 继续作为手动能力处理。安装检查、工具扫描、诊断和实际启动共用这一个解析结果，不能各自维护另一张应用名表。
 
 `sessions:list` 接收 profile 形状，但 main 会先规范化，再调用目录中的扫描器。会话定位和导出只接受 profile/session 标识，并从当前扫描结果重新找到可信文件。
 
@@ -396,7 +400,7 @@ npm run accept:ui
 npm run build:mac:dir
 ```
 
-当前完整 Node 套件共 526 项（525 通过、1 项仅 Windows 跳过、0 失败）；其中 TaskPackage 安全定向 25/25，发布安全定向 14/14。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均复跑完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；该 runner 尚未发送 TaskPackage，因此它既不是直送数据面证据，也不是物理双机或真实 NAT/TURN 证据。
+当前完整 Node 套件共 527 项（526 通过、1 项仅 Windows 跳过、0 失败）；其中 TaskPackage 安全定向 25/25，发布安全定向 14/14。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均复跑完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；该 runner 尚未发送 TaskPackage，因此它既不是直送数据面证据，也不是物理双机或真实 NAT/TURN 证据。
 
 物理证据单独存在：两台 Mac 在同一局域网通过 host/UDP 建立认证 DataChannel，562,009 字节库存中的 9 个 Slot 与 638 条 SessionReplica 完整落库，显式刷新与 4 分钟全快照把 revision 从 7 推进到 8 和 9，连接连续 5 分钟无错误或断开。该记录不覆盖远控媒体/输入权限、断网/睡眠恢复、公网 NAT/coturn 或 Windows。
 

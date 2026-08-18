@@ -1585,11 +1585,16 @@ function getMeshService() {
   meshService = new MeshService({
     databasePath: path.join(userData, 'mesh.db'),
     keyVault,
-    profilesProvider: () => loadProfiles().map((profile) => ({
-      ...profile,
-      identityFingerprint: identityFingerprint(profile),
-      launchable: apps.getApp(profile.appId).noLaunch !== true
-    })),
+    profilesProvider: () => loadProfiles().map((profile) => {
+      const launchPlan = apps.profileLaunchPlan(profile, {
+        useOfficialDefault: usesWindowsOfficialDefault(profile)
+      });
+      return {
+        ...profile,
+        identityFingerprint: identityFingerprint(profile),
+        launchable: launchPlan.ok
+      };
+    }),
     sessionCountProvider: (profile) => apps.getApp(profile.appId).scan(profile).length,
     sessionsProvider: (profile) => apps.getApp(profile.appId).scan(profile),
     appVersion: app.getVersion(),
@@ -1643,6 +1648,14 @@ function getProvisioningService() {
       async inspect(profile) {
         if (apps.getApp(appId).noLaunch === true) {
           return { supported: false, installed: false, reasonCode: 'client-form-unsupported' };
+        }
+        const launchPlan = apps.profileLaunchPlan(profile);
+        if (!launchPlan.ok) {
+          return {
+            supported: false,
+            installed: false,
+            reasonCode: launchPlan.reasonCode
+          };
         }
         const executable = findExecutable(profile);
         return { supported: true, installed: executable.found === true };
@@ -2995,9 +3008,21 @@ async function launchProfile(profile) {
   }
   const appName = app_.appName;
   const windowsDefault = usesWindowsOfficialDefault(profile);
+  const launchPlan = apps.profileLaunchPlan(profile, {
+    useOfficialDefault: windowsDefault
+  });
+  if (!launchPlan.ok) {
+    return {
+      ok: false,
+      reasonCode: launchPlan.reasonCode,
+      reason: launchPlan.reasonCode === 'profile-isolation-unsupported'
+        ? t('main.launch.profileIsolationUnsupported', { label: app_.label })
+        : t('main.launch.runtimeCheckFailed', { code: launchPlan.reasonCode })
+    };
+  }
   const runtimeSupervisor = getProfileRuntimeSupervisor();
 
-  if (!windowsDefault) {
+  if (launchPlan.isolated) {
     const preflight = await runtimeSupervisor.preflight(profile);
     if (!preflight.ok) {
       return {
@@ -3031,13 +3056,13 @@ async function launchProfile(profile) {
     return { ok: false, reason: t('main.err.cannotPrepDir', { msg: error.message }) };
   }
 
-  const args = windowsDefault ? [] : [`--user-data-dir=${profile.profilePath}`];
+  const args = launchPlan.args;
   const env = app_.launchEnv(profile, { ...process.env });
   if (process.platform === 'win32') windowsDiscoveryCache.clear();
   const launcher = findExecutable(profile);
   const launchOwned = async (command, launchArgs, launchEnv) => {
     const launched = await spawnDetached(command, launchArgs, launchEnv);
-    const runtime = windowsDefault ? null : runtimeSupervisor.registerLaunch(profile, launched);
+    const runtime = launchPlan.isolated ? runtimeSupervisor.registerLaunch(profile, launched) : null;
     return { launched, runtime };
   };
 
@@ -3048,8 +3073,24 @@ async function launchProfile(profile) {
         return { ok: true, command: launcher.path, source: launcher.source };
       }
 
-      await launchOwned('/usr/bin/open', ['-n', '-a', appName, '--args', ...args], env);
-      return { ok: true, command: `open -a ${appName}`, warning: t('main.launch.launchServices') };
+      const requiresVerifiedBundleIdentity = apps.macLauncherCandidates(profile.appId)
+        .some((candidate) => candidate.bundleIdentifiers.length > 0);
+      if (requiresVerifiedBundleIdentity) {
+        return {
+          ok: false,
+          reasonCode: 'client-not-installed',
+          reason: t('main.launch.noLauncher', {
+            appName,
+            suffix: launcher.candidates.length
+              ? ` (${launcher.candidates.join(', ')})`
+              : ''
+          })
+        };
+      }
+
+      const launchAppName = apps.macLaunchAppName(profile.appId);
+      await launchOwned('/usr/bin/open', ['-n', '-a', launchAppName, '--args', ...args], env);
+      return { ok: true, command: `open -a ${launchAppName}`, warning: t('main.launch.launchServices') };
     }
 
     if (process.platform === 'win32') {
@@ -3112,9 +3153,15 @@ function diagnoseProfile(profile) {
   const defaultProfile = apps.defaultProfilePathInfo(profile.appId);
   const migration = windowsMigrationInfo(profile);
   const runtime = getProfileRuntimeSupervisor().status(profile);
+  const launchPlan = apps.profileLaunchPlan(profile, {
+    useOfficialDefault: usesWindowsOfficialDefault(profile)
+  });
 
   if (!executable.found && !executable.protocolUsable) {
     warnings.push(t('main.warn.appNotFound', { appName }));
+  }
+  if (launchPlan.reasonCode === 'profile-isolation-unsupported') {
+    warnings.push(t('main.warn.profileIsolationUnsupported', { label: app_.label }));
   }
   if (executable.explicitMissing) {
     warnings.push(t('main.warn.manualPathInvalid'));
@@ -3167,6 +3214,11 @@ function diagnoseProfile(profile) {
     defaultProfile,
     migration,
     runtime,
+    profileIsolation: {
+      supported: launchPlan.ok,
+      isolated: launchPlan.isolated === true,
+      reasonCode: launchPlan.ok ? null : launchPlan.reasonCode
+    },
     warnings
   };
 }
@@ -3235,23 +3287,41 @@ function findExecutable(profileOrAppId) {
   const explicitPath = profile.executablePath || null;
 
   if (process.platform === 'darwin') {
-    const candidates = [
-      ...(explicitPath ? [explicitPath] : []),
-      ...macExecutableCandidates(appName)
+    const candidateDetails = [
+      ...(explicitPath ? [{
+        path: explicitPath,
+        source: t('main.src.manual'),
+        exists: fs.existsSync(explicitPath),
+        identityMatches: true,
+        bundleIdentifier: null
+      }] : []),
+      ...apps.macLauncherCandidates(profile.appId).map((candidate) => {
+        const exists = fs.existsSync(candidate.path);
+        const bundleIdentifier = exists && candidate.bundleIdentifiers.length
+          ? macBundleIdentifier(candidate.bundlePath)
+          : null;
+        const identityMatches = candidate.bundleIdentifiers.length === 0
+          || candidate.bundleIdentifiers.includes(bundleIdentifier);
+        return {
+          path: candidate.path,
+          source: t('main.src.standardAppDir'),
+          exists,
+          identityMatches,
+          bundleIdentifier,
+          expectedBundleIdentifiers: candidate.bundleIdentifiers
+        };
+      })
     ];
-    const executable = candidates.find((candidate) => fs.existsSync(candidate));
+    const executable = candidateDetails.find((candidate) => (
+      candidate.exists && candidate.identityMatches
+    ));
+    const candidates = candidateDetails.map((candidate) => candidate.path);
     return {
       found: Boolean(executable),
-      path: executable || null,
-      source: executable
-        ? (explicitPath && executable === explicitPath ? t('main.src.manual') : t('main.src.standardAppDir'))
-        : null,
+      path: executable?.path || null,
+      source: executable?.source || null,
       candidates,
-      candidateDetails: candidates.map((candidate) => ({
-        path: candidate,
-        source: candidate === explicitPath ? t('main.src.manual') : t('main.src.standardAppDir'),
-        exists: fs.existsSync(candidate)
-      })),
+      candidateDetails,
       explicitMissing: Boolean(explicitPath && !fs.existsSync(explicitPath)),
       protocolAvailable: false
     };
@@ -3295,11 +3365,23 @@ function findExecutable(profileOrAppId) {
   };
 }
 
-function macExecutableCandidates(appName) {
-  return [
-    path.join('/Applications', `${appName}.app`, 'Contents', 'MacOS', appName),
-    path.join(os.homedir(), 'Applications', `${appName}.app`, 'Contents', 'MacOS', appName)
-  ];
+function macBundleIdentifier(bundlePath) {
+  try {
+    return String(execFileSync('/usr/bin/plutil', [
+      '-extract',
+      'CFBundleIdentifier',
+      'raw',
+      '-o',
+      '-',
+      path.join(bundlePath, 'Contents', 'Info.plist')
+    ], {
+      encoding: 'utf8',
+      timeout: 3000,
+      maxBuffer: 64 * 1024
+    }) || '').trim() || null;
+  } catch (_error) {
+    return null;
+  }
 }
 
 function queryWindowsRegistryExecutablePaths(app_) {
