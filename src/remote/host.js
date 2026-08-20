@@ -13,18 +13,21 @@
   const inputRate = new Map();
   let mode = 'view';
   let paused = false;
+  let inputPermissionIntentToken = null;
 
   window.addEventListener('DOMContentLoaded', () => {
     for (const id of [
       'consentView', 'indicatorView', 'requestCopy', 'sourceSelect', 'permissionNote',
       'hostError', 'denyBtn', 'allowBtn', 'liveTitle', 'liveMeta', 'stopBtn',
-      'controlPrompt', 'controlRequestCopy', 'denyControlBtn', 'allowControlBtn'
+      'controlPrompt', 'controlRequestCopy', 'denyControlBtn', 'allowControlBtn',
+      'inputPermissionPrompt', 'inputPermissionFeedback', 'requestInputPermissionBtn'
     ]) els[id] = document.getElementById(id);
     els.denyBtn.addEventListener('click', () => stop('user-denied'));
     els.allowBtn.addEventListener('click', () => allow());
     els.stopBtn.addEventListener('click', () => stop('local-stop'));
     els.denyControlBtn.addEventListener('click', () => respondControl(false));
     els.allowControlBtn.addEventListener('click', () => respondControl(true));
+    els.requestInputPermissionBtn.addEventListener('click', () => requestInputPermission());
     window.remoteHost.onCommand((command) => handleCommand(command));
     window.remoteHost.onControlRequest(() => showControlPrompt());
     window.remoteHost.onMode((value) => applyMode(value));
@@ -218,6 +221,8 @@
   }
 
   function showControlPrompt() {
+    inputPermissionIntentToken = null;
+    els.inputPermissionPrompt.hidden = true;
     els.controlRequestCopy.textContent = tr('remote.host.controlFrom', { name: bootstrap.controllerName });
     els.controlPrompt.hidden = false;
     els.allowControlBtn.disabled = false;
@@ -235,16 +240,48 @@
       return;
     }
     els.controlPrompt.hidden = true;
-    applyMode({ mode: result.session?.mode || 'view', permission: result.session?.inputPermission });
   }
 
   function applyMode(value = {}) {
     mode = value.mode === 'control' ? 'control' : 'view';
     els.indicatorView.dataset.mode = mode;
     els.controlPrompt.hidden = true;
+    if (value.permissionIntentToken) {
+      inputPermissionIntentToken = value.permissionIntentToken;
+      els.inputPermissionPrompt.hidden = false;
+      els.inputPermissionFeedback.hidden = true;
+      els.inputPermissionFeedback.textContent = '';
+      els.requestInputPermissionBtn.hidden = false;
+      els.requestInputPermissionBtn.disabled = false;
+    } else {
+      inputPermissionIntentToken = null;
+      els.inputPermissionPrompt.hidden = true;
+    }
     els.liveTitle.textContent = tr(mode === 'control' ? 'remote.host.controlling' : 'remote.host.viewing');
     updateIndicator();
     if (mode !== 'control') void window.remoteHost.input({ type: 'releaseAll' });
+  }
+
+  async function requestInputPermission() {
+    const intentToken = inputPermissionIntentToken;
+    if (!intentToken) return;
+    inputPermissionIntentToken = null;
+    els.requestInputPermissionBtn.disabled = true;
+    const result = await window.remoteHost.requestInputPermission(intentToken);
+    els.requestInputPermissionBtn.hidden = true;
+    els.inputPermissionFeedback.hidden = false;
+    if (!result?.ok) {
+      els.inputPermissionFeedback.dataset.state = 'error';
+      els.inputPermissionFeedback.textContent = tr('remote.host.inputPermissionRequestFailed', {
+        code: result?.reasonCode || 'input-permission-request-failed'
+      });
+      return;
+    }
+    const ready = result.permission === 'granted';
+    els.inputPermissionFeedback.dataset.state = ready ? 'granted' : 'requested';
+    els.inputPermissionFeedback.textContent = tr(ready
+      ? 'remote.host.inputPermissionReady'
+      : 'remote.host.inputPermissionRequested');
   }
 
   async function reportState(state, detail = {}) {

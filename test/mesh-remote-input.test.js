@@ -94,6 +94,25 @@ test('输入适配器把归一化画面坐标映射到指定显示器并通过 s
   assert.match(writes.at(-1), /RELEASE/);
 });
 
+test('macOS 输入权限查询默认静默，只有显式 prompt:true 才请求系统确认', () => {
+  const promptValues = [];
+  const adapter = new RemoteInputAdapter({
+    platform: 'darwin',
+    systemPreferences: {
+      isTrustedAccessibilityClient: (prompt) => {
+        promptValues.push(prompt);
+        return false;
+      }
+    },
+    helperPath: '/fixed/AgentDeskInputHelper',
+    fs: { existsSync: () => true }
+  });
+  assert.equal(adapter.status().permission, 'denied');
+  assert.equal(adapter.status({ prompt: false }).permission, 'denied');
+  assert.equal(adapter.status({ prompt: true }).permission, 'denied');
+  assert.deepEqual(promptValues, [false, false, true]);
+});
+
 test('macOS 与 Windows 助手均实现心跳释放，打包只带编译产物', () => {
   const swift = read('native/macos/AgentDeskInputHelper.swift');
   const windows = read('native/windows/AgentDeskInputHelper.cpp');
@@ -171,6 +190,8 @@ test('控制输入只走两条固定 DataChannel，状态更新保留控制授�
   assert.match(consoleRenderer, /previous\.controlState === 'waiting-consent'/);
   assert.match(hostRenderer, /\['input\.keys', 'input\.motion'\]\.includes\(channel\.label\)/);
   assert.match(hostPreload, /input: \(event\) => ipcRenderer\.invoke\('remote-host:input', \{ token, event \}\)/);
+  assert.match(hostPreload, /requestInputPermission: \(intentToken\) => ipcRenderer\.invoke\('remote-host:request-input-permission'/);
+  assert.match(hostRenderer, /requestInputPermission\(intentToken\)/);
   assert.doesNotMatch(`${consoleRenderer}\n${hostRenderer}\n${hostPreload}`, /remoteCommand|shell\.run|generic\.exec/);
 });
 
@@ -178,8 +199,11 @@ test('目标端只有在 input.control 权限与本次同意都成立后才注�
   const injected = [];
   let releases = 0;
   const semantic = [];
+  const readinessChecks = [];
   const fakeWindow = {
     isDestroyed: () => false,
+    isVisible: () => true,
+    isFocused: () => true,
     getSize: () => [420, 236],
     setResizable: () => {},
     setSize: () => {},
@@ -195,7 +219,7 @@ test('目标端只有在 input.control 权限与本次同意都成立后才注�
       sendSemantic: async (...args) => { semantic.push(args); }
     }),
     inputAdapter: {
-      ensureReady: () => ({ permission: 'granted', ready: true }),
+      ensureReady: (options) => { readinessChecks.push(options); return { permission: 'granted', ready: true }; },
       status: () => ({ permission: 'granted', ready: true }),
       inject: (event, options) => injected.push({ event, options }),
       releaseAll: () => { releases += 1; return true; }
@@ -228,6 +252,7 @@ test('目标端只有在 input.control 权限与本次同意都成立后才注�
   service.pendingInputSessionId = session.sessionId;
   const accepted = await service.handleHostControlResponse(context, { accepted: true });
   assert.equal(accepted.mode, 'control');
+  assert.deepEqual(readinessChecks, [{ prompt: false }]);
   assert.equal(service.currentInputSessionId, session.sessionId);
   assert.equal(semantic[0][1], 'remote.control.response');
   service.handleHostInput(context, { event: { type: 'key', action: 'down', code: 'Escape', key: 'Escape' } });
@@ -256,6 +281,85 @@ test('目标端只有在 input.control 权限与本次同意都成立后才注�
   assert.equal(session.mode, 'view');
   assert.equal(service.currentInputSessionId, null);
   assert.ok(releases >= 1);
+});
+
+test('辅助功能系统弹窗只允许由聚焦本机窗口的一次性按钮意图触发', async () => {
+  const permissionCalls = [];
+  const hostMessages = [];
+  const semantic = [];
+  let focused = false;
+  let focusCalls = 0;
+  const fakeWindow = {
+    isDestroyed: () => false,
+    isVisible: () => true,
+    isFocused: () => focused,
+    focus: () => { focusCalls += 1; },
+    getSize: () => [420, 236],
+    setResizable: () => {},
+    setSize: () => {},
+    showInactive: () => {},
+    webContents: { send: (channel, value) => hostMessages.push({ channel, value }) }
+  };
+  const service = new RemoteControlService({
+    ipcMain: { handle: () => {} },
+    meshService: {
+      getPeerContext: () => ({ remote: { status: 'online', permissions: ['input.control'] } })
+    },
+    peerManagerProvider: () => ({
+      sendSemantic: async (...args) => { semantic.push(args); }
+    }),
+    inputAdapter: {
+      ensureReady: (options) => {
+        permissionCalls.push({ method: 'ensureReady', prompt: options?.prompt === true });
+        throw new Error('input-accessibility-denied');
+      },
+      status: (options = {}) => {
+        permissionCalls.push({ method: 'status', prompt: options.prompt === true });
+        return { permission: 'denied', ready: false };
+      },
+      releaseAll: () => false
+    }
+  });
+  const session = {
+    sessionId: 'permission-session',
+    deviceId: 'controller-device',
+    deviceName: 'Controller',
+    direction: 'incoming',
+    state: 'viewing',
+    mode: 'view',
+    controlState: 'waiting-consent',
+    displayId: 'display-1',
+    displays: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    closed: false,
+    hostContext: null
+  };
+  const context = { session, window: fakeWindow, token: 'host-token', inputPermissionIntent: null };
+  session.hostContext = context;
+  service.sessions.set(session.sessionId, session);
+  service.pendingInputSessionId = session.sessionId;
+
+  const denied = await service.handleHostControlResponse(context, { accepted: true });
+  assert.equal(denied.mode, 'view');
+  assert.equal(denied.controlState, 'denied');
+  assert.equal(focusCalls, 0);
+  assert.equal(permissionCalls.some((item) => item.prompt), false);
+  assert.equal(semantic[0][3].accepted, false);
+  const modeMessage = hostMessages.find((item) => item.channel === 'remote-host:mode');
+  const intentToken = modeMessage?.value?.permissionIntentToken;
+  assert.match(intentToken, /^[a-f0-9]{48}$/);
+
+  assert.throws(() => service.handleHostInputPermissionRequest(context, { intentToken }), /local-focus-required/);
+  assert.equal(permissionCalls.some((item) => item.prompt), false);
+  assert.equal(context.inputPermissionIntent, null);
+
+  const focusedIntentToken = service.issueInputPermissionIntent(context);
+  focused = true;
+  const requested = service.handleHostInputPermissionRequest(context, { intentToken: focusedIntentToken });
+  assert.equal(requested.permission, 'denied');
+  assert.equal(permissionCalls.filter((item) => item.prompt).length, 1);
+  assert.equal(context.inputPermissionIntent, null);
 });
 
 test('返回工作台释放所有远端输入但保留查看会话，断开才结束连接', async () => {
