@@ -41,7 +41,11 @@ class ProvisioningService {
     const readySlot = deployment?.state === 'ready'
       ? resolveReadySlot(overview, deployment, { agentId, deviceId, requestedAppId, requestedClientForm })
       : null;
-    if (readySlot) return this.openReadySlot(readySlot, overview);
+    if (readySlot) {
+      return input.interactive === false
+        ? readySlotResult(readySlot, overview)
+        : this.openReadySlot(readySlot, overview);
+    }
 
     const context = this.meshService.ensureProvisioningJob({
       agentId,
@@ -70,11 +74,21 @@ class ProvisioningService {
   async advanceJob(jobId, options = {}) {
     const key = requiredText(jobId, 'jobId');
     const current = this.inFlight.get(key);
-    if (current) return current;
+    const interactive = options.interactive === true;
+    if (current) {
+      // A background poll must never consume a later explicit user action.
+      // Wait for the observation-only pass, then replay the interactive pass.
+      if (interactive && current.interactive !== true) {
+        return current.promise.catch(() => null).then(() => this.advanceJob(key, options));
+      }
+      return current.promise;
+    }
+    const entry = { interactive, promise: null };
     const promise = this.advanceJobOnce(key, options).finally(() => {
-      if (this.inFlight.get(key) === promise) this.inFlight.delete(key);
+      if (this.inFlight.get(key) === entry) this.inFlight.delete(key);
     });
-    this.inFlight.set(key, promise);
+    entry.promise = promise;
+    this.inFlight.set(key, entry);
     return promise;
   }
 
@@ -82,7 +96,11 @@ class ProvisioningService {
     this.cancelScheduled(jobId);
     let context = this.meshService.getProvisioningContext({ jobId });
     let profileCommitted = false;
-    if (context.job.state === 'ready') return this.openCompletedJob(context);
+    if (context.job.state === 'ready') {
+      return options.interactive === true
+        ? this.openCompletedJob(context)
+        : resultFromContext(context);
+    }
     if (context.job.state === 'cancelled') return resultFromContext(context);
     if (['error', 'unsupported'].includes(context.job.state)) return resultFromContext(context);
 
@@ -197,6 +215,19 @@ class ProvisioningService {
           observedFingerprint,
           manualConfirmation: options.manualConfirmation === true
         });
+        if (options.interactive !== true) {
+          const result = {
+            ok: true,
+            state: 'ready',
+            launched: false,
+            overview: completed.overview,
+            job: completed.job,
+            deployment: completed.deployment,
+            slot: completed.slot
+          };
+          this.changed(result);
+          return result;
+        }
         const launch = await adapter.launch(committed);
         if (launch?.ok !== true) {
           const result = {
@@ -240,17 +271,19 @@ class ProvisioningService {
           lastErrorCode: null
         });
       }
-      if (options.interactive === true || !context.job.completedSteps.includes('login-started')) {
+      let launched = false;
+      if (options.interactive === true) {
         const launch = await adapter.launch(profile);
         assertLaunchSucceeded(launch);
         context = this.meshService.transitionProvisioningJob({
           jobId,
           completedStep: 'login-started'
         });
+        launched = true;
       }
       this.changed(context);
       this.schedule(jobId);
-      return resultFromContext(context, { launched: true });
+      return resultFromContext(context, { launched });
     } catch (error) {
       if (profileCommitted) {
         // profiles.json and mesh.db are separate atomic stores. Once the
@@ -405,6 +438,19 @@ function resultFromContext(context, extra = {}) {
     job: publicJob(context.job),
     deployment: context.deployment || null,
     ...extra
+  };
+}
+
+function readySlotResult(slot, overview) {
+  return {
+    ok: true,
+    state: 'ready',
+    launched: false,
+    overview,
+    deployment: (overview.deployments || []).find((item) => (
+      item.agentId === slot.agentId && item.deviceId === slot.deviceId
+    )) || null,
+    slot
   };
 }
 

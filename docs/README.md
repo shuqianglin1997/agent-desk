@@ -1,6 +1,6 @@
 # AgentDesk 文档导航
 
-这里是仓库文档的入口，也是“当前做到哪一步”的统一说明。涉及 Personal Agent Mesh 的实现决策，以 [`PERSONAL_AGENT_MESH_PLAN.md`](PERSONAL_AGENT_MESH_PLAN.md) 为唯一实施权威；当前权威版本为 **1.32 / OWNER APPROVED — IMPLEMENTATION AUTHORIZED**。
+这里是仓库文档的入口，也是“当前做到哪一步”的统一说明。涉及 Personal Agent Mesh 的实现决策，以 [`PERSONAL_AGENT_MESH_PLAN.md`](PERSONAL_AGENT_MESH_PLAN.md) 为唯一实施权威；当前权威版本为 **1.33 / OWNER APPROVED — IMPLEMENTATION AUTHORIZED**。
 
 ## 先分清七种状态
 
@@ -34,7 +34,7 @@ AgentDesk 的文档必须把下面七种状态分开，不能都写成“已完�
 | 多账号、多设备管理方法 | [`AGENTDESK_MULTI_ACCOUNT_MANAGEMENT_ARTICLE_V4.md`](AGENTDESK_MULTI_ACCOUNT_MANAGEMENT_ARTICLE_V4.md) | 面向使用者的完整说明文章 |
 | 多 Agent 工程方法 | [`MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md`](MULTI_AGENT_ENGINEERING_WORKFLOW_GUIDE_V2.md) | 独立的工程认知文章，不代表产品实现状态 |
 
-HTML 审阅稿记录当时的设计审阅过程；历史方案和旧图中的界面结构不能覆盖 1.32 权威与当前产品事实。开发接力摘要只能帮助定位，不替代全文重读权威规划。
+HTML 审阅稿记录当时的设计审阅过程；历史方案和旧图中的界面结构不能覆盖 1.33 权威与当前产品事实。开发接力摘要只能帮助定位，不替代全文重读权威规划。
 
 ## 文档写作约束
 

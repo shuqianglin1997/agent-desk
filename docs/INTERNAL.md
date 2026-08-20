@@ -220,6 +220,8 @@ Mesh 会话聚合返回结构化失败时，Renderer 不再把当前会话设为
 
 已打包 macOS 开发版还有一条精确限定的启动路径：Main 使用固定 `/usr/bin/codesign` 检查自身主可执行文件，只有 `Signature=adhoc`、无 `Authority`、`TeamIdentifier=not set` 同时成立才延后系统密钥访问。启动期 `devices:list` 请求 `MeshService.getOverview({deferKeyAccess:true})`，读取已验证的持久目录/设备快照并返回 `keyState=deferred`，不加载 KeyVault、不启动 signaling、不恢复 ProvisioningJob。Renderer 看到密钥未可用就直接走本地只读会话，不再发出一次会阻塞的 Mesh 会话 IPC。只有 Header 的“设备”这一显式用户动作会传 `requestSecureAccess=true`；解锁成功后才恢复准备任务和按 enrollment 开启联网。检测失败、Developer ID 包、Windows 与开发态均保持原路径，没有通用密钥降级开关。
 
+ProvisioningService 把状态观察和外部界面副作用分开。`resumeActiveJobs()`、密钥解锁后的恢复与定时 `schedule()` 都以 `interactive:false` 推进：允许重新检查客户端、准备受管目录、读取安全身份指纹并提交 ready，但禁止调用 `openInstall()` 或 `launch()`。没有身份时只持久化 `waiting-login`；已有身份时只完成 Profile/Slot/Deployment，不记录打开。Renderer 的明确继续/打开请求使用 `interactive:true`，若此时同一 Job 正有后台 in-flight 检查，则等待该检查结束后重放显式推进，不能复用后台结果吞掉用户动作。
+
 Codex 额外区分：
 
 - `physicalRecordId`：扫描到的 rollout 物理记录；
