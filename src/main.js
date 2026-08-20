@@ -26,6 +26,7 @@ const { identityFingerprint } = require('./identity');
 const { probeActivity } = require('./activity');
 const { isDefaultWindowsAppRunning, isRunningIn, snapshotProcesses } = require('./process');
 const { ProfileRuntimeSupervisor } = require('./profile-runtime');
+const { ensureManagedCodexConfig } = require('./codex-managed-config');
 const { readJsonStore, writeJsonStore, snapshotFile } = require('./json-store');
 const { nearestExistingDirectory } = require('./path-utils');
 const settings = require('./settings');
@@ -1664,6 +1665,7 @@ function getProvisioningService() {
       async prepare(profile) {
         ensureDir(profile.profilePath);
         ensureDir(profile.sessionRoot);
+        ensureManagedCodexConfig(profile);
         return { ok: true };
       },
       async observeIdentity(profile) {
@@ -3053,6 +3055,7 @@ async function launchProfile(profile) {
     } else if (profile.appId === 'codex') {
       ensureDir(profile.sessionRoot);
     }
+    ensureManagedCodexConfig(profile);
   } catch (error) {
     return { ok: false, reason: t('main.err.cannotPrepDir', { msg: error.message }) };
   }
