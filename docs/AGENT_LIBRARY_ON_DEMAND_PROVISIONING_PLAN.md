@@ -2,9 +2,9 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 日期：2026-08-13
+> 日期：2026-08-18
 >
-> 权威关系：本文细化 `PERSONAL_AGENT_MESH_PLAN.md` 1.24；如有冲突，以后者为准。
+> 权威关系：本文细化 `PERSONAL_AGENT_MESH_PLAN.md` 1.33；如有冲突，以后者为准。
 
 ## 1. 产品结论
 
@@ -25,6 +25,7 @@ AgentDesk 保存一份全局员工库。Agent 是长期存在的员工，Device 
 - Agent 与 Slot/Binding 解耦，零账号、零运行位置时仍保持员工生命周期；
 - schema v6、Blueprint、Deployment、ProvisioningJob、签名目录事件和迁移前备份；
 - 本机幂等、可恢复的 ensure-ready 准备链；
+- 启动恢复、密钥解锁恢复与定时轮询只观察安装和身份状态；已有身份可后台提交 ready，没有身份保持 waiting-login，均不自动打开安装页、登录页或官方客户端；
 - 每个工作环境都投影完整员工库，没有 Slot 时显示首次准备；
 - 独立于 inventory 的签名 `catalog.events.v1`，零 Slot 员工也可传播；双端不同字段自动合并，同字段稳定收敛，关系事务受 revision/因果缺口门禁，删除 tombstone 压过旧端库存；
 - 签名握手协商 `catalog.events.v1` / `catalog.snapshot.v1` / `inventory.device-facts.v1`，0.9.4 旧端走安全快照兼容，更旧端降级为 inventory-only，目录权限不对称不会拖垮会话同步；
@@ -92,6 +93,7 @@ AgentDesk 保存一份全局员工库。Agent 是长期存在的员工，Device 
 8. 一个准备事务不能产生两个 Profile 或两个等价 Slot。
 9. 远端请求只包含稳定 ID 和受限枚举。
 10. 密码、Token、Cookie、原始账号 ID、任意安装命令和来源绝对路径不进入目录同步。
+11. 后台恢复和轮询不能产生安装、登录或客户端启动副作用；只有明确用户动作或已经完成的远端有人确认可以打开外部界面。
 
 ## 5. 首次准备状态机
 
@@ -117,7 +119,7 @@ AgentDesk 保存一份全局员工库。Agent 是长期存在的员工，Device 
 6. 应用适配器白名单内的 portable settings。
 7. 检查并恢复可信技能/工具要求；任意第三方安装需要明确确认。
 8. 客户端缺失时进入 `waiting-install`；完成后自动续跑。
-9. 没有正确登录时启动官方登录入口并进入 `waiting-login`。
+9. 没有正确登录时进入 `waiting-login`。只有本次推进来自明确用户动作或已完成的远端有人确认时才启动官方登录入口；后台恢复与轮询只停在等待态。
 10. 适配器观察安全身份指纹，验证或首次建立预期 AccountBinding。
 11. 原子写入 Profile、Slot、Deployment 与审计；广播新的设备事实。
 12. 调用已有本地启动器并记录 `lastOpenedAt`。
@@ -276,6 +278,7 @@ Device Lens 对用户显示为“工作环境”。具体设备下仍展示完�
 - 删除最后 Slot/Binding 不删除 Agent；
 - 首次点击不要求手工新增、归属或路径；
 - 重复点击、崩溃恢复和重试不制造重复对象；
+- 普通启动、密钥解锁恢复和轮询不自动打开安装页、登录页或官方客户端；已有身份可后台收敛为 ready，显式点击与后台检查并发时仍会随后执行；
 - 登录错误账号不提交 Deployment；
 - 后续打开直接启动；
 - 已就绪远端可固定语义打开；

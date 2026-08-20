@@ -46,7 +46,8 @@ function createHarness(initialProfiles = [initialProfile('old-slot', 'account-a'
     inspectCount: 0,
     prepareCount: 0,
     launchCount: 0,
-    installPageCount: 0
+    installPageCount: 0,
+    observeIdentityHook: null
   };
   const repositoryState = { commitCount: 0, openedIds: [] };
   const meshService = new MeshService({
@@ -103,6 +104,9 @@ function createHarness(initialProfiles = [initialProfile('old-slot', 'account-a'
       adapterState.prepareCount += 1;
     },
     async observeIdentity() {
+      if (typeof adapterState.observeIdentityHook === 'function') {
+        await adapterState.observeIdentityHook();
+      }
       return adapterState.identityFingerprint;
     },
     async launch() {
@@ -161,7 +165,7 @@ test('首开等待官方登录，识别原账号后只提交一个 Profile/Slot�
     harness.adapterState.identityFingerprint = 'account-a';
     const ready = await service.advanceJob(waiting.job.jobId, { interactive: false });
     assert.equal(ready.state, 'ready');
-    assert.equal(ready.launched, true);
+    assert.equal(ready.launched, false);
     assert.equal(harness.repositoryState.commitCount, 1);
     let overview = harness.meshService.getOverview();
     assert.equal(overview.agents.length, 1);
@@ -169,6 +173,18 @@ test('首开等待官方登录，识别原账号后只提交一个 Profile/Slot�
     assert.equal(overview.slots.length, 1);
     assert.equal(overview.slots[0].agentId, agentId);
     assert.equal(overview.deployments[0].state, 'ready');
+
+    const stillPassive = await service.ensureReady({
+      agentId,
+      deviceId,
+      requestedAppId: 'codex',
+      requestedClientForm: 'desktop',
+      interactive: false
+    });
+    assert.equal(stillPassive.state, 'ready');
+    assert.equal(stillPassive.launched, false);
+    assert.equal(harness.adapterState.launchCount, 1);
+    assert.deepEqual(harness.repositoryState.openedIds, []);
 
     const openedAgain = await service.ensureReady({
       agentId,
@@ -181,7 +197,7 @@ test('首开等待官方登录，识别原账号后只提交一个 Profile/Slot�
     assert.equal(overview.provisioningJobs.length, 1);
     assert.equal(overview.slots.length, 1);
     assert.equal(harness.repositoryState.commitCount, 1);
-    assert.equal(harness.adapterState.launchCount, 3);
+    assert.equal(harness.adapterState.launchCount, 2);
   } finally {
     harness.cleanup();
   }
@@ -212,7 +228,7 @@ test('登录成错误账号时停止提交，不创建普通 Profile 或 Slot', 
   }
 });
 
-test('重启后复用同一活动 Job 和 staging Profile，不重复制造工作位置', async () => {
+test('重启后台只观察同一 Job，显式继续不会被并发检查吞掉', async () => {
   const harness = createHarness();
   try {
     const initialized = harness.meshService.initialize();
@@ -224,8 +240,13 @@ test('重启后复用同一活动 Job 和 staging Profile，不重复制造工�
       agentId,
       deviceId: initialized.localDeviceId,
       requestedAppId: 'codex',
-      requestedClientForm: 'desktop'
+      requestedClientForm: 'desktop',
+      interactive: false
     });
+    assert.equal(first.state, 'waiting-login');
+    assert.equal(first.launched, false);
+    assert.equal(first.job.completedSteps.includes('login-started'), false);
+    assert.equal(harness.adapterState.launchCount, 0);
     firstService.stop();
 
     const secondService = harness.makeProvisioningService();
@@ -239,6 +260,29 @@ test('重启后复用同一活动 Job 和 staging Profile，不重复制造工�
     assert.equal(second.job.jobId, first.job.jobId);
     assert.equal(harness.meshService.getOverview().provisioningJobs.length, 1);
     assert.equal(harness.repositoryState.commitCount, 0);
+    assert.equal(harness.adapterState.launchCount, 0);
+    assert.equal(second.job.completedSteps.includes('login-started'), false);
+
+    let releaseObservation;
+    let markObservationStarted;
+    const observationStarted = new Promise((resolve) => { markObservationStarted = resolve; });
+    const observationGate = new Promise((resolve) => { releaseObservation = resolve; });
+    harness.adapterState.observeIdentityHook = async () => {
+      markObservationStarted();
+      await observationGate;
+    };
+    const backgroundPoll = secondService.advanceJob(second.job.jobId, { interactive: false });
+    await observationStarted;
+    const explicitPromise = secondService.advanceJob(second.job.jobId, { interactive: true });
+    releaseObservation();
+    const backgroundResult = await backgroundPoll;
+    const explicit = await explicitPromise;
+    assert.equal(backgroundResult.launched, false);
+    assert.equal(explicit.job.jobId, first.job.jobId);
+    assert.equal(explicit.state, 'waiting-login');
+    assert.equal(explicit.launched, true);
+    assert.equal(harness.adapterState.launchCount, 1);
+    assert.equal(explicit.job.completedSteps.includes('login-started'), true);
   } finally {
     harness.cleanup();
   }
