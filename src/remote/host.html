@@ -46,6 +46,14 @@
           <button id="allowControlBtn" type="button" class="allow-control" data-i18n="remote.host.allowControl">允许本次控制</button>
         </div>
       </div>
+      <div id="inputPermissionPrompt" class="input-permission-prompt" hidden>
+        <strong data-i18n="remote.host.inputPermissionTitle">需要本机辅助功能权限</strong>
+        <p data-i18n="remote.host.inputPermissionCopy">允许控制不会自动申请系统权限。只有点击下方按钮，macOS 才会显示权限确认；完成后请让对方重新请求控制。</p>
+        <p id="inputPermissionFeedback" class="input-permission-feedback" hidden></p>
+        <div>
+          <button id="requestInputPermissionBtn" type="button" class="request-input-permission" data-i18n="remote.host.requestInputPermission">申请辅助功能权限</button>
+        </div>
+      </div>
     </section>
 
     <script src="../i18n/zh.js"></script>

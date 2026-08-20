@@ -94,6 +94,20 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--signal); o
 .control-prompt p { margin: 5px 0 10px; color: var(--muted); font-size: 11px; line-height: 1.45; }
 .control-prompt > div { display: flex; justify-content: flex-end; gap: 8px; }
 .control-prompt button.allow-control { border-color: #315d4c; background: var(--ink); color: var(--paper); }
+.input-permission-prompt {
+  margin-top: 9px;
+  padding: 10px;
+  border: 1px solid rgba(156, 99, 35, .42);
+  background: rgba(194, 133, 53, .08);
+  border-radius: 8px;
+}
+.input-permission-prompt[hidden] { display: none; }
+.input-permission-prompt strong { display: block; font-size: 13px; }
+.input-permission-prompt p { margin: 5px 0 9px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.input-permission-prompt > div { display: flex; justify-content: flex-end; }
+.input-permission-prompt button.request-input-permission { border-color: #315d4c; background: var(--ink); color: var(--paper); }
+.input-permission-feedback[data-state="granted"] { color: var(--live); }
+.input-permission-feedback[data-state="error"] { color: var(--danger); }
 
 @media (prefers-color-scheme: dark) {
   :root { color-scheme: dark; --paper: #1b2421; --paper-2: #24302c; --ink: #eee4ca; --muted: #a4afa6; --line: rgba(238,228,202,.18); }

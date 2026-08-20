@@ -5,6 +5,7 @@ const { normalizeRemoteInput, InputRateGuard } = require('../domain/remote-input
 
 const REMOTE_SDP_LIMIT = 256 * 1024;
 const REMOTE_SESSION_LIMIT = 4;
+const INPUT_PERMISSION_INTENT_TTL_MS = 2 * 60 * 1000;
 const IPC_ROUTERS = new WeakMap();
 
 class RemoteControlService {
@@ -375,6 +376,7 @@ class RemoteControlService {
       return;
     }
     if (!session.hostContext || session.hostContext.window.isDestroyed()) throw new Error('remote-host-unavailable');
+    session.hostContext.inputPermissionIntent = null;
     this.pendingInputSessionId = session.sessionId;
     session.controlState = 'waiting-consent';
     session.updatedAt = new Date().toISOString();
@@ -671,6 +673,8 @@ class RemoteControlService {
     let accepted = input.accepted === true;
     let reason = accepted ? null : 'remote-control-rejected';
     let permission = null;
+    let permissionIntentToken = null;
+    context.inputPermissionIntent = null;
     if (accepted) {
       try {
         if (this.currentInputSessionId && this.currentInputSessionId !== session.sessionId) {
@@ -679,7 +683,11 @@ class RemoteControlService {
         const peer = this.meshService.getPeerContext(session.deviceId);
         requireCapability(peer.remote, 'input.control');
         if (!this.inputAdapter) throw new Error('input-adapter-unavailable');
-        const status = this.inputAdapter.ensureReady({ prompt: true });
+        // Approving a remote control request is not permission to open an OS
+        // privacy prompt. It only performs a silent readiness check. A fresh,
+        // focused local click on the separate permission button is required
+        // before prompt:true is ever used.
+        const status = this.inputAdapter.ensureReady({ prompt: false });
         permission = status.permission;
         this.currentInputSessionId = session.sessionId;
         session.mode = 'control';
@@ -688,6 +696,9 @@ class RemoteControlService {
         accepted = false;
         reason = safeError(error);
         permission = this.inputAdapter?.status()?.permission || 'unavailable';
+        if (reason === 'input-accessibility-denied') {
+          permissionIntentToken = this.issueInputPermissionIntent(context);
+        }
         session.mode = 'view';
         session.controlState = 'denied';
       }
@@ -701,9 +712,11 @@ class RemoteControlService {
       token: context.token,
       mode: session.mode,
       permission,
-      reason
+      reason,
+      permissionIntentToken
     });
-    this.compactHostWindow(context.window);
+    if (permissionIntentToken) this.expandHostWindow(context.window);
+    else this.compactHostWindow(context.window);
     try {
       await this.sendSemantic(session.deviceId, 'remote.control.response', 'input.control', {
         sessionId: session.sessionId,
@@ -717,6 +730,55 @@ class RemoteControlService {
     }
     this.emitChange();
     return publicRemoteSession(session);
+  }
+
+  issueInputPermissionIntent(context) {
+    const intent = {
+      token: crypto.randomBytes(24).toString('hex'),
+      sessionId: context.session.sessionId,
+      expiresAt: Date.now() + INPUT_PERMISSION_INTENT_TTL_MS
+    };
+    context.inputPermissionIntent = intent;
+    return intent.token;
+  }
+
+  handleHostInputPermissionRequest(context, input) {
+    const session = context.session;
+    this.requireSession(session.sessionId, 'incoming', session.deviceId);
+    const intent = context.inputPermissionIntent;
+    const token = requiredText(input.intentToken, 'input-permission-intent', 96);
+    if (
+      !intent ||
+      intent.sessionId !== session.sessionId ||
+      intent.expiresAt < Date.now() ||
+      !constantTimeTextEqual(intent.token, token)
+    ) {
+      context.inputPermissionIntent = null;
+      throw new Error('input-permission-intent-stale');
+    }
+    context.inputPermissionIntent = null;
+    if (
+      context.window.isDestroyed() ||
+      typeof context.window.isVisible !== 'function' ||
+      typeof context.window.isFocused !== 'function' ||
+      !context.window.isVisible() ||
+      !context.window.isFocused()
+    ) {
+      throw new Error('input-permission-local-focus-required');
+    }
+    const peer = this.meshService.getPeerContext(session.deviceId);
+    requireCapability(peer.remote, 'input.control');
+    if (!this.inputAdapter || typeof this.inputAdapter.status !== 'function') {
+      throw new Error('input-adapter-unavailable');
+    }
+    const status = this.inputAdapter.status({ prompt: true });
+    session.inputPermission = cleanText(status?.permission, 40) || 'unavailable';
+    session.updatedAt = new Date().toISOString();
+    this.emitChange();
+    return {
+      permission: session.inputPermission,
+      ready: status?.ready === true
+    };
   }
 
   handleHostInput(context, input) {
@@ -760,8 +822,10 @@ class RemoteControlService {
     if (!window || window.isDestroyed()) return;
     const [width] = window.getSize();
     window.setSize(Math.max(380, Math.min(width, 440)), 236, true);
-    window.show();
-    window.focus();
+    // A remote request must never steal focus from the local user. Besides
+    // being disruptive, focus stealing can redirect an in-flight click onto a
+    // consent button and make an OS permission prompt appear unsolicited.
+    window.showInactive();
   }
 
   async releaseControl(session, reason = 'remote-control-released', options = {}) {
@@ -772,6 +836,7 @@ class RemoteControlService {
     session.mode = 'view';
     session.controlState = 'idle';
     session.inputPermissionCheckedAt = null;
+    if (session.hostContext) session.hostContext.inputPermissionIntent = null;
     session.updatedAt = new Date().toISOString();
     this.inputRateGuard.clear(session.sessionId);
     if (session.direction === 'incoming' && wasControl) {
@@ -959,6 +1024,10 @@ function sharedRemoteIpcRouter(ipcMain) {
     ok: true,
     session: await service.handleHostControlResponse(context, input)
   }));
+  handle('remote-host:request-input-permission', 'host', (service, context, input) => ({
+    ok: true,
+    ...service.handleHostInputPermissionRequest(context, input)
+  }));
   handle('remote-host:input', 'host', (service, context, input) => ({
     ok: service.handleHostInput(context, input)
   }));
@@ -968,6 +1037,12 @@ function sharedRemoteIpcRouter(ipcMain) {
 
 function contextWebContents(context) {
   return context?.webContents || context?.window?.webContents || null;
+}
+
+function constantTimeTextEqual(left, right) {
+  const first = Buffer.from(String(left || ''), 'utf8');
+  const second = Buffer.from(String(right || ''), 'utf8');
+  return first.length === second.length && crypto.timingSafeEqual(first, second);
 }
 
 function normalizeSurfaceBounds(value, parentWindow) {

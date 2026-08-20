@@ -25,6 +25,10 @@ contextBridge.exposeInMainWorld('remoteHost', {
   }),
   stop: (reason) => ipcRenderer.invoke('remote-host:stop', { token, reason }),
   respondControl: (accepted) => ipcRenderer.invoke('remote-host:control-response', { token, accepted }),
+  requestInputPermission: (intentToken) => ipcRenderer.invoke('remote-host:request-input-permission', {
+    token,
+    intentToken
+  }),
   input: (event) => ipcRenderer.invoke('remote-host:input', { token, event }),
   onCommand: (callback) => on('remote-host:command', ({ command }) => callback(command)),
   onControlRequest: (callback) => on('remote-host:control-request', callback),

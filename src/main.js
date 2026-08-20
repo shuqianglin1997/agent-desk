@@ -37,6 +37,7 @@ const {
   resolveExecutableCandidates
 } = require('./cli-discovery');
 const windows = require('./windows');
+const { macApplicationBundlePath, macLaunchServicesArgs } = require('./mac-launch');
 const { QuotaService } = require('./quota-service');
 const { normalizeCat } = require('./yard/cats');
 const { mt } = require('./i18n/main-i18n');
@@ -3069,8 +3070,18 @@ async function launchProfile(profile) {
   try {
     if (process.platform === 'darwin') {
       if (launcher.found) {
-        await launchOwned(launcher.path, args, env);
-        return { ok: true, command: launcher.path, source: launcher.source };
+        const bundlePath = launcher.bundlePath || macApplicationBundlePath(launcher.path);
+        if (!bundlePath) throw new Error('mac-launch-bundle-required');
+        await launchOwned(
+          '/usr/bin/open',
+          macLaunchServicesArgs(bundlePath, args, env, process.env),
+          env
+        );
+        return {
+          ok: true,
+          command: `open -a ${bundlePath}`,
+          source: launcher.source
+        };
       }
 
       const requiresVerifiedBundleIdentity = apps.macLauncherCandidates(profile.appId)
@@ -3089,7 +3100,11 @@ async function launchProfile(profile) {
       }
 
       const launchAppName = apps.macLaunchAppName(profile.appId);
-      await launchOwned('/usr/bin/open', ['-n', '-a', launchAppName, '--args', ...args], env);
+      await launchOwned(
+        '/usr/bin/open',
+        macLaunchServicesArgs(launchAppName, args, env, process.env),
+        env
+      );
       return { ok: true, command: `open -a ${launchAppName}`, warning: t('main.launch.launchServices') };
     }
 
@@ -3290,6 +3305,7 @@ function findExecutable(profileOrAppId) {
     const candidateDetails = [
       ...(explicitPath ? [{
         path: explicitPath,
+        bundlePath: macApplicationBundlePath(explicitPath),
         source: t('main.src.manual'),
         exists: fs.existsSync(explicitPath),
         identityMatches: true,
@@ -3304,6 +3320,7 @@ function findExecutable(profileOrAppId) {
           || candidate.bundleIdentifiers.includes(bundleIdentifier);
         return {
           path: candidate.path,
+          bundlePath: candidate.bundlePath,
           source: t('main.src.standardAppDir'),
           exists,
           identityMatches,
@@ -3319,6 +3336,7 @@ function findExecutable(profileOrAppId) {
     return {
       found: Boolean(executable),
       path: executable?.path || null,
+      bundlePath: executable?.bundlePath || null,
       source: executable?.source || null,
       candidates,
       candidateDetails,
