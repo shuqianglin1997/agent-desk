@@ -17,7 +17,7 @@
 
   window.addEventListener('DOMContentLoaded', () => {
     for (const id of [
-      'consentView', 'indicatorView', 'requestCopy', 'sourceSelect', 'permissionNote',
+      'consentView', 'indicatorView', 'requestCopy', 'sourcePicker', 'sourceSelect', 'permissionNote',
       'hostError', 'denyBtn', 'allowBtn', 'liveTitle', 'liveMeta', 'stopBtn',
       'controlPrompt', 'controlRequestCopy', 'denyControlBtn', 'allowControlBtn',
       'inputPermissionPrompt', 'inputPermissionFeedback', 'requestInputPermissionBtn'
@@ -44,13 +44,7 @@
     if (!bootstrap?.ok) throw new Error(bootstrap?.reasonCode || 'remote-host-bootstrap');
     window.I18N.init(bootstrap.lang);
     els.requestCopy.textContent = tr('remote.host.requestFrom', { name: bootstrap.controllerName });
-    els.sourceSelect.replaceChildren();
-    for (const source of bootstrap.displays || []) {
-      const option = document.createElement('option');
-      option.value = source.id;
-      option.textContent = `${source.name} · ${source.width}×${source.height}`;
-      els.sourceSelect.append(option);
-    }
+    installDisplays(bootstrap.displays || []);
     els.permissionNote.textContent = permissionText(bootstrap.screenPermission);
     els.permissionNote.dataset.state = bootstrap.screenPermission;
     if (autoAcceptRequested) await allow();
@@ -62,6 +56,21 @@
     els.denyBtn.disabled = true;
     hideError();
     try {
+      if (!(bootstrap.displays || []).length) {
+        const authorization = await window.remoteHost.authorizeView();
+        if (!authorization?.ok) throw new Error(authorization?.reasonCode || 'remote-view-authorization-failed');
+        bootstrap.displays = authorization.displays || [];
+        installDisplays(bootstrap.displays);
+        bootstrap.screenPermission = authorization.screenPermission || bootstrap.screenPermission;
+        els.permissionNote.textContent = permissionText(bootstrap.screenPermission);
+        els.permissionNote.dataset.state = bootstrap.screenPermission;
+        if (bootstrap.displays.length > 1 && !autoAcceptRequested) {
+          els.allowBtn.disabled = false;
+          els.denyBtn.disabled = false;
+          els.sourceSelect.focus();
+          return;
+        }
+      }
       currentSource = sourceById(els.sourceSelect.value);
       if (!currentSource) throw new Error('remote-display-invalid');
       stream = await capture(currentSource, currentQuality);
@@ -94,6 +103,17 @@
       showError(safeError(error));
       await reportState('error', { reason: safeError(error) });
     }
+  }
+
+  function installDisplays(displays) {
+    els.sourceSelect.replaceChildren();
+    for (const source of displays) {
+      const option = document.createElement('option');
+      option.value = source.id;
+      option.textContent = `${source.name} · ${source.width}×${source.height}`;
+      els.sourceSelect.append(option);
+    }
+    els.sourcePicker.hidden = displays.length <= 1;
   }
 
   async function capture(source, quality) {

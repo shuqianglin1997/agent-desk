@@ -805,6 +805,7 @@
     'status.crashpadCleaned': 'Safely removed {n} crash-report files.',
     'status.crashpadCleanFailed': 'Could not clean crash reports ({code}).',
     'status.crashpadFused': 'Repeated crashes detected; the affected Profile was fused and stopped.',
+    'status.crashpadContained': 'Repeated helper crashes detected; the account stayed running and crash reports remain bounded.',
     'status.crashpadPruned': 'Crashpad reached its hard limit; {n} old files were safely removed.',
     'status.profileQuitBlocked': 'A client launched by AgentDesk could not be closed safely. Quit was cancelled so you can resolve it.',
     'status.profileQuitKeep': 'Clients will remain running after AgentDesk quits; Crashpad is not monitored while AgentDesk is closed.',

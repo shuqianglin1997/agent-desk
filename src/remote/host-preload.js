@@ -13,6 +13,7 @@ function on(channel, callback) {
 
 contextBridge.exposeInMainWorld('remoteHost', {
   bootstrap: () => ipcRenderer.invoke('remote-host:bootstrap', { token }),
+  authorizeView: () => ipcRenderer.invoke('remote-host:authorize-view', { token }),
   answer: (description, sourceId) => ipcRenderer.invoke('remote-host:answer', {
     token,
     description,

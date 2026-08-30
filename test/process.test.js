@@ -6,6 +6,7 @@ const {
   isDefaultWindowsAppRunning,
   isRunningIn,
   findProfileProcesses,
+  findProfileClientProcesses,
   matchesCrashpadDatabase
 } = require('../src/process');
 
@@ -81,6 +82,7 @@ test('Profile 进程集合同时识别主进程参数和该 Profile 的 Crashpad
   ];
   assert.equal(matchesCrashpadDatabase(records[1].command, profilePath), true);
   assert.deepEqual(findProfileProcesses(records, profilePath).map((item) => item.pid), [1, 2]);
+  assert.deepEqual(findProfileClientProcesses(records, profilePath).map((item) => item.pid), [1]);
   assert.equal(matchesCrashpadDatabase(
     `browser_crashpad_handler --database="/tmp${profilePath}/Crashpad"`,
     profilePath

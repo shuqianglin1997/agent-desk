@@ -3,8 +3,9 @@
  *
  * The official desktop clients own their Crashpad implementation. AgentDesk
  * still owns the resource boundary of every Profile it launches: duplicate
- * launch prevention, process lifecycle, bounded pending crash reports and a
- * burst fuse that stops the exact managed Profile before it can fill disk.
+ * launch prevention, process lifecycle and bounded pending crash reports.
+ * Repeated helper-process dumps are observed and reported without terminating
+ * a healthy client; the hard file/byte limits remain the disk-safety boundary.
  * Ordinary lifecycle actions remain ownership-bound; only a confirmed disk
  * incident may also stop an inherited process left behind by an older manager.
  */
@@ -12,7 +13,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { readJsonStore, writeJsonStore } = require('./json-store');
-const { snapshotProcessRecords, findProfileProcesses } = require('./process');
+const {
+  snapshotProcessRecords,
+  findProfileProcesses,
+  findProfileClientProcesses
+} = require('./process');
 
 const RUNTIME_STATE_VERSION = 1;
 const DEFAULT_LIMITS = Object.freeze({
@@ -368,8 +373,14 @@ class ProfileRuntimeSupervisor {
     const loaded = readJsonStore(this.stateFile, (value) => (
       value && value.version === RUNTIME_STATE_VERSION && Array.isArray(value.records)
     ));
+    let migratedLegacyBurstFuse = false;
     for (const item of loaded?.parsed?.records || []) {
       if (!item || typeof item.profileId !== 'string' || typeof item.profilePath !== 'string') continue;
+      const legacyBurstFuse = [
+        'crashpad-repeated-signature',
+        'crashpad-burst-preflight'
+      ].includes(item.fuseReason);
+      if (legacyBurstFuse) migratedLegacyBurstFuse = true;
       this.records.set(item.profileId, {
         profileId: item.profileId,
         profilePath: item.profilePath,
@@ -377,13 +388,14 @@ class ProfileRuntimeSupervisor {
         launchedAt: typeof item.launchedAt === 'string' ? item.launchedAt : null,
         active: item.active === true,
         owned: item.owned === true,
-        fusedAt: typeof item.fusedAt === 'string' ? item.fusedAt : null,
-        fuseReason: typeof item.fuseReason === 'string' ? item.fuseReason : null,
+        fusedAt: legacyBurstFuse ? null : (typeof item.fusedAt === 'string' ? item.fusedAt : null),
+        fuseReason: legacyBurstFuse ? null : (typeof item.fuseReason === 'string' ? item.fuseReason : null),
         lastIncident: item.lastIncident && typeof item.lastIncident === 'object'
           ? item.lastIncident
           : null
       });
     }
+    if (migratedLegacyBurstFuse) this.saveState();
   }
 
   saveState() {
@@ -427,6 +439,13 @@ class ProfileRuntimeSupervisor {
       .filter((record) => record.pid !== process.pid && record.pid !== process.ppid);
   }
 
+  clientProcessRecords(profile) {
+    const records = this.snapshot();
+    if (records === null) return null;
+    return findProfileClientProcesses(records, profile.profilePath)
+      .filter((record) => record.pid !== process.pid && record.pid !== process.ppid);
+  }
+
   async refreshCrashpadStatus(profile) {
     try {
       const status = await scanCrashpadPendingAsync(profile.profilePath, {
@@ -457,7 +476,7 @@ class ProfileRuntimeSupervisor {
 
   status(profile) {
     const record = this.records.get(profile.id) || null;
-    const processes = this.processRecords(profile);
+    const processes = this.clientProcessRecords(profile);
     const crashpad = this.crashpadStatuses.get(profile.id) || {
       exists: null,
       pendingPath: path.join(profile.profilePath, 'Crashpad', 'pending'),
@@ -499,14 +518,13 @@ class ProfileRuntimeSupervisor {
   async preflight(profile) {
     this.updateProfiles([...this.profiles.values(), profile]);
     await this.tick();
-    const processes = this.processRecords(profile);
+    const processes = this.clientProcessRecords(profile);
     if (processes === null) return { ok: false, reasonCode: 'profile-process-snapshot-unavailable' };
     if (processes.length) return { ok: true, alreadyRunning: true, processCount: processes.length };
     const record = this.records.get(profile.id);
     const crashpad = this.crashpadStatuses.get(profile.id) || await this.refreshCrashpadStatus(profile);
     if (crashpad.errorCode) return { ok: false, reasonCode: crashpad.errorCode };
-    if (record?.fusedAt || crashpad.burstCount >= this.limits.burstLimit) {
-      if (!record?.fusedAt) this.setFuse(profile, crashpad, 'crashpad-burst-preflight');
+    if (record?.fusedAt) {
       return { ok: false, reasonCode: 'profile-crashpad-fused', runtime: this.status(profile) };
     }
     return { ok: true, alreadyRunning: false };
@@ -556,6 +574,42 @@ class ProfileRuntimeSupervisor {
     this.records.set(profile.id, next);
     this.saveState();
     if (isNewIncident) this.onIncident({ profileId: profile.id, ...next.lastIncident });
+    return next;
+  }
+
+  observeCrashpadBurst(profile, crashpad) {
+    const current = this.records.get(profile.id) || {
+      profileId: profile.id,
+      profilePath: profile.profilePath,
+      launchPid: null,
+      launchedAt: null,
+      active: false,
+      owned: false,
+      fusedAt: null,
+      fuseReason: null,
+      lastIncident: null
+    };
+    const occurredAt = new Date(this.now()).toISOString();
+    const previous = current.lastIncident;
+    const previousAt = Date.parse(previous?.occurredAt || '');
+    const sameRecentBurst = previous?.reason === 'crashpad-burst-contained' &&
+      previous?.burstSignature === crashpad.burstSignature &&
+      Number.isFinite(previousAt) &&
+      this.now() - previousAt < this.limits.burstWindowMs;
+    if (sameRecentBurst) return current;
+    const incident = {
+      occurredAt,
+      reason: 'crashpad-burst-contained',
+      fileCount: crashpad.fileCount,
+      totalBytes: crashpad.totalBytes,
+      burstCount: crashpad.burstCount,
+      burstSignature: crashpad.burstSignature,
+      newestAt: crashpad.newestAt
+    };
+    const next = { ...current, lastIncident: incident };
+    this.records.set(profile.id, next);
+    this.saveState();
+    if (!sameRecentBurst) this.onIncident({ profileId: profile.id, ...incident });
     return next;
   }
 
@@ -637,17 +691,13 @@ class ProfileRuntimeSupervisor {
     for (const profile of this.profiles.values()) {
       let record = this.records.get(profile.id);
       if (record?.owned && record.active) {
-        const processes = this.processRecords(profile);
-        if (Array.isArray(processes) && processes.length === 0) {
-          this.records.set(profile.id, {
-            ...record,
-            active: false,
-            owned: false,
-            launchPid: null,
-            stoppedAt: new Date(this.now()).toISOString(),
-            stopReason: 'observed-exit'
-          });
-          this.saveState();
+        const clients = this.clientProcessRecords(profile);
+        if (Array.isArray(clients) && clients.length === 0) {
+          // A crashed Electron browser can leave its Crashpad handlers alive.
+          // They are still covered by the existing ownership record, so close
+          // that exact Profile process set before releasing ownership. This
+          // prevents an orphan handler from blocking the next explicit launch.
+          await this.terminateProcesses(profile, 'observed-client-exit');
           record = this.records.get(profile.id);
         }
       }
@@ -682,9 +732,12 @@ class ProfileRuntimeSupervisor {
           continue;
         }
       }
-      if (crashpad.burstCount >= this.limits.burstLimit) {
-        this.setFuse(profile, crashpad, 'crashpad-repeated-signature');
-        await this.terminateProcesses(profile, 'crashpad-fuse', { allowUnowned: true });
+      if (bounded.burstCount >= this.limits.burstLimit) {
+        // A tool, renderer or Crashpad handler can crash repeatedly while the
+        // desktop client remains fully usable. Do not turn a helper failure
+        // into an account outage. The hard limits above still bound disk use,
+        // and owned orphan handlers are collected by observed-client-exit.
+        this.observeCrashpadBurst(profile, bounded);
       } else if (bounded.removedFiles > 0) {
         this.onIncident({
           profileId: profile.id,

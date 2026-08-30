@@ -805,6 +805,7 @@
     'status.crashpadCleaned': '已安全清理 {n} 个崩溃报告文件。',
     'status.crashpadCleanFailed': '崩溃报告清理失败（{code}）。',
     'status.crashpadFused': '检测到重复崩溃，已熔断并关闭对应 Profile。',
+    'status.crashpadContained': '检测到辅助进程重复崩溃；已保留账号运行并限制崩溃报告占用。',
     'status.crashpadPruned': 'Crashpad 达到硬上限，已安全清理 {n} 个旧文件。',
     'status.profileQuitBlocked': '仍有 AgentDesk 启动的客户端未能安全关闭；已取消退出，请先处理。',
     'status.profileQuitKeep': '退出 AgentDesk 后将保留客户端；退出期间不会继续监控 Crashpad。',

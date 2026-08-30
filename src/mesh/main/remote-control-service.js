@@ -271,14 +271,6 @@ class RemoteControlService {
       });
       return;
     }
-    const displays = await this.listDisplaySources();
-    if (!displays.length && !this.syntheticCapture) {
-      await this.sendSemantic(deviceId, 'remote.view.rejected', 'screen.view', {
-        sessionId,
-        reason: 'remote-display-unavailable'
-      });
-      return;
-    }
     const session = {
       sessionId,
       deviceId,
@@ -291,8 +283,9 @@ class RemoteControlService {
       quality: 'high',
       displayId: null,
       displayName: null,
-      displays: displays.map(publicDisplay),
-      captureDisplays: displays,
+      displays: [],
+      captureDisplays: [],
+      viewConsentGranted: false,
       remoteDescription: normalizeRemoteDescription(payload.description, 'offer'),
       transport: null,
       createdAt: new Date().toISOString(),
@@ -509,6 +502,48 @@ class RemoteControlService {
     };
   }
 
+  async handleHostAuthorizeView(context) {
+    const session = context.session;
+    this.requireSession(session.sessionId, 'incoming', session.deviceId);
+    if (session.hostContext !== context) throw new Error('remote-host-context-invalid');
+    const peer = this.meshService.getPeerContext(session.deviceId);
+    requireCapability(peer.remote, 'screen.view');
+    if (session.state !== 'waiting-consent') throw new Error('remote-view-consent-stale');
+
+    if (session.viewConsentGranted) {
+      return {
+        displays: session.captureDisplays.map((item) => ({ ...item })),
+        screenPermission: screenPermission(this.systemPreferences)
+      };
+    }
+
+    const automatedSyntheticConsent = this.syntheticCapture && this.autoAccept;
+    const window = context.window;
+    if (
+      !automatedSyntheticConsent
+      && (
+        !window
+        || window.isDestroyed()
+        || !window.isVisible()
+        || !window.isFocused()
+      )
+    ) {
+      throw new Error('remote-view-consent-local-focus-required');
+    }
+
+    const displays = await this.listDisplaySources();
+    if (!displays.length && !this.syntheticCapture) throw new Error('remote-display-unavailable');
+    session.captureDisplays = displays;
+    session.displays = displays.map(publicDisplay);
+    session.viewConsentGranted = true;
+    session.updatedAt = new Date().toISOString();
+    this.emitChange();
+    return {
+      displays: displays.map((item) => ({ ...item })),
+      screenPermission: screenPermission(this.systemPreferences)
+    };
+  }
+
   consoleBootstrap() {
     return {
       ok: true,
@@ -600,6 +635,9 @@ class RemoteControlService {
   async handleHostAnswer(context, input) {
     const session = context.session;
     this.requireSession(session.sessionId, 'incoming', session.deviceId);
+    const peer = this.meshService.getPeerContext(session.deviceId);
+    requireCapability(peer.remote, 'screen.view');
+    if (!session.viewConsentGranted) throw new Error('remote-view-consent-required');
     const display = session.captureDisplays.find((item) => item.id === String(input.sourceId || ''));
     if (!display) throw new Error('remote-display-invalid');
     const description = normalizeRemoteDescription(input.description, 'answer');
@@ -1009,6 +1047,10 @@ function sharedRemoteIpcRouter(ipcMain) {
     return { ok: true, ...result };
   });
   handle('remote-host:bootstrap', 'host', (service, context) => service.hostBootstrap(context));
+  handle('remote-host:authorize-view', 'host', async (service, context) => ({
+    ok: true,
+    ...await service.handleHostAuthorizeView(context)
+  }));
   handle('remote-host:answer', 'host', async (service, context, input) => ({
     ok: true,
     session: await service.handleHostAnswer(context, input)

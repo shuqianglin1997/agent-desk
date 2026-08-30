@@ -805,6 +805,7 @@
     'status.crashpadCleaned': '{n} 個のクラッシュレポートファイルを安全に削除しました。',
     'status.crashpadCleanFailed': 'クラッシュレポートを削除できませんでした（{code}）。',
     'status.crashpadFused': '繰り返しクラッシュを検出し、対象 Profile を停止しました。',
+    'status.crashpadContained': '補助プロセスの繰り返しクラッシュを検出しました。アカウントは維持され、レポート容量は制限されます。',
     'status.crashpadPruned': 'Crashpad が上限に達したため、古いファイル {n} 個を安全に削除しました。',
     'status.profileQuitBlocked': 'AgentDesk が起動したクライアントを安全に終了できないため、終了を取り消しました。',
     'status.profileQuitKeep': 'AgentDesk 終了後もクライアントを保持します。終了中は Crashpad を監視しません。',
