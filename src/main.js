@@ -26,7 +26,6 @@ const { identityFingerprint } = require('./identity');
 const { probeActivity } = require('./activity');
 const { isDefaultWindowsAppRunning, isRunningIn, snapshotProcesses } = require('./process');
 const { ProfileRuntimeSupervisor } = require('./profile-runtime');
-const { ensureManagedCodexConfig } = require('./codex-managed-config');
 const { readJsonStore, writeJsonStore, snapshotFile } = require('./json-store');
 const { nearestExistingDirectory } = require('./path-utils');
 const settings = require('./settings');
@@ -39,6 +38,7 @@ const {
 } = require('./cli-discovery');
 const windows = require('./windows');
 const { macApplicationBundlePath, macLaunchServicesArgs } = require('./mac-launch');
+const { ensureCodexRuntimeHome } = require('./codex-runtime-home');
 const { QuotaService } = require('./quota-service');
 const { normalizeCat } = require('./yard/cats');
 const { mt } = require('./i18n/main-i18n');
@@ -1665,7 +1665,6 @@ function getProvisioningService() {
       async prepare(profile) {
         ensureDir(profile.profilePath);
         ensureDir(profile.sessionRoot);
-        ensureManagedCodexConfig(profile);
         return { ok: true };
       },
       async observeIdentity(profile) {
@@ -3055,13 +3054,17 @@ async function launchProfile(profile) {
     } else if (profile.appId === 'codex') {
       ensureDir(profile.sessionRoot);
     }
-    ensureManagedCodexConfig(profile);
   } catch (error) {
     return { ok: false, reason: t('main.err.cannotPrepDir', { msg: error.message }) };
   }
 
   const args = launchPlan.args;
-  const env = app_.launchEnv(profile, { ...process.env });
+  let runtimeProfile = profile;
+  if (profile.appId === 'codex' && process.platform === 'darwin') {
+    const runtimeHome = ensureCodexRuntimeHome(profile);
+    if (runtimeHome.aliased) runtimeProfile = { ...profile, sessionRoot: runtimeHome.sessionRoot };
+  }
+  const env = app_.launchEnv(runtimeProfile, { ...process.env });
   if (process.platform === 'win32') windowsDiscoveryCache.clear();
   const launcher = findExecutable(profile);
   const launchOwned = async (command, launchArgs, launchEnv) => {

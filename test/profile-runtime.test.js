@@ -101,11 +101,12 @@ test('Crashpad 清理拒绝 pending 符号链接，不会越过 Profile 边界',
   assert.equal(fs.readFileSync(path.join(outside, 'secret.dmp'), 'utf8'), 'keep');
 });
 
-test('相同尺寸转储一分钟内达到五次后熔断并关闭 AgentDesk 所有的 Profile', async () => {
+test('相同尺寸辅助进程转储达到阈值时保留健康客户端并限制重复告警', async () => {
   const { root, profilePath, pendingPath } = fixture();
   const now = Date.now();
   for (let index = 0; index < 5; index += 1) writeReport(pendingPath, `loop-${index}`, 165_168, now - index);
   const profile = { id: 'codex-profile', profilePath };
+  let signalCount = 0;
   let processes = [{
     pid: 9001,
     ppid: 1,
@@ -117,7 +118,7 @@ test('相同尺寸转储一分钟内达到五次后熔断并关闭 AgentDesk 所
     stateFile: path.join(root, 'profile-runtime.json'),
     now: () => now,
     snapshotProcessRecords: () => processes,
-    signalProcess: (pid) => { processes = processes.filter((item) => item.pid !== pid); },
+    signalProcess: () => { signalCount += 1; },
     limits: { terminateGraceMs: 0, burstLimit: 5, burstWindowMs: 60_000 },
     onIncident: (incident) => incidents.push(incident)
   });
@@ -126,12 +127,20 @@ test('相同尺寸转储一分钟内达到五次后熔断并关闭 AgentDesk 所
   await supervisor.tick();
 
   const status = supervisor.status(profile);
-  assert.equal(status.fusedAt !== null, true);
-  assert.equal(status.active, false);
-  assert.equal(status.owned, false);
+  assert.equal(status.fusedAt, null);
+  assert.equal(status.active, true);
+  assert.equal(status.owned, true);
+  assert.equal(status.lastIncident.reason, 'crashpad-burst-contained');
   assert.equal(status.lastIncident.burstCount, 5);
   assert.equal(incidents.length, 1);
-  assert.equal((await supervisor.preflight(profile)).reasonCode, 'profile-crashpad-fused');
+  assert.equal(signalCount, 0);
+  await supervisor.tick();
+  assert.equal(incidents.length, 1);
+  assert.deepEqual(await supervisor.preflight(profile), {
+    ok: true,
+    alreadyRunning: true,
+    processCount: 1
+  });
 
   const inherited = fixture();
   for (let index = 0; index < 5; index += 1) {
@@ -142,26 +151,29 @@ test('相同尺寸转储一分钟内达到五次后熔断并关闭 AgentDesk 所
     pid: 9002,
     ppid: 1,
     pgid: 9002,
-    command: `/Applications/ChatGPT.app/Contents/MacOS/ChatGPT --user-data-dir=${inherited.profilePath} --type=browser`
+    command: `browser_crashpad_handler --database="${inherited.profilePath}/Crashpad"`
   }];
   const inheritedSupervisor = new ProfileRuntimeSupervisor({
     stateFile: path.join(inherited.root, 'profile-runtime.json'),
     now: () => now,
     isManagedProfile: (item) => item.id === inheritedProfile.id,
     snapshotProcessRecords: () => inheritedProcesses,
-    signalProcess: (pid) => {
-      inheritedProcesses = inheritedProcesses.filter((item) => item.pid !== pid);
-    },
+    signalProcess: () => { throw new Error('must-not-kill-unowned-crashpad'); },
     limits: { terminateGraceMs: 0, burstLimit: 5, burstWindowMs: 60_000 }
   });
   inheritedSupervisor.updateProfiles([inheritedProfile]);
   await inheritedSupervisor.tick();
 
   const inheritedStatus = inheritedSupervisor.status(inheritedProfile);
-  assert.equal(inheritedStatus.fusedAt !== null, true);
+  assert.equal(inheritedStatus.fusedAt, null);
   assert.equal(inheritedStatus.active, false);
   assert.equal(inheritedStatus.owned, false);
-  assert.equal(inheritedProcesses.length, 0);
+  assert.equal(inheritedStatus.lastIncident.reason, 'crashpad-burst-contained');
+  assert.equal(inheritedProcesses.length, 1);
+  assert.deepEqual(await inheritedSupervisor.preflight(inheritedProfile), {
+    ok: true,
+    alreadyRunning: false
+  });
 
   const external = fixture();
   for (let index = 0; index < 5; index += 1) {
@@ -218,6 +230,61 @@ test('重复启动同一 user-data-dir 会被识别，不会产生第二个实�
   });
 });
 
+test('主窗口崩溃后只剩 owned Crashpad 时会收口孤儿并允许重新打开', async () => {
+  const { root, profilePath } = fixture();
+  const profile = { id: 'crashed-client', profilePath };
+  let processes = [{
+    pid: 303,
+    ppid: 1,
+    pgid: 303,
+    command: `browser_crashpad_handler --database="${profilePath}/Crashpad"`
+  }];
+  const supervisor = new ProfileRuntimeSupervisor({
+    stateFile: path.join(root, 'profile-runtime.json'),
+    snapshotProcessRecords: () => processes,
+    signalProcess: (pid) => {
+      processes = processes.filter((item) => item.pid !== pid);
+    },
+    limits: { terminateGraceMs: 0 }
+  });
+  supervisor.updateProfiles([profile]);
+  supervisor.registerLaunch(profile, { pid: 302 });
+
+  assert.deepEqual(await supervisor.preflight(profile), {
+    ok: true,
+    alreadyRunning: false
+  });
+  assert.equal(processes.length, 0);
+  assert.equal(supervisor.status(profile).owned, false);
+  assert.equal(supervisor.status(profile).active, false);
+});
+
+test('无所有权的 Crashpad-only 记录不冒充客户端，也不被普通预检终止', async () => {
+  const { root, profilePath } = fixture();
+  const profile = { id: 'inherited-crashpad', profilePath };
+  const processes = [{
+    pid: 404,
+    ppid: 1,
+    pgid: 404,
+    command: `browser_crashpad_handler --database="${profilePath}/Crashpad"`
+  }];
+  let signalCount = 0;
+  const supervisor = new ProfileRuntimeSupervisor({
+    stateFile: path.join(root, 'profile-runtime.json'),
+    snapshotProcessRecords: () => processes,
+    signalProcess: () => { signalCount += 1; },
+    limits: { terminateGraceMs: 0 }
+  });
+  supervisor.updateProfiles([profile]);
+
+  assert.deepEqual(await supervisor.preflight(profile), {
+    ok: true,
+    alreadyRunning: false
+  });
+  assert.equal(signalCount, 0);
+  assert.equal(supervisor.status(profile).active, false);
+});
+
 test('AgentDesk 启动的进程自然退出后解除所有权，不会误关后来由用户启动的同路径进程', async () => {
   const { root, profilePath } = fixture();
   const profile = { id: 'ownership-release', profilePath };
@@ -251,22 +318,37 @@ test('AgentDesk 启动的进程自然退出后解除所有权，不会误关后�
   });
 });
 
-test('安全清理会解除熔断，但不会删除 Profile 数据库或会话', async () => {
+test('旧版重复转储熔断自动迁移为可启动状态，安全清理不删除 Profile 数据', async () => {
   const { root, profilePath, pendingPath } = fixture();
   const now = Date.now();
   for (let index = 0; index < 5; index += 1) writeReport(pendingPath, `fuse-${index}`, 120, now - index);
   fs.writeFileSync(path.join(profilePath, 'Cookies'), 'database');
   const profile = { id: 'clean', profilePath };
+  const stateFile = path.join(root, 'profile-runtime.json');
+  fs.writeFileSync(stateFile, JSON.stringify({
+    version: 1,
+    records: [{
+      profileId: profile.id,
+      profilePath,
+      launchPid: null,
+      launchedAt: null,
+      active: false,
+      owned: false,
+      fusedAt: new Date(now).toISOString(),
+      fuseReason: 'crashpad-repeated-signature',
+      lastIncident: { reason: 'crashpad-repeated-signature', burstCount: 5 }
+    }]
+  }));
   const supervisor = new ProfileRuntimeSupervisor({
-    stateFile: path.join(root, 'profile-runtime.json'),
+    stateFile,
     now: () => now,
     isManagedProfile: (item) => item.id === profile.id,
     snapshotProcessRecords: () => [],
     limits: { terminateGraceMs: 0 }
   });
   supervisor.updateProfiles([profile]);
-  await supervisor.tick();
-  assert.equal(supervisor.status(profile).fusedAt !== null, true);
+  assert.equal(supervisor.status(profile).fusedAt, null);
+  assert.deepEqual(await supervisor.preflight(profile), { ok: true, alreadyRunning: false });
 
   const cleaned = await supervisor.cleanCrashpad(profile);
   assert.equal(cleaned.ok, true);

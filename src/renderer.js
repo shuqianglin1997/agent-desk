@@ -1411,7 +1411,9 @@ function bindEvents() {
   });
 
   window.manager.onProfileRuntimeIncident?.((incident) => {
-    if (incident?.reason === 'crashpad-repeated-signature') {
+    if (incident?.reason === 'crashpad-burst-contained') {
+      setStatus(tr('status.crashpadContained'));
+    } else if (incident?.reason === 'crashpad-repeated-signature') {
       setStatus(tr('status.crashpadFused'));
     } else if (incident?.reason === 'crashpad-limit-pruned') {
       setStatus(tr('status.crashpadPruned', { n: incident.removedFiles || 0 }));

@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const {
   REMOTE_SDP_LIMIT,
+  RemoteControlService,
   normalizeRemoteDescription,
   normalizeViewCommand,
   normalizePublicDisplays,
@@ -89,8 +90,11 @@ test('远控使用主窗口内嵌沙箱 Surface、目标端确认与常驻停止
   assert.match(service, /alwaysOnTop: true[\s\S]*?title: 'AgentDesk Remote View'[\s\S]*?contextIsolation: true[\s\S]*?sandbox: true/);
   assert.match(service, /requireCapability\(peer\.remote, 'screen\.view'\)/);
   assert.match(service, /requireCapability\(context\.peer\.remote, 'screen\.view'\)/);
+  assert.match(service, /remote-host:authorize-view/);
   assert.match(consoleHtml, /Content-Security-Policy[^>]*default-src 'none'/);
-  assert.match(hostHtml, /id="consentView"[\s\S]*?id="allowBtn"[\s\S]*?id="indicatorView"[\s\S]*?id="stopBtn"/);
+  assert.match(hostHtml, /id="consentView"[\s\S]*?id="sourcePicker" hidden[\s\S]*?id="allowBtn"[\s\S]*?id="indicatorView"[\s\S]*?id="stopBtn"/);
+  assert.match(hostPreload, /authorizeView: \(\) => ipcRenderer\.invoke\('remote-host:authorize-view'/);
+  assert.match(hostRenderer, /await window\.remoteHost\.authorizeView\(\)[\s\S]*?await capture\(currentSource, currentQuality\)/);
   assert.match(hostRenderer, /chromeMediaSource: 'desktop'/);
   assert.match(hostRenderer, /videoSender\.replaceTrack/);
   assert.doesNotMatch(`${consolePreload}\n${hostPreload}`, /ipcRenderer\.invoke\([^'\"]|remoteCommand|shell\.run|generic\.exec/);
@@ -139,4 +143,75 @@ test('macOS 屏幕权限状态被规范化，其他平台由系统捕获 API 决
   } else {
     assert.equal(screenPermission(null), 'granted');
   }
+});
+
+test('远端查看请求在目标端本机明确同意前不枚举屏幕', async () => {
+  const ipcChannels = [];
+  let captureCalls = 0;
+  const service = new RemoteControlService({
+    ipcMain: { handle: (channel) => ipcChannels.push(channel) },
+    desktopCapturer: {
+      getSources: async () => {
+        captureCalls += 1;
+        return [{ id: 'screen:0:0', display_id: '7', name: 'Main display' }];
+      }
+    },
+    screen: {
+      getAllDisplays: () => [{ id: 7, size: { width: 2560, height: 1440 }, scaleFactor: 2 }]
+    },
+    meshService: {
+      getPeerContext: () => ({
+        remote: { deviceId: 'controller', permissions: ['screen.view'] }
+      })
+    }
+  });
+  service.spawnHost = async () => {};
+
+  await service.receiveOffer({
+    peer: {
+      remote: {
+        deviceId: 'controller',
+        name: 'Controller',
+        permissions: ['screen.view']
+      }
+    }
+  }, {
+    sessionId: 'incoming-view',
+    description: { type: 'offer', sdp: 'v=0' }
+  });
+
+  const session = service.sessions.get('incoming-view');
+  assert.equal(captureCalls, 0);
+  assert.deepEqual(session.captureDisplays, []);
+  assert.equal(session.viewConsentGranted, false);
+  assert.ok(ipcChannels.includes('remote-host:authorize-view'));
+
+  const window = {
+    isDestroyed: () => false,
+    isVisible: () => true,
+    isFocused: () => false
+  };
+  const context = { session, window };
+  session.hostContext = context;
+  await assert.rejects(
+    service.handleHostAnswer(context, {
+      sourceId: 'screen:0:0',
+      description: { type: 'answer', sdp: 'v=0' }
+    }),
+    /remote-view-consent-required/
+  );
+  await assert.rejects(
+    service.handleHostAuthorizeView(context),
+    /remote-view-consent-local-focus-required/
+  );
+  assert.equal(captureCalls, 0);
+
+  window.isFocused = () => true;
+  const authorized = await service.handleHostAuthorizeView(context);
+  assert.equal(captureCalls, 1);
+  assert.equal(session.viewConsentGranted, true);
+  assert.equal(authorized.displays[0].id, 'screen:0:0');
+
+  await service.handleHostAuthorizeView(context);
+  assert.equal(captureCalls, 1);
 });

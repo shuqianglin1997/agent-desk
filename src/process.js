@@ -105,6 +105,18 @@ function findProfileProcesses(records, profilePath) {
   ));
 }
 
+// Duplicate-launch detection must require a real client process carrying the
+// Profile's user-data-dir. Crashpad handlers can outlive a crashed browser;
+// they remain part of lifecycle cleanup, but they do not prove that a usable
+// client window still exists.
+function findProfileClientProcesses(records, profilePath) {
+  if (!Array.isArray(records) || !profilePath) return [];
+  return records.filter((record) => (
+    record && Number.isInteger(record.pid) && record.pid > 0 &&
+    matchesDataDir(record.command, profilePath)
+  ));
+}
+
 // Windows 默认 Store/MSIX 槽位不传 --user-data-dir，无法按账号目录匹配。
 // 只匹配没有隔离参数的桌面 App 进程，并排除常见 CLI shim 路径。
 function isDefaultWindowsAppRunning(psText, executableNames) {
@@ -221,5 +233,6 @@ module.exports = {
   snapshotProcesses,
   snapshotProcessRecords,
   findProfileProcesses,
+  findProfileClientProcesses,
   matchesCrashpadDatabase
 };
