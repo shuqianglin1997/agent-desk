@@ -38,6 +38,10 @@ const {
 } = require('./cli-discovery');
 const windows = require('./windows');
 const { macApplicationBundlePath, macLaunchServicesArgs } = require('./mac-launch');
+const {
+  defaultMacApplicationActivatorPath,
+  activateMacProfileApplication
+} = require('./mac-application-activator');
 const { ensureCodexRuntimeHome } = require('./codex-runtime-home');
 const { QuotaService } = require('./quota-service');
 const { normalizeCat } = require('./yard/cats');
@@ -3036,6 +3040,29 @@ async function launchProfile(profile) {
       };
     }
     if (preflight.alreadyRunning) {
+      if (process.platform === 'darwin') {
+        const activated = await activateMacProfileApplication(profile, {
+          helperPath: defaultMacApplicationActivatorPath({
+            isPackaged: app.isPackaged,
+            resourcesPath: process.resourcesPath,
+            appPath: app.getAppPath()
+          })
+        });
+        if (!activated.ok) {
+          return {
+            ok: false,
+            alreadyRunning: true,
+            reasonCode: activated.reasonCode,
+            reason: t('main.launch.activationFailed', { code: activated.reasonCode })
+          };
+        }
+        return {
+          ok: true,
+          alreadyRunning: true,
+          activated: true,
+          warning: t('main.launch.activated')
+        };
+      }
       return {
         ok: true,
         alreadyRunning: true,

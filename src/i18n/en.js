@@ -1443,6 +1443,8 @@
     'main.launch.crashpadFused': 'This Profile was fused after repeated crashes. Safely clean its reports under Manage Agent → Clean crash reports before reopening it.',
     'main.launch.runtimeCheckFailed': 'The Profile background process could not be checked safely ({code}); launch was cancelled.',
     'main.launch.alreadyRunning': 'The same Profile is already running; it was not launched again.',
+    'main.launch.activated': 'The same Profile is already running; its window was brought forward.',
+    'main.launch.activationFailed': 'The Profile is still running, but its window could not be safely activated ({code}).',
     'main.launch.profileIsolationUnsupported': '{label} does not currently expose a verified isolated Profile data directory. AgentDesk cancelled the launch to prevent accounts from sharing data.',
     'main.warn.appNotFound': 'Official {appName} app not found on standard paths.',
     'main.warn.manualPathInvalid': 'The manually set official app path is invalid; fell back to auto-detection.',

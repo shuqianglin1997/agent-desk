@@ -49,6 +49,25 @@ test('Windows PATH 中带引号的目录仍能发现 Codex', () => {
   assert.ok(candidates.some((item) => item.path === 'C:\\Program Files\\Codex Bin\\codex.exe'));
 });
 
+test('macOS Finder 精简 PATH 下可发现 ChatGPT.app 内置 Codex', () => {
+  const bundledCodex = '/Applications/ChatGPT.app/Contents/Resources/codex';
+  const resolved = resolveCodexCli({
+    platform: 'darwin',
+    arch: 'arm64',
+    home: '/Users/tester',
+    env: { PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
+    fs: {
+      statSync(filePath) {
+        if (filePath !== bundledCodex) throw new Error('ENOENT');
+        return { isFile: () => true };
+      }
+    }
+  });
+
+  assert.equal(resolved.path, bundledCodex);
+  assert.equal(resolved.source, 'ChatGPT App');
+});
+
 test('CLI 解析选择真实存在的 PATH 程序', () => {
   const root = mkTmp();
   const executable = path.join(root, process.platform === 'win32' ? 'codex.exe' : 'codex');

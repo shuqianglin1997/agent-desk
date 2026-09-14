@@ -126,7 +126,11 @@ test('macOS 与 Windows 助手均实现心跳释放，打包只带编译产物',
   assert.match(build, /swiftc[\s\S]*?lipo/);
   assert.match(build, /cl\.exe/);
   assert.equal(pkg.build.beforePack, 'scripts/build-native-helpers.js');
-  assert.deepEqual(pkg.build.extraResources[0].filter, ['AgentDeskInputHelper', 'AgentDeskInputHelper.exe']);
+  assert.deepEqual(pkg.build.extraResources[0].filter, [
+    'AgentDeskInputHelper',
+    'AgentDeskInputHelper.exe',
+    'AgentDeskAppActivator'
+  ]);
   assert.match(defaultInputHelperPath({ platform: 'darwin', isPackaged: true, resourcesPath: '/App/Resources' }), /Resources[\\/]native[\\/]AgentDeskInputHelper$/);
 
   const nativeHelperBuild = require('../scripts/build-native-helpers');

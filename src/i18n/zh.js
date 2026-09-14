@@ -1443,6 +1443,8 @@
     'main.launch.crashpadFused': '这个 Profile 因重复崩溃已被熔断。请先在「管理 Agent → 清理崩溃报告」中安全清理，再重新打开。',
     'main.launch.runtimeCheckFailed': '无法安全检查 Profile 后台进程（{code}），已取消启动。',
     'main.launch.alreadyRunning': '同一 Profile 已在运行，没有重复启动。',
+    'main.launch.activated': '同一 Profile 已在运行，已唤醒并显示它的窗口。',
+    'main.launch.activationFailed': 'Profile 仍在运行，但无法安全唤醒窗口（{code}）。',
     'main.launch.profileIsolationUnsupported': '{label} 当前官方客户端没有经过验证的独立 Profile 数据目录。AgentDesk 已取消启动，避免不同账号共用同一份数据。',
     'main.warn.appNotFound': '未在标准路径找到 {appName} 官方 App。',
     'main.warn.manualPathInvalid': '手动指定的官方 App 路径已失效，当前已回退到自动查找。',

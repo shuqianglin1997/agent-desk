@@ -48,31 +48,50 @@ function createWindowsBuildInvocation({ vcvars, source, output }) {
   };
 }
 
-function buildMac() {
-  const source = path.join(root, 'native', 'macos', 'AgentDeskInputHelper.swift');
-  const output = path.join(outputDirectory, 'AgentDeskInputHelper');
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-input-helper-'));
-  const sdk = execFileSync('xcrun', ['--sdk', 'macosx', '--show-sdk-path'], { encoding: 'utf8' }).trim();
+function buildUniversalMacHelper({ name, sourceName, framework, temporary, sdk }) {
+  const source = path.join(root, 'native', 'macos', sourceName);
+  const output = path.join(outputDirectory, name);
   const binaries = [];
+  for (const arch of ['arm64', 'x86_64']) {
+    const target = path.join(temporary, `${name}-${arch}`);
+    run('xcrun', [
+      'swiftc', source,
+      '-O',
+      '-sdk', sdk,
+      '-target', `${arch}-apple-macosx12.0`,
+      '-framework', framework,
+      '-o', target
+    ]);
+    binaries.push(target);
+  }
+  run('xcrun', ['lipo', '-create', ...binaries, '-output', output]);
+  fs.chmodSync(output, 0o755);
+  return output;
+}
+
+function buildMac() {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-native-helpers-'));
+  const sdk = execFileSync('xcrun', ['--sdk', 'macosx', '--show-sdk-path'], { encoding: 'utf8' }).trim();
   try {
-    for (const arch of ['arm64', 'x86_64']) {
-      const target = path.join(temporary, `AgentDeskInputHelper-${arch}`);
-      run('xcrun', [
-        'swiftc', source,
-        '-O',
-        '-sdk', sdk,
-        '-target', `${arch}-apple-macosx12.0`,
-        '-framework', 'ApplicationServices',
-        '-o', target
-      ]);
-      binaries.push(target);
-    }
-    run('xcrun', ['lipo', '-create', ...binaries, '-output', output]);
-    fs.chmodSync(output, 0o755);
+    return [
+      buildUniversalMacHelper({
+        name: 'AgentDeskInputHelper',
+        sourceName: 'AgentDeskInputHelper.swift',
+        framework: 'ApplicationServices',
+        temporary,
+        sdk
+      }),
+      buildUniversalMacHelper({
+        name: 'AgentDeskAppActivator',
+        sourceName: 'AgentDeskAppActivator.swift',
+        framework: 'AppKit',
+        temporary,
+        sdk
+      })
+    ];
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }
-  return output;
 }
 
 function buildWindows() {
@@ -112,12 +131,13 @@ function build() {
 }
 
 module.exports = async function beforePack() {
-  const output = build();
-  process.stdout.write(`AgentDesk input helper built: ${output}\n`);
+  const outputs = [build()].flat();
+  process.stdout.write(`AgentDesk native helpers built: ${outputs.join(', ')}\n`);
 };
 
 module.exports._internals = {
   createWindowsBuildInvocation,
+  buildUniversalMacHelper,
   run
 };
 

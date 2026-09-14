@@ -96,6 +96,11 @@ function codexCliCandidates(options = {}) {
     add(p.join(home, '.npm-global', 'bin', 'codex'), 'npm');
     add('/opt/homebrew/bin/codex', 'Homebrew');
     add('/usr/local/bin/codex', '系统工具目录');
+    // Recent ChatGPT desktop builds bundle Codex directly inside ChatGPT.app.
+    // Keep the legacy Codex.app compatibility path too: not every rollout
+    // creates that bundle, especially after an in-place desktop app update.
+    add('/Applications/ChatGPT.app/Contents/Resources/codex', 'ChatGPT App');
+    add(p.join(home, 'Applications', 'ChatGPT.app', 'Contents', 'Resources', 'codex'), 'ChatGPT App');
     add('/Applications/Codex.app/Contents/Resources/codex', 'Codex App');
     add(p.join(home, 'Applications', 'Codex.app', 'Contents', 'Resources', 'codex'), 'Codex App');
     for (const prefix of [p.join(home, '.npm-global'), '/opt/homebrew', '/usr/local']) {

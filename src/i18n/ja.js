@@ -1443,6 +1443,8 @@
     'main.launch.crashpadFused': '繰り返しクラッシュのため、この Profile は停止されています。「Agent を管理 → クラッシュレポートを削除」で安全に削除してから再度開いてください。',
     'main.launch.runtimeCheckFailed': 'Profile のバックグラウンドプロセスを安全に確認できないため（{code}）、起動を中止しました。',
     'main.launch.alreadyRunning': '同じ Profile は既に実行中のため、重複起動しませんでした。',
+    'main.launch.activated': '同じ Profile は既に実行中です。ウインドウを前面に表示しました。',
+    'main.launch.activationFailed': 'Profile は実行中ですが、ウインドウを安全に前面表示できませんでした（{code}）。',
     'main.launch.profileIsolationUnsupported': '{label} の公式クライアントでは、独立した Profile データディレクトリがまだ検証されていません。アカウント間でデータを共有しないよう、AgentDesk は起動を中止しました。',
     'main.warn.appNotFound': '標準パスで {appName} 公式アプリが見つかりません。',
     'main.warn.manualPathInvalid': '手動指定した公式アプリのパスが失効し、自動検出に戻しました。',

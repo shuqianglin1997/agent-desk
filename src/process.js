@@ -117,6 +117,21 @@ function findProfileClientProcesses(records, profilePath) {
   ));
 }
 
+// Window activation must target the browser application process, never one of
+// its renderer/GPU helpers. Pick only roots of this exact Profile's process
+// tree and exclude Chromium --type children (including re-parented helpers).
+function findProfileMainProcesses(records, profilePath) {
+  const clients = findProfileClientProcesses(records, profilePath);
+  const clientPids = new Set(clients.map((record) => record.pid));
+  return clients.filter((record) => {
+    if (clientPids.has(record.ppid)) return false;
+    const command = String(record.command || '');
+    if (/(?:^|\s)--type(?:=|\s)/.test(command)) return false;
+    if (/\/Contents\/Frameworks\/[^/]+\/Helpers\//i.test(command)) return false;
+    return true;
+  }).sort((left, right) => left.pid - right.pid);
+}
+
 // Windows 默认 Store/MSIX 槽位不传 --user-data-dir，无法按账号目录匹配。
 // 只匹配没有隔离参数的桌面 App 进程，并排除常见 CLI shim 路径。
 function isDefaultWindowsAppRunning(psText, executableNames) {
@@ -234,5 +249,6 @@ module.exports = {
   snapshotProcessRecords,
   findProfileProcesses,
   findProfileClientProcesses,
+  findProfileMainProcesses,
   matchesCrashpadDatabase
 };

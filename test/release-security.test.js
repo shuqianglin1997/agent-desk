@@ -87,6 +87,8 @@ test('macOS 正式构建强制签名、公证和 Hardened Runtime', () => {
   assert.match(macCi, /Expected exactly one unpacked AgentDesk\.app/);
   assert.match(macCi, /lipo -archs "\$PACKAGED_APP\/Contents\/MacOS\/AgentDesk"/);
   assert.match(macCi, /Contents\/Resources\/native\/AgentDeskInputHelper/);
+  assert.match(macCi, /Contents\/Resources\/native\/AgentDeskAppActivator/);
+  assert.match(macCi, /\[ -L "\$helper_path" \]/);
   assert.match(macCi, /arm64/);
   assert.match(macCi, /x86_64/);
   assert.match(macCi, /npm run verify:electron-package -- --artifact "\$PACKAGED_APP"/);
@@ -209,6 +211,10 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
   assert.match(macVerifier, /Expected a universal input helper/);
   assert.match(macVerifier, /Verifying bundled input helper signature/);
   assert.match(macVerifier, /helper_team_identifier/);
+  assert.match(macVerifier, /Contents\/Resources\/native\/AgentDeskAppActivator/);
+  assert.match(macVerifier, /Expected a universal app activator/);
+  assert.match(macVerifier, /Verifying bundled app activator signature/);
+  assert.match(macVerifier, /activator_team_identifier/);
 
   for (const secret of ['WIN_CSC_LINK', 'WIN_CSC_KEY_PASSWORD']) {
     assert.ok(workflow.includes(`secrets.${secret}`), `${secret} is not wired into release CI`);
@@ -494,12 +500,12 @@ test('主分支 macOS 和 Windows CI 只运行固定 SHA action 且 checkout 不
   }
 });
 
-test('桌面包只携带固定名称的原生输入 helper', () => {
+test('桌面包只携带固定名称的原生 helper', () => {
   const resources = packageJson.build.extraResources;
   assert.deepEqual(resources, [{
     from: 'native/bin',
     to: 'native',
-    filter: ['AgentDeskInputHelper', 'AgentDeskInputHelper.exe']
+    filter: ['AgentDeskInputHelper', 'AgentDeskInputHelper.exe', 'AgentDeskAppActivator']
   }]);
   assert.equal(packageJson.build.beforePack, 'scripts/build-native-helpers.js');
 });

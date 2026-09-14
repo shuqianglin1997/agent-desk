@@ -7,6 +7,7 @@ const {
   isRunningIn,
   findProfileProcesses,
   findProfileClientProcesses,
+  findProfileMainProcesses,
   matchesCrashpadDatabase
 } = require('../src/process');
 
@@ -87,4 +88,17 @@ test('Profile 进程集合同时识别主进程参数和该 Profile 的 Crashpad
     `browser_crashpad_handler --database="/tmp${profilePath}/Crashpad"`,
     profilePath
   ), false);
+});
+
+test('窗口激活只选择精确 Profile 的浏览器根进程', () => {
+  const profileA = `${H}/AgentDesk/Profiles/Codex/a`;
+  const profileB = `${H}/AgentDesk/Profiles/Codex/b`;
+  const records = [
+    { pid: 100, ppid: 1, command: `/Applications/ChatGPT.app/Contents/MacOS/ChatGPT --user-data-dir=${profileA}` },
+    { pid: 101, ppid: 100, command: `Codex Renderer --type=renderer --user-data-dir=${profileA}` },
+    { pid: 102, ppid: 1, command: `Codex Renderer --type=renderer --user-data-dir=${profileA}` },
+    { pid: 200, ppid: 1, command: `/Applications/ChatGPT.app/Contents/MacOS/ChatGPT --user-data-dir=${profileB}` }
+  ];
+  assert.deepEqual(findProfileMainProcesses(records, profileA).map((item) => item.pid), [100]);
+  assert.deepEqual(findProfileMainProcesses(records, profileB).map((item) => item.pid), [200]);
 });

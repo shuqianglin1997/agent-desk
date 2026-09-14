@@ -63,13 +63,17 @@ jobs:
         run: |
           set -euo pipefail
           app_architectures="$(lipo -archs "$PACKAGED_APP/Contents/MacOS/AgentDesk")"
-          helper_path="$PACKAGED_APP/Contents/Resources/native/AgentDeskInputHelper"
-          if [ ! -f "$helper_path" ] || [ ! -x "$helper_path" ]; then
-            echo "::error::Expected the packaged universal input helper at its fixed path."
-            exit 1
-          fi
-          helper_architectures="$(lipo -archs "$helper_path")"
-          for architectures in "$app_architectures" "$helper_architectures"; do
+          input_helper_path="$PACKAGED_APP/Contents/Resources/native/AgentDeskInputHelper"
+          app_activator_path="$PACKAGED_APP/Contents/Resources/native/AgentDeskAppActivator"
+          for helper_path in "$input_helper_path" "$app_activator_path"; do
+            if [ ! -f "$helper_path" ] || [ ! -x "$helper_path" ] || [ -L "$helper_path" ]; then
+              echo "::error::Expected a packaged universal native helper at its fixed path: $helper_path"
+              exit 1
+            fi
+          done
+          input_helper_architectures="$(lipo -archs "$input_helper_path")"
+          app_activator_architectures="$(lipo -archs "$app_activator_path")"
+          for architectures in "$app_architectures" "$input_helper_architectures" "$app_activator_architectures"; do
             if [[ " $architectures " != *" arm64 "* ]] || [[ " $architectures " != *" x86_64 "* ]]; then
               echo "::error::Expected arm64 and x86_64; found: $architectures"
               exit 1

@@ -72,6 +72,17 @@ if [[ " ${helper_architectures} " != *" arm64 "* ]] || [[ " ${helper_architectur
   exit 1
 fi
 
+app_activator="${app_path}/Contents/Resources/native/AgentDeskAppActivator"
+if [ ! -f "$app_activator" ] || [ ! -x "$app_activator" ] || [ -L "$app_activator" ]; then
+  echo "::error::Signed app activator is missing, not executable, or a symlink in the final DMG." >&2
+  exit 1
+fi
+activator_architectures="$(lipo -archs "$app_activator")"
+if [[ " ${activator_architectures} " != *" arm64 "* ]] || [[ " ${activator_architectures} " != *" x86_64 "* ]]; then
+  echo "::error::Expected a universal app activator; found architectures: ${activator_architectures}." >&2
+  exit 1
+fi
+
 echo "Verifying Developer ID signature"
 codesign --verify --deep --strict --verbose=2 "$app_path"
 signature_details="$(codesign -dvvv "$app_path" 2>&1)"
@@ -108,6 +119,20 @@ helper_team_line="$(grep -m1 '^TeamIdentifier=' <<<"$helper_signature_details" |
 helper_team_identifier="${helper_team_line#TeamIdentifier=}"
 if [ "$helper_team_identifier" != "$expected_team_identifier" ]; then
   echo "::error::AgentDeskInputHelper was signed by team ${helper_team_identifier:-none}; expected ${expected_team_identifier}." >&2
+  exit 1
+fi
+
+echo "Verifying bundled app activator signature"
+codesign --verify --strict --verbose=2 "$app_activator"
+activator_signature_details="$(codesign -dvvv "$app_activator" 2>&1)"
+if ! grep -q '^Authority=Developer ID Application:' <<<"$activator_signature_details"; then
+  echo "::error::AgentDeskAppActivator is not signed with a Developer ID Application certificate." >&2
+  exit 1
+fi
+activator_team_line="$(grep -m1 '^TeamIdentifier=' <<<"$activator_signature_details" || true)"
+activator_team_identifier="${activator_team_line#TeamIdentifier=}"
+if [ "$activator_team_identifier" != "$expected_team_identifier" ]; then
+  echo "::error::AgentDeskAppActivator was signed by team ${activator_team_identifier:-none}; expected ${expected_team_identifier}." >&2
   exit 1
 fi
 
