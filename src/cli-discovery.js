@@ -15,6 +15,10 @@ const CLI_DEFINITIONS = Object.freeze({
     names: Object.freeze(['claude']),
     envKeys: Object.freeze(['AGENTDESK_CLAUDE_CLI', 'CLAUDE_CLI_PATH'])
   }),
+  dsh: Object.freeze({
+    names: Object.freeze(['dsh']),
+    envKeys: Object.freeze(['AGENTDESK_DSH_CLI', 'DSH_CLI_PATH'])
+  }),
   gemini: Object.freeze({
     names: Object.freeze(['gemini']),
     envKeys: Object.freeze(['AGENTDESK_GEMINI_CLI', 'GEMINI_CLI_PATH'])
@@ -108,19 +112,46 @@ function resolveExecutableCandidates(candidates, options = {}) {
   const fs_ = options.fs || fs;
   const platform = options.platform || process.platform;
   const env = options.env || process.env;
+  const separator = platform === 'win32' ? ';' : ':';
+
+  function isNodeScript(filePath) {
+    if (/\.(?:c?m)?js$/i.test(filePath)) return true;
+    if (typeof fs_.readFileSync !== 'function') return false;
+    try {
+      const head = String(fs_.readFileSync(filePath, { encoding: 'utf8' })).slice(0, 256);
+      return /^#![^\n]*\bnode(?:\s|$)/m.test(head);
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function nodeRuntimeEnv(scriptPath, launcherPath = scriptPath) {
+    const pathEntries = [
+      path.dirname(launcherPath),
+      path.dirname(scriptPath),
+      path.dirname(options.nodeExecutable || process.execPath),
+      ...String(env.PATH || '').split(separator).filter(Boolean)
+    ];
+    const extraEnv = { ELECTRON_RUN_AS_NODE: '1' };
+    extraEnv.PATH = [...new Set(pathEntries)].join(separator);
+    return extraEnv;
+  }
+
   for (const candidate of candidates || []) {
     try {
       if (!fs_.statSync(candidate.path).isFile()) continue;
       let realPath = candidate.path;
       try { realPath = fs_.realpathSync(candidate.path); } catch (_error) { /* use visible path */ }
-      if (/\.m?js$/i.test(realPath)) {
-        return {
+      if (isNodeScript(realPath)) {
+        const launcher = {
           command: options.nodeExecutable || process.execPath,
           prefixArgs: [realPath],
           extraEnv: { ELECTRON_RUN_AS_NODE: '1' },
           path: candidate.path,
           source: candidate.source
         };
+        launcher.extraEnv.PATH = nodeRuntimeEnv(realPath, candidate.path).PATH;
+        return launcher;
       }
       if (platform === 'win32' && /\.(?:cmd|bat)$/i.test(candidate.path)) {
         return {

@@ -1414,6 +1414,7 @@
     'main.tools.noExecutable': '起動可能なツールプログラムが見つかりません。',
     'main.tools.invalidExecutable': 'ツールのパスに安全に起動できない文字が含まれています。',
     'main.tools.noTerminal': '利用可能なシステムターミナルが見つかりません。',
+    'main.tools.profileMismatch': '選択したプロファイルはこの CLI ツールに属していません。対応する CLI プロファイルを選択してください。',
     'main.tools.openedTerminal': '新しいターミナルで {label} を開きました。',
     'main.tools.updateBusy': '{label} を更新中です。完了までお待ちください。',
     'main.tools.systemManaged': 'このツールは OS によって管理されており、個別には更新できません。',

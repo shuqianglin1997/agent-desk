@@ -1414,6 +1414,7 @@
     'main.tools.noExecutable': '没有找到可启动的工具程序。',
     'main.tools.invalidExecutable': '工具程序路径包含无法安全启动的字符。',
     'main.tools.noTerminal': '没有找到可用的系统终端。',
+    'main.tools.profileMismatch': '当前选择的 Profile 不属于这个 CLI 工具，请选择对应的 CLI Profile。',
     'main.tools.openedTerminal': '已在新终端中打开 {label}。',
     'main.tools.updateBusy': '{label} 正在更新，请等待完成。',
     'main.tools.systemManaged': '这个工具由操作系统管理，不支持独立更新。',

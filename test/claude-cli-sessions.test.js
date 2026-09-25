@@ -121,3 +121,16 @@ test('注册表 claude-cli：默认读 ~/.claude，独立槽位用 CLAUDE_CONFIG
   assert.equal(byId['claude-cli'].canLaunch, false);
   assert.equal(byId.claude.canLaunch, true);
 });
+
+test('注册表 dsh-cli：独立槽位用 DSH_HOME 和 desktop profile 启动', () => {
+  assert.equal(apps.isKnownApp('dsh-cli'), true);
+  const app_ = apps.getApp('dsh-cli');
+  assert.equal(app_.noLaunch, true);
+  assert.equal(app_.defaultSessionRoot('/tmp/slot', true), path.join(os.homedir(), '.dsh'));
+  assert.equal(app_.defaultSessionRoot('/tmp/slot', false), path.join('/tmp/slot', 'dsh-home'));
+  assert.deepEqual(app_.launchEnv({ sessionRoot: '/tmp/slot/dsh-home' }, { DSH_HOME: '/wrong', PATH: '/usr/bin' }), {
+    DSH_HOME: '/tmp/slot/dsh-home',
+    PATH: '/usr/bin'
+  });
+  assert.deepEqual(app_.cliArgsForProfile({}), ['--profile', 'desktop']);
+});

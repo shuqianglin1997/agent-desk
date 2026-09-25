@@ -3005,6 +3005,9 @@ function usesWindowsOfficialDefault(profile) {
 }
 
 async function launchProfile(profile) {
+  if (!apps.isKnownApp(profile.appId)) {
+    return { ok: false, reason: t('main.tools.profileMismatch') };
+  }
   const app_ = apps.getApp(profile.appId);
   if (app_.noLaunch) {
     return {
@@ -3979,7 +3982,8 @@ async function openMaintenanceTool(toolId, requestedProfileId) {
     }
   }
   if (tool.kind === 'cli' && record?.installed) {
-    return openMaintenanceCliInTerminal(record);
+    const profile = loadProfiles().find((item) => item.id === requestedProfileId) || null;
+    return openMaintenanceCliInTerminal(record, profile, Boolean(requestedProfileId));
   }
   if (tool.kind === 'terminal') return openSystemTerminal();
   return openMaintenanceOfficialPage(tool);
@@ -3999,14 +4003,32 @@ function posixShellQuote(value) {
   return `'${String(value || '').replace(/'/g, `'\\''`)}'`;
 }
 
-function maintenanceLauncherFile(record) {
+function maintenanceLauncherFile(record, options = {}) {
   const directory = path.join(app.getPath('temp'), 'AgentDesk-tool-launchers');
   ensureDir(directory);
   const safeId = record.id.replace(/[^a-z0-9_-]+/gi, '-');
   const extension = process.platform === 'win32' ? 'cmd' : 'command';
   const filePath = path.join(directory, `${safeId}-${Date.now()}.${extension}`);
-  const executablePath = record.executablePath || record.launcher?.path || record.launcher?.command;
+  const launcher = record.launcher || {};
+  const executablePath = launcher.command || record.executablePath || launcher.path;
   if (!executablePath) throw new Error(t('main.tools.noExecutable'));
+  const prefixArgs = Array.isArray(launcher.prefixArgs) ? launcher.prefixArgs.map(String) : [];
+  const clearEnvKeys = (options.clearEnvKeys || [])
+    .filter((key) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(key)))
+    .map(String);
+  const baseEnv = options.baseEnv || process.env;
+  const launchEnv = {
+    ...baseEnv,
+    ...(launcher.extraEnv || {}),
+    ...(options.launchEnv || {})
+  };
+  const setEnv = Object.entries(launchEnv)
+    .filter(([key, value]) => (
+      /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) &&
+      value != null &&
+      String(value) !== String(baseEnv[key] ?? '')
+    ));
+  const launchArgs = Array.isArray(options.args) ? options.args.map(String) : [];
 
   if (process.platform === 'win32') {
     if (executablePath.includes('"') || os.homedir().includes('"')) {
@@ -4017,7 +4039,9 @@ function maintenanceLauncherFile(record) {
       'set "AGENTDESK_LAUNCHER=%~f0"',
       'del "%AGENTDESK_LAUNCHER%" >nul 2>nul',
       `cd /d "${os.homedir()}"`,
-      `call "${executablePath}"`
+      ...clearEnvKeys.map((key) => `set "${key}="`),
+      ...setEnv.map(([key, value]) => `set "${key}=${String(value).replace(/"/g, '""')}"`),
+      `call "${executablePath}" ${[...prefixArgs, ...launchArgs].map((value) => `"${value.replace(/"/g, '""')}"`).join(' ')}`
     ].join('\r\n'), 'utf8');
   } else {
     fs.writeFileSync(filePath, [
@@ -4025,16 +4049,60 @@ function maintenanceLauncherFile(record) {
       'AGENTDESK_LAUNCHER="$0"',
       '/bin/rm -f -- "$AGENTDESK_LAUNCHER"',
       `cd -- ${posixShellQuote(os.homedir())}`,
-      `exec ${posixShellQuote(executablePath)}`
+      ...clearEnvKeys.map((key) => `unset ${key}`),
+      ...setEnv.map(([key, value]) => `export ${key}=${posixShellQuote(value)}`),
+      `exec ${[executablePath, ...prefixArgs, ...launchArgs].map(posixShellQuote).join(' ')}`
     ].join('\n'), { encoding: 'utf8', mode: 0o700 });
     fs.chmodSync(filePath, 0o700);
   }
   return filePath;
 }
 
-async function openMaintenanceCliInTerminal(record) {
+function cliMaintenanceProfileContext(record, profile, profileWasRequested = false) {
+  if (!profile) {
+    if (profileWasRequested) {
+      return { error: t('main.tools.profileMismatch') };
+    }
+    return { launchEnv: { ...process.env }, clearEnvKeys: [], args: [] };
+  }
+  const app_ = apps.getApp(profile.appId);
+  if (app_.cliDiscoveryId !== record.tool?.discoveryId) {
+    return { error: t('main.tools.profileMismatch') };
+  }
+  return {
+    launchEnv: app_.launchEnv(profile, { ...process.env }),
+    clearEnvKeys: app_.cliClearEnvKeys || [],
+    args: app_.cliArgsForProfile ? app_.cliArgsForProfile(profile) : []
+  };
+}
+
+function prepareDshProfileHome(profile) {
+  if (!profile || profile.appId !== 'dsh-cli') return;
+  const dshHome = profile.sessionRoot;
+  const profileName = profile.dshProfile || 'desktop';
+  const sourceHome = process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
+  const sourceProfile = path.join(sourceHome, 'profiles', profileName);
+  const targetProfile = path.join(dshHome, 'profiles', profileName);
+  ensureDir(path.join(dshHome, 'profiles'));
+  if (fs.existsSync(targetProfile) || !fs.existsSync(sourceProfile)) return;
+  // Copy the runnable bundle manifest only. Credentials and user patch layers
+  // stay opt-in because they define the account and proxy for this slot.
+  ensureDir(targetProfile);
+  for (const name of ['package.json', 'pnpm-workspace.yaml', 'cordis.yml']) {
+    const source = path.join(sourceProfile, name);
+    if (fs.existsSync(source)) fs.copyFileSync(source, path.join(targetProfile, name));
+  }
+}
+
+async function openMaintenanceCliInTerminal(record, profile = null, profileWasRequested = false) {
   try {
-    const launcherFile = maintenanceLauncherFile(record);
+    prepareDshProfileHome(profile);
+    const context = cliMaintenanceProfileContext(record, profile, profileWasRequested);
+    if (context.error) return { ok: false, reason: context.error };
+    const launcherFile = maintenanceLauncherFile(record, {
+      ...context,
+      baseEnv: process.env
+    });
     if (process.platform === 'darwin') {
       await spawnDetached('/usr/bin/open', ['-a', 'Terminal', launcherFile], { ...process.env });
     } else if (process.platform === 'win32') {

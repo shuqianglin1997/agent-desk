@@ -12,6 +12,9 @@ test('工具目录覆盖桌面应用、CLI 工具和系统终端，ID 与入口�
   assert.ok(maintenance.TOOL_CATALOG.some((tool) => tool.kind === 'desktop'));
   assert.ok(maintenance.TOOL_CATALOG.some((tool) => tool.kind === 'cli'));
   assert.ok(maintenance.TOOL_CATALOG.some((tool) => tool.kind === 'terminal'));
+  const dsh = maintenance.catalogTool('cli:dsh');
+  assert.equal(dsh.discoveryId, 'dsh');
+  assert.deepEqual(dsh.npmPackages, ['@deepseek-ai/dsh']);
   for (const tool of maintenance.TOOL_CATALOG) {
     if (tool.officialUrl) assert.match(tool.officialUrl, /^https:\/\//);
   }

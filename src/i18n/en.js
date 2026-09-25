@@ -1414,6 +1414,7 @@
     'main.tools.noExecutable': 'No launchable tool executable was found.',
     'main.tools.invalidExecutable': 'The tool path contains characters that cannot be launched safely.',
     'main.tools.noTerminal': 'No supported system terminal was found.',
+    'main.tools.profileMismatch': 'The selected profile does not belong to this CLI tool. Choose the matching CLI profile.',
     'main.tools.openedTerminal': 'Opened {label} in a new terminal.',
     'main.tools.updateBusy': '{label} is updating. Wait for it to finish.',
     'main.tools.systemManaged': 'This tool is managed by the operating system and cannot be updated separately.',
