@@ -5,6 +5,8 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const CURRENT_STATE_DOCS = [
+  'AGENTS.md',
+  'docs/AI_INTERFACE.md',
   'README.md',
   'docs/README.md',
   'docs/PRODUCT.md',

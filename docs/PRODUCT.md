@@ -1,5 +1,7 @@
 # AgentDesk 产品定义
 
+AI 也是项目的使用者：通过 [本地只读 CLI 与定制指南](AI_INTERFACE.md) 发现能力、核对环境、查询会话和预检外部环境接入；不要求专属工具/MCP。公司 API 的 provider、模型和密钥继续归官方客户端或外部配置工具所有，不为 AI 开放任意执行、存储写入或绕过确认的入口。
+
 当前源码验证、历史物理证据及未关闭门禁统一见[验证记录](VALIDATION.md)；本页不另行维护测试数字。
 
 ## 一句话
@@ -16,7 +18,7 @@ AgentDesk 是一个本地优先的个人 Agent 控制台：它整理 AI 编码�
 |---|---|
 | 代码 | 版本化首次使用、设备任务向导、便携与同 Mesh TaskPackage 已接通 Renderer、Preload、Main、领域和服务；“代码存在”不等于发布门禁关闭。 |
 | 本机自动化 | Node、TaskPackage/发布安全和真实窗口的结果统一见[验证记录](VALIDATION.md)。直送窗口证据只覆盖资格、阶段投影与明文码不进入 Renderer。 |
-| 当前 macOS unpacked 成品 | 独立 verifier 已流式复算 118/118 个常规文件的整文件/分块 SHA-256，证明无 `default_app.asar`、五项 Electron fuse 与 macOS `ElectronAsarIntegrity` header hash 一致。该 ad-hoc unpacked 证据不等于签名、公证、首次使用 smoke 或可分发 DMG。 |
+| 历史 macOS unpacked 成品（非当前源码） | 独立 verifier 当时已流式复算 118/118 个常规文件的整文件/分块 SHA-256，证明无 `default_app.asar`、五项 Electron fuse 与 macOS `ElectronAsarIntegrity` header hash 一致。该 ad-hoc unpacked 证据不等于签名、公证、首次使用 smoke 或可分发 DMG。 |
 | Preview 发布事务 | 代码已实现 `stableAllowed=false`、精确三资产、Draft 双原生端重下载、公开后无 token 匿名重下载、失败回 Draft 与 candidate-burned；发布安全证据见[验证记录](VALIDATION.md)。真实凭据、受保护环境和真实 Tag 尚未执行。 |
 | 隔离双 endpoint | 局域网直连与本机 signaling E2E 均完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件和合成远控画面；runner 尚未发送 TaskPackage，不能据此声称直送数据面已验。 |
 | 物理双 Mac | 同一局域网 host/UDP 认证 DataChannel 已完成 562,009 字节库存、9 个 Slot、638 条 SessionReplica 落库；revision 7 → 8 → 9，连接连续 5 分钟稳定。该证据只关闭大库存、显式刷新与当前 4 分钟全快照恢复基线。 |

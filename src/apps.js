@@ -204,6 +204,7 @@ const APPS = {
       { label: 'DSH 主目录', path: profile.sessionRoot, kind: 'directory' }
     ],
     scan: () => [],
+    sessionScanSupported: false,
   },
   codex: {
     id: 'codex',
