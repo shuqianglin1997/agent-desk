@@ -71,7 +71,7 @@ The optional yard view turns each Agent/account group into a pixel cat driven by
 - quota is shown as a separate energy signal and never overrides activity;
 - day, dusk, night, and weather are visual atmosphere only;
 - one Scene button opens time and weather in a native top-layer popover, while persistent path/quota attention stays in the Activity dialog;
-- dragging a cat can open its account, focus its current session, or save its yard position.
+- clicking a cat selects its Agent; dragging only saves its yard position. Opening accounts and locating sessions use explicit controls.
 
 Use the **Yard / Cards** segment to change the presenter without changing any data or selection. See [docs/YARD.md](docs/YARD.md).
 
@@ -112,6 +112,8 @@ Release signing and notarization are documented in [docs/RELEASING.md](docs/RELE
 
 ## Architecture
 
+For AI assistants, start with [AI use and customization](docs/AI_INTERFACE.md) and `node src/automation/cli.js capabilities`. The local JSON CLI discovers client capabilities, inspects Profiles, searches/locates sessions and preflights external environments. It needs Node, not an Electron window, MCP server or special plugin. It is read-only; provider configuration remains owned by the official client or external configurator. It never applies a plan, launches clients or changes Mesh state.
+
 - `src/main.js`: trusted filesystem, app launch, diagnostics, quota, updates, and tool maintenance.
 - `src/preload.js`: narrow IPC bridge.
 - `src/renderer.js`, `src/index.html`: UI structure and interaction.
@@ -149,6 +151,8 @@ Start with the [documentation map and evidence ledger](docs/README.md), then see
 # AgentDesk 中文说明
 
 AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
+
+给 AI 使用和定制：从 [AI 接口与定制指南](docs/AI_INTERFACE.md) 和 `node src/automation/cli.js capabilities` 开始。无窗口只读 JSON CLI 可发现能力、核对账号环境、找会话及预检公司环境接入；配置修改仍由目标客户端/配置工具完成，不要求额外做成 Skill 或 MCP 工具。
 
 > **开发状态：** 当前源码是 `0.10.1-preview.1` 有人值守 Preview。源码、窗口、成品和历史双 Mac 验证分别记在[验证记录](docs/VALIDATION.md)。TaskPackage 物理直送、公网 NAT/TURN、断网恢复和 macOS/Windows 权限矩阵仍开放；签名发布事务尚未使用真实凭据执行，当前没有与该源码匹配的公开 Preview。
 

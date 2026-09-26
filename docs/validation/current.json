@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-09-26T10:21:08Z",
-  "baseCommit": "3a4919a14c05e4db1c828cccad3ec9e024023efe",
+  "recordedAt": "2026-09-26T10:56:30.530Z",
+  "baseCommit": "1ca42ec78da8c25948cc3d6217dd39a6a6191485",
   "uncommitted": true,
-  "sourceSha256": "c5a24fe0101f134f4cf5b64964235eba765fa54e766ca29ea11b5e653d19acd8",
+  "sourceSha256": "817c44712d3a92ce27a94d95976e94d843c095e15872e2abb4510e5261951f38",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -22,17 +22,67 @@
     {
       "command": "node --test --test-concurrency=2 --test-reporter=spec --test-reporter-destination=docs/validation/node-results.txt",
       "result": "passed",
-      "tests": 573,
-      "pass": 572,
+      "tests": 585,
+      "pass": 584,
       "fail": 0,
       "skipped": 1,
-      "scope": "Full Node suite; one Windows-only test skipped; no GUI"
+      "scope": "Final full Node suite; one Windows-only test skipped; no GUI"
+    },
+    {
+      "command": "node --test test/automation-cli.test.js",
+      "result": "passed",
+      "tests": 12,
+      "pass": 12,
+      "scope": "JSON CLI contract, exact IDs, read-only behavior, credential exclusion, adapters, pagination, unsupported/ambiguous records, canonical path overlap and safe errors"
     },
     {
       "command": "package.json scripts.check via Node child_process",
       "result": "passed",
-      "scope": "JavaScript syntax"
+      "scope": "Full JavaScript syntax checks including both new CLI modules"
     },
+    {
+      "command": "CLI profiles list/inspect and tools against explicit local userData; output summarized without names, paths or session text",
+      "result": "passed",
+      "profiles": 6,
+      "scope": "Six Codex Profile roots readable; fixed Codex CLI discovered without launch. No auth/config files or API requests; not proof of login or company API health"
+    }
+  ],
+  "artifact": {
+    "path": "release/local-integration-20260926/mac-arm64/AgentDesk.app",
+    "version": "0.10.1-preview.1",
+    "asarSha256": "ea28845467572928cd5a83238abb49f3afa2a822456ce07416d4327a320b6717",
+    "asarHeaderSha256": "67f6a2db5229de6a1d80e210e78a1e170a39f48bfcb9c976a6dc693e52277920",
+    "installed": true,
+    "launched": true,
+    "sourceCommit": "1ca42ec78da8c25948cc3d6217dd39a6a6191485",
+    "sourceSha256": "c5a24fe0101f134f4cf5b64964235eba765fa54e766ca29ea11b5e653d19acd8",
+    "matchesCurrentSource": false,
+    "installationVerification": {
+      "target": "/Applications/AgentDesk.app",
+      "asarMatches": true,
+      "canonicalProcessObserved": true,
+      "scope": "Explicit owner-requested normal install and launch of prior integration; not GUI acceptance or three-start smoke"
+    }
+  },
+  "partialChecks": [
+    {
+      "command": "node scripts/ui-acceptance.js",
+      "result": "not-fully-passed",
+      "scope": "Historical integration attempt, not current CLI validation. Earlier attempt reached roster drag/keyboard/wheel/scroll and restart assertions, then failed removal-button visibility. The misplaced button was fixed and a Node structure regression passed. Final full-window rerun was not performed after owner required no disruptive windows. Earlier first-use recovery timeout did not recur on subsequent attempts; no final GUI pass claimed."
+    }
+  ],
+  "notRun": [
+    "verify_all",
+    "GUI acceptance in this iteration",
+    "packaged first-use smoke",
+    "real company API/login or billable model request",
+    "physical peers/public NAT/TURN",
+    "Windows runtime",
+    "Developer ID/notarization/release/push",
+    "rebuild/install/restart desktop for the CLI iteration"
+  ],
+  "scope": "AI-facing local read-only CLI and customization documentation; prior integration preserved; no push or desktop restart",
+  "previousArtifactChecks": [
     {
       "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration)",
       "result": "passed",
@@ -55,30 +105,5 @@
       "sourceFilesMatched": 120,
       "scope": "All src files and package version/main match final workspace"
     }
-  ],
-  "artifact": {
-    "path": "release/local-integration-20260926/mac-arm64/AgentDesk.app",
-    "version": "0.10.1-preview.1",
-    "asarSha256": "ea28845467572928cd5a83238abb49f3afa2a822456ce07416d4327a320b6717",
-    "asarHeaderSha256": "67f6a2db5229de6a1d80e210e78a1e170a39f48bfcb9c976a6dc693e52277920",
-    "installed": false,
-    "launched": false
-  },
-  "partialChecks": [
-    {
-      "command": "node scripts/ui-acceptance.js",
-      "result": "not-fully-passed",
-      "scope": "Earlier attempt reached roster drag/keyboard/wheel/scroll and restart assertions, then failed removal-button visibility. The misplaced button was fixed and a Node structure regression passed. Final full-window rerun was not performed after owner required no disruptive windows. Earlier first-use recovery timeout did not recur on subsequent attempts; no final GUI pass claimed."
-    }
-  ],
-  "notRun": [
-    "verify_all",
-    "final full GUI acceptance",
-    "packaged first-use smoke",
-    "real Claude/DSH account launch",
-    "physical peers/public NAT/TURN",
-    "Windows runtime",
-    "Developer ID/notarization/release/push",
-    "install or restart current application"
   ]
 }

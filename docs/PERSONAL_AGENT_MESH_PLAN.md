@@ -2,7 +2,7 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.35
+> 版本：1.36
 >
 > 日期：2026-09-26
 >
@@ -2826,6 +2826,13 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.36 — 2026-09-26
+
+- 所有者要求先提交本地融合现状、不推送，再研究并完善“人和 AI 都能使用、可按个人需求定制”的项目入口。本地基线提交为 `1ca42ec`；新增源码态、无窗口的 Node JSON CLI 和 `docs/AI_INTERFACE.md`，由 AGENTS、README、产品/场景/内部文档共同导航。
+- CLI 只读发现能力、Profile 持久快照和本机会话，复用注册表/扫描器/定位格式；接入预检不 apply、不读凭据、不启动客户端、不联网、不触碰 Mesh/Keychain。它不是全局 Agent 目录接口；不增加第二写入者、通用 IPC、远程 shell、HTTP/MCP 服务或新的 Electron RunAsNode 调用面。
+- 公司 API 环境仍由官方客户端/外部配置工具在规范根中维护。AI 通过配置交接与源码扩展规则完成授权定制，不要求把每种定制做成工具；未来写接口仍须明确语义、Main 所有权、预览/授权、冲突/幂等及回滚，不能绕过既有路径选择和身份权限。
+- 所有者另已明确要求安装并打开上一融合包：已安装 `/Applications/AgentDesk.app` 并核对 ASAR 摘要及规范路径进程，保留现有 Agent 客户端；这不是完整 GUI/首用验收。本轮 CLI 迭代不再次安装或开窗口，保持不打扰规则。
 
 ### 1.35 — 2026-09-26
 

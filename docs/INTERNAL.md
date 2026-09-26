@@ -21,6 +21,8 @@ Personal Agent Mesh 的有人值守代码链路已经接入运行时：版本化
 
 ## 2. 进程边界
 
+`src/automation/cli.js` 是独立 Node 入口，`service.js` 共用命令定义、客户端注册表、CLI discovery、扫描器和会话定位格式。它不加载 Electron Main、Mesh/Keychain 或桌面 store 恢复逻辑；只读取显式 userData 中的 v2 Profile 快照，不写回。Cursor/Kimi Work 可使用既有固定 sqlite3 只读查询。接口/扩展方法见 [AI_INTERFACE.md](AI_INTERFACE.md)。桌面 IPC 不因此成为公共 API，写入仍只在现有 Main 事务和授权流程中进行。
+
 本地 PR 融合新增 `profile-home.js`（只创建独立目录，不播种凭据）、`terminal-launcher.js`（按完整目标环境生成固定工具启动脚本）和 `roster-interactions.js`（排序/取消/滚轮）。Main 从工具注册表与本机 Profile 解析动作，不接收 Renderer 命令。Windows 环境清理匹配大小写别名，Node shebang 启动保留解释器、参数和 PATH；临时终端脚本不使用二次展开的 CALL。名册顺序由 settings 归一化持久化。
 
 ```text
@@ -408,7 +410,7 @@ npm run build:mac:dir
 
 `npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。窗口任务路径包括：新增全新首 Agent 的真实本机事务与无网络断言、首次使用重启恢复且不生成默认 Profile、设备任务向导固定 Shell/分层状态，以及 TaskPackage 直送资格和接收阶段投影；原有 58/244/316/38 固定几何、Compact 无横滚、会话选择、庭院/卡片、三语/明暗主题、父子弹窗、小视口、目录对象、传输草稿和 Remote Surface 契约继续覆盖。直送窗口验收只证明 UI 资格、状态与明文码不可见，不代表真实 WebRTC 数据面已经传过 TaskPackage。
 
-成品验证分成两层。`verify-electron-package-integrity.js` 不启动应用，直接证明 `app.asar` 存在、`default_app.asar` 不存在，流式复算每个常规文件的整文件与 4 MiB 分块 SHA-256，拒绝缺失元数据、链接、范围空洞/重叠和尾部载荷；`RunAsNode` 仅作为固定 CLI launcher 的兼容 fuse 保留，`NODE_OPTIONS`/inspect 关闭、embedded integrity/only-load-from-ASAR 开启，archive header 再绑定 macOS `Info.plist` 或 Windows PE 的唯一 `INTEGRITY/ELECTRONASAR`。当前 macOS unpacked 成品的 118/118 个常规文件已通过这一层。`packaged-first-use-smoke.js` 才会对同一确切 `AgentDesk.app`、`win-unpacked` 或带版本 portable 使用临时 userData 连续启动三次，核对固定窗口、首次初始化/恢复、零默认 Profile、零 Mesh 网络，以及原始启动句柄和回环调试端点清理；随机 launch token 与 Browser command line 防止同机其他页面冒充本次产物。本机现有确切 `release/mac-arm64/AgentDesk.app` 已使用真实语义开关 `--macos-ci-mock-keychain` 通过这三次启动：runner 先证明 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，再在每次 Browser command line 中核对唯一原生 `--use-mock-keychain`，报告为 `keychainMode=mock`。这只证明该字节在 mock Keychain 下的打包与首次使用事务；新的 GitHub macOS `main` CI 运行仍待结果，且该模式不验证 `safeStorage` 的 macOS 系统 Keychain/OS 密钥保护。Developer ID、签名公证、Draft/公开重下载和物理干净机继续使用系统 Keychain，并仍是开放门禁。
+成品验证分成两层。`verify-electron-package-integrity.js` 不启动应用，直接证明 `app.asar` 存在、`default_app.asar` 不存在，流式复算每个常规文件的整文件与 4 MiB 分块 SHA-256，拒绝缺失元数据、链接、范围空洞/重叠和尾部载荷；`RunAsNode` 仅作为固定 CLI launcher 的兼容 fuse 保留，`NODE_OPTIONS`/inspect 关闭、embedded integrity/only-load-from-ASAR 开启，archive header 再绑定 macOS `Info.plist` 或 Windows PE 的唯一 `INTEGRITY/ELECTRONASAR`。历史 macOS unpacked 成品的 118/118 结果只对应当时产物，不代表当前源码。`packaged-first-use-smoke.js` 才会对同一确切 `AgentDesk.app`、`win-unpacked` 或带版本 portable 使用临时 userData 连续启动三次，核对固定窗口、首次初始化/恢复、零默认 Profile、零 Mesh 网络，以及原始启动句柄和回环调试端点清理；随机 launch token 与 Browser command line 防止同机其他页面冒充本次产物。当时本机确切 `release/mac-arm64/AgentDesk.app` 已使用真实语义开关 `--macos-ci-mock-keychain` 通过这三次启动：runner 先证明 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，再在每次 Browser command line 中核对唯一原生 `--use-mock-keychain`，报告为 `keychainMode=mock`。这只证明该字节在 mock Keychain 下的打包与首次使用事务；新的 GitHub macOS `main` CI 运行仍待结果，且该模式不验证 `safeStorage` 的 macOS 系统 Keychain/OS 密钥保护。Developer ID、签名公证、Draft/公开重下载和物理干净机继续使用系统 Keychain，并仍是开放门禁。
 
 发布事务再高一层：`github-release-gate.js` 与 Preview-only workflow 把 `stableAllowed=false`、精确 DMG + portable + `SHA256SUMS.txt`、Draft 双原生端重下载、发布后无 token 匿名公开重下载、摘要/清单/字节一致、失败回 Draft 与 candidate-burned 固化为门禁；诊断只保留为 Actions artifact，不进入 Release。发布安全测试只证明门禁逻辑，尚未用真实签名凭据、受保护 `preview-release` 环境和真实 Tag 执行，因此当前没有公开 Preview。
 

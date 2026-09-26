@@ -1,5 +1,7 @@
 # 搭配 AgentDock 使用 AgentDesk
 
+通用公司环境交接与 AI 定制方式见 [AI 接口与定制指南](AI_INTERFACE.md)。AgentDock 是一种可选配置方式，不是 AgentDesk 的必需依赖；本仓库的 CLI 只检查环境与生成预检结果，不管理公司接口或密钥。
+
 AgentDock 负责准备代理服务与客户端配置；AgentDesk 管理各账号的运行入口和本机会话。两者共同使用时，账号的配置目录与启动环境需要保持一致。
 
 ## 账号打开
