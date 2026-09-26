@@ -1,4 +1,6 @@
 <p align="center">
+
+当前源码验证、历史物理证据及未关闭门禁统一见[验证记录](docs/VALIDATION.md)；本页不另行维护测试数字。
   <img src="assets/icon.png" width="120" alt="AgentDesk" />
 </p>
 
@@ -19,13 +21,13 @@
 
 ![AgentDesk](assets/screenshots/app.png)
 
-> **Development status:** the `0.10.1-preview.1` source implements versioned first use, the guided device journey, same-Mesh TaskPackage delivery, and bounded Profile-runtime protection as attended Preview code paths. The full Node suite has 527 tests: 526 pass, one Windows-only test is skipped, and none fail; TaskPackage security is 25/25, release-security tests are 14/14, and real Electron UI acceptance is 21/21. The current macOS unpacked app also passes the independent Electron fuse/ASAR verifier. These results prove source and local-package invariants, not a distributable release. The two isolated endpoint E2E runs passed over direct LAN and local signaling, while a separate physical two-Mac LAN run verified an authenticated host/UDP channel and a 562,009-byte inventory (9 slots, 638 session replicas, revisions 7 → 8 → 9) over five stable minutes. The endpoint runner still does not send a TaskPackage. Public NAT/CGNAT, forced coturn UDP/TCP/TLS relay, disconnect/sleep recovery, physical TaskPackage delivery, and the macOS/Windows screen/input/permission matrix remain open. The Draft/native-redownload/public-anonymous-redownload release transaction is implemented but has not been executed with real signing credentials, the protected environment, and a real tag, so there is currently **no public Preview matching this source**.
+> **Development status:** `0.10.1-preview.1` implements attended Personal Mesh Preview paths. See the [validation ledger](docs/VALIDATION.md) for source, Electron-window, package and historical two-Mac evidence. Physical TaskPackage delivery, public NAT/TURN, disconnect recovery and the macOS/Windows permission matrix remain open. The signed Draft/redownload/publication transaction has not run with real release credentials, so there is **no public Preview matching this source**.
 
 ## What AgentDesk does
 
 AgentDesk keeps a small, local index around the official AI coding clients already installed on your computer:
 
-- **Account slots.** Store separate local profile and session-root paths, launch supported desktop apps with the selected slot, and keep work/personal identities from colliding.
+- **Account slots.** Store separate local profile and session-root paths, launch supported desktop apps with the selected slot, and keep work/personal identities from colliding. Managed Claude CLI and DSH slots get their own `CLAUDE_CONFIG_DIR` / `DSH_HOME`; they do not inherit the official `~/.claude` or `~/.dsh` account, proxy, or credentials.
 - **Session browser.** Scan Claude Desktop, Claude CLI, Codex, Cursor, Kimi Code, and Kimi Work history into one searchable, sortable table. View the current Agent or all Agents under the active device lens.
 - **Stable conversation identity.** Codex compaction checkpoints stay inside one user conversation; guardian/subagent rollouts remain hidden instead of appearing as new sessions or projects.
 - **Session location actions.** Select one or several sessions and copy one minimal location format containing only path and coordinate; reveal the active source file or export one supported transcript as Markdown.
@@ -43,7 +45,7 @@ AgentDesk keeps a small, local index around the official AI coding clients alrea
 - **Tool center.** Discover supported desktop apps and CLIs, show versions and install sources, open them, and explicitly update eligible CLIs through their existing npm, Homebrew, uv, or self-update mechanism.
 - **Two views.** Use the pixel cat yard or the compact card roster through one current-mode segment; both render the same Agent, slot, and session state.
 
-Supported tool discovery currently covers Claude Code, Codex CLI, Gemini CLI, OpenCode, Cursor Agent, GitHub Copilot CLI, goose, Kimi Code, and Qwen Code. Discovery only resolves installed launchers; it does not attach agent-mode arguments or create sessions.
+Supported tool discovery currently covers Claude Code, DSH, Codex CLI, Gemini CLI, OpenCode, Cursor Agent, GitHub Copilot CLI, goose, Kimi Code, and Qwen Code. Discovery only resolves installed launchers; it does not attach agent-mode arguments or create sessions.
 
 ## Product boundary
 
@@ -148,11 +150,11 @@ Start with the [documentation map and evidence ledger](docs/README.md), then see
 
 AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
-> **开发状态：** `0.10.1-preview.1` 源码已经接通版本化首次使用、设备任务向导、同 Mesh TaskPackage 直送和有界 Profile 运行保护的有人值守 Preview 路径。全量 Node 527 项中 526 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14，真实 Electron UI 21/21。当前 macOS unpacked 成品也已通过独立的 Electron fuse/ASAR verifier；这些证据证明源码与本机成品边界，不等于可分发版本已经产生。隔离双 endpoint 的局域网直连与本机 signaling E2E 已完成既有数据面，物理双 Mac 局域网则完成认证 host/UDP 通道和 562,009 字节库存（9 个 Slot、638 条 SessionReplica、revision 7 → 8 → 9），连续 5 分钟稳定；runner 仍未发送 TaskPackage。Draft、原生双端重下载、公开后匿名重下载和失败回 Draft 的发布事务已经进入代码，但尚未用真实签名凭据、受保护环境与真实 Tag 执行，因此当前没有与该源码匹配的公开 Preview。真实公网 NAT/CGNAT、coturn 强制中继、断网/睡眠恢复、TaskPackage 物理直送，以及 macOS/Windows 权限矩阵也继续开放。
+> **开发状态：** 当前源码是 `0.10.1-preview.1` 有人值守 Preview。源码、窗口、成品和历史双 Mac 验证分别记在[验证记录](docs/VALIDATION.md)。TaskPackage 物理直送、公网 NAT/TURN、断网恢复和 macOS/Windows 权限矩阵仍开放；签名发布事务尚未使用真实凭据执行，当前没有与该源码匹配的公开 Preview。
 
 ## 核心能力
 
-- **账号槽位隔离。** 每个槽位保存独立的数据目录和会话根目录，打开受支持的官方桌面 App 时使用所选槽位，减少工作号、个人号互相覆盖。
+- **账号槽位隔离。** 每个槽位保存独立的数据目录和会话根目录，打开受支持的官方桌面 App 时使用所选槽位，减少工作号、个人号互相覆盖。独立 Claude CLI / DSH 槽位使用自己的 `CLAUDE_CONFIG_DIR` / `DSH_HOME`，不继承本机 `~/.claude` 或 `~/.dsh` 的账号、代理和凭据。
 - **统一会话浏览。** 索引 Claude Desktop、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work 的本地会话，可在当前设备 Lens 下查看当前 Agent 或全部 Agent，并按属性搜索、排序。
 - **稳定会话身份。** Codex 上下文压缩继续属于同一条用户会话，guardian/subagent 内部 rollout 不再冒充新会话或新项目。
 - **会话定位操作。** 单选或勾选多条会话后统一复制“路径 + 坐标”；当前会话可在系统中定位来源文件，支持的来源可导出 Markdown。
@@ -170,7 +172,7 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 - **工具维护台。** 在独立工具弹窗发现桌面 App 与常用 CLI，显示版本和安装来源；用户明确点击后，符合条件的 CLI 才会沿用 npm、Homebrew、uv 或自身更新器维护。
 - **猫猫庭院 / 卡片名册。** 顶部“庭院 / 卡片”分段只切呈现，不改变 Agent、运行位置或会话选择；时间/天气进入一个 Top Layer 场景浮层，持久待处理事项归“活动”弹窗。
 
-工具发现覆盖 Claude Code、Codex CLI、Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi Code 和 Qwen Code。发现模块只定位本机启动器，不附加运行参数，也不创建会话。
+工具发现覆盖 Claude Code、DSH、Codex CLI、Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi Code 和 Qwen Code。发现模块只定位本机启动器，不附加运行参数，也不创建会话。
 
 ## 明确不做
 

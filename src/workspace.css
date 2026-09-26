@@ -315,6 +315,7 @@
   input[type="url"],
   select {
     height: var(--control-h);
+    min-height: 28px;
     padding: 0 10px;
   }
 
@@ -385,7 +386,7 @@
     font-weight: 650;
   }
 
-  .context-menu { position: relative; }
+  .context-menu { position: relative; flex: none; }
 
   .context-menu > summary {
     display: inline-flex;
@@ -426,11 +427,29 @@
     justify-content: flex-start;
     width: 100%;
     height: 31px;
+    min-height: 30px;
+    gap: 8px;
     padding: 0 9px;
-    border-color: transparent;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--ink-secondary);
     background: transparent;
+    box-shadow: none;
     font-size: 11px;
     text-align: left;
+    white-space: nowrap;
+  }
+
+  .context-menu-panel button:hover:not(:disabled) {
+    color: var(--ink-primary);
+    background: var(--hover-wash);
+  }
+
+  .context-menu-divider {
+    display: block;
+    height: 1px;
+    margin: 4px 5px;
+    background: var(--line-soft);
   }
 
   dialog {
@@ -727,15 +746,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-  }
-
-  .agent-panel-tools > #leaderboardBtn {
-    height: 27px;
-    padding: 0 8px;
-    border-color: transparent;
-    color: var(--ink-tertiary);
-    background: transparent;
-    font-size: 9.5px;
   }
 
   .agent-view-segment {
@@ -1674,37 +1684,6 @@
     box-shadow: 0 0 0 3px var(--success-wash);
   }
   .footer-status #statusText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  .footer-global {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    min-width: 0;
-    white-space: nowrap;
-  }
-  .footer-global-label { color: var(--ink-tertiary); font-family: var(--font-display); font-size: 8px; font-weight: 760; letter-spacing: 0.08em; }
-  .footer-ledger-stat { color: var(--ink-tertiary); font-size: 9px; }
-  .footer-ledger-stat b { color: var(--ink-primary); font-family: var(--font-mono); }
-  .footer-ledger-sep { color: var(--line-strong); }
-
-  .footer-reminder-toggle,
-  body[data-view="yard"] .footer-reminder-toggle {
-    height: 25px;
-    padding: 0 8px;
-    border: 1px solid var(--line-soft);
-    border-radius: 6px;
-    color: var(--ink-secondary);
-    background: var(--surface-sunken);
-    box-shadow: none;
-    font-size: 9px;
-    font-weight: 650;
-  }
-  .footer-reminder-toggle[aria-pressed="true"],
-  body[data-view="yard"] .footer-reminder-toggle[aria-pressed="true"] {
-    border-color: var(--success-line);
-    color: var(--success);
-    background: var(--success-wash);
-  }
 
   /* Agent management dialog ------------------------------------------ */
   .agent-manage-dialog {
@@ -3014,4 +2993,10 @@
       animation-iteration-count: 1;
     }
   }
+}
+@layer features {
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .account-card { user-select: none; -webkit-user-select: none; }
+  .account-roster.roster-reordering, .roster-reordering .account-card { cursor: grabbing; }
+  .account-card.roster-dragging { opacity: .65; outline: 2px dashed var(--accent); outline-offset: -3px; }
 }

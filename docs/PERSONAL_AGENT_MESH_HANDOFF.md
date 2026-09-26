@@ -4,7 +4,7 @@
 >
 > 当前分支：`main`
 >
-> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.33，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
+> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.35，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
 >
 > 仓库：`shuqianglin1997/agent-desk`
 >
@@ -34,7 +34,7 @@
 - 同 Mesh TaskPackage 直送要求认证目标、`task.package.transfer.v1`、`task.package.receive` 和逐次接受。密文包完整哈希后才由目标设备独占 envelope 解封；拒绝、撤权、撤销、过期和错误会清理，失败可把同一密文快照保存为便携文件。
 - AgentDesk 启动前精确检查同一 `user-data-dir`，默认在正常退出时关闭自己启动的 Profile；每个受管 Profile 的 `Crashpad/pending` 受 100 文件/200 MiB 双上限和一分钟 5 个同尺寸 dump 的持久熔断保护。普通关闭只处理 owned 进程，事故熔断还会按精确路径停止 AgentDesk 自己 Profiles 根内的旧版/异常退出遗留进程；无所有权的官方默认/custom 目录不做后台清理或停机。安全清理只删除直属 dump/sidecar，不读取转储、不触碰 Agent 会话、归档、配置、SQLite、`codex-home` 或留存诊断样本。
 - Codex 原生适配器携带根会话与 internal-child，目标端重新验证身份、拒绝同 ID 异内容覆盖、失败回滚、重复导入幂等，并把标题标注为来自交接人/来源 Agent。其他支持来源当前只保存只读会话内容。
-- Footer 只承担全局状态、今日完成数、陪伴分钟与提醒总开关；庭院内部不再叠加小账本或提醒条。
+- Footer 只承担全局状态；庭院内部不再叠加小账本或提醒条。
 - 路径、额度等持久待处理事项只进入 Header 的活动弹窗；庭院只保留 Agent Presenter 和摸猫/拖放后的短暂直接反馈。
 - 四个全局弹窗开关、额度详情切换和远控进入/返回时，三个固定面板的几何位置不变，不再插入提醒行、额度行、选择条、抽屉或整页工作区。
 - 庭院与卡片继续共用 Agent/Slot/会话业务状态；Agent 是展示主轴，Device 是筛选轴，Slot 和 SessionReplica 是动作落点。
@@ -134,12 +134,12 @@ git diff --check
 
 ## 6. 文档权威关系
 
-- `PERSONAL_AGENT_MESH_PLAN.md` 1.33 是实施权威。
+- `PERSONAL_AGENT_MESH_PLAN.md` 1.35 是实施权威。
 - `AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html` 是 1.13 主窗口层级、几何与临时层蓝图；全局弹窗内部 Shell 与父子层级以 1.14 计划和真实产品代码为准。
 - `AGENTDESK_WORKSPACE_REDESIGN_REVIEW.html` 是 1.12 页面结构的历史审阅稿；若与 1.14 冲突，以计划和真实产品代码为准。
 - `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md` 已修订为固定三面板与右下 Remote Surface。
 - 旧 owner review、旧会话身份 review、文章插图和规划变更记录中出现的“七行/第六行”只代表当时的历史方案，不能覆盖 1.10。
-- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器、同 Mesh Preview 直送和当前限制；它服从 1.33 产品基线。
+- `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器、同 Mesh Preview 直送和当前限制；它服从 1.35 产品基线。
 
 ## 7. 不得误报为已完成
 

@@ -36,7 +36,6 @@
           <header class="presenter-head">
             <div><span data-i18n="presenter.title">AGENTS</span><b id="presenterCount">0</b></div>
             <div class="agent-panel-tools">
-              <button id="leaderboardBtn" type="button" data-i18n-title="topbar.leaderboard.title">🏆 <span data-i18n="topbar.leaderboard">排行</span></button>
               <div class="agent-view-segment" role="group" data-i18n-aria="topbar.view.title" aria-label="庭院或卡片视图">
                 <button id="viewToggle" type="button" aria-pressed="true" data-i18n-title="topbar.view.title"><span id="viewToggleLabel" data-i18n="topbar.toYard">庭院</span></button>
                 <button id="classicViewBtn" type="button" aria-pressed="false" data-i18n-title="topbar.view.title"><span data-i18n="topbar.toClassic">卡片</span></button>
@@ -78,6 +77,8 @@
                   </div>
                 </div>
               </section>
+              <span id="rosterHelp" class="visually-hidden" data-i18n="roster.help"></span>
+              <span id="rosterAnnouncement" class="visually-hidden" aria-live="polite"></span>
               <div id="accountRoster" class="account-roster" data-i18n-aria="aria.roster" aria-label="账号名册（经典视图）"></div>
             </section>
 
@@ -99,9 +100,6 @@
               <div class="quota-chips quota-compact-row">
                 <button id="quotaChipSelf" class="quota-chip" type="button" aria-controls="quotaSummary" aria-expanded="false" data-i18n-title="quota.self.title"><span data-i18n="quota.self">本号</span> <span class="mtr"><i></i></span><b>—</b></button>
                 <button id="quotaChipAll" class="quota-chip" type="button" aria-controls="quotaOverview" aria-expanded="false" data-i18n-title="quota.all.title"><span data-i18n="quota.all">全院</span> <span class="mtr"><i></i></span><b>—</b></button>
-              </div>
-              <div class="account-legacy" hidden aria-hidden="true">
-                <p id="accountMeta"></p><code id="accountPath"></code><p id="accountNote" class="account-note"></p>
               </div>
             </section>
           </div>
@@ -217,13 +215,6 @@
 
       <footer id="statusBar" class="status-bar app-footer">
         <div class="footer-status"><span id="statusText" data-i18n="status.ready">就绪</span></div>
-        <div class="footer-global" data-i18n-aria="aria.footerGlobal" aria-label="全局状态">
-          <span class="footer-global-label" data-i18n="ledger.title">今日小账本</span>
-          <span class="footer-ledger-stat"><span data-i18n="ledger.donePre">收工 </span><b id="ledgerDone">0</b><span data-i18n="ledger.doneSuf"> 次</span></span>
-          <span class="footer-ledger-sep" aria-hidden="true">·</span>
-          <span class="footer-ledger-stat"><span data-i18n="ledger.minPre">陪你干活 </span><b id="ledgerMin">0</b><span data-i18n="ledger.minSuf"> 分钟</span></span>
-          <button id="reminderToggle" class="footer-reminder-toggle" type="button" aria-pressed="true" data-i18n-title="reminder.title" title="休息提醒（伸懒腰 / 收工播报）总开关">🔔 提醒 开</button>
-        </div>
       </footer>
     </div>
 
@@ -271,6 +262,10 @@
           <input id="newAgentName" type="text" data-i18n-placeholder="dialog.ph.agentName" placeholder="例如：研究助理" />
         </label>
         <label>
+          <span data-i18n="dialog.field.app">应用</span>
+          <select id="newAgentApp"></select>
+        </label>
+        <label>
           <span data-i18n="dialog.field.group">分组</span>
           <input id="newAgentGroup" type="text" list="groupOptions" data-i18n-placeholder="dialog.ph.profileGroup" placeholder="可选，例如：工作 / 个人 / 备用" />
         </label>
@@ -280,7 +275,7 @@
         </label>
         <div class="dialog-actions">
           <button value="cancel" data-i18n="dialog.cancel">取消</button>
-          <button id="confirmAddAgentBtn" type="button" class="primary" data-i18n="dialog.create">创建</button>
+          <button id="confirmAddAgentBtn" type="button" class="primary" data-i18n="dialog.addAgent.prepare">创建并准备独立环境</button>
         </div>
       </form>
     </dialog>
@@ -484,6 +479,7 @@
         </label>
         <div id="slotAssignmentStatus" class="catalog-impact" aria-live="polite"></div>
         <div class="dialog-actions">
+          <button id="removeUnassignedSlotBtn" type="button" class="danger-zone-action" hidden data-i18n="catalog.remove.slot">移除此运行位置</button>
           <button value="cancel" data-i18n="dialog.cancel">取消</button>
           <button id="confirmSlotAssignmentBtn" type="button" class="primary" data-i18n="catalog.assign.confirm">确认归属</button>
         </div>
@@ -1050,7 +1046,6 @@
             <small id="toolCheckedAt" data-i18n="tools.notChecked">尚未检查</small>
             <div class="tool-center-head-actions">
               <button id="checkToolsBtn" type="button" data-i18n="tools.check">↻ 检查全部</button>
-              <button id="updateAllToolsBtn" type="button" class="primary" disabled data-i18n="tools.updateAllStatic">↑ 一键更新</button>
             </div>
           </div>
           <p id="toolCenterStatus" class="tool-center-status" data-state="idle" aria-live="polite" data-i18n="tools.status.ready">准备检查本机工具。</p>
@@ -1066,6 +1061,10 @@
             <header><span data-i18n="tools.section.cli">CLI TOOLS</span><small data-i18n="tools.section.cliHint">识别实际安装来源后更新</small></header>
             <div id="cliToolList" class="tool-list tool-list-cli"></div>
           </section>
+          <details class="tool-shelf">
+            <summary data-i18n="tools.supported">其他支持的工具（未安装）</summary>
+            <div id="supportedToolList" class="tool-list"></div>
+          </details>
         </div>
 
         <footer class="utility-dialog-footer tool-center-footer">
@@ -1179,16 +1178,6 @@
       </form>
     </dialog>
 
-    <dialog id="leaderboardDialog" class="wide-dialog">
-      <form method="dialog" class="dialog-body">
-        <h3>🏆 <span data-i18n="leaderboard.title">工作量排行榜</span> <small style="font-weight:400;color:var(--ink-tertiary)">· <span data-i18n="leaderboard.today">今日</span></small></h3>
-        <div id="leaderboardBody" class="leaderboard-body"></div>
-        <p class="leaderboard-note" data-i18n="leaderboard.note">分 = 10·√今日活跃会话 + 6·√新建 + 正在干活 ×15。平方根阻尼：不同工具把任务拆成的会话文件数差异很大，避免粒度细的工具刷爆榜。每分钟刷新，状态即时。</p>
-        <div class="dialog-actions">
-          <button value="default" class="primary" data-i18n="dialog.close">关闭</button>
-        </div>
-      </form>
-    </dialog>
 
     <datalist id="groupOptions"></datalist>
     <datalist id="identityOptions"></datalist>
@@ -1204,8 +1193,6 @@
     <script src="./device-journey.js"></script>
     <script src="./onboarding-state.js"></script>
     <script src="./ui-context.js"></script>
-    <script src="./yard/companion.js"></script>
-    <script src="./yard/workload.js"></script>
     <script src="./yard/palettes.js"></script>
     <script src="./yard/atmosphere.js"></script>
     <script src="./yard/interactions.js"></script>
@@ -1215,6 +1202,8 @@
     <script src="./i18n/zh.js"></script>
     <script src="./i18n/en.js"></script>
     <script src="./i18n/ja.js"></script>
+    <script src="./renderer/tool-center.js"></script>
+    <script src="./roster-interactions.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>

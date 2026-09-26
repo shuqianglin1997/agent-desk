@@ -30,7 +30,7 @@ test('1.13 全局层级：Header 四个入口各开独立弹窗，视图与排�
     assert.match(topbar, new RegExp(`id="${button}"[^>]*aria-haspopup="dialog"[^>]*aria-controls="${dialog}"[^>]*aria-expanded="false"`));
   }
   assert.doesNotMatch(topbar, /id="viewToggle"/);
-  assert.match(html, /id="agentPanel"[\s\S]*?class="presenter-head"[\s\S]*?id="presenterCount"[\s\S]*?id="leaderboardBtn"[\s\S]*?class="agent-view-segment"[\s\S]*?id="viewToggle"[\s\S]*?id="classicViewBtn"/);
+  assert.match(html, /id="agentPanel"[\s\S]*?class="presenter-head"[\s\S]*?id="presenterCount"[\s\S]*?class="agent-view-segment"[\s\S]*?id="viewToggle"[\s\S]*?id="classicViewBtn"/);
   assert.match(workspaceStyles, /\.agent-panel-body\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 314px/);
   assert.match(settings, /view:\s*'classic'/);
 });
@@ -91,7 +91,8 @@ test('批准后的 Agent 与会话操作层级：主动作常驻，对象管理�
   const sessionPane = html.slice(html.indexOf('id="sessionPane"'), html.indexOf('id="detailPanel"'));
   assert.doesNotMatch(sessionPane, /id="sessionSelectionBar"/);
   const footer = html.slice(html.indexOf('<footer id="statusBar"'), html.indexOf('</footer>'));
-  assert.match(footer, /id="ledgerDone"[\s\S]*?id="ledgerMin"[\s\S]*?id="reminderToggle"/);
+  assert.match(footer, /id="statusText"/);
+  assert.doesNotMatch(footer, /ledgerDone|ledgerMin|reminderToggle/);
   assert.doesNotMatch(footer, /sessionSelectionBar|copySessionInfoBtn|sendSessionInfoBtn/);
   assert.doesNotMatch(html, /id="yardLedger"/);
   assert.match(renderer, /sessionActionDock\.hidden = count === 0/);

@@ -7,6 +7,7 @@ const state = {
   sessionSort: { key: 'updatedAt', direction: 'desc' },
   query: '',
   theme: null,
+  agentOrder: [],
   view: 'classic',
   detailMode: 'session',
   detailBeforeRemote: 'session',
@@ -16,8 +17,6 @@ const state = {
   quotaError: null,
   quotaSelfOpen: false,     // 「本号」chip 展开额度 Beta 详情块
   quotaOverviewOpen: false, // 「全院」chip 展开跨账号额度总览带
-  ledger: null,
-  remindersOn: true,
   profileQuitBehavior: 'close',
   atmosTime: 'auto',
   atmosWeather: 'auto',
@@ -31,15 +30,7 @@ const state = {
     busy: false
   },
   updateInfo: null,
-  tools: {
-    items: [],
-    summary: null,
-    checkedAt: null,
-    loading: false,
-    busyId: null,
-    message: '',
-    statusTone: 'idle'
-  },
+  tools: null,
   mesh: {
     overview: null,
     sessionSource: 'none',
@@ -170,10 +161,6 @@ async function loadApps() {
 function appLabel(appId) {
   return (state.appMeta[appId] && state.appMeta[appId].label) || appId;
 }
-function appColor(appId) {
-  return (state.appMeta[appId] && state.appMeta[appId].tagColor) || '#d96f33';
-}
-
 const els = {
   accountRoster: document.querySelector('#accountRoster'),
   presenterCount: document.querySelector('#presenterCount'),
@@ -194,7 +181,6 @@ const els = {
   viewToggle: document.querySelector('#viewToggle'),
   classicViewBtn: document.querySelector('#classicViewBtn'),
   viewToggleLabel: document.querySelector('#viewToggleLabel'),
-  globalMoreMenu: document.querySelector('#globalMoreMenu'),
   langToggle: document.querySelector('#langToggle'),
   accountActions: document.querySelector('#accountActions'),
   accountManage: document.querySelector('#accountManage'),
@@ -203,9 +189,6 @@ const els = {
   agentManageRuntimeLabel: document.querySelector('#agentManageRuntimeLabel'),
   yardManageActions: document.querySelector('#yardManageActions'),
   addRuntimeLocationBtn: document.querySelector('#addRuntimeLocationBtn'),
-  ledgerDone: document.querySelector('#ledgerDone'),
-  ledgerMin: document.querySelector('#ledgerMin'),
-  reminderToggle: document.querySelector('#reminderToggle'),
   atmosTime: document.querySelector('#atmosTime'),
   atmosWeather: document.querySelector('#atmosWeather'),
   toolCenterBtn: document.querySelector('#toolCenterBtn'),
@@ -224,7 +207,6 @@ const els = {
   sessionInspectorFields: document.querySelector('.inspector-primary-fields'),
   remoteWorkspaceHost: document.querySelector('#remoteWorkspaceHost'),
   deviceCenterDialog: document.querySelector('#deviceCenterDialog'),
-  closeDeviceCenterBtn: document.querySelector('#closeDeviceCenterBtn'),
   deviceCenterMoreMenu: document.querySelector('#deviceCenterMoreMenu'),
   deviceCenterStatus: document.querySelector('#deviceCenterStatus'),
   meshStateBadge: document.querySelector('#meshStateBadge'),
@@ -245,10 +227,7 @@ const els = {
   meshAgentList: document.querySelector('#meshAgentList'),
   initializeMeshBtn: document.querySelector('#initializeMeshBtn'),
   showJoinMeshBtn: document.querySelector('#showJoinMeshBtn'),
-  meshJoinPanel: document.querySelector('#meshJoinPanel'),
   meshJoinCode: document.querySelector('#meshJoinCode'),
-  cancelJoinMeshBtn: document.querySelector('#cancelJoinMeshBtn'),
-  confirmJoinMeshBtn: document.querySelector('#confirmJoinMeshBtn'),
   createDeviceInviteBtn: document.querySelector('#createDeviceInviteBtn'),
   receiveConnectionsBtn: document.querySelector('#receiveConnectionsBtn'),
   networkSettingsBtn: document.querySelector('#networkSettingsBtn'),
@@ -328,16 +307,13 @@ const els = {
   toolSummary: document.querySelector('#toolSummary'),
   toolCheckedAt: document.querySelector('#toolCheckedAt'),
   desktopToolList: document.querySelector('#desktopToolList'),
+  supportedToolList: document.querySelector('#supportedToolList'),
   cliToolList: document.querySelector('#cliToolList'),
   checkToolsBtn: document.querySelector('#checkToolsBtn'),
-  updateAllToolsBtn: document.querySelector('#updateAllToolsBtn'),
   attentionInbox: document.querySelector('#attentionInbox'),
   attentionCount: document.querySelector('#attentionCount'),
   attentionItems: document.querySelector('#attentionItems'),
   attentionEmpty: document.querySelector('#attentionEmpty'),
-  leaderboardBtn: document.querySelector('#leaderboardBtn'),
-  leaderboardDialog: document.querySelector('#leaderboardDialog'),
-  leaderboardBody: document.querySelector('#leaderboardBody'),
   themeToggle: document.querySelector('#themeToggle'),
   profileQuitBehavior: document.querySelector('#profileQuitBehavior'),
   updateBtn: document.querySelector('#updateBtn'),
@@ -354,9 +330,6 @@ const els = {
   profileFolderBtn: document.querySelector('#profileFolderBtn'),
   refreshBtn: document.querySelector('#refreshBtn'),
   accountTitle: document.querySelector('#accountTitle'),
-  accountMeta: document.querySelector('#accountMeta'),
-  accountPath: document.querySelector('#accountPath'),
-  accountNote: document.querySelector('#accountNote'),
   quotaOverview: document.querySelector('#quotaOverview'),
   quotaOverviewList: document.querySelector('#quotaOverviewList'),
   quotaOverviewMeta: document.querySelector('#quotaOverviewMeta'),
@@ -448,6 +421,7 @@ const els = {
   profileDialog: document.querySelector('#profileDialog'),
   agentCreateDialog: document.querySelector('#agentCreateDialog'),
   newAgentName: document.querySelector('#newAgentName'),
+  newAgentApp: document.querySelector('#newAgentApp'),
   newAgentGroup: document.querySelector('#newAgentGroup'),
   newAgentNote: document.querySelector('#newAgentNote'),
   confirmAddAgentBtn: document.querySelector('#confirmAddAgentBtn'),
@@ -564,6 +538,12 @@ function refreshSessionsOnForeground() {
   void loadSessions();
 }
 
+const toolCenter = window.createToolCenter({
+  document, manager: window.manager, els, tr, compactDate, currentProfileId, setStatus
+});
+state.tools = toolCenter.state;
+const { refreshToolInventory, renderToolCenter, handleToolProgress } = toolCenter;
+
 window.addEventListener('DOMContentLoaded', async () => {
   state.startupStage = 'settings-loading';
   await loadUserSettings();
@@ -573,7 +553,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadApps();
   await loadDeviceOverview({ silent: true, skipWorkspaceRefresh: true });
   initYard();
-  initCompanion();
   applyView();
   state.startupStage = 'profiles-loading';
   await loadProfiles(null, { presentFirstUseBeforeSessions: true });
@@ -656,6 +635,7 @@ function legacyUserSettings() {
 }
 
 function applyUserSettings(value = {}) {
+  state.agentOrder = Array.isArray(value.agentOrder) ? value.agentOrder : [];
   state.theme = value.theme === 'light' || value.theme === 'dark' ? value.theme : null;
   state.view = value.view === 'yard' ? 'yard' : 'classic';
   state.ui = window.UiContext.create({
@@ -666,7 +646,6 @@ function applyUserSettings(value = {}) {
     agentScope: value.sessionScope === 'all' ? 'all' : 'current'
   });
   state.sessionView = value.sessionView === 'detail' ? 'detail' : 'compact';
-  state.remindersOn = value.remindersOn !== false;
   state.profileQuitBehavior = value.profileQuitBehavior === 'keep' ? 'keep' : 'close';
   if (els.profileQuitBehavior) els.profileQuitBehavior.value = state.profileQuitBehavior;
   state.atmosTime = ['auto', 'day', 'dusk', 'night'].includes(value.atmosTime)
@@ -679,7 +658,6 @@ function applyUserSettings(value = {}) {
   state.onboardingProgress = window.OnboardingState
     ? window.OnboardingState.normalizeProgress(value.onboarding)
     : { completedVersion: 0, completedAt: null };
-  state.ledger = value.ledger && typeof value.ledger === 'object' ? value.ledger : null;
   state.yardPositions = window.YardInteractions
     ? window.YardInteractions.normalizePositions(value.yardPositions)
     : {};
@@ -706,9 +684,6 @@ function mirrorLegacySettings(patch) {
     if (Object.prototype.hasOwnProperty.call(patch, 'view')) {
       localStorage.setItem(LEGACY_SETTING_KEYS.view, patch.view);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, 'remindersOn')) {
-      localStorage.setItem(LEGACY_SETTING_KEYS.remindersOn, patch.remindersOn ? '1' : '0');
-    }
     if (Object.prototype.hasOwnProperty.call(patch, 'atmosTime')) {
       localStorage.setItem(LEGACY_SETTING_KEYS.atmosTime, patch.atmosTime);
     }
@@ -717,9 +692,6 @@ function mirrorLegacySettings(patch) {
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'welcomed')) {
       localStorage.setItem(LEGACY_SETTING_KEYS.welcomed, patch.welcomed ? '1' : '0');
-    }
-    if (Object.prototype.hasOwnProperty.call(patch, 'ledger')) {
-      localStorage.setItem(LEGACY_SETTING_KEYS.ledger, JSON.stringify(patch.ledger));
     }
   } catch (_error) {
     // The stable userData JSON store remains canonical if localStorage fails.
@@ -1379,6 +1351,7 @@ function bindEvents() {
   els.slotAssignmentAgent?.addEventListener('change', () => syncSlotAssignmentControls());
   els.slotAssignmentBinding?.addEventListener('change', () => syncSlotAssignmentControls());
   els.confirmSlotAssignmentBtn?.addEventListener('click', () => void confirmSlotAssignment());
+  document.querySelector('#removeUnassignedSlotBtn')?.addEventListener('click', () => void removeUnassignedLocalSlot());
   els.slotAssignmentDialog?.addEventListener('close', () => {
     state.mesh.assigningSlotKey = null;
   });
@@ -1462,13 +1435,6 @@ function bindEvents() {
     applyView();
   });
 
-  els.reminderToggle.addEventListener('click', () => {
-    state.remindersOn = !state.remindersOn;
-    persistSettings({ remindersOn: state.remindersOn });
-    els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
-    els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
-    setStatus(state.remindersOn ? tr('status.reminderEnabled') : tr('status.reminderDisabled'));
-  });
 
   els.helpBtn.addEventListener('click', () => {
     prepareWelcomeGuide();
@@ -1492,9 +1458,19 @@ function bindEvents() {
     renderDeviceCenter();
   });
 
-  els.closeDeviceCenterBtn?.addEventListener('click', () => closeUtilityDialog(els.deviceCenterDialog));
 
   for (const [kind, button, dialog] of utilityDialogEntries()) {
+    // One close path updates UI context and the native dialog synchronously.
+    // It also avoids form validation or a delayed native close event retaining stale utility state.
+    const close = dialog?.querySelector('.utility-dialog-close');
+    if (close) {
+      close.type = 'button';
+      close.addEventListener('click', () => closeUtilityDialog(dialog));
+    }
+    dialog?.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeUtilityDialog(dialog);
+    });
     dialog?.addEventListener('close', () => {
       const wasCurrent = state.utilityDialog === kind;
       button?.setAttribute('aria-expanded', 'false');
@@ -1539,13 +1515,7 @@ function bindEvents() {
     openDeviceJourney('join', els.showJoinMeshBtn);
   });
 
-  els.cancelJoinMeshBtn?.addEventListener('click', () => {
-    if (els.meshJoinPanel) els.meshJoinPanel.hidden = true;
-  });
 
-  els.confirmJoinMeshBtn?.addEventListener('click', async () => {
-    await joinExistingMesh();
-  });
 
   els.createDeviceInviteBtn?.addEventListener('click', async () => {
     openDeviceJourney('host', els.createDeviceInviteBtn);
@@ -1694,9 +1664,6 @@ function bindEvents() {
     await refreshToolInventory(true);
   });
 
-  els.updateAllToolsBtn?.addEventListener('click', async () => {
-    await updateAllManagedTools();
-  });
 
   if (window.manager.onToolProgress) {
     window.manager.onToolProgress(handleToolProgress);
@@ -1989,10 +1956,6 @@ function bindEvents() {
     }
   });
 
-  els.leaderboardBtn.addEventListener('click', () => {
-    renderLeaderboard();
-    els.leaderboardDialog.showModal();
-  });
 
   els.sessionScopeCurrentBtn?.addEventListener('click', () => {
     void setSessionScope('current');
@@ -2182,6 +2145,7 @@ function bindEvents() {
 function catalogProviderForApp(appId) {
   const value = String(appId || '').trim().toLowerCase();
   if (value === 'claude' || value === 'claude-cli') return 'claude';
+  if (value === 'dsh-cli' || value === 'dsh') return 'dsh';
   if (value === 'kimi' || value === 'kimi-work') return 'kimi';
   return value || 'unknown';
 }
@@ -2267,7 +2231,14 @@ function openAgentCreationDialog() {
   els.newAgentName.value = '';
   els.newAgentGroup.value = '';
   els.newAgentNote.value = '';
-  els.confirmAddAgentBtn.disabled = false;
+  els.newAgentApp.replaceChildren();
+  for (const app of supportedProvisioningApps()) {
+    const option = document.createElement('option');
+    option.value = app.appId;
+    option.textContent = app.label;
+    els.newAgentApp.append(option);
+  }
+  els.confirmAddAgentBtn.disabled = !els.newAgentApp.value;
   els.agentCreateDialog.showModal();
   els.newAgentName.focus();
 }
@@ -2279,6 +2250,8 @@ async function confirmAgentCreation() {
     els.newAgentName.focus();
     return;
   }
+  const requestedAppId = els.newAgentApp.value;
+  if (!state.appMeta[requestedAppId]?.canProvision) return;
   els.confirmAddAgentBtn.disabled = true;
   try {
     const result = await window.manager.createAgent({
@@ -2289,8 +2262,16 @@ async function confirmAgentCreation() {
     });
     if (!result?.ok) throw new Error(result?.reasonCode || 'agent-create-failed');
     els.agentCreateDialog.close();
-    await refreshCatalogWorkspace(result.overview, { agentId: result.agent.agentId });
-    setStatus(tr('status.agentCreated', { name: result.agent.displayName }));
+    // The dialog explicitly prepares on this device, including when opened from a remote Lens.
+    const agentId = result.agent.agentId;
+    const deviceId = result.overview.localDeviceId;
+    await refreshCatalogWorkspace(result.overview, { agentId, deviceLensId: deviceId });
+    rememberProvisioningChoice({ key: agentId }, deviceId, requestedAppId);
+    const preparation = await window.manager.ensureAgentReady({
+      agentId, deviceId, requestedAppId, requestedClientForm: 'desktop'
+    });
+    if (preparation?.overview) await refreshCatalogWorkspace(preparation.overview, { agentId });
+    setStatus(provisioningResultMessage(preparation, result.agent.displayName));
   } catch (error) {
     setStatus(tr('catalog.error.generic', { code: error?.message || 'agent-create-failed' }));
   } finally {
@@ -2484,6 +2465,12 @@ async function confirmAgentOrProfileEdit() {
 
 async function refreshCatalogWorkspace(overview, options = {}) {
   state.mesh.overview = overview;
+  if (options.deviceLensId) {
+    state.ui = window.UiContext.setDeviceLens(state.ui, options.deviceLensId, {
+      validAgentIds: identityGroupsForLens(options.deviceLensId).map((group) => group.key)
+    });
+    renderDeviceLens(overview);
+  }
   if (options.agentId && catalogAgentById(options.agentId)) {
     const group = identityGroupsForLens(currentDeviceLensId()).find((item) => item.key === options.agentId);
     const member = (group?.members || []).find((item) => item._meshSlotKey === options.slotKey)
@@ -2791,6 +2778,8 @@ function openSlotAssignmentDialog(slot) {
   els.slotAssignmentBinding.value = '';
   els.slotAssignmentStatus.dataset.state = 'idle';
   els.slotAssignmentStatus.textContent = tr('catalog.remove.safety');
+  document.querySelector('#removeUnassignedSlotBtn').hidden = slot.deviceId !== overview.localDeviceId
+    || !state.profiles.some(profile => profile.id === slot.profileId);
   syncSlotAssignmentControls();
   els.slotAssignmentDialog.showModal();
   els.slotAssignmentMode.focus();
@@ -2806,6 +2795,34 @@ function syncSlotAssignmentControls() {
   els.confirmSlotAssignmentBtn.disabled = !slot || !mode
     || (mode === 'existing-agent' && (!agents.length || !els.slotAssignmentAgent.value))
     || (mode === 'existing-binding' && (!bindings.length || !els.slotAssignmentBinding.value));
+}
+
+async function removeUnassignedLocalSlot() {
+  const slot = catalogSlotByKey(state.mesh.assigningSlotKey);
+  const overview = state.mesh.overview;
+  if (!slot || slot.deviceId !== overview?.localDeviceId || slot.assignmentState === 'linked') return;
+  const profile = state.profiles.find(item => item.id === slot.profileId);
+  if (!profile || !window.confirm(tr('status.removeConfirm', { name: profile.name }))) return;
+  const button = document.querySelector('#removeUnassignedSlotBtn');
+  button.disabled = true;
+  try {
+    const result = await window.manager.removeProfile(profile.id);
+    if (!result?.ok) {
+      els.slotAssignmentStatus.dataset.state = 'error';
+      els.slotAssignmentStatus.textContent = result?.reason || tr('status.removeFail');
+      return;
+    }
+    els.slotAssignmentDialog.close();
+    await loadProfiles(null, { skipDeviceOverview: true });
+    await loadDeviceOverview({ silent: true });
+    renderAttentionInbox();
+    setStatus(tr('status.removedSlot'));
+  } catch (_error) {
+    els.slotAssignmentStatus.dataset.state = 'error';
+    els.slotAssignmentStatus.textContent = tr('status.removeFail');
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function confirmSlotAssignment() {
@@ -3278,8 +3295,15 @@ async function loadQuotas(force = false) {
 }
 
 function selectedQuota() {
-  const profileId = currentProfileId();
-  return profileId ? state.quotas[profileId] || null : null;
+  const profile = selectedProfile();
+  const snapshot = profile ? state.quotas[profile.id] : null;
+  if (!snapshot || snapshot.status !== 'ok') return snapshot || null;
+  const group = groupOfProfile(profile.id);
+  const members = (group?.members || [profile]).filter((member) =>
+    profile._accountBindingId ? member._accountBindingId === profile._accountBindingId : true);
+  const evidence = trustedLocalAccountCardQuota({ ...group, members }, Date.now());
+  if (evidence.status === 'ok') return { ...evidence.snapshot, windows: evidence.windows };
+  return { ...snapshot, status: 'stale', windows: [], reason: tr(evidence.status === 'conflict' ? 'card.quotaConflict' : 'energy.unknown') };
 }
 
 function quotaPlanLabel(value) {
@@ -3439,13 +3463,10 @@ function renderQuotaOverview() {
   // 总览按「账号」而不是槽位：同一登录身份的多个槽位只出一行，
   // 行代表取组内有真实额度快照的那个（额度只在部分客户端有官方 API）。
   const groups = identityGroups();
-  const representatives = groups.map((group) => {
-    const holder = group.members.find((member) => state.quotas[member.id]?.status === 'ok') || group.primary;
-    return { ...holder, name: group.primary.name };
-  });
-  const rows = window.QuotaOverview
-    ? window.QuotaOverview.buildQuotaOverview(representatives, state.quotas, Date.now())
-    : [];
+  const rows = window.QuotaOverview?.buildTrustedQuotaOverview(groups, state.quotas, Date.now(), {
+    quotaError: state.quotaError,
+    reasonFor: (evidence) => tr(evidence.status === 'conflict' ? 'card.quotaConflict' : 'energy.unknown')
+  }) || [];
 
   // 控制条 chips（本号/全院）永远刷新，且不依赖总览带/聚合模块是否存在
   // （code-review：控制条核心 UI 不能被可选模块的守卫连带闸住）
@@ -5037,24 +5058,6 @@ function renderMeshAgentList(overview) {
   }
 }
 
-async function createDeviceInvitation() {
-  if (state.mesh.loading || !window.manager.createDeviceInvite) return;
-  state.mesh.loading = true;
-  state.mesh.errorCode = null;
-  state.mesh.message = tr('devices.invite.creating');
-  renderDeviceCenter();
-  const result = await window.manager.createDeviceInvite();
-  state.mesh.loading = false;
-  if (!result?.ok) {
-    state.mesh.errorCode = result?.reasonCode || 'pairing-invite-failed';
-    state.mesh.message = '';
-  } else {
-    state.mesh.invitation = result.invitation;
-    state.mesh.message = tr('devices.invite.ready', { code: result.invitation.shortCode });
-  }
-  renderDeviceCenter();
-}
-
 async function toggleMeshReachability() {
   if (state.mesh.loading || !window.manager.setDeviceReachable) return;
   const enabled = state.mesh.overview?.reachability?.userEnabled !== true;
@@ -5128,22 +5131,6 @@ async function disconnectMeshDevice(device) {
     state.mesh.message = tr('devices.connection.disconnected', { name: device.name });
   }
   renderDeviceCenter();
-}
-
-async function joinExistingMesh() {
-  const code = String(els.meshJoinCode?.value || '').trim();
-  if (!code) {
-    state.mesh.errorCode = 'pairing-code-required';
-    renderDeviceCenter();
-    return;
-  }
-  openDeviceJourney('join', els.confirmJoinMeshBtn);
-  state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
-    type: 'code',
-    code
-  }, state.mesh.overview);
-  renderDeviceJourney();
-  await inspectDeviceJourneyInvitation();
 }
 
 function deviceDiagnosticsButton(device) {
@@ -5534,283 +5521,6 @@ function platformLabel(platform) {
 }
 
 // ── 本机工具维护 ────────────────────────────────────
-async function refreshToolInventory(force = false) {
-  if (!window.manager.scanTools || state.tools.loading) return;
-  state.tools.loading = true;
-  state.tools.statusTone = 'idle';
-  state.tools.message = tr('tools.status.checking');
-  renderToolCenter();
-  try {
-    const result = await window.manager.scanTools({ force });
-    if (!result?.ok || !Array.isArray(result.items)) {
-      throw new Error(result?.reason || tr('tools.status.checkFailed'));
-    }
-    state.tools.items = result.items;
-    state.tools.summary = result.summary || null;
-    state.tools.checkedAt = result.checkedAt || null;
-    const updates = Number(result.summary?.updates || 0);
-    state.tools.message = updates
-      ? tr('tools.status.updatesFound', { n: updates })
-      : tr('tools.status.checked');
-  } catch (error) {
-    state.tools.statusTone = 'error';
-    state.tools.message = tr('tools.status.checkError', { msg: error.message || error });
-  } finally {
-    state.tools.loading = false;
-    renderToolCenter();
-  }
-}
-
-function renderToolCenter() {
-  if (!els.desktopToolList || !els.cliToolList) return;
-  const desktop = state.tools.items.filter((item) => item.kind === 'desktop');
-  const terminal = state.tools.items.filter((item) => item.kind !== 'desktop');
-  renderToolList(els.desktopToolList, desktop);
-  renderToolList(els.cliToolList, terminal);
-
-  const summary = state.tools.summary;
-  if (els.toolSummary) {
-    els.toolSummary.textContent = summary
-      ? tr('tools.summary', {
-          installed: summary.installed || 0,
-          total: summary.total || 0,
-          updates: summary.updates || 0
-        })
-      : tr('tools.summary.waiting');
-  }
-  if (els.toolCheckedAt) {
-    els.toolCheckedAt.textContent = state.tools.checkedAt
-      ? tr('tools.checkedAt', { time: compactDate(state.tools.checkedAt) })
-      : tr('tools.notChecked');
-  }
-  if (els.toolCenterStatus) {
-    els.toolCenterStatus.textContent = state.tools.message || tr('tools.status.ready');
-    els.toolCenterStatus.dataset.state = state.tools.loading || state.tools.busyId
-      ? 'busy'
-      : state.tools.statusTone;
-  }
-  if (els.checkToolsBtn) {
-    els.checkToolsBtn.disabled = state.tools.loading || Boolean(state.tools.busyId);
-    els.checkToolsBtn.textContent = state.tools.loading
-      ? tr('tools.checking')
-      : tr('tools.check');
-  }
-  if (els.updateAllToolsBtn) {
-    const count = Number(summary?.automatic || 0);
-    els.updateAllToolsBtn.disabled = state.tools.loading || Boolean(state.tools.busyId) || count === 0;
-    els.updateAllToolsBtn.textContent = state.tools.busyId === 'all'
-      ? tr('tools.updatingAll')
-      : tr('tools.updateAll', { n: count });
-  }
-}
-
-function renderToolList(container, items) {
-  container.replaceChildren();
-  if (state.tools.loading && !items.length) {
-    for (let index = 0; index < (container === els.desktopToolList ? 4 : 6); index += 1) {
-      const skeleton = document.createElement('div');
-      skeleton.className = 'tool-card tool-card-skeleton';
-      skeleton.setAttribute('aria-hidden', 'true');
-      container.append(skeleton);
-    }
-    return;
-  }
-  if (!items.length) {
-    const empty = document.createElement('p');
-    empty.className = 'tool-list-empty';
-    empty.textContent = tr('tools.empty');
-    container.append(empty);
-    return;
-  }
-
-  for (const item of items) {
-    const status = toolStatus(item);
-    const card = document.createElement('article');
-    card.className = 'tool-card';
-    card.dataset.toolId = item.id;
-    card.dataset.state = status.state;
-    card.dataset.installed = String(Boolean(item.installed));
-
-    const rail = document.createElement('span');
-    rail.className = 'tool-card-rail';
-    rail.setAttribute('aria-hidden', 'true');
-
-    const identity = document.createElement('div');
-    identity.className = 'tool-card-identity';
-    const name = document.createElement('strong');
-    name.textContent = item.label;
-    const kind = document.createElement('small');
-    kind.textContent = tr(`tools.kind.${item.kind}`);
-    identity.append(name, kind);
-
-    const badge = document.createElement('b');
-    badge.className = 'tool-status-badge';
-    badge.textContent = status.label;
-
-    const version = document.createElement('div');
-    version.className = 'tool-version-track';
-    const local = document.createElement('span');
-    local.textContent = item.installedVersion
-      ? `v${item.installedVersion}`
-      : item.installed
-        ? tr('tools.version.detected')
-        : tr('tools.version.none');
-    const arrow = document.createElement('i');
-    arrow.textContent = '→';
-    const latest = document.createElement('span');
-    latest.textContent = item.latestVersion
-      ? `v${item.latestVersion}`
-      : item.kind === 'desktop'
-        ? tr('tools.version.appManaged')
-        : '—';
-    version.append(local, arrow, latest);
-
-    const source = document.createElement('small');
-    source.className = 'tool-source';
-    const manager = !item.installed && item.kind === 'cli'
-      ? ''
-      : tr(`tools.manager.${item.manager}`);
-    const sourceLabel = item.sourceKey
-      ? tr(`tools.source.${item.sourceKey}`)
-      : item.source;
-    source.textContent = [manager, sourceLabel].filter(Boolean).join(' · ');
-    source.title = source.textContent;
-
-    const actions = document.createElement('div');
-    actions.className = 'tool-card-actions';
-    const open = document.createElement('button');
-    open.type = 'button';
-    open.textContent = item.installed ? tr('tools.open') : tr('tools.get');
-    open.disabled = state.tools.loading || Boolean(state.tools.busyId);
-    open.addEventListener('click', () => openManagedTool(item));
-    actions.append(open);
-
-    if (item.kind !== 'terminal' && item.installed && item.canUpdate) {
-      const update = document.createElement('button');
-      update.type = 'button';
-      update.className = item.updateAvailable === true ? 'primary' : '';
-      update.textContent = toolUpdateActionLabel(item);
-      update.disabled = state.tools.loading ||
-        Boolean(state.tools.busyId) ||
-        item.updateAvailable === false;
-      update.addEventListener('click', () => updateManagedTool(item));
-      actions.append(update);
-    }
-
-    card.append(rail, identity, badge, version, source, actions);
-    container.append(card);
-  }
-}
-
-function toolStatus(item) {
-  if (state.tools.busyId === item.id || state.tools.busyId === 'all') {
-    return { state: 'busy', label: tr('tools.state.updating') };
-  }
-  if (!item.installed) return { state: 'missing', label: tr('tools.state.missing') };
-  if (item.kind === 'terminal') return { state: 'system', label: tr('tools.state.system') };
-  if (item.updateAvailable === true) return { state: 'update', label: tr('tools.state.update') };
-  if (item.updateAvailable === false) return { state: 'current', label: tr('tools.state.current') };
-  if (item.checkError) return { state: 'error', label: tr('tools.state.checkError') };
-  if (item.kind === 'desktop') return { state: 'managed', label: tr('tools.state.appManaged') };
-  if (item.canAutoUpdate) return { state: 'unknown', label: tr('tools.state.canCheck') };
-  return { state: 'manual', label: tr('tools.state.manual') };
-}
-
-function toolUpdateActionLabel(item) {
-  if (item.updateAvailable === false) return tr('tools.current');
-  if (item.canAutoUpdate) {
-    return item.updateAvailable === true ? tr('tools.updateNow') : tr('tools.checkAndUpdate');
-  }
-  return item.kind === 'desktop' ? tr('tools.openUpdater') : tr('tools.updateGuide');
-}
-
-async function openManagedTool(item) {
-  if (!window.manager.openTool) return;
-  state.tools.statusTone = 'idle';
-  state.tools.message = tr('tools.status.opening', { label: item.label });
-  renderToolCenter();
-  try {
-    const result = await window.manager.openTool({
-      toolId: item.id,
-      profileId: currentProfileId()
-    });
-    state.tools.statusTone = result?.ok ? 'idle' : 'error';
-    state.tools.message = result?.ok
-      ? (result.message || tr('tools.status.opened', { label: item.label }))
-      : (result?.reason || tr('tools.status.openFailed', { label: item.label }));
-  } catch (error) {
-    state.tools.statusTone = 'error';
-    state.tools.message = tr('tools.status.openFailed', { label: item.label });
-  }
-  setStatus(state.tools.message);
-  renderToolCenter();
-}
-
-async function updateManagedTool(item) {
-  if (!window.manager.updateTool || state.tools.busyId) return;
-  state.tools.busyId = item.id;
-  state.tools.statusTone = 'idle';
-  state.tools.message = tr('tools.status.updating', { label: item.label });
-  renderToolCenter();
-  try {
-    const result = await window.manager.updateTool(item.id);
-    state.tools.statusTone = result?.ok ? 'idle' : 'error';
-    state.tools.message = result?.ok
-      ? (result.message || tr('tools.status.updated', { label: item.label }))
-      : (result?.reason || tr('tools.status.updateFailed', { label: item.label }));
-    setStatus(state.tools.message);
-    if (result?.item || result?.current) await refreshToolInventory(true);
-  } catch (_error) {
-    state.tools.statusTone = 'error';
-    state.tools.message = tr('tools.status.updateFailed', { label: item.label });
-    setStatus(state.tools.message);
-  } finally {
-    state.tools.busyId = null;
-    renderToolCenter();
-  }
-}
-
-async function updateAllManagedTools() {
-  if (!window.manager.updateAllTools || state.tools.busyId) return;
-  state.tools.busyId = 'all';
-  state.tools.statusTone = 'idle';
-  state.tools.message = tr('tools.status.updatingAll');
-  renderToolCenter();
-  try {
-    const result = await window.manager.updateAllTools();
-    if (result?.cancelled) {
-      state.tools.message = tr('tools.status.cancelled');
-    } else {
-      state.tools.statusTone = result?.ok ? 'idle' : 'error';
-      state.tools.message = result?.message ||
-        (result?.ok ? tr('tools.status.updatedAll') : result?.reason || tr('tools.status.updateAllFailed'));
-      if (result?.inventory?.items) {
-        state.tools.items = result.inventory.items;
-        state.tools.summary = result.inventory.summary || null;
-        state.tools.checkedAt = result.inventory.checkedAt || null;
-      } else {
-        await refreshToolInventory(true);
-      }
-    }
-    setStatus(state.tools.message);
-  } catch (_error) {
-    state.tools.statusTone = 'error';
-    state.tools.message = tr('tools.status.updateAllFailed');
-    setStatus(state.tools.message);
-  } finally {
-    state.tools.busyId = null;
-    renderToolCenter();
-  }
-}
-
-function handleToolProgress(progress) {
-  if (!progress?.toolId) return;
-  if (!state.tools.busyId) state.tools.busyId = progress.toolId;
-  state.tools.statusTone = progress.phase === 'error' ? 'error' : 'idle';
-  if (progress.message) state.tools.message = progress.message;
-  renderToolCenter();
-}
-
 // ── 统一提醒入口 ─────────────────────────────────────
 function collectAttentionItems() {
   const items = [];
@@ -5916,75 +5626,12 @@ function saveYardPosition(profileId, point, zoneId = 'ground') {
   return true;
 }
 
-function handleYardDrop({ profile, state: activityState, point, zone }) {
-  if (!profile || !window.YardInteractions) return false;
-  const zoneId = zone?.id || 'ground';
-  const group = groupOfPresenterId(profile.id);
-  const selectedRuntime = group?.key === currentAgentId() ? selectedProfile() : null;
-  const hasSelectedSession = Boolean(selectedRuntime && sessionForProfile(selectedRuntime.id));
-  const intent = window.YardInteractions.resolveDropIntent(zoneId, {
-    activityState,
-    hasSession: hasSelectedSession
-  });
-
-  if (intent.action === 'save-position') {
-    saveYardPosition(profile.id, point, zoneId);
-    window.YardScene.say(profile.id, { text: tr('yard.say.nice'), kind: 'ambient' });
-    setStatus(tr('status.yardPosSaved', { name: profile.name }));
-    return { keepPosition: true };
-  }
-
-  // Semantic drops create an intent. They never execute inside the canvas
-  // pointer handler, so animation completion cannot become an unsafe action.
-  void executeYardIntent(profile, intent);
-  return { keepPosition: false };
-}
-
-async function executeYardIntent(profile, initialIntent) {
-  const group = groupOfPresenterId(profile.id);
-  if (!group) return;
-  await selectAgent(group.key);
-  const runtimeProfile = selectedProfile();
-  const profileSession = runtimeProfile ? sessionForProfile(runtimeProfile.id) : null;
-  if (profileSession) {
-    setActiveSession(profileSession);
-    renderSessions();
-    renderInspector();
-  }
-  const mergedActivity = window.IdentityGroups
-    ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
-    : null;
-  const activityState = window.YardCats
-    ? window.YardCats.deriveState(Date.now(), profile, mergedActivity)
-    : 'rest';
-  const intent = window.YardInteractions.resolveDropIntent(initialIntent.zoneId, {
-    activityState,
-    hasSession: Boolean(profileSession)
-  });
-
-  if (!intent.enabled) {
-    window.YardScene.say(profile.id, { text: intent.title, kind: 'system', duration: 4200 });
-    setStatus(intent.title);
-    return;
-  }
-  if (intent.action === 'focus-running') {
-    setStatus(tr('status.alreadyRunning', { name: profile.name }));
-    return;
-  }
-  if (intent.action === 'focus-session') {
-    document.querySelector('.inspector')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    setStatus(tr('status.openedSessionDetail', { name: profile.name }));
-    return;
-  }
-  if (intent.action === 'launch-profile') {
-    if (!window.confirm(tr('status.openConfirmLaunch', { name: profile.name }))) return;
-    const result = await openCurrentAgent();
-    if (result?.ok === false) {
-      const message = provisioningResultMessage(result);
-      window.YardScene.say(profile.id, { text: message, kind: 'error', duration: 5000 });
-    }
-    return;
-  }
+// Dropping a cat only changes its saved position; account/session actions use the controls.
+function handleYardDrop({ profile, point }) {
+  if (!profile || !saveYardPosition(profile.id, point)) return false;
+  window.YardScene.say(profile.id, { text: tr('yard.say.nice'), kind: 'ambient' });
+  setStatus(tr('status.yardPosSaved', { name: profile.name }));
+  return { keepPosition: true };
 }
 
 // i18n 便捷取词（window.I18N 由 src/i18n/ 提供；未加载时回退到 key，永不抛错）
@@ -6015,14 +5662,12 @@ function rerenderLocalizedText() {
   renderInspector();
   renderQuotaSummary();
   renderAttentionInbox();
-  renderLedger();
   renderToolCenter();
   renderDeviceCenter();
   if (els.welcomeDialog?.open) {
     if (state.firstUse.mode === 'onboarding') renderFirstUse();
     else prepareWelcomeGuide();
   }
-  if (els.reminderToggle) els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
   updateAtmosphereReadout();
   if (yardMounted) syncYard();
 }
@@ -6065,58 +5710,10 @@ async function loadActivity() {
     renderAccounts();
     renderAccountHeader();
   }
-  runCompanion();
   syncYard();
 }
 
-// ── 全局陪伴状态（固定进入 Footer，不在庭院内占行） ───────
-function initCompanion() {
-  els.reminderToggle.setAttribute('aria-pressed', String(state.remindersOn));
-  els.reminderToggle.textContent = tr(state.remindersOn ? 'reminder.on' : 'reminder.off');
-  if (window.YardCompanion) {
-    state.ledger = state.ledger || window.YardCompanion.emptyLedger(Date.now());
-  }
-  renderLedger();
-}
-
-function runCompanion() {
-  if (!window.YardCompanion || !window.YardCats) return;
-  // 整段包起来：账本出任何岔子都不能连累每次轮询的庭院刷新
-  try {
-    const now = Date.now();
-    const workingIds = state.profiles
-      .filter((profile) => window.YardCats.deriveState(now, profile, state.activity[profile.id]) === 'working')
-      .map((profile) => profile.id);
-
-    const { ledger, events } = window.YardCompanion.tick(state.ledger, {
-      now,
-      workingIds,
-      remindersOn: state.remindersOn
-    });
-    state.ledger = ledger;
-    persistSettings({ ledger });
-    renderLedger();
-
-    for (const event of events) {
-      if (event.type === 'clockoff') {
-        setStatus(tr('status.catWrapped', { min: event.minutes }));
-      } else if (event.type === 'stretch') {
-        setStatus(tr('status.workedMin', { min: event.minutes }));
-        if (isYardView()) window.YardScene.fx('stretch');
-      }
-    }
-  } catch (_error) {
-    // 账本坏了就从零重建，别卡住庭院
-    state.ledger = window.YardCompanion.emptyLedger(Date.now());
-  }
-}
-
-function renderLedger() {
-  if (!state.ledger) return;
-  els.ledgerDone.textContent = String(state.ledger.completed);
-  els.ledgerMin.textContent = String(Math.round(state.ledger.workedMs / 60000));
-}
-
+// 庭院与卡片共享活动和额度证据。
 function syncYard() {
   if (yardMounted) {
     const now = Date.now();
@@ -6131,9 +5728,8 @@ function syncYard() {
         ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
         : state.activity[primary.id];
       statesById[primary.id] = window.YardCats.deriveState(now, primary, merged);
-      const snapshot = group.members
-        .map((member) => state.quotas[member.id])
-        .find((quota) => quota && quota.status === 'ok') || state.quotas[primary.id];
+      const evidence = trustedLocalAccountCardQuota(group, now);
+      const snapshot = evidence.status === 'ok' ? evidence.snapshot : null;
       energyById[primary.id] = window.YardEnergy
         ? window.YardEnergy.deriveEnergy(state.quotaError ? null : snapshot, now)
         : 'unknown';
@@ -6155,73 +5751,8 @@ function syncYard() {
   renderAccountRoster();
   renderTopbarContext();
   renderAttentionInbox();
-  // 排行榜打开时随轮询实时刷新
-  if (els.leaderboardDialog.open) renderLeaderboard();
 }
 
-// 工作量排行榜：各账号（组）今日活跃/新建场次 + 实时干活状态，算分排序
-function renderLeaderboard() {
-  if (!window.YardWorkload || !window.YardCats || !window.YardSprites) return;
-  const now = Date.now();
-  const rows = identityGroups().map((group) => {
-    const primary = group.primary;
-    const act = (window.IdentityGroups
-      ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
-      : state.activity[primary.id]) || {};
-    return {
-      name: primary.name,
-      appId: primary.appId,
-      cat: primary.cat,
-      isProtected: primary.isProtected,
-      activeToday: act.activeToday || 0,
-      createdToday: act.createdToday || 0,
-      working: window.YardCats.deriveState(now, primary, act) === 'working'
-    };
-  });
-  const ranked = window.YardWorkload.rankAccounts(rows);
-  els.leaderboardBody.replaceChildren();
-  if (!ranked.length) {
-    els.leaderboardBody.textContent = tr('leaderboard.empty');
-    return;
-  }
-  ranked.forEach((row, i) => {
-    const el = document.createElement('div');
-    el.className = `lb-row${i === 0 && row.score > 0 ? ' lb-top' : ''}${row.working ? ' lb-working' : ''}`;
-
-    const rank = document.createElement('div');
-    rank.className = 'lb-rank';
-    rank.textContent = (i === 0 && row.score > 0) ? '👑' : String(i + 1);
-
-    const avatar = document.createElement('canvas');
-    avatar.width = 36; avatar.height = 36; avatar.className = 'lb-avatar';
-    const c2 = avatar.getContext('2d');
-    c2.imageSmoothingEnabled = false;
-    const S = window.YardSprites;
-    const pal = S.BREEDS[row.cat && row.cat.breed] || S.BREEDS.orange;
-    S.drawCat(c2, S.SIT, pal, {
-      dx: 2, dy: 2, scale: 2, seed: 5,
-      collar: row.cat && row.cat.collar,
-      bell: row.isProtected,
-      tag: row.isProtected ? null : row.appId,
-      accessory: (row.cat && row.cat.accessory !== 'none') ? row.cat.accessory : null
-    });
-
-    const who = document.createElement('div');
-    who.className = 'lb-who';
-    const name = document.createElement('b');
-    name.textContent = row.name + (row.working ? ' 🔥' : '');
-    const sub = document.createElement('small');
-    sub.textContent = tr('leaderboard.sub', { app: appLabel(row.appId), active: row.activeToday, created: row.createdToday });
-    who.append(name, sub);
-
-    const score = document.createElement('div');
-    score.className = 'lb-score';
-    score.textContent = String(row.score);
-
-    el.append(rank, avatar, who, score);
-    els.leaderboardBody.append(el);
-  });
-}
 
 // 账号名册（经典视图的账号呈现层）：一个卡片 = 一个账号（身份组），带真像素猫头像、
 // 名称、分组、活跃状态。与庭院的猫是同一批账号的两种呈现（庭院靠 syncYard 喂场景）。
@@ -6261,10 +5792,35 @@ function renderAccounts() {
   syncYard();
 }
 
-function renderAccountRoster() {
-  if (!els.accountRoster) return;
-  els.accountRoster.replaceChildren();
+let rosterController = null;
+let lastRevealedAgent = null;
+
+function orderedAgentGroups() {
   const groups = identityGroups();
+  const order = window.RosterInteractions.normalizeOrder(state.agentOrder, groups.map(group => group.key));
+  const byId = new Map(groups.map(group => [group.key, group]));
+  return order.map(id => byId.get(id));
+}
+
+function ensureRosterInteractions() {
+  if (rosterController || !window.RosterInteractions) return;
+  rosterController = window.RosterInteractions.attach(els.accountRoster, {
+    onReorder(ids, detail) {
+      state.agentOrder = [...ids, ...state.agentOrder.filter(id => !ids.includes(id))];
+      persistSettings({ agentOrder: state.agentOrder });
+      document.querySelector('#rosterAnnouncement').textContent = tr('roster.moved', { n: detail.position, total: detail.total });
+    },
+    onEnd() { renderAccountRoster(); }
+  });
+}
+
+function renderAccountRoster() {
+  if (!els.accountRoster || rosterController?.isInteracting()) return;
+  ensureRosterInteractions();
+  const scrollLeft = els.accountRoster.scrollLeft;
+  const focusedId = els.accountRoster.contains(document.activeElement) ? document.activeElement.dataset.agentId : null;
+  els.accountRoster.replaceChildren();
+  const groups = orderedAgentGroups();
   if (els.presenterCount) els.presenterCount.textContent = String(groups.length);
   if (!groups.length) {
     const empty = document.createElement('p');
@@ -6277,7 +5833,12 @@ function renderAccountRoster() {
   for (const group of groups) {
     els.accountRoster.append(buildAccountCard(group, now));
   }
-  revealSelectedAccountCard();
+  els.accountRoster.scrollLeft = scrollLeft;
+  if (lastRevealedAgent !== currentAgentId()) {
+    lastRevealedAgent = currentAgentId();
+    revealSelectedAccountCard();
+  }
+  if (focusedId) [...els.accountRoster.children].find(card => card.dataset.agentId === focusedId)?.focus({ preventScroll: true });
 }
 
 function revealSelectedAccountCard() {
@@ -6328,6 +5889,9 @@ function buildAccountCard(group, now) {
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'account-card';
+  card.dataset.agentId = group.key;
+  card.setAttribute('aria-describedby', 'rosterHelp');
+  card.title = tr('roster.help');
   card.classList.toggle('selected', group.key === currentAgentId());
 
   const activityEvidence = window.IdentityGroups?.cardActivityEvidence
@@ -6359,7 +5923,7 @@ function buildAccountCard(group, now) {
   const name = document.createElement('div');
   name.className = 'account-card-name';
   name.textContent = primary.name;
-  const activeNow = group.members.reduce((acc, member) => acc + (state.activity[member.id]?.activeNow || 0), 0);
+  const activeNow = window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))?.activeNow || 0;
   if (activeNow > 0) {
     const busy = document.createElement('span');
     busy.className = 'account-card-busy';
@@ -7011,7 +6575,7 @@ function renderAccountHeader() {
 
   els.addProfileBtn.textContent = tr(firstUseAction
     ? 'account.createFirstAgent'
-    : (meshMode ? 'account.addAgent' : 'account.addSlot'));
+    : 'account.addAgent');
   const editProfileLabel = els.editProfileBtn.querySelector(':scope > span');
   const removeProfileLabel = els.removeProfileBtn.querySelector(':scope > span');
   if (editProfileLabel) editProfileLabel.textContent = tr(meshMode ? 'account.editAgent' : 'account.edit');
@@ -7070,10 +6634,10 @@ function renderAccountHeader() {
       || tr(meshMode ? 'account.noneAgent' : 'account.none');
     if (els.accountBadge) els.accountBadge.hidden = true;
     if (els.accountId) els.accountId.title = '';
-    els.accountMeta.textContent = '';
-    els.accountPath.textContent = '';
-    els.accountNote.textContent = '';
-    els.accountNote.style.display = 'none';
+
+
+
+
     renderFormSwitcher(null, selectedGroup);
     renderQuotaSummary();
     renderTopbarContext();
@@ -7089,7 +6653,7 @@ function renderAccountHeader() {
   const groupLabel = (selectedAgent?.group || profile?.group) ? ` · ${selectedAgent?.group || profile.group}` : '';
   const members = identityGroup ? identityGroup.members : (profile ? [profile] : []);
   // 并行会话数按整个账号（组）聚合：桌面在跑 + 终端在跑 = 一起数
-  const activeNow = members.reduce((acc, member) => acc + (state.activity[member.id]?.activeNow || 0), 0);
+  const activeNow = window.IdentityGroups.mergeActivity(members.map((member) => state.activity[member.id]))?.activeNow || 0;
   const badgeParts = [];
   if (meshMode) badgeParts.push(deploymentStateLabel(action.readiness?.state));
   if (activeNow > 0) badgeParts.push(tr('acct.badgeParallel', { n: activeNow }));
@@ -7117,10 +6681,10 @@ function renderAccountHeader() {
     if (els.accountId) {
       els.accountId.title = [metaLine, clientLine, selectedAgent?.note || ''].filter(Boolean).join('\n');
     }
-    els.accountMeta.textContent = metaLine;
-    els.accountPath.textContent = clientLine;
-    els.accountNote.textContent = selectedAgent?.note || '';
-    els.accountNote.style.display = selectedAgent?.note ? '' : 'none';
+
+
+
+
     renderQuotaSummary();
     renderTopbarContext();
     renderAgentManageContext();
@@ -7139,11 +6703,10 @@ function renderAccountHeader() {
   if (els.accountId) {
     els.accountId.title = [metaLine, pathLine, profile.note ? tr('acct.note', { note: profile.note }) : ''].filter(Boolean).join('\n');
   }
-  // 隐藏源（.account-legacy）：保留旧字段写入，作为 tooltip 之外的读取兜底
-  els.accountMeta.textContent = metaLine;
-  els.accountPath.textContent = pathLine;
-  els.accountNote.textContent = selectedAgent?.note || profile.note || '';
-  els.accountNote.style.display = selectedAgent?.note || profile.note ? '' : 'none';
+
+
+
+
   renderQuotaSummary();
   renderTopbarContext();
   renderAgentManageContext();
@@ -9105,15 +8668,6 @@ function selectedSession() {
   return state.sessions.find((session) => (
     sessionKey(session) === state.ui.focusedConversationId
   )) || null;
-}
-
-function sessionForProfile(profileId) {
-  const group = groupOfProfile(profileId);
-  const memberIds = new Set((group?.members || []).map((member) => member.id));
-  if (!memberIds.size && profileId) memberIds.add(profileId);
-  const active = selectedSession();
-  if (active && memberIds.has(active._profileId)) return active;
-  return state.filteredSessions.find((session) => memberIds.has(session._profileId)) || null;
 }
 
 function compactDate(value) {

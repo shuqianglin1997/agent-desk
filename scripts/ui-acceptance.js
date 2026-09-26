@@ -313,7 +313,8 @@ async function waitFor(client, expression, label, timeoutMs = 15_000) {
     if (await client.evaluate(`Boolean(${expression})`)) return;
     await new Promise((resolve) => setTimeout(resolve, 80));
   }
-  throw new Error(`Timed out waiting for ${label}`);
+  const debug = await client.evaluate(`({ active: document.activeElement?.id, hidden: document.hidden, dialogs: [...document.querySelectorAll('dialog[open]')].map(d => d.id), utility: typeof state === 'undefined' ? null : state.utilityDialog, startup: typeof state === 'undefined' ? null : state.startupStage, firstUse: typeof state === 'undefined' ? null : state.firstUse.model?.phase, status: document.querySelector('#statusText')?.textContent })`);
+  throw new Error(`Timed out waiting for ${label}: ${JSON.stringify(debug)}`);
 }
 
 async function capture(client, artifactDir, name) {
@@ -651,6 +652,7 @@ async function runAcceptance(client, artifactDir) {
   await waitFor(
     client,
     `typeof state !== 'undefined'
+      && state.startupStage === 'ready'
       && state.profiles.length === 8
       && state.sessions.length >= 3
       && document.querySelectorAll('#sessionRows tr:not(.empty-row)').length >= 3
@@ -675,7 +677,7 @@ async function runAcceptance(client, artifactDir) {
     const placement = await client.evaluate(`({
       detailOwnsActions: document.querySelector('#sessionInspector').contains(document.querySelector('#sessionSelectionBar')),
       footerOwnsActions: document.querySelector('#statusBar').contains(document.querySelector('#sessionSelectionBar')),
-      footerHasGlobalState: ['ledgerDone', 'ledgerMin', 'reminderToggle'].every(id => document.querySelector('#statusBar').contains(document.getElementById(id))),
+      footerHasGlobalState: document.querySelector('#statusBar').contains(document.getElementById('statusText')) && !document.querySelector('#ledgerDone, #ledgerMin, #reminderToggle'),
       yardLedger: Boolean(document.querySelector('#yardLedger')),
       dockHidden: document.querySelector('#sessionActionDock').hidden
     })`);
@@ -1818,6 +1820,43 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(reduced.deviceAnimation, 'none');
   });
 
+  await run('remove an unassigned local registration without deleting its Agent or files', async () => {
+    await client.evaluate(`(() => {
+      window.registrationRemovalFixture = null;
+      loadDeviceOverview({ silent: true }).then(async () => {
+        const overview = state.mesh.overview;
+        const slot = overview.slots.find(item => item.profileId === 'acceptance-work-cli' && item.deviceId === overview.localDeviceId);
+        const result = await window.manager.removeLocalAgentSlot({ deviceId: slot.deviceId, profileId: slot.profileId, baseRevision: currentCatalogRevision() });
+        if (!result.ok) throw new Error(result.reasonCode);
+        state.mesh.overview = result.overview;
+        const pending = result.overview.slots.find(item => item.profileId === slot.profileId && item.deviceId === slot.deviceId);
+        window.registrationRemovalFixture = { agentId: slot.agentId, profile: state.profiles.find(item => item.id === slot.profileId) };
+        openSlotAssignmentDialog(pending);
+      });
+    })()`);
+    await waitFor(client, `window.registrationRemovalFixture && document.querySelector('#slotAssignmentDialog').open`, 'unassigned local registration');
+    const fixture = await client.evaluate('window.registrationRemovalFixture');
+    const sentinel = path.join(fixture.profile.sessionRoot, 'keep-registration-removal.txt');
+    fs.writeFileSync(sentinel, 'session files stay');
+    assert.equal(await client.evaluate(`document.querySelector('#removeUnassignedSlotBtn').checkVisibility()`), true);
+    const eventStart = client.events.length;
+    const click = client.evaluate(`document.querySelector('#removeUnassignedSlotBtn').click()`);
+    const deadline = Date.now() + 5000;
+    while (!client.events.slice(eventStart).some(event => event.method === 'Page.javascriptDialogOpening')) {
+      assert.ok(Date.now() < deadline, 'registration removal must request confirmation');
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    await client.call('Page.handleJavaScriptDialog', { accept: true });
+    await click;
+    await waitFor(client, `!document.querySelector('#slotAssignmentDialog').open
+      && !state.profiles.some(item => item.id === 'acceptance-work-cli')
+      && !state.mesh.overview.slots.some(item => item.profileId === 'acceptance-work-cli')`, 'registration removed from profile and overview');
+    assert.equal(fs.readFileSync(sentinel, 'utf8'), 'session files stay');
+    assert.equal(await client.evaluate(`state.mesh.overview.agents.some(item => item.agentId === ${JSON.stringify(fixture.agentId)})`), true);
+    assert.equal(await client.evaluate(`state.profiles.some(item => item.id === 'acceptance-work-desktop')`), true);
+    assert.equal(await client.evaluate(`collectAttentionItems().some(item => item.slotKey?.includes('acceptance-work-cli'))`), false);
+  });
+
   const exceptions = client.events.filter((event) => event.method === 'Runtime.exceptionThrown');
   assert.deepEqual(exceptions, [], 'renderer must not emit uncaught exceptions during acceptance');
   return checks;
@@ -1851,6 +1890,7 @@ async function runFreshFirstUseInitialization(client, userData, artifactDir) {
   await waitFor(
     client,
     `typeof state !== 'undefined'
+      && state.startupStage === 'ready'
       && document.querySelector('#welcomeDialog').open
       && state.firstUse.model?.phase === 'agent'
       && state.profiles.length === 0`,
@@ -1867,6 +1907,9 @@ async function runFreshFirstUseInitialization(client, userData, artifactDir) {
     version: state.firstUse.model.version,
     initialized: state.mesh.overview?.initialized === true,
     primaryDisabled: document.querySelector('#onboardingPrimaryBtn').disabled,
+    draft: state.firstUse.model.draft,
+    action: document.querySelector('#onboardingPrimaryBtn').dataset.action,
+    controls: ['onboardingPrimaryBtn', 'onboardingSecondaryBtn', 'onboardingBackBtn', 'onboardingAdvancedBtn'].map(id => Boolean(document.getElementById(id))),
     completeHidden: document.querySelector('#onboardingComplete').hidden,
     safety: document.querySelector('#onboardingAgent .onboarding-safety-note')?.textContent.trim() || ''
   })`);
@@ -1874,7 +1917,7 @@ async function runFreshFirstUseInitialization(client, userData, artifactDir) {
   assert.equal(initial.phase, 'agent');
   assert.equal(initial.version, 1);
   assert.equal(initial.initialized, false);
-  assert.equal(initial.primaryDisabled, true);
+  assert.equal(initial.primaryDisabled, true, 'initial first-use state: ' + JSON.stringify(initial));
   assert.equal(initial.completeHidden, true);
   assert.ok(initial.safety.length > 0, 'first-use must explain its local-only boundary');
 
@@ -1952,6 +1995,7 @@ async function runFreshFirstUseRecovery(client, userData, artifactDir) {
   await waitFor(
     client,
     `typeof state !== 'undefined'
+      && state.startupStage === 'ready'
       && document.querySelector('#welcomeDialog').open
       && state.firstUse.model?.phase === 'existing'
       && state.mesh.overview?.initialized === true`,
@@ -2027,6 +2071,9 @@ async function launchElectronApp(userData, output) {
   const child = spawn(electronPath, [
     `--remote-debugging-port=${port}`,
     '--remote-allow-origins=*',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+    '--disable-background-timer-throttling',
     `--user-data-dir=${userData}`,
     APP_ROOT
   ], {
@@ -2059,10 +2106,92 @@ async function closeElectronApp(instance) {
   await stopChild(instance.child, instance.childState);
 }
 
+async function runRosterAcceptance(client, userData) {
+  await waitFor(client, `typeof state !== 'undefined' && state.profiles.length === 8
+    && state.sessions.length >= 3 && !document.querySelector('#welcomeDialog').open`, 'roster workspace');
+  await client.call('Emulation.setFocusEmulationEnabled', { enabled: true });
+  try { return await runFocusedRosterAcceptance(client, userData); }
+  finally { await client.call('Emulation.setFocusEmulationEnabled', { enabled: false }); }
+}
+
+async function runFocusedRosterAcceptance(client, userData) {
+  await client.call('Page.bringToFront');
+  await client.evaluate(`document.querySelector('#classicViewBtn').click()`);
+  const order = () => client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].map(card => card.dataset.agentId)`);
+  const selected = await client.evaluate('currentAgentId()');
+  const initial = await order();
+  assert.ok(initial.length > 3, 'drag fixture must have several agents');
+  const point = async (index) => client.evaluate(`(() => {
+    const node = document.querySelectorAll('#accountRoster .account-card')[${index}];
+    const rect = node.getBoundingClientRect(); return {x: rect.x + rect.width / 2, y: rect.y + 35};
+  })()`);
+  const mouse = (type, position, extra = {}) => client.call('Input.dispatchMouseEvent', {type, ...position, ...extra});
+  await client.evaluate(`document.querySelector('#accountRoster').scrollLeft = 0`);
+  let start = await point(0);
+  await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
+  await mouse('mouseReleased', start, {button: 'left', buttons: 0, clickCount: 1});
+  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'short press must select normally');
+  assert.deepEqual(await order(), initial, 'short press must not reorder');
+  start = await point(0); const target = await point(2);
+  await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
+  await waitFor(client, `document.querySelector('#accountRoster').classList.contains('roster-reordering')`, 'long-press reorder activation');
+  await mouse('mouseMoved', target, {button: 'left', buttons: 1});
+  await client.call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27});
+  await client.call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27});
+  await mouse('mouseReleased', target, {button: 'left', buttons: 0, clickCount: 1});
+  assert.deepEqual(await order(), initial, 'Esc must restore the starting order');
+  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'cancelled drag cannot select another card');
+  start = await point(0);
+  await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
+  await waitFor(client, `document.querySelector('#accountRoster').classList.contains('roster-reordering')`, 'blur-cancel reorder activation');
+  await mouse('mouseMoved', target, {button: 'left', buttons: 1});
+  await client.evaluate(`window.dispatchEvent(new Event('blur'))`);
+  await mouse('mouseReleased', target, {button: 'left', buttons: 0, clickCount: 1});
+  assert.deepEqual(await order(), initial, 'window blur must restore the starting order');
+  assert.equal(await client.evaluate('rosterController.isInteracting()'), false, 'window blur must end the gesture');
+  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'blur-cancelled drag cannot select another card');
+  start = await point(0);
+  await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
+  await waitFor(client, `document.querySelector('#accountRoster').classList.contains('roster-reordering')`, 'long-press reorder activation');
+  await mouse('mouseMoved', target, {button: 'left', buttons: 1});
+  await mouse('mouseReleased', target, {button: 'left', buttons: 0, clickCount: 1});
+  const dragged = await order();
+  assert.notDeepEqual(dragged, initial, 'long press must commit a changed order');
+  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'drag must not change the selected Agent');
+  await client.evaluate(`document.querySelector('#accountRoster').scrollLeft = 0`);
+  const wheelPoint = await point(0);
+  await mouse('mouseWheel', wheelPoint, {deltaX: 0, deltaY: 180});
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const scrolled = await client.evaluate(`document.querySelector('#accountRoster').scrollLeft`);
+  assert.ok(scrolled > 0, 'vertical mouse wheel must scroll roster horizontally');
+  await client.evaluate('renderAccountRoster()');
+  assert.equal(await client.evaluate(`document.querySelector('#accountRoster').scrollLeft`), scrolled, 'refresh must preserve manual scroll');
+  const movingId = dragged[1];
+  await client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].find(card => card.dataset.agentId === ${JSON.stringify(movingId)}).focus()`);
+  await client.call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37, modifiers: 1});
+  await client.call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37, modifiers: 1});
+  const reordered = await order();
+  assert.equal(reordered[0], movingId, 'Alt+Left must move the focused Agent');
+  assert.equal(await client.evaluate('document.activeElement.dataset.agentId'), movingId, 'keyboard reorder must retain focus');
+  const deadline = Date.now() + 5000;
+  let saved;
+  do {
+    saved = JSON.parse(fs.readFileSync(path.join(userData, 'settings.json'), 'utf8')).settings;
+    if (JSON.stringify(saved.agentOrder) === JSON.stringify(reordered)) break;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  } while (Date.now() < deadline);
+  assert.deepEqual(saved.agentOrder, reordered, 'order must be written to disk');
+  await client.evaluate(`selectAgent(${JSON.stringify(selected)})`);
+  process.stdout.write('✓ real pointer/keyboard roster sorting, wheel and refresh scroll preservation\n');
+  return reordered;
+}
+
+
 async function main() {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-ui-acceptance-'));
   const userData = path.join(tempRoot, 'user-data');
   const firstUseData = path.join(tempRoot, 'first-use-user-data');
+  const rosterData = path.join(tempRoot, 'roster-user-data');
   const artifactDir = process.env.AGENTDESK_UI_ACCEPTANCE_ARTIFACTS
     ? path.resolve(process.env.AGENTDESK_UI_ACCEPTANCE_ARTIFACTS)
     : null;
@@ -2079,6 +2208,20 @@ async function main() {
 
     instance = await launchElectronApp(firstUseData, output);
     checks.push(...await runFreshFirstUseRecovery(instance.client, firstUseData, artifactDir));
+    await closeElectronApp(instance);
+    instance = null;
+
+    seedUserData(rosterData);
+    instance = await launchElectronApp(rosterData, output);
+    const expectedOrder = await runRosterAcceptance(instance.client, rosterData);
+    checks.push('roster pointer keyboard and wheel');
+    await closeElectronApp(instance);
+    instance = await launchElectronApp(rosterData, output);
+    await waitFor(instance.client, `typeof state !== 'undefined' && state.profiles.length === 8
+      && !document.querySelector('#welcomeDialog').open`, 'roster restart');
+    assert.deepEqual(await instance.client.evaluate('state.agentOrder'), expectedOrder);
+    assert.deepEqual(await instance.client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].map(card => card.dataset.agentId)`), expectedOrder);
+    checks.push('roster order survives application restart');
     await closeElectronApp(instance);
     instance = null;
 

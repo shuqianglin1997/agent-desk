@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'ipc', 'local-reads.js'), 'utf8');
 const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
 
 function sourceBetween(startMarker, endMarker) {
@@ -17,7 +17,7 @@ function sourceBetween(startMarker, endMarker) {
 test('异步打开账号结束后只合并启动时间，不回写启动前的整份旧快照', () => {
   const handler = sourceBetween(
     "ipcMain.handle('profiles:launch'",
-    "ipcMain.handle('sessions:list'"
+    "registerLocalReadIpc({"
   );
 
   assert.match(handler, /await launchProfile\(profile\)/);

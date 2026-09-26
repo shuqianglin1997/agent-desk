@@ -37,7 +37,7 @@ test('能量模块在 scene 前加载，活动状态和疲劳状态分别传入�
 
 test('额度慢轮询不混进 8 秒 activity IPC', () => {
   assert.match(renderer, /const QUOTA_REFRESH_INTERVAL = 5 \* 60_000/);
-  const activity = between(renderer, 'async function loadActivity()', '// ── 全局陪伴状态');
+  const activity = between(renderer, 'async function loadActivity()', 'function syncYard()');
   assert.doesNotMatch(activity, /listQuotas|loadQuotas/);
   const quota = between(renderer, 'async function loadQuotas', 'function selectedQuota');
   assert.doesNotMatch(quota, /listActivity/);
@@ -72,7 +72,7 @@ test('额度总览随单账号额度一起刷新，按账号组归拢，默认�
   // 总览的行是「账号（组）」不是槽位：同一登录身份只出一行；带默认收起（原型），
   // 点「全院」chip 展开，单账号时不展示
   assert.match(renderer, /els\.quotaOverview\.hidden = !state\.quotaOverviewOpen \|\| groups\.length < 2/);
-  assert.match(renderer, /buildQuotaOverview\(representatives, state\.quotas/);
+  assert.match(renderer, /buildTrustedQuotaOverview\(groups, state\.quotas/);
   // 控制条 chips：本号/全院 永远随总览数据刷新；额度 Beta 详情由本号 chip 展开
   assert.match(renderer, /renderQuotaChips\(groups, rows\)/);
   assert.match(renderer, /els\.quotaSummary\.hidden = !state\.quotaSelfOpen/);

@@ -450,7 +450,10 @@ test('main/preload source closes raw path, full-profile, sender and navigation b
   assert.match(main, /const ipcMain = createTrustedIpcMain\(/);
   assert.match(main, /installMainWindowSecurity\(mainWindow/);
   assert.match(main, /profile-path-input-forbidden/);
-  assert.match(main, /sessions:list'[\s\S]*?input\.profileId[\s\S]*?loadProfiles\(\)/);
+  const localReads = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'ipc', 'local-reads.js'), 'utf8');
+  assert.match(main, /registerLocalReadIpc\(\{\s*ipcMain, loadProfiles/);
+  assert.match(localReads, /sessions:list'[\s\S]*?loadProfiles\(\)[\s\S]*?input\.profileId/);
+  assert.doesNotMatch(localReads, /require\('electron'\)/);
   assert.match(main, /diagnostics:get'[\s\S]*?input\.profileId[\s\S]*?loadProfiles\(\)/);
   assert.doesNotMatch(main, /refreshed\?\.filePath \|\| input\.filePath/);
   assert.match(preload, /listSessions: \(profile\) => ipcRenderer\.invoke\('sessions:list', \{ profileId: profile\?\.id \}\)/);

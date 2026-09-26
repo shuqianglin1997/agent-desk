@@ -2,13 +2,14 @@
 (function (root) {
   const L = root.AgentDeskLocales || (root.AgentDeskLocales = {});
   L.en = {
+    'roster.help': 'Hold and drag to reorder; wheel to scroll; Alt + Left/Right to reorder with the keyboard.',
+    'roster.moved': 'Moved to position {n} of {total}',
     meta: { label: 'English' },
 
     // Top bar
     'app.tagline': 'LOCAL ACCOUNT DESK',
     'topbar.context.yard': 'Cat Yard · local accounts & sessions',
     'topbar.context.classic': 'Classic · local accounts & sessions',
-    'topbar.leaderboard': 'Board',
     'topbar.update': 'Update',
     'topbar.toClassic': 'Cards',
     'topbar.toYard': 'Yard',
@@ -19,7 +20,6 @@
     'topbar.more': 'More',
     'topbar.help': 'Help',
     'topbar.theme': 'Appearance',
-    'topbar.leaderboard.title': "Today's workload leaderboard across accounts",
     'topbar.update.title': 'Check for updates on GitHub',
     'topbar.view.title': 'Switch Cat Yard / Classic view',
     'topbar.devices.title': 'View this device identity, the global Agent catalog, and device status',
@@ -560,12 +560,6 @@
     'yard.weather.snow': 'Snow',
 
     // Today ledger / reminder
-    'ledger.title': 'Today',
-    'ledger.done': '{n} wrapped up',
-    'ledger.min': '{n} min alongside',
-    'reminder.on': '🔔 Reminders on',
-    'reminder.off': '🔔 Reminders off',
-    'reminder.title': 'Break reminders (stretch / wrap-up nudge)',
 
     // Account console
     'account.none': 'No account selected',
@@ -781,9 +775,6 @@
 
     // Status bar
     'status.ready': 'Ready',
-    'status.life.prefix': 'Today · ',
-    'status.life.mid': ' wrapped · ',
-    'status.life.suffix': ' min',
     'status.attention': '{n} need attention',
     'common.unrecorded': 'Not recorded',
     'common.more': 'More',
@@ -863,24 +854,13 @@
     'status.yardTime': 'Yard time: {label}.',
     'status.yardWeather': 'Yard weather: {label}.',
     'status.yardPosSaved': 'Saved {name}\'s spot in the yard.',
-    'status.alreadyRunning': '{name} is already running; its account and sessions are on the right.',
-    'status.openedSessionDetail': 'Opened {name}\'s current session detail.',
-    'status.catWrapped': 'A cat wrapped up — today +1 (worked with you for {min} min this round).',
-    'status.workedMin': 'Worked with you for {min} min — stretch together? ☕',
     'status.migrating': 'Migrating account data — please do not open the official app yet.',
     'status.migrateFail': 'Path migration failed.',
     'status.migrateDone': 'Windows path migration complete.',
-    'status.reminderEnabled': 'Break reminders on.',
-    'status.reminderDisabled': 'Break reminders off; the cats keep you company as usual.',
-    'status.openConfirmLaunch': 'Send "{name}" to the work booth and open the official app?',
     'status.removeConfirm': 'Remove "{name}"? The local directory will not be deleted.',
     'status.migrateConfirm': 'Fully close the official app for "{name}" first. Confirm it is closed and start the copy migration?',
 
     // ── Today ledger (keep bold number node; split prefix/suffix) ──
-    'ledger.donePre': '',
-    'ledger.doneSuf': ' done',
-    'ledger.minPre': '',
-    'ledger.minSuf': ' min alongside',
 
     // ── Dialog / modal static text ──
     'dialog.cancel': 'Cancel',
@@ -901,7 +881,8 @@
     'dialog.field.sessionRoot': 'Session root',
     'dialog.field.executable': 'Official app executable (optional)',
     'dialog.addAgent.title': 'Add Agent',
-    'dialog.addAgent.lead': 'Add the employee to the global library first. Its runtime is prepared automatically the first time you open it.',
+    'dialog.addAgent.lead': 'Create a separate account environment on this device and sign in with the official client. Register an existing company API environment under Manage Agent → Import runtime location.',
+  'dialog.addAgent.prepare': 'Create and prepare separate environment',
     'dialog.ph.agentName': 'For example: Research assistant',
     'dialog.ph.agentNote': 'Optional: note what this employee is responsible for',
     'dialog.addProfile.title': 'Add account slot',
@@ -990,15 +971,13 @@
     'tools.checkedAt': 'Checked {time}',
     'tools.check': '↻ Check all',
     'tools.checking': 'Checking…',
-    'tools.updateAllStatic': '↑ Update all',
-    'tools.updateAll': '↑ Update {n}',
-    'tools.updatingAll': 'Updating all…',
     'tools.section.desktop': 'DESKTOP APPS',
     'tools.section.desktopHint': 'Official app updaters manage desktop releases',
     'tools.section.cli': 'CLI TOOLS',
     'tools.section.cliHint': 'Updates follow the detected install source',
     'tools.securityNote': 'Update commands are allowlisted in the main process; UI-provided paths, commands and download URLs are never executed.',
-    'tools.empty': 'No tools to show.',
+    'tools.supported': 'Other supported tools (not installed)',
+  'tools.empty': 'No tools to show.',
     'tools.kind.desktop': 'Desktop app',
     'tools.kind.cli': 'CLI tool',
     'tools.kind.terminal': 'System terminal',
@@ -1050,8 +1029,6 @@
     'tools.status.updateFailed': '{label} update failed.',
     'tools.status.updatingAll': 'Updating in sequence with each original installer…',
     'tools.status.cancelled': 'Update all cancelled.',
-    'tools.status.updatedAll': 'Update all complete.',
-    'tools.status.updateAllFailed': 'Some updates failed; review the status.',
 
     // ── Welcome / first use ──
     'welcome.title': 'Using AgentDesk',
@@ -1203,11 +1180,6 @@
     'deviceJourney.status.claimRejected': 'The join request was rejected. No membership certificate was issued.',
 
     // ── Leaderboard ──
-    'leaderboard.title': 'Workload leaderboard',
-    'leaderboard.today': 'Today',
-    'leaderboard.note': 'Score = 10·√active sessions today + 6·√created + working ×15. Square-root damping: tools split tasks into very different numbers of session files, so this stops fine-grained tools from flooding the board. Refreshes every minute, status live.',
-    'leaderboard.empty': 'No accounts yet.',
-    'leaderboard.sub': '{app} · {active} active today · {created} new',
 
     // ── Cat look (edit-dialog customizer) ──
     'cat.breed.orange': 'Orange',
@@ -1232,7 +1204,6 @@
 
     // ── Region aria-labels ──
     'aria.topbarActions': 'Global actions',
-    'aria.footerGlobal': 'Today\'s companion and reminder status',
     'aria.yardCanvas': 'Cat Yard: each cat is an account, click to select',
     'aria.roster': 'Account roster (classic view)',
     'aria.quotaSummary': 'Account quota',
@@ -1414,6 +1385,7 @@
     'main.tools.noExecutable': 'No launchable tool executable was found.',
     'main.tools.invalidExecutable': 'The tool path contains characters that cannot be launched safely.',
     'main.tools.noTerminal': 'No supported system terminal was found.',
+    'main.tools.profileMismatch': 'The selected profile does not belong to this CLI tool. Choose the matching CLI profile.',
     'main.tools.openedTerminal': 'Opened {label} in a new terminal.',
     'main.tools.updateBusy': '{label} is updating. Wait for it to finish.',
     'main.tools.systemManaged': 'This tool is managed by the operating system and cannot be updated separately.',
@@ -1422,13 +1394,9 @@
     'main.tools.updating': 'Updating {label}…',
     'main.tools.updated': '{label} was updated to v{version}.',
     'main.tools.allCurrent': 'All automatically managed tools are current.',
-    'main.tools.updateAllTitle': 'Update CLI tools',
-    'main.tools.updateAllMessage': 'Update {n} tools in sequence using their original installers.',
-    'main.tools.updateAllConfirm': 'Start updates',
-    'main.tools.updateAllDone': 'Bulk update finished: {done}/{total} succeeded.',
     'main.tools.updateTimeout': '{label} update timed out; stopped waiting.',
     'main.tools.updateExit': 'The updater exited unexpectedly (code={code}, signal={signal}).',
-    'main.launch.cliRuns': '{label} runs in your own terminal; this slot identifies and indexes its sessions.',
+    'main.launch.cliRuns': '{label} opens in an isolated terminal. This slot uses its own config root and does not inherit the official default account or proxy.',
     'main.agentPrepare.title': 'Prepare Agent for the first time',
     'main.agentPrepare.message': '“{device}” wants to prepare this computer as a work environment for “{agent}”.',
     'main.agentPrepare.detail': 'AgentDesk only creates its managed directory and opens the allowlisted official {app} client or install page. Installation, sign-in, verification codes, and system permissions must still be completed on this computer.',

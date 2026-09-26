@@ -142,7 +142,8 @@ test('右下只留会话、额度与远控；活动独立弹窗，Footer 只保�
   assert.match(detail, /id="detailSurfaceQuota"[\s\S]*?id="quotaSummary"[\s\S]*?id="quotaOverview"/);
   assert.match(html, /id="activityCenterDialog"[\s\S]*?id="attentionInbox"[\s\S]*?id="attentionItems"/);
   assert.match(detail, /id="sessionActionDock"[\s\S]*?id="sessionSelectionBar"[\s\S]*?id="copySessionInfoBtn"[\s\S]*?id="sendSessionInfoBtn"[\s\S]*?id="sessionFocusedActions"[\s\S]*?id="openSessionFileBtn"[\s\S]*?id="exportSessionBtn"/);
-  assert.match(footer, /id="statusText"[\s\S]*?id="ledgerDone"[\s\S]*?id="ledgerMin"[\s\S]*?id="reminderToggle"/);
+  assert.match(footer, /id="statusText"/);
+  assert.doesNotMatch(footer, /ledgerDone|ledgerMin|reminderToggle/);
   assert.doesNotMatch(footer, /sessionSelectionBar|copySessionInfoBtn|sendSessionInfoBtn/);
   assert.doesNotMatch(html, /id="yardLedger"/);
   assert.match(styles, /\.detail-surface\[hidden\]\s*\{\s*display:\s*none !important/);
@@ -271,7 +272,6 @@ test('账号为轴：庭院一只猫=一个账号组，会话合流并记录归�
   assert.match(renderer, /record\) => \(\{ \.\.\.record, _profileId: member\.id \}\)/);
   assert.match(renderer, /sessionOwnerProfile\(session\)\.id/);
   // 排行榜与账号条也按组聚合
-  assert.match(renderer, /const rows = identityGroups\(\)\.map/);
   assert.match(renderer, /for \(const group of identityGroups\(\)\) \{/);
 });
 
@@ -321,10 +321,10 @@ test('工具入口打开独立模态弹窗 + 新增账号落盘链完整', () =>
   assert.match(main, /ipcMain\.handle\('profiles:add'[\s\S]*?profiles\.push\(profile\);\s*\n\s*saveProfiles\(profiles\);/);
 });
 
-test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项/批量更新且 renderer 不提交命令', () => {
+test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项更新且 renderer 不提交命令', () => {
   const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = read('src/renderer.js') + '\n' + read('src/renderer/tool-center.js');
   const preload = read('src/preload.js');
   const main = read('src/main.js');
   const maintenance = read('src/tool-maintenance.js');
@@ -333,22 +333,22 @@ test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项/
 
   assert.match(html, /id="toolCenterBtn"[\s\S]*?data-i18n="topbar\.tools"/);
   assert.match(html, /id="toolCenterDialog"[^>]*tool-center-dialog/);
-  assert.match(html, /id="checkToolsBtn"[\s\S]*?id="updateAllToolsBtn"/);
+  assert.match(html, /id="checkToolsBtn"/);
   assert.match(html, /id="desktopToolList"[\s\S]*?id="cliToolList"/);
   assert.doesNotMatch(html, /custom-agent|addCustomAgent|customAgent/);
 
   assert.match(preload, /scanTools:[\s\S]*?tools:scan/);
   assert.match(preload, /openTool:[\s\S]*?tools:open/);
   assert.match(preload, /updateTool:[\s\S]*?tools:update/);
-  assert.match(preload, /updateAllTools:[\s\S]*?tools:updateAll/);
+  assert.doesNotMatch(preload, /updateAllTools:[\s\S]*?tools:updateAll/);
   assert.match(main, /ipcMain\.handle\('tools:scan'/);
   assert.match(main, /ipcMain\.handle\('tools:open'/);
   assert.match(main, /ipcMain\.handle\('tools:update'/);
-  assert.match(main, /ipcMain\.handle\('tools:updateAll'/);
+  assert.doesNotMatch(main, /ipcMain\.handle\('tools:updateAll'/);
 
   // renderer 只交 toolId / profileId；命令、参数、路径和官方 URL 都由主进程目录生成。
-  assert.match(renderer, /window\.manager\.openTool\(\{\s*toolId: item\.id,\s*profileId:/);
-  assert.match(renderer, /window\.manager\.updateTool\(item\.id\)/);
+  assert.match(renderer, /manager\.openTool\(\{\s*toolId: item\.id,\s*profileId:/);
+  assert.match(renderer, /manager\.updateTool\(item\.id\)/);
   assert.doesNotMatch(renderer, /openTool\(\{[\s\S]{0,180}(?:command|args|url|executablePath):/);
   assert.match(main, /toolMaintenance\.catalogTool\(toolId\)/);
   assert.match(main, /toolMaintenance\.updateArgumentsFor\(plan\)/);
@@ -372,7 +372,7 @@ test('i18n 独立模块：三语加载顺序 + 顶栏接线 + 语言持久化 + 
   assert.match(html, /i18n\/i18n\.js"[\s\S]*?i18n\/zh\.js"[\s\S]*?i18n\/en\.js"[\s\S]*?i18n\/ja\.js"[\s\S]*?renderer\.js"/);
   // 顶栏语言切换按钮 + 静态文案挂 data-i18n
   assert.match(html, /id="langToggle"/);
-  assert.match(html, /id="leaderboardBtn"[^>]*>[\s\S]*?data-i18n="topbar\.leaderboard"/);
+  assert.doesNotMatch(html, /id="leaderboardBtn"/);
   // 界面接线：跟随/存过的语言初始化 + 循环切换持久化
   assert.match(renderer, /window\.I18N\.init\(value\.lang\)/);
   assert.match(renderer, /window\.I18N\.setLang\(window\.I18N\.next\(\)/);
@@ -381,7 +381,7 @@ test('i18n 独立模块：三语加载顺序 + 顶栏接线 + 语言持久化 + 
   // 三语词表都注册 meta.label，且核心 key 三语对齐
   for (const loc of [read('src/i18n/zh.js'), read('src/i18n/en.js'), read('src/i18n/ja.js')]) {
     assert.match(loc, /meta: \{ label:/);
-    for (const key of ['topbar.leaderboard', 'topbar.tools', 'account.open', 'session.title', 'status.ready', 'tools.check', 'tools.updateAll', 'tools.manager.unknown', 'tools.source.catalog']) {
+    for (const key of ['topbar.tools', 'account.open', 'session.title', 'status.ready', 'tools.check', 'tools.manager.unknown', 'tools.source.catalog']) {
       assert.ok(loc.includes("'" + key + "'"), key + ' missing in a locale');
     }
   }
@@ -392,4 +392,10 @@ test('三语词表完整 key 集合一致', () => {
   const expected = Object.keys(locale('zh')).sort();
   assert.deepEqual(Object.keys(locale('en')).sort(), expected);
   assert.deepEqual(Object.keys(locale('ja')).sort(), expected);
+});
+test('移除待归属本机位置只出现在归属弹窗中，不进入新增 Agent', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
+  const dialog = html.match(/<dialog id="slotAssignmentDialog"[\s\S]*?<\/dialog>/)[0];
+  assert.equal((html.match(/id="removeUnassignedSlotBtn"/g) || []).length, 1);
+  assert.match(dialog, /id="removeUnassignedSlotBtn"[^>]*type="button"/);
 });

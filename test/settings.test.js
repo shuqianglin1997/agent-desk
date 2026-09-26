@@ -214,3 +214,11 @@ test('Mesh 联网登记保持 boolean/null 三态，首次使用可明确保持�
   assert.equal(normalizeSettings({ meshNetworkEnrollmentEnabled: true }).meshNetworkEnrollmentEnabled, true);
   assert.equal(normalizeSettings({ meshNetworkEnrollmentEnabled: 'yes' }).meshNetworkEnrollmentEnabled, null);
 });
+test('Agent 顺序设置去重、有界，并兼容旧设置与其他偏好', () => {
+  assert.deepEqual(normalizeSettings({}).agentOrder, []);
+  assert.deepEqual(normalizeSettings({ agentOrder: ['b', 'a', 'b', null, '', ' c '] }).agentOrder, ['b', 'a', 'c']);
+  const merged = mergeSettings({ theme: 'dark', agentOrder: ['a', 'b'] }, { agentOrder: ['b', 'a'] });
+  assert.equal(merged.theme, 'dark');
+  assert.deepEqual(merged.agentOrder, ['b', 'a']);
+  assert.equal(normalizeSettings({ agentOrder: Array.from({ length: 1100 }, (_, n) => `agent-${n}`) }).agentOrder.length, 1000);
+});
