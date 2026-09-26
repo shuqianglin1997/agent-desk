@@ -107,17 +107,46 @@ test('lastEventTimestamp 对 claude-cli 事件（ISO timestamp）直接可用', 
 
 const apps = require('../src/apps');
 
-test('注册表 claude-cli：默认读 ~/.claude，独立槽位用 CLAUDE_CONFIG_DIR 隔离，不可 launch', () => {
+test('注册表 claude-cli：默认读 ~/.claude，独立槽位用 CLAUDE_CONFIG_DIR 隔离并可打开终端', () => {
   assert.equal(apps.isKnownApp('claude-cli'), true);
   const app_ = apps.getApp('claude-cli');
   assert.equal(app_.label, 'Claude CLI');
   assert.equal(app_.noLaunch, true);
+  assert.equal(app_.cliDiscoveryId, 'claude');
+  assert.equal(app_.maintenanceToolId, 'cli:claude');
   assert.equal(app_.defaultSessionRoot('/tmp/slot', true), path.join(os.homedir(), '.claude'));
   assert.equal(app_.defaultSessionRoot('/tmp/slot', false), path.join('/tmp/slot', 'claude-cli-home'));
   const env = app_.launchEnv({ sessionRoot: '/tmp/slot/claude-cli-home' }, { PATH: '/usr/bin' });
   assert.equal(env.CLAUDE_CONFIG_DIR, '/tmp/slot/claude-cli-home');
   const byId = Object.fromEntries(apps.listApps().map((item) => [item.id, item]));
   assert.equal(byId['claude-cli'].canExportTranscript, true);
-  assert.equal(byId['claude-cli'].canLaunch, false);
+  assert.equal(byId['claude-cli'].canLaunch, true);
   assert.equal(byId.claude.canLaunch, true);
+});
+
+test('注册表 dsh-cli：独立槽位用 DSH_HOME 和 CLI web profile 启动', () => {
+  assert.equal(apps.isKnownApp('dsh-cli'), true);
+  const app_ = apps.getApp('dsh-cli');
+  assert.equal(app_.noLaunch, true);
+  assert.equal(app_.cliDiscoveryId, 'dsh');
+  assert.equal(app_.maintenanceToolId, 'cli:dsh');
+  assert.equal(app_.defaultSessionRoot('/tmp/slot', true), path.join(os.homedir(), '.dsh'));
+  assert.equal(app_.defaultSessionRoot('/tmp/slot', false), path.join('/tmp/slot', 'dsh-home'));
+  assert.deepEqual(app_.launchEnv({ sessionRoot: '/tmp/slot/dsh-home' }, { DSH_HOME: '/wrong', PATH: '/usr/bin' }), {
+    DSH_HOME: '/tmp/slot/dsh-home',
+    PATH: '/usr/bin'
+  });
+  assert.deepEqual(app_.cliArgsForProfile({}), ['--profile', 'web']);
+  assert.deepEqual(app_.cliArgsForProfile({ dshProfile: 'desktop' }), ['--profile', 'web']);
+  assert.equal(apps.listApps().find((item) => item.id === 'dsh-cli').canLaunch, true);
+});
+test('CLI 可启动能力同时供账号入口和 Mesh 就绪投影使用', () => {
+  for (const appId of ['claude-cli', 'dsh-cli']) {
+    const plan = apps.profileLaunchPlan({ appId, sessionRoot: '/isolated', sessionRootMode: 'managed' });
+    assert.equal(plan.ok, true);
+    assert.equal(plan.isolated, true);
+    assert.equal(plan.args.some(arg => arg.startsWith('--user-data-dir')), false);
+    assert.equal(apps.profileLaunchPlan({ appId }).reasonCode, 'session-root-required');
+    assert.equal(apps.profileLaunchPlan({ appId, sessionRoot: '/official', sessionRootMode: 'auto', isProtected: true }).isolated, false);
+  }
 });

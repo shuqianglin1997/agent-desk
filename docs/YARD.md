@@ -24,16 +24,9 @@
 
 ## 拖放语义
 
-拖动时才显示命中区域。放下只产生 intent，由 renderer 决定执行、确认或解释。
+拖动仅保存猫的位置，点击仅选择 Agent。工作亭、池塘和草坪保留为场景美术，不再构成账号启动或会话聚焦快捷入口；这些动作统一使用主工作台控件。
 
-| 区域 | 行为 | 条件 |
-|---|---|---|
-| 工作亭 `workshop` | 打开账号；若已运行则聚焦状态 | 打开动作需要确认 |
-| 池塘 `attention` | 聚焦当前会话详情 | 必须存在可选会话 |
-| 树下草坪 `meadow` | 保存猫位置 | 无额外条件 |
-| 普通地面 | 保存猫位置 | 无额外条件 |
-
-庭院没有终端入口、任务队列、会话交接或远程执行区域。
+排行、工作量分数、今日完成数和陪伴时长账本已退休。旧 settings 中的账本仍可读迁移，但不会继续累计或定时写入。
 
 ## 模块
 
@@ -41,10 +34,8 @@
 src/yard/
   cats.js          活动信号 → 猫状态，外观归一化
   energy.js        额度 → 独立能量状态
-  workload.js      今日工作量评分与排行
-  companion.js     今日陪伴账本
   atmosphere.js    时间和天气纯函数
-  interactions.js  三个命中区域与 drop intent
+  interactions.js  位置归一化与旧位置兼容
   palettes.js      场景配色
   sprites.js       程序化像素角色
   scene.js         Canvas 场景、overlay、拖拽与动画
@@ -68,10 +59,10 @@ Renderer 负责把主进程数据聚合为 scene 输入；scene 不访问文件�
 ## 交互安全
 
 - 动画完成不能触发系统动作。
-- 拖放产生 intent，不直接启动 App。
-- 需要副作用的打开动作必须由 renderer 走确认流程。
+- 拖放只能保存位置。
+- 打开账号统一从明确运行位置的控件进入。
 - 位置写入只更新 settings 中对应 profile 的一项。
-- 未知区域一律退化为保存位置。
+- 取消拖动不保存新位置。
 
 ## 验证
 
@@ -82,6 +73,6 @@ Renderer 负责把主进程数据聚合为 scene 输入；scene 不访问文件�
 - `test/atmosphere.test.js`
 - `test/interactions.test.js`
 - `test/ui.test.js`
-- `test/workload.test.js`
+- `test/activity.test.js`
 
 美术资产约束见 [YARD_ART_ASSETS.md](YARD_ART_ASSETS.md)。

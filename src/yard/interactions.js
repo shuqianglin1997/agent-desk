@@ -1,11 +1,4 @@
-/*
- * AgentDesk — semantic yard zones and drag/drop intent resolution.
- *
- * Rectangles are interaction hit areas, not artwork. They are only revealed
- * while dragging a cat. A drop produces an intent; the renderer decides
- * whether to execute, confirm, or explain it. This keeps animation completion
- * from accidentally launching/stopping an app or approving a request.
- */
+/* AgentDesk — bounded, persistent cat placement. No account or session actions. */
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -15,11 +8,6 @@
 
   const WIDTH = 480;
   const HEIGHT = 236; // 与 scene.js 的逻辑画布同步（前景草坪带）
-  const ZONES = Object.freeze([
-    Object.freeze({ id: 'workshop', label: '工作亭', hint: '打开账号', x0: 10, y0: 16, x1: 108, y1: 78, priority: 6 }),
-    Object.freeze({ id: 'attention', label: '池塘', hint: '查看会话', x0: 190, y0: 87, x1: 290, y1: 130, priority: 7 }),
-    Object.freeze({ id: 'meadow', label: '树下草坪', hint: '保存位置', x0: 288, y0: 88, x1: 470, y1: 130, priority: 2 })
-  ]);
 
   function clamp(value, minimum, maximum) {
     return Math.max(minimum, Math.min(maximum, value));
@@ -33,12 +21,6 @@
     };
   }
 
-  function zoneAt(x, y) {
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-    return ZONES
-      .filter((zone) => x >= zone.x0 && x <= zone.x1 && y >= zone.y0 && y <= zone.y1)
-      .sort((a, b) => b.priority - a.priority)[0] || null;
-  }
 
   function normalizePositions(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -55,33 +37,11 @@
     return output;
   }
 
-  function resolveDropIntent(zoneId, context = {}) {
-    const zone = ZONES.find((item) => item.id === zoneId) || null;
-    const base = { zoneId: zone ? zone.id : 'ground', zoneLabel: zone ? zone.label : '自家庭院' };
-    if (!zone || zone.id === 'meadow') {
-      return { ...base, action: 'save-position', enabled: true, requiresConfirmation: false, title: '把猫放在这里' };
-    }
-    if (zone.id === 'workshop') {
-      if (context.activityState === 'working' || context.activityState === 'onduty') {
-        return { ...base, action: 'focus-running', enabled: true, requiresConfirmation: false, title: '账号已经在运行' };
-      }
-      return { ...base, action: 'launch-profile', enabled: true, requiresConfirmation: true, title: '打开这个账号' };
-    }
-    if (zone.id === 'attention') {
-      return context.hasSession
-        ? { ...base, action: 'focus-session', enabled: true, requiresConfirmation: false, title: '查看当前会话详情' }
-        : { ...base, action: 'focus-session', enabled: false, requiresConfirmation: false, title: '这个账号还没有可查看的会话' };
-    }
-    return { ...base, action: 'save-position', enabled: true, requiresConfirmation: false, title: '把猫放在这里' };
-  }
 
   return {
     WIDTH,
     HEIGHT,
-    ZONES,
     normalizePoint,
-    normalizePositions,
-    zoneAt,
-    resolveDropIntent
+    normalizePositions
   };
 });

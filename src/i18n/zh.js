@@ -2,13 +2,14 @@
 (function (root) {
   const L = root.AgentDeskLocales || (root.AgentDeskLocales = {});
   L.zh = {
+    'roster.help': '长按拖动排序；滚轮横向浏览；Alt + 左右方向键调整顺序。',
+    'roster.moved': '已移至第 {n} 位，共 {total} 位',
     meta: { label: '中文' },
 
     // ── 顶栏 ──
     'app.tagline': 'LOCAL ACCOUNT DESK',
     'topbar.context.yard': '猫猫庭院 · 本地账号与会话',
     'topbar.context.classic': '经典工作台 · 本地账号与会话',
-    'topbar.leaderboard': '排行',
     'topbar.update': '更新',
     'topbar.toClassic': '卡片',
     'topbar.toYard': '庭院',
@@ -19,7 +20,6 @@
     'topbar.more': '更多',
     'topbar.help': '使用说明',
     'topbar.theme': '外观',
-    'topbar.leaderboard.title': '各账号今日工作量排行榜',
     'topbar.update.title': '检查 GitHub 更新',
     'topbar.view.title': '切换 猫猫庭院 / 经典视图',
     'topbar.devices.title': '查看本机设备身份、全局 Agent 目录和设备状态',
@@ -560,12 +560,6 @@
     'yard.weather.snow': '雪',
 
     // ── 今日小账本 / 提醒 ──
-    'ledger.title': '今日小账本',
-    'ledger.done': '收工 {n} 次',
-    'ledger.min': '陪你干活 {n} 分钟',
-    'reminder.on': '🔔 提醒 开',
-    'reminder.off': '🔔 提醒 关',
-    'reminder.title': '休息提醒（伸懒腰 / 收工播报）总开关',
 
     // ── 账号控制条 ──
     'account.none': '未选择账号',
@@ -781,9 +775,6 @@
 
     // ── 状态栏 ──
     'status.ready': '就绪',
-    'status.life.prefix': '今日 · 收工 ',
-    'status.life.mid': ' · 陪伴 ',
-    'status.life.suffix': ' 分',
     'status.attention': '{n} 个需留意',
     'common.unrecorded': '未记录',
     'common.more': '更多',
@@ -863,24 +854,13 @@
     'status.yardTime': '庭院时间：{label}。',
     'status.yardWeather': '庭院天气：{label}。',
     'status.yardPosSaved': '已保存 {name} 在庭院里的位置。',
-    'status.alreadyRunning': '{name} 已经在运行，右侧是它的账号和会话。',
-    'status.openedSessionDetail': '已打开 {name} 的当前会话详情。',
-    'status.catWrapped': '一只猫收工了 —— 今日完成 +1（这轮陪你干了 {min} 分钟）。',
-    'status.workedMin': '已经陪你干了 {min} 分钟，要不要一起伸个懒腰？ ☕',
     'status.migrating': '正在迁移账号数据，请先不要打开官方 App。',
     'status.migrateFail': '路径迁移失败。',
     'status.migrateDone': 'Windows 路径迁移完成。',
-    'status.reminderEnabled': '休息提醒已开启。',
-    'status.reminderDisabled': '休息提醒已关闭，猫照常陪你干活。',
-    'status.openConfirmLaunch': '把「{name}」送到工作亭并打开官方 App？',
     'status.removeConfirm': '移除「{name}」？本地目录不会删除。',
     'status.migrateConfirm': '请先完全关闭「{name}」对应的官方 App。确认已经关闭并开始复制迁移？',
 
     // ── 今日小账本（保留粗体数字节点，拆前后缀）──
-    'ledger.donePre': '收工 ',
-    'ledger.doneSuf': ' 次',
-    'ledger.minPre': '陪你干活 ',
-    'ledger.minSuf': ' 分钟',
 
     // ── 对话框 / 弹窗 静态文案 ──
     'dialog.cancel': '取消',
@@ -901,7 +881,8 @@
     'dialog.field.sessionRoot': '会话根目录',
     'dialog.field.executable': '官方 App 可执行文件（可选）',
     'dialog.addAgent.title': '新增 Agent',
-    'dialog.addAgent.lead': '先把员工加入全局员工库；运行位置会在你第一次打开它时自动准备。',
+    'dialog.addAgent.lead': '在本机为这个 Agent 新建独立账号环境，登录在官方客户端完成。已有公司接口环境可从“管理 Agent → 导入运行位置”登记。',
+  'dialog.addAgent.prepare': '创建并准备独立环境',
     'dialog.ph.agentName': '例如：研究助理',
     'dialog.ph.agentNote': '可选，记录这名员工负责什么',
     'dialog.addProfile.title': '新增账号槽位',
@@ -990,15 +971,13 @@
     'tools.checkedAt': '检查于 {time}',
     'tools.check': '↻ 检查全部',
     'tools.checking': '检查中…',
-    'tools.updateAllStatic': '↑ 一键更新',
-    'tools.updateAll': '↑ 一键更新 {n} 项',
-    'tools.updatingAll': '更新全部…',
     'tools.section.desktop': 'DESKTOP APPS',
     'tools.section.desktopHint': '桌面应用由官方更新器管理',
     'tools.section.cli': 'CLI TOOLS',
     'tools.section.cliHint': '识别实际安装来源后更新',
     'tools.securityNote': '更新命令固定在主进程白名单；不会执行界面提交的路径、命令或下载地址。',
-    'tools.empty': '没有可展示的工具。',
+    'tools.supported': '其他支持的工具（未安装）',
+  'tools.empty': '没有可展示的工具。',
     'tools.kind.desktop': '桌面 APP',
     'tools.kind.cli': 'CLI 工具',
     'tools.kind.terminal': '系统终端',
@@ -1050,8 +1029,6 @@
     'tools.status.updateFailed': '{label} 更新失败。',
     'tools.status.updatingAll': '正在按原安装来源依次更新…',
     'tools.status.cancelled': '已取消一键更新。',
-    'tools.status.updatedAll': '一键更新完成。',
-    'tools.status.updateAllFailed': '一键更新有项目失败，请查看状态。',
 
     // ── 欢迎 / 首次使用 ──
     'welcome.title': 'AgentDesk 使用说明',
@@ -1203,11 +1180,6 @@
     'deviceJourney.status.claimRejected': '已拒绝这次设备加入请求，成员证书没有签发。',
 
     // ── 排行榜 ──
-    'leaderboard.title': '工作量排行榜',
-    'leaderboard.today': '今日',
-    'leaderboard.note': '分 = 10·√今日活跃会话 + 6·√新建 + 正在干活 ×15。平方根阻尼：不同工具把任务拆成的会话文件数差异很大，避免粒度细的工具刷爆榜。每分钟刷新，状态即时。',
-    'leaderboard.empty': '还没有账号。',
-    'leaderboard.sub': '{app} · 今日活跃 {active} · 新建 {created}',
 
     // ── 猫咪外观（编辑对话框定制器）──
     'cat.breed.orange': '橘猫',
@@ -1232,7 +1204,6 @@
 
     // ── 区域无障碍标签（aria-label）──
     'aria.topbarActions': '全局操作',
-    'aria.footerGlobal': '今日陪伴与提醒全局状态',
     'aria.yardCanvas': '猫猫庭院：每只猫是一个账号，点击选中',
     'aria.roster': '账号名册（经典视图）',
     'aria.quotaSummary': '账号额度',
@@ -1414,6 +1385,7 @@
     'main.tools.noExecutable': '没有找到可启动的工具程序。',
     'main.tools.invalidExecutable': '工具程序路径包含无法安全启动的字符。',
     'main.tools.noTerminal': '没有找到可用的系统终端。',
+    'main.tools.profileMismatch': '当前选择的 Profile 不属于这个 CLI 工具，请选择对应的 CLI Profile。',
     'main.tools.openedTerminal': '已在新终端中打开 {label}。',
     'main.tools.updateBusy': '{label} 正在更新，请等待完成。',
     'main.tools.systemManaged': '这个工具由操作系统管理，不支持独立更新。',
@@ -1422,13 +1394,9 @@
     'main.tools.updating': '正在更新 {label}…',
     'main.tools.updated': '{label} 已更新到 v{version}。',
     'main.tools.allCurrent': '所有可自动维护的工具都已经是最新版。',
-    'main.tools.updateAllTitle': '一键更新 CLI 工具',
-    'main.tools.updateAllMessage': '将按原安装来源依次更新 {n} 个工具。',
-    'main.tools.updateAllConfirm': '开始更新',
-    'main.tools.updateAllDone': '批量更新完成：{done}/{total} 项成功。',
     'main.tools.updateTimeout': '{label} 更新超时，已停止等待。',
     'main.tools.updateExit': '更新进程异常退出（code={code}, signal={signal}）。',
-    'main.launch.cliRuns': '{label} 在你自己的终端里运行；这个槽位负责识别和索引它的会话。',
+    'main.launch.cliRuns': '{label} 会在独立终端里打开；这个槽位使用自己的配置根，不继承本机默认账号或代理。',
     'main.agentPrepare.title': '首次准备 Agent',
     'main.agentPrepare.message': '设备“{device}”请求在这台电脑为“{agent}”准备工作环境。',
     'main.agentPrepare.detail': 'AgentDesk 只会创建自己的受管目录，并按本机白名单打开 {app} 的官方客户端或安装入口。安装、登录、验证码和系统权限仍需你在这台电脑上完成。',

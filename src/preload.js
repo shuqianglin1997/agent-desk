@@ -133,7 +133,6 @@ contextBridge.exposeInMainWorld('manager', {
   scanTools: (options = {}) => ipcRenderer.invoke('tools:scan', options),
   openTool: (input) => ipcRenderer.invoke('tools:open', input),
   updateTool: (toolId) => ipcRenderer.invoke('tools:update', { toolId }),
-  updateAllTools: () => ipcRenderer.invoke('tools:updateAll'),
   onToolProgress: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('tools:progress', listener);

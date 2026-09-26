@@ -17,6 +17,10 @@ test('macOS 受管桌面客户端通过 LaunchServices 启动并保留 Profile �
   const baseEnv = { PATH: '/usr/bin', CODEX_HOME: '/old/codex' };
   const launchEnv = { PATH: '/usr/bin', CODEX_HOME: '/new/codex' };
   assert.deepEqual(changedLaunchEnvironment(launchEnv, baseEnv), ['CODEX_HOME=/new/codex']);
+  assert.deepEqual(changedLaunchEnvironment(
+    { PATH: '/usr/bin' },
+    { PATH: '/usr/bin', ANTHROPIC_AUTH_TOKEN: 'shell-token', ANTHROPIC_BASE_URL: 'https://proxy.example' }
+  ), []);
   assert.deepEqual(macLaunchServicesArgs(
     '/Applications/ChatGPT.app',
     ['--user-data-dir=/Profiles/Codex'],

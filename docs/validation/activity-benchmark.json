@@ -1,0 +1,54 @@
+{
+  "recordedAt": "2026-09-14T09:49:29.401Z",
+  "baseline": "3a4919a14c05e4db1c828cccad3ec9e024023efe",
+  "sourceSha256": "47d55a18bd3f6dc3a5373b30467737410f6ce7a02738c87f0af2452cd32cdff0",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v24.19.0",
+    "osRelease": "25.6.0"
+  },
+  "scope": "Synthetic 500 roots + 1000 internal children, 4 slots sharing one root. Baseline activity loop loaded with current adapter registry; its Codex activityRecord hook is not consumed by the old loop. Timings are one local sample, not a product performance claim.",
+  "baselineLoop": {
+    "durationMs": 29.39,
+    "counts": {
+      "statSync": 6004,
+      "readdirSync": 4,
+      "openSync": 4
+    },
+    "activeNowPerSlot": [
+      1500,
+      1500,
+      1500,
+      1500
+    ]
+  },
+  "currentCold": {
+    "durationMs": 38.05,
+    "counts": {
+      "statSync": 1501,
+      "readdirSync": 1,
+      "openSync": 1501
+    },
+    "activeNowPerSlot": [
+      500,
+      500,
+      500,
+      500
+    ]
+  },
+  "currentWarm": {
+    "durationMs": 8.31,
+    "counts": {
+      "statSync": 1501,
+      "readdirSync": 1,
+      "openSync": 1
+    },
+    "activeNowPerSlot": [
+      500,
+      500,
+      500,
+      500
+    ]
+  }
+}

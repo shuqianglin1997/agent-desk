@@ -1,5 +1,7 @@
 # AgentDesk 内部结构
 
+当前源码验证、历史物理证据及未关闭门禁统一见[验证记录](VALIDATION.md)；本页不另行维护测试数字。
+
 ## 1. 当前职责
 
 AgentDesk 是本地优先的账号、会话历史与工具维护器。它负责：
@@ -18,6 +20,8 @@ Personal Agent Mesh 的有人值守代码链路已经接入运行时：版本化
 它不包含聊天 transport、Agent 对话生命周期、任务队列、自动多会话交接编排、规划资料索引或任意命令注册。官方桌面客户端的进程监管只服务 AgentDesk 自己启动的 Profile 生命周期和磁盘安全，不启动、续接或编排对话。TaskPackage 是用户显式创建的一次不可变工作快照，不改变这条边界。
 
 ## 2. 进程边界
+
+本地 PR 融合新增 `profile-home.js`（只创建独立目录，不播种凭据）、`terminal-launcher.js`（按完整目标环境生成固定工具启动脚本）和 `roster-interactions.js`（排序/取消/滚轮）。Main 从工具注册表与本机 Profile 解析动作，不接收 Renderer 命令。Windows 环境清理匹配大小写别名，Node shebang 启动保留解释器、参数和 PATH；临时终端脚本不使用二次展开的 CALL。名册顺序由 settings 归一化持久化。
 
 ```text
 Renderer
@@ -153,7 +157,7 @@ src/
   updater.js              AgentDesk Release 解析与校验
   windows.js              Windows 路径和安装发现
 
-  yard/                   猫状态、能量、场景、氛围、拖放意图
+  yard/                   猫状态、能量、场景、氛围、位置保存
   i18n/                   中文、英文、日文词表
 
 native/
@@ -194,7 +198,7 @@ Profile 的启动隔离由 `apps.js` 声明，不从显示名推断。每个桌�
 
 ### Settings
 
-`settings.json` 保存主题、语言、视图、会话范围/列视图、Device Lens / Agent / Slot 选择记忆、庭院时间和天气、提醒、今日账本、猫位置、版本化 `onboarding.completedVersion/completedAt`、`meshNetworkEnrollmentEnabled`、HTTPS 信令地址和 STUN 地址。首次 Agent 事务显式把联网 enrollment 保持为 false；只有添加设备或网络动作才开启。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。
+`settings.json` 保存主题、语言、视图、会话范围/列视图、Device Lens / Agent / Slot 选择记忆、庭院时间和天气、猫位置（旧提醒与账本字段只读迁移）、版本化 `onboarding.completedVersion/completedAt`、`meshNetworkEnrollmentEnabled`、HTTPS 信令地址和 STUN 地址。首次 Agent 事务显式把联网 enrollment 保持为 false；只有添加设备或网络动作才开启。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。
 
 ### Session
 
@@ -382,13 +386,9 @@ TaskPackage 同时支持便携文件和同 Mesh Preview 直送。两条通道发
 
 ## 9. 庭院
 
-庭院是同一份 profile/session/activity/quota 数据的可视化，不是独立业务层。今日账本和提醒总开关由全局 Footer 渲染，庭院 DOM 不再拥有 `yardLedger` 或提醒 HUD；路径、额度等持久 attention 只由 Header 的活动弹窗承载，scene 的 `attentionById` 保持空，只保留用户摸猫或拖放后的短暂直接反馈。会话动作由右下 `sessionActionDock` 承载：focused 单条保留定位/导出与复制/发送，显式 checked 集合隐藏 focused 专用动作，只保留批量摘要/取消/复制/发送。
+庭院是同一份 profile/session/activity/quota 数据的可视化，不是独立业务层。今日完成/陪伴账本与提醒总开关已退休，Footer 只显示全局状态，庭院 DOM 不再拥有 `yardLedger` 或提醒 HUD；路径、额度等持久 attention 只由 Header 的活动弹窗承载，scene 的 `attentionById` 保持空，只保留用户摸猫或拖放后的短暂直接反馈。会话动作由右下 `sessionActionDock` 承载：focused 单条保留定位/导出与复制/发送，显式 checked 集合隐藏 focused 专用动作，只保留批量摘要/取消/复制/发送。
 
-拖放只保留三类意图：
-
-- `workshop`：确认后打开账号；已打开时聚焦状态；
-- `attention`：聚焦当前会话详情；
-- `meadow` 或普通地面：保存猫位置。
+拖放只保存猫位置；工作亭与池塘不再承担业务动作。账号启动与会话聚焦分别由主工作台控件负责。
 
 详见 [YARD.md](YARD.md)。
 
@@ -402,15 +402,15 @@ npm run accept:ui
 npm run build:mac:dir
 ```
 
-当前完整 Node 套件共 527 项（526 通过、1 项仅 Windows 跳过、0 失败）；其中 TaskPackage 安全定向 25/25，发布安全定向 14/14。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均复跑完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；该 runner 尚未发送 TaskPackage，因此它既不是直送数据面证据，也不是物理双机或真实 NAT/TURN 证据。
+本机回归结果统一见[验证记录](VALIDATION.md)。隔离双端真实 Electron E2E 在局域网直连与本机 signaling 两种路径均复跑完成认证、签名目录事件/库存、显式刷新、SessionPointer、184,333 字节文件与合成屏幕；该 runner 尚未发送 TaskPackage，因此它既不是直送数据面证据，也不是物理双机或真实 NAT/TURN 证据。
 
 物理证据单独存在：两台 Mac 在同一局域网通过 host/UDP 建立认证 DataChannel，562,009 字节库存中的 9 个 Slot 与 638 条 SessionReplica 完整落库，显式刷新与 4 分钟全快照把 revision 从 7 推进到 8 和 9，连接连续 5 分钟无错误或断开。该记录不覆盖远控媒体/输入权限、断网/睡眠恢复、公网 NAT/coturn 或 Windows。
 
-`npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。当前通过 21/21 条任务路径：新增全新首 Agent 的真实本机事务与无网络断言、首次使用重启恢复且不生成默认 Profile、设备任务向导固定 Shell/分层状态，以及 TaskPackage 直送资格和接收阶段投影；原有 58/244/316/38 固定几何、Compact 无横滚、会话选择、庭院/卡片、三语/明暗主题、父子弹窗、小视口、目录对象、传输草稿和 Remote Surface 契约继续覆盖。直送窗口验收只证明 UI 资格、状态与明文码不可见，不代表真实 WebRTC 数据面已经传过 TaskPackage。
+`npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。窗口任务路径包括：新增全新首 Agent 的真实本机事务与无网络断言、首次使用重启恢复且不生成默认 Profile、设备任务向导固定 Shell/分层状态，以及 TaskPackage 直送资格和接收阶段投影；原有 58/244/316/38 固定几何、Compact 无横滚、会话选择、庭院/卡片、三语/明暗主题、父子弹窗、小视口、目录对象、传输草稿和 Remote Surface 契约继续覆盖。直送窗口验收只证明 UI 资格、状态与明文码不可见，不代表真实 WebRTC 数据面已经传过 TaskPackage。
 
 成品验证分成两层。`verify-electron-package-integrity.js` 不启动应用，直接证明 `app.asar` 存在、`default_app.asar` 不存在，流式复算每个常规文件的整文件与 4 MiB 分块 SHA-256，拒绝缺失元数据、链接、范围空洞/重叠和尾部载荷；`RunAsNode` 仅作为固定 CLI launcher 的兼容 fuse 保留，`NODE_OPTIONS`/inspect 关闭、embedded integrity/only-load-from-ASAR 开启，archive header 再绑定 macOS `Info.plist` 或 Windows PE 的唯一 `INTEGRITY/ELECTRONASAR`。当前 macOS unpacked 成品的 118/118 个常规文件已通过这一层。`packaged-first-use-smoke.js` 才会对同一确切 `AgentDesk.app`、`win-unpacked` 或带版本 portable 使用临时 userData 连续启动三次，核对固定窗口、首次初始化/恢复、零默认 Profile、零 Mesh 网络，以及原始启动句柄和回环调试端点清理；随机 launch token 与 Browser command line 防止同机其他页面冒充本次产物。本机现有确切 `release/mac-arm64/AgentDesk.app` 已使用真实语义开关 `--macos-ci-mock-keychain` 通过这三次启动：runner 先证明 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，再在每次 Browser command line 中核对唯一原生 `--use-mock-keychain`，报告为 `keychainMode=mock`。这只证明该字节在 mock Keychain 下的打包与首次使用事务；新的 GitHub macOS `main` CI 运行仍待结果，且该模式不验证 `safeStorage` 的 macOS 系统 Keychain/OS 密钥保护。Developer ID、签名公证、Draft/公开重下载和物理干净机继续使用系统 Keychain，并仍是开放门禁。
 
-发布事务再高一层：`github-release-gate.js` 与 Preview-only workflow 把 `stableAllowed=false`、精确 DMG + portable + `SHA256SUMS.txt`、Draft 双原生端重下载、发布后无 token 匿名公开重下载、摘要/清单/字节一致、失败回 Draft 与 candidate-burned 固化为门禁；诊断只保留为 Actions artifact，不进入 Release。发布安全 14/14 证明门禁逻辑，尚未用真实签名凭据、受保护 `preview-release` 环境和真实 Tag 执行，因此当前没有公开 Preview。
+发布事务再高一层：`github-release-gate.js` 与 Preview-only workflow 把 `stableAllowed=false`、精确 DMG + portable + `SHA256SUMS.txt`、Draft 双原生端重下载、发布后无 token 匿名公开重下载、摘要/清单/字节一致、失败回 Draft 与 candidate-burned 固化为门禁；诊断只保留为 Actions artifact，不进入 Release。发布安全测试只证明门禁逻辑，尚未用真实签名凭据、受保护 `preview-release` 环境和真实 Tag 执行，因此当前没有公开 Preview。
 
 测试除了扫描器和纯函数，还包含以下边界契约：
 
@@ -440,3 +440,12 @@ npm run build:mac:dir
 这些自动化不能替代物理设备；已有双 Mac 局域网库存证据也不能替代完整设备向导、TaskPackage 直送、真实 NAT/coturn、断网/睡眠恢复和 macOS/Windows 权限矩阵。托管 runner 的未来匿名下载也不能替代浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC 与物理干净机首启。当前没有公开 `v0.10.1-preview.1`；真实签名/公证、受保护环境和真实 Tag 仍未执行，`0.10.0` 不补发为稳定版。
 
 发布要求见 [RELEASING.md](RELEASING.md)。
+
+## 本批职责收敛
+
+- `renderer/tool-center.js` 拥有工具库存、进度及渲染；主 Renderer 注入窄 manager 和当前 Profile 查询，不复制工作台状态。
+- `main/ipc/local-reads.js` 通过 Main 的 trusted registrar 注册会话、活动和额度读取，保留来源验证与本机 Profile 重查。
+- `activity.js` 每轮按适配器与 realpath 去重扫描；Codex 使用 `sessions.codexRecordIdentity` 的有界、按文件版本缓存的首行身份。`fileCount` 保留物理诊断含义，`sessionCount` 和活动计数按用户根去重，内部分支不贡献活动，最新归档根不计此刻活跃。
+- `identity-groups.mergeActivity` 按设备与不可逆 sourceKey 去重活动计数。sourceKey 是来源目录标识，不用于账号身份合并；无来源证据的记录保持独立。
+- 额度卡片、庭院、总览和当前账号详情共用可信源、新鲜度与同绑定冲突判断；公司 API 没有订阅额度时显示未知。
+- `workspace.css` 独占上下文菜单样式；剩余 legacy 组件未经过全状态迁移，不整文件删除。旧账本/提醒设置仅保留读取迁移，活动轮询不再写账本。

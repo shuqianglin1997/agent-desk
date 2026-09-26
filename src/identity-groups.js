@@ -93,7 +93,17 @@
       const value = Number(item[field]);
       return Number.isFinite(value) && value > (acc ?? -Infinity) ? value : acc;
     }, null);
-    const sumOf = (field) => list.reduce((acc, item) => acc + (Number(item[field]) || 0), 0);
+    // Multiple local slots may read one physical source. Unknown sources stay separate.
+    const sources = new Map();
+    list.forEach((item, index) => {
+      const key = item.sourceKey ? `${item.deviceId || 'local'}:${item.sourceKey}` : index;
+      const totals = sources.get(key) || {};
+      for (const field of ['fileCount', 'sessionCount', 'activeToday', 'createdToday', 'activeNow']) {
+        totals[field] = Math.max(totals[field] || 0, Number(item[field]) || 0);
+      }
+      sources.set(key, totals);
+    });
+    const sumOf = (field) => [...sources.values()].reduce((acc, item) => acc + item[field], 0);
 
     // running 驱动「在岗 onduty」（App 开着但会话安静）：任一形态开着 → true；
     // 全部确定关着 → false；有探测不可用的 → null（上层退回按活跃度判断）。
@@ -109,6 +119,7 @@
       latestMtime: maxOf('latestMtime'),
       contentActiveAt: maxOf('contentActiveAt'),
       fileCount: sumOf('fileCount'),
+      sessionCount: sumOf('sessionCount'),
       activeToday: sumOf('activeToday'),
       createdToday: sumOf('createdToday'),
       activeNow: sumOf('activeNow')

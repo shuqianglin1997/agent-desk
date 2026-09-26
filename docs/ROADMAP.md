@@ -1,5 +1,17 @@
 # AgentDesk 演进路线
 
+当前源码验证、历史物理证据及未关闭门禁统一见[验证记录](VALIDATION.md)；本页不另行维护测试数字。
+
+## 当前精简批次（2026-09-14）
+
+2026-09-26 按所有者批准的审阅建议融合 PR #2，以及 PR #3 中排序/横滚/滚动位置保持；保留本地精简版，不引入 VHS 全套外观。交付为独立本地 macOS 包，不推送、不覆盖现用应用。后台回归与打包验证可继续，真实窗口完整复验和成品首次启动按用户“不打扰”要求暂不执行，见 [验证记录](VALIDATION.md)。
+
+优先保证独立账号环境、明确启动目标和逻辑会话索引。排行、推测完成/陪伴账本、庭院业务拖放与工具批量更新退休；保留多账号、自定义目录、进程/Crashpad 保护、离线缓存和全部协议安全门禁。
+
+普通新增 Agent 先选择客户端、命名，再进入本机独立环境准备；已有环境登记和账号关联留在管理入口。当前 Blueprint 只有 Claude/Codex 桌面准备适配器，portable settings 白名单为空，非空技能/工具/项目要求返回 unsupported。暂停这些要求的自动恢复、更多 TaskPackage 原生适配器、跨 Mesh 直连、四路容量扩展、自动编排和无人值守。
+
+Renderer/Main 与 CSS 采用逐域迁移：本批迁移工具控制器、本机读取 IPC、菜单样式及删除功能的样式；其他 legacy 组件继续按实际状态覆盖验证后退休。高级能力下一阶段只补物理验收，开放项见[验证记录](VALIDATION.md)。
+
 ## 定位
 
 AgentDesk 以“单人 Personal Agent Mesh”为长期主轴：先把本机多账号、逻辑会话和工具维护做准，再扩展为同一个人在多台可信设备上的全局 Agent 目录、会话索引、显式发送和受限控制。整项工作可以通过不可变加密 TaskPackage 交给另一个 Agent、设备或人；同一快照既可保存为便携文件，也可在同一 Mesh 内直接发送。这项能力传递一次快照，不把 Personal Mesh 扩张为团队平台、聊天壳或任务执行编排器。
@@ -33,7 +45,7 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 局域网优先、签名 Signaling Gateway 回退、STUN/短期 TURN 和脱敏连接诊断；
 - 已就绪远端固定 `profile.launch`、未就绪远端有人值守 `agent.prepare`，以及确认后撤权/断连的副作用阻断；
 - Electron 43.3.0 沙箱 Renderer 内的真实 DataChannel/媒体纵向自检及各阶段 ADR。
-- 完整 Node 套件 527 项中 526 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14；临时 userData 下真实 1040 × 840 Electron UI 为 21/21。
+- 本机 Node、TaskPackage/发布安全与 Electron 窗口结果统一见[验证记录](VALIDATION.md)。
 - 隔离双 endpoint 的局域网直连与本机 signaling E2E 均完成认证、目录/库存、刷新、SessionPointer、184,333 字节文件和合成远控画面；runner 尚未发送 TaskPackage，不能作为直送数据面的 Electron E2E 证据。
 - 物理双 Mac 在同一局域网完成 host/UDP 认证 DataChannel、562,009 字节库存、9 个 Slot、638 条 SessionReplica、revision 7 → 8 → 9 和连续 5 分钟稳定；该证据只关闭大库存、显式刷新与当前 4 分钟全快照恢复基线。
 
@@ -57,7 +69,7 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 ### 3. 发布与运行加固
 
 - 已实现：Electron 成品只从 `app.asar` 加载、逐文件/分块哈希、五项 fuse、macOS/Windows header 绑定、同一候选三次首次使用 smoke，以及 macOS universal 与 Windows unpacked/portable 兼容门禁；当前 macOS unpacked verifier 已通过；
-- 已实现：`stableAllowed=false` 的 Preview-only 发布事务，精确 DMG + portable + `SHA256SUMS.txt` 三资产先建 Draft，由两个原生 runner 重下载复验，再公开并无 token 匿名重下载；后续失败回 Draft，公开候选标记 burned；发布安全 14/14；
+- 已实现：`stableAllowed=false` 的 Preview-only 发布事务，精确 DMG + portable + `SHA256SUMS.txt` 三资产先建 Draft，由两个原生 runner 重下载复验，再公开并无 token 匿名重下载；后续失败回 Draft，公开候选标记 burned；发布安全证据见[验证记录](VALIDATION.md)；
 - 待配置并实跑：macOS Developer ID/公证凭据、Windows Authenticode 凭据与受保护 `WIN_SIGNER_THUMBPRINT`、受保护 `preview-release` 环境和真实 Preview Tag；
 - 待物理验收：浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC、干净机安装/首启/两次重启、MSVC helper、portable 升级回滚与 UIPI 降级；托管 runner 不能替代这些检查；
 - 公网 Signaling Gateway 增加 TLS 入口、容量监控、短期状态存储方案和运维手册；

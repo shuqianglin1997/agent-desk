@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-26T10:21:08Z",
+  "baseCommit": "3a4919a14c05e4db1c828cccad3ec9e024023efe",
+  "uncommitted": true,
+  "sourceSha256": "c5a24fe0101f134f4cf5b64964235eba765fa54e766ca29ea11b5e653d19acd8",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "osRelease": "25.6.0",
+    "macOS": "26.6.1",
+    "node": "v24.21.0",
+    "electron": "43.3.0"
+  },
+  "integration": {
+    "base": "existing local simplification",
+    "pr2": "cebf124884b7f546b3d0e188c1f8323ac62f4360",
+    "pr3": "92fdaafbe5ddfe7f2226e63fc5bf5165a2a64626",
+    "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
+  },
+  "checks": [
+    {
+      "command": "node --test --test-concurrency=2 --test-reporter=spec --test-reporter-destination=docs/validation/node-results.txt",
+      "result": "passed",
+      "tests": 573,
+      "pass": 572,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full Node suite; one Windows-only test skipped; no GUI"
+    },
+    {
+      "command": "package.json scripts.check via Node child_process",
+      "result": "passed",
+      "scope": "JavaScript syntax"
+    },
+    {
+      "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration)",
+      "result": "passed",
+      "scope": "Local arm64 application only; no install, launch, notarization or release; npm 10.9.2 supplied through temporary pnpm dlx environment"
+    },
+    {
+      "command": "node scripts/verify-electron-package-integrity.js --artifact release/local-integration-20260926/mac-arm64/AgentDesk.app",
+      "result": "passed",
+      "regularFiles": 125,
+      "scope": "5 Electron fuses, ASAR file/block hashes and embedded macOS header integrity; static inspection without launch"
+    },
+    {
+      "command": "codesign --verify --deep --strict release/local-integration-20260926/mac-arm64/AgentDesk.app",
+      "result": "passed",
+      "scope": "Ad-hoc signature integrity, not Developer ID/notarization"
+    },
+    {
+      "command": "Compare app.asar src files byte-for-byte to local source",
+      "result": "passed",
+      "sourceFilesMatched": 120,
+      "scope": "All src files and package version/main match final workspace"
+    }
+  ],
+  "artifact": {
+    "path": "release/local-integration-20260926/mac-arm64/AgentDesk.app",
+    "version": "0.10.1-preview.1",
+    "asarSha256": "ea28845467572928cd5a83238abb49f3afa2a822456ce07416d4327a320b6717",
+    "asarHeaderSha256": "67f6a2db5229de6a1d80e210e78a1e170a39f48bfcb9c976a6dc693e52277920",
+    "installed": false,
+    "launched": false
+  },
+  "partialChecks": [
+    {
+      "command": "node scripts/ui-acceptance.js",
+      "result": "not-fully-passed",
+      "scope": "Earlier attempt reached roster drag/keyboard/wheel/scroll and restart assertions, then failed removal-button visibility. The misplaced button was fixed and a Node structure regression passed. Final full-window rerun was not performed after owner required no disruptive windows. Earlier first-use recovery timeout did not recur on subsequent attempts; no final GUI pass claimed."
+    }
+  ],
+  "notRun": [
+    "verify_all",
+    "final full GUI acceptance",
+    "packaged first-use smoke",
+    "real Claude/DSH account launch",
+    "physical peers/public NAT/TURN",
+    "Windows runtime",
+    "Developer ID/notarization/release/push",
+    "install or restart current application"
+  ]
+}

@@ -3284,7 +3284,6 @@ button.danger-button:hover:not(:disabled) {
 /* 顶栏：全局动作幽灵化（房檐不与工作台抢权重），模式切换胶囊 */
 .topbar-actions button { height: 26px; border: 0; background: transparent; box-shadow: none; color: var(--ink-secondary); font-size: 12px; }
 .topbar-actions button:hover { background: var(--hover-wash); }
-.topbar-actions #viewToggle { border-radius: 999px; padding: 0 12px; background: var(--accent-wash); color: var(--accent); font-weight: 600; }
 
 /* 账号控制条：打开账号=填充主操作；新增=色块次操作；路径/诊断/刷新=幽灵工具(分隔线成组)；管理=幽灵 */
 .account-id h2 { font-size: 15px; font-weight: 650; }
@@ -3294,11 +3293,6 @@ button.danger-button:hover:not(:disabled) {
 .account-actions button.primary { height: var(--ctl-lg); padding: 0 14px; background: var(--accent); color: var(--ink-on-accent, #fff); font-weight: 650; font-size: 13px; }
 .account-actions button.primary:hover:not(:disabled) { background: var(--accent-700); }
 .account-actions button.primary:disabled { background: var(--surface-sunken); color: var(--ink-disabled); box-shadow: none; }
-.account-actions #pathConfigBtn, .account-actions #diagnosticsBtn, .account-actions #refreshBtn { height: var(--ctl-sm); background: transparent; color: var(--ink-tertiary); font-size: 11px; padding: 0 8px; }
-.account-actions #pathConfigBtn { margin-left: 8px; position: relative; }
-.account-actions #pathConfigBtn::before { content: ""; position: absolute; left: -7px; top: 4px; bottom: 4px; width: 1px; background: var(--line-soft); }
-.account-actions #pathConfigBtn:hover, .account-actions #diagnosticsBtn:hover, .account-actions #refreshBtn:hover { color: var(--ink-primary); background: var(--hover-wash); }
-.account-manage summary { height: var(--ctl-sm); display: inline-flex; align-items: center; border: 0; background: transparent; box-shadow: none; color: var(--ink-tertiary); font-size: 11px; }
 
 /* 会话详情：位置与导出都是对象明确的直接操作。 */
 .inspector-actions button { height: var(--ctl-md); border: 0; box-shadow: none; background: var(--surface-sunken); font-size: 12px; border-radius: var(--radius-sm, 6px); }
@@ -3308,77 +3302,6 @@ button.danger-button:hover:not(:disabled) {
 
 /* 键盘焦点环全站一致 */
 button:focus-visible, .quota-chip:focus-visible, input:focus-visible, .account-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-/* ═══ v3 · owner-approved information hierarchy (2026-08-11) ═══════════════
- * Seven shell rows remain intact. This layer only reduces always-visible
- * controls and groups contextual/low-frequency actions into predictable menus. */
-
-/* Shared compact menus */
-.context-menu {
-  position: relative;
-  flex: none;
-}
-
-.context-menu > summary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 0 9px;
-  border-radius: var(--radius-sm);
-  color: var(--ink-secondary);
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.context-menu > summary::-webkit-details-marker { display: none; }
-.context-menu > summary:hover,
-.context-menu[open] > summary { color: var(--ink-primary); background: var(--hover-wash); }
-
-.context-menu-panel {
-  position: absolute;
-  z-index: 90;
-  top: calc(100% + 6px);
-  right: 0;
-  display: grid;
-  gap: 2px;
-  min-width: 176px;
-  padding: 6px;
-  border: 1px solid var(--line-mid);
-  border-radius: var(--radius-md);
-  background: var(--surface-float);
-  box-shadow: var(--shadow-overlay);
-}
-
-.context-menu-panel button {
-  width: 100%;
-  min-height: 30px;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--ink-secondary);
-  background: transparent;
-  box-shadow: none;
-  font-size: 11.5px;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.context-menu-panel button:hover:not(:disabled) {
-  color: var(--ink-primary);
-  background: var(--hover-wash);
-}
-
-.context-menu-divider {
-  display: block;
-  height: 1px;
-  margin: 4px 5px;
-  background: var(--line-soft);
-}
 
 /* Global chrome: device context stays direct; everything else is one menu. */
 .topbar-actions { gap: 7px; }
@@ -3403,16 +3326,6 @@ button:focus-visible, .quota-chip:focus-visible, input:focus-visible, .account-c
   color: var(--danger);
   background: color-mix(in oklab, var(--danger) 10%, var(--surface-raised));
 }
-.global-more > summary {
-  height: 30px;
-  min-width: 66px;
-  font-size: 11px;
-}
-.global-more > summary > span:first-child { color: var(--ink-tertiary); letter-spacing: 0.08em; }
-.topbar-more-menu { min-width: 190px; }
-.topbar-more-menu button { height: 31px; font-family: var(--font-sans); font-weight: 500; }
-.topbar-more-menu #updateBtn { font-family: var(--font-sans); font-size: 11.5px; font-weight: 500; }
-.topbar-more-menu #langToggle { font-family: var(--font-sans); }
 
 /* Presenter owns its display switch. Compact roster is the default workspace. */
 .presenter {
@@ -4497,60 +4410,11 @@ body[data-view="classic"] .agent-panel .account-card {
   min-width: 80px;
 }
 
-.footer-global {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.footer-global-label {
-  color: var(--ink-tertiary);
-  font-family: var(--font-mono);
-  font-size: 8.5px;
-  font-weight: 750;
-  letter-spacing: .06em;
-}
-
-.footer-ledger-stat {
-  color: var(--ink-tertiary);
-  font-size: 9.5px;
-}
-
-.footer-ledger-stat b {
-  padding-inline: 1px;
-  color: var(--ink-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.footer-ledger-sep { color: var(--line-strong); }
-
-.footer-reminder-toggle {
-  height: 27px;
-  min-width: 0;
-  padding: 0 9px;
-  border-color: color-mix(in oklab, var(--accent) 30%, var(--line-soft));
-  color: var(--accent);
-  background: var(--accent-wash);
-  box-shadow: none;
-  font-size: 9.5px;
-  font-weight: 700;
-}
-
-.footer-reminder-toggle[aria-pressed="false"] {
-  border-color: var(--line-soft);
-  color: var(--ink-tertiary);
-  background: var(--surface-sunken);
-}
-
 @media (max-width: 900px) {
   .app-topbar { grid-template-columns: 170px auto minmax(360px, 1fr); gap: 8px; }
   .workspace-board { grid-template-columns: minmax(0, 1fr) 320px; padding-inline: 8px; }
   .agent-panel-body { grid-template-columns: minmax(0, 1fr) 310px; }
   .topbar-actions > button { padding-inline: 7px; }
-  .footer-global-label,
-  .footer-ledger-sep { display: none; }
 }
 
 }

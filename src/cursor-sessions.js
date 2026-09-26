@@ -93,19 +93,23 @@ function scanCursor(profile) {
   });
 }
 
-// 供排行榜：今日活跃/新建会话数（SQLite 一次聚合查询，比按文件数更准）
+// 供活动统计：逻辑会话数与活跃/新建数（SQLite 一次聚合查询，比按文件数更准）
 function sessionCounts(profile, now = Date.now()) {
   const db = stateDbPath(profile);
-  const zero = { activeToday: 0, createdToday: 0 };
+  const zero = { sessionCount: 0, activeNow: 0, activeToday: 0, createdToday: 0 };
   if (!fs.existsSync(db)) return zero;
   const t = startOfDay(now);
   const rows = queryJson(db,
-    `SELECT SUM(CASE WHEN lastUpdatedAt >= ${t} THEN 1 ELSE 0 END) AS activeToday, ` +
-    `SUM(CASE WHEN createdAt >= ${t} THEN 1 ELSE 0 END) AS createdToday ` +
+    `SELECT COUNT(*) AS sessionCount, ` +
+    `SUM(CASE WHEN isArchived=0 AND lastUpdatedAt >= ${now - 300000} AND lastUpdatedAt <= ${now + 1000} THEN 1 ELSE 0 END) AS activeNow, ` +
+    `SUM(CASE WHEN lastUpdatedAt >= ${t} AND lastUpdatedAt <= ${now + 1000} THEN 1 ELSE 0 END) AS activeToday, ` +
+    `SUM(CASE WHEN createdAt >= ${t} AND createdAt <= ${now + 1000} THEN 1 ELSE 0 END) AS createdToday ` +
     "FROM composerHeaders WHERE isSubagent=0 AND composerId<>'empty-state-draft' AND lastUpdatedAt IS NOT NULL;"
   );
   if (!rows || !rows.length) return zero;
   return {
+    sessionCount: Number(rows[0].sessionCount) || 0,
+    activeNow: Number(rows[0].activeNow) || 0,
     activeToday: Number(rows[0].activeToday) || 0,
     createdToday: Number(rows[0].createdToday) || 0
   };

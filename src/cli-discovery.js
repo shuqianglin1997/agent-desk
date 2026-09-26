@@ -15,6 +15,10 @@ const CLI_DEFINITIONS = Object.freeze({
     names: Object.freeze(['claude']),
     envKeys: Object.freeze(['AGENTDESK_CLAUDE_CLI', 'CLAUDE_CLI_PATH'])
   }),
+  dsh: Object.freeze({
+    names: Object.freeze(['dsh']),
+    envKeys: Object.freeze(['AGENTDESK_DSH_CLI', 'DSH_CLI_PATH'])
+  }),
   gemini: Object.freeze({
     names: Object.freeze(['gemini']),
     envKeys: Object.freeze(['AGENTDESK_GEMINI_CLI', 'GEMINI_CLI_PATH'])
@@ -78,7 +82,8 @@ function cliCandidates(names, options = {}) {
   const variants = (Array.isArray(names) ? names : [names])
     .filter(Boolean)
     .flatMap((name) => executableVariants(String(name), platform));
-  const pathDirectories = String(env.PATH || '')
+  const pathKey = Object.keys(env).find(key => platform === 'win32' ? key.toUpperCase() === 'PATH' : key === 'PATH');
+  const pathDirectories = String(env[pathKey] || '')
     .split(separator)
     .map((item) => item.trim().replace(/^"(.*)"$/, '$1'))
     .filter(Boolean);
@@ -108,19 +113,53 @@ function resolveExecutableCandidates(candidates, options = {}) {
   const fs_ = options.fs || fs;
   const platform = options.platform || process.platform;
   const env = options.env || process.env;
+  const separator = platform === 'win32' ? ';' : ':';
+
+  function isNodeScript(filePath) {
+    if (/\.(?:c?m)?js$/i.test(filePath)) return true;
+    if (![fs_.openSync, fs_.readSync, fs_.closeSync].every((method) => typeof method === 'function')) return false;
+    let descriptor;
+    try {
+      descriptor = fs_.openSync(filePath, 'r');
+      const buffer = Buffer.alloc(256);
+      const length = fs_.readSync(descriptor, buffer, 0, buffer.length, 0);
+      return /^#![^\r\n]*\bnode(?:\s|$)/.test(buffer.toString('utf8', 0, length));
+    } catch (_error) {
+      return false;
+    } finally {
+      if (descriptor !== undefined) fs_.closeSync(descriptor);
+    }
+  }
+
+  function nodeRuntimeEnv(scriptPath, launcherPath = scriptPath) {
+    const pathApi = platform === 'win32' ? path.win32 : path.posix;
+    const pathKey = Object.keys(env).find(key => platform === 'win32' ? key.toUpperCase() === 'PATH' : key === 'PATH');
+    const pathEntries = [
+      pathApi.dirname(launcherPath),
+      pathApi.dirname(scriptPath),
+      pathApi.dirname(options.nodeExecutable || process.execPath),
+      ...String(env[pathKey] || '').split(separator).filter(Boolean)
+    ];
+    const extraEnv = { ELECTRON_RUN_AS_NODE: '1' };
+    extraEnv.PATH = [...new Set(pathEntries)].join(separator);
+    return extraEnv;
+  }
+
   for (const candidate of candidates || []) {
     try {
       if (!fs_.statSync(candidate.path).isFile()) continue;
       let realPath = candidate.path;
       try { realPath = fs_.realpathSync(candidate.path); } catch (_error) { /* use visible path */ }
-      if (/\.m?js$/i.test(realPath)) {
-        return {
+      if (isNodeScript(realPath)) {
+        const launcher = {
           command: options.nodeExecutable || process.execPath,
           prefixArgs: [realPath],
           extraEnv: { ELECTRON_RUN_AS_NODE: '1' },
           path: candidate.path,
           source: candidate.source
         };
+        launcher.extraEnv.PATH = nodeRuntimeEnv(realPath, candidate.path).PATH;
+        return launcher;
       }
       if (platform === 'win32' && /\.(?:cmd|bat)$/i.test(candidate.path)) {
         return {

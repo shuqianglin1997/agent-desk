@@ -1,5 +1,7 @@
 # 使用场景
 
+当前源码验证、历史物理证据及未关闭门禁统一见[验证记录](VALIDATION.md)；本页不另行维护测试数字。
+
 ## 1. 多个账号不串号
 
 用户有工作、个人或备用账号，希望保留各自登录态。
@@ -34,7 +36,7 @@
 - 单击一行只聚焦右侧详情；没有显式勾选时，单会话动作使用该焦点。
 - 用复选框明确加入一个或多个批量动作项；搜索隐藏的已勾选项仍保留并显示数量，可一键清空。
 - 聚焦单条时，复制、发送、打开和导出集中在右下详情的同一个底部动作坞；显式勾选后，该动作坞原位切为批量摘要、取消、复制和发送。
-- Footer 只显示全局状态、今日完成数、陪伴分钟和提醒总开关；庭院画面里没有小账本或提醒条。
+- Footer 只显示全局状态；庭院画面里没有小账本或提醒条。
 - “复制会话信息”只输出每条会话的路径和坐标。
 - 同一逻辑会话存在多个副本时，必须先选择确切来源；未解决前复制、发送、定位和导出都不会静默猜测。
 - 在 Finder / Explorer 中定位来源文件。
@@ -159,11 +161,11 @@ AgentDesk 不替用户补充说明，不合并多个会话，也不会把历史�
 
 ## 14. 当前验证边界
 
-当前 `0.10.1-preview.1` 的证据分层如下：完整 Node 套件共 527 项，526 通过、1 项仅 Windows 跳过、0 失败；TaskPackage 安全定向 25/25，发布安全定向 14/14。临时 userData 下真实 1040 × 840 Electron UI 为 21/21，覆盖全新首 Agent、重启恢复、设备向导 Shell 与状态投影、TaskPackage 直送资格和状态投影，以及既有固定几何、弹窗、会话、传输和远控任务路径。
+当前 `0.10.1-preview.1` 的证据分层如下：本机回归结果统一见[验证记录](VALIDATION.md)。临时 userData 下真实 1040 × 840 Electron UI 验收覆盖全新首 Agent、重启恢复、设备向导 Shell 与状态投影、TaskPackage 直送资格和状态投影，以及既有固定几何、弹窗、会话、传输和远控任务路径。
 
 成品证据单独记账：本机现有确切 `release/mac-arm64/AgentDesk.app` 已通过独立 fuse/ASAR verifier，118/118 个常规文件的整文件/分块 SHA-256、五项 fuse 和 `ElectronAsarIntegrity` header hash 均符合实际字节，且不存在 `default_app.asar`；同一确切字节随后使用真实语义开关 `--macos-ci-mock-keychain` 通过初始化、重启恢复并完成、完成后再重启三次 packaged first-use smoke。runner 先证明 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，并逐次从 Browser command line 核对唯一原生 `--use-mock-keychain`。这证明的是本机 ad-hoc 成品在 mock Keychain 下的打包与首次使用事务；新的 GitHub macOS `main` CI 运行仍待结果，macOS 系统 Keychain/OS 密钥保护、Developer ID、公证、Gatekeeper、签名 DMG、Draft/公开重下载和物理干净机仍未由这条记录覆盖。
 
-发布事务代码已把稳定开关固定为 `stableAllowed=false`，并要求精确 DMG、portable、`SHA256SUMS.txt` 三项资产依次经过 Draft、macOS/Windows 原生 runner 重下载、发布后无 token 匿名重下载与失败回 Draft；公开过再失败的 candidate 不得复用 Tag/version。14/14 只证明这些策略的纯代码边界。目前尚未配置真实签名凭据、受保护 `preview-release` 环境或真实 Preview Tag，因此没有公开 `v0.10.1-preview.1`。
+发布事务代码已把稳定开关固定为 `stableAllowed=false`，并要求精确 DMG、portable、`SHA256SUMS.txt` 三项资产依次经过 Draft、macOS/Windows 原生 runner 重下载、发布后无 token 匿名重下载与失败回 Draft；公开过再失败的 candidate 不得复用 Tag/version。这些测试只证明策略的纯代码边界。目前尚未配置真实签名凭据、受保护 `preview-release` 环境或真实 Preview Tag，因此没有公开 `v0.10.1-preview.1`。
 
 两个隔离 endpoint 的真实 Electron WebRTC 分别在局域网直连和本机 signaling 路径完成设备认证、签名目录/库存、显式刷新、SessionPointer、184,333 字节文件和合成远控画面。这个 E2E runner **尚未发送 TaskPackage**：它证明既有认证传输底座仍贯通，不是 TaskPackage 直送数据面的 Electron E2E 证据。
 
@@ -176,3 +178,9 @@ AgentDesk 不替用户补充说明，不合并多个会话，也不会把历史�
 - 断网重连、睡眠/唤醒、长期可达与撤销后的物理防重连。
 
 因此“代码纵向链路与本机自动化已实现”“unpacked verifier 已通过”和“局域网库存有物理证据”都不表示他人已经可以下载安装。GitHub-hosted runner 未来完成匿名重下载，也只证明 URL、字节、摘要、签名与自动化首次使用，不替代浏览器 quarantine、Windows MOTW/SmartScreen/Defender/UAC 和物理干净机首启。物理双机 TaskPackage 接受/拒绝/撤权/断线恢复、真实公网 NAT/TURN、长期连接恢复和 Windows 文件句柄/清理矩阵仍开放。当前候选是 `0.10.1-preview.1`，历史 `0.10.0` 不补发为稳定版；无人值守、登录界面、UAC 安全桌面、通用远程 Shell 和任意命令仍明确不做。
+## 本地融合使用补充（2026-09-26）
+
+- 使用 Claude CLI/DSH 独立运行位置时，从账号入口打开对应终端，配置与登录仍由客户端处理；DSH 当前仅有启动/工具入口，不声称已有历史会话扫描。
+- 在待归属弹窗移除不用的本机登记，不删除原账号目录或所属 Agent。
+- 卡片长按拖动或 Alt+左右键排序；普通点击仍只选择。滚轮横向浏览，活动刷新不把名册拉回选中卡片，明确切换 Agent 才露出新选择。
+- 本地构建与开放验收项以 [验证记录](VALIDATION.md) 为准；不自动启动验收窗口或替换正在运行的应用。

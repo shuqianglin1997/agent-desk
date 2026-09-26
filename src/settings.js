@@ -23,6 +23,7 @@ const PROFILE_QUIT_BEHAVIORS = new Set(['close', 'keep']);
 
 const DEFAULT_SETTINGS = Object.freeze({
   theme: null,
+  agentOrder: Object.freeze([]),
   view: 'classic',
   lang: null, // null = 跟随系统语言（中 / 英 / 日）
   sessionScope: 'current',
@@ -83,6 +84,11 @@ function normalizeSelectionMap(value, options = {}) {
   return normalized;
 }
 
+function normalizeAgentOrder(value) {
+  return [...new Set((Array.isArray(value) ? value : []).slice(0, 1000)
+    .map(id => boundedId(id)).filter(Boolean))];
+}
+
 function normalizeLedger(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.date !== 'string') {
     return null;
@@ -113,6 +119,7 @@ function normalizeSettings(value) {
   return {
     ...input,
     theme: THEMES.has(input.theme) ? input.theme : DEFAULT_SETTINGS.theme,
+    agentOrder: normalizeAgentOrder(input.agentOrder),
     view: VIEWS.has(input.view) ? input.view : DEFAULT_SETTINGS.view,
     lang: LANGS.has(input.lang) ? input.lang : DEFAULT_SETTINGS.lang,
     sessionScope: SESSION_SCOPES.has(input.sessionScope)

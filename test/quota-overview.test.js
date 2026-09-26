@@ -184,3 +184,17 @@ test('同一 binding 取最新可信来源；多个 binding 再取最紧额度�
   assert.equal(tightest.member._accountBindingAlias, '个人账号');
   assert.equal(tightest.tightest.remainingPercent, 12);
 });
+
+test('overview uses the same trust decision as cards, preserves conflicts, and sorts independent accounts', () => {
+  const { buildTrustedQuotaOverview } = require('../src/quota-overview');
+  const a = member('a'), b = member('b'), c = member('c', 'other');
+  const groups = [{ key: 'shared', primary: a, members: [a, b] }, { key: 'other', primary: c, members: [c] }];
+  const quotas = { a: okQuota('a', 70), b: okQuota('b', 71), c: okQuota('c', 8) };
+  assert.deepEqual(buildTrustedQuotaOverview(groups, quotas, NOW).map(r => r.tightest.remainingPercent), [8, 70]);
+  quotas.b = okQuota('b', 20);
+  const rows = buildTrustedQuotaOverview(groups, quotas, NOW);
+  assert.equal(rows[1].hasQuota, false); assert.equal(rows[1].status, 'error');
+  assert.equal(rows[1].reason, 'source-conflict');
+  assert.ok(buildTrustedQuotaOverview(groups, quotas, NOW + 86400000).every(r => !r.hasQuota));
+  assert.ok(buildTrustedQuotaOverview(groups, quotas, NOW, { quotaError: 'offline' }).every(r => !r.hasQuota));
+});

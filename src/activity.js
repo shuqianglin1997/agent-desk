@@ -1,14 +1,15 @@
 /*
  * AgentDesk — 账号活跃度轻量探测。
  *
- * 只做 stat，不读文件内容：回答「会话根目录在不在、最新会话文件
- * 什么时候被写过、有多少个会话文件」。庭院视图用它驱动猫的状态，
- * 完整的会话解析仍然只在 sessions.js。纯 Node，可单测。
+ * stat + 缓存的有界首行身份读取；物理文件数与逻辑会话数分开。
+ * 内部分支不贡献活跃统计；不在轮询中完整解析 transcript。
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
 const apps = require('./apps');
+const { createCodexActivityPreference } = require('./sessions');
+const { createHash } = require('node:crypto');
 
 const WALK_LIMIT = 12000;
 const SKIP_DIRS = ['Cache', 'GPUCache', 'node_modules'];
@@ -25,6 +26,8 @@ function startOfDay(now) {
 function probeActivity(profile, now = Date.now()) {
   const result = {
     profileId: profile.id,
+    sourceKey: activitySourceKey(profile),
+    sessionCount: 0,
     rootExists: false,
     rootReadable: false,
     latestMtime: null,
@@ -57,32 +60,52 @@ function probeActivity(profile, now = Date.now()) {
   // 一个会话可能由多个文件组成（Kimi 的 state.json + wire.jsonl），
   // 按适配器给的会话 key 去重；默认一文件一会话。
   const sessionKeyOf = typeof app.sessionKeyOf === 'function' ? app.sessionKeyOf : (filePath) => filePath;
-  const activeNowKeys = new Set();
+  const records = new Map();
+  const prefer = profile.appId === 'codex'
+    ? createCodexActivityPreference(profile)
+    : (candidate, current) => candidate.mtime >= current.mtime;
   for (const area of app.scanAreas(profile)) {
     for (const filePath of walkFiles(area.dir, area.match, area.maxDepth)) {
-      result.fileCount += 1;
       try {
-        const stat = fs.statSync(filePath); // 只 stat，不读内容
-        const mtime = stat.mtime.getTime();
-        if (!result.latestMtime || mtime > result.latestMtime) { result.latestMtime = mtime; newestPath = filePath; }
-        if (mtime >= todayStart) result.activeToday += 1;
-        if (mtime >= now - ACTIVE_NOW_MS) activeNowKeys.add(sessionKeyOf(filePath));
-        const btime = stat.birthtime ? stat.birthtime.getTime() : 0;
-        if (btime >= todayStart && btime <= now + 1000) result.createdToday += 1;
+        const stat = fs.statSync(filePath);
+        result.fileCount += 1; // physical diagnostics only; never a session count
+        const record = app.activityRecord
+          ? app.activityRecord(filePath, stat)
+          : { key: sessionKeyOf(filePath) };
+        if (!record?.key) continue;
+        const mtime = stat.mtimeMs;
+        const archived = profile.appId === 'codex'
+          && path.relative(profile.sessionRoot, filePath).split(path.sep)[0] === 'archived_sessions';
+        const previous = records.get(record.key);
+        const candidate = {
+          filePath, mtime, archived,
+          createdAt: Date.parse(record.createdAt || '') || stat.birthtimeMs
+        };
+        if (!previous || prefer(candidate, previous, record.key)) records.set(record.key, candidate);
       } catch (_error) {
-        // 文件在扫描间隙被删掉了，跳过即可
+        // Disappearing or unreadable files cannot invalidate the other accounts.
       }
     }
   }
-  result.activeNow = activeNowKeys.size;
+  result.sessionCount = records.size;
+  for (const record of records.values()) {
+    if (!result.latestMtime || record.mtime > result.latestMtime) {
+      result.latestMtime = record.mtime;
+      newestPath = record.filePath;
+    }
+    if (record.mtime >= todayStart && record.mtime <= now + 1000) result.activeToday += 1;
+    if (!record.archived && record.mtime >= now - ACTIVE_NOW_MS && record.mtime <= now + 1000) result.activeNow += 1;
+    if (record.createdAt >= todayStart && record.createdAt <= now + 1000) result.createdToday += 1;
+  }
 
   // SQLite 型客户端（Cursor）：会话是 db 行不是文件，按文件数失真，改用适配器的聚合计数。
   // 包 try/catch：某个适配器出错也不能连累整轮探测（否则所有账号活跃度会被清空）。
   if (typeof app.sessionCounts === 'function') {
     try {
       const counts = app.sessionCounts(profile, now);
-      result.activeToday = counts.activeToday;
-      result.createdToday = counts.createdToday;
+      for (const key of ['sessionCount', 'activeNow', 'activeToday', 'createdToday']) {
+        if (Number.isFinite(counts[key])) result[key] = counts[key];
+      }
     } catch (_error) {
       // 退回上面按文件数算的结果
     }
@@ -136,4 +159,25 @@ function walkFiles(root, match, maxDepth = Infinity) {
   return output;
 }
 
-module.exports = { probeActivity };
+// Scope by adapter and canonical data root, never by title, account alias or credentials.
+function activitySourceKey(profile) {
+  if (!profile.sessionRoot) return null;
+  let root;
+  try { root = fs.realpathSync(profile.sessionRoot); } catch (_) { root = path.resolve(profile.sessionRoot); }
+  return createHash('sha256').update(JSON.stringify([profile.appId, root])).digest('hex');
+}
+
+function probeActivities(profiles, now = Date.now()) {
+  const bySource = new Map();
+  return profiles.map((profile) => {
+    const key = activitySourceKey(profile);
+    if (!key || !bySource.has(key)) {
+      const result = probeActivity(profile, now);
+      if (key) bySource.set(key, result);
+      return result;
+    }
+    return { ...bySource.get(key), profileId: profile.id };
+  });
+}
+
+module.exports = { probeActivity, probeActivities };

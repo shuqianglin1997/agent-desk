@@ -62,6 +62,11 @@ test('sessionCounts：今日活跃/新建来自 SQLite 聚合（过滤子agent/�
   const { root } = buildFixture(now);
   const c = sessionCounts({ sessionRoot: root }, now);
   // real-1 今日活跃+新建；old-1 都不是今日；sub-1/empty-state-draft 被过滤
+  assert.equal(c.sessionCount, 2);
+  assert.equal(c.activeNow, 1);
+  const activity = require('../src/activity').probeActivity({ id: 'cursor', appId: 'cursor', sessionRoot: root }, now);
+  assert.equal(activity.sessionCount, 2);
+  assert.equal(activity.activeNow, 1);
   assert.equal(c.activeToday, 1);
   assert.equal(c.createdToday, 1);
 });

@@ -177,5 +177,21 @@
     return resolved[0] ? { status: 'ok', ...resolved[0] } : { status: 'unknown', reason: 'no-trusted-snapshot' };
   }
 
-  return { buildQuotaOverview, tightestWindow, selectTrustedAccountQuota };
+  // Card, yard and overview share the same source/conflict/freshness decision.
+  function buildTrustedQuotaOverview(groups, quotas, now = Date.now(), options = {}) {
+    const profiles = [];
+    const snapshots = {};
+    for (const group of groups || []) {
+      const evidence = selectTrustedAccountQuota(group, quotas, now, options);
+      const holder = evidence.member || group.primary;
+      profiles.push({ ...holder, name: group.primary.name });
+      snapshots[holder.id] = evidence.status === 'ok' ? { ...evidence.snapshot, windows: evidence.windows } : {
+        status: evidence.status === 'conflict' ? 'error' : 'unsupported',
+        windows: [], reason: options.reasonFor?.(evidence) || evidence.reason
+      };
+    }
+    return buildQuotaOverview(profiles, snapshots, now);
+  }
+
+  return { buildQuotaOverview, buildTrustedQuotaOverview, tightestWindow, selectTrustedAccountQuota };
 });

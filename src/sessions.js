@@ -68,6 +68,22 @@ function scanClaude(profile) {
   return sortByRecency(records);
 }
 
+// Shared bounded metadata read: list rows and activity use exactly the same identity rule.
+const codexIdentityCache = new Map();
+function codexRecordIdentity(filePath, stat = safeStat(filePath)) {
+  const revision = stat && `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
+  const cached = codexIdentityCache.get(filePath);
+  if (revision && cached?.revision === revision) return cached.value;
+  const first = readFirstJsonLine(filePath);
+  const value = {
+    first,
+    identity: classifyCodexSessionMeta(first?.payload || {}, uuidFromFilename(filePath) || path.basename(filePath, '.jsonl'))
+  };
+  if (codexIdentityCache.size >= 12000) codexIdentityCache.clear();
+  if (revision) codexIdentityCache.set(filePath, { revision, value });
+  return value;
+}
+
 function scanCodex(profile) {
   const root = profile.sessionRoot || path.join(os.homedir(), '.codex');
   const index = readCodexIndex(path.join(root, 'session_index.jsonl'));
@@ -80,10 +96,8 @@ function scanCodex(profile) {
 
   for (const area of dirs) {
     for (const filePath of walkFiles(area.dir, (entry) => entry.isFile() && entry.name.endsWith('.jsonl'))) {
-      const first = readFirstJsonLine(filePath);
+      const { first, identity } = codexRecordIdentity(filePath);
       const payload = first?.payload || {};
-      const fallbackPhysicalRecordId = uuidFromFilename(filePath) || path.basename(filePath, '.jsonl');
-      const identity = classifyCodexSessionMeta(payload, fallbackPhysicalRecordId);
 
       // guardian/subagent rollouts are physical execution branches of the user
       // root. They never become a default list row, even while the parent file
@@ -177,6 +191,29 @@ function preferCodexRoot(candidate, candidateRevisionAt, current, currentRevisio
   if (candidateTime !== currentTime) return candidateTime > currentTime;
   if (candidate.status !== current.status) return candidate.status === '可用';
   return candidate.filePath.localeCompare(current.filePath) < 0;
+}
+
+// Read content/index only for tied root revisions; share the list's lifecycle rule.
+function createCodexActivityPreference(profile) {
+  let index;
+  const records = new Map();
+  function asRecord(record, key) {
+    if (!records.has(record.filePath)) {
+      index ||= readCodexIndex(path.join(profile.sessionRoot, 'session_index.jsonl'));
+      records.set(record.filePath, {
+        filePath: record.filePath,
+        status: record.archived ? '已归档' : '可用',
+        updatedAt: latestDate(index.get(key)?.updatedAt, lastEventTimestamp(record.filePath)) || record.mtime
+      });
+    }
+    return records.get(record.filePath);
+  }
+  return (candidate, current, key) => {
+    const revision = Math.trunc(candidate.mtime);
+    const previousRevision = Math.trunc(current.mtime);
+    if (revision !== previousRevision) return revision > previousRevision;
+    return preferCodexRoot(asRecord(candidate, key), revision, asRecord(current, key), previousRevision);
+  };
 }
 
 function dateMillis(value) {
@@ -537,4 +574,4 @@ function uuidFromFilename(filePath) {
   return match?.[0] || null;
 }
 
-module.exports = { scanSessions, scanClaude, scanCodex, scanKimi, scanClaudeCli, claudeActivityFromFile, codexActivityFromFile, kimiActivityFromFile, lastEventTimestamp, parseDate, cleanTitle, uuidFromFilename, text };
+module.exports = { createCodexActivityPreference, codexRecordIdentity, scanSessions, scanClaude, scanCodex, scanKimi, scanClaudeCli, claudeActivityFromFile, codexActivityFromFile, kimiActivityFromFile, lastEventTimestamp, parseDate, cleanTitle, uuidFromFilename, text };

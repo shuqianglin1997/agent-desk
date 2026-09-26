@@ -2,13 +2,14 @@
 (function (root) {
   const L = root.AgentDeskLocales || (root.AgentDeskLocales = {});
   L.ja = {
+    'roster.help': '長押しドラッグで並べ替え、ホイールで横スクロール、Alt + 左右キーで順序を変更。',
+    'roster.moved': '{total} 件中 {n} 番目に移動しました',
     meta: { label: '日本語' },
 
     // トップバー
     'app.tagline': 'LOCAL ACCOUNT DESK',
     'topbar.context.yard': 'にゃんこ庭 · ローカルのアカウントとセッション',
     'topbar.context.classic': 'クラシック · ローカルのアカウントとセッション',
-    'topbar.leaderboard': 'ランク',
     'topbar.update': '更新',
     'topbar.toClassic': 'カード',
     'topbar.toYard': '庭',
@@ -19,7 +20,6 @@
     'topbar.more': 'その他',
     'topbar.help': '使い方',
     'topbar.theme': '外観',
-    'topbar.leaderboard.title': 'アカウント別・本日の作業量ランキング',
     'topbar.update.title': 'GitHub の更新を確認',
     'topbar.view.title': 'にゃんこ庭 / クラシック 表示を切り替え',
     'topbar.devices.title': 'このデバイスの識別情報、グローバル Agent カタログ、状態を表示',
@@ -560,12 +560,6 @@
     'yard.weather.snow': '雪',
 
     // 今日の記録 / リマインド
-    'ledger.title': '今日の記録',
-    'ledger.done': '{n} 回 完了',
-    'ledger.min': '{n} 分 いっしょに',
-    'reminder.on': '🔔 リマインド オン',
-    'reminder.off': '🔔 リマインド オフ',
-    'reminder.title': '休憩リマインド（ストレッチ / 終業のお知らせ）',
 
     // アカウント操作バー
     'account.none': 'アカウント未選択',
@@ -781,9 +775,6 @@
 
     // ステータスバー
     'status.ready': '準備完了',
-    'status.life.prefix': '今日 · ',
-    'status.life.mid': ' 回 · ',
-    'status.life.suffix': ' 分',
     'status.attention': '要確認 {n} 件',
     'common.unrecorded': '記録なし',
     'common.more': 'その他',
@@ -863,24 +854,13 @@
     'status.yardTime': '庭の時間：{label}。',
     'status.yardWeather': '庭の天気：{label}。',
     'status.yardPosSaved': '{name} の庭での位置を保存しました。',
-    'status.alreadyRunning': '{name} はすでに実行中です。右側にアカウントとセッションがあります。',
-    'status.openedSessionDetail': '{name} の現在のセッション詳細を開きました。',
-    'status.catWrapped': 'ねこが 1 匹終業 —— 本日の完了 +1（今回は {min} 分いっしょでした）。',
-    'status.workedMin': '{min} 分いっしょに作業しました —— 少し伸びをしませんか？ ☕',
     'status.migrating': 'アカウントデータを移行中 —— まだ公式アプリを開かないでください。',
     'status.migrateFail': 'パスの移行に失敗しました。',
     'status.migrateDone': 'Windows パスの移行が完了しました。',
-    'status.reminderEnabled': '休憩リマインドをオンにしました。',
-    'status.reminderDisabled': '休憩リマインドをオフにしました。ねこはいつも通りそばにいます。',
-    'status.openConfirmLaunch': '「{name}」を作業ブースに送り、公式アプリを開きますか？',
     'status.removeConfirm': '「{name}」を削除しますか？ローカルディレクトリは削除されません。',
     'status.migrateConfirm': 'まず「{name}」に対応する公式アプリを完全に終了してください。終了を確認してコピー移行を開始しますか？',
 
     // ── 今日の記録（太字の数字ノードを保持、前後に分割）──
-    'ledger.donePre': '',
-    'ledger.doneSuf': ' 回 完了',
-    'ledger.minPre': '',
-    'ledger.minSuf': ' 分 いっしょに',
 
     // ── ダイアログ / モーダルの静的テキスト ──
     'dialog.cancel': 'キャンセル',
@@ -901,7 +881,8 @@
     'dialog.field.sessionRoot': 'セッションルート',
     'dialog.field.executable': '公式アプリ実行ファイル（任意）',
     'dialog.addAgent.title': 'Agent を追加',
-    'dialog.addAgent.lead': 'まず従業員をグローバルライブラリに追加します。実行場所は初めて開くときに自動準備されます。',
+    'dialog.addAgent.lead': 'このデバイスに独立したアカウント環境を作成し、公式クライアントでログインします。既存の社内 API 環境は「Agent 管理 → 実行場所をインポート」から登録できます。',
+  'dialog.addAgent.prepare': '作成して独立環境を準備',
     'dialog.ph.agentName': '例：リサーチアシスタント',
     'dialog.ph.agentNote': '任意：この従業員の担当を記録',
     'dialog.addProfile.title': 'アカウント枠を追加',
@@ -990,15 +971,13 @@
     'tools.checkedAt': '{time} に確認',
     'tools.check': '↻ すべて確認',
     'tools.checking': '確認中…',
-    'tools.updateAllStatic': '↑ 一括更新',
-    'tools.updateAll': '↑ {n} 件を更新',
-    'tools.updatingAll': '一括更新中…',
     'tools.section.desktop': 'DESKTOP APPS',
     'tools.section.desktopHint': 'デスクトップ版は公式アップデーターで管理',
     'tools.section.cli': 'CLI TOOLS',
     'tools.section.cliHint': '検出したインストール元から更新',
     'tools.securityNote': '更新コマンドはメインプロセスの許可リストに固定され、UI が送信したパス・コマンド・URL は実行しません。',
-    'tools.empty': '表示できるツールがありません。',
+    'tools.supported': 'その他の対応ツール（未インストール）',
+  'tools.empty': '表示できるツールがありません。',
     'tools.kind.desktop': 'デスクトップ',
     'tools.kind.cli': 'CLI ツール',
     'tools.kind.terminal': 'システム端末',
@@ -1050,8 +1029,6 @@
     'tools.status.updateFailed': '{label} の更新に失敗しました。',
     'tools.status.updatingAll': '元のインストール元で順番に更新中…',
     'tools.status.cancelled': '一括更新をキャンセルしました。',
-    'tools.status.updatedAll': '一括更新が完了しました。',
-    'tools.status.updateAllFailed': '一部の更新に失敗しました。状態を確認してください。',
 
     // ── ようこそ / 初回利用 ──
     'welcome.title': 'AgentDesk の使い方',
@@ -1203,11 +1180,6 @@
     'deviceJourney.status.claimRejected': '参加要求を拒否しました。メンバー証明書は発行されていません。',
 
     // ── ランキング ──
-    'leaderboard.title': '作業量ランキング',
-    'leaderboard.today': '本日',
-    'leaderboard.note': 'スコア = 10·√本日のアクティブセッション + 6·√新規 + 作業中 ×15。平方根の減衰：ツールによってタスクを分割するセッションファイル数が大きく異なるため、粒度の細かいツールが上位を独占するのを防ぎます。毎分更新、状態はリアルタイム。',
-    'leaderboard.empty': 'アカウントがまだありません。',
-    'leaderboard.sub': '{app} · 本日アクティブ {active} · 新規 {created}',
 
     // ── ねこの見た目（編集ダイアログのカスタマイザー）──
     'cat.breed.orange': '茶トラ',
@@ -1232,7 +1204,6 @@
 
     // ── 領域の aria-label ──
     'aria.topbarActions': 'グローバル操作',
-    'aria.footerGlobal': '今日の作業記録とリマインダーの状態',
     'aria.yardCanvas': 'にゃんこ庭：各ねこが 1 アカウント、クリックで選択',
     'aria.roster': 'アカウント名簿（クラシック表示）',
     'aria.quotaSummary': 'アカウントのクォータ',
@@ -1414,6 +1385,7 @@
     'main.tools.noExecutable': '起動可能なツールプログラムが見つかりません。',
     'main.tools.invalidExecutable': 'ツールのパスに安全に起動できない文字が含まれています。',
     'main.tools.noTerminal': '利用可能なシステムターミナルが見つかりません。',
+    'main.tools.profileMismatch': '選択したプロファイルはこの CLI ツールに属していません。対応する CLI プロファイルを選択してください。',
     'main.tools.openedTerminal': '新しいターミナルで {label} を開きました。',
     'main.tools.updateBusy': '{label} を更新中です。完了までお待ちください。',
     'main.tools.systemManaged': 'このツールは OS によって管理されており、個別には更新できません。',
@@ -1422,13 +1394,9 @@
     'main.tools.updating': '{label} を更新中…',
     'main.tools.updated': '{label} を v{version} に更新しました。',
     'main.tools.allCurrent': '自動管理できるすべてのツールは最新版です。',
-    'main.tools.updateAllTitle': 'CLI ツールを一括更新',
-    'main.tools.updateAllMessage': '元のインストール方法で {n} 個のツールを順番に更新します。',
-    'main.tools.updateAllConfirm': '更新を開始',
-    'main.tools.updateAllDone': '一括更新完了：{done}/{total} 件成功。',
     'main.tools.updateTimeout': '{label} の更新がタイムアウトしたため、待機を終了しました。',
     'main.tools.updateExit': '更新プロセスが異常終了しました（code={code}, signal={signal}）。',
-    'main.launch.cliRuns': '{label} はご自身のターミナルで動作します。この枠はそのセッションの識別とインデックスを担当します。',
+    'main.launch.cliRuns': '{label} は独立したターミナルで開きます。この枠は独自の設定ルートを使い、公式の既定アカウントやプロキシは引き継ぎません。',
     'main.agentPrepare.title': 'Agent の初回準備',
     'main.agentPrepare.message': 'デバイス「{device}」が、このコンピュータを「{agent}」の作業環境として準備するよう求めています。',
     'main.agentPrepare.detail': 'AgentDesk は管理対象ディレクトリを作成し、許可リスト済みの公式 {app} クライアントまたはインストールページだけを開きます。インストール、サインイン、確認コード、システム権限はこのコンピュータ上で完了する必要があります。',

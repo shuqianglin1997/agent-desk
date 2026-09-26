@@ -72,7 +72,6 @@
   let pressed = false;
   let pointerCandidate = null;
   let suppressClick = false;
-  let activeDropZoneId = null;
   const speechById = new Map();
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -398,39 +397,10 @@
       if (!zoneSeen.has(el.dataset.key)) el.remove();
     });
 
-    syncDropZones(Boolean(pointerCandidate && pointerCandidate.dragging));
     syncSpeech();
     syncChipPositions();
   }
 
-  function syncDropZones(visible) {
-    if (!overlay || !root.YardInteractions) return;
-    const seen = new Set();
-    root.YardInteractions.ZONES.forEach((zone) => {
-      seen.add(zone.id);
-      let el = overlay.querySelector(`.yard-drop-zone[data-zone="${zone.id}"]`);
-      if (!el) {
-        el = document.createElement('span');
-        el.className = 'yard-drop-zone';
-        el.dataset.zone = zone.id;
-        const label = document.createElement('b');
-        label.textContent = zone.label;
-        const hint = document.createElement('small');
-        hint.textContent = zone.hint;
-        el.append(label, hint);
-        overlay.appendChild(el);
-      }
-      el.hidden = !visible;
-      el.classList.toggle('active', visible && activeDropZoneId === zone.id);
-      el.style.left = `${(zone.x0 / W * 100).toFixed(2)}%`;
-      el.style.top = `${(zone.y0 / H * 100).toFixed(2)}%`;
-      el.style.width = `${((zone.x1 - zone.x0) / W * 100).toFixed(2)}%`;
-      el.style.height = `${((zone.y1 - zone.y0) / H * 100).toFixed(2)}%`;
-    });
-    overlay.querySelectorAll('.yard-drop-zone').forEach((el) => {
-      if (!seen.has(el.dataset.zone)) el.remove();
-    });
-  }
 
   function currentSpeech(entry) {
     const attention = data.attentionById && data.attentionById[entry.profile.id];
@@ -1000,7 +970,6 @@
           pointerCandidate.entry.actor.dragging = true;
           pointerCandidate.entry.actor.walking = false;
           canvas.classList.add('is-dragging');
-          syncDropZones(true);
         }
         if (pointerCandidate.dragging) {
           event.preventDefault();
@@ -1009,10 +978,7 @@
           actor.y = clamp(ly, 68, H - 6);
           actor.tx = actor.x;
           actor.ty = actor.y;
-          const zone = root.YardInteractions ? root.YardInteractions.zoneAt(actor.x, actor.y) : null;
-          activeDropZoneId = zone ? zone.id : null;
           setHoverId(pointerCandidate.entry.profile.id);
-          syncDropZones(true);
           render();
           syncChipPositions();
           return;
@@ -1063,17 +1029,13 @@
         const point = root.YardInteractions
           ? root.YardInteractions.normalizePoint({ x: candidate.entry.actor.x, y: candidate.entry.actor.y })
           : { x: candidate.entry.actor.x, y: candidate.entry.actor.y };
-        const zone = !cancelled && root.YardInteractions
-          ? root.YardInteractions.zoneAt(point.x, point.y)
-          : null;
         let keepPosition = false;
         if (!cancelled && onDrop) {
           try {
             const result = onDrop({
               profile: candidate.entry.profile,
               state: candidate.entry.state,
-              point,
-              zone
+              point
             });
             keepPosition = result === true || Boolean(result && result.keepPosition);
           } catch (_error) {
@@ -1089,8 +1051,6 @@
           candidate.entry.actor.tx = returnPoint.x;
           candidate.entry.actor.ty = returnPoint.y;
         }
-        activeDropZoneId = null;
-        syncDropZones(false);
         render();
         syncChipPositions();
       }

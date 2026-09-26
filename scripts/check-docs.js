@@ -28,10 +28,6 @@ const EVIDENCE_DOCS = [
 ];
 
 const errors = [];
-const CURRENT_NODE_TOTAL = '527';
-const CURRENT_NODE_PASSED = '526';
-const CURRENT_UI_RESULT = '21/21';
-const CURRENT_RELEASE_SECURITY_RESULT = '14/14';
 
 function fail(file, message, lineNumber = null) {
   errors.push(`${file}${lineNumber ? `:${lineNumber}` : ''}: ${message}`);
@@ -137,19 +133,25 @@ for (const relativePath of CURRENT_STATE_DOCS) {
 }
 
 for (const relativePath of EVIDENCE_DOCS) {
-  requireText(relativePath, '562,009', 'must preserve the scoped physical two-Mac inventory evidence');
+  requireText(relativePath, 'VALIDATION.md', 'must link the canonical validation ledger');
   requireText(relativePath, 'Preview', 'must distinguish Preview from a stable release');
-  requireText(relativePath, CURRENT_NODE_TOTAL, 'must record the current full Node test total');
-  requireText(relativePath, CURRENT_NODE_PASSED, 'must record the current passing Node test count');
-  requireText(relativePath, CURRENT_UI_RESULT, 'must record the current real-window task-path result');
-  requireText(relativePath, CURRENT_RELEASE_SECURITY_RESULT, 'must record the current release-security result');
-  requireText(relativePath, '25/25', 'must record the scoped TaskPackage security result');
-  if (!/(?:NAT|coturn)/i.test(documents.get(relativePath) || '')) {
-    fail(relativePath, 'must name the still-open real NAT/coturn gate');
+}
+const validation = read('docs/VALIDATION.md');
+checkLocalLinks('docs/VALIDATION.md', validation);
+for (const boundary of ['NAT', 'Windows', '562,009']) {
+  if (!validation.includes(boundary)) fail('docs/VALIDATION.md', `missing evidence scope: ${boundary}`);
+}
+
+try {
+  const evidence = JSON.parse(read('docs/validation/current.json'));
+  if (!/^[a-f0-9]{40}$/.test(evidence.baseCommit || '')) fail('docs/validation/current.json', 'missing full baseline commit');
+  if (!Number.isFinite(Date.parse(evidence.recordedAt))) fail('docs/validation/current.json', 'missing evidence date');
+  if (evidence.sourceSha256 !== require('./validation-source').sourceDigest(ROOT)) {
+    fail('docs/validation/current.json', 'source changed since validation; rerun relevant checks and refresh evidence');
   }
-  if (!/Windows/i.test(documents.get(relativePath) || '')) {
-    fail(relativePath, 'must name the still-open Windows physical/permission gate');
-  }
+  if (!evidence.environment || !Array.isArray(evidence.checks)) fail('docs/validation/current.json', 'missing environment/check scopes');
+} catch (error) {
+  fail('docs/validation/current.json', error.message);
 }
 
 if (authorityVersion) {
