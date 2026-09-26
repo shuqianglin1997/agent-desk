@@ -56,6 +56,17 @@ const TOOL_CATALOG = Object.freeze([
     officialUrl: 'https://docs.anthropic.com/en/docs/claude-code/getting-started'
   }),
   Object.freeze({
+    id: 'cli:dsh',
+    kind: 'cli',
+    label: 'DSH',
+    detail: 'DeepSeek Harness CLI',
+    discoveryId: 'dsh',
+    versionArgs: Object.freeze(['--version']),
+    npmPackages: Object.freeze(['@deepseek-ai/dsh']),
+    githubRepository: 'deepseek-ai/deepseek-harness',
+    officialUrl: 'https://github.com/deepseek-ai/deepseek-harness'
+  }),
+  Object.freeze({
     id: 'cli:codex',
     kind: 'cli',
     label: 'Codex CLI',

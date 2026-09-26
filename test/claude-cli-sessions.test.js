@@ -107,17 +107,35 @@ test('lastEventTimestamp 对 claude-cli 事件（ISO timestamp）直接可用', 
 
 const apps = require('../src/apps');
 
-test('注册表 claude-cli：默认读 ~/.claude，独立槽位用 CLAUDE_CONFIG_DIR 隔离，不可 launch', () => {
+test('注册表 claude-cli：默认读 ~/.claude，独立槽位用 CLAUDE_CONFIG_DIR 隔离并可打开终端', () => {
   assert.equal(apps.isKnownApp('claude-cli'), true);
   const app_ = apps.getApp('claude-cli');
   assert.equal(app_.label, 'Claude CLI');
   assert.equal(app_.noLaunch, true);
+  assert.equal(app_.cliDiscoveryId, 'claude');
+  assert.equal(app_.maintenanceToolId, 'cli:claude');
   assert.equal(app_.defaultSessionRoot('/tmp/slot', true), path.join(os.homedir(), '.claude'));
   assert.equal(app_.defaultSessionRoot('/tmp/slot', false), path.join('/tmp/slot', 'claude-cli-home'));
   const env = app_.launchEnv({ sessionRoot: '/tmp/slot/claude-cli-home' }, { PATH: '/usr/bin' });
   assert.equal(env.CLAUDE_CONFIG_DIR, '/tmp/slot/claude-cli-home');
   const byId = Object.fromEntries(apps.listApps().map((item) => [item.id, item]));
   assert.equal(byId['claude-cli'].canExportTranscript, true);
-  assert.equal(byId['claude-cli'].canLaunch, false);
+  assert.equal(byId['claude-cli'].canLaunch, true);
   assert.equal(byId.claude.canLaunch, true);
+});
+
+test('注册表 dsh-cli：独立槽位用 DSH_HOME 和 desktop profile 启动', () => {
+  assert.equal(apps.isKnownApp('dsh-cli'), true);
+  const app_ = apps.getApp('dsh-cli');
+  assert.equal(app_.noLaunch, true);
+  assert.equal(app_.cliDiscoveryId, 'dsh');
+  assert.equal(app_.maintenanceToolId, 'cli:dsh');
+  assert.equal(app_.defaultSessionRoot('/tmp/slot', true), path.join(os.homedir(), '.dsh'));
+  assert.equal(app_.defaultSessionRoot('/tmp/slot', false), path.join('/tmp/slot', 'dsh-home'));
+  assert.deepEqual(app_.launchEnv({ sessionRoot: '/tmp/slot/dsh-home' }, { DSH_HOME: '/wrong', PATH: '/usr/bin' }), {
+    DSH_HOME: '/tmp/slot/dsh-home',
+    PATH: '/usr/bin'
+  });
+  assert.deepEqual(app_.cliArgsForProfile({}), ['--profile', 'desktop']);
+  assert.equal(apps.listApps().find((item) => item.id === 'dsh-cli').canLaunch, true);
 });

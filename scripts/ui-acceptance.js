@@ -1818,6 +1818,43 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(reduced.deviceAnimation, 'none');
   });
 
+  await run('remove an unassigned local registration without deleting its Agent or files', async () => {
+    await client.evaluate(`(() => {
+      window.registrationRemovalFixture = null;
+      loadDeviceOverview({ silent: true }).then(async () => {
+        const overview = state.mesh.overview;
+        const slot = overview.slots.find(item => item.profileId === 'acceptance-work-cli' && item.deviceId === overview.localDeviceId);
+        const result = await window.manager.removeLocalAgentSlot({ deviceId: slot.deviceId, profileId: slot.profileId, baseRevision: currentCatalogRevision() });
+        if (!result.ok) throw new Error(result.reasonCode);
+        state.mesh.overview = result.overview;
+        const pending = result.overview.slots.find(item => item.profileId === slot.profileId && item.deviceId === slot.deviceId);
+        window.registrationRemovalFixture = { agentId: slot.agentId, profile: state.profiles.find(item => item.id === slot.profileId) };
+        openSlotAssignmentDialog(pending);
+      });
+    })()`);
+    await waitFor(client, `window.registrationRemovalFixture && document.querySelector('#slotAssignmentDialog').open`, 'unassigned local registration');
+    const fixture = await client.evaluate('window.registrationRemovalFixture');
+    const sentinel = path.join(fixture.profile.sessionRoot, 'keep-registration-removal.txt');
+    fs.writeFileSync(sentinel, 'session files stay');
+    assert.equal(await client.evaluate(`document.querySelector('#removeUnassignedSlotBtn').checkVisibility()`), true);
+    const eventStart = client.events.length;
+    const click = client.evaluate(`document.querySelector('#removeUnassignedSlotBtn').click()`);
+    const deadline = Date.now() + 5000;
+    while (!client.events.slice(eventStart).some(event => event.method === 'Page.javascriptDialogOpening')) {
+      assert.ok(Date.now() < deadline, 'registration removal must request confirmation');
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    await client.call('Page.handleJavaScriptDialog', { accept: true });
+    await click;
+    await waitFor(client, `!document.querySelector('#slotAssignmentDialog').open
+      && !state.profiles.some(item => item.id === 'acceptance-work-cli')
+      && !state.mesh.overview.slots.some(item => item.profileId === 'acceptance-work-cli')`, 'registration removed from profile and overview');
+    assert.equal(fs.readFileSync(sentinel, 'utf8'), 'session files stay');
+    assert.equal(await client.evaluate(`state.mesh.overview.agents.some(item => item.agentId === ${JSON.stringify(fixture.agentId)})`), true);
+    assert.equal(await client.evaluate(`state.profiles.some(item => item.id === 'acceptance-work-desktop')`), true);
+    assert.equal(await client.evaluate(`collectAttentionItems().some(item => item.slotKey?.includes('acceptance-work-cli'))`), false);
+  });
+
   const exceptions = client.events.filter((event) => event.method === 'Runtime.exceptionThrown');
   assert.deepEqual(exceptions, [], 'renderer must not emit uncaught exceptions during acceptance');
   return checks;

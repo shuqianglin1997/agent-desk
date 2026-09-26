@@ -1563,6 +1563,21 @@ class MeshService {
   }
 
   publicOverview(snapshot, keyState) {
+    // Local registrations remain authoritative even when keys prevent catalog
+    // reconciliation. Project missing positions out without rewriting signed
+    // catalog history or another device's inventory.
+    const localProfileIds = new Set(this.currentProfiles().map((profile) => String(profile.id)));
+    const registeredSlots = snapshot.slots.filter((slot) => (
+      slot.deviceId !== snapshot.mesh.localDeviceId || localProfileIds.has(String(slot.profileId))
+    ));
+    if (registeredSlots.length !== snapshot.slots.length) {
+      snapshot = { ...snapshot, slots: registeredSlots };
+      const runtime = reconcileAgentRuntimeModel(snapshot, {
+        localDeviceId: snapshot.mesh.localDeviceId,
+        now: this.now()
+      });
+      snapshot = { ...snapshot, deployments: runtime.deployments };
+    }
     const remoteInventoryByDevice = new Map((snapshot.remoteInventories || []).map((inventory) => [
       inventory.deviceId,
       inventory

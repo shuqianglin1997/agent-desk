@@ -41,6 +41,53 @@ const OFFICIAL_DEFAULT_ONLY = Object.freeze({
   mode: 'official-default-only'
 });
 
+// Claude Code reads these variables before its per-profile files. A Claude
+// Desktop launch must not inherit a shell-level CLI proxy or config root.
+const CLAUDE_CODE_ENV_KEYS = Object.freeze([
+  'ANTHROPIC_API_KEY',
+  'ANTHROPIC_AUTH_TOKEN',
+  'ANTHROPIC_OAUTH_TOKEN',
+  'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_API_BASE_URL',
+  'ANTHROPIC_CONFIG_DIR',
+  'ANTHROPIC_CUSTOM_HEADERS',
+  'ANTHROPIC_UNIX_SOCKET',
+  'ANTHROPIC_AWS_REGION',
+  'ANTHROPIC_AWS_ACCESS_KEY_ID',
+  'ANTHROPIC_AWS_SECRET_ACCESS_KEY',
+  'ANTHROPIC_AWS_SESSION_TOKEN',
+  'ANTHROPIC_BEDROCK_REGION',
+  'ANTHROPIC_FOUNDRY_REGION',
+  'ANTHROPIC_FOUNDRY_RESOURCE',
+  'ANTHROPIC_MODEL',
+  'ANTHROPIC_SMALL_FAST_MODEL',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'CLAUDE_CONFIG_DIR',
+  'CLAUDE_CODE_OAUTH_TOKEN',
+  'CLAUDE_CODE_API_BASE_URL',
+  'CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR',
+  'CLAUDE_CODE_USE_BEDROCK',
+  'CLAUDE_CODE_USE_FOUNDRY',
+  'CLAUDE_CODE_USE_VERTEX',
+  'CLAUDE_CODE_PLUGIN_ROOT'
+]);
+
+const DSH_ENV_KEYS = Object.freeze(['DSH_HOME']);
+
+function withoutClaudeCodeEnvironment(baseEnv = {}) {
+  const env = { ...baseEnv };
+  for (const key of Object.keys(env)) {
+    if (
+      CLAUDE_CODE_ENV_KEYS.includes(key) ||
+      /^ANTHROPIC_(?:DEFAULT_|MODEL|SMALL_FAST_MODEL|CUSTOM_HEADERS|API_BASE_URL|BASE_URL|CONFIG_DIR|OAUTH_TOKEN|AUTH_TOKEN|API_KEY|AWS_|BEDROCK_|FOUNDRY_|VERTEX_|UNIX_SOCKET)/.test(key) ||
+      /^CLAUDE_CODE_(?:OAUTH_TOKEN|API_BASE_URL|API_KEY_|USE_(?:BEDROCK|FOUNDRY|VERTEX)|PLUGIN_)/.test(key)
+    ) delete env[key];
+  }
+  return env;
+}
+
 const APPS = {
   claude: {
     id: 'claude',
@@ -62,7 +109,7 @@ const APPS = {
       profileMarkers: ['claude-code-sessions', 'local-agent-mode-sessions', 'Local State', 'logs']
     },
     defaultSessionRoot: (profilePath) => profilePath,
-    launchEnv: (_profile, baseEnv) => baseEnv,
+    launchEnv: (_profile, baseEnv) => withoutClaudeCodeEnvironment(baseEnv),
     scanAreas: (profile) => [
       { dir: path.join(profile.sessionRoot, 'claude-code-sessions'), match: matchLocalJson },
       { dir: path.join(profile.sessionRoot, 'local-agent-mode-sessions'), match: matchLocalJson }
@@ -80,9 +127,12 @@ const APPS = {
     label: 'Claude CLI',
     tagColor: '#b0713f',
     appName: 'Claude',
-    // 没有可启动的桌面 App —— 用户在自己的终端里跑 claude，
-    // 这个槽位负责识别、索引与导出它的会话。
+    // 没有桌面 App。独立槽位用 CLAUDE_CONFIG_DIR 打开终端里的 claude，
+    // 并识别、索引与导出该配置根下的会话。
     noLaunch: true,
+    cliDiscoveryId: 'claude',
+    maintenanceToolId: 'cli:claude',
+    cliClearEnvKeys: CLAUDE_CODE_ENV_KEYS,
     profileIsolation: Object.freeze({ mode: 'external-only' }),
     windows: {
       executableNames: [],
@@ -98,7 +148,10 @@ const APPS = {
     defaultSessionRoot: (profilePath, isDefault) => (
       isDefault ? path.join(os.homedir(), '.claude') : path.join(profilePath, 'claude-cli-home')
     ),
-    launchEnv: (profile, baseEnv) => ({ ...baseEnv, CLAUDE_CONFIG_DIR: profile.sessionRoot }),
+    launchEnv: (profile, baseEnv) => ({
+      ...withoutClaudeCodeEnvironment(baseEnv),
+      CLAUDE_CONFIG_DIR: profile.sessionRoot
+    }),
     // 会话事件逐行追加；只盯 projects 两层（memory/<uuid> 等子目录不算会话）
     scanAreas: (profile) => [
       { dir: path.join(profile.sessionRoot, 'projects'), match: (name) => name.endsWith('.jsonl'), maxDepth: 2 }
@@ -113,6 +166,43 @@ const APPS = {
       markdown: transcripts.claudeCliTranscriptMarkdown(session.filePath, { title: session.title }),
       suggestedName: transcripts.suggestedTranscriptName(session.title)
     })
+  },
+  'dsh-cli': {
+    id: 'dsh-cli',
+    label: 'DSH',
+    tagColor: '#3d6aa8',
+    appName: 'DeepSeek Harness',
+    // DSH is a terminal launcher. Its home is the account boundary; the
+    // selected profile inside that home is kept stable. DSH itself owns setup;
+    // AgentDesk does not copy configuration from another account.
+    noLaunch: true,
+    cliDiscoveryId: 'dsh',
+    maintenanceToolId: 'cli:dsh',
+    cliClearEnvKeys: DSH_ENV_KEYS,
+    cliArgsForProfile: (profile) => ['--profile', profile.dshProfile || 'desktop'],
+    profileIsolation: Object.freeze({ mode: 'external-only' }),
+    windows: {
+      executableNames: [],
+      aliases: [],
+      legacyInstallDirs: ['dsh'],
+      packageNames: [],
+      packageFamilyNames: [],
+      packageFamilyPrefixes: [],
+      protocol: null,
+      profileMarkers: ['profiles', 'settings.yaml']
+    },
+    defaultSessionRoot: (profilePath, isDefault) => (
+      isDefault ? path.join(os.homedir(), '.dsh') : path.join(profilePath, 'dsh-home')
+    ),
+    launchEnv: (profile, baseEnv) => ({
+      ...baseEnv,
+      DSH_HOME: profile.sessionRoot
+    }),
+    scanAreas: () => [],
+    diagnosticAreas: (profile) => [
+      { label: 'DSH 主目录', path: profile.sessionRoot, kind: 'directory' }
+    ],
+    scan: () => [],
   },
   codex: {
     id: 'codex',
@@ -329,7 +419,7 @@ function listApps() {
     taskPackageMode: id === 'codex'
       ? 'native'
       : (typeof APPS[id].exportTranscript === 'function' ? 'transcript' : 'unsupported'),
-    canLaunch: APPS[id].noLaunch !== true,
+    canLaunch: APPS[id].noLaunch !== true || Boolean(APPS[id].cliDiscoveryId),
     supportsManagedProfiles: APPS[id].profileIsolation?.mode === 'chromium-user-data-dir'
   }));
 }
@@ -423,6 +513,8 @@ function legacyDefaultProfilePath(appId) {
 module.exports = {
   APPS,
   DEFAULT_APP,
+  CLAUDE_CODE_ENV_KEYS,
+  DSH_ENV_KEYS,
   getApp,
   isKnownApp,
   appIds,
@@ -433,5 +525,6 @@ module.exports = {
   defaultProfilePath,
   defaultProfilePathInfo,
   legacyDefaultProfilePath,
-  appSupportDir
+  appSupportDir,
+  withoutClaudeCodeEnvironment
 };

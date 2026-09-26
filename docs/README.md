@@ -1,5 +1,7 @@
 # AgentDesk 文档导航
 
+搭配代理客户端的使用说明：[`AGENTDOCK_COMPATIBILITY.md`](AGENTDOCK_COMPATIBILITY.md)。
+
 这里是仓库文档的入口，也是“当前做到哪一步”的统一说明。涉及 Personal Agent Mesh 的实现决策，以 [`PERSONAL_AGENT_MESH_PLAN.md`](PERSONAL_AGENT_MESH_PLAN.md) 为唯一实施权威；当前权威版本为 **1.33 / OWNER APPROVED — IMPLEMENTATION AUTHORIZED**。
 
 ## 先分清七种状态

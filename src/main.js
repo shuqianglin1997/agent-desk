@@ -43,6 +43,8 @@ const {
   activateMacProfileApplication
 } = require('./mac-application-activator');
 const { ensureCodexRuntimeHome } = require('./codex-runtime-home');
+const { prepareManagedProfileHome } = require('./profile-home');
+const { terminalLauncherScript } = require('./terminal-launcher');
 const { QuotaService } = require('./quota-service');
 const { normalizeCat } = require('./yard/cats');
 const { mt } = require('./i18n/main-i18n');
@@ -1561,8 +1563,7 @@ function createStoredProfile(input = {}) {
     note: input.note
   });
 
-  ensureDir(profile.profilePath);
-  ensureDir(profile.sessionRoot);
+  prepareManagedProfileHome(profile);
   profiles.push(profile);
   saveProfiles(profiles);
   return profile;
@@ -1667,8 +1668,7 @@ function getProvisioningService() {
         return { supported: true, installed: executable.found === true };
       },
       async prepare(profile) {
-        ensureDir(profile.profilePath);
-        ensureDir(profile.sessionRoot);
+        prepareManagedProfileHome(profile);
         return { ok: true };
       },
       async observeIdentity(profile) {
@@ -1719,8 +1719,7 @@ function getProvisioningService() {
           }
           return existing;
         }
-        ensureDir(profile.profilePath);
-        ensureDir(profile.sessionRoot);
+        prepareManagedProfileHome(profile);
         profiles.push(normalizeProfile(profile));
         saveProfiles(profiles);
         return profiles.at(-1);
@@ -3005,7 +3004,14 @@ function usesWindowsOfficialDefault(profile) {
 }
 
 async function launchProfile(profile) {
+  if (!apps.isKnownApp(profile.appId)) {
+    return { ok: false, reason: t('main.tools.profileMismatch') };
+  }
   const app_ = apps.getApp(profile.appId);
+  if (app_.cliDiscoveryId) {
+    prepareManagedProfileHome(profile);
+    return openMaintenanceTool(app_.maintenanceToolId, profile.id);
+  }
   if (app_.noLaunch) {
     return {
       ok: false,
@@ -3076,9 +3082,11 @@ async function launchProfile(profile) {
   // outside AppData and are safe for AgentDesk to create directly.
   try {
     if (!windowsDefault) {
+      prepareManagedProfileHome(profile);
       ensureDir(profile.profilePath);
       ensureDir(profile.sessionRoot);
     } else if (profile.appId === 'codex') {
+      prepareManagedProfileHome(profile);
       ensureDir(profile.sessionRoot);
     }
   } catch (error) {
@@ -3979,7 +3987,8 @@ async function openMaintenanceTool(toolId, requestedProfileId) {
     }
   }
   if (tool.kind === 'cli' && record?.installed) {
-    return openMaintenanceCliInTerminal(record);
+    const profile = loadProfiles().find((item) => item.id === requestedProfileId) || null;
+    return openMaintenanceCliInTerminal(record, profile, Boolean(requestedProfileId));
   }
   if (tool.kind === 'terminal') return openSystemTerminal();
   return openMaintenanceOfficialPage(tool);
@@ -3995,46 +4004,69 @@ async function openMaintenanceOfficialPage(tool) {
   }
 }
 
-function posixShellQuote(value) {
-  return `'${String(value || '').replace(/'/g, `'\\''`)}'`;
-}
-
-function maintenanceLauncherFile(record) {
+function maintenanceLauncherFile(record, options = {}) {
   const directory = path.join(app.getPath('temp'), 'AgentDesk-tool-launchers');
   ensureDir(directory);
   const safeId = record.id.replace(/[^a-z0-9_-]+/gi, '-');
   const extension = process.platform === 'win32' ? 'cmd' : 'command';
   const filePath = path.join(directory, `${safeId}-${Date.now()}.${extension}`);
-  const executablePath = record.executablePath || record.launcher?.path || record.launcher?.command;
+  const launcher = record.launcher || {};
+  const executablePath = launcher.command || record.executablePath || launcher.path;
   if (!executablePath) throw new Error(t('main.tools.noExecutable'));
-
-  if (process.platform === 'win32') {
-    if (executablePath.includes('"') || os.homedir().includes('"')) {
-      throw new Error(t('main.tools.invalidExecutable'));
-    }
-    fs.writeFileSync(filePath, [
-      '@echo off',
-      'set "AGENTDESK_LAUNCHER=%~f0"',
-      'del "%AGENTDESK_LAUNCHER%" >nul 2>nul',
-      `cd /d "${os.homedir()}"`,
-      `call "${executablePath}"`
-    ].join('\r\n'), 'utf8');
-  } else {
-    fs.writeFileSync(filePath, [
-      '#!/bin/zsh',
-      'AGENTDESK_LAUNCHER="$0"',
-      '/bin/rm -f -- "$AGENTDESK_LAUNCHER"',
-      `cd -- ${posixShellQuote(os.homedir())}`,
-      `exec ${posixShellQuote(executablePath)}`
-    ].join('\n'), { encoding: 'utf8', mode: 0o700 });
-    fs.chmodSync(filePath, 0o700);
+  if (process.platform === 'win32' && (executablePath.includes('"') || os.homedir().includes('"'))) {
+    throw new Error(t('main.tools.invalidExecutable'));
   }
+  const script = terminalLauncherScript({
+    ...options,
+    command: executablePath,
+    prefixArgs: launcher.prefixArgs,
+    extraEnv: launcher.extraEnv,
+    baseEnv: options.baseEnv || process.env,
+    platform: process.platform,
+    home: os.homedir()
+  });
+  fs.writeFileSync(filePath, script, { encoding: 'utf8', mode: 0o700 });
+  if (process.platform !== 'win32') fs.chmodSync(filePath, 0o700);
   return filePath;
 }
 
-async function openMaintenanceCliInTerminal(record) {
+function cliMaintenanceProfileContext(record, profile, profileWasRequested = false) {
+  if (!profile) {
+    if (profileWasRequested) {
+      return { error: t('main.tools.profileMismatch') };
+    }
+    return { launchEnv: { ...process.env }, clearEnvKeys: [], args: [] };
+  }
+  const app_ = apps.getApp(profile.appId);
+  if (app_.cliDiscoveryId !== record.tool?.discoveryId) {
+    return { error: t('main.tools.profileMismatch') };
+  }
+  const baseEnv = { ...process.env };
+  const launchEnv = app_.launchEnv(profile, baseEnv);
+  const listedClearKeys = app_.cliClearEnvKeys || [];
+  const clearEnvKeys = [...new Set([
+    ...listedClearKeys,
+    ...Object.keys(baseEnv).filter((key) => (
+      listedClearKeys.includes(key) ||
+      /^(?:ANTHROPIC_|CLAUDE_CODE_|CLAUDE_CONFIG_DIR$|DSH_HOME$)/.test(key)
+    ) && !Object.prototype.hasOwnProperty.call(launchEnv, key))
+  ])];
+  return {
+    launchEnv,
+    clearEnvKeys,
+    args: app_.cliArgsForProfile ? app_.cliArgsForProfile(profile) : []
+  };
+}
+
+async function openMaintenanceCliInTerminal(record, profile = null, profileWasRequested = false) {
   try {
-    const launcherFile = maintenanceLauncherFile(record);
+    prepareManagedProfileHome(profile);
+    const context = cliMaintenanceProfileContext(record, profile, profileWasRequested);
+    if (context.error) return { ok: false, reason: context.error };
+    const launcherFile = maintenanceLauncherFile(record, {
+      ...context,
+      baseEnv: process.env
+    });
     if (process.platform === 'darwin') {
       await spawnDetached('/usr/bin/open', ['-a', 'Terminal', launcherFile], { ...process.env });
     } else if (process.platform === 'win32') {

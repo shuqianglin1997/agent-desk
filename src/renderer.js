@@ -1379,6 +1379,7 @@ function bindEvents() {
   els.slotAssignmentAgent?.addEventListener('change', () => syncSlotAssignmentControls());
   els.slotAssignmentBinding?.addEventListener('change', () => syncSlotAssignmentControls());
   els.confirmSlotAssignmentBtn?.addEventListener('click', () => void confirmSlotAssignment());
+  document.querySelector('#removeUnassignedSlotBtn')?.addEventListener('click', () => void removeUnassignedLocalSlot());
   els.slotAssignmentDialog?.addEventListener('close', () => {
     state.mesh.assigningSlotKey = null;
   });
@@ -2182,6 +2183,7 @@ function bindEvents() {
 function catalogProviderForApp(appId) {
   const value = String(appId || '').trim().toLowerCase();
   if (value === 'claude' || value === 'claude-cli') return 'claude';
+  if (value === 'dsh-cli' || value === 'dsh') return 'dsh';
   if (value === 'kimi' || value === 'kimi-work') return 'kimi';
   return value || 'unknown';
 }
@@ -2791,6 +2793,8 @@ function openSlotAssignmentDialog(slot) {
   els.slotAssignmentBinding.value = '';
   els.slotAssignmentStatus.dataset.state = 'idle';
   els.slotAssignmentStatus.textContent = tr('catalog.remove.safety');
+  document.querySelector('#removeUnassignedSlotBtn').hidden = slot.deviceId !== overview.localDeviceId
+    || !state.profiles.some(profile => profile.id === slot.profileId);
   syncSlotAssignmentControls();
   els.slotAssignmentDialog.showModal();
   els.slotAssignmentMode.focus();
@@ -2806,6 +2810,34 @@ function syncSlotAssignmentControls() {
   els.confirmSlotAssignmentBtn.disabled = !slot || !mode
     || (mode === 'existing-agent' && (!agents.length || !els.slotAssignmentAgent.value))
     || (mode === 'existing-binding' && (!bindings.length || !els.slotAssignmentBinding.value));
+}
+
+async function removeUnassignedLocalSlot() {
+  const slot = catalogSlotByKey(state.mesh.assigningSlotKey);
+  const overview = state.mesh.overview;
+  if (!slot || slot.deviceId !== overview?.localDeviceId || slot.assignmentState === 'linked') return;
+  const profile = state.profiles.find(item => item.id === slot.profileId);
+  if (!profile || !window.confirm(tr('status.removeConfirm', { name: profile.name }))) return;
+  const button = document.querySelector('#removeUnassignedSlotBtn');
+  button.disabled = true;
+  try {
+    const result = await window.manager.removeProfile(profile.id);
+    if (!result?.ok) {
+      els.slotAssignmentStatus.dataset.state = 'error';
+      els.slotAssignmentStatus.textContent = result?.reason || tr('status.removeFail');
+      return;
+    }
+    els.slotAssignmentDialog.close();
+    await loadProfiles(null, { skipDeviceOverview: true });
+    await loadDeviceOverview({ silent: true });
+    renderAttentionInbox();
+    setStatus(tr('status.removedSlot'));
+  } catch (_error) {
+    els.slotAssignmentStatus.dataset.state = 'error';
+    els.slotAssignmentStatus.textContent = tr('status.removeFail');
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function confirmSlotAssignment() {
