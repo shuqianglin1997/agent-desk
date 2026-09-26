@@ -7,6 +7,9 @@ const state = {
   sessionSort: { key: 'updatedAt', direction: 'desc' },
   query: '',
   theme: null,
+  skin: 'cat',
+  agentOrder: [],
+  vhsAgentColors: {},
   view: 'classic',
   detailMode: 'session',
   detailBeforeRemote: 'session',
@@ -339,6 +342,7 @@ const els = {
   leaderboardDialog: document.querySelector('#leaderboardDialog'),
   leaderboardBody: document.querySelector('#leaderboardBody'),
   themeToggle: document.querySelector('#themeToggle'),
+  skinSelect: document.querySelector('#skinSelect'),
   profileQuitBehavior: document.querySelector('#profileQuitBehavior'),
   updateBtn: document.querySelector('#updateBtn'),
   helpBtn: document.querySelector('#helpBtn'),
@@ -657,6 +661,11 @@ function legacyUserSettings() {
 
 function applyUserSettings(value = {}) {
   state.theme = value.theme === 'light' || value.theme === 'dark' ? value.theme : null;
+  state.agentOrder = Array.isArray(value.agentOrder) ? value.agentOrder : [];
+  state.vhsAgentColors = value.vhsAgentColors || {};
+  state.skin = value.skin === 'vhs' ? 'vhs' : 'cat';
+  document.documentElement.dataset.skin = state.skin;
+  if (els.skinSelect) els.skinSelect.value = state.skin;
   state.view = value.view === 'yard' ? 'yard' : 'classic';
   state.ui = window.UiContext.create({
     ...state.ui,
@@ -1432,6 +1441,16 @@ function bindEvents() {
     syncYard();
   });
 
+  els.skinSelect?.addEventListener('change', () => {
+    state.skin = els.skinSelect.value === 'vhs' ? 'vhs' : 'cat';
+    document.documentElement.dataset.skin = state.skin;
+    persistSettings({ skin: state.skin });
+    applyView();
+    renderAccountRoster();
+    syncYard();
+    renderVhsColors();
+  });
+
   els.profileQuitBehavior?.addEventListener('change', () => {
     state.profileQuitBehavior = els.profileQuitBehavior.value === 'keep' ? 'keep' : 'close';
     persistSettings({ profileQuitBehavior: state.profileQuitBehavior });
@@ -1482,6 +1501,7 @@ function bindEvents() {
   });
 
   els.settingsBtn?.addEventListener('click', () => {
+    renderVhsColors();
     openUtilityDialog('settings');
   });
 
@@ -1496,6 +1516,8 @@ function bindEvents() {
 
   for (const [kind, button, dialog] of utilityDialogEntries()) {
     dialog?.addEventListener('close', () => {
+      // A queued close event may arrive after this dialog has reopened.
+      if (dialog.open) return;
       const wasCurrent = state.utilityDialog === kind;
       button?.setAttribute('aria-expanded', 'false');
       if (!dialog.open && state.utilityDialog === kind) state.utilityDialog = null;
@@ -3666,7 +3688,7 @@ function renderCatPreview() {
 
 // ── 庭院视图 ─────────────────────────────────────────
 function isYardView() {
-  return yardMounted && document.body.dataset.view === 'yard';
+  return state.skin !== 'vhs' && yardMounted && document.body.dataset.view === 'yard';
 }
 
 function initYard() {
@@ -6008,6 +6030,7 @@ function updateLangToggle() {
 
 // 语言切换后重刷所有「运行时用 tr 生成」的文案（静态 data-i18n 由 I18N.apply 处理）
 function rerenderLocalizedText() {
+  if (els.settingsDialog?.open) renderVhsColors();
   renderTopbarContext();
   renderAccounts();
   renderAccountHeader();
@@ -6028,15 +6051,20 @@ function rerenderLocalizedText() {
 }
 
 function applyView() {
-  const yard = state.view === 'yard' && yardMounted;
+  const skinLabels = { 'quota.all': 'vhs.all', 'quotaMap.title': 'vhs.quota', 'ledger.title': 'vhs.ledger', 'ledger.minPre': 'vhs.minutes' };
+  for (const [normal, vhs] of Object.entries(skinLabels)) {
+    for (const node of document.querySelectorAll(`[data-i18n="${normal}"]`)) node.textContent = tr(state.skin === 'vhs' ? vhs : normal);
+  }
+  const yard = state.view === 'yard' && (state.skin === 'vhs' || yardMounted);
   document.body.dataset.view = yard ? 'yard' : 'classic';
   // 统一骨架：账号呈现层随视图切换 —— 庭院视图显示场景，经典视图显示账号名册（CSS 控制显隐）。
   // 新增/编辑/移除按钮固定在控制条（新增紧跟打开账号，编辑/移除在「管理」菜单），两视图共用、不再搬家。
-  els.yardStage.hidden = !yard;
-  if (els.viewToggleLabel) els.viewToggleLabel.textContent = tr('topbar.toYard');
+  els.yardStage.hidden = !yard || state.skin === 'vhs';
+  document.querySelector('#vhsCity').hidden = !yard || state.skin !== 'vhs';
+  if (els.viewToggleLabel) els.viewToggleLabel.textContent = tr(state.skin === 'vhs' ? 'vhs.city' : 'topbar.toYard');
   els.viewToggle?.setAttribute('aria-pressed', String(yard));
   els.classicViewBtn?.setAttribute('aria-pressed', String(!yard));
-  if (yardMounted) window.YardScene.setActive(yard);
+  if (yardMounted) window.YardScene.setActive(yard && state.skin !== 'vhs');
   if (yard) loadActivity(); // 切回庭院时立刻刷新猫的状态
   else revealSelectedAccountCard();
   renderTopbarContext();
@@ -6118,7 +6146,8 @@ function renderLedger() {
 }
 
 function syncYard() {
-  if (yardMounted) {
+  if (state.skin === 'vhs') renderVhsCity();
+  if (yardMounted && state.skin !== 'vhs') {
     const now = Date.now();
     const groups = identityGroups();
     const statesById = {};
@@ -6170,6 +6199,7 @@ function renderLeaderboard() {
       : state.activity[primary.id]) || {};
     return {
       name: primary.name,
+      vhsColor: state.skin === 'vhs' ? vhsColor(group) : null,
       appId: primary.appId,
       cat: primary.cat,
       isProtected: primary.isProtected,
@@ -6218,7 +6248,7 @@ function renderLeaderboard() {
     score.className = 'lb-score';
     score.textContent = String(row.score);
 
-    el.append(rank, avatar, who, score);
+    el.append(rank, state.skin === 'vhs' ? window.VhsPresenter.createIcon(row.appId, row.vhsColor) : avatar, who, score);
     els.leaderboardBody.append(el);
   });
 }
@@ -6261,10 +6291,80 @@ function renderAccounts() {
   syncYard();
 }
 
-function renderAccountRoster() {
-  if (!els.accountRoster) return;
-  els.accountRoster.replaceChildren();
+let rosterController = null;
+let lastRevealedAgent = null;
+
+function orderedAgentGroups() {
   const groups = identityGroups();
+  const order = window.RosterInteractions.normalizeOrder(state.agentOrder, groups.map(group => group.key));
+  const byId = new Map(groups.map(group => [group.key, group]));
+  return order.map(id => byId.get(id));
+}
+
+function ensureRosterInteractions() {
+  if (rosterController || !window.RosterInteractions) return;
+  rosterController = window.RosterInteractions.attach(els.accountRoster, {
+    onReorder(ids, detail) {
+      state.agentOrder = [...ids, ...state.agentOrder.filter(id => !ids.includes(id))];
+      persistSettings({ agentOrder: state.agentOrder });
+      document.querySelector('#rosterAnnouncement').textContent = tr('roster.moved', { n: detail.position, total: detail.total });
+    },
+    onEnd() { renderAccountRoster(); }
+  });
+}
+
+function vhsColor(group) {
+  const provider = window.VhsPresenter.normalizeProvider(group.primary.appId);
+  const peers = identityGroups().filter(item => window.VhsPresenter.normalizeProvider(item.primary.appId) === provider);
+  return state.vhsAgentColors[group.key] || window.VhsPresenter.defaultColor(group.key, peers.findIndex(item => item.key === group.key));
+}
+
+function renderVhsCity() {
+  if (!window.VhsPresenter) return;
+  window.VhsPresenter.renderCity(document.querySelector('#vhsCity'), {
+    agents: orderedAgentGroups().map(group => ({
+      id: group.key, name: group.primary.name, provider: group.primary.appId,
+      color: vhsColor(group), selected: group.key === currentAgentId(),
+      status: state.mesh.overview?.initialized ? deploymentStateLabel(group.readiness?.state) : tr('vhs.agent')
+    })),
+    onSelect: id => selectAgent(id), emptyLabel: tr('presenter.empty')
+  });
+}
+
+function renderVhsColors() {
+  const panel = document.querySelector('#vhsColorSettings');
+  panel.hidden = state.skin !== 'vhs';
+  if (panel.hidden || !window.VhsPresenter) return;
+  const rows = document.querySelector('#vhsColorRows');
+  rows.replaceChildren();
+  for (const group of orderedAgentGroups()) {
+    const row = document.createElement('label');
+    row.className = 'vhs-color-row';
+    const icon = window.VhsPresenter.createIcon(group.primary.appId, vhsColor(group));
+    const name = document.createElement('span');
+    name.textContent = group.primary.name;
+    name.title = group.primary.name;
+    const input = document.createElement('input');
+    input.type = 'color'; input.value = vhsColor(group); input.dataset.agentId = group.key;
+    input.setAttribute('aria-label', `${group.primary.name} · ${tr('vhs.colors')}`);
+    input.addEventListener('input', () => {
+      state.vhsAgentColors = { ...state.vhsAgentColors, [group.key]: input.value };
+      row.firstChild.replaceWith(window.VhsPresenter.createIcon(group.primary.appId, input.value));
+      renderAccountRoster(); renderVhsCity();
+    });
+    input.addEventListener('change', () => persistSettings({ vhsAgentColors: state.vhsAgentColors }));
+    row.append(icon, name, input); rows.append(row);
+  }
+  if (!rows.children.length) rows.textContent = tr('presenter.empty');
+}
+
+function renderAccountRoster() {
+  if (!els.accountRoster || rosterController?.isInteracting()) return;
+  ensureRosterInteractions();
+  const scrollLeft = els.accountRoster.scrollLeft;
+  const focusedId = els.accountRoster.contains(document.activeElement) ? document.activeElement.dataset.agentId : null;
+  els.accountRoster.replaceChildren();
+  const groups = orderedAgentGroups();
   if (els.presenterCount) els.presenterCount.textContent = String(groups.length);
   if (!groups.length) {
     const empty = document.createElement('p');
@@ -6277,7 +6377,12 @@ function renderAccountRoster() {
   for (const group of groups) {
     els.accountRoster.append(buildAccountCard(group, now));
   }
-  revealSelectedAccountCard();
+  els.accountRoster.scrollLeft = scrollLeft;
+  if (lastRevealedAgent !== currentAgentId()) {
+    lastRevealedAgent = currentAgentId();
+    revealSelectedAccountCard();
+  }
+  if (focusedId) [...els.accountRoster.children].find(card => card.dataset.agentId === focusedId)?.focus({ preventScroll: true });
 }
 
 function revealSelectedAccountCard() {
@@ -6328,6 +6433,9 @@ function buildAccountCard(group, now) {
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'account-card';
+  card.dataset.agentId = group.key;
+  card.setAttribute('aria-describedby', 'rosterHelp');
+  card.title = tr('roster.help');
   card.classList.toggle('selected', group.key === currentAgentId());
 
   const activityEvidence = window.IdentityGroups?.cardActivityEvidence
@@ -6349,11 +6457,15 @@ function buildAccountCard(group, now) {
 
   const top = document.createElement('div');
   top.className = 'account-card-top';
-  const avatar = document.createElement('canvas');
-  avatar.className = 'account-card-avatar';
-  avatar.width = 52;
-  avatar.height = 48;
-  drawAccountAvatar(avatar, primary);
+  const avatar = state.skin === 'vhs'
+    ? window.VhsPresenter.createIcon(primary.appId, vhsColor(group))
+    : document.createElement('canvas');
+  avatar.classList.add('account-card-avatar');
+  if (state.skin !== 'vhs') {
+    avatar.width = 52;
+    avatar.height = 48;
+    drawAccountAvatar(avatar, primary);
+  }
   const meta = document.createElement('div');
   meta.className = 'account-card-meta';
   const name = document.createElement('div');
@@ -6484,7 +6596,7 @@ function drawAccountAvatar(canvas, profile) {
 
 function renderTopbarContext() {
   if (!els.topbarContext) return;
-  const ctx = tr(state.view === 'yard' ? 'ctx.yard' : 'ctx.classic');
+  const ctx = tr(state.view === 'yard' ? (state.skin === 'vhs' ? 'vhs.city' : 'ctx.yard') : 'ctx.classic');
   const deviceContext = selectedDeviceLensLabel();
   if (state.ui.workspaceMode === 'remote') {
     const session = state.mesh.remoteSessions.find((item) => item.sessionId === state.ui.activeRemoteSessionId)

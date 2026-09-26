@@ -29,6 +29,7 @@ AgentDesk keeps a small, local index around the official AI coding clients alrea
 - **Session browser.** Scan Claude Desktop, Claude CLI, Codex, Cursor, Kimi Code, and Kimi Work history into one searchable, sortable table. View the current Agent or all Agents under the active device lens.
 - **Stable conversation identity.** Codex compaction checkpoints stay inside one user conversation; guardian/subagent rollouts remain hidden instead of appearing as new sessions or projects.
 - **Session location actions.** Select one or several sessions and copy one minimal location format containing only path and coordinate; reveal the active source file or export one supported transcript as Markdown.
+- **Appearance and everyday controls.** Switch between cozy cats and VHS synthwave, customize Agent sign colors, reorder cards, and browse the roster with the mouse wheel. See [appearance notes](docs/APPEARANCE.md).
 - **Identity grouping.** Merge multiple client forms of the same login into one account card and one yard cat while preserving the underlying slots.
 - **Bounded Profile runtime.** Prevent duplicate launches of the same `user-data-dir`, supervise official clients started by AgentDesk, close owned clients on normal AgentDesk exit by default, and cap each managed Profile's `Crashpad/pending` at 100 files or 200 MiB. Five same-sized dumps within one minute fuse that Profile; this emergency path also stops an exact-path orphan inside AgentDesk's own managed Profiles root. Unowned official-default or custom paths are not background-cleaned or stopped. Safe cleanup deletes only direct `.dmp` and `_sidecar.json` files; sessions, archives, configuration, SQLite, `codex-home`, and saved diagnostic samples remain untouched.
 - **Versioned first use and guided device mesh.** Create the first Agent and local device identity in one recoverable transaction without opening a listener, publishing a lease, or contacting another device. Existing Profiles receive a migration preview. Adding a device then separates both-side identity confirmation, member trust, authenticated connection, catalog storage, and inventory storage instead of treating pairing as “ready.”
@@ -156,6 +157,7 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 - **统一会话浏览。** 索引 Claude Desktop、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work 的本地会话，可在当前设备 Lens 下查看当前 Agent 或全部 Agent，并按属性搜索、排序。
 - **稳定会话身份。** Codex 上下文压缩继续属于同一条用户会话，guardian/subagent 内部 rollout 不再冒充新会话或新项目。
 - **会话定位操作。** 单选或勾选多条会话后统一复制“路径 + 坐标”；当前会话可在系统中定位来源文件，支持的来源可导出 Markdown。
+- **第二套外观与列表操作。** 可切换 VHS 合成波皮肤与霓虹大楼，支持逐 Agent 配色、长按排序和滚轮横向浏览。见 [外观说明](docs/APPEARANCE.md)。
 - **同账号归组。** 桌面端与 CLI 等多个形态可以合并为一个账号、一张卡、一只猫，底层槽位仍各自保留。
 - **Profile 运行保护。** 同一 `user-data-dir` 不重复启动；AgentDesk 默认在正常退出时只关闭自己启动的官方客户端，并把受管 Profile 的 `Crashpad/pending` 限制为 100 个文件或 200 MiB。一分钟内出现 5 个同尺寸 dump 会熔断该 Profile；该事故路径也会按精确路径停掉 AgentDesk 自己的 Profiles 根内由旧版或强制退出遗留的孤儿进程。无所有权的官方默认/custom 目录不做后台清理或停机，普通关闭仍受所有权约束。安全清理只删除直属 `.dmp` 与 `_sidecar.json`，不会触碰会话、归档、配置、SQLite、`codex-home` 或留存诊断样本。
 - **版本化首次使用与设备任务向导。** “创建第一个 Agent”在一个可恢复事务中建立本机 Agent 与设备身份，不开放监听、不发布租约、不连接远端；既有 Profile 先进入无损迁移预览。添加设备再把双方身份确认、成员信任、认证连接、目录落库与库存落库分别呈现，不把配对成功写成已经可用。

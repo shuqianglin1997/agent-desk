@@ -29,6 +29,7 @@ const { ProfileRuntimeSupervisor } = require('./profile-runtime');
 const { readJsonStore, writeJsonStore, snapshotFile } = require('./json-store');
 const { nearestExistingDirectory } = require('./path-utils');
 const settings = require('./settings');
+const { appIconPath, applyAppIcon } = require('./app-icon');
 const updater = require('./updater');
 const toolMaintenance = require('./tool-maintenance');
 const {
@@ -208,6 +209,7 @@ function createWindow() {
     fullscreenable: false,
     show: false,
     title: APP_NAME,
+    icon: appIconPath(loadSettings().skin),
     backgroundColor: '#efe6cd',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -267,10 +269,8 @@ if (!hasSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
-    // 开发态 dock 也用品牌像素脸（打包态由 electron-builder 的 icns 提供），品牌全站统一
-    if (process.platform === 'darwin' && !app.isPackaged && app.dock) {
-      try { app.dock.setIcon(path.join(__dirname, '..', 'assets', 'icon.png')); } catch (_error) { /* best effort */ }
-    }
+    // Restore the running application's icon in both source and packaged builds.
+    applyAppIcon(app, mainWindow, loadSettings().skin);
     deferSecureMeshStartup = detectSecureMeshStartupDeferral();
     registerIpc();
     registerRemoteEmergencyStop();
@@ -2756,6 +2756,7 @@ function updateSettings(patch) {
   const current = loadSettings();
   const next = settings.mergeSettings(current, patch);
   if (JSON.stringify(current) !== JSON.stringify(next)) saveSettings(next);
+  if (current.skin !== next.skin && app.isReady()) applyAppIcon(app, mainWindow, next.skin);
   return next;
 }
 

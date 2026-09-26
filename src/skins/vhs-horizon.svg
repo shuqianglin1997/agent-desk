@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="180" viewBox="0 0 480 180" shape-rendering="crispEdges">
+  <defs>
+    <linearGradient id="sun" x2="0" y2="1"><stop stop-color="#edbf78"/><stop offset="1" stop-color="#c553a3"/></linearGradient>
+    <mask id="stripes"><rect width="480" height="180" fill="white"/><path d="M0 59h480v2H0zm0 10h480v3H0zm0 12h480v4H0zm0 14h480v5H0zm0 16h480v7H0z"/></mask>
+  </defs>
+  <g opacity=".48">
+    <path d="M334 22h40v4h12v4h8v6h6v8h4v12h4v34h-4v12h-4v8h-6v6h-8v4h-12v4h-40v-4h-12v-4h-8v-6h-6v-8h-4V90h-4V56h4V44h4v-8h6v-6h8v-4h12z" fill="url(#sun)" mask="url(#stripes)"/>
+    <path d="M180 126h32v-12h22v-16h16v-14h18v14h18v20h26v8h30v-16h22V96h20v14h20v10h32v6h44" fill="none" stroke="#a866b5" stroke-width="2"/>
+    <path d="M0 134h480M0 143h480M0 158h480M0 179h480M240 134 20 180m240-46-105 46m125-46 5 46m15-46 120 46m-100-46 220 46" fill="none" stroke="#956eaa" opacity=".5"/>
+  </g>
+</svg>

@@ -13,6 +13,7 @@ const { normalizeProgress: normalizeOnboardingProgress } = require('./onboarding
 
 const SETTINGS_VERSION = 4;
 const THEMES = new Set(['light', 'dark']);
+const SKINS = new Set(['cat', 'vhs']);
 const VIEWS = new Set(['yard', 'classic']);
 const LANGS = new Set(['zh', 'en', 'ja']);
 const SESSION_SCOPES = new Set(['current', 'all']);
@@ -23,6 +24,9 @@ const PROFILE_QUIT_BEHAVIORS = new Set(['close', 'keep']);
 
 const DEFAULT_SETTINGS = Object.freeze({
   theme: null,
+  skin: 'cat',
+  agentOrder: Object.freeze([]),
+  vhsAgentColors: Object.freeze({}),
   view: 'classic',
   lang: null, // null = 跟随系统语言（中 / 英 / 日）
   sessionScope: 'current',
@@ -83,6 +87,18 @@ function normalizeSelectionMap(value, options = {}) {
   return normalized;
 }
 
+function normalizeAgentOrder(value) {
+  return [...new Set((Array.isArray(value) ? value : []).slice(0, 1000)
+    .map(id => boundedId(id)).filter(Boolean))];
+}
+
+function normalizeVhsColors(value) {
+  if (!isPlainObject(value)) return {};
+  return Object.fromEntries(Object.entries(value).slice(0, 1000)
+    .filter(([id, color]) => boundedId(id) && typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color))
+    .map(([id, color]) => [id.trim(), color.toLowerCase()]));
+}
+
 function normalizeLedger(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.date !== 'string') {
     return null;
@@ -113,6 +129,9 @@ function normalizeSettings(value) {
   return {
     ...input,
     theme: THEMES.has(input.theme) ? input.theme : DEFAULT_SETTINGS.theme,
+    skin: SKINS.has(input.skin) ? input.skin : DEFAULT_SETTINGS.skin,
+    agentOrder: normalizeAgentOrder(input.agentOrder),
+    vhsAgentColors: normalizeVhsColors(input.vhsAgentColors),
     view: VIEWS.has(input.view) ? input.view : DEFAULT_SETTINGS.view,
     lang: LANGS.has(input.lang) ? input.lang : DEFAULT_SETTINGS.lang,
     sessionScope: SESSION_SCOPES.has(input.sessionScope)

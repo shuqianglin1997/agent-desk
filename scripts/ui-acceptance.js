@@ -2059,10 +2059,292 @@ async function closeElectronApp(instance) {
   await stopChild(instance.child, instance.childState);
 }
 
+async function waitForSavedAppearance(userData, expected) {
+  const file = path.join(userData, 'settings.json');
+  const deadline = Date.now() + 5_000;
+  do {
+    const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (Object.entries(expected).every(([key, value]) => payload.settings?.[key] === value)) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  } while (Date.now() < deadline);
+  assert.fail(`appearance was not persisted: ${JSON.stringify(expected)}`);
+}
+
+async function selectSkin(client, skin) {
+  const immediate = await client.evaluate(`(() => {
+    const select = document.querySelector('#skinSelect');
+    select.value = ${JSON.stringify(skin)};
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return {
+      state: state.skin, root: document.documentElement.dataset.skin,
+      control: select.value,
+      icons: [...document.querySelectorAll('#accountRoster .account-card')].map(card => ({
+        canvas: card.querySelectorAll('canvas.account-card-avatar').length,
+        svg: card.querySelectorAll('svg.account-card-avatar').length
+      }))
+    };
+  })()`);
+  const { icons, ...appearance } = immediate;
+  assert.deepEqual(appearance, { state: skin, root: skin, control: skin });
+  assert.ok(icons.length > 0, 'skin fixture must contain Agent cards');
+  for (const icon of icons) {
+    assert.deepEqual(icon, skin === 'vhs' ? { canvas: 0, svg: 1 } : { canvas: 1, svg: 0 },
+      'switching skin must replace every Agent icon immediately without another refresh');
+  }
+}
+
+async function runRosterAndColorAcceptance(client, userData, artifactDir) {
+  // Native focus can leave this disposable window during the 350ms hold.
+  // Keep CDP input focused; exercise the blur cancellation handler separately.
+  await client.call('Emulation.setFocusEmulationEnabled', { enabled: true });
+  try {
+    return await runFocusedRosterAndColorAcceptance(client, userData, artifactDir);
+  } finally {
+    await client.call('Emulation.setFocusEmulationEnabled', { enabled: false });
+  }
+}
+
+async function runFocusedRosterAndColorAcceptance(client, userData, artifactDir) {
+  await client.call('Page.bringToFront');
+  await client.evaluate(`document.querySelector('#classicViewBtn').click()`);
+  const order = () => client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].map(card => card.dataset.agentId)`);
+  const selected = await client.evaluate('currentAgentId()');
+  const initial = await order();
+  assert.ok(initial.length > 3, 'drag fixture must have several agents');
+  const point = async (index) => client.evaluate(`(() => {
+    const node = document.querySelectorAll('#accountRoster .account-card')[${index}];
+    const rect = node.getBoundingClientRect(); return {x: rect.x + rect.width / 2, y: rect.y + 35};
+  })()`);
+  const mouse = (type, position, extra = {}) => client.call('Input.dispatchMouseEvent', {type, ...position, ...extra});
+  await client.evaluate(`document.querySelector('#accountRoster').scrollLeft = 0`);
+  let start = await point(0);
+  await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
+  await mouse('mouseReleased', start, {button: 'left', buttons: 0, clickCount: 1});
+  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'short press must select normally');
+  assert.deepEqual(await order(), initial, 'short press must not reorder');
+  start = await point(0); const target = await point(2);
+  await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
+  await waitFor(client, `document.querySelector('#accountRoster').classList.contains('roster-reordering')`, 'long-press reorder activation');
+  await mouse('mouseMoved', target, {button: 'left', buttons: 1});
+  await client.call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27});
+  await client.call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27});
+  await mouse('mouseReleased', target, {button: 'left', buttons: 0, clickCount: 1});
+  assert.deepEqual(await order(), initial, 'Esc must restore the starting order');
+  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'cancelled drag cannot select another card');
+  start = await point(0);
+  await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
+  await waitFor(client, `document.querySelector('#accountRoster').classList.contains('roster-reordering')`, 'blur-cancel reorder activation');
+  await mouse('mouseMoved', target, {button: 'left', buttons: 1});
+  await client.evaluate(`window.dispatchEvent(new Event('blur'))`);
+  await mouse('mouseReleased', target, {button: 'left', buttons: 0, clickCount: 1});
+  assert.deepEqual(await order(), initial, 'window blur must restore the starting order');
+  assert.equal(await client.evaluate('rosterController.isInteracting()'), false, 'window blur must end the gesture');
+  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'blur-cancelled drag cannot select another card');
+  start = await point(0);
+  await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
+  await waitFor(client, `document.querySelector('#accountRoster').classList.contains('roster-reordering')`, 'long-press reorder activation');
+  await mouse('mouseMoved', target, {button: 'left', buttons: 1});
+  await mouse('mouseReleased', target, {button: 'left', buttons: 0, clickCount: 1});
+  const dragged = await order();
+  assert.notDeepEqual(dragged, initial, 'long press must commit a changed order');
+  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'drag must not change the selected Agent');
+  await client.evaluate(`document.querySelector('#accountRoster').scrollLeft = 0`);
+  const wheelPoint = await point(0);
+  await mouse('mouseWheel', wheelPoint, {deltaX: 0, deltaY: 180});
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const scrolled = await client.evaluate(`document.querySelector('#accountRoster').scrollLeft`);
+  assert.ok(scrolled > 0, 'vertical mouse wheel must scroll roster horizontally');
+  await client.evaluate('renderAccountRoster()');
+  assert.equal(await client.evaluate(`document.querySelector('#accountRoster').scrollLeft`), scrolled, 'refresh must preserve manual scroll');
+  const movingId = dragged[1];
+  await client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].find(card => card.dataset.agentId === ${JSON.stringify(movingId)}).focus()`);
+  await client.call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37, modifiers: 1});
+  await client.call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37, modifiers: 1});
+  const reordered = await order();
+  assert.equal(reordered[0], movingId, 'Alt+Left must move the focused Agent');
+  assert.equal(await client.evaluate('document.activeElement.dataset.agentId'), movingId, 'keyboard reorder must retain focus');
+  await client.evaluate(`document.querySelector('#settingsBtn').click()`);
+  await selectSkin(client, 'vhs');
+  const colorId = await client.evaluate(`(() => {
+    const input = document.querySelector('#vhsColorRows input[type=color]');
+    input.value = '#26e6ac'; input.dispatchEvent(new Event('input', {bubbles:true}));
+    input.dispatchEvent(new Event('change', {bubbles:true})); return input.dataset.agentId;
+  })()`);
+  await waitFor(client, `state.vhsAgentColors[${JSON.stringify(colorId)}] === '#26e6ac'`, 'DIY color state');
+  const deadline = Date.now() + 5000;
+  let saved;
+  do {
+    saved = JSON.parse(fs.readFileSync(path.join(userData, 'settings.json'), 'utf8')).settings;
+    if (JSON.stringify(saved.agentOrder) === JSON.stringify(reordered) && saved.vhsAgentColors?.[colorId] === '#26e6ac') break;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  } while (Date.now() < deadline);
+  assert.deepEqual(saved.agentOrder, reordered, 'order must be written to disk');
+  assert.equal(saved.vhsAgentColors[colorId], '#26e6ac', 'DIY color must be written to disk');
+  fs.writeFileSync(path.join(userData, 'acceptance-appearance-expectation.json'), JSON.stringify({order: reordered, colorId, color: '#26e6ac'}));
+  await client.evaluate(`document.querySelector('#settingsDialog .utility-dialog-close').click(); document.querySelector('#viewToggle').click()`);
+  const city = await client.evaluate(`(() => {
+    const signs = [...document.querySelectorAll('#vhsCity .vhs-sign')];
+    return { towers: [...document.querySelectorAll('#vhsCity .vhs-tower')].map(tower => {
+      const bounds = tower.getBoundingClientRect();
+      const signs = [...tower.querySelectorAll('.vhs-sign')];
+      return { count: signs.length, inside: signs.every(sign => {
+        const rect = sign.getBoundingClientRect();
+        return rect.top >= bounds.top && rect.bottom <= bounds.bottom && rect.left >= bounds.left && rect.right <= bounds.right;
+      }) };
+    }), ids: signs.map(sign => sign.dataset.agentId), providers: signs.map(sign => sign.dataset.provider),
+      catVisible: document.querySelector('#yardStage').checkVisibility(),
+      cityVisible: document.querySelector('#vhsCity').checkVisibility(),
+      avatars: [...document.querySelectorAll('#accountRoster .account-card-avatar')].every(node => !node.querySelector('canvas')) };
+  })()`);
+  assert.deepEqual(city.towers.map(tower => tower.count), [3, 3, 1], 'seven same-provider Agents must fill three signs per tower before opening the next');
+  assert.ok(city.towers.every(tower => tower.inside), 'all signs must fit inside every tower variant');
+  assert.equal(city.catVisible, false, 'VHS must not show the cat garden');
+  assert.equal(city.cityVisible, true, 'VHS city presenter must be visible');
+  assert.equal(city.avatars, true, 'VHS cards must not retain cat canvases');
+  assert.equal(new Set(city.ids).size, city.ids.length, 'city signs must deduplicate Agents');
+  assert.deepEqual([...city.ids].sort(), [...initial].sort(), 'city must show the same real Agent identities');
+  const providerRuns = city.providers.filter((provider, index) => index === 0 || provider !== city.providers[index - 1]);
+  assert.equal(new Set(providerRuns).size, providerRuns.length, 'each provider must occupy one contiguous district');
+  await capture(client, artifactDir, 'vhs-city-custom-colors');
+  // Restore the selection used by the appearance matrix through the real card action.
+  await client.evaluate(`selectAgent(${JSON.stringify(selected)})`);
+  process.stdout.write('✓ real pointer/keyboard roster sorting, wheel persistence, DIY colors, and provider-grouped city\n');
+  return ['roster pointer keyboard and wheel', 'VHS DIY colors and city identity'];
+}
+
+async function runSkinAcceptance(client, userData, artifactDir) {
+  await waitFor(client, `typeof state !== 'undefined' && state.profiles.length === 8
+    && state.sessions.length >= 3 && !document.querySelector('#welcomeDialog').open`, 'skin workspace');
+  assert.equal(await client.evaluate('state.skin'), 'cat', 'old settings must retain the original skin');
+  await client.evaluate(`(() => {
+    const rows = document.querySelectorAll('#sessionRows tr:not(.empty-row)');
+    rows[0].click();
+    document.querySelectorAll('#sessionRows .session-select-box')[1].click();
+    const search = document.querySelector('#searchInput');
+    search.value = 'Work';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  const context = `({
+    lens: currentDeviceLensId(), agent: currentAgentId(), slot: currentSlotKey(),
+    profile: state.selectedProfileId, query: state.query,
+    focused: state.ui.focusedConversationId, checked: [...state.ui.checkedConversationIds],
+    scope: state.ui.agentScope, detail: state.detailMode
+  })`;
+  const before = await client.evaluate(context);
+  assert.ok(before.focused && before.checked.length === 1, `skin test requires meaningful existing selections: ${JSON.stringify(before)}`);
+  const interactionChecks = await runRosterAndColorAcceptance(client, userData, artifactDir);
+  const labels = { zh: '视觉皮肤', en: 'Visual skin', ja: 'スキン' };
+  for (const view of ['classic', 'yard']) {
+    await client.evaluate(`document.querySelector('${view === 'yard' ? '#viewToggle' : '#classicViewBtn'}').click()`);
+    for (const skin of ['cat', 'vhs']) {
+      await client.evaluate(`document.querySelector('#settingsBtn').click()`);
+      await selectSkin(client, skin);
+      for (const theme of ['light', 'dark']) {
+        await client.evaluate(`if (document.documentElement.dataset.theme !== '${theme}') document.querySelector('#themeToggle').click()`);
+        for (const lang of ['zh', 'en', 'ja']) {
+          // Exercise the actual language control, including its rerender path.
+          await client.evaluate(`for (let step = 0; step < 3 && window.I18N.getLang() !== '${lang}'; step++) document.querySelector('#langToggle').click()`);
+          assert.equal(await client.evaluate(`document.querySelector('[data-i18n="settings.skin"]').textContent`), labels[lang]);
+          assert.equal(await client.evaluate('state.skin'), skin, 'theme/language must not change the selected skin');
+          assert.deepEqual(await client.evaluate(context), before, 'appearance changes must preserve the active work context');
+          assertFixedShell(await layoutSnapshot(client));
+          const dialog = await dialogSnapshot(client, '#settingsDialog');
+          assert.ok(dialog.open && dialog.modal && dialog.rect.bottom <= dialog.viewport.height, 'translated settings must fit');
+          assert.ok(dialog.rect.width >= 600 && dialog.rect.width <= 640 && dialog.rect.height >= 500 && dialog.rect.height <= 540, 'settings must stay compact and usable');
+          if (skin === 'vhs') {
+            const capsules = await client.evaluate(`(() => {
+              const rows = [...document.querySelectorAll('.vhs-color-row')];
+              return rows.map(row => ({ width: row.getBoundingClientRect().width, height: row.getBoundingClientRect().height }));
+            })()`);
+            assert.ok(capsules.length > 0 && capsules.every(row => row.height <= 34 && row.width <= 210), 'color controls must be compact capsules');
+            assert.equal(await client.evaluate(`document.querySelector('#yardStage').checkVisibility()`), false, 'VHS language/theme changes must not restore the cat garden');
+            assert.equal(await client.evaluate(`document.querySelector('#vhsCity').checkVisibility()`), view === 'yard', 'VHS city follows the selected presenter');
+          }
+          assert.equal(await client.evaluate(`(() => {
+            const content = document.querySelector('#settingsDialog .utility-dialog-content');
+            return content.scrollWidth <= content.clientWidth + 1;
+          })()`), true, 'skin descriptions must wrap inside the settings dialog');
+        }
+        if (skin === 'vhs') {
+          await assertVhsControlStates(client);
+          await capture(client, artifactDir, `skin-${view}-${theme}-settings-ja`);
+          await client.evaluate(`document.querySelector('#settingsDialog .utility-dialog-close').click()`);
+          await capture(client, artifactDir, `skin-${view}-${theme}-workspace-ja`);
+          if (view === 'classic') assertAccountRosterGeometry(await accountRosterSnapshot(client));
+          await client.evaluate(`document.querySelector('#settingsBtn').click()`);
+        }
+      }
+      await client.evaluate(`document.querySelector('#settingsDialog .utility-dialog-close').click()`);
+    }
+  }
+  await waitForSavedAppearance(userData, { skin: 'vhs', theme: 'dark', lang: 'ja', view: 'yard' });
+  process.stdout.write('✓ skins × appearances × languages × presenters preserve geometry, translations, selections, and persisted settings\n');
+  return [...interactionChecks, 'skins × appearances × languages × presenters'];
+}
+
+async function assertVhsControlStates(client) {
+  const selectors = ['.agent-view-segment button[aria-pressed="true"]',
+    '.session-segment button[aria-pressed="true"]', '.session-display-options button[aria-pressed="true"]',
+    '#settingsBtn[aria-expanded="true"]'];
+  await client.call('DOM.enable');
+  await client.call('CSS.enable');
+  const documentNode = await client.call('DOM.getDocument');
+  for (const selector of selectors) {
+    const expression = `(() => {
+      const button = document.querySelector(${JSON.stringify(selector)});
+      if (!button) throw new Error('Missing selected control: ' + ${JSON.stringify(selector)});
+      const style = getComputedStyle(button);
+      const swatch = document.createElement('span');
+      swatch.style.color = 'var(--accent)'; document.body.append(swatch);
+      const accent = getComputedStyle(swatch).color; swatch.remove();
+      return { bg: style.backgroundColor, fg: style.color, accent, shadow: style.boxShadow };
+    })()`;
+    const normal = await client.evaluate(expression);
+    assert.equal(normal.bg, normal.accent, `selected state must be visible: ${selector}`);
+    assert.notEqual(normal.bg, normal.fg, `selected text must remain visible: ${selector}`);
+    const node = await client.call('DOM.querySelector', { nodeId: documentNode.root.nodeId, selector });
+    try {
+      await client.call('CSS.forcePseudoState', { nodeId: node.nodeId, forcedPseudoClasses: ['hover'] });
+      assert.deepEqual(await client.evaluate(expression), normal, `hover must preserve selection: ${selector}`);
+    } finally {
+      await client.call('CSS.forcePseudoState', { nodeId: node.nodeId, forcedPseudoClasses: [] });
+    }
+  }
+  const signs = await client.evaluate(`([...document.querySelectorAll('.vhs-sign')].map(sign => ({
+    width: sign.getBoundingClientRect().width, height: sign.getBoundingClientRect().height,
+    visible: sign.checkVisibility(), name: sign.querySelector('strong')?.textContent,
+    statusLines: sign.querySelectorAll('small').length
+  })))`);
+  assert.ok(signs.length > 0 && signs.every(sign => sign.name && sign.statusLines === 0));
+  assert.ok(signs.filter(sign => sign.visible).every(sign => sign.width <= 130 && sign.height <= 30), 'city uses small nameplates');
+}
+
+async function runSkinRestartAcceptance(client, userData) {
+  await waitFor(client, `typeof state !== 'undefined' && state.profiles.length === 8
+    && state.sessions.length >= 3 && !document.querySelector('#welcomeDialog').open`, 'restarted skin workspace');
+  assert.deepEqual(await client.evaluate(`({
+    skin: state.skin, root: document.documentElement.dataset.skin,
+    control: document.querySelector('#skinSelect').value,
+    theme: document.documentElement.dataset.theme, view: state.view, lang: document.documentElement.lang
+  })`), { skin: 'vhs', root: 'vhs', control: 'vhs', theme: 'dark', view: 'yard', lang: 'ja' });
+  const expected = JSON.parse(fs.readFileSync(path.join(userData, 'acceptance-appearance-expectation.json'), 'utf8'));
+  assert.deepEqual(await client.evaluate('state.agentOrder'), expected.order, 'Agent order survives full restart');
+  assert.equal(await client.evaluate(`state.vhsAgentColors[${JSON.stringify(expected.colorId)}]`), expected.color, 'DIY color survives full restart');
+  assertFixedShell(await layoutSnapshot(client));
+  await client.evaluate(`document.querySelector('#settingsBtn').click()`);
+  assert.equal(await client.evaluate(`[...document.querySelectorAll('#vhsColorRows input')].find(input => input.dataset.agentId === ${JSON.stringify(expected.colorId)}).value`), expected.color);
+  await selectSkin(client, 'cat');
+  assert.equal(await client.evaluate('document.documentElement.dataset.theme'), 'dark', 'returning to cats preserves dark appearance');
+  await waitForSavedAppearance(userData, { skin: 'cat', theme: 'dark' });
+  process.stdout.write('✓ skin survives full application restart and can return to cats without changing appearance\n');
+  return ['skin survives application restart'];
+}
+
 async function main() {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-ui-acceptance-'));
   const userData = path.join(tempRoot, 'user-data');
   const firstUseData = path.join(tempRoot, 'first-use-user-data');
+  const skinData = path.join(tempRoot, 'skin-user-data');
   const artifactDir = process.env.AGENTDESK_UI_ACCEPTANCE_ARTIFACTS
     ? path.resolve(process.env.AGENTDESK_UI_ACCEPTANCE_ARTIFACTS)
     : null;
@@ -2079,6 +2361,16 @@ async function main() {
 
     instance = await launchElectronApp(firstUseData, output);
     checks.push(...await runFreshFirstUseRecovery(instance.client, firstUseData, artifactDir));
+    await closeElectronApp(instance);
+    instance = null;
+
+    seedUserData(skinData);
+    instance = await launchElectronApp(skinData, output);
+    checks.push(...await runSkinAcceptance(instance.client, skinData, artifactDir));
+    await closeElectronApp(instance);
+    instance = null;
+    instance = await launchElectronApp(skinData, output);
+    checks.push(...await runSkinRestartAcceptance(instance.client, skinData));
     await closeElectronApp(instance);
     instance = null;
 

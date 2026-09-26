@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./yard/yard.css" />
     <link rel="stylesheet" href="./workspace.css" />
+    <link rel="stylesheet" href="./skins/vhs.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -78,6 +79,9 @@
                   </div>
                 </div>
               </section>
+              <div id="vhsCity" hidden></div>
+              <span id="rosterHelp" class="visually-hidden" data-i18n="roster.help"></span>
+              <span id="rosterAnnouncement" class="visually-hidden" aria-live="polite"></span>
               <div id="accountRoster" class="account-roster" data-i18n-aria="aria.roster" aria-label="账号名册（经典视图）"></div>
             </section>
 
@@ -1001,6 +1005,19 @@
             <button id="langToggle" type="button" data-i18n-title="topbar.lang.title">文</button>
             <button id="themeToggle" type="button" data-i18n-title="topbar.theme.title">◐ <span data-i18n="topbar.theme">外观</span></button>
           </div>
+          <label class="settings-runtime-policy" for="skinSelect">
+            <span data-i18n="settings.skin">视觉皮肤</span>
+            <select id="skinSelect" aria-describedby="skinHint">
+              <option value="cat" data-i18n="settings.skin.cat">日系猫猫</option>
+              <option value="vhs" data-i18n="settings.skin.vhs">VHS 合成波</option>
+            </select>
+            <small id="skinHint" data-i18n="settings.skin.hint">切换猫猫日常与 80s 像素霓虹外观；明暗模式可独立切换。</small>
+          </label>
+          <section id="vhsColorSettings" hidden aria-labelledby="vhsColorsTitle">
+            <h4 id="vhsColorsTitle" data-i18n="vhs.colors">招牌配色</h4>
+            <p data-i18n="vhs.colors.hint"></p>
+            <div id="vhsColorRows"></div>
+          </section>
           <label class="settings-runtime-policy" for="profileQuitBehavior">
             <span data-i18n="settings.profileLifecycle">Profile 后台生命周期</span>
             <select id="profileQuitBehavior">
@@ -1215,6 +1232,8 @@
     <script src="./i18n/zh.js"></script>
     <script src="./i18n/en.js"></script>
     <script src="./i18n/ja.js"></script>
+    <script src="./skins/vhs-presenter.js"></script>
+    <script src="./roster-interactions.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>

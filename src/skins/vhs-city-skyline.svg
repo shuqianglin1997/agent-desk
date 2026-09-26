@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="180" viewBox="0 0 640 180" shape-rendering="crispEdges">
+  <g fill="#b593bf" opacity=".26"><path d="M0 150V89h20V71h18v79h13V53h9V35h2v18h20v97h10V101h18v49h14V65h32v85h13V81h23v69h12V37h6V23h2v14h22v113h17V91h23v59h16V67h38v83h14V99h19v51h15V45h14V31h2v14h24v105h14V74h29v76h19V101h15v49h11V62h33v88h16V39h12V17h2v22h18v111h20V85h29v65h15V109h27v41h24V74h20v76Z"/></g>
+  <g fill="#9acbd2" opacity=".35"><path d="M58 63h3v4h-3zm12 0h3v4h-3zm-12 12h3v4h-3zm148-26h3v4h-3zm11 0h3v4h-3zm-11 13h3v4h-3zm166-3h3v4h-3zm12 0h3v4h-3zm-12 13h3v4h-3zm140-19h3v4h-3zm12 0h3v4h-3zm0 13h3v4h-3z"/></g>
+  <g fill="#fbd5ba" opacity=".55"><path d="M108 29h2v2h-2zm160-9h2v2h-2zm170 17h2v2h-2zm168-21h2v2h-2zm-467 25h2v2h-2z"/></g>
+  <path d="M0 161h640v2H0zm0 9h640v1H0z" fill="#d788b0" opacity=".22"/>
+</svg>
