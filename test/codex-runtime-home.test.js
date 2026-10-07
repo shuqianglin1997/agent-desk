@@ -83,3 +83,18 @@ test('短别名冲突时拒绝覆盖普通文件，sessionRoot 变更时只重�
   }), /codex-runtime-home-alias-conflict/);
   assert.equal(fs.readFileSync(second.sessionRoot, 'utf8'), 'do-not-overwrite');
 });
+
+
+test('迁移后的长 profile 链接使用短真实目录，不再创建临时别名', (t) => {
+  const { root, aliasRoot, sessionRoot } = fixture();
+  const physicalRoot = fs.mkdtempSync('/tmp/ad-real-');
+  t.after(() => { fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(physicalRoot, { recursive: true, force: true }); });
+  fs.mkdirSync(path.dirname(sessionRoot), { recursive: true });
+  fs.symlinkSync(physicalRoot, sessionRoot, 'dir');
+  fs.writeFileSync(path.join(physicalRoot, 'session.txt'), 'preserved');
+  const result = ensureCodexRuntimeHome({ id: 'migrated', sessionRoot }, { platform: 'darwin', aliasRoot });
+  assert.equal(result.sessionRoot, fs.realpathSync(physicalRoot));
+  assert.equal(result.socketPathBytes < MAC_SUN_PATH_BYTES, true);
+  assert.equal(fs.existsSync(aliasRoot), false);
+  assert.equal(fs.readFileSync(path.join(sessionRoot, 'session.txt'), 'utf8'), 'preserved');
+});
