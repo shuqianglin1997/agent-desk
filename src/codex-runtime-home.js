@@ -68,6 +68,20 @@ function ensureCodexRuntimeHome(profile, options = {}) {
     };
   }
 
+  // A profile may have been moved to a short persistent directory, leaving
+  // its original location as a compatibility link. Pass the real directory to
+  // Codex: recent plugin source validation rejects a symlinked CODEX_HOME.
+  const realSessionRoot = fsImpl.existsSync(sessionRoot)
+    ? fsImpl.realpathSync(sessionRoot) : sessionRoot;
+  if (!needsShortRuntimeHome(realSessionRoot, platform)) {
+    return {
+      sessionRoot: realSessionRoot,
+      canonicalSessionRoot: realSessionRoot,
+      aliased: realSessionRoot !== sessionRoot,
+      socketPathBytes: socketPathBytes(realSessionRoot)
+    };
+  }
+
   const aliasRoot = path.resolve(String(options.aliasRoot || defaultAliasRoot()));
   if (aliasRoot === path.parse(aliasRoot).root) {
     throw new Error('codex-runtime-home-root-invalid');
