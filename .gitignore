@@ -1,0 +1,21 @@
+.build/
+.swiftpm/
+build/
+dist/
+dist.noindex/
+DerivedData/
+.cache/
+*.xcuserstate
+
+# Local application and tool data
+.codex/*
+!.codex/environments/
+!.codex/environments/environment.toml
+.DS_Store
+.env
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Agent workflow scratch
+.superpowers/
