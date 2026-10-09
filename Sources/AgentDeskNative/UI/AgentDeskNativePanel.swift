@@ -6,13 +6,15 @@ struct AgentDeskNativePanel: View {
     @ObservedObject var pet: PetModel
     @State private var page: Page = .accounts
     enum Page { case accounts, settings, newAccount, info }
+    private static let panelWidth: CGFloat = 340
+    private static let panelPadding: CGFloat = 14
 
     private var accent: Color { .accentColor }
     private var title: String {
         switch page {
         case .accounts: return "AgentDesk Native"
         case .settings: return "设置"
-        case .info: return "须知"
+        case .info: return "信息"
         case .newAccount: return "新建账号"
         }
     }
@@ -25,7 +27,7 @@ struct AgentDeskNativePanel: View {
             ZStack(alignment: .topLeading) {
                 pageContent(.accounts) { cards }
                 pageContent(.settings) { SettingsView(desk: desk, pet: pet) }
-                pageContent(.info) { PanelInfoView() }
+                pageContent(.info) { PanelInfoView(desk: desk) }
                 pageContent(.newAccount) { NewAccountView(desk: desk) { page = .accounts } }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -45,8 +47,8 @@ struct AgentDeskNativePanel: View {
                 Spacer()
                 Button { toggle(.info) } label: { Image(systemName: "info.circle") }
                     .foregroundStyle(page == .info ? accent : Color.secondary)
-                    .help(page == .info ? "返回账号列表" : "须知")
-                    .accessibilityLabel("须知")
+                    .help(page == .info ? "返回账号列表" : "信息")
+                    .accessibilityLabel("信息")
                     .accessibilityValue(page == .info ? "已选中" : "未选中")
                 Button { toggle(.settings) } label: { Image(systemName: "gearshape") }
                     .foregroundStyle(page == .settings ? accent : Color.secondary)
@@ -65,8 +67,8 @@ struct AgentDeskNativePanel: View {
             }
             .buttonStyle(.plain).font(.system(size: 12))
         }
-        .padding(14)
-        .frame(width: 340, height: 570)
+        .padding(Self.panelPadding)
+        .frame(width: Self.panelWidth, height: 570)
         .background {
             NativePanelMaterial()
                 .overlay(Color(nsColor: .windowBackgroundColor).opacity(0.35))
@@ -79,10 +81,12 @@ struct AgentDeskNativePanel: View {
     }
 
     private func pageContent<Content: View>(_ destination: Page, @ViewBuilder content: () -> Content) -> some View {
-        ScrollView {
+        // A fixed text column prevents disclosure expansion from rewrapping every page.
+        // Scrolling remains available without a legacy scroller taking layout space.
+        ScrollView(.vertical, showsIndicators: false) {
             content()
+                .frame(width: Self.panelWidth - 2 * Self.panelPadding - 8, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.trailing, 8)
         }
         .opacity(page == destination ? 1 : 0)
         .disabled(page != destination)
