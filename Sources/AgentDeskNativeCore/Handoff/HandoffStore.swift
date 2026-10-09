@@ -136,7 +136,7 @@ public final class HandoffStore {
         return candidates.count == 1 ? candidates.first : nil
     }
 
-    private static func makePrivateDirectory(_ url: URL) throws {
+    static func makePrivateDirectory(_ url: URL) throws {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true,
                                                 attributes: [.posixPermissions: 0o700])
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)

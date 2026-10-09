@@ -15,7 +15,7 @@ final class HandoffDocumentTests: XCTestCase {
         XCTAssertEqual(HandoffDocument.fileName(title: "  ", at: at, calendar: utc), "20261008-0905-对话.md")
         XCTAssertEqual(HandoffDocument.fileName(title: String(repeating: "长", count: 60), at: at, calendar: utc),
                        "20261008-0905-" + String(repeating: "长", count: 40) + ".md")
-        XCTAssertEqual(HandoffDocument.clipboardPreamble, "这是从另一个账号接力过来的任务，请先阅读下面的交接文档，再检查当前 git 状态后继续。")
+        XCTAssertEqual(HandoffDocument.clipboardPreamble, "这是从另一个账号接力过来的任务，请先阅读下面的交接文档，核对实际环境与当前状态后继续。")
         XCTAssertNotNil(HandoffDocument.refusal(for: .running))
         XCTAssertNotNil(HandoffDocument.refusal(for: .waiting))
         for status: TaskStatus in [.completed, .failed, .interrupted, .unknown] { XCTAssertNil(HandoffDocument.refusal(for: status)) }

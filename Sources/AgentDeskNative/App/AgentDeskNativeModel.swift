@@ -53,6 +53,8 @@ final class AgentDeskNativeModel: ObservableObject {
     let handoffs: HandoffStore
     /// Newest first, for the settings page.
     @Published var handoffLog: [HandoffLogEntry] = []
+    @Published var pendingHandoff: HandoffPreparation?
+    @Published var completingHandoff = false
 
     private let store: AccountStore
     private let launcher: Launcher
@@ -72,6 +74,13 @@ final class AgentDeskNativeModel: ObservableObject {
         self.handoffs = HandoffStore(root: store.root)
         self.feedbackLifetime = feedbackLifetime
         self.notificationSender = notificationSender
+        do { pendingHandoff = try handoffs.pendingPreparation() }
+        catch {
+            do {
+                try handoffs.archivePreparationState()
+                message = "待接力记录无法读取，已保留备份。请重新准备接力；已有文档未删除。"
+            } catch { message = "待接力记录无法恢复：\(error.localizedDescription)" }
+        }
     }
 
     /// Background events remain visible outside the popover; denied notifications wait for the next opening.

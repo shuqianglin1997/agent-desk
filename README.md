@@ -9,7 +9,7 @@
 - 点击菜单栏图标打开面板，点击外部或 Esc 关闭。
 - 添加或导入本机 Codex / Claude 账号，查看任务、最近会话及实时额度；支持手动刷新、可关闭的每 5 分钟自动同步与缓存回退。
 - 点会话调出所属账号。客户端多实例定位有限制，具体对话可能需要手动选择。
-- 右键已停下的会话，选择接力账号与已准备好的 Markdown 文档；应用保存副本、复制完整正文与绝对路径，调出目标账号。最后由用户在目标新聊天中粘贴发送，不自动复制原对话。
+- 右键已停下的会话选择接力账号，复制提示词并调出源账号。用户在原对话粘贴，让 agent 写到指定绝对路径，随后回到面板点击“继续接力”；应用复制文档并调出目标账号，由用户在目标新聊天粘贴发送。待办重启保留，也可使用已有文档或取消；不自动复制原对话或发送消息。
 - 设置和信息在同尺寸面板内切换；接力记录支持展开、定位文档与删除记录。
 - 可选桌面浮球默认关闭。在设置开启后，爪印控制显示与隐藏；单击打开面板，双击调出忙碌账号，拖动换位置，右键打开菜单。面板始终保持 macOS 原生外观。
 
@@ -30,6 +30,6 @@ swift test
 
 Bundle ID：`com.agentdesk.native`。配置、账号槽与交接副本位于 `~/Library/Application Support/AgentDeskNative/`，不覆盖现有客户端的设置与安装。
 
-首次读取现有 `~/Library/Application Support/AgentDesk/profiles.json` 以导入 Codex / Claude 槽位，客户端目录原地引用；不修改旧配置或移动旧客户端数据。平时只读任务元数据；接力仅读取用户选择的 Markdown 文档。Claude 额度请求使用对应账号授权，仅在内存中用于服务查询，不记录 token 或改变登录状态。
+首次读取现有 `~/Library/Application Support/AgentDesk/profiles.json` 以导入 Codex / Claude 槽位，客户端目录原地引用；不修改旧配置或移动旧客户端数据。平时只读任务元数据；接力仅读取指定路径或用户选择的 Markdown 文档。Claude 额度请求使用对应账号授权，仅在内存中用于服务查询，不记录 token 或改变登录状态。
 
 [架构](docs/architecture.md) · [验证范围](docs/acceptance.md) · [构建分发](docs/releasing.md) · [上游分支关系](docs/upstream-branches.md)

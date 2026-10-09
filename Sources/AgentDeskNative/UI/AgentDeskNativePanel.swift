@@ -96,6 +96,7 @@ struct AgentDeskNativePanel: View {
 
     private var cards: some View {
         VStack(spacing: 8) {
+            HandoffPreparationView(desk: desk)
             ForEach(desk.discovered, id: \.self) { app in DiscoveredRow(desk: desk, app: app) }
             if desk.accounts.isEmpty {
                 Text("还没有账号。点下面的“新建账号”添加一个。").font(.system(size: 11)).foregroundStyle(.secondary)

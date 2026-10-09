@@ -14,7 +14,7 @@ struct PanelInfoView: View {
                     .foregroundStyle(.secondary)
             }
             item("文档接力", symbol: "doc.on.clipboard") {
-                Text("右键已停下的任务 → 接力到…，选择 Markdown 文档。AgentDesk Native 复制正文与绝对路径；到目标新对话粘贴发送。")
+                Text("右键已停下的任务 → 接力到…，在源对话粘贴提示词。文档生成后回到面板点“继续接力”，再到目标新对话粘贴发送。")
             }
             item("桌面入口", symbol: "pawprint") {
                 Text("在设置开启原生浮球，爪印控制显示与隐藏。单击打开面板，双击调出忙碌账号，拖动换位置。始终保持系统外观。")
@@ -22,7 +22,7 @@ struct PanelInfoView: View {
             Divider()
             PanelDisclosure("数据与限制") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("平时只读任务元数据。接力只复制你选择的文档，不提取或自动发送聊天；副本保存在本机。")
+                    Text("平时只读任务元数据。接力仅处理指定的交接文档，不提取或自动发送聊天；副本保存在本机。")
                     Text("Claude 额度使用对应账号授权，仅在内存中使用。首次手动同步可能需要钥匙串授权；后台不弹提示。")
                     Text("点击任务不保证直接定位到具体对话，可能需要在客户端中选择。")
                     if desk.accounts.filter({ $0.app == .claude }).count > 1 {

@@ -3,7 +3,7 @@ import Foundation
 /// Formatting shared by the manual document-copy workflow. No conversation or model is read.
 public enum HandoffDocument {
     /// The fixed first line of what goes on the clipboard.
-    public static let clipboardPreamble = "这是从另一个账号接力过来的任务，请先阅读下面的交接文档，再检查当前 git 状态后继续。"
+    public static let clipboardPreamble = "这是从另一个账号接力过来的任务，请先阅读下面的交接文档，核对实际环境与当前状态后继续。"
     /// Keep the body usable even if a receiving client cannot access the local file.
     public static func clipboard(markdown: String, savedAt file: URL) -> String {
         clipboardPreamble + "\n\n交接文档绝对路径：\n" + file.standardizedFileURL.path
