@@ -1,0 +1,21 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+  <SolidColorBrush x:Key="TextPrimary" Color="#E4000000"/>
+  <SolidColorBrush x:Key="TextSecondary" Color="#9E000000"/>
+  <SolidColorBrush x:Key="TextTertiary" Color="#72000000"/>
+  <SolidColorBrush x:Key="CardFill" Color="#0B000000"/>
+  <SolidColorBrush x:Key="Divider" Color="#14000000"/>
+  <SolidColorBrush x:Key="ControlFill" Color="#B3FFFFFF"/>
+  <SolidColorBrush x:Key="ControlStroke" Color="#0F000000"/>
+  <SolidColorBrush x:Key="PanelFill" Color="#F3F3F3"/>
+  <SolidColorBrush x:Key="MenuFill" Color="#FAFAFA"/>
+  <SolidColorBrush x:Key="Accent" Color="#0067C0"/>
+  <SolidColorBrush x:Key="StatusGreen" Color="#1A6633"/>
+  <SolidColorBrush x:Key="Red" Color="#A81A24"/>
+  <SolidColorBrush x:Key="Amber" Color="#854D05"/>
+  <SolidColorBrush x:Key="AccentText" Color="#FFFFFF"/>
+  <sys:Double x:Key="FontTitle">14</sys:Double>
+  <sys:Double x:Key="FontAccount">13</sys:Double>
+  <sys:Double x:Key="FontRow">12</sys:Double>
+  <sys:Double x:Key="FontBody">12</sys:Double>
+  <sys:Double x:Key="FontMeta">11</sys:Double>
+</ResourceDictionary>

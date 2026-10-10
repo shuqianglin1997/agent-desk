@@ -1,0 +1,10 @@
+version = 1
+name = "AgentDesk Native"
+
+[setup]
+script = ""
+
+[[actions]]
+name = "Run"
+icon = "run"
+command = "./macos/script/build_and_run.sh"

@@ -1,0 +1,8 @@
+AgentDesk Native — notices
+
+The MIT License in LICENSE covers the AgentDesk Native source code. The
+following are not covered by it:
+
+- Codex, ChatGPT and Claude names and client icons
+  (windows/src/AgentDeskNative.App/Resources/ClientIcons/) belong to their
+  owners and are used only to identify the corresponding desktop clients.

@@ -1,9 +1,22 @@
 # 验证范围
 
-2026-10-09 本地验证：87 项测试通过；release 通用构建包含 arm64 / x86_64，Bundle ID、图标与严格签名验证通过；应用实际启动并持续运行的 smoke check 通过。资源目录只包含中性图标，不依赖角色资源或媒体组件。独立只读审阅未发现阻止推送的问题。
+## 本分支已做的检查
 
-真实界面仍需逐项验收：冷启动首次点击、右键、展开／收起；同尺寸页面切换；“数据与限制”整行展开、列宽稳定与长内容滚动；原生浮球开关、显示／隐藏、拖动、单击与双击；手动额度授权、自动同步；用户提供文档并在目标新聊天粘贴发送。
+- macOS：`swift test --package-path macos` 全部通过；`macos/script/build_and_run.sh --build` 生成 `AgentDeskNative.app`，Bundle ID 为 `com.agentdesk.native`，不含媒体框架或角色素材。
+- Windows：解决方案可编译（0 警告、0 错误）；回归程序依赖 Windows 文件权限 API，由 GitHub Actions 的 Windows 检查运行。
+- 源码与资源中没有角色素材、动画、媒体监控或其他产品的偏好迁移。
 
-本机为 Apple Silicon，Intel 可交叉编译但未完成真机测试。默认 ad-hoc 签名，没有 Developer ID 发布签名或 Apple 公证。本分支没有正式 Release，构建成功不等于以上界面或跨账号路径已验收。
+## 自动检查
 
-两步接力增加待办恢复、文档路径与输入失败、取消保留文档、损坏状态备份恢复测试。实际源对话生成文档及目标新聊天粘贴发送仍需真实跨账号验收。
+- `.github/workflows/macos.yml`：测试并做 release 通用构建。
+- `.github/workflows/windows.yml`：运行 Windows 回归程序并发布自包含构建（作为 Actions 产物，不创建 Release）。
+
+## 仍需实机验收
+
+1. macOS 与 Windows 真实客户端的账号创建、启动、调出与移除。
+2. 两个个人账号同时登录时的会话归属与额度查询。
+3. 完整跨账号文档接力：源对话生成文档 → 继续接力 → 目标新对话粘贴。
+4. 浮球开关、显示隐藏、拖动与面板跟随；Windows 键盘操作（Tab / 回车）。
+5. Intel Mac 上的通用构建。
+
+逐项状态见 [功能对齐](../shared/parity.md)。

@@ -19,3 +19,8 @@ DerivedData/
 
 # Agent workflow scratch
 .superpowers/
+scratch/
+
+# Windows .NET build output
+**/bin/
+**/obj/

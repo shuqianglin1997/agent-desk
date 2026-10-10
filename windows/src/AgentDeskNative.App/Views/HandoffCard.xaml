@@ -1,0 +1,10 @@
+<!-- macOS: HandoffPreparationView.swift -->
+<UserControl x:Class="AgentDeskNative.Windows.HandoffCard" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:AgentDeskNative.Windows" >
+<Border Style="{StaticResource Card}" Visibility="{Binding HasPending, Converter={StaticResource BoolVisibility}}"><StackPanel>
+ <DockPanel Margin="0,0,0,6"><Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="…" Click="PendingMenu" ToolTip="接力选项"/><TextBlock Text="{DynamicResource handoff.pending}" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel>
+ <TextBlock Text="{Binding PendingTitle}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+ <TextBlock Text="{Binding PendingRoute}" Style="{StaticResource Meta}" Margin="0,6,0,6"/>
+ <TextBlock Text="在源对话粘贴提示词，文档生成后继续。" Style="{StaticResource Meta}" Margin="0,0,0,8"/>
+ <DockPanel><Button Content="{Binding ContinueLabel}" Style="{StaticResource AccentButton}" Command="{Binding FinishHandoff}" DockPanel.Dock="Right"/><Button Content="复制提示词" Style="{StaticResource StandardButton}" Command="{Binding CopyPrompt}" HorizontalAlignment="Left"/></DockPanel>
+ </StackPanel></Border>
+</UserControl>

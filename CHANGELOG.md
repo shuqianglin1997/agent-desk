@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 — 双端原生版本
+
+- 仓库改为 `macos/`、`windows/`、`shared/` 三部分：新增 Windows 托盘版（.NET 10 / WPF），与 macOS 共用图标、文案、测试样本和设计约定。
+- Claude 会话按账号分别读取；macOS 默认 Claude 卡片另外列出本机 Claude Code 历史，标记 `Code`。
+- 分组、账号和会话可拖动排序，顺序只保存在本应用里，不改动客户端的会话文件。
+- 修正面板首次点击和点外部关闭的行为；面板打开时拖动浮球，面板会跟随。
+- 仍只有可选的静态原生浮球；没有角色素材、动画或媒体监控。
+
+分支快照，尚无正式 Release、Apple 公证或 Windows 签名。
+
 ## 0.1.0 — 原生客户端分支
 
 - 独立 Swift / AppKit / SwiftUI 菜单栏实现，管理本机 Codex / Claude 账号、任务及额度。

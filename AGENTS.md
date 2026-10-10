@@ -11,4 +11,16 @@
 - 汇报围绕“现在能用什么、距离用户目标还差什么、下一步如何完成”。清楚区分本地验证、真实服务运行、部署和用户验收；不以小修小补或测试通过代替完成声明。
 <!-- delivery-first:end -->
 
-AgentDesk Native is a standalone native macOS client in the agent-desk repository. It manages local Codex and Claude accounts and includes only an optional static native desktop orb. Keep this variant independent of the existing Electron app: bundle ID com.agentdesk.native and Application Support/AgentDeskNative. Do not add character assets, animation, media monitoring, or product-specific preference migrations.
+AgentDesk Native is a standalone native client in the agent-desk repository, with a macOS menu-bar app (`macos/`, Swift) and a Windows tray app (`windows/`, .NET/WPF). It manages local Codex and Claude accounts, shows tasks and quotas, supports document handoff, and includes only an optional static native desktop orb. Keep this variant independent of the existing Electron app: bundle ID `com.agentdesk.native`, `Application Support/AgentDeskNative` on macOS, `%LOCALAPPDATA%\AgentDeskNative` on Windows. Do not add character assets, animation, media monitoring, or product-specific preference migrations. Sync rules are in `docs/upstream-branches.md`.
+
+## 仓库结构
+
+平台代码位于 `macos/`、`windows/`；共用资产、文案、样本与设计约定位于 `shared/`。修改用户可见行为时更新 `shared/parity.md`。不要把公司账号配置、凭据或真实会话正文写入仓库。
+
+## macOS 构建与验收
+
+运行 `swift test --package-path macos`、`macos/script/build_and_run.sh --build`；打包入口 `macos/script/package-release.sh`。Windows 机器上的路径检查不能替代 Mac 验收。
+
+## Windows 构建与验收
+
+使用 .NET 10：`windows/script/build.ps1 -Action Test`、`-Action Publish`、`-Action Package`。无系统 SDK 时传 `-Dotnet <dotnet.exe 的路径>`。`--demo --theme light|dark --page accounts|settings|info|add --screenshot <dir>` 输出独立演示截图；不读取真实客户端。运行正常产品用 `dist.noindex/windows/AgentDeskNative/AgentDeskNative.exe`。验证时不得关闭个人客户端或修改登录配置。

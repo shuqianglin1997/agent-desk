@@ -1,35 +1,81 @@
 # AgentDesk Native
 
-面向 macOS 的原生菜单栏客户端，管理本机 Codex / Claude 账号、任务与额度，并通过 Markdown 文档接力。
+**在 macOS 菜单栏或 Windows 系统托盘里，管理本机多个 Codex / Claude 桌面客户端账号：查看任务和额度，额度用完时用 Markdown 文档把任务接力到另一个账号。**
 
-此分支是独立的 Swift / AppKit / SwiftUI 实现，不是现有 Electron 客户端的增量修改。需要 macOS 14+，构建支持 Apple Silicon / Intel。没有角色素材、品牌配色、动画或媒体监控。
+此分支是独立的原生实现（macOS：Swift / AppKit / SwiftUI；Windows：.NET 10 / WPF），不是现有 Electron 客户端的增量修改，也不会覆盖它的安装或配置。没有角色素材、品牌配色、动画或媒体监控，只有可选的静态原生浮球。
 
-## 使用
+<p align="center">
+  <img src="docs/images/agentdesk-overview.png" alt="AgentDesk Native 面板示意：账号、会话与额度" width="100%">
+</p>
 
-- 点击菜单栏图标打开面板，点击外部或 Esc 关闭。
-- 添加或导入本机 Codex / Claude 账号，查看任务、最近会话及实时额度；支持手动刷新、可关闭的每 5 分钟自动同步与缓存回退。
-- 点会话调出所属账号。客户端多实例定位有限制，具体对话可能需要手动选择。
-- 右键已停下的会话选择接力账号，复制提示词并调出源账号。用户在原对话粘贴，让 agent 写到指定绝对路径，随后回到面板点击“继续接力”；应用复制文档并调出目标账号，由用户在目标新聊天粘贴发送。待办重启保留，也可使用已有文档或取消；不自动复制原对话或发送消息。
-- 设置和信息在同尺寸面板内切换；接力记录支持展开、定位文档与删除记录。
-- 可选桌面浮球默认关闭。在设置开启后，爪印控制显示与隐藏；单击打开面板，双击调出忙碌账号，拖动换位置，右键打开菜单。面板始终保持 macOS 原生外观。
+上图为 macOS 界面示意，数据均为演示数据。Windows 版使用原生面板，跟随系统浅色／深色。
 
-## 构建与运行
+| 平台 | 系统要求 |
+| --- | --- |
+| macOS | macOS 14 及以上，Apple Silicon / Intel |
+| Windows | Windows 10（19041）及以上，x64 |
 
-需要 Xcode 的 Swift / clang 工具链，不需要 Node.js 或 API key。
+## 能做什么
+
+- **多账号集中管理**：按 Codex / Claude 分组，一键启动或调出对应账号的客户端，每个账号的登录和数据互不干扰。macOS 首次启动会导入旧 agent-desk 的 Codex / Claude 账号槽。
+- **任务与会话**：查看正在运行的任务和最近的会话；分组、账号和会话都能拖动排序，顺序只保存在本应用里。
+- **额度与重置时间**：显示 5 小时和每周额度的已用比例与重置时间，可手动刷新或每 5 分钟同步；查不到时显示上次的数据并注明时间。
+- **桌面浮球（可选）**：默认关闭。在设置里开启后，桌面上出现一个静态原生浮球；单击打开面板，双击调出忙碌账号，拖动换位置，右键打开菜单。
+
+## 换账号，继续同一个任务
+
+![文档接力示意：在源对话生成交接文档，复制到目标新对话继续](docs/images/handoff-flow.png)
+
+1. 右键一个已停下的会话，选择“接力到…”和目标账号。
+2. 应用复制一段提示词并调出原来的客户端；在原对话里粘贴发送，AI 会把交接文档写到指定位置。
+3. 文档写好后，回到面板点“继续接力”，应用复制文档内容并调出目标客户端。
+4. 在目标账号里新建对话，粘贴发送，任务就接着做下去。
+
+也可以直接用已有的 Markdown 文档接力。未完成的接力在重启后还在；面板会保留最近的接力记录。**应用不会替你发送任何消息。**
+
+## 从源码构建
+
+### macOS
+
+需要 Xcode 的 Swift 工具链，不需要 Node.js 或 API key。
 
 ```bash
-swift test
-./script/build_and_run.sh --build
-./script/build_and_run.sh --install
-./script/package-release.sh
+swift test --package-path macos
+./macos/script/build_and_run.sh --build     # 生成 macos/dist.noindex/AgentDeskNative.app
+./macos/script/build_and_run.sh --install   # 安装到 ~/Applications/AgentDeskNative.app 并启动
+./macos/script/package-release.sh          # 生成通用架构 DMG、ZIP 和 SHA256SUMS
 ```
 
-应用：`dist.noindex/AgentDeskNative.app`；安装到 `~/Applications/AgentDeskNative.app`。设置 `AGENTDESK_NATIVE_CONFIGURATION=release` 可使用优化构建；`AGENTDESK_NATIVE_ARCHS='arm64 x86_64'` 可构建通用二进制。默认 ad-hoc 签名，没有 Apple 公证；此分支未创建正式 Release。
+### Windows
 
-## 数据边界
+需要 .NET 10 SDK。
 
-Bundle ID：`com.agentdesk.native`。配置、账号槽与交接副本位于 `~/Library/Application Support/AgentDeskNative/`，不覆盖现有客户端的设置与安装。
+```powershell
+./windows/script/build.ps1 -Action Test
+./windows/script/build.ps1 -Action Run
+./windows/script/build.ps1 -Action Publish  # dist.noindex/windows/AgentDeskNative/AgentDeskNative.exe
+./windows/script/build.ps1 -Action Package  # dist.noindex/windows/releases/ 下生成 ZIP 与 SHA256SUMS
+```
 
-首次读取现有 `~/Library/Application Support/AgentDesk/profiles.json` 以导入 Codex / Claude 槽位，客户端目录原地引用；不修改旧配置或移动旧客户端数据。平时只读任务元数据；接力仅读取指定路径或用户选择的 Markdown 文档。Claude 额度请求使用对应账号授权，仅在内存中用于服务查询，不记录 token 或改变登录状态。
+运行时保留整个发布目录，不能只拿出 exe。程序未签名，首次运行若出现 SmartScreen 提示，点“更多信息”→“仍要运行”。打开面板：点托盘图标或按 `Ctrl+Alt+P`。
 
-[架构](docs/architecture.md) · [验证范围](docs/acceptance.md) · [构建分发](docs/releasing.md) · [上游分支关系](docs/upstream-branches.md)
+## 数据与隐私
+
+| 内容 | macOS | Windows |
+| --- | --- | --- |
+| 设置、账号槽与接力文档 | `~/Library/Application Support/AgentDeskNative/` | `%LOCALAPPDATA%\AgentDeskNative\` |
+| 在应用里新建的客户端数据 | 上述目录下 | `%USERPROFILE%\.agentdesk-native\profiles\` |
+
+- macOS Bundle ID 为 `com.agentdesk.native`，与现有 Electron 客户端独立。读取旧的 `~/Library/Application Support/AgentDesk/profiles.json` 只用于导入账号，不修改旧配置，也不移动旧客户端数据。
+- 已有的客户端数据原地使用，不会被移动或删除。
+- 平时只读取会话的标题、状态和工作目录，不读取聊天内容。接力只处理你指定的那份 Markdown 文档。
+- 查询额度时会读取对应账号在客户端里的登录授权，只在内存中用于向官方服务查询额度，不保存到文件或日志，也不改变客户端的登录状态。
+- 不自动发送任何聊天消息，不上传你的数据，没有跨设备同步。
+
+## 文档
+
+[架构](docs/architecture.md) · [验证范围](docs/acceptance.md) · [构建与分发](docs/releasing.md) · [功能对齐](shared/parity.md) · [上游分支关系](docs/upstream-branches.md) · [更新记录](CHANGELOG.md)
+
+## 许可证
+
+代码以 [MIT 许可证](LICENSE) 发布。Codex、ChatGPT、Claude 的名称和图标归各自所有者，详见 [NOTICE](NOTICE)。

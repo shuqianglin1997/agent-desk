@@ -1,0 +1,10 @@
+<!-- macOS: SessionRow.swift -->
+<UserControl x:Class="AgentDeskNative.Windows.SessionRow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:AgentDeskNative.Windows" >
+<Button Command="{Binding Open}" Cursor="Arrow" Padding="0,5" HorizontalContentAlignment="Stretch" ToolTip="{Binding Tip}" local:DragSupport.Enabled="True" local:DragSupport.Target="True" ContextMenuOpening="SessionMenu">
+ <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+ <TextBlock Text="{Binding Symbol}" FontSize="14" local:ColorToken.Key="{Binding ColorKey}" VerticalAlignment="Center"/>
+ <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="{DynamicResource FontRow}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+ <TextBlock Grid.Column="2" Text="{Binding Time}" Style="{StaticResource Meta}" Margin="6,0" VerticalAlignment="Center"/>
+ <TextBlock Grid.Column="3" Text="{Binding Status}" Style="{StaticResource Meta}" VerticalAlignment="Center"/>
+ </Grid></Button>
+</UserControl>

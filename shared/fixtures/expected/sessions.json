@@ -1,0 +1,21 @@
+{
+  "codexTitle": "Renamed title",
+  "claudeTitle": "Metadata title",
+  "status": "已完成",
+  "codexWindows": [
+    {
+      "Name": "周",
+      "Used": 100
+    }
+  ],
+  "claudeWindows": [
+    {
+      "Name": "5h",
+      "Used": 72
+    },
+    {
+      "Name": "周",
+      "Used": 92
+    }
+  ]
+}

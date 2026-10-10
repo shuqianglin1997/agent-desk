@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="260" viewBox="0 0 1200 260" role="img" aria-labelledby="title desc">
+<title id="title">用文档把任务交给下一个账号</title><desc id="desc">选择目标账号，粘贴交接提示词让源 agent 生成文档，再回 AgentDesk Native 继续接力，最后在目标新聊天粘贴发送。</desc>
+<rect width="1200" height="260" rx="20" fill="#f4f6f9"/>
+<g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif">
+<text x="40" y="49" font-size="23" font-weight="600" fill="#253044">用文档，把任务交给下一个账号。</text>
+<g fill="#fff" stroke="#e0e5ed"><rect x="40" y="83" width="244" height="125" rx="12"/><rect x="332" y="83" width="244" height="125" rx="12"/><rect x="624" y="83" width="244" height="125" rx="12"/><rect x="916" y="83" width="244" height="125" rx="12"/></g>
+<g fill="#253044" font-size="18" font-weight="600"><text x="60" y="119">1  选择接力目标</text><text x="352" y="119">2  源对话生成文档</text><text x="644" y="119">3  回到面板继续</text><text x="936" y="119">4  新聊天粘贴发送</text></g>
+<g fill="#596579" font-size="15"><text x="60" y="154">右键已停下的任务，</text><text x="60" y="180">选择目标账号。</text><text x="352" y="154">粘贴交接提示词，让 agent</text><text x="352" y="180">写到指定绝对路径。</text><text x="644" y="154">点“继续接力”，自动复制</text><text x="644" y="180">正文及路径，调出目标。</text><text x="936" y="154">由你粘贴、确认并发送，</text><text x="936" y="180">继续完成任务。</text></g>
+<g fill="#7b879a" font-size="25"><text x="300" y="155">›</text><text x="592" y="155">›</text><text x="884" y="155">›</text></g>
+<text x="40" y="238" font-size="14" fill="#697486">支持 Codex ↔ Claude 及同类客户端账号之间接力。不自动复制原对话，不自动发送消息。</text>
+</g></svg>

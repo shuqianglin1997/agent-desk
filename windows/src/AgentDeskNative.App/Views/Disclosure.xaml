@@ -1,0 +1,4 @@
+<!-- macOS: PanelDisclosure.swift -->
+<UserControl x:Class="AgentDeskNative.Windows.Disclosure" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:AgentDeskNative.Windows" >
+<Expander Header="{Binding Header, RelativeSource={RelativeSource AncestorType=UserControl}}"><ContentPresenter/></Expander>
+</UserControl>

@@ -1,0 +1,7 @@
+root = true
+
+[windows/**/*.cs]
+csharp_preserve_single_line_statements = false
+csharp_preserve_single_line_blocks = false
+indent_style = space
+indent_size = 4

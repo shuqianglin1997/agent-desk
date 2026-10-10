@@ -1,0 +1,10 @@
+<!-- macOS: NewAccountView.swift -->
+<UserControl x:Class="AgentDeskNative.Windows.NewAccountPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:AgentDeskNative.Windows" >
+<StackPanel>
+ <UniformGrid Columns="2" Margin="0,0,0,16"><RadioButton Content="Codex" Style="{StaticResource SegmentedControl}" IsChecked="{Binding NewCodex}" GroupName="Client"/><RadioButton Content="Claude" Style="{StaticResource SegmentedControl}" IsChecked="{Binding NewClaude}" GroupName="Client"/></UniformGrid>
+ <TextBox Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}" local:Hint.Text="{DynamicResource account.nameHint}" MaxLength="80" Margin="0,0,0,8"/>
+ <TextBlock Text="{DynamicResource account.createHelp}" Style="{StaticResource Meta}" Margin="0,0,0,16"/>
+ <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="取消" Command="{Binding CancelAdd}" Style="{StaticResource StandardButton}" Margin="0,0,8,0"/><Button Content="{DynamicResource account.create}" Command="{Binding Create}" Style="{StaticResource AccentButton}" IsDefault="{Binding IsAdd}"/></StackPanel>
+ <Expander Header="高级：引用已有目录" Margin="0,16,0,0"><StackPanel Margin="0,8,0,0"><TextBlock Text="原地引用，不移动、不复制登录信息。" Style="{StaticResource Meta}" Margin="0,0,0,8"/><CheckBox Content="Claude 第三方模式（独立 AppData）" IsChecked="{Binding ThirdParty}" Margin="0,0,0,8"/><Button Content="选择目录并添加…" Command="{Binding Import}" Style="{StaticResource StandardButton}" HorizontalAlignment="Left"/></StackPanel></Expander>
+ </StackPanel>
+</UserControl>

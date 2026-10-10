@@ -1,0 +1,14 @@
+<!-- macOS: SettingsView.swift -->
+<UserControl x:Class="AgentDeskNative.Windows.SettingsPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:AgentDeskNative.Windows" >
+<StackPanel>
+ <TextBlock Text="随时唤出" Style="{StaticResource Section}" Margin="0,0,0,8"/>
+ <TextBlock Text="Ctrl + Alt + P · 展开 / 收起 AgentDesk Native"/><TextBlock Text="托盘图标可拖出隐藏区，放到任务栏常驻。" Style="{StaticResource Meta}" Margin="0,6"/>
+ <Button Content="打开任务栏设置" Command="{Binding TaskbarSettings}" Style="{StaticResource StandardButton}" HorizontalAlignment="Left"/>
+ <TextBlock Text="{DynamicResource settings.pet}" Style="{StaticResource Section}"/>
+ <CheckBox Content="开启桌宠" IsChecked="{Binding PetEnabled}" Margin="0,0,0,8"/>
+ <TextBlock Text="静态原生浮球，跟随系统外观。单击展开或收起面板，拖动换位置。" Style="{StaticResource Meta}" Visibility="{Binding PetEnabled, Converter={StaticResource BoolVisibility}}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+ <TextBlock Text="{DynamicResource settings.quota}" Style="{StaticResource Section}"/><CheckBox Content="每 5 分钟自动同步" IsChecked="{Binding AutoQuota}" Margin="0,0,0,8"/><Button Content="立即同步全部账号" Command="{Binding RefreshAllCommand}" Style="{StaticResource StandardButton}" HorizontalAlignment="Left"/>
+ <TextBlock Text="{DynamicResource settings.handoff}" Style="{StaticResource Section}"/><Button Content="打开交接文件夹" Command="{Binding RevealHandoffs}" Style="{StaticResource StandardButton}" HorizontalAlignment="Left" Margin="0,0,0,8"/><local:HandoffHistory/>
+ <Button Content="退出 AgentDesk Native" Command="{Binding Quit}" Style="{StaticResource StandardButton}" HorizontalAlignment="Right" Margin="0,16,0,0"/>
+ </StackPanel>
+</UserControl>

@@ -1,24 +1,16 @@
-# 原生客户端架构
+# 双端架构
 
-| 目录 | 职责 |
-| --- | --- |
-| `Sources/AgentDeskNative/App` | 生命周期、菜单栏、popover、账号协调、通知、诊断 |
-| `Sources/AgentDeskNative/UI` | 账号、任务、额度、设置、信息与文档接力记录 |
-| `Sources/AgentDeskNative/Companion` | 可选静态原生浮球、拖动及点击 |
-| `Sources/AgentDeskNativeCore/Accounts` | 本机账号配置与旧客户端配置导入 |
-| `Sources/AgentDeskNativeCore/Launcher` | 客户端定位、启动、运行目录与会话路由 |
-| `Sources/AgentDeskNativeCore/CodexTasks` / `ClaudeSessions` | 本地元数据与状态读取 |
-| `Sources/AgentDeskNativeCore/Quota` | 实时额度、解析、缓存及失败状态 |
-| `Sources/AgentDeskNativeCore/Handoff` | Markdown 副本、剪贴板格式及日志 |
-| `Tests` | 核心逻辑与应用行为测试 |
-| `Resources` / `script` | 中性图标、构建安装及打包 |
+AgentDesk Native 在本机管理 Codex、Claude 桌面账号，读取任务与额度，以指定 Markdown 文档接力。两端分别实现原生窗口和可选的静态原生浮球，平台代码不互相依赖。
 
-面板固定为 340 × 570pt。账号、设置、信息在内部切换，底栏始终存在；采用系统强调色和原生毛玻璃。浮球固定 44pt、无动画、不查询媒体。桌面入口能力和可见性独立持久化，不含角色选择或角色主题。
+- `macos/`：SwiftPM、AppKit/SwiftUI；[macOS 架构](macos/architecture.md)。
+- `windows/src/AgentDeskNative.Core/`：持久化、只读会话、进程隔离、额度、接力事务；不依赖 WPF/WinForms。
+- `windows/src/AgentDeskNative.App/`：WPF 视图、增量 ViewModel、系统明暗主题、托盘、全局快捷键、原生浮球。WinForms 仅托盘宿主；无第三方 UI 框架。详见 [Windows 架构](windows/architecture.md)。
+- `shared/assets/`：应用图标；`strings/`：共享文案；`fixtures/`：手工样本和期望值；`design/tokens.md`：设计依据；[功能对齐](../shared/parity.md)。Windows 消费共享文案和样本；macOS 会话测试也消费 Claude 共享样本。
 
-任务状态每 5 秒读取，额度每 5 分钟同步，可关闭自动同步并手动刷新。额度请求去重并遵守限流退避；后台不弹钥匙串提示。失败保留最后成功的值及原观测时间，显示缓存与原因。Claude 当前 usage 端点不是稳定公开集成 API，可能随服务变化。
+Windows 轮询通过进程内 Win32 查询，显示时 5 秒、全部隐藏时 20 秒。客户端发现使用 WinRT 包管理，API 不可用时只回退一次 PowerShell。按账号 profile/home 匹配主进程；不会把子渲染进程当账号。
 
-偏好域 `com.agentdesk.native`，数据根目录 `Application Support/AgentDeskNative`；只读导入旧客户端 `AgentDesk/profiles.json`，不接管其偏好。交接副本位于 `handoffs/`，权限 0700 / 0600，同名不覆盖；删除记录保留文档。不读取会话正文生成文档、不自动发送消息。
+会话数据库以 SQLite READONLY 打开。标题优先客户端元数据索引，不以提示词冒充生成标题。额度使用对应账号本地授权，仅在内存中向官方地址查询；第三方模式不假造官方订阅额度。
 
-面板内容使用固定列宽，折叠区域整行可点击；长内容通过滚轮或触控板滚动，不因滚动条出现而重新换行。
+接力按 Read → Clipboard → Commit → Clear 执行；复制失败保留待办且不产生记录或副本。只处理用户指定的 Markdown，不自动发送聊天。
 
-两步接力：pending.json 保存待办，drafts/<UUID>/handoff.md 是唯一准备路径。用户在源对话发送复制的提示词，生成文档后点击继续；应用复制副本并调出目标，用户在目标新聊天粘贴发送。取消保留文档，失败可重试。不调用模型、不后台等待或自动发送。
+版本分别来自 `macos/VERSION`、`windows/VERSION`。CI 按目录分别运行测试与构建，不自动发布。
