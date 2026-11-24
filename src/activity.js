@@ -10,16 +10,16 @@ const path = require('node:path');
 const apps = require('./apps');
 const { createCodexActivityPreference, replyStateOf, claudeCliIsSidechain } = require('./sessions');
 const { freshReplyAt } = require('./session-marks');
-const { WORKING_WINDOW } = require('./yard/cats');
+const TIME_WINDOWS = require('./core/time-windows');
 const { createHash } = require('node:crypto');
 
 const WALK_LIMIT = 12000;
 const SKIP_DIRS = ['Cache', 'GPUCache', 'node_modules'];
 // 「此刻进行中」窗口：会话文件在这段时间内被写过就算一路并行的活。
 // CLI 会话工作时逐事件追加记录，闲置的终端窗口不会更新文件。
-const ACTIVE_NOW_MS = 5 * 60_000;
+const ACTIVE_NOW_MS = TIME_WINDOWS.ACTIVE_NOW_MS;
 // 「同时在跑」窗口：与猫的「干活」同一个常量（docs/SESSION_MARKS_PLAN.md 第 3.1 节）。
-const WRITING_WINDOW_MS = WORKING_WINDOW;
+const WRITING_WINDOW_MS = TIME_WINDOWS.RUNNING_WINDOW_MS;
 const WRITING_KEYS_LIMIT = 32;
 const FRESH_KEYS_LIMIT = 500;
 // 只有这两种客户端读末尾就能知道最后一句是谁说的；其他客户端不标“新回复”。

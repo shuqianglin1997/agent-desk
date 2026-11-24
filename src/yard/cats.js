@@ -6,9 +6,9 @@
  * 毛色与配饰的清单来自 yard/cat-art.js（浏览器里要先于本文件加载）。
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./cat-art'));
-  else root.YardCats = factory(root.CatArt || null);
-})(typeof self !== 'undefined' ? self : this, function (art) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./cat-art'), require('../core/time-windows'));
+  else root.YardCats = factory(root.CatArt || null, root.AgentDeskTimeWindows);
+})(typeof self !== 'undefined' ? self : this, function (art, timeWindows) {
   const SECOND = 1000;
   const MINUTE = 60e3;
   const DAY = 24 * 60 * MINUTE;
@@ -26,7 +26,7 @@
   };
 
   // 「干活中」= App 在跑，且会话记录在 WORKING_WINDOW 内还有活跃。
-  const WORKING_WINDOW = 90 * SECOND; // 会话记录 90 秒内活跃过 = 还在干活（可调）
+  const WORKING_WINDOW = timeWindows.RUNNING_WINDOW_MS; // 会话记录这么近活跃过 = 还在干活（src/core/time-windows.js）
   const ARRIVING_WINDOW = 3 * MINUTE;
 
   /*

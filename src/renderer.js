@@ -6309,7 +6309,7 @@ function trustedLocalAccountCardQuota(group, now) {
   }
   return window.QuotaOverview.selectTrustedAccountQuota(group, state.quotas, now, {
     quotaError: state.quotaError,
-    maxAgeMs: Number(window.YardEnergy?.DEFAULT_MAX_AGE_MS) || 15 * 60_000
+    maxAgeMs: window.AgentDeskTimeWindows.QUOTA_FRESH_MS
   });
 }
 

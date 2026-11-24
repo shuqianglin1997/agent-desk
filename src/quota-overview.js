@@ -16,7 +16,7 @@
   }
 })(typeof self !== 'undefined' ? self : this, function (energy) {
   const constrainingWindow = energy && energy.constrainingWindow;
-  const DEFAULT_MAX_AGE_MS = Number(energy && energy.DEFAULT_MAX_AGE_MS) || 15 * 60_000;
+  const DEFAULT_MAX_AGE_MS = energy.DEFAULT_MAX_AGE_MS;
   const TRUSTED_SOURCES = {
     codex: new Set(['codex-app-server'])
   };

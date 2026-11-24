@@ -5,11 +5,10 @@
  * intentionally orthogonal, so a cat may be working while also looking tired.
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.YardEnergy = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
-  const MINUTE = 60e3;
-  const DEFAULT_MAX_AGE_MS = 15 * MINUTE;
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('../core/time-windows'));
+  else root.YardEnergy = factory(root.AgentDeskTimeWindows);
+})(typeof self !== 'undefined' ? self : this, function (timeWindows) {
+  const DEFAULT_MAX_AGE_MS = timeWindows.QUOTA_FRESH_MS;
 
   const ENERGY_META = {
     fresh: { label: '元气满满', hint: '最紧额度窗口仍剩 60% 以上' },

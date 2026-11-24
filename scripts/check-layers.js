@@ -35,7 +35,7 @@ const TABLE = [
   ['services', ['src/activity.js', 'src/quota-service.js', 'src/profile-runtime.js', 'src/session-marks.js', 'src/updater.js',
     'src/hub/', 'src/main/agent-hub.js', 'src/task-package/service.js', 'src/mesh/main/', 'src/mesh/storage/', 'src/mesh/network/',
     'src/mesh/platform/', 'src/terminal-launcher.js']],
-  ['core', ['src/json-store.js', 'src/path-utils.js', 'src/windows.js', 'src/settings.js', 'src/quota.js', 'src/session-table.js',
+  ['core', ['src/core/', 'src/json-store.js', 'src/path-utils.js', 'src/windows.js', 'src/settings.js', 'src/quota.js', 'src/session-table.js',
     'src/session-location.js', 'src/identity-groups.js', 'src/onboarding-state.js', 'src/yard/', 'src/mesh/domain/',
     'src/mesh/protocol/', 'src/main/profile-store-policy.js', 'src/i18n/main-i18n.js', 'src/process.js', 'src/mac-launch.js',
     'src/task-package/format.js']]
