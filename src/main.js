@@ -30,7 +30,7 @@ const { pipeline } = require('node:stream/promises');
 const apps = require('./apps');
 const { identityFingerprint } = require('./identity');
 const { probeActivities } = require('./activity');
-const { isDefaultWindowsAppRunning, isRunningIn, snapshotProcesses } = require('./process');
+const { isDefaultWindowsAppRunning, isRunningIn, profileRunningSignal, snapshotProcesses } = require('./process');
 const { ProfileRuntimeSupervisor } = require('./profile-runtime');
 const { readJsonStore, writeJsonStore, snapshotFile } = require('./json-store');
 const { nearestExistingDirectory } = require('./path-utils');
@@ -3706,7 +3706,12 @@ function profileIsRunning(psText, profile) {
       apps.getApp(profile.appId).windows?.executableNames || []
     );
   }
-  return isRunningIn(psText, profile.profilePath);
+  const plan = apps.profileLaunchPlan(profile);
+  return profileRunningSignal(psText, profile.profilePath, {
+    launchesWithDataDir: plan.ok && plan.args.some((arg) => String(arg).startsWith('--user-data-dir=')),
+    isOfficialDefaultFolder: (profilePath) => process.platform !== 'win32'
+      && pathsEqual(profilePath, apps.defaultProfilePathInfo(profile.appId)?.path)
+  });
 }
 
 function usesWindowsOfficialDefault(profile) {

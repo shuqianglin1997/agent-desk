@@ -62,6 +62,21 @@ function isRunningIn(psText, profilePath) {
   return matchesDataDir(psText, profilePath);
 }
 
+// What one process snapshot can say about a profile. A running copy is only
+// recognisable when it was started with --user-data-dir=<profilePath>:
+// - true: such a process is running;
+// - false: it would be visible if it ran, and it does not;
+// - null: no such signal can exist - command-line clients, clients started
+//   without a data-folder argument, or the official default folder, which the
+//   app also uses when opened from the Dock without the argument.
+function profileRunningSignal(psText, profilePath, options = {}) {
+  if (psText === null || psText === undefined) return null;
+  if (!options.launchesWithDataDir) return null;
+  if (isRunningIn(psText, profilePath)) return true;
+  if (options.isOfficialDefaultFolder?.(profilePath)) return null;
+  return false;
+}
+
 function normalizeCommandPath(value, windowsPath) {
   let output = String(value || '').replace(/^\\\\\?\\/, '');
   if (windowsPath) output = output.replace(/\//g, '\\').toLowerCase();
@@ -245,6 +260,7 @@ function snapshotProcessRecords() {
 module.exports = {
   isDefaultWindowsAppRunning,
   isRunningIn,
+  profileRunningSignal,
   snapshotProcesses,
   snapshotProcessRecords,
   findProfileProcesses,
