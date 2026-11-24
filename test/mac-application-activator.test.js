@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 const {
   defaultMacApplicationActivatorPath,
@@ -69,7 +70,7 @@ test('进程快照和 helper 路径异常时失败关闭，不退化为全局 bu
 test('原生激活器只使用 NSRunningApplication，不声明隐私敏感控制 API', () => {
   const root = path.join(__dirname, '..');
   const swift = fs.readFileSync(path.join(root, 'native', 'macos', 'AgentDeskAppActivator.swift'), 'utf8');
-  const main = fs.readFileSync(path.join(root, 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   assert.match(swift, /NSRunningApplication/);
   assert.match(swift, /activateAllWindows/);
   assert.doesNotMatch(swift, /AXIsProcessTrusted|CGEvent|AppleScript|NSAppleScript|AEDesc|System Events/);

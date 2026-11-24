@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 const {
   macApplicationBundlePath,
@@ -36,7 +37,7 @@ test('macOS 受管桌面客户端通过 LaunchServices 启动并保留 Profile �
     '--user-data-dir=/Profiles/Codex'
   ]);
 
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   assert.match(main, /macLaunchServicesArgs\(bundlePath, args, env, process\.env\)/);
   assert.doesNotMatch(main, /if \(launcher\.found\) \{\s*await launchOwned\(launcher\.path, args, env\)/);
 });

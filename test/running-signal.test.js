@@ -12,16 +12,21 @@ const apps = require('../src/apps');
 const processModule = require('../src/process');
 const cats = require('../src/yard/cats');
 
-const main = fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
+
+const main = mainHandlerSource();
 const fn = (name) => main.match(new RegExp(`^function ${name}\\([^\\n]*\\) \\{\\n.*?^\\}`, 'ms'))[0];
 
 function profileIsRunning() {
-  const context = vm.createContext({
+  const sandbox = {
     path, apps, windows: {}, process: { platform: 'darwin' },
     ...processModule,
     pathsEqual: require('../src/core/paths').native.samePath,
     usesWindowsOfficialDefault: () => false
-  });
+  };
+  // Code moved out of main.js reads Main's services as main.<name>.
+  sandbox.main = sandbox;
+  const context = vm.createContext(sandbox);
   vm.runInContext(fn('profileIsRunning'), context);
   return context.profileIsRunning;
 }

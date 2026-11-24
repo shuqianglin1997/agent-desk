@@ -39,7 +39,7 @@ test('Windows 路径迁移在异步复制后重新读取最新账号并做局部
   );
 
   const copyIndex = migration.indexOf('await fs.promises.cp');
-  const reloadIndex = migration.indexOf('const latest = loadProfiles()');
+  const reloadIndex = migration.search(/const latest = (?:main\.)?loadProfiles\(\)/);
   const updateIndex = migration.indexOf('updateStoredProfile(id');
   assert.ok(copyIndex >= 0);
   assert.ok(reloadIndex > copyIndex);
