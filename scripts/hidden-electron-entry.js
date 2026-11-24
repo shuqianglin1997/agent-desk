@@ -19,7 +19,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = electron;
 
 const ROOT = path.resolve(__dirname, '..');
 const startedAt = Date.now();
-const record = { stubbed: [], blockedProcesses: [], scans: [], clipboard: [], startupReadyAt: null };
+const record = { stubbed: [], blockedProcesses: [], scans: [], clipboard: [], startupReadyAt: null, syncOnRefresh: { total: 0, byCaller: {} } };
 const task = process.env.AGENTDESK_HIDDEN_TASK || '';
 const output = process.env.AGENTDESK_HIDDEN_OUTPUT || '';
 // Without a task the caller may kill this process at any time, so every stub
@@ -88,6 +88,37 @@ for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync']) {
   };
 }
 
+// Synchronous file and process calls that AgentDesk code makes on this (the
+// main) thread while serving the renderer's refresh path: the 8-second
+// activity poll and the session list it reloads. Counted per call site; the
+// scan worker is another thread and is not counted here.
+const { AsyncLocalStorage } = require('node:async_hooks');
+const refreshContext = new AsyncLocalStorage();
+const REFRESH_CHANNELS = new Set(['activity:all', 'sessions:list', 'remoteInventory:listSessions']);
+function countSyncCall(name) {
+  if (refreshContext.getStore() !== true) return;
+  const line = new Error().stack.split('\n').slice(3).find((frame) => frame.includes(`${path.sep}src${path.sep}`));
+  const site = line && line.match(/(src[\\/][^:()]+):(\d+)/);
+  if (!site) return;
+  const key = `${name} ${site[1].split(path.sep).join('/')}:${site[2]}`;
+  record.syncOnRefresh.total += 1;
+  record.syncOnRefresh.byCaller[key] = (record.syncOnRefresh.byCaller[key] || 0) + 1;
+}
+for (const name of Object.keys(fs).filter((key) => key.endsWith('Sync') && typeof fs[key] === 'function')) {
+  const original = fs[name];
+  fs[name] = Object.assign(function watchedSync(...args) {
+    countSyncCall(name);
+    return original.apply(this, args);
+  }, original);
+}
+for (const name of ['execSync', 'execFileSync', 'spawnSync']) {
+  const original = childProcess[name];
+  childProcess[name] = Object.assign(function watchedSync(...args) {
+    countSyncCall(name);
+    return original.apply(this, args);
+  }, original);
+}
+
 // Channels that start official clients or their CLIs. The renderer still gets
 // a well-formed refusal, so the surrounding UI paths keep running.
 const STUBS = {
@@ -103,7 +134,7 @@ const STUBS = {
 const originalHandle = ipcMain.handle.bind(ipcMain);
 ipcMain.handle = (channel, listener) => originalHandle(channel, STUBS[channel]
   ? (...args) => { note('stubbed', { channel }); return STUBS[channel](...args); }
-  : listener);
+  : (REFRESH_CHANNELS.has(channel) ? (...args) => refreshContext.run(true, () => listener(...args)) : listener));
 
 // Count scanner calls per profile (a full scan = every profile scanned once).
 const apps = require(path.join(ROOT, 'src/apps.js'));
@@ -214,6 +245,20 @@ async function runProbe(window) {
     }
     return out;
   })()`);
+  // One more refresh round once everything has loaded: the activity poll and
+  // the session list for every account, as the renderer repeats them.
+  const before = { total: record.syncOnRefresh.total, byCaller: { ...record.syncOnRefresh.byCaller } };
+  await evaluate(window, `(async () => {
+    const m = window.manager;
+    await m.listActivity();
+    for (const profile of state.profiles) { try { await m.listSessions(profile); } catch (_error) { /* counted by the shapes */ } }
+  })()`);
+  record.syncOnRefreshSteady = {
+    total: record.syncOnRefresh.total - before.total,
+    byCaller: Object.fromEntries(Object.entries(record.syncOnRefresh.byCaller)
+      .map(([key, count]) => [key, count - (before.byCaller[key] || 0)])
+      .filter(([, count]) => count > 0))
+  };
   const profileCount = await evaluate(window, 'state.profiles.length');
   // Optional extra renderer expression for a phase check (hidden-check --eval).
   const extra = process.env.AGENTDESK_HIDDEN_EVAL ? await evaluate(window, process.env.AGENTDESK_HIDDEN_EVAL) : undefined;

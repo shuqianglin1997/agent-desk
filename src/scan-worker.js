@@ -12,7 +12,7 @@
 const { parentPort } = require('node:worker_threads');
 const apps = require('./apps');
 const { registryScan } = require('./session-index');
-const { probeRawActivities, packRawActivity } = require('./activity');
+const { probeRawActivities, packRawActivity } = require('./activity-files');
 
 const scan = registryScan(apps);
 

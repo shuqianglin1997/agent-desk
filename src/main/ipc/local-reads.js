@@ -3,8 +3,10 @@
 // Caller passes the trusted main-window registrar; this module never imports raw Electron IPC.
 function registerLocalReadIpc({ ipcMain, loadProfiles, listSessions, boundedText, revealSessionFile, exportSessionTranscript, listSessionDirectories, openSessionDirectory, probeActivities, sessionMarksFreshContext = () => null, snapshotProcesses, profileIsRunning, quotaService, getVersion }) {
   // Main re-resolves the profile by id; rows come from the session index.
+  // loadProfiles() here may return a promise: the profile list the refresh
+  // path keeps, re-read only when profiles.json changed.
   ipcMain.handle('sessions:list', async (_event, input = {}) => {
-    const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
+    const profile = (await loadProfiles()).find((item) => item.id === boundedText(input.profileId, 128));
     if (!profile) return [];
     return listSessions(profile);
   });
@@ -21,7 +23,7 @@ function registerLocalReadIpc({ ipcMain, loadProfiles, listSessions, boundedText
   ipcMain.handle('sessions:open-directory', (_event, input = {}) => openSessionDirectory(input));
 
   ipcMain.handle('activity:all', async () => {
-    const profiles = loadProfiles();
+    const profiles = await loadProfiles();
     // 进程快照采一次（全应用共用、不阻塞主线程），供所有账号匹配；null 表示探测不可用（上层退回按活跃度）
     const psText = await snapshotProcesses();
     // 带上本机的“看过”记号，探测才能算出哪些会话有新回复（只给条数和会话键，不给正文）。
@@ -32,7 +34,7 @@ function registerLocalReadIpc({ ipcMain, loadProfiles, listSessions, boundedText
   });
 
   ipcMain.handle('quota:all', async (_event, options = {}) => {
-    return quotaService.getAll(loadProfiles(), {
+    return quotaService.getAll(await loadProfiles(), {
       force: options.force === true,
       clientVersion: getVersion()
     });

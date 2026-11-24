@@ -7,7 +7,9 @@
 // temp HOME (no window shown, no client started, no network), then
 //   - compares the shapes of the main read IPC payloads with
 //     test/fixtures/characterisation/ipc-shapes.json (`--update` rewrites it),
-//   - reports how many full session scans start-up performed.
+//   - reports how many full session scans start-up performed, where scans
+//     ran, and the synchronous file/process calls the main thread made while
+//     serving the refresh path.
 //
 //   node scripts/hidden-check.js [--update] [--keep] [--eval '<renderer expression>']
 // --eval adds the JSON value of one renderer expression to the report, for a
@@ -91,6 +93,10 @@ async function main() {
       scanPlaces: result.scans.reduce((places, scan) => ({ ...places, [scan.where || 'here']: (places[scan.where || 'here'] || 0) + 1 }), {}),
       stubbed: [...new Set(result.stubbed.map((item) => item.channel || item.api))],
       clipboardWrites: result.clipboard.length,
+      // Synchronous file/process calls on the main thread while serving the refresh path (activity, session list).
+      syncOnRefresh: result.syncOnRefresh,
+      // The same, for one more refresh round after everything has loaded.
+      syncOnRefreshSteady: result.syncOnRefreshSteady,
       seriousLogLines: serious
     };
     let shapesMatch = null;

@@ -66,6 +66,12 @@ test('timing harness runs on light data in its own process with a temp home and 
   assert.equal(report.sessionsListPerProfile.length, 10);
   assert.ok(report.mainThreadBlock.meshModeAllSessionsMs >= 0);
   assert.ok(report.activityProbe.warm.stats > 0);
+  // Phase 4: the refreshes the way Main makes them, through the index and the worker.
+  assert.equal(report.mainThreadNow.usesWorker, true);
+  assert.equal(report.mainThreadNow.scanPlaces.here, 0, 'index refreshes scan on the worker');
+  assert.ok(report.mainThreadNow.indexRefreshAllCold.longestBlockMs >= 0);
+  assert.equal(report.mainThreadNow.remainingSyncScan.perProfile.length, 10);
+  assert.ok(report.mainThreadBlock.longestBlockViaWorkerMs >= 0);
   const after = fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith('agentdesk-arch-bench-')).length;
   assert.ok(after <= before, 'the temp data is removed');
 });

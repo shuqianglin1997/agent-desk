@@ -9,7 +9,7 @@ const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'),
 
 test('额度 IPC 与 8 秒 activity 探测分离，并支持手动 force', () => {
   assert.match(main, /ipcMain\.handle\('quota:all'/);
-  assert.match(main, /quotaService\.getAll\(loadProfiles\(\), \{/);
+  assert.match(main, /quotaService\.getAll\(await loadProfiles\(\), \{/);
   assert.match(main, /force: options\.force === true/);
   assert.match(main, /clientVersion: getVersion\(\)/);
   assert.match(preload, /listQuotas: \(options = \{\}\) => ipcRenderer\.invoke\('quota:all', options\)/);

@@ -161,7 +161,9 @@ const {
   normalizeConfirmedJoinInput,
   normalizePairingDecisionInput
 } = require('./main/ipc/pairing-approvals');
-const { resolveProfileStore } = require('./main/profile-store-policy');
+const { resolveProfileStore, createProfileSnapshot } = require('./main/profile-store-policy');
+// The renderer's refresh path reads profiles.json again only when it changed.
+const profileSnapshot = createProfileSnapshot({ file: () => profilesFile(), load: () => loadProfiles() });
 const { readProfileFile } = require('./core/profile-file');
 const { writeFileAtomicAsync } = require('./core/json-file');
 // This machine's path rules (src/core/paths.js), under the names used below.
@@ -1651,7 +1653,7 @@ function registerIpc() {
   });
 
   registerLocalReadIpc({
-    ipcMain, loadProfiles, listSessions: (profile) => sessionIndex.rows(profile), boundedText, revealSessionFile, exportSessionTranscript,
+    ipcMain, loadProfiles: () => profileSnapshot.profiles(), listSessions: (profile) => sessionIndex.rows(profile), boundedText, revealSessionFile, exportSessionTranscript,
     listSessionDirectories, openSessionDirectory,
     probeActivities, sessionMarksFreshContext,
     snapshotProcesses: async () => processText(await processSnapshots.records({ maxAgeMs: 1000 })),

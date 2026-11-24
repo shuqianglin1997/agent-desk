@@ -258,15 +258,25 @@ const SYNC_NAMES = (() => {
   return names;
 })();
 
-// Modules the renderer's refresh path runs through (activity poll, list
-// refresh, overview counts).
+// Modules whose code runs on the main thread for the renderer's refresh path
+// (activity poll, list refresh, overview counts). Since architecture phase 4
+// the scans and the activity probe's file work run on the scan worker
+// (SCAN_WORKER_PATH below), so their synchronous calls no longer block Main.
+// A static count cannot tell which functions of a module run on the refresh
+// path; scripts/hidden-check.js measures that at run time (syncOnRefresh).
 const REFRESH_PATH = [
-  'src/main/ipc/local-reads.js', 'src/activity.js', 'src/clients/scan.js', 'src/clients/claude/sessions.js',
+  'src/main/ipc/local-reads.js', 'src/activity.js', 'src/session-index.js', 'src/scan-host.js', 'src/process-snapshots.js',
+  'src/process.js', 'src/identity.js', 'src/session-marks.js', 'src/apps.js', 'src/mesh/main/mesh-service.js'
+];
+
+// Modules the scan worker (src/scan-worker.js) runs: session scans and the
+// activity probe's file work.
+const SCAN_WORKER_PATH = [
+  'src/scan-worker.js', 'src/activity-files.js', 'src/clients/scan.js', 'src/clients/file-memo.js', 'src/clients/claude/sessions.js',
   'src/clients/claude-cli/sessions.js', 'src/clients/codex/sessions.js', 'src/clients/codex/rollout.js', 'src/clients/kimi/sessions.js',
   'src/clients/cli-scan.js', 'src/clients/opencode/sessions.js', 'src/clients/gemini-cli/sessions.js',
   'src/clients/qwen-code/sessions.js', 'src/clients/dsh-cli/sessions.js', 'src/clients/sqlite.js',
-  'src/clients/cursor/sessions.js', 'src/clients/kimi-work/sessions.js', 'src/process.js', 'src/identity.js',
-  'src/session-marks.js', 'src/apps.js', 'src/mesh/main/mesh-service.js'
+  'src/clients/cursor/sessions.js', 'src/clients/kimi-work/sessions.js'
 ];
 
 function syncCalls(code) {
@@ -418,7 +428,7 @@ function collect(root = ROOT) {
   const clientComparisons = { total: 0, files: {} };
   const perClientTables = [];
   const ipc = { total: 0, files: {} };
-  const sync = { mainProcessTotal: 0, mainProcessFiles: 0, refreshPathTotal: 0, refreshPath: {} };
+  const sync = { mainProcessTotal: 0, mainProcessFiles: 0, refreshPathTotal: 0, refreshPath: {}, scanWorkerTotal: 0, scanWorker: {} };
   const findSessionById = [];
   const pathHelpers = [];
   for (const file of sources) {
@@ -447,6 +457,7 @@ function collect(root = ROOT) {
       sync.mainProcessTotal += calls;
       if (calls) sync.mainProcessFiles++;
       if (REFRESH_PATH.includes(file)) { sync.refreshPathTotal += calls; sync.refreshPath[file] = calls; }
+      if (SCAN_WORKER_PATH.includes(file)) { sync.scanWorkerTotal += calls; sync.scanWorker[file] = calls; }
     }
     const lineOf = lineIndex(code);
     const seenFns = new Set();
@@ -455,7 +466,10 @@ function collect(root = ROOT) {
       if (!fn || seenFns.has(fn.bodyStart)) continue;
       // Only a lookup that runs on what the scan returned counts.
       const after = code.slice(m.index, fn.end);
-      if (/\.(?:find|filter|get)\(/.test(after) && /\.(?:id|address)\b|\bsessionId\(/.test(after)) {
+      // A row callback that compares the row's id or address, or a Map keyed by it.
+      const byId = /\.(?:find|filter)\(\s*\(?\s*(\w+)\s*\)?\s*=>[^;]*?(?:\b\1\.(?:id|address)\b|\bsessionId\(\s*\1\s*\))/.test(after)
+        || (/\.get\(/.test(after) && /\.(?:set|map)\(/.test(after) && /\b\w+\.(?:id|address)\b/.test(after));
+      if (byId) {
         seenFns.add(fn.bodyStart);
         findSessionById.push({ file, function: fn.name, line: lineOf(m.index) });
       }
@@ -469,6 +483,8 @@ function collect(root = ROOT) {
       }
     }
   }
+  const sharedLookup = fs.existsSync(path.join(root, 'src/session-index.js')) && /\bfunction findSession\(/.test(fs.readFileSync(path.join(root, 'src/session-index.js'), 'utf8'))
+    ? 'src/session-index.js findSession' : null;
   const real = functionsAll.filter((fn) => !fn.moduleWrapper);
   const longest = [...real].sort((a, b) => b.lines - a.lines).map(({ moduleWrapper, ...fn }) => fn);
   const lineCount = (file) => fs.existsSync(path.join(root, file)) ? countLines(fs.readFileSync(path.join(root, file), 'utf8')) : 0;
@@ -491,7 +507,9 @@ function collect(root = ROOT) {
     ipcHandleLiterals: { total: ipc.total, mainJs: ipc.files['src/main.js'] || 0, files: ipc.files },
     clientNameComparisonsOutsideApps: clientComparisons,
     perClientTablesOutsideApps: perClientTables,
-    findSessionByIdAfterRescan: { count: findSessionById.length, sites: findSessionById },
+    // The shared lookup (src/session-index.js findSession) counts as one implementation; every
+    // other site that scans and then compares ids itself is another.
+    findSessionByIdAfterRescan: { count: findSessionById.length + (sharedLookup ? 1 : 0), shared: sharedLookup, sites: findSessionById },
     pathEqualityOrContainmentHelpers: { count: pathHelpers.length, sites: pathHelpers },
     syncCalls: sync,
     css: cssMetrics(root),
@@ -516,7 +534,7 @@ if (require.main === module) {
       longestFunction: result.functions.longest[0], functionsOver150: result.functions.over150Lines,
       ipcInMainJs: result.ipcHandleLiterals.mainJs, clientComparisons: result.clientNameComparisonsOutsideApps.total,
       findSessionById: result.findSessionByIdAfterRescan.count, pathHelpers: result.pathEqualityOrContainmentHelpers.count,
-      syncRefreshPath: result.syncCalls.refreshPathTotal, syncMainProcess: result.syncCalls.mainProcessTotal,
+      syncRefreshPath: result.syncCalls.refreshPathTotal, syncScanWorker: result.syncCalls.scanWorkerTotal, syncMainProcess: result.syncCalls.mainProcessTotal,
       cssDuplicateSelectors: result.css.selectorsInMoreThanOneSheet, cssImportant: result.css.important,
       cssMultiFileProperties: result.css.customPropertiesInMoreThanOneSheet, textOnlyTestFiles: result.tests.textOnlyFiles,
       textComparisonOnlyTestFiles: result.tests.textOnlyFiles - result.tests.textOnlyButRunExtractedSource.length

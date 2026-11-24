@@ -12,7 +12,15 @@ function resolveProfileStore(options = {}) {
   const primaryExists = typeof options.exists === 'function'
     ? options.exists(primaryFile)
     : true;
-  const loaded = primaryExists ? candidates.map(options.read).find(Boolean) : null;
+  // Read in order and stop at the first usable file: a backup is read only
+  // when the files before it are unusable.
+  let loaded = null;
+  if (primaryExists) {
+    for (const candidate of candidates) {
+      loaded = options.read(candidate) || null;
+      if (loaded) break;
+    }
+  }
   if (!loaded && primaryExists) {
     // Present but unreadable (half-written, locked, damaged) and no usable
     // backup: show nothing this time, but never replace the file with an
@@ -48,4 +56,37 @@ function resolveProfileStore(options = {}) {
   return normalized;
 }
 
-module.exports = { resolveProfileStore };
+/*
+ * The profile list for the renderer's refresh path (the 8-second activity
+ * poll and the session list it reloads). Re-reading the store synchronously
+ * every few seconds is file work on the main thread, so this keeps the last
+ * list and checks the file asynchronously: only a changed file (device,
+ * inode, size or modification time) is loaded again, through the same
+ * load() everything else uses. Without a file to check, every call loads.
+ * Callers get copies of the profiles.
+ */
+function createProfileSnapshot(options = {}) {
+  const file = options.file;
+  const load = options.load;
+  const stat = options.stat || ((filePath) => require('node:fs').promises.stat(filePath));
+  let last = null;
+  const copies = (profiles) => profiles.map((profile) => (profile && typeof profile === 'object' ? { ...profile } : profile));
+  return {
+    async profiles() {
+      let stamp = null;
+      try {
+        const current = await stat(file());
+        stamp = `${current.dev}:${current.ino}:${current.size}:${current.mtimeMs}`;
+      } catch (_error) {
+        stamp = null;
+      }
+      if (stamp && last && last.stamp === stamp) return copies(last.profiles);
+      const profiles = load();
+      last = stamp ? { stamp, profiles: copies(profiles) } : null;
+      return copies(profiles);
+    },
+    forget() { last = null; }
+  };
+}
+
+module.exports = { resolveProfileStore, createProfileSnapshot };

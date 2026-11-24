@@ -2,11 +2,16 @@
 
 // Timing harness for docs/ARCHITECTURE_PLAN.md (the measuring stick for
 // phases 4–6). Generates synthetic data in a temp directory, points HOME at
-// an empty temp home before any scanner loads, then times the Main-process
-// work that the renderer's refresh paths trigger. Every call measured here is
-// synchronous, so its duration is the time the Electron main thread would be
-// blocked. Warm timings are the median of five repeats on this machine; the OS page cache is
-// warm because the files were just written.
+// an empty temp home before any scanner loads, then times the work that the
+// renderer's refresh paths trigger. Two kinds of numbers:
+//  - the direct synchronous calls (scan, probe, ps): their duration is the
+//    work itself, wherever it runs;
+//  - `mainThreadNow` (phase 4 on): the same refreshes the way Main does them
+//    now, through the session index and the scan worker, with the longest
+//    stretch the main thread's event loop could not turn (`longestBlockMs`),
+//    plus the synchronous scans Main still makes.
+// Warm timings are the median of five repeats on this machine; the OS page
+// cache is warm because the files were just written.
 //
 //   node scripts/arch-bench.js            full: 10 accounts × 500 sessions
 //   node scripts/arch-bench.js --light    20 sessions per account, tiny files
@@ -54,7 +59,93 @@ function measureRepeated(operation, times) {
   return { ...median, minMs: sorted[0].ms, maxMs: sorted[sorted.length - 1].ms, samples: times };
 }
 
-function run(options = {}) {
+// Runs an async operation while a setImmediate ticker watches the main
+// thread: the longest gap between two turns is the longest block.
+async function longestBlock(operation) {
+  const { performance } = require('node:perf_hooks');
+  let last = performance.now();
+  let longest = 0;
+  let running = true;
+  const tick = () => {
+    const at = performance.now();
+    if (at - last > longest) longest = at - last;
+    last = at;
+    if (running) setImmediate(tick);
+  };
+  const start = performance.now();
+  setImmediate(tick);
+  let value;
+  try { value = await operation(); } finally { running = false; }
+  const end = performance.now();
+  if (end - last > longest) longest = end - last;
+  return { totalMs: +(end - start).toFixed(2), longestBlockMs: +longest.toFixed(2), value };
+}
+
+async function longestBlockRepeated(operation, times) {
+  const samples = [];
+  for (let index = 0; index < times; index += 1) samples.push(await longestBlock(operation));
+  const sorted = [...samples].sort((a, b) => a.longestBlockMs - b.longestBlockMs);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  return { totalMs: median.totalMs, longestBlockMs: median.longestBlockMs, maxLongestBlockMs: sorted[sorted.length - 1].longestBlockMs, samples: times };
+}
+
+// The refresh paths as Main runs them now (src/main.js): the session index
+// over the scan worker, the activity probe's file work on the worker, the
+// shared asynchronous process list, and the one synchronous scan left.
+async function mainThreadNow(fixture, repeats) {
+  const apps = require(path.join(ROOT, 'src/apps'));
+  const memo = require(path.join(ROOT, 'src/clients/file-memo'));
+  const { createSessionIndex, registryScan } = require(path.join(ROOT, 'src/session-index'));
+  const { probeRawActivities, finishActivities } = require(path.join(ROOT, 'src/activity'));
+  const { createScanHost } = require(path.join(ROOT, 'src/scan-host'));
+  const { collectProcessRecords, processText } = require(path.join(ROOT, 'src/process'));
+  const places = { worker: 0, here: 0 };
+  const host = createScanHost({
+    inProcess: { scan: registryScan(apps), activityRaw: probeRawActivities },
+    onScan: (_profile, where) => { places[where] += 1; }
+  });
+  try {
+    const index = createSessionIndex({ scan: (profile) => host.scan(profile), scanSync: registryScan(apps) });
+    const refresh = () => index.refresh(fixture.profiles, { maxAgeMs: 0 });
+    const strip = ({ value, ...rest }) => rest;
+    // The worker has its own memo: its first refresh reads every file.
+    const refreshCold = strip(await longestBlock(refresh));
+    const refreshWarm = await longestBlockRepeated(refresh, repeats);
+    const activity = await longestBlockRepeated(async () => finishActivities(
+      fixture.profiles, await host.activityRaw(fixture.profiles, Date.now(), 0), null
+    ), repeats);
+    const processList = await longestBlockRepeated(async () => processText(await collectProcessRecords()), repeats);
+    // The hub's end-of-run lookup still scans one profile here (findSync,
+    // maxAgeMs -1). Main's memo is cold the first time for each profile.
+    const syncScans = fixture.profiles.map((profile) => {
+      memo.clear();
+      const cold = measure(() => index.rowsSync(profile, { maxAgeMs: -1 }));
+      const warm = measureRepeated(() => index.rowsSync(profile, { maxAgeMs: -1 }), repeats);
+      return { id: profile.id, appId: profile.appId, coldMs: cold.ms, warmMs: warm.ms };
+    });
+    const worstSync = syncScans.reduce((a, b) => (b.coldMs > a.coldMs ? b : a));
+    return {
+      usesWorker: host.usesWorker(),
+      scanPlaces: { ...places },
+      indexRefreshAllCold: refreshCold,
+      indexRefreshAllWarm: refreshWarm,
+      activityProbeViaWorker: activity,
+      processListAsync: processList,
+      remainingSyncScan: {
+        where: 'hub end-of-run lookup (src/main.js hubLocateSession): one profile, findSync maxAgeMs -1',
+        perProfile: syncScans,
+        worstColdMs: worstSync.coldMs,
+        worstColdProfile: worstSync.id,
+        worstWarmMs: Math.max(...syncScans.map((item) => item.warmMs))
+      },
+      longestBlockMs: Math.max(refreshCold.longestBlockMs, refreshWarm.maxLongestBlockMs, activity.maxLongestBlockMs, processList.maxLongestBlockMs)
+    };
+  } finally {
+    await host.close();
+  }
+}
+
+async function run(options = {}) {
   const repeats = options.repeats || (options.light ? 1 : 5);
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-arch-bench-'));
   const home = path.join(base, 'home');
@@ -95,6 +186,7 @@ function run(options = {}) {
     const ps = measureRepeated(() => snapshotProcesses(), repeats);
     const strip = ({ value, ...rest }) => rest;
     const largestProfile = perProfile.reduce((a, b) => (b.warmMs > a.warmMs ? b : a));
+    const viaIndex = await mainThreadNow(fixture, repeats);
     return {
       schemaVersion: 1,
       recordedAt: new Date().toISOString(),
@@ -105,7 +197,7 @@ function run(options = {}) {
         clients: fixture.profiles.map((profile) => profile.appId), bytesOnDisk: fixture.bytes, internalChildren: fixture.internalChildren, generateMs
       },
       repeats,
-      note: 'Warm values are the median of the repeats (min/max alongside); page cache warm; every measured call is synchronous on the Electron main thread. Timings vary with machine load.',
+      note: 'Warm values are the median of the repeats (min/max alongside); page cache warm. The direct calls are synchronous wherever they run; mainThreadNow measures the refreshes the way Main makes them now (index + scan worker), longestBlockMs being the longest stretch the main event loop could not turn. Timings vary with machine load.',
       sessionsListPerProfile: perProfile,
       sessionsAllRefresh: { ...strip(allRefresh), rows: allRefresh.value.reduce((sum, rows) => sum + rows.length, 0) },
       overviewSessionCounts: strip(counts),
@@ -116,8 +208,11 @@ function run(options = {}) {
         largestSingleProfileListMs: largestProfile.warmMs,
         largestSingleProfileList: largestProfile.id,
         meshModeAllSessionsMs: allRefresh.ms,
-        activityTickMs: activityWarm.ms + ps.ms
-      }
+        activityTickMs: activityWarm.ms + ps.ms,
+        longestBlockViaWorkerMs: viaIndex.longestBlockMs,
+        remainingSyncScanColdMs: viaIndex.remainingSyncScan.worstColdMs
+      },
+      mainThreadNow: viaIndex
     };
   } finally {
     process.env.HOME = previousHome;
@@ -130,9 +225,13 @@ module.exports = { run };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
-  const result = run({ light: args.includes('--light') });
-  if (args.includes('--write')) {
-    fs.writeFileSync(path.join(ROOT, 'docs/validation/architecture-baseline.json'), JSON.stringify(result, null, 2) + '\n');
-  }
-  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  run({ light: args.includes('--light') }).then((result) => {
+    if (args.includes('--write')) {
+      fs.writeFileSync(path.join(ROOT, 'docs/validation/architecture-baseline.json'), JSON.stringify(result, null, 2) + '\n');
+    }
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  }, (error) => {
+    process.stderr.write(`${error && error.stack || error}\n`);
+    process.exitCode = 1;
+  });
 }

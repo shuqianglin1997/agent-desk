@@ -110,7 +110,7 @@ src/
     service.js            可信来源解析、Git 检查点、附件、导入草稿和本地历史
 
   main/
-    profile-store-policy.js 缺失 Profile 存储保持真实空目录
+    profile-store-policy.js 缺失 Profile 存储保持真实空目录；按顺序读主文件与备份，读到能用的就停；界面刷新（8 秒活动、会话清单）用的账号清单先异步看一眼文件，没变就不再读
     window-lamp.js        关灯/关窗通知窗口并等它回话，按硬上限继续；记下这扇窗是不是第一次出现
     ipc/
       first-agent-onboarding.js 首个 Agent 的本机离线事务
@@ -181,7 +181,8 @@ src/
 
   identity.js             登录指纹：各家账号 ID 在哪由适配器的 accountId 读取（clients/<id>/identity.js），这里只取哈希
   identity-groups.js      同一身份的跨客户端归组
-  activity.js             活动聚合
+  activity.js             活动聚合：把活动探测的结果变成窗口看到的样子（哪些回复是这台机器上次看过以后的新回复），在主进程里
+  activity-files.js       活动探测的文件工作（遍历、stat、有界读取），在工作线程里跑；主进程只在工作线程用不了时自己跑
   quota.js                额度展示纯函数
   quota-service.js        并发、缓存和失败降级；怎么查、为什么查不了由适配器的 quota 声明
 
@@ -556,7 +557,7 @@ npm run build:mac:dir
 
 - `renderer/tool-center.js` 拥有工具库存、进度及渲染；主 Renderer 注入窄 manager 和当前 Profile 查询，不复制工作台状态。
 - `main/ipc/local-reads.js` 通过 Main 的 trusted registrar 注册会话、活动和额度读取，保留来源验证与本机 Profile 重查。
-- `activity.js` 每轮按适配器与 realpath 去重扫描；Codex 使用 `sessions.codexRecordIdentity` 的有界、按文件版本缓存的首行身份。`fileCount` 保留物理诊断含义，`sessionCount` 和活动计数按用户根去重，内部分支不贡献活动，最新归档根不计此刻活跃。
+- `activity-files.js` 每轮按适配器与 realpath 去重扫描；Codex 使用 `sessions.codexRecordIdentity` 的有界、按文件版本缓存的首行身份。`fileCount` 保留物理诊断含义，`sessionCount` 和活动计数按用户根去重，内部分支不贡献活动，最新归档根不计此刻活跃。
 - `identity-groups.mergeActivity` 按设备与不可逆 sourceKey 去重活动计数。sourceKey 是来源目录标识，不用于账号身份合并；无来源证据的记录保持独立。
 - 额度卡片、总览和当前账号详情共用可信源、新鲜度与同绑定冲突判断；公司 API 没有订阅额度时显示未知。
 - `workspace.css` 独占上下文菜单样式；剩余 legacy 组件未经过全状态迁移，不整文件删除。旧账本/提醒设置仅保留读取迁移，活动轮询不再写账本。
