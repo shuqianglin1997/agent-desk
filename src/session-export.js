@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { crc32 } = require('node:zlib');
 const { setImmediate: yieldToMain } = require('node:timers/promises');
+const codexRollout = require('./clients/codex/rollout');
 
 const MAX_SESSION_EXPORT_BYTES = 128 * 1024 * 1024;
 const MAX_ATTACHMENT_BYTES = 32 * 1024 * 1024;
@@ -109,7 +110,7 @@ function addInlineAttachments(profile, session, add) {
     let entry;
     try { entry = JSON.parse(line); } catch (_error) { continue; }
     let message;
-    if (profile.appId === 'codex' && entry?.type === 'response_item' && entry.payload?.type === 'message') message = entry.payload;
+    if (profile.appId === 'codex') message = codexRollout.responseMessageOf(entry);
     else if (profile.appId === 'claude-cli' && ['user', 'assistant'].includes(entry?.type)) message = entry.message;
     else if (kimi && entry?.type === 'context.append_message') message = entry.message;
     if (!['user', 'assistant'].includes(message?.role) || !Array.isArray(message.content)) continue;

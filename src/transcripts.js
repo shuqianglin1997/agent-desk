@@ -12,6 +12,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { readJson } = require('./core/json-file');
+const codexRollout = require('./clients/codex/rollout');
 
 function readJsonSafe(filePath) {
   return readJson(filePath);
@@ -104,24 +105,7 @@ function renderTurns(turns, assistantLabel = 'Kimi') {
 function codexTranscriptMarkdown(filePath) {
   const stat = fs.statSync(filePath);
   if (!stat.isFile() || stat.size > 64 * 1024 * 1024) throw new Error('codex-transcript-unavailable');
-  const uiEvents = [];
-  const responseItems = [];
-  for (const line of fs.readFileSync(filePath, 'utf8').split('\n')) {
-    let entry;
-    try { entry = JSON.parse(line); } catch (_error) { continue; }
-    const payload = entry?.payload;
-    if (entry?.type === 'event_msg' && typeof payload?.message === 'string') {
-      if (payload.type === 'user_message') uiEvents.push({ kind: 'user', text: payload.message });
-      if (payload.type === 'agent_message') uiEvents.push({ kind: 'assistant', text: payload.message });
-    } else if (entry?.type === 'response_item' && payload?.type === 'message' && ['user', 'assistant'].includes(payload.role)) {
-      const parts = Array.isArray(payload.content) ? payload.content : [];
-      const kind = payload.role === 'user' ? 'input_text' : 'output_text';
-      const text = parts.filter((item) => item?.type === kind && typeof item.text === 'string')
-        .map((item) => item.text).join('\n');
-      if (text.trim()) responseItems.push({ kind: payload.role, text });
-    }
-  }
-  return renderTurns(uiEvents.length ? uiEvents : responseItems, 'Codex').join('\n\n');
+  return renderTurns(codexRollout.conversationTurns(fs.readFileSync(filePath, 'utf8')), 'Codex').join('\n\n');
 }
 
 function kimiTranscriptMarkdown(stateJsonPath, opts = {}) {

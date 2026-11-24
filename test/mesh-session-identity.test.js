@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { scanCodex } = require('../src/sessions');
-const { classifyCodexSessionMeta } = require('../src/mesh/domain/session-identity');
+const { classifyCodexSessionMeta } = require('../src/clients/codex/rollout');
 
 function mkTmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-mesh-session-'));

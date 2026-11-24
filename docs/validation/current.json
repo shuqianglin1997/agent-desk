@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T17:38:04.385Z",
-  "baseCommit": "67c182a448a985e75cbb1645081276db9bc5fbdf",
+  "recordedAt": "2026-11-24T17:42:29.898Z",
+  "baseCommit": "a992aa83abad2387358b671230616ca6d467c6b2",
   "uncommitted": true,
-  "sourceSha256": "ff3efb7e2fd8581e7db470ffb14978cf563314ddbf43effea8ef3a3a99a5994b",
+  "sourceSha256": "9f155145bec1ac131cf6d576752128d5c621e87340168f463f4e725648260d87",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 874,
+      "pass": 872,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 3 batch 2 (one Codex rollout reader); digest identical before and after the run",
+      "recordedAt": "2026-11-24T17:42:29.898Z",
+      "sourceSha256": "9f155145bec1ac131cf6d576752128d5c621e87340168f463f4e725648260d87"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T17:42:29.898Z",
+      "sourceSha256": "9f155145bec1ac131cf6d576752128d5c621e87340168f463f4e725648260d87"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

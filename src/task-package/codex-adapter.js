@@ -4,7 +4,7 @@ const paths = require('../core/paths');
 const crypto = require('node:crypto');
 const readline = require('node:readline');
 const { Transform } = require('node:stream');
-const { classifyCodexSessionMeta } = require('../mesh/domain/session-identity');
+const codexRollout = require('../clients/codex/rollout');
 const { extractTaskPackageEntry } = require('./format');
 
 const CODEX_TASK_ADAPTER_ID = 'codex-rollout-jsonl';
@@ -308,12 +308,10 @@ async function validateCodexJsonl(filePath) {
     stream.destroy();
   }
   if (!first || !count) throw new Error('task-package-session-jsonl-empty');
-  if (first.type !== 'session_meta' || !first.payload || typeof first.payload !== 'object' || Array.isArray(first.payload)) {
-    throw new Error('task-package-session-meta-invalid');
-  }
-  const payload = first.payload || {};
+  const payload = codexRollout.sessionMetaOf(first);
+  if (!payload) throw new Error('task-package-session-meta-invalid');
   const fallback = uuidFromFilename(filePath) || path.basename(filePath, '.jsonl');
-  return classifyCodexSessionMeta(payload, fallback);
+  return codexRollout.classifyCodexSessionMeta(payload, fallback);
 }
 
 function createJsonlLineLimiter() {
@@ -368,30 +366,10 @@ function findCodexConversationRecords(sessionRoot, conversationId) {
   return result;
 }
 
+// The first line may be far longer than 64 KB; the shared reader reads on until
+// it ends (the scanner uses the same reader).
 function readCodexIdentity(filePath) {
-  let fd;
-  try {
-    fd = fs.openSync(filePath, 'r');
-    const buffer = Buffer.alloc(64 * 1024);
-    const bytes = fs.readSync(fd, buffer, 0, buffer.length, 0);
-    const line = buffer.subarray(0, bytes).toString('utf8').split(/\r?\n/, 1)[0];
-    if (!line) return null;
-    const first = JSON.parse(line);
-    if (
-      !first
-      || typeof first !== 'object'
-      || Array.isArray(first)
-      || first.type !== 'session_meta'
-      || !first.payload
-      || typeof first.payload !== 'object'
-      || Array.isArray(first.payload)
-    ) return null;
-    return classifyCodexSessionMeta(first.payload || {}, uuidFromFilename(filePath) || path.basename(filePath, '.jsonl'));
-  } catch (_error) {
-    return null;
-  } finally {
-    if (fd !== undefined) try { fs.closeSync(fd); } catch (_error) { /* best effort */ }
-  }
+  return codexRollout.readIdentity(filePath, uuidFromFilename(filePath) || path.basename(filePath, '.jsonl'));
 }
 
 function walkJsonl(root) {

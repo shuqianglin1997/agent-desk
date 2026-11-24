@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 3 阶段第 2 批：Codex 的 rollout 记录只有一个读取者 `src/clients/codex/rollout.js`。它负责“一行是什么意思”：session_meta 分类（用户根会话或内部子分支，原 `src/mesh/domain/session-identity.js` 整个并入后删除）、首行逐段读到行尾（最多 8MB）、用户与助手消息（事件流或响应项）、附件要用的原始消息、token_count 里的额度；各读者读多少照旧。会话扫描、导出正文与附件、调度中枢的最终回答、缓存额度、任务包都改为调用它。新增 `test/codex-rollout-readers.test.js` 3 项：导出正文、调度回答、缓存额度三项在改动前后一致；第三项在改动前失败——任务包原来自己只读首行前 64KB，首行更长的内部子记录（session_meta 带长指令时很常见）会被悄悄漏掉，现在和扫描器一样读到行尾，任务包会带上它。这是本批唯一的行为变化，只影响任务包捕获与导入时的冲突检查。
+
 2026-11-24 架构整理第 3 阶段第 1 批：每个客户端一个适配器目录。`src/apps.js` 里十个客户端的登记条目逐字搬进 `src/clients/<id>/index.js`（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor），几个适配器共用、不点名任何客户端的小工具放进 `src/clients/shared.js`，Claude Code 读的环境变量清单放进 `src/clients/claude-cli/environment.js`（Claude 桌面版启动时也用它清掉这些变量）。`src/apps.js` 只按原来的顺序收集适配器，保留与具体客户端无关的通用函数和原有导出。逐项比对：客户端顺序、每个条目的每个字段（函数按去掉空白后的源码）、给界面的 `listApps()` 和全部导出与改动前完全相同。指标脚本改为从适配器目录读客户端名，适配器目录与 `apps.js` 里的判断不计入“适配器之外”；分层表把 `src/clients/` 归入 clients 层。新增 `test/client-adapters.test.js` 2 项，`test/architecture-tools.test.js` 加 1 项。
 
 2026-11-24 架构整理第 2 阶段收尾：`docs/ARCHITECTURE_PLAN.md` 第 9.1 节记下第 2 阶段（八批，`d41f814` 到 `d46b27f`），第 8 节更新实测数字（路径判断 12 → 1，`main.js` 里的接口 110 → 105，`main.js` 5126 行，`renderer.js` 9773 行；10 × 500 合成数据上一次“全部”刷新中位约 831 毫秒，与上一阶段同一量级），`docs/validation/architecture-metrics.json` 重新记下。不显示窗口的检查：`node scripts/ui-acceptance.js --hidden` 24 条路径通过；`node scripts/hidden-check.js` 读接口形状只有两处有意的变化（`settings:get` 少了五个退休字段，`activity:all` 多了 `truncated`），已更新 `test/fixtures/characterisation/ipc-shapes.json`，启动时 4 次完整扫描，没有严重控制台错误；分层检查 0 处违规。没有验证可见窗口、真实账号与客户端、Windows。

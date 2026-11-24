@@ -11,6 +11,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const codexRollout = require('./clients/codex/rollout');
 const { normalizeCodexRateLimits, quotaUnavailable } = require('./quota');
 
 const RPC_TIMEOUT_MS = 30_000;
@@ -436,17 +437,11 @@ function newestCodexRollouts(sessionRoot, options = {}) {
 
 function rateLimitsFromRollout(filePath) {
   const lines = readFileTail(filePath).split(/\r?\n/);
+  // The first/last line can be partial because only the file tail is read;
+  // parseLine gives null for it.
   for (let index = lines.length - 1; index >= 0; index -= 1) {
-    try {
-      const value = JSON.parse(lines[index]);
-      const payload = value && value.payload;
-      const rateLimits = payload && (payload.rate_limits || payload.rateLimits);
-      if (payload?.type === 'token_count' && rateLimits && typeof rateLimits === 'object') {
-        return { rateLimits, observedAt: value.timestamp || value.ts || null };
-      }
-    } catch (_error) {
-      // The first/last line can be partial because only the file tail is read.
-    }
+    const found = codexRollout.rateLimitsOf(codexRollout.parseLine(lines[index]));
+    if (found) return found;
   }
   return null;
 }

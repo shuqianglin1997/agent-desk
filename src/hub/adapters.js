@@ -14,6 +14,7 @@
  */
 
 const fs = require('node:fs');
+const codexRollout = require('../clients/codex/rollout');
 
 const MAX_ANSWER_CHARS = 200_000;
 const MAX_LINE_BYTES = 8 * 1024 * 1024;
@@ -146,22 +147,7 @@ const codex = Object.freeze({
   },
   // The final answer from the client's own record: the last agent message.
   lastAnswerFromRecord(filePath) {
-    let fromEvents = null;
-    let fromItems = null;
-    for (const line of readRecordLines(filePath)) {
-      let entry;
-      try { entry = JSON.parse(line); } catch (_error) { continue; }
-      const payload = entry?.payload;
-      if (entry?.type === 'event_msg' && payload?.type === 'agent_message' && typeof payload.message === 'string') {
-        fromEvents = payload.message;
-      } else if (entry?.type === 'response_item' && payload?.type === 'message' && payload.role === 'assistant') {
-        const text = (Array.isArray(payload.content) ? payload.content : [])
-          .filter((part) => part?.type === 'output_text' && typeof part.text === 'string')
-          .map((part) => part.text).join('\n');
-        if (text.trim()) fromItems = text;
-      }
-    }
-    const answer = fromEvents ?? fromItems;
+    const answer = codexRollout.lastAssistantText(readRecordLines(filePath));
     return answer === null ? null : bounded(answer);
   }
 });

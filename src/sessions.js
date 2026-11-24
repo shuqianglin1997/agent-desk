@@ -10,7 +10,7 @@ const fs = require('node:fs');
 const coreJson = require('./core/json-file');
 const os = require('node:os');
 const path = require('node:path');
-const { classifyCodexSessionMeta } = require('./mesh/domain/session-identity');
+const codexRollout = require('./clients/codex/rollout');
 
 // 按「最后活跃」新→旧排序（updatedAt 优先，退回 createdAt）。就地排序返回同一数组。
 function sortByRecency(records) {
@@ -75,10 +75,10 @@ function codexRecordIdentity(filePath, stat = safeStat(filePath)) {
   const revision = stat && `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
   const cached = codexIdentityCache.get(filePath);
   if (revision && cached?.revision === revision) return cached.value;
-  const first = readFirstJsonLine(filePath);
+  const first = codexRollout.readFirstLine(filePath);
   const value = {
     first,
-    identity: classifyCodexSessionMeta(first?.payload || {}, uuidFromFilename(filePath) || path.basename(filePath, '.jsonl'))
+    identity: codexRollout.classifyCodexSessionMeta(first?.payload || {}, uuidFromFilename(filePath) || path.basename(filePath, '.jsonl'))
   };
   if (codexIdentityCache.size >= 12000) codexIdentityCache.clear();
   if (revision) codexIdentityCache.set(filePath, { revision, value });
@@ -669,38 +669,6 @@ function walkFiles(root, predicate, report = null) {
 
 function readJson(filePath) {
   return coreJson.readJson(filePath);
-}
-
-// The first line of a Codex rollout (session_meta) can be far longer than one
-// read when it embeds instructions. Read on in 64 KB steps until the line ends,
-// up to a fixed bound, and always close the file.
-const FIRST_LINE_STEP = 64 * 1024;
-const FIRST_LINE_LIMIT = 8 * 1024 * 1024;
-function readFirstJsonLine(filePath) {
-  let fd = null;
-  try {
-    fd = fs.openSync(filePath, 'r');
-    const chunks = [];
-    let total = 0;
-    while (total < FIRST_LINE_LIMIT) {
-      const buffer = Buffer.alloc(FIRST_LINE_STEP);
-      const bytes = fs.readSync(fd, buffer, 0, buffer.length, total);
-      if (bytes <= 0) break;
-      const chunk = buffer.subarray(0, bytes);
-      const newline = chunk.indexOf(0x0a);
-      chunks.push(newline < 0 ? chunk : chunk.subarray(0, newline));
-      total += bytes;
-      if (newline >= 0) break;
-    }
-    const first = Buffer.concat(chunks).toString('utf8').replace(/\r$/, '');
-    return first ? JSON.parse(first) : null;
-  } catch (_error) {
-    return null;
-  } finally {
-    if (fd !== null) {
-      try { fs.closeSync(fd); } catch (_error) { /* already closed */ }
-    }
-  }
 }
 
 function safeStat(filePath) {
