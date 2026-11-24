@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T20:16:02.504Z",
-  "baseCommit": "398f652a40446da7c281279490a06e5237d9c738",
+  "recordedAt": "2026-11-24T20:18:35.298Z",
+  "baseCommit": "dba076645e44c81a98d839d2c15792339aa8bb34",
   "uncommitted": true,
-  "sourceSha256": "4c36ab5dbe794e710e9c7e7457f9ef4c53e0a379d7c74512777f73510219846c",
+  "sourceSha256": "04718e7ea8628c719bb9eda2b610783d07422e10cffb2c5302183dcc8317a961",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 924,
+      "pass": 922,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 5 batch 14 (Mesh wiring out of main.js); digest identical before and after the run",
+      "recordedAt": "2026-11-24T20:18:35.298Z",
+      "sourceSha256": "04718e7ea8628c719bb9eda2b610783d07422e10cffb2c5302183dcc8317a961"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T20:18:35.298Z",
+      "sourceSha256": "04718e7ea8628c719bb9eda2b610783d07422e10cffb2c5302183dcc8317a961"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

@@ -37,11 +37,11 @@ const TABLE = [
     'src/cli-discovery.js', 'src/tool-maintenance.js', 'src/hub/adapters.js',
     'src/profile-home.js', 'src/mesh/main/provisioning-adapters.js', 'src/mac-application-activator.js']],
   ['services', ['src/activity.js', 'src/process-snapshots.js', 'src/session-index.js', 'src/scan-host.js', 'src/scan-worker.js', 'src/activity-files.js', 'src/quota-service.js', 'src/profile-runtime.js', 'src/session-marks.js', 'src/updater.js',
-    'src/hub/', 'src/main/agent-hub.js', 'src/main/owner.js', 'src/main/updates.js', 'src/main/tools.js', 'src/main/profile-launch.js', 'src/main/stores.js', 'src/task-package/service.js', 'src/mesh/main/', 'src/mesh/storage/', 'src/mesh/network/',
+    'src/hub/', 'src/main/agent-hub.js', 'src/main/owner.js', 'src/main/updates.js', 'src/main/tools.js', 'src/main/profile-launch.js', 'src/main/stores.js', 'src/main/mesh-wiring.js', 'src/task-package/service.js', 'src/mesh/main/', 'src/mesh/storage/', 'src/mesh/network/',
     'src/mesh/platform/', 'src/terminal-launcher.js']],
   ['core', ['src/core/', 'src/json-store.js', 'src/path-utils.js', 'src/windows.js', 'src/settings.js', 'src/quota.js', 'src/session-table.js',
     'src/session-location.js', 'src/identity-groups.js', 'src/onboarding-state.js', 'src/yard/', 'src/mesh/domain/',
-    'src/mesh/protocol/', 'src/main/profile-store-policy.js', 'src/i18n/main-i18n.js', 'src/process.js', 'src/mac-launch.js',
+    'src/mesh/protocol/', 'src/main/profile-store-policy.js', 'src/main/network-enrollment.js', 'src/i18n/main-i18n.js', 'src/process.js', 'src/mac-launch.js',
     'src/task-package/format.js']]
 ];
 

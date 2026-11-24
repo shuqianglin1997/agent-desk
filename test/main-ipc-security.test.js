@@ -14,7 +14,7 @@ const { PathSelectionRegistry } = require('../src/main/ipc/path-selections');
 const {
   derivedNetworkEnrollment,
   shouldDeferSecureMeshStartup
-} = require('../src/main/ipc/network-enrollment');
+} = require('../src/main/network-enrollment');
 const {
   normalizeFirstAgentInput,
   initializeFirstAgent

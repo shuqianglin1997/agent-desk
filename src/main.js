@@ -41,6 +41,7 @@ function mainContext() {
     get BrowserWindow() { return BrowserWindow; },
     get HubError() { return HubError; },
     get InterfaceError() { return InterfaceError; },
+    get WebContentsView() { return WebContentsView; },
     get accountResult() { return accountResult; },
     get actionRowsOf() { return actionRowsOf; },
     get agentActionService() { return agentActionService; }, set agentActionService(value) { agentActionService = value; },
@@ -61,10 +62,12 @@ function mainContext() {
     get createLocalAccount() { return createLocalAccount; },
     get createStoredProfile() { return createStoredProfile; },
     get credentialContext() { return credentialContext; },
+    get currentLang() { return currentLang; },
     get defaultCatForClient() { return defaultCatForClient; },
     get defaultProfilePath() { return defaultProfilePath; },
     get defaultSessionRoot() { return defaultSessionRoot; },
     get deferSecureMeshStartup() { return deferSecureMeshStartup; }, set deferSecureMeshStartup(value) { deferSecureMeshStartup = value; },
+    get desktopCapturer() { return desktopCapturer; },
     get deviceDiagnostics() { return deviceDiagnostics; },
     get diagnoseProfile() { return diagnoseProfile; },
     get dialog() { return dialog; },
@@ -85,6 +88,7 @@ function mainContext() {
     get getRemoteControlService() { return getRemoteControlService; },
     get getTaskPackageService() { return getTaskPackageService; },
     get getTransferService() { return getTransferService; },
+    get globalShortcut() { return globalShortcut; },
     get hubCommand() { return hubCommand; },
     get hubPublicState() { return hubPublicState; },
     get identityFingerprint() { return identityFingerprint; },
@@ -110,6 +114,7 @@ function mainContext() {
     get meshCall() { return meshCall; },
     get meshNetworkEnrollmentEnabled() { return meshNetworkEnrollmentEnabled; },
     get meshReachabilityEnabled() { return meshReachabilityEnabled; }, set meshReachabilityEnabled(value) { meshReachabilityEnabled = value; },
+    get meshService() { return meshService; }, set meshService(value) { meshService = value; },
     get migrateWindowsProfilePath() { return migrateWindowsProfilePath; },
     get net() { return net; },
     get normalizeCat() { return normalizeCat; },
@@ -130,6 +135,8 @@ function mainContext() {
     get openSessionDirectory() { return openSessionDirectory; },
     get pairingApprovalRegistry() { return pairingApprovalRegistry; },
     get pairingEndpoint() { return pairingEndpoint; }, set pairingEndpoint(value) { pairingEndpoint = value; },
+    get pairingEndpointExpiresAt() { return pairingEndpointExpiresAt; }, set pairingEndpointExpiresAt(value) { pairingEndpointExpiresAt = value; },
+    get pairingEndpointTimer() { return pairingEndpointTimer; }, set pairingEndpointTimer(value) { pairingEndpointTimer = value; },
     get pathSelectionRegistry() { return pathSelectionRegistry; },
     get pathsEqual() { return pathsEqual; },
     get peerManager() { return peerManager; }, set peerManager(value) { peerManager = value; },
@@ -140,6 +147,7 @@ function mainContext() {
     get profileRuntimeSupervisor() { return profileRuntimeSupervisor; }, set profileRuntimeSupervisor(value) { profileRuntimeSupervisor = value; },
     get profilesFile() { return profilesFile; },
     get provisioningAdapterDescriptor() { return provisioningAdapterDescriptor; },
+    get provisioningService() { return provisioningService; }, set provisioningService(value) { provisioningService = value; },
     get publicNetworkRuntime() { return publicNetworkRuntime; },
     get publicProvisioningResult() { return publicProvisioningResult; },
     get quotaService() { return quotaService; },
@@ -150,14 +158,17 @@ function mainContext() {
     get registerExistingProfileFromCli() { return registerExistingProfileFromCli; },
     get registerLocations() { return registerLocations; },
     get remoteControlService() { return remoteControlService; }, set remoteControlService(value) { remoteControlService = value; },
+    get remoteInputAdapter() { return remoteInputAdapter; }, set remoteInputAdapter(value) { remoteInputAdapter = value; },
     get removeStoredProfileRegistration() { return removeStoredProfileRegistration; },
     get resolveKnownProfilePath() { return resolveKnownProfilePath; },
     get revealPath() { return revealPath; },
     get revealSessionFile() { return revealSessionFile; },
     get runPowerShell() { return runPowerShell; },
     get runWebRtcProbe() { return runWebRtcProbe; },
+    get safeStorage() { return safeStorage; },
     get saveProfiles() { return saveProfiles; },
     get scanMaintenanceTools() { return scanMaintenanceTools; },
+    get screen() { return screen; },
     get secureMeshAccessUnlocked() { return secureMeshAccessUnlocked; }, set secureMeshAccessUnlocked(value) { secureMeshAccessUnlocked = value; },
     get sessionIndex() { return sessionIndex; },
     get sessionMarksFreshContext() { return sessionMarksFreshContext; },
@@ -166,14 +177,19 @@ function mainContext() {
     get setMeshNetworkEnrollmentEnabled() { return setMeshNetworkEnrollmentEnabled; },
     get setMeshReachability() { return setMeshReachability; },
     get shell() { return shell; },
+    get showMainWindow() { return showMainWindow; },
+    get signalingClient() { return signalingClient; }, set signalingClient(value) { signalingClient = value; },
     get snapshotConfigurationForUpdate() { return snapshotConfigurationForUpdate; },
     get snapshotProcessText() { return snapshotProcessText; },
     get spawnDetached() { return spawnDetached; },
     get stopMeshJobServices() { return stopMeshJobServices; },
     get stopSignalingClient() { return stopSignalingClient; },
     get syncWindowControlTheme() { return syncWindowControlTheme; },
+    get systemPreferences() { return systemPreferences; },
     get t() { return t; },
+    get taskPackageService() { return taskPackageService; }, set taskPackageService(value) { taskPackageService = value; },
     get taskPackageSuggestedName() { return taskPackageSuggestedName; },
+    get transferService() { return transferService; }, set transferService(value) { transferService = value; },
     get updateMaintenanceTool() { return updateMaintenanceTool; },
     get updateSettings() { return updateSettings; },
     get updateStoredProfile() { return updateStoredProfile; },
@@ -198,6 +214,8 @@ const { loadProfiles, saveProfiles, updateStoredProfile, loadSettings, saveSetti
 require('./main/stores').bind(mainContext());
 const { hubInterfaceError, hubStoreFile, hubCatNames, hubEnergy, hubLocateSession, rememberHubLink, linkHubSessions, notifyHubChanged, getAgentHub, hubCommand, hubClientSupport, hubAccounts, hubPublicState, setHubAccess, runCliProfileAction, notifyProfileRegistrations } = require('./main/hub-wiring');
 require('./main/hub-wiring').bind(mainContext());
+const { detectSecureMeshStartupDeferral, markSecureMeshAccessUnlocked, setMeshReachability, forgetSignalingClient, stopSignalingClient, stopMeshJobServices, getMeshService, getProvisioningService, publicProvisioningResult, getPeerManager, getAgentActionService, confirmRemoteAgentPreparation, requestPairingClaimApproval, getSignalingClient, ensureSignalingOnline, sendPeerSignalWithFallback, getTransferService, getTaskPackageService, getRemoteControlService, getRemoteInputAdapter, emitTransferChange, emitTaskPackageChange, emitAgentActionChange, emitRemoteControlChange, emitRemoteControlReturn, registerRemoteEmergencyStop, emitPeerState, publicIceServers, publicNetworkRuntime, configuredSignalingUrls, meshNetworkEnrollmentEnabled, setMeshNetworkEnrollmentEnabled, withMeshRuntime, deviceDiagnostics, permissionState, localScreenPermission, isLoopbackService, meshCall, catalogMeshCall, openPairingEndpoint, schedulePairingEndpointClose, closePairingEndpoint, boundedTaskCheckpoint, taskPackageSuggestedName } = require('./main/mesh-wiring');
+require('./main/mesh-wiring').bind(mainContext());
 // moved modules:end
 const { createSessionIndex, registryScan, findSession } = require('./session-index');
 const { probeRawActivities, finishActivities } = require('./activity');
@@ -321,7 +339,7 @@ const accountCredentials = require('./account-credentials');
 const {
   derivedNetworkEnrollment,
   shouldDeferSecureMeshStartup
-} = require('./main/ipc/network-enrollment');
+} = require('./main/network-enrollment');
 const { initializeFirstAgent } = require('./main/ipc/first-agent-onboarding');
 const {
   normalizeTaskPackageSendInput,
@@ -377,25 +395,6 @@ const MAIN_DOCUMENT_URL = pathToFileURL(MAIN_DOCUMENT_PATH).href;
 let deferSecureMeshStartup = false;
 let secureMeshAccessUnlocked = false;
 
-function detectSecureMeshStartupDeferral() {
-  if (process.platform !== 'darwin' || !app.isPackaged) return false;
-  const result = spawnSync('/usr/bin/codesign', [
-    '--display',
-    '--verbose=4',
-    process.execPath
-  ], {
-    encoding: 'utf8',
-    timeout: 3000,
-    maxBuffer: 256 * 1024,
-    windowsHide: true
-  });
-  if (result.error || result.status !== 0) return false;
-  return shouldDeferSecureMeshStartup({
-    platform: process.platform,
-    isPackaged: app.isPackaged,
-    signatureText: `${result.stdout || ''}\n${result.stderr || ''}`
-  });
-}
 let mainWindow = null;
 let meshService = null;
 let provisioningService = null;
@@ -410,31 +409,6 @@ let pairingEndpoint = null;
 let pairingEndpointTimer = null;
 let meshReachabilityEnabled = false;
 let pairingEndpointExpiresAt = null;
-// The Mesh runtime state the device commands change (src/commands/devices.js),
-// each change named here so the commands never assign Main's variables.
-function markSecureMeshAccessUnlocked() {
-  const newlyUnlocked = !secureMeshAccessUnlocked;
-  secureMeshAccessUnlocked = true;
-  return newlyUnlocked;
-}
-function setMeshReachability(enabled) {
-  meshReachabilityEnabled = enabled === true;
-}
-function forgetSignalingClient() {
-  signalingClient = null;
-}
-async function stopSignalingClient(reason) {
-  await signalingClient?.stop(reason);
-  signalingClient = null;
-}
-function stopMeshJobServices(reason) {
-  provisioningService?.stop();
-  provisioningService = null;
-  agentActionService?.stop(reason);
-  agentActionService = null;
-  transferService?.stop();
-  transferService = null;
-}
 let profileRuntimeSupervisor = null;
 let profileQuitInProgress = false;
 let profileQuitApproved = false;
@@ -750,694 +724,8 @@ const locationRegistrar = createLocationRegistrar({
 });
 const registerLocations = (inputs) => locationRegistrar.registerLocations(inputs);
 
-function getMeshService() {
-  if (meshService) return meshService;
-  const userData = app.getPath('userData');
-  const keyVault = new EncryptedKeyVault(
-    path.join(userData, 'mesh-keys.json'),
-    {
-      isAvailable: () => safeStorage.isEncryptionAvailable(),
-      encryptString: (value) => safeStorage.encryptString(value),
-      decryptString: (value) => safeStorage.decryptString(value)
-    }
-  );
-  meshService = new MeshService({
-    databasePath: path.join(userData, 'mesh.db'),
-    keyVault,
-    profilesProvider: () => loadProfiles().map((profile) => {
-      const launchPlan = apps.profileLaunchPlan(profile, {
-        useOfficialDefault: usesWindowsOfficialDefault(profile)
-      });
-      return {
-        ...profile,
-        identityFingerprint: identityFingerprint(profile),
-        launchable: launchPlan.ok
-      };
-    }),
-    // The index's rows; a profile it has never scanned is scanned once here.
-    sessionCountProvider: (profile) => sessionIndex.rowsSync(profile).length,
-    sessionsProvider: (profile) => sessionIndex.rowsSync(profile),
-    appVersion: app.getVersion(),
-    platform: process.platform,
-    arch: process.arch,
-    osVersion: os.release(),
-    hostname: os.hostname(),
-    endpointProvider: () => pairingEndpoint?.endpoints() || [],
-    signalingProvider: () => configuredSignalingUrls(),
-    pairingTransport: async (invite, request, identity) => {
-      const failures = [];
-      if (Array.isArray(invite?.endpoints) && invite.endpoints.length) {
-        try {
-          return await claimPairing(invite, request, { timeoutMs: 3 * 60_000 });
-        } catch (error) {
-          failures.push(boundedText(error?.message || error, 160));
-        }
-      }
-      if (Array.isArray(invite?.signalUrls) && invite.signalUrls.length) {
-        try {
-          return await claimPairingViaSignaling(invite, request, identity, {
-            allowInsecure: process.env.AGENTDESK_ALLOW_INSECURE_SIGNALING === '1',
-            timeoutMs: 3 * 60_000
-          });
-        } catch (error) {
-          failures.push(boundedText(error?.message || error, 160));
-        }
-      }
-      throw new Error(failures[0] || 'pairing-route-unavailable');
-    },
-    onDeviceRevoked: (deviceId) => {
-      transferService?.handleDeviceRevoked(deviceId);
-      agentActionService?.handlePeerState({
-        deviceId,
-        state: 'disconnected',
-        reason: 'device-revoked'
-      });
-      void remoteControlService?.stopDevice(deviceId, 'device-revoked');
-      void peerManager?.disconnect(deviceId, 'device-revoked');
-    }
-  });
-  return meshService;
-}
-
-function getProvisioningService() {
-  if (provisioningService) return provisioningService;
-  provisioningService = new ProvisioningService({
-    meshService: getMeshService(),
-    platform: process.platform,
-    adapterProvider: (appId, descriptor) => ({
-      async inspect(profile) {
-        if (apps.getApp(appId).noLaunch === true) {
-          return { supported: false, installed: false, reasonCode: 'client-form-unsupported' };
-        }
-        const launchPlan = apps.profileLaunchPlan(profile);
-        if (!launchPlan.ok) {
-          return {
-            supported: false,
-            installed: false,
-            reasonCode: launchPlan.reasonCode
-          };
-        }
-        const executable = findExecutable(profile);
-        return { supported: true, installed: executable.found === true };
-      },
-      async prepare(profile) {
-        prepareManagedProfileHome(profile);
-        return { ok: true };
-      },
-      async observeIdentity(profile) {
-        return identityFingerprint(profile);
-      },
-      async launch(profile) {
-        return launchProfile(profile);
-      },
-      async openInstall() {
-        const tool = toolMaintenance.catalogTool(descriptor.toolId);
-        if (!tool?.officialUrl) throw new Error('official-install-page-unavailable');
-        return openMaintenanceOfficialPage(tool);
-      }
-    }),
-    profileRepository: {
-      build({ job, agent, descriptor }) {
-        const id = job.stagingProfileId;
-        const profilePath = makeIsolatedProfilePath(descriptor.appId, 'employee', id);
-        return normalizeProfile({
-          id,
-          appId: descriptor.appId,
-          name: agent.displayName,
-          profilePath,
-          sessionRoot: defaultSessionRoot(descriptor.appId, profilePath, false),
-          profilePathMode: 'managed',
-          sessionRootMode: 'managed',
-          isProtected: false,
-          createdAt: job.createdAt,
-          lastLaunchedAt: null,
-          group: agent.group,
-          note: agent.note,
-          cat: agent.catAppearance && typeof agent.catAppearance === 'object'
-            ? { ...agent.catAppearance }
-            : defaultCatForClient(descriptor.appId, id),
-          provisioningJobId: job.jobId
-        });
-      },
-      get(profileId) {
-        return loadProfiles().find((profile) => profile.id === profileId) || null;
-      },
-      commit(profile) {
-        const profiles = loadProfiles();
-        const existing = profiles.find((item) => item.id === profile.id);
-        if (existing) {
-          if (
-            existing.appId !== profile.appId
-            || !pathsEqual(existing.profilePath, profile.profilePath)
-            || !pathsEqual(existing.sessionRoot, profile.sessionRoot)
-          ) {
-            throw new Error('provisioning-profile-conflict');
-          }
-          return existing;
-        }
-        prepareManagedProfileHome(profile);
-        profiles.push(normalizeProfile(profile));
-        saveProfiles(profiles);
-        return profiles.at(-1);
-      },
-      markOpened(profileId) {
-        return updateStoredProfile(profileId, (profile) => ({
-          ...profile,
-          lastLaunchedAt: new Date().toISOString()
-        }));
-      }
-    },
-    onChanged(value) {
-      const state = value?.state || value?.job?.state || null;
-      let overview = null;
-      try { overview = withMeshRuntime(getMeshService().getOverview()); } catch (_error) { /* best effort */ }
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('agentDeployments:changed', {
-          jobId: value?.job?.jobId || null,
-          state,
-          overview
-        });
-      }
-      const remoteActionTracked = agentActionService?.handleProvisioningChanged(value) === true;
-      if (state === 'ready' && !remoteActionTracked) {
-        void peerManager?.broadcastCatalog();
-        void peerManager?.broadcastInventory();
-      }
-    }
-  });
-  return provisioningService;
-}
-
-function publicProvisioningResult(result = {}) {
-  return {
-    ...result,
-    ...(result.overview ? { overview: withMeshRuntime(result.overview) } : {})
-  };
-}
-
-function getPeerManager() {
-  if (peerManager) return peerManager;
-  peerManager = new PeerManager({
-    BrowserWindow,
-    ipcMain: electronIpcMain,
-    peerDirectory: path.join(__dirname, 'mesh', 'peer'),
-    // The inventory sent to a peer reads the index; refresh it first.
-    beforeInventorySnapshot: () => sessionIndex.refresh(loadProfiles()).catch(() => null),
-    meshService: getMeshService(),
-    sendSignal: (remote, envelope) => sendPeerSignalWithFallback(remote, envelope),
-    iceServersProvider: () => publicIceServers(),
-    onState: (value) => {
-      emitPeerState(value);
-      agentActionService?.handlePeerState(value);
-      remoteControlService?.handlePeerState(value);
-      if (value?.state === 'authenticated') {
-        void getTransferService().flushDevice(value.deviceId);
-      }
-    },
-    onEnvelope: async (value) => {
-      if (['profile.launch', 'agent.prepare', 'agent.prepare.status'].includes(
-        String(value?.envelope?.messageType || '')
-      )) {
-        return getAgentActionService().handleEnvelope(value);
-      }
-      if (String(value?.envelope?.messageType || '').startsWith('remote.')) {
-        return getRemoteControlService().handleEnvelope(value);
-      }
-      return getTransferService().handleEnvelope(value);
-    }
-  });
-  return peerManager;
-}
-
-function getAgentActionService() {
-  if (agentActionService) return agentActionService;
-  agentActionService = new AgentActionService({
-    meshService: getMeshService(),
-    peerManagerProvider: () => getPeerManager(),
-    provisioningServiceProvider: () => getProvisioningService(),
-    confirmPreparation: confirmRemoteAgentPreparation,
-    onChange: emitAgentActionChange
-  });
-  return agentActionService;
-}
-
-async function confirmRemoteAgentPreparation({ sourceDevice, agent, request }) {
-  showMainWindow();
-  const appName = apps.getApp(request.requestedAppId)?.label || request.requestedAppId;
-  const result = await dialog.showMessageBox(mainWindow, {
-    type: 'question',
-    title: t('main.agentPrepare.title'),
-    message: t('main.agentPrepare.message', {
-      device: sourceDevice.name,
-      agent: agent.displayName
-    }),
-    detail: t('main.agentPrepare.detail', { app: appName }),
-    buttons: [t('main.agentPrepare.allow'), t('main.agentPrepare.decline')],
-    defaultId: 0,
-    cancelId: 1,
-    noLink: true
-  });
-  return result.response === 0;
-}
-
-async function requestPairingClaimApproval(body) {
-  const preview = getMeshService().previewClaimInvite(body);
-  const approved = await pairingApprovalRegistry.request(preview);
-  const fresh = getMeshService().previewClaimInvite(body);
-  if (fresh.requestDigest !== approved.requestDigest) throw new Error('pairing-approval-mismatch');
-  return getMeshService().claimInvite(body);
-}
-
-function getSignalingClient() {
-  let overview = null;
-  try { overview = getMeshService().getOverview(); } catch (_error) { /* uninitialized */ }
-  if (!meshNetworkEnrollmentEnabled(overview)) return null;
-  if (signalingClient) return signalingClient;
-  let serviceUrls = configuredSignalingUrls();
-  if (!serviceUrls.length) {
-    try {
-      serviceUrls = getMeshService().getSignalingContext().local.signalUrls || [];
-    } catch (_error) {
-      serviceUrls = [];
-    }
-  }
-  if (!serviceUrls.length) return null;
-  signalingClient = new SignalingClient({
-    serviceUrls,
-    allowInsecure: process.env.AGENTDESK_ALLOW_INSECURE_SIGNALING === '1' || serviceUrls.every(isLoopbackService),
-    identityProvider: () => getMeshService().getSignalingContext(),
-    onPeerSignal: (envelope) => getPeerManager().receiveSignal(envelope),
-    onPairClaim: (body) => requestPairingClaimApproval(body),
-    onState: () => {
-      if (!mainWindow || mainWindow.isDestroyed()) return;
-      mainWindow.webContents.send('devices:networkState', publicNetworkRuntime());
-    }
-  });
-  return signalingClient;
-}
-
-async function ensureSignalingOnline() {
-  let overview = null;
-  try { overview = getMeshService().getOverview(); } catch (_error) { /* uninitialized */ }
-  if (!meshNetworkEnrollmentEnabled(overview)) return false;
-  const client = getSignalingClient();
-  if (!client) return false;
-  getMeshService().updateLocalSignalUrls(client.serviceUrls);
-  return client.start();
-}
-
-async function sendPeerSignalWithFallback(remote, envelope) {
-  const failures = [];
-  if (Array.isArray(remote?.endpoints) && remote.endpoints.length) {
-    try {
-      const responseEnvelope = await sendPeerSignal(remote.endpoints, envelope, { timeoutMs: 4_000 });
-      return { responseEnvelope, path: 'lan', service: null };
-    } catch (error) {
-      failures.push(boundedText(error?.message || error, 160));
-    }
-  }
-  try {
-    const client = getSignalingClient();
-    if (!client) throw new Error('peer-signaling-service-unavailable');
-    await client.start();
-    return await client.requestPeerSignal(remote, envelope);
-  } catch (error) {
-    failures.push(boundedText(error?.message || error, 160));
-  }
-  throw new Error(failures[0] || 'peer-route-unavailable');
-}
-
-function getTransferService() {
-  if (transferService) return transferService;
-  transferService = new TransferService({
-    databasePath: path.join(app.getPath('userData'), 'mesh.db'),
-    spoolRoot: path.join(app.getPath('userData'), 'mesh-transfer-spool'),
-    meshService: getMeshService(),
-    peerManagerProvider: () => getPeerManager(),
-    taskPackageServiceProvider: () => getTaskPackageService(),
-    onChange: emitTransferChange
-  });
-  return transferService;
-}
-
-function getTaskPackageService() {
-  if (taskPackageService) return taskPackageService;
-  const userData = app.getPath('userData');
-  taskPackageService = new TaskPackageService({
-    profileProvider: () => loadProfiles(),
-    sessionRows: actionRowsOf,
-    meshOverviewProvider: () => {
-      if (meshService) return meshService.getOverview();
-      if (!fs.existsSync(path.join(userData, 'mesh.db'))) return null;
-      try { return getMeshService().getOverview(); } catch (_error) { return null; }
-    },
-    historyFile: path.join(userData, 'task-package-history.json'),
-    stagingRoot: path.join(app.getPath('temp'), 'agentdesk-task-packages'),
-    launchProfile: (profile) => launchProfile(profile),
-    onChange: emitTaskPackageChange
-  });
-  return taskPackageService;
-}
-
-function getRemoteControlService() {
-  if (remoteControlService) return remoteControlService;
-  remoteControlService = new RemoteControlService({
-    BrowserWindow,
-    WebContentsView,
-    ipcMain: electronIpcMain,
-    desktopCapturer,
-    screen,
-    systemPreferences,
-    remoteDirectory: path.join(__dirname, 'remote'),
-    mainWindowProvider: () => mainWindow,
-    meshService: getMeshService(),
-    peerManagerProvider: () => getPeerManager(),
-    iceServersProvider: () => publicIceServers(),
-    languageProvider: () => currentLang(),
-    inputAdapter: getRemoteInputAdapter(),
-    onChange: emitRemoteControlChange,
-    onReturnToWorkspace: emitRemoteControlReturn
-  });
-  return remoteControlService;
-}
-
-function getRemoteInputAdapter() {
-  if (remoteInputAdapter) return remoteInputAdapter;
-  remoteInputAdapter = new RemoteInputAdapter({
-    platform: process.platform,
-    screen,
-    systemPreferences,
-    helperPath: defaultInputHelperPath({
-      platform: process.platform,
-      isPackaged: app.isPackaged,
-      resourcesPath: process.resourcesPath,
-      appPath: app.getAppPath()
-    })
-  });
-  return remoteInputAdapter;
-}
-
-function emitTransferChange(transfers) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send('transfers:changed', Array.isArray(transfers) ? transfers : []);
-}
-
-function emitTaskPackageChange(history) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send('taskPackages:changed', Array.isArray(history) ? history : []);
-}
-
-function emitAgentActionChange(value = {}) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send('agentActions:changed', {
-    requestId: boundedText(value.requestId, 128),
-    deviceId: boundedText(value.deviceId, 128),
-    agentId: boundedText(value.agentId, 128),
-    requestedAppId: boundedText(value.requestedAppId, 80),
-    requestedClientForm: boundedText(value.requestedClientForm, 80),
-    state: boundedText(value.state, 80),
-    ok: value.ok === true,
-    launched: value.launched === true,
-    settled: value.settled === true,
-    reasonCode: boundedText(value.reasonCode, 160),
-    job: value.job || null,
-    slot: value.slot || null,
-    overview: withMeshRuntime(getMeshService().getOverview())
-  });
-}
-
-function emitRemoteControlChange(sessions) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send('remoteControl:changed', Array.isArray(sessions) ? sessions : []);
-}
-
-function emitRemoteControlReturn(value = {}) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send('remoteControl:returnToWorkspace', {
-    activeSessionId: boundedText(value.activeSessionId, 128),
-    sessions: Array.isArray(value.sessions) ? value.sessions : []
-  });
-}
-
-function registerRemoteEmergencyStop() {
-  try {
-    globalShortcut.register('CommandOrControl+Shift+Escape', () => {
-      void remoteControlService?.stopAll('emergency-stop');
-    });
-  } catch (_error) {
-    // Shortcut availability is surfaced by the remote console; startup must continue.
-  }
-}
-
-function emitPeerState(value) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send('devices:connectionState', {
-    connectionId: boundedText(value?.connectionId, 128),
-    deviceId: boundedText(value?.deviceId, 128),
-    deviceName: boundedText(value?.deviceName, 80),
-    state: boundedText(value?.state, 80),
-    authenticated: value?.authenticated === true,
-    reason: boundedText(value?.reason, 160),
-    transport: value?.transport || null
-  });
-}
-
-function publicIceServers() {
-  const current = loadSettings();
-  const settingsIce = (current.meshStunUrls || []).length
-    ? [{ urls: current.meshStunUrls }]
-    : [];
-  return mergeIceServers(staticIceServers(process.env), settingsIce, signalingClient?.iceServers() || []);
-}
-
-function publicNetworkRuntime() {
-  const configuredServices = configuredSignalingUrls();
-  const signaling = signalingClient?.publicStatus() || {
-    configured: configuredServices.length > 0,
-    state: configuredServices.length ? 'offline' : 'disabled',
-    serviceCount: configuredServices.length,
-    onlineServiceCount: 0,
-    services: configuredServices.map((value) => ({
-      service: publicServiceName(value),
-      state: 'offline',
-      leaseExpiresAt: null,
-      lastConnectedAt: null,
-      lastError: null
-    })),
-    lastError: null,
-    turnCredentials: 'unavailable',
-    turnCredentialSource: null,
-    turnCredentialExpiresAt: null
-  };
-  const dynamic = signalingClient?.publicStatus() || {};
-  return {
-    signaling,
-    ice: publicIceDiagnostics(publicIceServers(), {
-      source: dynamic.turnCredentialSource,
-      expiresAt: dynamic.turnCredentialExpiresAt
-    })
-  };
-}
-
-function configuredSignalingUrls() {
-  const stored = loadSettings().meshSignalingUrls || [];
-  return normalizeServiceUrls([...signalingUrlsFromEnv(), ...stored], {
-    allowInsecure: process.env.AGENTDESK_ALLOW_INSECURE_SIGNALING === '1'
-  });
-}
-
-function meshNetworkEnrollmentEnabled(overview = null) {
-  const current = loadSettings();
-  return derivedNetworkEnrollment({
-    storedValue: current.meshNetworkEnrollmentEnabled,
-    overview,
-    configuredSignalingUrls: configuredSignalingUrls()
-  });
-}
-
-function setMeshNetworkEnrollmentEnabled(enabled) {
-  updateSettings({ meshNetworkEnrollmentEnabled: enabled === true });
-}
-
-function withMeshRuntime(overview) {
-  if (!overview || typeof overview !== 'object') return overview;
-  return {
-    ...overview,
-    reachability: {
-      active: Boolean(pairingEndpoint),
-      userEnabled: meshReachabilityEnabled,
-      networkEnrollmentEnabled: meshNetworkEnrollmentEnabled(overview),
-      endpointCount: pairingEndpoint?.endpoints().length || 0,
-      expiresAt: pairingEndpointExpiresAt,
-      ...publicNetworkRuntime()
-    },
-    connections: peerManager?.listConnections() || []
-  };
-}
-
-function deviceDiagnostics(deviceId) {
-  const overview = withMeshRuntime(getMeshService().getOverview());
-  if (!overview?.initialized) throw new Error('mesh-not-initialized');
-  const device = overview.devices.find((item) => item.deviceId === deviceId);
-  if (!device) throw new Error('device-not-found');
-  const connection = (overview.connections || []).find((item) => item.deviceId === device.deviceId) || null;
-  const transport = connection?.transport || null;
-  const input = device.isLocal ? getRemoteInputAdapter().status() : null;
-  return {
-    checkedAt: new Date().toISOString(),
-    device: {
-      deviceId: device.deviceId.slice(0, 12),
-      name: device.name,
-      platform: device.platform,
-      arch: device.arch,
-      appVersion: device.appVersion,
-      protocolVersion: device.protocolVersion,
-      status: device.status,
-      fingerprint: device.fingerprint,
-      inventoryRevision: device.inventoryRevision
-    },
-    signaling: overview.reachability.signaling,
-    ice: overview.reachability.ice,
-    connection: {
-      authenticated: connection?.authenticated === true,
-      signalingPath: connection?.signalingPath || 'none',
-      signalingService: connection?.signalingService || null,
-      networkPath: connection?.networkPath || 'none',
-      candidateTypes: Array.isArray(transport?.candidateTypes) ? transport.candidateTypes : [],
-      protocols: Array.isArray(transport?.protocols) ? transport.protocols : [],
-      selectedPairState: transport?.selectedPairState || 'none'
-    },
-    permissions: {
-      screen: device.isLocal ? localScreenPermission() : permissionState(device.permissions, 'screen.view'),
-      input: device.isLocal ? (input?.permission || 'unknown') : permissionState(device.permissions, 'input.control'),
-      file: permissionState(device.permissions, 'file.receive'),
-      sessionPointer: permissionState(device.permissions, 'session.pointer.receive'),
-      taskPackage: permissionState(device.permissions, 'task.package.receive')
-    },
-    localEndpoint: {
-      active: Boolean(pairingEndpoint),
-      endpointCount: pairingEndpoint?.endpoints().length || 0,
-      expiresAt: pairingEndpointExpiresAt
-    }
-  };
-}
-
-function permissionState(permissions, capability) {
-  return Array.isArray(permissions) && permissions.includes(capability) ? 'allowed' : 'not-allowed';
-}
-
-function localScreenPermission() {
-  if (process.platform !== 'darwin') return process.platform === 'win32' ? 'available' : 'unsupported';
-  try {
-    return systemPreferences.getMediaAccessStatus('screen') || 'unknown';
-  } catch (_error) {
-    return 'unknown';
-  }
-}
-
-function isLoopbackService(value) {
-  try {
-    return ['localhost', '127.0.0.1', '::1'].includes(new URL(value).hostname);
-  } catch (_error) {
-    return false;
-  }
-}
-
-function meshCall(callback, resultKey = 'overview') {
-  try {
-    const value = callback();
-    return { ok: true, [resultKey]: resultKey === 'overview' ? withMeshRuntime(value) : value };
-  } catch (error) {
-    return {
-      ok: false,
-      reasonCode: boundedText(error?.message || 'mesh-operation-failed', 160)
-    };
-  }
-}
-
-function catalogMeshCall(callback) {
-  const result = meshCall(callback);
-  if (result.ok) {
-    void peerManager?.broadcastCatalog();
-    void peerManager?.broadcastInventory();
-  }
-  return result;
-}
-
-async function openPairingEndpoint(options = {}) {
-  const ttlMs = Math.max(30_000, Math.min(Number(options.ttlMs) || 10 * 60_000, 30 * 60_000));
-  if (pairingEndpoint) {
-    schedulePairingEndpointClose(meshReachabilityEnabled ? 30 * 60_000 : ttlMs);
-    return pairingEndpoint.endpoints();
-  }
-  const createEndpoint = (port) => new LanEndpoint({
-    port,
-    onPairClaim: async (body) => {
-      const result = await requestPairingClaimApproval(body);
-      if (!meshReachabilityEnabled) schedulePairingEndpointClose(2 * 60_000);
-      return result;
-    },
-    onSignal: (body) => getPeerManager().receiveSignal(body)
-  });
-  pairingEndpoint = createEndpoint(45831);
-  try {
-    await pairingEndpoint.start();
-  } catch (error) {
-    if (error?.code !== 'EADDRINUSE') throw error;
-    try { await pairingEndpoint.stop(); } catch (_stopError) { /* replace below */ }
-    pairingEndpoint = createEndpoint(0);
-    await pairingEndpoint.start();
-  }
-  getMeshService().updateLocalEndpoints(pairingEndpoint.endpoints());
-  schedulePairingEndpointClose(meshReachabilityEnabled ? 30 * 60_000 : ttlMs);
-  return pairingEndpoint.endpoints();
-}
-
-function schedulePairingEndpointClose(ttlMs) {
-  clearTimeout(pairingEndpointTimer);
-  pairingEndpointExpiresAt = new Date(Date.now() + ttlMs).toISOString();
-  pairingEndpointTimer = setTimeout(() => {
-    meshReachabilityEnabled = false;
-    void closePairingEndpoint();
-  }, ttlMs);
-}
-
-async function closePairingEndpoint() {
-  clearTimeout(pairingEndpointTimer);
-  pairingEndpointTimer = null;
-  pairingEndpointExpiresAt = null;
-  const endpoint = pairingEndpoint;
-  pairingEndpoint = null;
-  await endpoint?.stop();
-  try { getMeshService().updateLocalEndpoints([]); } catch (_error) { /* Mesh may be uninitialized. */ }
-}
-
 function boundedText(value, limit) {
   return String(value || '').trim().slice(0, limit);
-}
-
-function boundedTaskCheckpoint(value = {}) {
-  const lines = (input) => {
-    const source = Array.isArray(input) ? input : String(input || '').split(/\r?\n/);
-    return source.map((item) => boundedText(item, 1000)).filter(Boolean).slice(0, 32);
-  };
-  return {
-    objective: String(value.objective || '').replace(/\0/g, '').trim().slice(0, 4000),
-    completed: lines(value.completed),
-    next: lines(value.next),
-    blockers: lines(value.blockers),
-    acceptance: lines(value.acceptance)
-  };
-}
-
-function taskPackageSuggestedName(title) {
-  const stem = String(title || 'AgentDesk-task')
-    .normalize('NFC')
-    .replace(/[\0-\x1f\x7f<>:"/\\|?*]/g, '_')
-    .replace(/[. ]+$/g, '')
-    .trim()
-    .slice(0, 100) || 'AgentDesk-task';
-  return `${stem}.agentdesk-task`;
 }
 
 function getProfileRuntimeSupervisor() {

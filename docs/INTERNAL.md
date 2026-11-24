@@ -115,9 +115,18 @@ src/
   main/
     profile-store-policy.js 缺失 Profile 存储保持真实空目录；按顺序读主文件与备份，读到能用的就停；界面刷新（8 秒活动、会话清单）用的账号清单先异步看一眼文件，没变就不再读
     window-lamp.js        关灯/关窗通知窗口并等它回话，按硬上限继续；记下这扇窗是不是第一次出现
+    network-enrollment.js 设备联网 enrollment 门禁（纯函数）
+    从 main.js 搬出来的函数组（第 5 阶段）：函数原样搬，用到的 Main 服务和状态经 main.js 开头生成的 mainContext 读写（模块里写作 main.<名字>），启动时绑定一次
+    updates.js            应用更新：查最新版本、能否自更新、可信下载、交给平台安装程序
+    tools.js              工具页：已安装的官方应用与命令行、版本、打开、在终端里打开、单项更新
+    profile-launch.js     打开账号：找官方客户端可执行文件（macOS 应用包、Windows 注册表/MSIX/协议）、用账号自己的数据目录启动、是否在运行、诊断、搬离 Windows 默认路径
+    accounts.js           新建与登记账号、检查拖进来的东西、把粘贴的密钥交给账号自己的客户端
+    session-files.js      对选中会话的操作：显示文件、打开所在文件夹、导出
+    stores.js             profiles.json 与 settings.json 的读写、备份与恢复、默认与受管目录、会话记号存储
+    hub-wiring.js         调度中枢在 Main 这一侧的接线与命令行桌面动作的转发
+    mesh-wiring.js        设备网在 Main 这一侧的接线：各服务首次用到时创建、信令与临时配对端口、网络设置、诊断与权限、发给窗口的通知
     ipc/
       first-agent-onboarding.js 首个 Agent 的本机离线事务
-      network-enrollment.js     设备联网 enrollment 门禁
       pairing-approvals.js      加入预览、双方身份确认与批准 token
       path-selections.js        Main 系统选择器能力票据
       security-policy.js        主窗口 sender/frame/document 与导航策略
