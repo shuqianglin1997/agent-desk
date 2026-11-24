@@ -116,5 +116,5 @@ test('the command line reads its commands from the same table, and prints only t
     assert.deepEqual(Object.keys(cliDescriptor(entry)).filter((key) => !['description', 'parameters', 'effects'].includes(key)), [], entry.name);
   }
   // Main relays the desktop actions through the table, not through its own list.
-  assert.match(read('src/main.js'), /const entry = cliCommand\(command, 'desktop'\);/);
+  assert.match(require('./helpers/main-handler-source').mainHandlerSource(), /const entry = cliCommand\(command, 'desktop'\);/);
 });

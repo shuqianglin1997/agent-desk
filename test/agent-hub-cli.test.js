@@ -119,7 +119,7 @@ test('capabilities describe the hub; no command can switch an account on or add 
 test('Main relays hub commands only from a running desktop and maps refusals to fixed codes', () => {
   const main = mainHandlerSource();
   assert.match(main, /const cliOnlyInstance = cliLaunchArgs !== null;/);
-  assert.match(main, /if \(cliOnlyInstance && HUB_DESKTOP_COMMANDS\.has\(command\)\) throw hubInterfaceError\(new HubError\('desktop-not-running'\)\)/);
+  assert.match(main, /if \((?:main\.)?cliOnlyInstance && HUB_DESKTOP_COMMANDS\.has\(command\)\) throw hubInterfaceError\(new (?:main\.)?HubError\('desktop-not-running'\)\)/);
   assert.match(main, /const HUB_DESKTOP_COMMANDS = new Set\(\['agents list', 'run', 'runs stop'\]\)/);
   // Background runs end before the client wind-down, whatever the keep setting.
   const quit = main.slice(main.indexOf("app.on('before-quit'"), main.indexOf('const quitBehavior = loadSettings().profileQuitBehavior;'));

@@ -44,6 +44,7 @@ function mainContext() {
     get accountResult() { return accountResult; },
     get actionRowsOf() { return actionRowsOf; },
     get agentActionService() { return agentActionService; }, set agentActionService(value) { agentActionService = value; },
+    get agentHub() { return agentHub; }, set agentHub(value) { agentHub = value; },
     get app() { return app; },
     get appVersion() { return appVersion; },
     get applyProfileSecret() { return applyProfileSecret; },
@@ -52,6 +53,7 @@ function mainContext() {
     get boundedText() { return boundedText; },
     get catalogMeshCall() { return catalogMeshCall; },
     get checkForUpdates() { return checkForUpdates; },
+    get cliOnlyInstance() { return cliOnlyInstance; },
     get clipboard() { return clipboard; },
     get closePairingEndpoint() { return closePairingEndpoint; },
     get configuredSignalingUrls() { return configuredSignalingUrls; },
@@ -100,6 +102,7 @@ function mainContext() {
     get loadProfiles() { return loadProfiles; },
     get loadSettings() { return loadSettings; },
     get locationRegistrar() { return locationRegistrar; },
+    get mainContext() { return mainContext; },
     get mainWindow() { return mainWindow; }, set mainWindow(value) { mainWindow = value; },
     get makeIsolatedProfilePath() { return makeIsolatedProfilePath; },
     get managedAppName() { return managedAppName; },
@@ -134,6 +137,7 @@ function mainContext() {
     get probeActivities() { return probeActivities; },
     get profileCredentialStatus() { return profileCredentialStatus; },
     get profileIsRunning() { return profileIsRunning; },
+    get profileRuntimeSupervisor() { return profileRuntimeSupervisor; }, set profileRuntimeSupervisor(value) { profileRuntimeSupervisor = value; },
     get profilesFile() { return profilesFile; },
     get provisioningAdapterDescriptor() { return provisioningAdapterDescriptor; },
     get publicNetworkRuntime() { return publicNetworkRuntime; },
@@ -190,6 +194,10 @@ const { accountReasonCode, accountResult, publicRecruitItem, inspectRecruitItem,
 require('./main/accounts').bind(mainContext());
 const { refreshForAction, selectionProfileIds, listSessionDirectories, openSessionDirectory, exportSessionTranscript, revealSessionFile, revealPath, openPathSafely, openDirectoryWithFallback } = require('./main/session-files');
 require('./main/session-files').bind(mainContext());
+const { loadProfiles, saveProfiles, updateStoredProfile, loadSettings, saveSettings, updateSettings, readProfileStore, readSettingsStore, normalizeProfileList, normalizeProfile, profilesFile, profilesBackupFile, profilesPreUpdateBackupFile, profileRuntimeStateFile, settingsFile, getSessionMarks, sessionMarksResult, sessionMarksFreshContext, settingsBackupFile, settingsPreUpdateBackupFile, snapshotConfigurationForUpdate, defaultProfilePath, defaultSessionRoot, makeIsolatedProfilePath, managedAppName, slug, inferProfilePathMode, isKnownDefaultProfilePath, inferSessionRootMode, isManagedProfilePath, normalizeConfiguredPath } = require('./main/stores');
+require('./main/stores').bind(mainContext());
+const { hubInterfaceError, hubStoreFile, hubCatNames, hubEnergy, hubLocateSession, rememberHubLink, linkHubSessions, notifyHubChanged, getAgentHub, hubCommand, hubClientSupport, hubAccounts, hubPublicState, setHubAccess, runCliProfileAction, notifyProfileRegistrations } = require('./main/hub-wiring');
+require('./main/hub-wiring').bind(mainContext());
 // moved modules:end
 const { createSessionIndex, registryScan, findSession } = require('./session-index');
 const { probeRawActivities, finishActivities } = require('./activity');
@@ -366,7 +374,6 @@ const APP_NAME = 'AgentDesk';
 // different URLs. The exact result is shared by loadFile and the IPC allowlist.
 const MAIN_DOCUMENT_PATH = resolvePackagedDocumentPath(path.join(__dirname, 'index.html'));
 const MAIN_DOCUMENT_URL = pathToFileURL(MAIN_DOCUMENT_PATH).href;
-const STORE_VERSION = 2;
 let deferSecureMeshStartup = false;
 let secureMeshAccessUnlocked = false;
 
@@ -742,227 +749,6 @@ const locationRegistrar = createLocationRegistrar({
   defaultProfilePath: (appId) => defaultProfilePath(appId)
 });
 const registerLocations = (inputs) => locationRegistrar.registerLocations(inputs);
-
-// ── 调度中枢 ────────────────────────────────────────
-const HUB_DESKTOP_COMMANDS = new Set(['agents list', 'run', 'runs stop']);
-// Fixed, non-sensitive messages; exit 2 invalid call, 3 not found, 5 unsupported, 1 try later.
-const HUB_ERRORS = {
-  'agent-required': [2, 'Name the account with --agent.'],
-  'title-required': [2, 'Give the run a short --title.'],
-  'prompt-required': [2, 'The prompt on standard input is empty.'],
-  'prompt-too-large': [2, 'The prompt is larger than 64 KiB. Put long material in a file inside the working folder and refer to it.'],
-  'access-invalid': [2, 'Use --access read or --access write.'],
-  'depth-limit': [2, 'Calls nest at most two levels. This Agent was itself called by another.'],
-  'agent-ambiguous': [2, 'More than one allowed account has that name. Use one of the IDs.'],
-  'write-not-allowed': [2, 'This account is not allowed to edit files. Ask the person to switch it on in AgentDesk, or use --access read.'],
-  'cwd-invalid': [2, 'Use an absolute working directory without control characters.'],
-  'cwd-not-allowed': [2, 'The working directory is not inside a folder allowed in AgentDesk. Ask the person to allow it on the System page.'],
-  'cwd-missing': [3, 'The working directory does not exist.'],
-  'agent-not-found': [3, 'No allowed account has that name or ID. Use agents list; the person switches accounts on in AgentDesk.'],
-  'run-not-found': [3, 'No run has that ID.'],
-  'client-unsupported': [5, 'This client cannot run in the background. Desktop-only clients need the same account\'s command-line client.'],
-  'home-missing': [4, 'The account\'s folder is missing. Check the account in AgentDesk.'],
-  'not-signed-in': [1, 'The account is not signed in. The person signs it in from AgentDesk.'],
-  'client-missing': [1, 'The account\'s command-line client is not installed or was not found.'],
-  'quota-exhausted': [1, 'The account is almost out of quota, so it does not take new runs.'],
-  'agent-busy': [1, 'This account is already running a background conversation. One run per account.'],
-  'run-limit': [1, 'The limit of background runs set in AgentDesk is reached. Nothing was queued; try again later.'],
-  'desktop-not-running': [1, 'Open AgentDesk first. Background runs are supervised by the running desktop.']
-};
-
-function hubInterfaceError(error) {
-  if (!(error instanceof HubError)) return error;
-  const [exitCode, message] = HUB_ERRORS[error.code] || [1, 'The background run could not be started.'];
-  const extra = error.code === 'agent-ambiguous' && Array.isArray(error.details)
-    ? { candidates: error.details }
-    : (error.code === 'client-unsupported' && error.details?.reason ? { reason: error.details.reason } : null);
-  return new InterfaceError(error.code, message, exitCode, extra);
-}
-
-function hubStoreFile() {
-  return path.join(app.getPath('userData'), 'agent-hub.json');
-}
-
-function hubCatNames(profiles) {
-  let names = new Map();
-  try { names = getMeshService().localAgentNames(); } catch (_error) { names = new Map(); }
-  const groups = IdentityGroups.groupProfilesByIdentity(profiles.map((profile) => ({
-    ...profile, identityFingerprint: identityFingerprint(profile)
-  })));
-  for (const group of groups) {
-    for (const member of group.members) {
-      if (!names.has(String(member.id))) names.set(String(member.id), group.primary.name);
-    }
-  }
-  return names;
-}
-
-function hubEnergy(snapshot) {
-  try { return deriveEnergy(snapshot); } catch (_error) { return 'unknown'; }
-}
-
-// The session a background run just wrote: a scan that starts now, on the
-// scan worker, through the index's one lookup. The runner waits for it at most
-// two seconds before recording the run as ended without the link.
-async function hubLocateSession(profile, sessionId) {
-  const app_ = apps.getApp(profile.appId);
-  if (app_.sessionScanSupported === false) return null;
-  const match = await sessionIndex.find(profile, sessionId, { key: 'address', maxAgeMs: 0 });
-  return match?.filePath || null;
-}
-
-// Runs that ended before their session turned up are linked when the session
-// index next keeps a scan that has it. At most 64, forgotten after 30 minutes.
-const HUB_PENDING_LINK_MS = 30 * 60_000;
-const hubPendingLinks = new Map();
-let hubRunner = null;
-function rememberHubLink({ runId, profileId, sessionId }) {
-  hubPendingLinks.delete(runId);
-  if (hubPendingLinks.size >= 64) hubPendingLinks.delete(hubPendingLinks.keys().next().value);
-  hubPendingLinks.set(runId, { profileId, sessionId, until: Date.now() + HUB_PENDING_LINK_MS });
-}
-function linkHubSessions(profile, rows) {
-  if (!hubPendingLinks.size || !hubRunner) return;
-  const now = Date.now();
-  for (const [runId, pending] of hubPendingLinks) {
-    if (pending.until < now) { hubPendingLinks.delete(runId); continue; }
-    if (pending.profileId !== String(profile.id)) continue;
-    const match = findSession(rows, pending.sessionId, { key: 'address' });
-    if (!match?.filePath) continue;
-    hubRunner.linkSession(runId, pending.sessionId, match.filePath);
-    hubPendingLinks.delete(runId);
-  }
-}
-
-// Run state is pushed at each transition (starting, running, session found,
-// ended); the Renderer never polls for it.
-function notifyHubChanged(record = null) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  const run = record && agentHub ? agentHub.publicRun(record) : null;
-  mainWindow.webContents.send('hub:changed', run ? { run: { ...run, cwd: undefined } } : {});
-}
-
-function getAgentHub() {
-  if (agentHub) return agentHub;
-  const store = new HubStore({ file: hubStoreFile() });
-  const runner = new HubRunner({ store, locateSession: hubLocateSession, onSessionUnlinked: rememberHubLink, onChange: notifyHubChanged });
-  hubRunner = runner;
-  agentHub = createAgentHub({
-    store,
-    runner,
-    loadProfiles,
-    catNames: hubCatNames,
-    findLauncher: (toolId) => { try { return discoverCli(toolId); } catch (_error) { return null; } },
-    homeExists: (profile) => {
-      try { return fs.statSync(profile.sessionRoot).isDirectory(); } catch (_error) { return false; }
-    },
-    // Files-only check; "no" only when it is certain (a keychain-held or
-    // unconfirmed sign-in stays unknown and does not block a run).
-    signInState: async (profile) => {
-      const status = await accountCredentials.credentialStatus(profile, credentialContext());
-      return status.signedIn === false && status.note ? null : status.signedIn;
-    },
-    energyPeek: (profile) => hubEnergy(quotaService.peek(profile)),
-    energyCheck: async (profile) => hubEnergy(await quotaService.get(profile)),
-    baseEnv: () => process.env,
-    launchEnv: (profile, env) => apps.getApp(profile.appId).launchEnv(profile, env),
-    // Which folder each account's client would carry in that variable.
-    callerHomeFor: (profile, key) => {
-      const discovery = apps.getApp(profile.appId).discovery;
-      if (!profile.sessionRoot || discovery?.envVar !== key) return null;
-      return discovery.envSubdir && path.basename(profile.sessionRoot) === discovery.envSubdir
-        ? path.dirname(profile.sessionRoot)
-        : profile.sessionRoot;
-    }
-  });
-  agentHub.store = store;
-  return agentHub;
-}
-
-// The hub's command-line commands (src/commands/cli-desktop.js) run through
-// here: the ones that need a live desktop refuse in a CLI-only instance, and
-// hub errors become the command line's fixed codes.
-async function hubCommand(command, action) {
-  if (cliOnlyInstance && HUB_DESKTOP_COMMANDS.has(command)) throw hubInterfaceError(new HubError('desktop-not-running'));
-  const hub = getAgentHub();
-  try {
-    return await action(hub);
-  } catch (error) {
-    throw hubInterfaceError(error);
-  }
-}
-
-// Which clients can be called at all, for the dossier and the System page.
-// `via` names the command-line client a call actually runs.
-function hubClientSupport() {
-  return Object.fromEntries(apps.appIds().map((appId) => [appId, adapterFor(appId)
-    ? { callable: true, reason: null, via: adapterFor(appId).label }
-    : { callable: false, reason: unsupportedReason(appId), via: null }]));
-}
-
-// Every local account with the name a caller uses for it (the same names the
-// CLI roster shows) and its two switches. No paths, no sign-in details.
-function hubAccounts() {
-  const profiles = loadProfiles();
-  const names = hubCatNames(profiles);
-  return profiles.map((profile) => {
-    const access = normalizeAccess(profile.hub);
-    return {
-      id: String(profile.id),
-      name: String(names.get(String(profile.id)) || profile.name || profile.id).slice(0, 120),
-      callable: access.callable,
-      writable: access.writable
-    };
-  });
-}
-
-function hubPublicState() {
-  const hub = getAgentHub();
-  const home = os.homedir();
-  return {
-    accounts: hubAccounts(),
-    folders: hub.store.folders().map((folder) => ({
-      id: folder.id,
-      name: path.basename(folder.path) || folder.path,
-      displayPath: folder.path.startsWith(`${home}${path.sep}`) ? `~${folder.path.slice(home.length)}` : folder.path
-    })),
-    maxConcurrent: hub.store.maxConcurrent(),
-    running: hub.activeCount(),
-    clients: hubClientSupport(),
-    runs: hub.list(50).runs.map((run) => ({ ...run, cwd: undefined }))
-  };
-}
-
-// The two dossier switches. Only the desktop window changes them; the CLI has
-// no command for it, so an Agent cannot grant itself or another access.
-function setHubAccess(input = {}) {
-  const profileId = boundedText(input.profileId, 128);
-  const profile = loadProfiles().find((item) => item.id === profileId);
-  if (!profile) return { ok: false, reasonCode: 'profile-not-found' };
-  const callable = input.callable === true;
-  if (callable && !adapterFor(profile.appId)) return { ok: false, reasonCode: 'client-unsupported', reason: unsupportedReason(profile.appId) };
-  const next = updateStoredProfile(profileId, (current) => ({
-    ...current,
-    hub: normalizeAccess({ callable, writable: input.writable === true })
-  }));
-  notifyHubChanged();
-  return { ok: true, profileId, hub: normalizeAccess(next?.hub) };
-}
-
-// The packaged command line's desktop actions are commands in the table
-// (src/commands/cli-desktop.js); the CLI broker relays them here.
-async function runCliProfileAction(command, input, extra = {}) {
-  const entry = cliCommand(command, 'desktop');
-  if (!entry) throw new InterfaceError('unknown-command', 'Unknown profile action. Use capabilities.', 2);
-  return entry.exec(mainContext(), input, extra);
-}
-
-// A new registration from the command line shows up in the window.
-function notifyProfileRegistrations(result) {
-  if (!result.existing && mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('profiles:registrationsChanged');
-  }
-}
 
 function getMeshService() {
   if (meshService) return meshService;
@@ -1654,179 +1440,6 @@ function taskPackageSuggestedName(title) {
   return `${stem}.agentdesk-task`;
 }
 
-function loadProfiles() {
-  const storeFile = profilesFile();
-  ensureDir(path.dirname(storeFile));
-  return resolveProfileStore({
-    candidates: [storeFile, profilesBackupFile(), profilesPreUpdateBackupFile()],
-    exists: fs.existsSync,
-    read: readProfileStore,
-    normalize: normalizeProfileList,
-    persist: saveProfiles,
-    version: STORE_VERSION
-  });
-}
-
-function saveProfiles(profiles, options = {}) {
-  writeJsonStore(
-    profilesFile(),
-    { version: STORE_VERSION, profiles },
-    { ...options, backupFile: profilesBackupFile() }
-  );
-  profileRuntimeSupervisor?.updateProfiles(profiles);
-  void agentHub?.profilesChanged(profiles).catch(() => {});
-}
-
-function updateStoredProfile(id, mutator) {
-  const profiles = loadProfiles();
-  const index = profiles.findIndex((profile) => profile.id === id);
-  if (index < 0) return null;
-  const next = mutator({ ...profiles[index] });
-  if (!next || typeof next !== 'object') return profiles[index];
-  profiles[index] = normalizeProfile(next);
-  saveProfiles(profiles);
-  return profiles[index];
-}
-
-function loadSettings(legacySettings = {}) {
-  const storeFile = settingsFile();
-  ensureDir(path.dirname(storeFile));
-  const loaded = [
-    storeFile,
-    settingsBackupFile(),
-    settingsPreUpdateBackupFile()
-  ].map(readSettingsStore).find(Boolean);
-  const storedSettings = loaded ? settings.settingsFromPayload(loaded.parsed) : null;
-  // localStorage remains a downgrade/crash mirror. If it differs from the
-  // stable file, it represents a UI change made by an older build or a change
-  // made immediately before the renderer exited, so reconcile it on startup.
-  const normalized = loaded
-    ? settings.mergeSettings(storedSettings, legacySettings)
-    : settings.normalizeSettings(legacySettings);
-  const normalizedPayload = {
-    version: settings.SETTINGS_VERSION,
-    settings: normalized
-  };
-  const currentPayload = loaded
-    ? {
-        version: loaded.parsed.version || 0,
-        settings: storedSettings
-      }
-    : null;
-
-  if (
-    !loaded ||
-    loaded.filePath !== storeFile ||
-    JSON.stringify(currentPayload) !== JSON.stringify(normalizedPayload)
-  ) {
-    saveSettings(normalized, { skipBackup: !loaded || loaded.filePath !== storeFile });
-  }
-  return normalized;
-}
-
-function saveSettings(value, options = {}) {
-  writeJsonStore(
-    settingsFile(),
-    { version: settings.SETTINGS_VERSION, settings: value },
-    { ...options, backupFile: settingsBackupFile() }
-  );
-}
-
-function updateSettings(patch) {
-  const current = loadSettings();
-  const next = settings.mergeSettings(current, patch);
-  if (JSON.stringify(current) !== JSON.stringify(next)) saveSettings(next);
-  return next;
-}
-
-function readProfileStore(filePath) {
-  const result = readProfileFile(filePath);
-  return result.ok ? { filePath, parsed: result.value.parsed } : null;
-}
-
-function readSettingsStore(filePath) {
-  return readJsonStore(filePath, (parsed) => Boolean(settings.settingsFromPayload(parsed)));
-}
-
-function normalizeProfileList(profiles) {
-  const normalized = (Array.isArray(profiles) ? profiles : [])
-    .filter((profile) => profile && typeof profile === 'object' && !Array.isArray(profile))
-    .map(normalizeProfile);
-  // No account is mandatory. Normalization must preserve an empty store and
-  // must not infer required accounts from a provider, platform, or app type.
-  // Kimi Code 与 Kimi Work 是同一桌面 App 生态的两个形态，同机必然同登录身份；
-  // 这样的客户端由适配器声明 defaultIdentityKey。
-  // 只给「从未有过 identityKey 字段」的旧默认槽位补关联（一次性迁移）；
-  // 用户显式清空后字段为 null（存在），不再回填 —— 清空必须能生效。
-  return normalized.map((profile) => {
-    const key = apps.isKnownApp(profile.appId) ? apps.getApp(profile.appId).defaultIdentityKey : null;
-    return key && profile.isProtected && profile.identityKey === undefined
-      ? { ...profile, identityKey: key }
-      : profile;
-  });
-}
-
-function normalizeProfile(profile) {
-  profile = profile && typeof profile === 'object' ? profile : {};
-  const appId = apps.isKnownApp(profile.appId) ? profile.appId : apps.DEFAULT_APP;
-  const id = profile.id || crypto.randomUUID();
-  // Historical field name: this now describes a system-default path slot only.
-  // It affects path/launch behavior and presentation, never whether deletion is allowed.
-  const isProtected = Boolean(profile.isProtected);
-  const profilePathMode = inferProfilePathMode(profile, appId, isProtected);
-  const profilePath = profilePathMode === 'auto'
-    ? defaultProfilePath(appId)
-    : normalizeConfiguredPath(profile.profilePath || defaultProfilePath(appId));
-  const sessionRootMode = inferSessionRootMode(profile, appId, profilePath, isProtected);
-  const sessionRoot = sessionRootMode === 'auto'
-    ? defaultSessionRoot(appId, profilePath, isProtected)
-    : normalizeConfiguredPath(profile.sessionRoot || defaultSessionRoot(appId, profilePath, isProtected));
-  return {
-    // Keep fields introduced by newer versions. Normalizing known fields must
-    // never act like a destructive schema migration and erase customizations.
-    ...profile,
-    // identityKey 的「字段不存在」有语义（从未迁移过，见 normalizeProfileList），
-    // 只在字段存在时规范化，不无中生有地写入 null。
-    ...(Object.prototype.hasOwnProperty.call(profile, 'identityKey')
-      ? {
-        identityKey: typeof profile.identityKey === 'string' && profile.identityKey.trim()
-          ? profile.identityKey.trim()
-          : null
-      }
-      : {}),
-    id,
-    appId,
-    name: profile.name || `默认 ${managedAppName(appId)}`,
-    profilePath,
-    sessionRoot,
-    profilePathMode,
-    sessionRootMode,
-    executablePath: profile.executablePath ? normalizeConfiguredPath(profile.executablePath) : null,
-    isProtected,
-    createdAt: profile.createdAt || new Date().toISOString(),
-    lastLaunchedAt: profile.lastLaunchedAt || null,
-    group: (profile.group || '').trim(),
-    note: profile.note || '',
-    cat: normalizeCat(profile.cat, id)
-  };
-}
-
-function profilesFile() {
-  return path.join(app.getPath('userData'), 'profiles.json');
-}
-
-function profilesBackupFile() {
-  return `${profilesFile()}.bak`;
-}
-
-function profilesPreUpdateBackupFile() {
-  return `${profilesFile()}.pre-update.bak`;
-}
-
-function profileRuntimeStateFile() {
-  return path.join(app.getPath('userData'), 'profile-runtime.json');
-}
-
 function getProfileRuntimeSupervisor() {
   if (profileRuntimeSupervisor) {
     profileRuntimeSupervisor.updateProfiles(loadProfiles());
@@ -1854,124 +1467,6 @@ function getProfileRuntimeSupervisor() {
   });
   profileRuntimeSupervisor.updateProfiles(loadProfiles());
   return profileRuntimeSupervisor;
-}
-
-function settingsFile() {
-  return path.join(app.getPath('userData'), 'settings.json');
-}
-
-// 会话的颜色标签与“看过”的记号：只存在 AgentDesk 自己的 userData 里（docs/SESSION_MARKS_PLAN.md 第 5.3 节）。
-let sessionMarksStore = null;
-function getSessionMarks() {
-  sessionMarksStore ||= new SessionMarksStore({ file: path.join(app.getPath('userData'), 'session-marks.json') });
-  return sessionMarksStore;
-}
-
-function sessionMarksResult(run) {
-  try {
-    return run(getSessionMarks());
-  } catch (_error) {
-    return { ok: false, reasonCode: 'session-marks-unavailable' };
-  }
-}
-
-function sessionMarksFreshContext() {
-  try { return getSessionMarks().freshContext(); } catch (_error) { return null; }
-}
-
-function settingsBackupFile() {
-  return `${settingsFile()}.bak`;
-}
-
-function settingsPreUpdateBackupFile() {
-  return `${settingsFile()}.pre-update.bak`;
-}
-
-function snapshotConfigurationForUpdate() {
-  for (const [source, target] of [
-    [profilesFile(), profilesPreUpdateBackupFile()],
-    [settingsFile(), settingsPreUpdateBackupFile()]
-  ]) {
-    snapshotFile(source, target);
-  }
-}
-
-// 以下三个曾按 claude/codex 二元写死，现全部委托给 src/apps.js 注册表，
-// 加新工具只改注册表、这里不动。
-function defaultProfilePath(appId) {
-  return apps.defaultProfilePath(appId);
-}
-
-function defaultSessionRoot(appId, profilePath, isDefault) {
-  return apps.getApp(appId).defaultSessionRoot(profilePath, isDefault);
-}
-
-function makeIsolatedProfilePath(appId, name, id) {
-  if (process.platform === 'win32') {
-    return windows.managedProfilePath(managedAppName(appId), id);
-  }
-  const root = path.join(app.getPath('userData'), 'Profiles');
-  const suffix = String(id || crypto.randomUUID()).slice(0, 8);
-  return path.join(root, managedAppName(appId), `${slug(name)}-${suffix}`);
-}
-
-function managedAppName(appId) {
-  return apps.getApp(appId).appName;
-}
-
-function slug(value) {
-  const cleaned = String(value || '')
-    .normalize('NFKD')
-    .toLowerCase()
-    .replace(/[^a-z0-9\u4e00-\u9fff]+/gi, '-')
-    .replace(/^-+|-+$/g, '');
-  return cleaned || 'account';
-}
-
-function inferProfilePathMode(profile, appId, isProtected) {
-  if (['auto', 'managed', 'custom'].includes(profile.profilePathMode)) return profile.profilePathMode;
-  if (isProtected && isKnownDefaultProfilePath(appId, profile.profilePath)) return 'auto';
-  if (!isProtected && isManagedProfilePath(profile.profilePath)) return 'managed';
-  return profile.profilePath ? 'custom' : (isProtected ? 'auto' : 'managed');
-}
-
-function isKnownDefaultProfilePath(appId, itemPath) {
-  if (!itemPath) return false;
-  return apps.defaultProfilePathInfo(appId).candidates
-    .some((candidate) => pathsEqual(candidate.path, itemPath));
-}
-
-function inferSessionRootMode(profile, appId, resolvedProfilePath, isProtected) {
-  if (['auto', 'managed', 'custom'].includes(profile.sessionRootMode)) return profile.sessionRootMode;
-  const legacyProfile = apps.legacyDefaultProfilePath(appId);
-  const defaultRoot = defaultSessionRoot(appId, legacyProfile, isProtected);
-  if (isProtected && (
-    pathsEqual(profile.sessionRoot, defaultRoot) ||
-    (apps.getApp(appId).sessionsInProfileFolder === true && pathsEqual(profile.sessionRoot, profile.profilePath))
-  )) return 'auto';
-  if (!isProtected && (
-    pathsEqual(profile.sessionRoot, profile.profilePath) ||
-    isSubpath(profile.sessionRoot, profile.profilePath) ||
-    pathsEqual(profile.sessionRoot, resolvedProfilePath) ||
-    isSubpath(profile.sessionRoot, resolvedProfilePath)
-  )) return 'managed';
-  return profile.sessionRoot ? 'custom' : (isProtected ? 'auto' : 'managed');
-}
-
-function isManagedProfilePath(itemPath) {
-  if (!itemPath) return false;
-  const oldRoot = path.join(app.getPath('userData'), 'Profiles');
-  if (isSubpath(itemPath, oldRoot)) return true;
-  return process.platform === 'win32' && windows.isSubpath(itemPath, windows.managedProfilesRoot());
-}
-
-function normalizeConfiguredPath(value) {
-  const trimmed = String(value || '').trim();
-  if (!trimmed) return '';
-  if (process.platform === 'win32') return windows.expandWindowsPath(trimmed);
-  if (trimmed === '~') return os.homedir();
-  if (trimmed.startsWith('~/')) return path.join(os.homedir(), trimmed.slice(2));
-  return path.resolve(trimmed);
 }
 
 function ensureDir(dir) {

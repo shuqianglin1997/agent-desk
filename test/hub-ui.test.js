@@ -44,8 +44,8 @@ test('the desk motion follows the approved rules: three at once, interruptible, 
 });
 
 test('run state is pushed by Main at each transition, never polled by the Renderer', () => {
-  const main = read('src/main.js');
-  assert.match(main, /function notifyHubChanged\(record = null\)[\s\S]*mainWindow\.webContents\.send\('hub:changed', run \? \{ run: \{ \.\.\.run, cwd: undefined \} \} : \{\}\)/);
+  const main = require('./helpers/main-handler-source').mainHandlerSource();
+  assert.match(main, /function notifyHubChanged\(record = null\)[\s\S]*(?:main\.)?mainWindow\.webContents\.send\('hub:changed', run \? \{ run: \{ \.\.\.run, cwd: undefined \} \} : \{\}\)/);
   assert.match(read('src/preload.js'), /onHubChanged: \(callback\) => \{\s*const listener = \(_event, payload\) => callback\(payload && typeof payload === 'object' \? payload : \{\}\);/);
   const renderer = read('src/renderer.js');
   assert.match(renderer, /window\.manager\.onHubChanged\(\(payload\) => applyHubChange\(payload\?\.run\)\)/);
