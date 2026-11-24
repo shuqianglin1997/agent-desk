@@ -6,15 +6,18 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { meshScopedAccountKey } = require('../src/mesh/domain/identity-link');
+const catalogDomain = require('../src/mesh/domain/agent-catalog');
 const {
-  reconcileLocalCatalog,
   createAgentIdentity,
   updateAgentMetadata,
-  assignSlot,
   mergeAgents,
   splitAccountBinding,
   removeCatalogObject
-} = require('../src/mesh/domain/agent-catalog');
+} = catalogDomain;
+// The app passes the adapters' client facts (src/apps.js clientFacts); so do these tests.
+const withClientFacts = (fn) => (existing, value, options = {}) => fn(existing, value, { clientFacts: require('../src/apps').clientFacts, ...options });
+const reconcileLocalCatalog = withClientFacts(catalogDomain.reconcileLocalCatalog);
+const assignSlot = withClientFacts(catalogDomain.assignSlot);
 const {
   createMembershipCertificate,
   verifyMembershipCertificate,

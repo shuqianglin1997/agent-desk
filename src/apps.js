@@ -47,30 +47,40 @@ function isKnownApp(appId) {
   return Object.prototype.hasOwnProperty.call(APPS, appId);
 }
 
+// A client's Mesh catalog facts (providerNamespace, clientForm), or null for an
+// id this build does not know. Mesh domain code receives this as clientFacts.
+function clientFacts(appId) {
+  if (!isKnownApp(appId)) return null;
+  return { providerNamespace: APPS[appId].providerNamespace, clientForm: APPS[appId].clientForm };
+}
+
 function appIds() {
   return Object.keys(APPS);
 }
 
-// 给渲染进程用的精简元数据（不含函数/路径逻辑）
-function listApps() {
+// 给渲染进程用的精简元数据（不含函数/路径逻辑）。uiHints: true 时另带界面要的
+// 提示（目录里的登录归属、招募对话框的默认客户端与提示）；命令行接口不带它们。
+function listApps(options = {}) {
+  const hints = options.uiHints === true;
   return appIds().map((id) => ({
     id,
     label: APPS[id].label,
     tagColor: APPS[id].tagColor,
+    ...(hints ? { providerNamespace: APPS[id].providerNamespace, recruitDefault: APPS[id].recruitDefault === true } : {}),
     canExportTranscript: typeof APPS[id].exportTranscript === 'function',
     taskPackageMode: APPS[id].taskPackage
       ? 'native'
       : (typeof APPS[id].exportTranscript === 'function' ? 'transcript' : 'unsupported'),
     canLaunch: APPS[id].noLaunch !== true || Boolean(APPS[id].cliDiscoveryId),
     supportsManagedProfiles: APPS[id].profileIsolation?.mode === 'chromium-user-data-dir',
-    signIn: signInMethods(APPS[id]),
+    signIn: signInMethods(APPS[id], hints),
     discoveryKind: APPS[id].discovery?.kind || null,
     defaultOnly: APPS[id].profileIsolation?.mode === 'official-default-only'
   }));
 }
 
 // Which ways of signing in a new account the recruit dialog may offer.
-function signInMethods(app_) {
+function signInMethods(app_, hints = false) {
   const credentials = app_.credentials;
   return {
     browser: app_.profileIsolation?.mode !== 'official-default-only',
@@ -82,6 +92,12 @@ function signInMethods(app_) {
     providerFields: [...(credentials?.provider?.fields || [])],
     providerOptionalFields: [...(credentials?.provider?.optional || [])],
     storesInPlaintext: Boolean(credentials?.key?.plaintext || credentials?.provider?.plaintext),
+    ...(hints ? {
+      plaintextFile: credentials?.plaintextFile || '',
+      keyIsToken: credentials?.keyIsToken === true,
+      keyAsksDefaultModel: credentials?.keyAsksDefaultModel === true,
+      notes: { ...(credentials?.notes || {}) }
+    } : {}),
     importFiles: [...(credentials?.importFiles || [])]
   };
 }
@@ -205,6 +221,7 @@ module.exports = {
   DSH_ENV_KEYS,
   getApp,
   isKnownApp,
+  clientFacts,
   appIds,
   listApps,
   macLauncherCandidates,

@@ -13,6 +13,10 @@ const claudeIdentity = require('./identity');
 module.exports = {
   id: 'claude',
   label: 'Claude',
+  // Mesh catalog facts, stored and synced in account keys: never change them.
+  // Desktop and command-line forms of one sign-in system share a namespace.
+  providerNamespace: 'claude',
+  clientForm: 'desktop',
   tagColor: '#d96f33',
   appName: 'Claude', // /Applications/Claude.app、可执行文件同名
   mac: {

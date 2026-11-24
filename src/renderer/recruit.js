@@ -32,10 +32,6 @@
     secondary: $('#recruitSecondaryBtn'),
     close: $('#recruitCloseBtn')
   };
-  const NOTE_FILES = {
-    'claude-cli': 'settings.json', kimi: 'config.toml', 'dsh-cli': '.credentials.yaml', codex: '.env',
-    opencode: 'opencode.db', 'gemini-cli': '.gemini/.env', 'qwen-code': '.env'
-  };
   const SECTIONS = ['new', 'existing', 'drop', 'ai'];
   const state = {
     section: 'new',
@@ -112,7 +108,7 @@
   function renderClientSelect() {
     const clients = availableClients();
     if (!state.clientId || !clients.some((item) => item.id === state.clientId && item.usable)) {
-      state.clientId = (clients.find((item) => item.id === 'codex' && item.usable) || clients.find((item) => item.usable))?.id || null;
+      state.clientId = (clients.find((item) => item.recruitDefault && item.usable) || clients.find((item) => item.usable))?.id || null;
     }
     els.client.replaceChildren(...clients.map((item) => el('option', {
       value: item.id,
@@ -164,7 +160,7 @@
     }
     if (state.method === 'key' && methods.keyNeedsCatalogProvider) {
       fields.push(field('recruit.field.catalog', el('input', { id: 'recruitCatalog', type: 'text', className: 'recruit-mono', value: methods.keyCatalogDefault || '', spellcheck: 'false', maxlength: '64', oninput: updatePrimary })));
-      if (state.clientId === 'kimi') fields.push(field('recruit.field.defaultModel', el('input', { id: 'recruitCatalogModel', type: 'text', className: 'recruit-mono', spellcheck: 'false', maxlength: '128' })));
+      if (methods.keyAsksDefaultModel) fields.push(field('recruit.field.defaultModel', el('input', { id: 'recruitCatalogModel', type: 'text', className: 'recruit-mono', spellcheck: 'false', maxlength: '128' })));
     }
     if (state.method === 'provider') {
       const optional = new Set(methods.providerOptionalFields || []);
@@ -187,13 +183,13 @@
   function renderNewNote() {
     const small = els.newNote.querySelector('small');
     let text = '';
-    if (state.method === 'key' && state.clientId === 'codex') text = tr('recruit.note.codexKey');
+    // The client's adapter says which note fits (src/clients/<id>/index.js credentials).
+    const methods = signIn(state.clientId);
+    const notes = methods.notes || {};
+    if (state.method !== 'browser' && notes[state.method]) text = tr(notes[state.method]);
     else if (state.method !== 'browser') {
-      const file = NOTE_FILES[state.clientId] || '';
-      const token = state.clientId === 'claude-cli' && state.method === 'key';
-      text = state.clientId === 'opencode'
-        ? tr('recruit.note.opencode')
-        : tr('recruit.note.plaintext', { what: tr(token ? 'recruit.note.token' : 'recruit.note.key'), file });
+      const token = methods.keyIsToken && state.method === 'key';
+      text = tr('recruit.note.plaintext', { what: tr(token ? 'recruit.note.token' : 'recruit.note.key'), file: methods.plaintextFile || '' });
     }
     els.newNote.hidden = !text;
     small.textContent = text;

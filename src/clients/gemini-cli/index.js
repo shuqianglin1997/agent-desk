@@ -19,6 +19,10 @@ const GEMINI_ENV_KEYS = Object.freeze(['GEMINI_CLI_HOME', 'GEMINI_API_KEY', 'GOO
 module.exports = {
   id: 'gemini-cli',
   label: 'Gemini CLI',
+  // Mesh catalog facts, stored and synced in account keys: never change them.
+  // Desktop and command-line forms of one sign-in system share a namespace.
+  providerNamespace: 'gemini-cli',
+  clientForm: 'cli',
   tagColor: '#3c6fd6',
   appName: 'Gemini',
   noLaunch: true,
@@ -65,6 +69,8 @@ module.exports = {
     exclusive: ['google_accounts.json', 'projects.json', 'history/']
   }),
   credentials: Object.freeze({
+    // What the recruit dialog tells the person (src/renderer/recruit.js).
+    plaintextFile: '.gemini/.env',
     browser: true,
     key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'config-file', plaintext: true }),
     importFiles: Object.freeze(['oauth_creds.json'])

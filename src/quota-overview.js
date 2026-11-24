@@ -182,8 +182,9 @@
     const apiOnly = localMembers.length > 0 && localMembers.every(member => {
       const snapshot = quotas[member.id];
       const age = now - Date.parse(snapshot?.observedAt);
-      return quotaProviderForMember(member) === 'codex'
-        && snapshot?.provider === 'codex' && snapshot.source === 'agentdesk'
+      // The provider's own reader reported an API-key sign-in (only Codex reports api-key-auth).
+      return Boolean(snapshot?.provider) && snapshot.provider === quotaProviderForMember(member)
+        && snapshot.source === 'agentdesk'
         && snapshot.status === 'unsupported' && snapshot.reasonCode === 'api-key-auth'
         && Number.isFinite(age) && age >= 0 && age <= maxAgeMs;
     });

@@ -17,6 +17,10 @@ const { OFFICIAL_DEFAULT_ONLY } = require('../shared');
 module.exports = {
   id: 'kimi-work',
   label: 'Kimi Work',
+  // Mesh catalog facts, stored and synced in account keys: never change them.
+  // Desktop and command-line forms of one sign-in system share a namespace.
+  providerNamespace: 'kimi',
+  clientForm: 'desktop-work',
   tagColor: '#8a63d2',
   appName: 'Kimi', // 与 Kimi Code 同一个桌面 App（com.moonshot.kimichat），open -a Kimi
   mac: {

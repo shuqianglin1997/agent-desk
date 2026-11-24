@@ -156,6 +156,8 @@ async function loadApps() {
         {
           label: a.label,
           tagColor: a.tagColor,
+          providerNamespace: a.providerNamespace || null,
+          recruitDefault: a.recruitDefault === true,
           canExportTranscript: Boolean(a.canExportTranscript),
           taskPackageMode: ['native', 'transcript'].includes(a.taskPackageMode) ? a.taskPackageMode : 'unsupported',
           canLaunch: a.canLaunch !== false,
@@ -2271,14 +2273,12 @@ function bindEvents() {
   els.exportSessionBtn.addEventListener('click', () => void exportSelectedSessions());
 }
 
-// Must equal Main's providerNamespace() (src/mesh/domain/agent-catalog.js),
-// which is what each binding records; test/catalog-provider-namespace.test.js
-// checks every registered client.
+// Each binding records the client's providerNamespace, declared by its adapter
+// and sent with the app list; an id this build does not know (a remote client)
+// keeps its own name, as in Main (src/mesh/domain/agent-catalog.js).
 function catalogProviderForApp(appId) {
   const value = String(appId || '').trim().toLowerCase();
-  if (value === 'claude' || value === 'claude-cli') return 'claude';
-  if (value === 'kimi' || value === 'kimi-work') return 'kimi';
-  return value || 'unknown';
+  return state.appMeta?.[value]?.providerNamespace || value || 'unknown';
 }
 
 function catalogSlotKey(slot) {
@@ -3553,7 +3553,8 @@ function renderQuotaMeters(snapshot) {
     const label = document.createElement('span');
     label.className = 'quota-meter-label';
     const scope = String(window_.scope || '').trim();
-    const showScope = scope && (scope.toLowerCase() !== 'codex' || labelCounts.get(window_.label) > 1);
+    // The default scope is named after the provider itself; say it only when two windows share a label.
+    const showScope = scope && (scope.toLowerCase() !== String(snapshot?.provider || '').toLowerCase() || labelCounts.get(window_.label) > 1);
     label.textContent = `${showScope ? `${scope} · ` : ''}${window_.label || tr('quota.window.fallback')}`;
     const value = document.createElement('span');
     value.className = 'quota-meter-value';

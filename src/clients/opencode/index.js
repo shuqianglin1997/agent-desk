@@ -20,7 +20,13 @@ const OPENCODE_ENV_KEYS = Object.freeze(['OPENCODE_CONFIG_DIR', 'OPENCODE_CONFIG
 module.exports = {
   id: 'opencode',
   label: 'OpenCode',
+  // Mesh catalog facts, stored and synced in account keys: never change them.
+  // Desktop and command-line forms of one sign-in system share a namespace.
+  providerNamespace: 'opencode',
+  clientForm: 'desktop',
   tagColor: '#4f6b3a',
+  // New cats of this client wear its coat (src/yard/cat-art.js LOOKS).
+  catCoat: 'opencode',
   appName: 'OpenCode',
   noLaunch: true,
   cliDiscoveryId: 'opencode',
@@ -73,6 +79,9 @@ module.exports = {
   // Keys reach OpenCode through `opencode auth import` on standard input
   // (`auth login --method key` needs a terminal); it stores them in opencode.db.
   credentials: Object.freeze({
+    // What the recruit dialog tells the person (src/renderer/recruit.js).
+    plaintextFile: 'opencode.db',
+    notes: Object.freeze({ key: 'recruit.note.opencode', provider: 'recruit.note.opencode' }),
     browser: true,
     key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'official-stdin', catalogProvider: true, catalogDefault: 'anthropic', plaintext: true }),
     importFiles: Object.freeze(['auth.json'])

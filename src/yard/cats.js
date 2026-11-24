@@ -123,7 +123,6 @@
   const FROM_LEGACY_ACCESSORY = { none: 'none', scarf: 'scarf', glasses: 'glasses', bow: 'bow', hat: 'straw' };
   // 客户端 → 它那一组毛色。只取颜色，不画任何标志；没有对应毛色的客户端（品牌规定不许这样用颜色的 Claude、
   // DeepSeek、Kimi、Gemini，以及别的）仍用旧的确定性默认。
-  const CLIENT_LOOKS = { codex: 'codex', cursor: 'cursor', 'qwen-code': 'qwen', opencode: 'opencode' };
   // 编辑器里能选的项圈：旧的六种加一种墨色；毛色自带的项圈色另外排在最前面。
   const COLLAR_CHOICES = COLLAR_COLORS.concat('#2b2018');
   const HEX = /^#[0-9a-f]{6}$/i;
@@ -194,8 +193,9 @@
   }
 
   // 新招募的猫：客户端有自己那一组毛色就用它（连同那种毛色自带的项圈和配饰）；没有就用确定性默认。
-  function defaultCatForClient(appId, seedText) {
-    const look = CLIENT_LOOKS[appId];
+  // A new cat wears its client's coat when the client has one (the adapter's
+  // catCoat, src/clients/<id>/index.js); otherwise the deterministic default.
+  function defaultCatForLook(look, seedText) {
     if (!look || !LOOKS[look]) return defaultCatFor(seedText);
     const data = LOOKS[look];
     return storeCat({ look, accessory: data.accessory || 'none', collar: data.collar || defaultCatFor(seedText).collar });
@@ -234,7 +234,7 @@
 
   return {
     deriveState, WORKING_WINDOW, STATE_META, defaultCatFor, normalizeCat, BREED_KEYS, COLLAR_COLORS, ACCESSORIES,
-    LOOK_KEYS, ACCESSORY_KEYS, LOOK_GROUPS, lookGroup, LEGACY_BREED, LEGACY_ACCESSORY, CLIENT_LOOKS, COLLAR_CHOICES,
-    resolveCat, storeCat, defaultCatForClient, actionFor, STATE_ACTIONS, ONE_SHOT_ACTIONS, BUSY_AT, FRANTIC_AT, busyAction
+    LOOK_KEYS, ACCESSORY_KEYS, LOOK_GROUPS, lookGroup, LEGACY_BREED, LEGACY_ACCESSORY, COLLAR_CHOICES,
+    resolveCat, storeCat, defaultCatForLook, actionFor, STATE_ACTIONS, ONE_SHOT_ACTIONS, BUSY_AT, FRANTIC_AT, busyAction
   };
 });

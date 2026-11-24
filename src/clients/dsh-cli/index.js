@@ -13,6 +13,10 @@ const DSH_ENV_KEYS = Object.freeze(['DSH_HOME']);
 module.exports = {
   id: 'dsh-cli',
   label: 'DSH',
+  // Mesh catalog facts, stored and synced in account keys: never change them.
+  // Desktop and command-line forms of one sign-in system share a namespace.
+  providerNamespace: 'dsh-cli',
+  clientForm: 'cli',
   tagColor: '#3d6aa8',
   appName: 'DeepSeek Harness',
   // DSH is a terminal launcher. Its home is the account boundary; the
@@ -61,6 +65,8 @@ module.exports = {
   }),
   // DSH has no key command; its documented credential file is the write path.
   credentials: Object.freeze({
+    // What the recruit dialog tells the person (src/renderer/recruit.js).
+    plaintextFile: '.credentials.yaml',
     browser: true,
     key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'credentials-file', plaintext: true }),
     provider: Object.freeze({ fields: Object.freeze(['baseUrl']), via: 'credentials-file', plaintext: true }),

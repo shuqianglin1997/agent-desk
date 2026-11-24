@@ -18,6 +18,10 @@ const { seedClaudeCliHome } = require('./home');
 module.exports = {
   id: 'claude-cli',
   label: 'Claude CLI',
+  // Mesh catalog facts, stored and synced in account keys: never change them.
+  // Desktop and command-line forms of one sign-in system share a namespace.
+  providerNamespace: 'claude',
+  clientForm: 'cli',
   tagColor: '#b0713f',
   appName: 'Claude',
   // 没有桌面 App。独立槽位用 CLAUDE_CONFIG_DIR 打开终端里的 claude，
@@ -71,6 +75,9 @@ module.exports = {
   // A pasted setup-token or API key goes into this home's settings.json
   // `env` (documented by Claude Code), which stores it in plain text.
   credentials: Object.freeze({
+    // What the recruit dialog tells the person (src/renderer/recruit.js).
+    plaintextFile: 'settings.json',
+    keyIsToken: true,
     browser: true,
     key: Object.freeze({ kinds: Object.freeze(['oauth-token', 'api-key']), via: 'settings-file', plaintext: true }),
     provider: Object.freeze({ fields: Object.freeze(['baseUrl']), optional: Object.freeze(['model']), via: 'settings-file', plaintext: true }),

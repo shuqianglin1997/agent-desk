@@ -24,7 +24,15 @@ const { inspectCodexHome } = require('./account-import');
 module.exports = {
   id: 'codex',
   label: 'Codex',
+  // Mesh catalog facts, stored and synced in account keys: never change them.
+  // Desktop and command-line forms of one sign-in system share a namespace.
+  providerNamespace: 'codex',
+  clientForm: 'desktop',
+  // The recruit dialog's first choice when it can be used.
+  recruitDefault: true,
   tagColor: '#2f9e8f',
+  // New cats of this client wear its coat (src/yard/cat-art.js LOOKS).
+  catCoat: 'codex',
   appName: 'Codex',
   // 2026 年官方 macOS 客户端的产品名仍显示 Codex，但包名和可执行文件
   // 已经是 ChatGPT。启动器身份不能继续由 UI 标签猜测；保留 Codex.app
@@ -80,6 +88,9 @@ module.exports = {
     sessionsShape: 'dated'
   }),
   credentials: Object.freeze({
+    // What the recruit dialog tells the person (src/renderer/recruit.js).
+    plaintextFile: '.env',
+    notes: Object.freeze({ key: 'recruit.note.codexKey' }),
     browser: true,
     key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'official-stdin', plaintext: false }),
     // reservedIds: Codex's own built-in provider ids, which a pasted provider may not reuse.

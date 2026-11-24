@@ -69,7 +69,12 @@ const { HubRunner } = require('./hub/runner');
 const { HubError, normalizeAccess } = require('./hub/roster');
 const { adapterFor, unsupportedReason } = require('./hub/adapters');
 const { createAgentHub } = require('./main/agent-hub');
-const { normalizeCat, defaultCatForClient } = require('./yard/cats');
+const { normalizeCat, defaultCatForLook } = require('./yard/cats');
+
+// A new cat wears its client's coat when the adapter declares one.
+function defaultCatForClient(appId, seedText) {
+  return defaultCatForLook(apps.isKnownApp(appId) ? apps.getApp(appId).catCoat : null, seedText);
+}
 const { mt } = require('./i18n/main-i18n');
 const { MeshService } = require('./mesh/main/mesh-service');
 const { ProvisioningService } = require('./mesh/main/provisioning-service');
@@ -434,7 +439,7 @@ function registerIpc() {
   });
   windowLamp.register(ipcMain);
   ipcMain.handle('apps:list', () => {
-    return apps.listApps().map((entry) => {
+    return apps.listApps({ uiHints: true }).map((entry) => {
       const descriptor = provisioningAdapterDescriptor(entry.id, 'desktop');
       return {
         ...entry,

@@ -11,7 +11,13 @@ const { CHROMIUM_PROFILE_ISOLATION } = require('../shared');
 module.exports = {
   id: 'cursor',
   label: 'Cursor',
+  // Mesh catalog facts, stored and synced in account keys: never change them.
+  // Desktop and command-line forms of one sign-in system share a namespace.
+  providerNamespace: 'cursor',
+  clientForm: 'desktop',
   tagColor: '#6b7cff',
+  // New cats of this client wear its coat (src/yard/cat-art.js LOOKS).
+  catCoat: 'cursor',
   appName: 'Cursor', // /Applications/Cursor.app，VSCode 分支，认 --user-data-dir
   mac: {
     launchers: [{ bundleName: 'Cursor', executableName: 'Cursor' }]

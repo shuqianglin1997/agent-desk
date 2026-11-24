@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
+const apps = require('../../apps');
 const { groupProfilesByIdentity } = require('../../identity-groups');
 const { createLocalDevice, normalizeDevice, renameDevice } = require('../domain/device');
 const {
@@ -148,6 +149,7 @@ class MeshService {
           snapshot = store.readSnapshot();
           const profiles = this.currentProfiles();
           catalog = reconcileLocalCatalog(snapshot, profiles, {
+            clientFacts: apps.clientFacts,
             deviceId: snapshot.mesh.localDeviceId,
             linkKey: secrets.identityLinkKey,
             sessionCounts: this.sessionCounts(profiles),
@@ -243,6 +245,7 @@ class MeshService {
     }, { randomUUID: this.randomUUID, now });
     const profiles = this.currentProfiles();
     const discoveredCatalog = reconcileLocalCatalog({}, profiles, {
+      clientFacts: apps.clientFacts,
       deviceId,
       linkKey: bundle.identityLinkKey,
       sessionCounts: this.sessionCounts(profiles),
@@ -489,6 +492,7 @@ class MeshService {
     }, { randomUUID: this.randomUUID, now: this.now() });
     const profiles = this.currentProfiles();
     const catalog = reconcileLocalCatalog(payload.catalog || {}, profiles, {
+      clientFacts: apps.clientFacts,
       deviceId,
       linkKey: payload.identityLinkKey,
       sessionCounts: this.sessionCounts(profiles),
@@ -555,6 +559,7 @@ class MeshService {
     // the explicit user choice replaces its provisional catalog relation.
     this.getOverview();
     return this.mutateCatalog(input, 'catalog.slot-assigned', (catalog) => assignSlot(catalog, input, {
+      clientFacts: apps.clientFacts,
       now: this.now(),
       randomUUID: this.randomUUID,
       reuseProvisional: input.reuseProvisional === true
@@ -699,7 +704,7 @@ class MeshService {
       if (job.deviceId !== snapshot.mesh.localDeviceId) throw new Error('provisioning-local-device-required');
       const blueprint = snapshot.blueprints.find((item) => item.agentId === job.agentId);
       if (!blueprint) throw new Error('agent-blueprint-not-found');
-      const provider = providerNamespace(job.requestedAppId);
+      const provider = providerNamespace(job.requestedAppId, apps.clientFacts);
       const order = new Map((blueprint.desiredBindingIds || []).map((bindingId, index) => [bindingId, index]));
       const candidates = snapshot.accountBindings
         .filter((binding) => binding.agentId === job.agentId && binding.providerNamespace === provider)
@@ -1262,10 +1267,12 @@ class MeshService {
       if (!remote) throw new Error('device-not-found');
       if (remote.status === 'revoked' || store.isDeviceRevoked(remote.deviceId)) throw new Error('device-revoked');
       const catalog = mergeCatalogInventory(snapshot, inventory, {
+        clientFacts: apps.clientFacts,
         catalogRevision: snapshot.catalogRevision + 1,
         allowLegacyCatalogProjection: input.allowLegacyCatalogProjection === true
       });
       const canonicalInventory = canonicalizeInventorySessions(inventory, catalog, {
+        clientFacts: apps.clientFacts,
         linkKey: this.keyVault.load().identityLinkKey
       });
       const device = normalizeDevice({
@@ -1290,7 +1297,7 @@ class MeshService {
       const linkKey = this.keyVault.load().identityLinkKey;
       const remoteInventories = snapshot.remoteInventories.flatMap((inventory) => {
         try {
-          return [canonicalizeInventorySessions(inventory, snapshot, { linkKey })];
+          return [canonicalizeInventorySessions(inventory, snapshot, { linkKey, clientFacts: apps.clientFacts })];
         } catch (_error) {
           // One legacy or damaged cache must not hide healthy local/remote
           // conversations. The next authenticated snapshot can replace it.
@@ -1505,6 +1512,7 @@ class MeshService {
     const currentRevision = Number(local?.inventoryRevision) || 0;
     const secrets = this.keyVault.load();
     return buildLocalInventory({
+      clientFacts: apps.clientFacts,
       deviceId: snapshot.mesh.localDeviceId,
       revision: options.advanceRevision ? currentRevision + 1 : currentRevision,
       catalog: normalizeCatalog(snapshot),

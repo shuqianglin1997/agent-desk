@@ -15,6 +15,10 @@ const { CHROMIUM_PROFILE_ISOLATION } = require('../shared');
 module.exports = {
   id: 'kimi',
   label: 'Kimi Code',
+  // Mesh catalog facts, stored and synced in account keys: never change them.
+  // Desktop and command-line forms of one sign-in system share a namespace.
+  providerNamespace: 'kimi',
+  clientForm: 'desktop',
   tagColor: '#2f6bff',
   appName: 'Kimi', // /Applications/Kimi.app（桌面客户端）；会话数据来自 Kimi Code CLI / VS Code 插件
   mac: {
@@ -66,6 +70,9 @@ module.exports = {
   // `kimi provider catalog add` takes the key from KIMI_REGISTRY_API_KEY
   // (never argv here); custom endpoints go into config.toml.
   credentials: Object.freeze({
+    // What the recruit dialog tells the person (src/renderer/recruit.js).
+    plaintextFile: 'config.toml',
+    keyAsksDefaultModel: true,
     browser: true,
     key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'official-env', catalogProvider: true, plaintext: true }),
     provider: Object.freeze({ fields: Object.freeze(['id', 'baseUrl', 'model']), via: 'config-file', plaintext: true }),

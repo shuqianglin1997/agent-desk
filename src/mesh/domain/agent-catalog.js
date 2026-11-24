@@ -1,21 +1,30 @@
 const { groupProfilesByIdentity } = require('../../identity-groups');
 const { meshScopedAccountKey } = require('./identity-link');
 
-function providerNamespace(appId) {
-  const value = String(appId || '').trim().toLowerCase();
-  if (value === 'claude' || value === 'claude-cli') return 'claude';
-  if (value === 'kimi' || value === 'kimi-work') return 'kimi';
-  return value || 'unknown';
+// Which sign-in system a client belongs to (stored in account keys and synced)
+// and its form come from the client adapters (src/apps.js clientFacts). They
+// are passed in, never guessed: a missing resolver is an error. An id this
+// build does not know (a remote client) keeps its own name, and its form is
+// read from the id.
+function requiredClientFacts(options) {
+  if (typeof options?.clientFacts !== 'function') throw new TypeError('clientFacts is required');
+  return options.clientFacts;
 }
 
-function clientForm(appId) {
+function providerNamespace(appId, clientFacts) {
+  if (typeof clientFacts !== 'function') throw new TypeError('clientFacts is required');
   const value = String(appId || '').trim().toLowerCase();
-  if (value.endsWith('-cli')) return 'cli';
-  if (value === 'kimi-work') return 'desktop-work';
-  return 'desktop';
+  return clientFacts(value)?.providerNamespace || value || 'unknown';
+}
+
+function clientForm(appId, clientFacts) {
+  if (typeof clientFacts !== 'function') throw new TypeError('clientFacts is required');
+  const value = String(appId || '').trim().toLowerCase();
+  return clientFacts(value)?.clientForm || (value.endsWith('-cli') ? 'cli' : 'desktop');
 }
 
 function reconcileLocalCatalog(existing = {}, profiles = [], options = {}) {
+  const clientFacts = requiredClientFacts(options);
   const randomUUID = options.randomUUID;
   if (typeof randomUUID !== 'function') throw new TypeError('randomUUID is required');
   const now = options.now || new Date().toISOString();
@@ -52,7 +61,7 @@ function reconcileLocalCatalog(existing = {}, profiles = [], options = {}) {
     if (slot.deviceId !== deviceId) return slot;
     const profile = profilesById.get(slot.profileId);
     if (!profile) return slot;
-    const provider = providerNamespace(profile.appId);
+    const provider = providerNamespace(profile.appId, clientFacts);
     const observed = scopedKeyForProfile(profile, linkKey, provider);
     const binding = currentBindings.get(slot.accountBindingId);
     let assignmentState = slot.assignmentState || 'linked';
@@ -76,7 +85,7 @@ function reconcileLocalCatalog(existing = {}, profiles = [], options = {}) {
     const next = {
       ...slot,
       appId: String(profile.appId || 'unknown'),
-      clientForm: clientForm(profile.appId),
+      clientForm: clientForm(profile.appId, clientFacts),
       localLabel: String(profile.name || profile.id),
       identityHint: manualHint(profile),
       assignmentState,
@@ -100,7 +109,7 @@ function reconcileLocalCatalog(existing = {}, profiles = [], options = {}) {
     scopedBindings = bindingsByScopedKey();
     const candidateAgentIds = new Set();
     for (const profile of group.members) {
-      const provider = providerNamespace(profile.appId);
+      const provider = providerNamespace(profile.appId, clientFacts);
       const scoped = scopedKeyForProfile(profile, linkKey, provider);
       const strongMatch = scoped ? scopedBindings.get(`${provider}:${scoped}`) : null;
       if (strongMatch) candidateAgentIds.add(strongMatch.agentId);
@@ -130,7 +139,7 @@ function reconcileLocalCatalog(existing = {}, profiles = [], options = {}) {
 
     const bindingGroups = new Map();
     for (const profile of group.members) {
-      const provider = providerNamespace(profile.appId);
+      const provider = providerNamespace(profile.appId, clientFacts);
       const scoped = scopedKeyForProfile(profile, linkKey, provider);
       const hint = manualHint(profile);
       const key = scoped
@@ -181,7 +190,7 @@ function reconcileLocalCatalog(existing = {}, profiles = [], options = {}) {
           agentId,
           accountBindingId: binding.accountBindingId,
           appId: String(profile.appId || 'unknown'),
-          clientForm: clientForm(profile.appId),
+          clientForm: clientForm(profile.appId, clientFacts),
           localLabel: String(profile.name || profile.id),
           identityHint: hint,
           assignmentState: 'linked',
@@ -258,6 +267,7 @@ function createAgentIdentity(existing = {}, input = {}, options = {}) {
 }
 
 function assignSlot(existing = {}, input = {}, options = {}) {
+  const clientFacts = requiredClientFacts(options);
   const previous = normalizeCatalog(existing);
   const deviceId = requiredText(input.deviceId, 'deviceId');
   const profileId = requiredText(input.profileId, 'profileId');
@@ -284,7 +294,7 @@ function assignSlot(existing = {}, input = {}, options = {}) {
   const oldBinding = oldBindingId
     ? accountBindings.find((item) => item.accountBindingId === oldBindingId)
     : null;
-  const provider = providerNamespace(slot.appId);
+  const provider = providerNamespace(slot.appId, clientFacts);
   const observedAccountKey = slot.observedAccountKey || null;
   const reusableProvisional = reuseProvisional
     && oldAgent

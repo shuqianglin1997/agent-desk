@@ -250,15 +250,16 @@ test('Mesh 目录事件：新外观原样通过签名事件与快照的字段校
 
 test('新招募的猫默认穿它客户端的毛色；没有对应毛色的客户端仍用确定性默认', () => {
   const apps = require('../src/apps');
-  for (const [appId, look] of Object.entries(cats.CLIENT_LOOKS)) {
-    assert.ok(apps.isKnownApp(appId), appId);
+  const coats = Object.fromEntries(apps.appIds().filter((appId) => apps.getApp(appId).catCoat).map((appId) => [appId, apps.getApp(appId).catCoat]));
+  assert.deepEqual(coats, { codex: 'codex', 'qwen-code': 'qwen', opencode: 'opencode', cursor: 'cursor' });
+  for (const [appId, look] of Object.entries(coats)) {
     assert.equal(cats.lookGroup(look), 'client');
-    const cat = cats.defaultCatForClient(appId, 'seed');
+    const cat = cats.defaultCatForLook(look, 'seed');
     assert.equal(cats.resolveCat(cat, 'seed').look, look);
-    assert.equal(cat.collar, art.LOOKS[look].collar);
+    assert.equal(cat.collar, art.LOOKS[look].collar, appId);
   }
   for (const appId of ['claude', 'claude-cli', 'kimi', 'kimi-work', 'dsh-cli', 'gemini-cli']) {
-    assert.deepEqual(cats.defaultCatForClient(appId, 'seed'), cats.defaultCatFor('seed'), appId);
+    assert.deepEqual(cats.defaultCatForLook(apps.getApp(appId).catCoat, 'seed'), cats.defaultCatFor('seed'), appId);
   }
   const main = read('src/main.js');
   assert.match(main, /isProtected: isDefault,[\s\S]{0,120}cat: defaultCatForClient\(appId, id\)/);

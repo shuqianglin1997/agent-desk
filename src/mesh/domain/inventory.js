@@ -34,6 +34,7 @@ function buildLocalInventory(input = {}, options = {}) {
       const replica = sessionReplica(record, slot, {
         deviceId,
         linkKey: input.linkKey,
+        clientFacts: input.clientFacts,
         providerNamespace: localBindingsById.get(slot.accountBindingId)?.providerNamespace
       });
       if (replica) replicas.push(replica);
@@ -155,7 +156,7 @@ function mergeCatalogInventory(existingValue, inventoryValue, options = {}) {
   const incomingSlots = inventory.catalog.slots.map((slot) => {
     const incomingBinding = incomingBindingsById.get(slot.accountBindingId);
     const observedStrongKey = slot.observedAccountKey
-      ? `${providerNamespaceForApp(slot.appId)}:${slot.observedAccountKey}`
+      ? `${providerNamespaceForApp(slot.appId, options.clientFacts)}:${slot.observedAccountKey}`
       : null;
     const mapped = bindingRemap.get(slot.accountBindingId)
       || bindingsById.get(slot.accountBindingId)
@@ -237,7 +238,7 @@ function canonicalizeInventorySessions(inventoryValue, catalogValue, options = {
     const identityInput = replica.stableProviderThreadId
       ? {
           kind: 'provider',
-          provider: binding.providerNamespace || providerNamespaceForApp(slot.appId || replica.appId),
+          provider: binding.providerNamespace || providerNamespaceForApp(slot.appId || replica.appId, options.clientFacts),
           accountBindingId: slot.accountBindingId,
           adapterConversationKey
         }
@@ -330,7 +331,7 @@ function sessionReplica(record, slot, context) {
   const identityInput = strong
     ? {
         kind: 'provider',
-        provider: context.providerNamespace || providerNamespaceForApp(slot.appId || record.appId),
+        provider: context.providerNamespace || providerNamespaceForApp(slot.appId || record.appId, context.clientFacts),
         accountBindingId: slot.accountBindingId,
         adapterConversationKey
       }

@@ -17,7 +17,13 @@ const QWEN_ENV_KEYS = Object.freeze(['QWEN_HOME', 'QWEN_RUNTIME_DIR', 'OPENAI_AP
 module.exports = {
   id: 'qwen-code',
   label: 'Qwen Code',
+  // Mesh catalog facts, stored and synced in account keys: never change them.
+  // Desktop and command-line forms of one sign-in system share a namespace.
+  providerNamespace: 'qwen-code',
+  clientForm: 'desktop',
   tagColor: '#6a4fd0',
+  // New cats of this client wear its coat (src/yard/cat-art.js LOOKS).
+  catCoat: 'qwen',
   appName: 'Qwen',
   noLaunch: true,
   cliDiscoveryId: 'qwen-code',
@@ -59,6 +65,8 @@ module.exports = {
     verify: Object.freeze({ 'projects/': 'qwen-projects' })
   }),
   credentials: Object.freeze({
+    // What the recruit dialog tells the person (src/renderer/recruit.js).
+    plaintextFile: '.env',
     browser: true,
     provider: Object.freeze({ fields: Object.freeze(['baseUrl', 'model']), via: 'config-file', plaintext: true })
   })
