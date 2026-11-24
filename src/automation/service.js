@@ -5,6 +5,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const paths = require('../core/paths');
+const { readProfileFile } = require('../core/profile-file');
 const apps = require('../apps');
 const locations = require('../session-location');
 const { needsShortRuntimeHome } = require('../codex-runtime-home');
@@ -94,14 +95,14 @@ function directoryState(value) {
 
 function readProfiles(directory) {
   const file = path.join(absoluteDirectory(directory), 'profiles.json');
-  let payload;
-  try { payload = JSON.parse(fs.readFileSync(file, 'utf8')); }
-  catch (error) {
-    if (error.code === 'ENOENT') return { state: 'missing', profiles: [] };
+  const read = readProfileFile(file);
+  if (!read.ok && read.code === 'missing') return { state: 'missing', profiles: [] };
+  if (!read.ok && read.code !== 'invalid-shape') {
     throw new InterfaceError('profile-store-unreadable', 'Cannot read profiles.json. Use desktop recovery; this interface never restores backups.', 4);
   }
   // Use the exact persisted v2 paths. Do not synthesize IDs, fall back to Claude,
   // discover Windows default paths or silently normalize a legacy store.
+  const payload = read.ok ? read.value.parsed : null;
   if (!payload || payload.version !== 2 || !Array.isArray(payload.profiles)) {
     throw new InterfaceError('profile-store-version', 'Expected a version 2 Profile store. Migrate using AgentDesk before reading it.', 4);
   }

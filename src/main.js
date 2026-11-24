@@ -129,6 +129,7 @@ const {
   normalizePairingDecisionInput
 } = require('./main/ipc/pairing-approvals');
 const { resolveProfileStore } = require('./main/profile-store-policy');
+const { readProfileFile } = require('./core/profile-file');
 // This machine's path rules (src/core/paths.js), under the names used below.
 const { isInside: isSubpath, samePath: pathsEqual } = require('./core/paths').native;
 
@@ -3453,13 +3454,8 @@ function updateSettings(patch) {
 }
 
 function readProfileStore(filePath) {
-  return readJsonStore(filePath, (parsed) => (
-    Array.isArray(parsed) || (
-      parsed &&
-      typeof parsed === 'object' &&
-      Array.isArray(parsed.profiles)
-    )
-  ));
+  const result = readProfileFile(filePath);
+  return result.ok ? { filePath, parsed: result.value.parsed } : null;
 }
 
 function readSettingsStore(filePath) {

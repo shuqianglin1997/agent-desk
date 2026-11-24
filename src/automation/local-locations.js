@@ -5,6 +5,7 @@
 // inputs. Read-only: it never registers, copies or prints credentials.
 const path = require('node:path');
 const apps = require('../apps');
+const { readProfileFile } = require('../core/profile-file');
 const discovery = require('../account-discovery');
 const { InterfaceError, readProfiles, getProfile } = require('./service');
 const { credentialStatus } = require('../account-credentials');
@@ -12,15 +13,18 @@ const { discoverCli } = require('../cli-discovery');
 
 const SCAN_MODES = new Set(['defaults', 'home']);
 
+// Lenient: any readable file is "present"; only {profiles:[...]} entries with a
+// session root count (a pre-versioned bare array lists nothing here).
 function readRegisteredProfiles(userData) {
   if (typeof userData !== 'string' || !path.isAbsolute(userData)) return { profiles: [], state: 'unknown' };
-  try {
-    const payload = JSON.parse(require('node:fs').readFileSync(path.join(userData, 'profiles.json'), 'utf8'));
-    const profiles = Array.isArray(payload?.profiles) ? payload.profiles : [];
-    return { profiles: profiles.filter((item) => item && typeof item.sessionRoot === 'string'), state: 'present' };
-  } catch (error) {
-    return { profiles: [], state: error?.code === 'ENOENT' ? 'missing' : 'unreadable' };
+  const read = readProfileFile(path.join(userData, 'profiles.json'));
+  if (!read.ok) {
+    if (read.code === 'missing') return { profiles: [], state: 'missing' };
+    if (read.code === 'invalid-shape') return { profiles: [], state: 'present' };
+    return { profiles: [], state: 'unreadable' };
   }
+  const profiles = read.value.legacyArray ? [] : read.value.profiles;
+  return { profiles: profiles.filter((item) => item && typeof item.sessionRoot === 'string'), state: 'present' };
 }
 
 function registerArguments(location) {
@@ -91,4 +95,4 @@ async function profileSignInStatus(input = {}, options = {}) {
   };
 }
 
-module.exports = { discoverLocalProfileLocations, profileSignInStatus, SCAN_MODES };
+module.exports = { discoverLocalProfileLocations, profileSignInStatus, readRegisteredProfiles, SCAN_MODES };
