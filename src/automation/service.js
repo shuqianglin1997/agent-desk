@@ -160,7 +160,14 @@ function scanProfile(profile) {
   if (directoryState(profile.sessionRoot) !== 'directory') {
     throw new InterfaceError('session-root-unavailable', 'The selected session root is missing, unreadable or not a directory.', 4);
   }
-  return app.scan(profile);
+  try {
+    return app.scan(profile);
+  } catch (error) {
+    if (['session-store-unreadable', 'sqlite-unavailable', 'sqlite-query-failed'].includes(error?.code)) {
+      throw new InterfaceError('session-store-unreadable', 'The client\'s session store exists but could not be read. No sessions were guessed.', 4);
+    }
+    throw error;
+  }
 }
 
 function sessionId(session) { return String(session.address || session.id || ''); }

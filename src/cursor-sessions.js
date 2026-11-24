@@ -15,22 +15,42 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { ok, fail, valueOr } = require('./core/result');
 
 function sqlite3Bin() {
   if (process.platform === 'darwin' && fs.existsSync('/usr/bin/sqlite3')) return '/usr/bin/sqlite3';
   return 'sqlite3'; // 其他平台走 PATH；不存在时 query 会优雅失败
 }
 
-function queryJson(dbPath, sql) {
+// One read-only query. ok(rows) | fail('sqlite-unavailable' when the sqlite3
+// program cannot run, 'sqlite-query-failed' when it ran and the query failed:
+// locked, damaged, or a table this client version does not have).
+function querySqlite(dbPath, sql) {
+  let out;
   try {
-    const out = execFileSync(sqlite3Bin(), ['-readonly', '-json', dbPath, sql], {
-      encoding: 'utf8', timeout: 2000, maxBuffer: 64 * 1024 * 1024
+    out = execFileSync(sqlite3Bin(), ['-readonly', '-json', dbPath, sql], {
+      encoding: 'utf8', timeout: 2000, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore']
     });
-    const trimmed = out.trim();
-    return trimmed ? JSON.parse(trimmed) : [];
-  } catch (_error) {
-    return null; // 无 sqlite3 / 库锁 / 损坏 → 上层按空处理
+  } catch (error) {
+    return fail(error?.code === 'ENOENT' || error?.code === 'EACCES' ? 'sqlite-unavailable' : 'sqlite-query-failed');
   }
+  try {
+    const trimmed = out.trim();
+    return ok(trimmed ? JSON.parse(trimmed) : []);
+  } catch (_error) {
+    return fail('sqlite-query-failed');
+  }
+}
+
+// Rows, or null when the query failed.
+function queryJson(dbPath, sql) {
+  return valueOr(querySqlite(dbPath, sql), null);
+}
+
+function storeUnreadable(code) {
+  const error = new Error(code);
+  error.code = code;
+  return error;
 }
 
 function stateDbPath(profile) {
@@ -69,7 +89,7 @@ function scanCursor(profile) {
   if (!fs.existsSync(db)) return [];
 
   // 主路径：composerHeaders 索引表（现代 Cursor）；过滤子 agent 与空草稿
-  let rows = queryJson(db,
+  const primary = querySqlite(db,
     "SELECT composerId AS id, createdAt, lastUpdatedAt, isArchived, " +
     "json_extract(value,'$.name') AS name, json_extract(value,'$.subtitle') AS subtitle " +
     "FROM composerHeaders " +
@@ -77,12 +97,18 @@ function scanCursor(profile) {
     "ORDER BY lastUpdatedAt DESC LIMIT 2000;"
   );
 
+  if (!primary.ok && primary.code === 'sqlite-unavailable') throw storeUnreadable('sqlite-unavailable');
+  let rows = primary.ok ? primary.value : [];
   // 兜底：老版本无 composerHeaders → 读 cursorDiskKV 的 composerData（只 json_extract 元数据，不拉大 blob）
-  if (!rows || rows.length === 0) {
-    rows = queryJson(db,
+  if (rows.length === 0) {
+    const legacy = querySqlite(db,
       "SELECT substr(key,14) AS id, json_extract(value,'$.createdAt') AS createdAt, " +
       "json_extract(value,'$.name') AS name FROM cursorDiskKV WHERE key LIKE 'composerData:%' LIMIT 2000;"
-    ) || [];
+    );
+    // Both readings failed: the database exists but cannot be read. That is a
+    // failure, never "no sessions".
+    if (!primary.ok && !legacy.ok) throw storeUnreadable('session-store-unreadable');
+    if (legacy.ok) rows = legacy.value;
   }
 
   const records = rows.map((row) => toRecord(row, db));
@@ -99,14 +125,16 @@ function sessionCounts(profile, now = Date.now()) {
   const zero = { sessionCount: 0, activeNow: 0, activeToday: 0, createdToday: 0 };
   if (!fs.existsSync(db)) return zero;
   const t = startOfDay(now);
-  const rows = queryJson(db,
+  const result = querySqlite(db,
     `SELECT COUNT(*) AS sessionCount, ` +
     `SUM(CASE WHEN isArchived=0 AND lastUpdatedAt >= ${now - 300000} AND lastUpdatedAt <= ${now + 1000} THEN 1 ELSE 0 END) AS activeNow, ` +
     `SUM(CASE WHEN lastUpdatedAt >= ${t} AND lastUpdatedAt <= ${now + 1000} THEN 1 ELSE 0 END) AS activeToday, ` +
     `SUM(CASE WHEN createdAt >= ${t} AND createdAt <= ${now + 1000} THEN 1 ELSE 0 END) AS createdToday ` +
     "FROM composerHeaders WHERE isSubagent=0 AND composerId<>'empty-state-draft' AND lastUpdatedAt IS NOT NULL;"
   );
-  if (!rows || !rows.length) return zero;
+  if (!result.ok) throw storeUnreadable(result.code);
+  const rows = result.value;
+  if (!rows.length) return zero;
   return {
     sessionCount: Number(rows[0].sessionCount) || 0,
     activeNow: Number(rows[0].activeNow) || 0,
@@ -128,4 +156,4 @@ function latestActivity(profile) {
 }
 
 // queryJson 供其他 SQLite 型扫描器复用（kimi-work-sessions）
-module.exports = { scanCursor, sessionCounts, latestActivity, stateDbPath, queryJson };
+module.exports = { scanCursor, sessionCounts, latestActivity, stateDbPath, querySqlite, queryJson, storeUnreadable };

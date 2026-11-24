@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 2 阶段第 7 批（第 1 阶段第 4、5 条留下的部分）：读不出来与“没有”从此在数据上分开。Cursor 与 Kimi Work 的 sqlite3 查询改为返回结果（成功带行，或“sqlite3 不能运行 / 查询失败”）：数据库不存在仍是没有会话；数据库在但读不出来时扫描报错而不再返回空表，桌面沿用上一次的行（第 1 阶段已有），成品命令行返回新的原因码 `session-store-unreadable`；活动探测读不出 Cursor 的聚合数时“在跑”为不知道。目录遍历在 12000 项处停下、还有目录没读时，`apps.scanResult()` 的结果带 `truncated: true`，活动探测的结果多一个 `truncated` 字段。这些状态都只放在数据里，界面暂不显示（要新文字，留到第 6、8 阶段）。新增 `test/scan-failure-and-truncation.test.js` 4 项，修改前全部失败、修改后通过；会话扫描基准里每个活动结果多了 `truncated: false`，其余不变。
+
 2026-11-24 架构整理第 2 阶段第 6 批：删除旧的 Codex 导入。它的按钮早已不在页面里，剩下的对话框、五个通信接口（`profiles:discoverCodexHomes`、`registerCodexHome`、`pickCodexHome`、`pickCodexAuth`、`importDroppedCodexAuth`）、preload 里对应的五个方法、界面里的打开与执行代码、对应样式和三种语言各 23 条文案一起删掉；首次使用里的“导入 Codex”按钮照旧打开招募的“拖进来”一段（它的文案和招募刷新失败的提示两条保留）。招募和成品命令行登记已有 Codex 目录原来走自己的 `registerCodexHome`，现在走与其他客户端相同的 `src/main/profile-registration.js`；命令行仍先检查目录像不像 Codex。改之前先写了 `test/codex-registration-path.test.js` 两项，证明两条路对同一个 Codex 目录（普通目录与官方默认 `~/.codex`）建出的账号逐字段相同、找到的已有账号也相同；改动后通过。preload 的拖入测试改为检查剩下的唯一拖入入口（招募）同样不暴露路径、没有通用调用。
 
 2026-11-24 架构整理第 2 阶段第 5 批：设置文件升到版本 5。已退休功能的六个字段（庭院视图、提醒开关、庭院时间与天气、完成账本、猫位置）不再规整、不再读取，迁移时原样收进 `retired`：不删任何数据（与设备网基准 1.34 “历史账本/提醒配置仍可读取”一致），`retired` 里已有的值优先，所以旧版本回写的默认值不会盖掉它；其他字段（含未来版本新增的字段）全部保留。新增 `test/settings-retired-fields.test.js` 3 项，其中一项用上一版的设置规整代码（作为测试素材保存在 `test/fixtures/settings-v4/`）读取新文件：不出错、其他字段都在、`retired` 原样保留，再由本版读回时收起来的值不被覆盖。随之删除只为猫位置服务的 `yard/interactions.js` 及其测试、界面里没人读的 `YardSprites.APP_TAG` 写入，以及从浏览器本地存储迁移这几个退休字段的代码（主题与 `welcomed` 的迁移保留）。分层检查里 `settings.js` 依赖界面层的那一条随之消失。`test/settings.test.js` 里针对退休字段规整的几项改为检查它们原样收进 `retired`；`test/ui.test.js`、`test/ui-redesign.test.js` 各有一处按源码文字的断言跟着改。

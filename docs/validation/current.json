@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T17:17:21.569Z",
-  "baseCommit": "b0802e239d774a36b8d57ca1717306d482a105d4",
+  "recordedAt": "2026-11-24T17:19:54.845Z",
+  "baseCommit": "dca56cfd885bd354d1e545b8886a4f80459a1312",
   "uncommitted": true,
-  "sourceSha256": "cbdf7e428f6d169136c99f3beee0ca0ac2f0327900129ead9978fee7cbbf1fa4",
+  "sourceSha256": "843886c7e184611d60f2f0b1bafac896c2d3f42f7fbdb8e3a339db404d7d8a48",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 863,
+      "pass": 861,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 2 batch 7 (unreadable session stores fail, cut-off walks report truncation); digest identical before and after the run",
+      "recordedAt": "2026-11-24T17:19:54.845Z",
+      "sourceSha256": "843886c7e184611d60f2f0b1bafac896c2d3f42f7fbdb8e3a339db404d7d8a48"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T17:19:54.845Z",
+      "sourceSha256": "843886c7e184611d60f2f0b1bafac896c2d3f42f7fbdb8e3a339db404d7d8a48"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

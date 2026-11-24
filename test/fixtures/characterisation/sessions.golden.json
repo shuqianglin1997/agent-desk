@@ -377,6 +377,7 @@
       "createdToday": 2,
       "activeNow": 2,
       "writingNow": 1,
+      "truncated": false,
       "writingKeys": [],
       "freshReplies": null,
       "freshKeys": []
@@ -394,6 +395,7 @@
       "createdToday": 4,
       "activeNow": 3,
       "writingNow": 0,
+      "truncated": false,
       "writingKeys": [],
       "freshReplies": null,
       "freshKeys": []
@@ -411,6 +413,7 @@
       "createdToday": 3,
       "activeNow": 1,
       "writingNow": 0,
+      "truncated": false,
       "writingKeys": [],
       "freshReplies": null,
       "freshKeys": []
@@ -428,6 +431,7 @@
       "createdToday": 2,
       "activeNow": 1,
       "writingNow": 0,
+      "truncated": false,
       "writingKeys": [],
       "freshReplies": null,
       "freshKeys": []
@@ -445,6 +449,7 @@
       "createdToday": 2,
       "activeNow": 2,
       "writingNow": 1,
+      "truncated": false,
       "writingKeys": [
         "char-kimi::session_bad"
       ],
@@ -464,6 +469,7 @@
       "createdToday": 1,
       "activeNow": 1,
       "writingNow": 1,
+      "truncated": false,
       "writingKeys": [],
       "freshReplies": null,
       "freshKeys": []
@@ -481,6 +487,7 @@
       "createdToday": 2,
       "activeNow": 2,
       "writingNow": 0,
+      "truncated": false,
       "writingKeys": [],
       "freshReplies": null,
       "freshKeys": []
@@ -498,6 +505,7 @@
       "createdToday": 3,
       "activeNow": 0,
       "writingNow": 0,
+      "truncated": false,
       "writingKeys": [],
       "freshReplies": null,
       "freshKeys": []
@@ -515,6 +523,7 @@
       "createdToday": 1,
       "activeNow": 0,
       "writingNow": null,
+      "truncated": false,
       "writingKeys": [],
       "freshReplies": null,
       "freshKeys": []
@@ -532,6 +541,7 @@
       "createdToday": 1,
       "activeNow": 0,
       "writingNow": 0,
+      "truncated": false,
       "writingKeys": [],
       "freshReplies": null,
       "freshKeys": []

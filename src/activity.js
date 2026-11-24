@@ -69,8 +69,10 @@ function probeActivity(profile, now = Date.now(), options = {}) {
     activeToday: 0,   // 今天被写过的会话数（mtime 落在今天）
     createdToday: 0,  // 今天新建的会话数（birthtime 落在今天）
     activeNow: 0,     // 近 5 分钟仍在写入的并行会话数（按会话去重，多终端窗口可见）
-    writingNow: 0     // 近 90 秒有新内容、还没回完的逻辑会话数（猫有多忙）；拿不到时为 null
+    writingNow: 0,    // 近 90 秒有新内容、还没回完的逻辑会话数（猫有多忙）；拿不到时为 null
+    truncated: false  // 目录遍历在 WALK_LIMIT 处停下、还有没读的目录时为 true（只作数据，界面暂不显示）
   };
+  const walkReport = {};
   // 下面两项只在本模块里用，probeActivities 按运行位置换成会话键后删掉。
   const writingAddresses = [];
   const replies = [];
@@ -103,7 +105,7 @@ function probeActivity(profile, now = Date.now(), options = {}) {
     ? createCodexActivityPreference(profile)
     : (candidate, current) => candidate.mtime >= current.mtime;
   for (const area of app.scanAreas(profile)) {
-    for (const filePath of walkFiles(area.dir, area.match, area.maxDepth)) {
+    for (const filePath of walkFiles(area.dir, area.match, area.maxDepth, walkReport)) {
       try {
         const stat = fs.statSync(filePath);
         result.fileCount += 1; // physical diagnostics only; never a session count
@@ -128,6 +130,7 @@ function probeActivity(profile, now = Date.now(), options = {}) {
     }
   }
   result.sessionCount = records.size;
+  result.truncated = walkReport.truncated === true;
   for (const record of records.values()) {
     if (!result.latestMtime || record.mtime > result.latestMtime) {
       result.latestMtime = record.mtime;
@@ -178,7 +181,8 @@ function probeActivity(profile, now = Date.now(), options = {}) {
       result.writingNow = Number.isFinite(counts.writingNow) ? counts.writingNow : null;
       writingAddresses.length = 0;
     } catch (_error) {
-      // 退回上面按文件数算的结果
+      // 退回上面按文件数算的结果；读不出数据库时“在跑”是不知道，不是文件数。
+      result.writingNow = null;
     }
   }
 
@@ -200,7 +204,7 @@ function probeActivity(profile, now = Date.now(), options = {}) {
 
 // maxDepth：可选的递归深度上限（root 直下为 1）。会话量大的目录树
 // （如 ~/.claude/projects 下的 memory/<uuid> 子目录）用它避免撞 WALK_LIMIT 截断。
-function walkFiles(root, match, maxDepth = Infinity) {
+function walkFiles(root, match, maxDepth = Infinity, report = null) {
   const output = [];
   if (!root || !fs.existsSync(root)) return output;
   const pending = [{ dir: root, depth: 0 }];
@@ -227,6 +231,7 @@ function walkFiles(root, match, maxDepth = Infinity) {
     }
   }
 
+  if (report && pending.length) report.truncated = true;
   return output;
 }
 

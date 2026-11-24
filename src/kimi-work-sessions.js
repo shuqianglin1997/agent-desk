@@ -15,7 +15,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { queryJson } = require('./cursor-sessions');
+const { querySqlite, storeUnreadable } = require('./cursor-sessions');
 const { parseDate, cleanTitle } = require('./sessions');
 
 function kimiWorkDbPath(profile) {
@@ -62,11 +62,13 @@ function scanKimiWork(profile) {
 
   // LIMIT 截断按 sqlite 自己的 updated_at_ms（建立时间）排序；state.json 修正只作用于
   // 取回的窗口内。超过 2000 条历史会话时，最旧的可能取不到——与 cursor 扫描器同款取舍。
-  const rows = queryJson(db,
+  const result = querySqlite(db,
     'SELECT conversation_key, title, workspace_path, kernel_session_dir, kernel_records_path, ' +
     'created_at, updated_at FROM conversations ORDER BY updated_at_ms DESC LIMIT 2000;'
   );
-  if (!rows) return [];
+  // The index exists but cannot be read: a failure, never "no sessions".
+  if (!result.ok) throw storeUnreadable(result.code === 'sqlite-unavailable' ? result.code : 'session-store-unreadable');
+  const rows = result.value;
 
   const records = rows.map((row) => toRecord(row, db));
   // updatedAt 可能被 state.json 改写，按最终值重排

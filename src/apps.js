@@ -11,6 +11,7 @@
  * 纯 Node（os/path + sessions.js），可单测，不依赖 Electron。
  */
 
+const { ok, fail } = require('./core/result');
 const os = require('node:os');
 const path = require('node:path');
 const sessions = require('./sessions');
@@ -149,7 +150,7 @@ const APPS = {
       homeScan: true,
       markerSets: [['Local State', 'claude-code-sessions/'], ['Local State', 'local-agent-mode-sessions/']]
     }),
-    scan: (profile) => sessions.scanClaude(profile),
+    scan: (profile, report) => sessions.scanClaude(profile, report),
     // 会话记录里的最后活跃时间（读 probe 传入的最新文件的 lastActivityAt），驱动干活/在岗判定
     contentActivityAt: (_profile, filePath) => sessions.claudeActivityFromFile(filePath)
   },
@@ -347,7 +348,7 @@ const APPS = {
       provider: Object.freeze({ fields: Object.freeze(['id', 'baseUrl', 'model']), via: 'config-file', plaintext: true }),
       importFiles: Object.freeze(['auth.json'])
     }),
-    scan: (profile) => sessions.scanCodex(profile),
+    scan: (profile, report) => sessions.scanCodex(profile, report),
     activityRecord: (filePath, stat) => {
       const { first, identity } = sessions.codexRecordIdentity(filePath, stat);
       return identity.recordKind === 'internal-child' ? null : {
@@ -421,7 +422,7 @@ const APPS = {
       provider: Object.freeze({ fields: Object.freeze(['id', 'baseUrl', 'model']), via: 'config-file', plaintext: true }),
       importFiles: Object.freeze(['credentials/kimi-code.json'])
     }),
-    scan: (profile) => sessions.scanKimi(profile),
+    scan: (profile, report) => sessions.scanKimi(profile, report),
     contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
     sessionAddressOf: (key) => path.basename(key),
     // 一个会话目录含 state.json + agents/*/wire.jsonl，活跃计数按会话目录去重
@@ -838,8 +839,22 @@ function legacyDefaultProfilePath(appId) {
   return appSupportDir(profileDirName(app_));
 }
 
+// A scan as a result (src/core/result.js): ok(rows, { truncated }) or
+// fail(code) when the client's store exists but cannot be read. `scan()`
+// keeps returning rows and throwing, for the callers that already handle it.
+function scanResult(profile) {
+  const report = {};
+  try {
+    const rows = getApp(profile.appId).scan(profile, report);
+    return ok(Array.isArray(rows) ? rows : [], { truncated: report.truncated === true });
+  } catch (error) {
+    return fail(/^[a-z0-9][a-z0-9-]{0,63}$/.test(String(error?.code || '')) ? error.code : 'session-scan-failed');
+  }
+}
+
 module.exports = {
   APPS,
+  scanResult,
   DEFAULT_APP,
   CLAUDE_CODE_ENV_KEYS,
   DSH_ENV_KEYS,

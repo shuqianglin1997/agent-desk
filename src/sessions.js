@@ -29,7 +29,7 @@ function scanSessions(profile) {
   return scanClaude(profile);
 }
 
-function scanClaude(profile) {
+function scanClaude(profile, report = null) {
   const roots = [
     { dir: path.join(profile.sessionRoot, 'claude-code-sessions'), source: 'Claude Code' },
     { dir: path.join(profile.sessionRoot, 'local-agent-mode-sessions'), source: 'Claude 本地' }
@@ -37,7 +37,7 @@ function scanClaude(profile) {
   const records = [];
 
   for (const root of roots) {
-    for (const filePath of walkFiles(root.dir, (entry) => entry.isFile() && /^local_.*\.json$/i.test(entry.name))) {
+    for (const filePath of walkFiles(root.dir, (entry) => entry.isFile() && /^local_.*\.json$/i.test(entry.name), report)) {
       const json = readJson(filePath);
       if (!json) continue;
       const stat = safeStat(filePath);
@@ -85,7 +85,7 @@ function codexRecordIdentity(filePath, stat = safeStat(filePath)) {
   return value;
 }
 
-function scanCodex(profile) {
+function scanCodex(profile, report = null) {
   const root = profile.sessionRoot || path.join(os.homedir(), '.codex');
   const index = readCodexIndex(path.join(root, 'session_index.jsonl'));
   const dirs = [
@@ -96,7 +96,7 @@ function scanCodex(profile) {
   const internalBranchesByConversation = new Map();
 
   for (const area of dirs) {
-    for (const filePath of walkFiles(area.dir, (entry) => entry.isFile() && entry.name.endsWith('.jsonl'))) {
+    for (const filePath of walkFiles(area.dir, (entry) => entry.isFile() && entry.name.endsWith('.jsonl'), report)) {
       const { first, identity } = codexRecordIdentity(filePath);
       const payload = first?.payload || {};
 
@@ -514,13 +514,14 @@ function readChunkLines(filePath, fromEnd, maxBytes = 64 * 1024) {
 
 // Kimi Code（CLI / VS Code 插件）：<root>/sessions/<workspaceId>/session_<uuid>/state.json，
 // 对话记录在同级 agents/<agentId>/wire.jsonl。state.json 直接给出标题与起止时间。
-function scanKimi(profile) {
+function scanKimi(profile, report = null) {
   const root = profile.sessionRoot || path.join(os.homedir(), '.kimi-code');
   const records = [];
 
   for (const filePath of walkFiles(
     path.join(root, 'sessions'),
-    (entry, itemPath) => entry.isFile() && entry.name === 'state.json' && /session_[^/\\]+[/\\]state\.json$/.test(itemPath)
+    (entry, itemPath) => entry.isFile() && entry.name === 'state.json' && /session_[^/\\]+[/\\]state\.json$/.test(itemPath),
+    report
   )) {
     const json = readJson(filePath);
     if (!json) continue;
@@ -633,13 +634,16 @@ function readCodexIndex(filePath) {
   return map;
 }
 
-function walkFiles(root, predicate) {
+// Walks at most WALK_LIMIT entries. `report.truncated` becomes true when the
+// walk stopped with folders left unread (src/core/result.js carries it on).
+const WALK_LIMIT = 12000;
+function walkFiles(root, predicate, report = null) {
   const output = [];
   if (!root || !fs.existsSync(root)) return output;
   const pending = [root];
   let scanned = 0;
 
-  while (pending.length && scanned < 12000) {
+  while (pending.length && scanned < WALK_LIMIT) {
     const current = pending.pop();
     let entries = [];
     try {
@@ -659,6 +663,7 @@ function walkFiles(root, predicate) {
     }
   }
 
+  if (report && pending.length) report.truncated = true;
   return output;
 }
 
