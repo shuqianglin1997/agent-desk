@@ -231,19 +231,19 @@ core       纯函数与基础件：路径、标识、时间窗、结果与事实
 
 | 指标 | 评估时（`24fdb32`，估算） | 现在（实测，见 9.1 最近一段） | 目标 |
 |---|---|---|---|
-| `main.js` 行数 | 5184 | 5126 | 只剩启动，约几百行 |
-| `renderer.js` 行数 | 9681 | 9773 | 拆完后不存在，或只剩启动 |
+| `main.js` 行数 | 5184 | 5130 | 只剩启动，约几百行 |
+| `renderer.js` 行数 | 9681 | 9774 | 拆完后不存在，或只剩启动 |
 | 最长的函数 | 约 1265 行 | `registerIpc` 1241 行；超过 150 行的 17 个 | 没有超过约 150 行的 |
 | 登记在 `main.js` 里的接口 | 106 | 105 | 0 |
-| 适配器之外按客户端名字的判断 | 约 67 | 67 | 0 |
+| 适配器之外按客户端名字的判断 | 约 67 | 0 | 0 |
 | 按标识找会话的实现 | 5 | 5 | 1 |
 | 路径判断的实现 | 约 11 | 1（`src/core/paths.js`） | 1 |
-| 界面刷新路径上的同步文件读写 | 有 | 50 处（11 个模块） | 0 |
+| 界面刷新路径上的同步文件读写 | 有 | 50 处（21 个模块） | 0 |
 | 启动时的完整扫描 | 3–4 次 | 4 次（未建设备网） | 1 次 |
 | 跨表重复的选择器 | 184 | 171 | 0 |
 | `!important` | 40 | 41 | 只剩清单内的 |
-| 只做文字比对的测试文件 | 15 | 13（另有 3 个在 vm 里运行抽出的源码，属行为测试） | 只剩安全不变式 |
-| 主线程单次阻塞（10 × 500） | 估计数百毫秒到数秒 | 一次“全部”刷新中位约 831 毫秒（五次 768–959，读 642 MB）；单个账号最多约 149 毫秒；活动探测连同进程快照约 60 毫秒 | 单次不超过 50 毫秒 |
+| 只做文字比对的测试文件 | 15 | 12（另有 3 个在 vm 里运行抽出的源码，属行为测试） | 只剩安全不变式 |
+| 主线程单次阻塞（10 × 500） | 估计数百毫秒到数秒 | 一次“全部”刷新中位约 684 毫秒（五次 681–690，读 642 MB）；单个账号最多约 135 毫秒；活动探测连同进程快照约 54 毫秒 | 单次不超过 50 毫秒 |
 
 ## 9. 已定的事
 
@@ -355,6 +355,48 @@ core       纯函数与基础件：路径、标识、时间窗、结果与事实
 - 只在开发时用的类型检查（第 9 节第 5 条）没有安装，见本阶段报告里的说明。
 
 没有验证的：可见窗口；真实账号、真实客户端（sqlite3 读不出的路径只用伪造的坏数据库试过，没有在真实 Cursor、Kimi Work 上制造过锁库）；Windows（路径判断里 Windows 的选项只在测试里用 `path.win32` 跑过）；旧版本程序实际打开新设置文件（测试用的是上一版的规整代码，不是上一版的整个应用）。
+
+### 第 3 阶段：客户端适配器（2026-11-24 完成）
+
+从 `67c182a`（第 2 阶段收尾）开始。每家客户端一个目录 `src/clients/<id>/`，它的全部知识都在里面；`src/apps.js` 只按固定顺序收集适配器。每批先有行为测试，再改，再过三项检查，一批一提交。
+
+| 批 | 提交 | 做了什么 |
+|---|---|---|
+| 一家一个目录 | `a992aa8` | `apps.js` 的十个条目逐字搬进 `src/clients/<id>/index.js`，共用小工具进 `clients/shared.js`；顺序、每个字段（函数按去空白的源码）、`listApps()` 与导出逐项比对相同 |
+| Codex 记录只有一个读取者 | `4a9d781` | `clients/codex/rollout.js`：session_meta 分类（`mesh/domain/session-identity.js` 并入后删除）、首行读到行尾、用户与助手消息、附件要的原始消息、额度；扫描、导出、附件、调度中枢的回答、缓存额度、任务包都用它 |
+| Gemini parts 只有一个读取者 | `b9c7b8a` | `clients/gemini-cli/parts.js`（Qwen Code 沿用），两家的记录读取在各自的 `records.js`；原来三份 `partsText` 各不相同 |
+| 扫描器进各家目录 | `440ca2c`、`dc382af` | `sessions.js`、`cursor-sessions.js`、`kimi-work-sessions.js`、`cli-client-sessions.js` 拆进十个目录后删除；共用的读法在 `clients/scan.js`、`clients/cli-scan.js`、`clients/sqlite.js`；活动探测改问适配器的 `replyState`、`isInternalRecordFile`、`activityPreference`、`isArchivedRecordFile`；只给测试用、按名字分派的 `scanSessions` 删除，测试改走注册表 |
+| 导出正文与附件 | `eb2973b` | `transcripts.js` 拆进各家 `transcript.js`；Claude 命令行记录（`claude-cli/records.js`）与 Kimi wire（`kimi/wire.js`）各一个读取者；附件由适配器的 `attachments` 声明 |
+| Codex 独有的模块 | `629ee83` | 额度、账号导入、运行目录别名、历史维护、任务包五个模块搬进 `clients/codex/`；发布安全测试里允许 `ELECTRON_RUN_AS_NODE` 的仍是三个文件，只换路径 |
+| 密钥交接、拖入导入、调度中枢 | `1564cba`、`1635203`、`8c14f70` | 三张按客户端的表拆进各家的 `credentials.js`、`import.js`、`hub.js`（`credentialHandoff`、`credentialImport`、`hub`/`hubUnsupported`）；共用部分在 `clients/credential-files.js`、`clients/import-files.js`、`clients/hub-io.js`；“拖进来的文件归哪家”改为各家报文件名、同名按内容区分的通用规则 |
+| 身份、命令行查找、额度 | `75996dc` | `accountId`、`cliLauncher`、`quota` |
+| 主进程里的特例 | `9fec937` | `managedHome`、`standaloneHome`、`runtimeHome`、`taskPackage`、`historyUpkeep`、`defaultIdentityKey`、`sessionsInProfileFolder` |
+| 判断归零 | `420164f` | 设备网目录的 `providerNamespace`、`clientForm` 由适配器声明，领域函数必须由调用方传入 `clientFacts`（缺了就报错）；界面读 `listApps({ uiHints: true })` 给的提示；新猫的毛色 `catCoat`；额度两处判断改为通用写法 |
+| 分层与清单 | `dbcfb9f` | clients 层加入强制；`docs/INTERNAL.md` 第 5 节写明“新增一个客户端的清单”，测试只允许清单里的字段 |
+
+做完的标志：适配器之外按客户端名字的判断 67 → 0（指标脚本）；新增客户端就是新增一个目录，清单写在 `docs/INTERNAL.md` 第 5 节并由 `test/client-adapters.test.js` 看住；每种记录格式一个读取者；分层检查强制 core 与 clients 两层，0 处违规。指标脚本另报的“按客户端分的表”从 6 张降到 2 张，剩下两张不是客户端知识：`cli-discovery.js` 的官方命令行工具目录（按工具标识，其中三个不是 AgentDesk 管理的客户端，适配器用 `cliDiscoveryId` 指向它），`yard/cat-art.js` 的毛色图案（毛色的名字恰好和客户端同名）。
+
+为排队中的两份计划留的位置：适配器字段 `accountCard`（哪些非秘密配置可以写进名片、在哪些系统上可用）与 `update`（更新方式、怎么看出有更新在等）已写进清单并预留，尚未实现；测试保证现在没有适配器用它们。
+
+阶段结束时的检查：后台完整 Node 回归 882 项（880 通过、2 项跳过，0 失败）、`npm run check`、`npm run check:docs` 通过；`node scripts/ui-acceptance.js --hidden` 24 条路径通过（替身只用到 `quota:all`，工具检查里的 `codex --version` 仍被拦下）；`node scripts/hidden-check.js` 只有 `apps:list` 多了界面要的提示（`providerNamespace`、`recruitDefault`、招募提示），已更新基准，命令行 `apps` 输出不变，启动时仍是 4 次完整扫描，没有严重控制台错误。
+
+看得见的变化（都是“一个读取者”带来的修正）：
+
+- 任务包原来自己只读 Codex 记录首行的前 64KB，首行更长的内部子记录会被漏掉（session_meta 带长指令时很常见），导入时的冲突检查也看不到这样的根会话；现在和扫描器一样读到行尾。
+- 调度中枢读 Gemini CLI 与 Qwen Code 的最终回答时，原来遇到放在 `{ parts }` 对象里的文字会跳过，把上一个回答当成最终回答；现在取到真正的最后一个回答。
+
+Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cli 主分支 `03862c4`（2026-11-24）的源码，默认情况下 Gemini CLI 仍把 OAuth 令牌明文存在 `<GEMINI_CLI_HOME 或 ~>/.gemini/oauth_creds.json` 并从那里读（`packages/core/src/code_assist/oauth2.ts` 的 `cacheCredentials` 与 `getUseEncryptedStorageFlag`；`utils/paths.ts` 的 `homedir()` 先看 `GEMINI_CLI_HOME`）。只有设置 `GEMINI_FORCE_ENCRYPTED_FILE_STORAGE=true` 时才改用钥匙串或本机加密文件（`gemini-credentials.json`，密钥由主机名与用户名派生），并在首次启动时把明文文件迁进去后删除（`oauth-credential-storage.ts`）。所以导入在默认情况下仍然做了界面写的事（“复制进新目录”）；`docs/feature-evidence/A-credentials.md` 里说的缺口只在开了加密存储时成立。AgentDesk 给受管目录设的 `GEMINI_FORCE_FILE_STORAGE` 只决定加密模式下用钥匙串还是文件，默认模式下不起作用；AgentDesk 也不清除继承来的 `GEMINI_FORCE_ENCRYPTED_FILE_STORAGE`。代码没有改，交给规划会话和所有者；仍没有用真实账号验证。
+
+偏离与说明：
+
+- 设备网目录的两个值（`providerNamespace`、`clientForm`）存进账号关联键并同步，所以没有让领域代码去查注册表，而是要求调用方传入；新增的测试逐个钉住十家的取值与改动前相同，本机不认识的客户端（来自别的设备）仍按原规则处理。
+- 界面要的提示只在 `listApps({ uiHints: true })` 里给，命令行的 `apps` 输出保持不变。若主进程拿不到客户端清单，界面对 Claude 命令行与 Kimi Work 的登录归属会退回各自名字；在本机读静态注册表时不会发生。
+- 改动的测试：几处只比对源码文字的断言改为行为断言（调度中枢的标签、任务包模式）或恢复了它要找的注释开头；`test/session-actions.test.js` 的假客户端换成 Codex 适配器只替换正文；额度测试注入读取函数的选项名改为通用的 `readQuota`；设备网与毛色测试改为把 `clientFacts` 传给领域函数、从适配器读毛色。断言的内容都没有放宽。
+- 任务包导入后的标题格式对所有模式通用，从 Codex 模块移到 `task-package/format.js`。
+- 第 8 节“界面刷新路径上的同步文件读写”的模块数从 11 变成 21，是扫描器拆进各家目录后模块变多，处数没变；真正离开主线程要第 4 阶段。
+- 只在开发时用的类型检查仍等所有者决定，没有安装。
+
+没有验证的：可见窗口；真实账号与真实客户端（包括 Gemini 拖入导入、各家密钥交接与调度中枢的真实调用）；跨设备时别的设备送来的客户端标识；Windows。
 
 ## 10. 这份评估没有覆盖的
 

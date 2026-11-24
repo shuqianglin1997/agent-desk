@@ -8,12 +8,14 @@
       "discoveryKind": "string",
       "id": "string",
       "label": "string",
+      "providerNamespace": "string",
       "provisioningClientForm": {
         "anyOf": [
           "string",
           "null"
         ]
       },
+      "recruitDefault": "boolean",
       "signIn": {
         "anyOf": [
           {
@@ -22,11 +24,15 @@
               "empty"
             ],
             "key": "boolean",
+            "keyAsksDefaultModel": "boolean",
             "keyCatalogDefault": "null",
+            "keyIsToken": "boolean",
             "keyKinds": [
               "empty"
             ],
             "keyNeedsCatalogProvider": "boolean",
+            "notes": {},
+            "plaintextFile": "string",
             "provider": "boolean",
             "providerFields": [
               "empty"
@@ -42,11 +48,15 @@
               "empty"
             ],
             "key": "boolean",
+            "keyAsksDefaultModel": "boolean",
             "keyCatalogDefault": "null",
+            "keyIsToken": "boolean",
             "keyKinds": [
               "string"
             ],
             "keyNeedsCatalogProvider": "boolean",
+            "notes": {},
+            "plaintextFile": "string",
             "provider": "boolean",
             "providerFields": [
               "string"
@@ -62,11 +72,15 @@
               "string"
             ],
             "key": "boolean",
+            "keyAsksDefaultModel": "boolean",
             "keyCatalogDefault": "null",
+            "keyIsToken": "boolean",
             "keyKinds": [
               "string"
             ],
             "keyNeedsCatalogProvider": "boolean",
+            "notes": {},
+            "plaintextFile": "string",
             "provider": "boolean",
             "providerFields": [
               "string"
@@ -82,11 +96,41 @@
               "string"
             ],
             "key": "boolean",
+            "keyAsksDefaultModel": "boolean",
+            "keyCatalogDefault": "null",
+            "keyIsToken": "boolean",
+            "keyKinds": [
+              "string"
+            ],
+            "keyNeedsCatalogProvider": "boolean",
+            "notes": {
+              "key": "string"
+            },
+            "plaintextFile": "string",
+            "provider": "boolean",
+            "providerFields": [
+              "string"
+            ],
+            "providerOptionalFields": [
+              "empty"
+            ],
+            "storesInPlaintext": "boolean"
+          },
+          {
+            "browser": "boolean",
+            "importFiles": [
+              "string"
+            ],
+            "key": "boolean",
+            "keyAsksDefaultModel": "boolean",
             "keyCatalogDefault": "string",
+            "keyIsToken": "boolean",
             "keyKinds": [
               "string"
             ],
             "keyNeedsCatalogProvider": "boolean",
+            "notes": {},
+            "plaintextFile": "string",
             "provider": "boolean",
             "providerFields": [
               "string"
@@ -102,11 +146,18 @@
               "string"
             ],
             "key": "boolean",
+            "keyAsksDefaultModel": "boolean",
             "keyCatalogDefault": "string",
+            "keyIsToken": "boolean",
             "keyKinds": [
               "string"
             ],
             "keyNeedsCatalogProvider": "boolean",
+            "notes": {
+              "key": "string",
+              "provider": "string"
+            },
+            "plaintextFile": "string",
             "provider": "boolean",
             "providerFields": [
               "empty"
@@ -122,11 +173,15 @@
               "string"
             ],
             "key": "boolean",
+            "keyAsksDefaultModel": "boolean",
             "keyCatalogDefault": "null",
+            "keyIsToken": "boolean",
             "keyKinds": [
               "string"
             ],
             "keyNeedsCatalogProvider": "boolean",
+            "notes": {},
+            "plaintextFile": "string",
             "provider": "boolean",
             "providerFields": [
               "empty"
@@ -142,11 +197,15 @@
               "empty"
             ],
             "key": "boolean",
+            "keyAsksDefaultModel": "boolean",
             "keyCatalogDefault": "null",
+            "keyIsToken": "boolean",
             "keyKinds": [
               "empty"
             ],
             "keyNeedsCatalogProvider": "boolean",
+            "notes": {},
+            "plaintextFile": "string",
             "provider": "boolean",
             "providerFields": [
               "string"

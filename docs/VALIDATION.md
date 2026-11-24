@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 3 阶段收尾：`docs/ARCHITECTURE_PLAN.md` 第 9.1 节记下第 3 阶段（十四批，`a992aa8` 到 `dbcfb9f`），第 8 节更新实测数字（适配器之外按客户端名字的判断 67 → 0，`main.js` 5130 行，`renderer.js` 9774 行；10 × 500 合成数据上一次“全部”刷新中位约 684 毫秒，本阶段没有做性能工作），`docs/validation/architecture-metrics.json` 重新记下。不显示窗口的检查：`node scripts/ui-acceptance.js --hidden` 24 条路径通过；`node scripts/hidden-check.js` 只有 `apps:list` 多了界面要的提示，已更新 `test/fixtures/characterisation/ipc-shapes.json`，启动时 4 次完整扫描，没有严重控制台错误；分层检查（core 与 clients 强制）0 处违规。Gemini 拖入导入的复核结论记在第 9.1 节：按 gemini-cli 主分支源码，默认情况下仍用明文 `oauth_creds.json`，导入做的仍是界面写的事，代码未改。没有验证可见窗口、真实账号与客户端、跨设备、Windows。
+
 2026-11-24 架构整理第 3 阶段第 14 批：clients 层由检查看住，新增客户端有清单。`scripts/check-layers.js` 把 clients 层加入强制：clients 层的文件引用上层或用 electron 会让测试和命令失败（目前 0 处）。`docs/INTERNAL.md` 第 5 节写明“新增一个客户端的清单”：必填字段、按需能力，以及为排队中的两份计划预留、尚未实现的 `accountCard`（哪些非秘密配置可以写进名片、在哪些系统上可用）与 `update`（更新方式、怎么看出有更新在等）；每种记录格式的唯一读取者也写在这里。`test/client-adapters.test.js` 加 2 项：适配器只能声明清单里有的字段、预留字段尚未使用、清单里的每个字段文档都写到；每家要么能被调度中枢调用、要么写明为什么不能。
 
 2026-11-24 架构整理第 3 阶段第 13 批：适配器之外按客户端名字的判断归零（指标脚本 67 → 0）。设备网目录里“哪些客户端属于同一套登录”（`providerNamespace`）和客户端形态（`clientForm`）原来写在 Mesh 领域代码里，现在由各适配器声明；这两个值存进账号关联键并在设备间同步，所以领域函数必须由调用方传入 `clientFacts`（缺了就报错，不猜），设备网服务传注册表的 `apps.clientFacts`，本机不认识的客户端（来自别的设备）仍按原规则用自己的名字；新增一项测试逐个钉住十家的取值与改动前相同。界面里原来按名字写的几处改为读适配器经 `listApps({ uiHints: true })` 给出的数据（这些提示只给界面，命令行 `apps` 的输出不变）：目录里的登录归属、招募对话框的默认客户端、哪家要填默认模型、提示写哪个文件和措辞；新招募的猫穿哪件客户端毛色由适配器的 `catCoat` 声明。额度两处判断改为通用写法（窗口的范围名就是供应商本身时不重复显示；读取方报告是接口密钥登录时不显示订阅额度），结果与原来相同。`test/mesh-foundation.test.js` 与 `test/catalog-provider-namespace.test.js` 跟着把 `clientFacts` 传给领域函数，断言不变；`test/pixel-cats.test.js` 改为从适配器读毛色。若主进程拿不到客户端清单（`listApps` 失败），界面对 Claude 命令行与 Kimi Work 的登录归属会退回各自名字，这种情况在本机读注册表时不会发生。
