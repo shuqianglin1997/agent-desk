@@ -58,6 +58,10 @@ function mainContext() {
     get createAccountWithSecret() { return createAccountWithSecret; },
     get createLocalAccount() { return createLocalAccount; },
     get createStoredProfile() { return createStoredProfile; },
+    get credentialContext() { return credentialContext; },
+    get defaultCatForClient() { return defaultCatForClient; },
+    get defaultProfilePath() { return defaultProfilePath; },
+    get defaultSessionRoot() { return defaultSessionRoot; },
     get deferSecureMeshStartup() { return deferSecureMeshStartup; }, set deferSecureMeshStartup(value) { deferSecureMeshStartup = value; },
     get deviceDiagnostics() { return deviceDiagnostics; },
     get diagnoseProfile() { return diagnoseProfile; },
@@ -87,6 +91,7 @@ function mainContext() {
     get inspectRecruitItem() { return inspectRecruitItem; },
     get installLatestUpdate() { return installLatestUpdate; },
     get invitationInspectionRegistry() { return invitationInspectionRegistry; },
+    get isManagedProfilePath() { return isManagedProfilePath; },
     get isSubpath() { return isSubpath; },
     get launchProfile() { return launchProfile; },
     get launchStoredProfile() { return launchStoredProfile; },
@@ -94,6 +99,7 @@ function mainContext() {
     get listSessionDirectories() { return listSessionDirectories; },
     get loadProfiles() { return loadProfiles; },
     get loadSettings() { return loadSettings; },
+    get locationRegistrar() { return locationRegistrar; },
     get mainWindow() { return mainWindow; }, set mainWindow(value) { mainWindow = value; },
     get makeIsolatedProfilePath() { return makeIsolatedProfilePath; },
     get managedAppName() { return managedAppName; },
@@ -108,6 +114,7 @@ function mainContext() {
     get normalizeConfirmedJoinInput() { return normalizeConfirmedJoinInput; },
     get normalizeInvitationInspectionInput() { return normalizeInvitationInspectionInput; },
     get normalizePairingDecisionInput() { return normalizePairingDecisionInput; },
+    get normalizeProfile() { return normalizeProfile; },
     get normalizeServiceUrls() { return normalizeServiceUrls; },
     get normalizeStunUrls() { return normalizeStunUrls; },
     get normalizeTaskPackageSendInput() { return normalizeTaskPackageSendInput; },
@@ -123,6 +130,7 @@ function mainContext() {
     get pathSelectionRegistry() { return pathSelectionRegistry; },
     get pathsEqual() { return pathsEqual; },
     get peerManager() { return peerManager; }, set peerManager(value) { peerManager = value; },
+    get planRecruitItem() { return planRecruitItem; },
     get probeActivities() { return probeActivities; },
     get profileCredentialStatus() { return profileCredentialStatus; },
     get profileIsRunning() { return profileIsRunning; },
@@ -136,6 +144,7 @@ function mainContext() {
     get refreshForAction() { return refreshForAction; },
     get refreshProfiles() { return refreshProfiles; },
     get registerExistingProfileFromCli() { return registerExistingProfileFromCli; },
+    get registerLocations() { return registerLocations; },
     get remoteControlService() { return remoteControlService; }, set remoteControlService(value) { remoteControlService = value; },
     get removeStoredProfileRegistration() { return removeStoredProfileRegistration; },
     get resolveKnownProfilePath() { return resolveKnownProfilePath; },
@@ -177,6 +186,10 @@ const { maintenanceManagerLauncher, maintenanceNpmRoots, baseMaintenanceLauncher
 require('./main/tools').bind(mainContext());
 const { profileIsRunning, usesWindowsOfficialDefault, launchProfile, diagnoseProfile, windowsMigrationInfo, inspectPath, findExecutable, macBundleIdentifier, queryWindowsRegistryExecutablePaths, queryWindowsMsixRegistryExecutablePaths, queryWindowsAppxExecutablePaths, hasWindowsProtocol, cachedWindowsDiscovery, runPowerShell, queryWindowsRegistry, executableFromCommand, spawnDetached, migrateWindowsProfilePath, shouldCopyProfileItem } = require('./main/profile-launch');
 require('./main/profile-launch').bind(mainContext());
+const { accountReasonCode, accountResult, publicRecruitItem, inspectRecruitItem, createLocalAccount, discardCreatedProfile, credentialRequest, applyProfileSecret, profileCredentialStatus, createAccountWithSecret, uniqueProfileName, buildStoredProfile, createStoredProfile, requireCliDirectory, registerExistingProfileFromCli, launchStoredProfile, removeStoredProfileRegistration } = require('./main/accounts');
+require('./main/accounts').bind(mainContext());
+const { refreshForAction, selectionProfileIds, listSessionDirectories, openSessionDirectory, exportSessionTranscript, revealSessionFile, revealPath, openPathSafely, openDirectoryWithFallback } = require('./main/session-files');
+require('./main/session-files').bind(mainContext());
 // moved modules:end
 const { createSessionIndex, registryScan, findSession } = require('./session-index');
 const { probeRawActivities, finishActivities } = require('./activity');
@@ -210,15 +223,6 @@ async function probeActivities(profiles, now, marks) {
 // scans here, as before. The Renderer sends ids only; Main re-resolves them.
 const ACTION_ROWS_MS = 5000;
 const actionRowsOf = (profile) => sessionIndex.rowsSync(profile, { maxAgeMs: ACTION_ROWS_MS });
-async function refreshForAction(profileIds) {
-  const wanted = new Set((profileIds || []).filter((id) => typeof id === 'string' && id && id.length <= 128));
-  const profiles = loadProfiles().filter((profile) => wanted.has(String(profile.id)));
-  await sessionIndex.refresh(profiles, { maxAgeMs: 0 }).catch(() => null);
-}
-function selectionProfileIds(input) {
-  const refs = Array.isArray(input?.selections) ? input.selections : [input];
-  return refs.slice(0, 500).map((ref) => ref?.profileId);
-}
 const { identityFingerprint } = require('./identity');
 const { isDefaultWindowsAppRunning, isRunningIn, profileRunningSignal, snapshotProcesses, snapshotProcessRecords, processText } = require('./process');
 const { createProcessSnapshots } = require('./process-snapshots');
@@ -710,33 +714,6 @@ function resolveKnownProfilePath(input = {}) {
   return profile[field];
 }
 
-// Fixed reason codes for every import, sign-in and creation failure. Error
-// text never includes a path, key or file content.
-const ACCOUNT_REASON_CODES = new Set([
-  'codex-auth-filename', 'codex-auth-format', 'codex-auth-size', 'codex-auth-unreadable', 'codex-home-invalid',
-  'path-selection-expired', 'credential-file-unreadable', 'credential-file-format', 'credential-file-size',
-  'credential-import-unsupported', 'credential-import-unsupported-platform', 'credential-file-unrecognized',
-  'secret-invalid', 'provider-id-invalid', 'provider-url-invalid', 'provider-model-invalid',
-  'credential-method-unsupported', 'official-client-missing', 'official-command-failed', 'official-command-timeout',
-  'config-unreadable', 'config-too-large', 'config-format-unsupported', 'config-write-failed',
-  'credentials-format-unsupported', 'home-invalid', 'unknown-client', 'client-default-only', 'profile-not-found',
-  'client-directory-invalid', 'location-unrecognized', 'location-ambiguous', 'location-changed', 'location-invalid'
-]);
-
-function accountReasonCode(error, fallback) {
-  const code = error?.code || error?.message;
-  return ACCOUNT_REASON_CODES.has(code) ? code : fallback;
-}
-
-async function accountResult(operation, fallback) {
-  try {
-    const result = await operation();
-    return result ? { ok: true, ...result } : { ok: false, canceled: true };
-  } catch (error) {
-    return { ok: false, reasonCode: accountReasonCode(error, fallback) };
-  }
-}
-
 const recruitItems = createRecruitItems({
   loadProfiles: () => loadProfiles(),
   registerLocations: (inputs) => registerLocations(inputs),
@@ -750,69 +727,6 @@ const importCredentialFile = (appId, filePath) => recruitItems.importCredentialF
 const planRecruitItem = (itemPath) => recruitItems.planItem(itemPath);
 const executeRecruitItem = (itemPath, expectedAction) => recruitItems.executeItem(itemPath, expectedAction);
 
-function publicRecruitItem(planned) {
-  const selection = planned.action === 'existing' ? null : recruitSelectionRegistry.issue({
-    kind: 'recruit-item',
-    path: planned.itemPath,
-    meta: { action: planned.action }
-  });
-  return {
-    selectionId: selection?.selectionId || null,
-    kind: planned.kind,
-    appId: planned.appId,
-    fileName: planned.fileName,
-    action: planned.action,
-    profileId: planned.profileId || null
-  };
-}
-
-async function inspectRecruitItem(itemPath) {
-  const planned = await planRecruitItem(itemPath);
-  return publicRecruitItem({ ...planned, itemPath });
-}
-
-// A new isolated environment for one client (the "new account" path).
-function createLocalAccount(input = {}) {
-  const appId = boundedText(input.appId, 80);
-  if (!apps.isKnownApp(appId)) throw new InterfaceError('unknown-client', 'Choose a client ID from apps.', 2);
-  if (apps.getApp(appId).profileIsolation?.mode === 'official-default-only') {
-    throw new InterfaceError('client-default-only', 'This client launches from its official desktop directory only.', 5);
-  }
-  const name = boundedText(input.name, 80) || uniqueProfileName(loadProfiles(), appId);
-  const profile = createStoredProfile({ appId, name });
-  return { profileId: profile.id, profilePath: profile.profilePath, sessionRoot: profile.sessionRoot };
-}
-
-// Remove a Profile that this flow created moments ago, with the managed
-// folders AgentDesk made for it. Registered (custom) homes are never deleted.
-function discardCreatedProfile(profileId) {
-  const profile = loadProfiles().find((item) => item.id === profileId);
-  if (!profile) return;
-  removeStoredProfileRegistration(profileId);
-  if (profile.profilePathMode === 'managed' && isManagedProfilePath(profile.profilePath)) {
-    try { fs.rmSync(profile.profilePath, { recursive: true, force: true }); } catch (_error) { /* best effort */ }
-    // The per-client folder above it was made for this Profile too; rmdir only
-    // succeeds while it is empty.
-    const parent = path.dirname(profile.profilePath);
-    if (isManagedProfilePath(parent)) try { fs.rmdirSync(parent); } catch (_error) { /* not empty */ }
-  }
-}
-
-function credentialRequest(input = {}) {
-  const provider = input.provider && typeof input.provider === 'object' ? input.provider : {};
-  return {
-    method: input.method === 'provider' ? 'provider' : 'key',
-    secret: typeof input.secret === 'string' ? input.secret.slice(0, 4200) : '',
-    provider: {
-      id: boundedText(provider.id, 40),
-      baseUrl: boundedText(provider.baseUrl, 600),
-      model: boundedText(provider.model, 160)
-    },
-    catalogProviderId: boundedText(input.catalogProviderId, 40),
-    model: boundedText(input.model, 160)
-  };
-}
-
 const credentialContext = (official = false) => ({
   env: process.env,
   official,
@@ -821,98 +735,6 @@ const credentialContext = (official = false) => ({
   }
 });
 
-async function applyProfileSecret(profileId, input) {
-  const profile = loadProfiles().find((item) => item.id === profileId);
-  if (!profile) throw new Error('profile-not-found');
-  const applied = await accountCredentials.applySecret(profile, credentialRequest(input), credentialContext());
-  const status = await accountCredentials.credentialStatus(profile, credentialContext());
-  return { profileId, method: applied.method, via: applied.via, plaintextWarning: applied.plaintextWarning, status };
-}
-
-async function profileCredentialStatus(profileId, official) {
-  const profile = loadProfiles().find((item) => item.id === profileId);
-  if (!profile) throw new Error('profile-not-found');
-  return { profileId, appId: profile.appId, ...(await accountCredentials.credentialStatus(profile, credentialContext(official === true))) };
-}
-
-// New account signed in with a pasted key: create, hand over, roll back on failure.
-async function createAccountWithSecret(input) {
-  const created = createLocalAccount(input);
-  try {
-    return { ...(await applyProfileSecret(created.profileId, input)), created: true };
-  } catch (error) {
-    discardCreatedProfile(created.profileId);
-    throw error;
-  }
-}
-
-function uniqueProfileName(profiles, appId) {
-  const label = apps.getApp(appId).label;
-  const names = new Set(profiles.filter((profile) => profile.appId === appId).map((profile) => profile.name));
-  let name = label;
-  for (let index = 2; names.has(name); index += 1) name = `${label} ${index}`;
-  return name;
-}
-
-// Build a normalized Profile without saving it. Batch registration builds
-// several against one loaded store and saves once.
-function buildStoredProfile(profiles, input = {}, options = {}) {
-  const appId = apps.isKnownApp(input.appId) ? input.appId : apps.DEFAULT_APP;
-  const { codexAuth, codexHome, externalLocation, credentialImport } = options;
-  let name = String(input.name || '').trim();
-  if (!name && (codexAuth || codexHome || externalLocation || credentialImport)) name = uniqueProfileName(profiles, appId);
-  name ||= `${apps.getApp(appId).label} 账号`;
-  const id = crypto.randomUUID();
-  const isDefaultCodexHome = Boolean(codexHome && codexHomeKey(codexHome) === codexHomeKey(path.join(os.homedir(), '.codex')));
-  const isDefault = isDefaultCodexHome || externalLocation?.isDefault === true;
-  const profilePath = externalLocation?.profilePath
-    || (isDefault ? defaultProfilePath(appId) : makeIsolatedProfilePath(appId, name, id));
-  const existingRoot = codexHome || externalLocation?.sessionRoot;
-  return normalizeProfile({
-    id,
-    appId,
-    name,
-    profilePath,
-    sessionRoot: existingRoot || defaultSessionRoot(appId, profilePath, false),
-    profilePathMode: isDefault ? 'auto' : (externalLocation?.profilePath ? 'custom' : 'managed'),
-    sessionRootMode: existingRoot ? 'custom' : 'managed',
-    isProtected: isDefault,
-    // 新招募的猫默认穿它那个客户端的毛色（有的话）；已有的猫不经过这里，外观不变。
-    cat: defaultCatForClient(appId, id),
-    ...(codexAuth ? { codexAuthImported: true } : {}),
-    ...(credentialImport ? { credentialImported: credentialImport } : {}),
-    createdAt: new Date().toISOString(),
-    lastLaunchedAt: null,
-    group: input.group,
-    note: input.note
-  });
-}
-
-function createStoredProfile(input = {}, options = {}) {
-  const profiles = loadProfiles();
-  const profile = buildStoredProfile(profiles, input, options);
-  const { codexAuth, codexHome, externalLocation, stage } = options;
-  const existingRoot = codexHome || externalLocation?.sessionRoot;
-  const cleanupAuth = codexAuth ? stageCodexAuthHome(profile, codexAuth) : (stage ? stage(profile) : null);
-  if (!existingRoot && !codexAuth && !stage) prepareManagedProfileHome(profile);
-  try {
-    profiles.push(profile);
-    saveProfiles(profiles);
-  } catch (error) {
-    cleanupAuth?.();
-    throw error;
-  }
-  return profile;
-}
-
-function requireCliDirectory(value) {
-  const resolved = canonicalDirectory(value);
-  if (!resolved || resolved === path.parse(resolved).root) {
-    throw new InterfaceError('client-directory-invalid', 'Choose an existing, absolute client directory.', 2);
-  }
-  return resolved;
-}
-
 const locationRegistrar = createLocationRegistrar({
   loadProfiles: () => loadProfiles(),
   saveProfiles: (profiles) => saveProfiles(profiles),
@@ -920,22 +742,6 @@ const locationRegistrar = createLocationRegistrar({
   defaultProfilePath: (appId) => defaultProfilePath(appId)
 });
 const registerLocations = (inputs) => locationRegistrar.registerLocations(inputs);
-
-function registerExistingProfileFromCli(input) {
-  const appId = input.app;
-  if (!apps.isKnownApp(appId)) throw new InterfaceError('unknown-client', 'Choose a client ID from apps.', 2);
-  const sessionRoot = requireCliDirectory(input['session-root']);
-  const name = boundedText(input.name, 80);
-  // A standalone home (Codex) must look like one; it is then registered like any other location.
-  const standalone = apps.getApp(appId).standaloneHome;
-  if (standalone?.looksValid && !input['profile-path'] && !standalone.looksValid(sessionRoot)) {
-    throw new InterfaceError(standalone.invalid.code, standalone.invalid.message, 2);
-  }
-  locationRegistrar.planExistingLocation({ appId, sessionRoot, profilePath: input['profile-path'], name }, loadProfiles());
-  const [result] = registerLocations([{ appId, sessionRoot, profilePath: input['profile-path'], name }]);
-  if (!result.ok) throw new InterfaceError(result.reasonCode, 'The location could not be registered.', 2);
-  return { profileId: result.profileId, ...(result.existing ? { existing: true } : {}) };
-}
 
 // ── 调度中枢 ────────────────────────────────────────
 const HUB_DESKTOP_COMMANDS = new Set(['agents list', 'run', 'runs stop']);
@@ -1156,26 +962,6 @@ function notifyProfileRegistrations(result) {
   if (!result.existing && mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('profiles:registrationsChanged');
   }
-}
-
-async function launchStoredProfile(id) {
-  const profile = loadProfiles().find((item) => item.id === id);
-  if (!profile) return { ok: false, reasonCode: 'profile-not-found', reason: t('main.err.slotNotFound') };
-  const result = await launchProfile(profile);
-  if (result.ok) {
-    // Reload after launch discovery so concurrent edits are preserved.
-    updateStoredProfile(id, (current) => ({ ...current, lastLaunchedAt: new Date().toISOString() }));
-  }
-  return result;
-}
-
-function removeStoredProfileRegistration(id) {
-  const profiles = loadProfiles();
-  const next = profiles.filter((profile) => profile.id !== id);
-  if (next.length === profiles.length) return false;
-  saveProfiles(next);
-  quotaService.invalidate(id);
-  return true;
 }
 
 function getMeshService() {
@@ -2186,143 +1972,6 @@ function normalizeConfiguredPath(value) {
   if (trimmed === '~') return os.homedir();
   if (trimmed.startsWith('~/')) return path.join(os.homedir(), trimmed.slice(2));
   return path.resolve(trimmed);
-}
-
-async function listSessionDirectories(input) {
-  try {
-    await refreshForAction(selectionProfileIds(input));
-    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp, actionRowsOf);
-    return { ok: true, directories: sessionDirectories(records) };
-  } catch (_error) {
-    return { ok: false, reason: t('main.sessionActions.directoryUnavailable') };
-  }
-}
-
-async function openSessionDirectory(input) {
-  const result = await listSessionDirectories({ profileId: input?.profileId, sessionId: input?.sessionId });
-  const directory = result.directories?.[0]?.path;
-  // The UI may send the directory it offered as a check only. The actual open
-  // target always comes from the current session record and never from IPC.
-  if (!directory || typeof input?.expectedPath !== 'string' || !pathsEqual(directory, input.expectedPath)) {
-    return { ok: false, reason: t('main.sessionActions.directoryUnavailable') };
-  }
-  try {
-    if (await shell.openPath(directory)) return { ok: false, reason: t('main.sessionActions.directoryUnavailable') };
-    return { ok: true };
-  } catch (_error) {
-    return { ok: false, reason: t('main.sessionActions.directoryUnavailable') };
-  }
-}
-
-async function exportSessionTranscript(input) {
-  let exported;
-  try {
-    await refreshForAction(selectionProfileIds(input));
-    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp, actionRowsOf);
-    const unsupported = records.find(({ client }) => typeof client.exportTranscript !== 'function');
-    if (unsupported) return { ok: false, reason: t('main.exp.notSupported', { label: unsupported.client.label }) };
-    exported = await prepareSessionExport(records, { attachmentsHeading: t('main.sessionActions.attachments') });
-  } catch (error) {
-    const message = error.message === 'session-export-too-large' ? 'main.sessionActions.exportTooLarge'
-      : error.message === 'session-not-found' ? 'main.exp.sessionNotFound' : 'main.sessionActions.exportUnavailable';
-    return { ok: false, reason: t(message) };
-  }
-
-  const result = await dialog.showSaveDialog(mainWindow, {
-    title: t('main.sessionActions.saveTitle'),
-    defaultPath: path.join(app.getPath('desktop'), exported.suggestedName),
-    filters: [{ name: exported.format === 'zip' ? 'ZIP' : 'Markdown', extensions: [exported.format] }]
-  });
-  if (result.canceled || !result.filePath) return { ok: false, canceled: true, reason: t('main.exp.cancelled') };
-
-  try {
-    // A complete file next to the target, renamed into place (as before, without fsync).
-    await writeFileAtomicAsync(result.filePath, exported.data, { fsync: false });
-  } catch (_error) {
-    return { ok: false, reason: t('main.sessionActions.writeUnavailable') };
-  }
-  return {
-    ok: true,
-    savedPath: result.filePath,
-    format: exported.format,
-    attachmentCount: exported.attachmentCount,
-    message: t('main.exp.done', { path: result.filePath })
-  };
-}
-
-async function revealSessionFile(input) {
-  const profiles = loadProfiles();
-  const profile = profiles.find((item) => item.id === boundedText(input?.profileId, 128));
-  if (!profile) return { ok: false, reason: t('main.err.slotNotFoundDot') };
-
-  const refreshed = await sessionIndex.find(profile, boundedText(input?.sessionId, 256), { key: 'id', maxAgeMs: 0 });
-  const itemPath = refreshed?.filePath || null;
-  const result = await revealPath(itemPath, profile.sessionRoot);
-  if (!refreshed && result.ok) {
-    return {
-      ...result,
-      exact: false,
-      message: t('main.rev.movedOpenedRecent')
-    };
-  }
-  return result;
-}
-
-async function revealPath(itemPath, fallbackPath = null) {
-  if (!itemPath && !fallbackPath) return { ok: false, reason: t('main.rev.noPath') };
-  const resolved = nearestExistingDirectory(itemPath, fallbackPath);
-  if (!resolved.path) return { ok: false, reason: t('main.rev.nothingExists') };
-
-  if (resolved.exact && resolved.originalIsFile && process.platform !== 'win32' && itemPath.length < 240) {
-    shell.showItemInFolder(itemPath);
-    return { ok: true, exact: true, openedPath: resolved.path, message: t('main.rev.locatedInFiler') };
-  }
-
-  const opened = await openDirectoryWithFallback(resolved.path);
-  if (!opened.ok) return opened;
-  if (opened.degraded) {
-    return {
-      ok: true,
-      exact: false,
-      openedPath: opened.openedPath,
-      message: t('main.rev.cannotOpenReturned')
-    };
-  }
-  if (resolved.exact && resolved.originalIsFile) {
-    return {
-      ok: true,
-      exact: true,
-      openedPath: opened.openedPath,
-      message: t('main.rev.openedContaining', { name: path.basename(itemPath) })
-    };
-  }
-  if (resolved.exact) {
-    return { ok: true, exact: true, openedPath: opened.openedPath, message: t('main.rev.openedDir') };
-  }
-  return {
-    ok: true,
-    exact: false,
-    openedPath: opened.openedPath,
-    message: t('main.rev.movedOpenedParent')
-  };
-}
-
-async function openPathSafely(itemPath) {
-  return revealPath(itemPath);
-}
-
-async function openDirectoryWithFallback(directoryPath) {
-  let current = directoryPath;
-  let lastError = '';
-  while (current) {
-    const error = await shell.openPath(current);
-    if (!error) return { ok: true, openedPath: current, degraded: !pathsEqual(current, directoryPath) };
-    lastError = error;
-    const parent = path.dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
-  return { ok: false, reason: lastError || t('main.rev.filerCannotOpen') };
 }
 
 function ensureDir(dir) {

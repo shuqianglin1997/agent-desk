@@ -248,7 +248,7 @@ test('工具入口打开独立模态弹窗 + 新增账号落盘链完整', () =>
   assert.doesNotMatch(renderer, /detailSurfaceTools|toolCenterDialog|settingsDialog/);
   // 新增账号：表单 → addProfile → profiles:add → saveProfiles 落盘
   assert.match(renderer, /window\.manager\.addProfile\(\{[\s\S]{0,120}?name,/);
-  assert.match(main, /ipcMain\.handle\('profiles:add'[\s\S]*?profiles\.push\(profile\);\s*\n\s*saveProfiles\(profiles\);/);
+  assert.match(main, /ipcMain\.handle\('profiles:add'[\s\S]*?profiles\.push\(profile\);\s*\n\s*(?:main\.)?saveProfiles\(profiles\);/);
 });
 
 test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项更新且 renderer 不提交命令', () => {

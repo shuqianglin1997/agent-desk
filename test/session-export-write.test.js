@@ -10,11 +10,13 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { writeFileAtomicAsync } = require('../src/core/json-file');
 
-const main = fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
+
+const main = mainHandlerSource();
 const source = main.match(/^async function exportSessionTranscript\(input\) \{\n.*?^\}/ms)[0];
 
 function handler(target) {
-  const context = vm.createContext({
+  const sandbox = {
     path, fs, crypto: require('node:crypto'),
     writeFileAtomicAsync,
     mainWindow: null,
@@ -28,7 +30,10 @@ function handler(target) {
     prepareSessionExport: async () => ({ data: Buffer.from('# Session\n'), format: 'md', suggestedName: 's.md', attachmentCount: 0 }),
     dialog: { showSaveDialog: async () => ({ canceled: false, filePath: target }) },
     t: (key) => key
-  });
+  };
+  // Code moved out of main.js reads Main's services as main.<name>.
+  sandbox.main = sandbox;
+  const context = vm.createContext(sandbox);
   vm.runInContext(source, context);
   return context.exportSessionTranscript;
 }

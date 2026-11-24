@@ -261,8 +261,8 @@ test('新招募的猫默认穿它客户端的毛色；没有对应毛色的客�
   for (const appId of ['claude', 'claude-cli', 'kimi', 'kimi-work', 'dsh-cli', 'gemini-cli']) {
     assert.deepEqual(cats.defaultCatForLook(apps.getApp(appId).catCoat, 'seed'), cats.defaultCatFor('seed'), appId);
   }
-  const main = read('src/main.js');
-  assert.match(main, /isProtected: isDefault,[\s\S]{0,120}cat: defaultCatForClient\(appId, id\)/);
+  const main = require('./helpers/main-handler-source').mainHandlerSource();
+  assert.match(main, /isProtected: isDefault,[\s\S]{0,120}cat: (?:main\.)?defaultCatForClient\(appId, id\)/);
 });
 
 test('演哪个动作：迷糊、干活、赶来先演；其次额度红格摊成饼、黄格累了；最后是平静的作息', () => {

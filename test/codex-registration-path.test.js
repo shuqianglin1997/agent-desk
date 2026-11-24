@@ -13,12 +13,14 @@ const apps = require('../src/apps');
 const { codexHomeKey } = require('../src/clients/codex/account-import');
 const { createLocationRegistrar } = require('../src/main/profile-registration');
 
-const main = fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
+
+const main = mainHandlerSource();
 const fn = (name) => main.match(new RegExp(`^function ${name}\\([^\\n]*\\) \\{\\n.*?^\\}`, 'ms'))[0];
 
 function builder(home) {
   let n = 0;
-  const context = vm.createContext({
+  const sandbox = {
     apps, path, codexHomeKey,
     os: { homedir: () => home },
     crypto: { randomUUID: () => `id-${++n}` },
@@ -28,7 +30,10 @@ function builder(home) {
     defaultSessionRoot: (appId, profilePath) => `${profilePath}/sessions`,
     defaultCatForClient: (appId, id) => ({ coat: appId, id }),
     Date: class extends Date { toISOString() { return '2026-11-24T12:00:00.000Z'; } }
-  });
+  };
+  // Code moved out of main.js reads Main's services as main.<name>.
+  sandbox.main = sandbox;
+  const context = vm.createContext(sandbox);
   vm.runInContext(`${fn('uniqueProfileName')}\n${fn('buildStoredProfile')}`, context);
   return { build: context.buildStoredProfile, reset: () => { n = 0; } };
 }
