@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 
-const ALLOWED_KINDS = new Set(['profile-directory', 'profile-executable']);
+const ALLOWED_KINDS = new Set(['profile-directory', 'profile-executable', 'codex-home']);
 
 class PathSelectionRegistry {
   constructor(options = {}) {

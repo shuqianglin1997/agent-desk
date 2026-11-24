@@ -13,6 +13,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { readJsonStore, writeJsonStore } = require('./json-store');
+const { runAfterProfileStop, canonicalRoot, readPolicy } = require('./codex-history-retention');
 const {
   snapshotProcessRecords,
   findProfileProcesses,
@@ -360,6 +361,9 @@ class ProfileRuntimeSupervisor {
       : () => false;
     this.limits = { ...DEFAULT_LIMITS, ...(options.limits || {}) };
     this.onIncident = typeof options.onIncident === 'function' ? options.onIncident : () => {};
+    this.maintainHistory = options.maintainHistory || runAfterProfileStop;
+    this.historyMaintenance = new Map();
+    this.historyMaintenanceNext = new Map();
     this.profiles = new Map();
     this.records = new Map();
     this.crashpadStatuses = new Map();
@@ -516,8 +520,11 @@ class ProfileRuntimeSupervisor {
   }
 
   async preflight(profile) {
+    // A relaunch must not race opt-in maintenance of the same closed client.
+    await this.historyMaintenance.get(profile.id);
     this.updateProfiles([...this.profiles.values(), profile]);
     await this.tick();
+    await this.historyMaintenance.get(profile.id);
     const processes = this.clientProcessRecords(profile);
     if (processes === null) return { ok: false, reasonCode: 'profile-process-snapshot-unavailable' };
     if (processes.length) return { ok: true, alreadyRunning: true, processCount: processes.length };
@@ -634,6 +641,7 @@ class ProfileRuntimeSupervisor {
         stopReason: reason
       });
       this.saveState();
+      if (record.owned) void this.maintainStoppedHistory(profile);
       return { ok: true, stopped: 0, remaining: 0 };
     }
 
@@ -659,6 +667,7 @@ class ProfileRuntimeSupervisor {
     };
     this.records.set(profile.id, next);
     this.saveState();
+    if (remaining === 0 && record.owned) void this.maintainStoppedHistory(profile);
     return remaining === 0
       ? { ok: true, stopped: matched.length, remaining: 0 }
       : { ok: false, reasonCode: 'profile-process-still-running', stopped: matched.length, remaining };
@@ -666,6 +675,23 @@ class ProfileRuntimeSupervisor {
 
   async stopProfile(profile, reason = 'user-request') {
     return this.terminateProcesses(profile, reason);
+  }
+
+  async maintainStoppedHistory(profile, options = {}) {
+    if (profile.appId !== 'codex') return;
+    if (this.historyMaintenance.has(profile.id)) return this.historyMaintenance.get(profile.id);
+    this.historyMaintenanceNext.set(profile.id, this.now() + 60 * 60 * 1000);
+    const task = Promise.resolve().then(() => this.maintainHistory(profile, options)).catch(() => ({ skipped: 'history-maintenance-deferred' }));
+    this.historyMaintenance.set(profile.id, task);
+    try { return await task; }
+    finally { this.historyMaintenance.delete(profile.id); }
+  }
+
+  historyPolicySelected(profile) {
+    // An explicitly enabled canonical root is also authorized for default/custom
+    // clients. No Crashpad ownership exception is inherited by this adapter.
+    try { return !!readPolicy(canonicalRoot(profile.sessionRoot)); }
+    catch { return false; }
   }
 
   async cleanCrashpad(profile) {
@@ -690,6 +716,15 @@ class ProfileRuntimeSupervisor {
   async performTick() {
     for (const profile of this.profiles.values()) {
       let record = this.records.get(profile.id);
+      // Reuse the existing supervisor, including for clients kept open for days.
+      // Only opted-in roots are writable; live clients permit old archived turns
+      // only. One background worker at a time avoids a startup I/O burst.
+      if (profile.appId === 'codex' &&
+          this.historyMaintenance.size === 0 &&
+          this.now() >= (this.historyMaintenanceNext.get(profile.id) || 0) &&
+          (this.isManagedProfile(profile) || record?.owned || this.historyPolicySelected(profile))) {
+        void this.maintainStoppedHistory(profile, { openArchived: true, openIdle: true });
+      }
       if (record?.owned && record.active) {
         const clients = this.clientProcessRecords(profile);
         if (Array.isArray(clients) && clients.length === 0) {
@@ -760,6 +795,7 @@ class ProfileRuntimeSupervisor {
       if (!profile) continue;
       results.push({ profileId, ...(await this.stopProfile(profile, options.reason || 'app-quit')) });
     }
+    await Promise.all([...this.historyMaintenance.values()]);
     return { ok: results.every((item) => item.ok), results };
   }
 }

@@ -35,7 +35,8 @@ function fixture() {
     getBoundingClientRect() { return { left: 0, right: 300, width: 300 }; }, setPointerCapture() {}, releasePointerCapture() {},
   });
   const cards = ['a', 'b', 'c'].map(id => ({ dataset: { agentId: id }, classList: classes(),
-    closest() { return this; }, setAttribute() {}, removeAttribute() {}, focus() {}, scrollIntoView() {},
+    closest(selector) { return selector === '[data-roster-control]' ? null : this; },
+    querySelector() { return null; }, setAttribute() {}, removeAttribute() {}, focus() {}, scrollIntoView() {},
     getBoundingClientRect() { return { left: container.children.indexOf(this) * 100 - container.scrollLeft, width: 100 }; },
   }));
   container.children = [...cards];
@@ -95,6 +96,16 @@ test('Alt+arrow moves focused card and does not wrap at boundary', () => {
   assert.equal(f.saved[0].details.method, 'keyboard');
   f.container.emit('keydown', { target: f.cards[1], key: 'ArrowLeft', altKey: true });
   assert.equal(f.saved.length, 1);
+});
+
+test('embedded card controls keep their pointer and keyboard gestures', () => {
+  const f = fixture();
+  const select = { closest(selector) { return selector === '[data-roster-control]' ? this : f.cards[0]; } };
+  f.container.emit('pointerdown', { target: select });
+  f.win.timers();
+  assert.equal(f.control.isInteracting(), false);
+  assert.equal(f.container.emit('keydown', { target: select, key: 'ArrowRight', altKey: true }).prevented, undefined);
+  assert.deepEqual(f.order(), ['a', 'b', 'c']);
 });
 
 test('vertical wheel scrolls horizontally but preserves trackpad, zoom and boundary behavior', () => {

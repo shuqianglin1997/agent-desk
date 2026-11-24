@@ -1,4 +1,4 @@
-// AgentDesk — 额度 UI、慢轮询和猫咪疲劳叠加契约。
+// AgentDesk — 额度 UI 与慢轮询契约。
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -6,7 +6,6 @@ const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
 const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
-const scene = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'scene.js'), 'utf8');
 const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
 const workspaceStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
 
@@ -18,45 +17,31 @@ function between(source, startMarker, endMarker) {
   return source.slice(start, end);
 }
 
-test('账号栏常驻额度 Beta、手动刷新和可访问进度条渲染', () => {
+test('账号额度浮层保留手动刷新和可访问进度条', () => {
   assert.match(html, /id="quotaSummary"[^>]*aria-live="polite"/);
   assert.match(html, /id="quotaRefreshBtn"[^>]*>↻ 刷新额度<\/button>/);
   assert.match(renderer, /setAttribute\('role', 'progressbar'\)/);
   assert.match(renderer, /listQuotas\(\{ force: force === true \}\)/);
 });
 
-test('能量模块在 scene 前加载，活动状态和疲劳状态分别传入庭院', () => {
-  const energyIndex = html.indexOf('./yard/energy.js');
-  const sceneIndex = html.indexOf('./yard/scene.js');
-  assert.ok(energyIndex > 0 && energyIndex < sceneIndex);
-  assert.match(renderer, /statesById,/);
-  assert.match(renderer, /energyById,/);
-  assert.match(scene, /profiles: \[\],[\s\S]*?statesById: \{\},[\s\S]*?energyById: \{\}/);
-  assert.match(scene, /drawEnergyCue\(entry,/);
-});
-
 test('额度慢轮询不混进 8 秒 activity IPC', () => {
   assert.match(renderer, /const QUOTA_REFRESH_INTERVAL = 5 \* 60_000/);
-  const activity = between(renderer, 'async function loadActivity()', 'function syncYard()');
+  const activity = between(renderer, 'async function loadActivity()', 'const CARD_STATE_DOT');
   assert.doesNotMatch(activity, /listQuotas|loadQuotas/);
   const quota = between(renderer, 'async function loadQuotas', 'function selectedQuota');
   assert.doesNotMatch(quota, /listActivity/);
 });
 
-test('stale 缓存可以展示但不会驱动疲劳，猫动作状态保持正交', () => {
-  assert.match(renderer, /if \(snapshot\.status === 'stale'\) renderQuotaMeters\(snapshot\)/);
-  // 组聚合后能量仍然只吃有效快照，quotaError 时一律置空（不许旧数据驱动疲劳）
-  assert.match(renderer, /deriveEnergy\(state\.quotaError \? null : snapshot, now\)/);
-  assert.match(scene, /额度疲劳只调节动作节奏，不改变 working\/onduty/);
-});
-
-test('经典视图固定三面板下允许会话主列收缩，详情列保持可用宽度', () => {
+test('额度浮层独立于工作台布局，会话默认跨栏，远控详情列保留', () => {
   assert.match(workspaceStyles, /--detail-w:\s*316px/);
   assert.match(workspaceStyles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\)/);
+  assert.match(workspaceStyles, /\.workspace-board\[data-detail="session"\] > \.session-pane \{ grid-column: 1 \/ -1; \}/);
+  assert.match(workspaceStyles, /\.quota-popover\s*\{\s*position: fixed/);
+  assert.doesNotMatch(workspaceStyles, /\[data-detail="quota"\]/);
 });
 
-test('跨账号额度总览挂在右下额度详情，聚合模块在 renderer 前加载', () => {
-  assert.match(html, /id="detailSurfaceQuota"[\s\S]*?id="quotaOverview"/);
+test('单账号和跨账号额度共用原生浮层，聚合模块在 renderer 前加载', () => {
+  assert.match(html, /<\/main>[\s\S]*?id="quotaPopover"[^>]*popover="auto"[^>]*role="dialog"[\s\S]*?id="quotaSummary"[\s\S]*?id="quotaOverview"/);
   assert.match(html, /id="quotaOverview"[^>]*hidden/);
   assert.match(html, /id="quotaOverviewMeta"/);
   assert.match(html, /id="quotaOverviewList"/);
@@ -67,26 +52,20 @@ test('跨账号额度总览挂在右下额度详情，聚合模块在 renderer �
   assert.ok(energyIndex > 0 && energyIndex < overviewIndex && overviewIndex < rendererIndex);
 });
 
-test('额度总览随单账号额度一起刷新，按账号组归拢，默认收起由全院 chip 展开，等级色点齐全', () => {
+test('额度随数据刷新，按账号组归拢，展开状态和浮层同步', () => {
   assert.match(renderer, /function renderQuotaSummary\(\) \{[\s\S]{0,200}?renderQuotaOverview\(\);/);
-  // 总览的行是「账号（组）」不是槽位：同一登录身份只出一行；带默认收起（原型），
-  // 点「全院」chip 展开，单账号时不展示
-  assert.match(renderer, /els\.quotaOverview\.hidden = !state\.quotaOverviewOpen \|\| groups\.length < 2/);
+  assert.match(renderer, /els\.quotaOverview\.hidden = state\.quotaAnchor !== els\.quotaChipAll \|\| groups\.length < 2/);
   assert.match(renderer, /buildTrustedQuotaOverview\(groups, state\.quotas/);
-  // 控制条 chips：本号/全院 永远随总览数据刷新；额度 Beta 详情由本号 chip 展开
-  assert.match(renderer, /renderQuotaChips\(groups, rows\)/);
-  assert.match(renderer, /els\.quotaSummary\.hidden = !state\.quotaSelfOpen/);
-  assert.match(html, /id="quotaChipSelf"[\s\S]*?id="quotaChipAll"/);
-  // chips 渲染不依赖可选的总览模块/元素（code-review：先 renderQuotaChips 再判 quotaOverview）
-  assert.match(renderer, /renderQuotaChips\(groups, rows\);\s*\n\s*if \(!els\.quotaOverview \|\| !window\.QuotaOverview\) return;/);
-  // 可展开控件惯例：aria-controls 指向面板，aria-expanded 随实际可见态
-  assert.match(html, /id="quotaChipSelf"[^>]*aria-controls="quotaSummary"/);
-  assert.match(html, /id="quotaChipAll"[^>]*aria-controls="quotaOverview"/);
-  assert.match(renderer, /quotaChipSelf\.setAttribute\('aria-expanded'/);
-  // setQuotaChip 内部结构判空（chip 模板被改动时安静降级）
-  assert.match(renderer, /if \(!fill \|\| !value\) return;/);
+  assert.match(renderer, /renderQuotaOverviewButton\(groups, rows\)/);
+  assert.match(renderer, /els\.quotaSummary\.hidden = .*anchor !== selectedCardControl\('\.account-card-quota-summary'\)/);
+  assert.match(html, /class="presenter-head"[\s\S]*?id="quotaChipAll"/);
+  assert.match(html, /class="account-card-quota-summary"[^>]*popovertarget="quotaPopover"[^>]*aria-controls="quotaPopover"/);
+  assert.match(html, /id="quotaChipAll"[^>]*popovertarget="quotaPopover"[^>]*aria-controls="quotaPopover"/);
+  assert.match(renderer, /anchor\.setAttribute\('aria-expanded', 'true'\)/);
+  assert.match(renderer, /state\.quotaAnchor\?\.setAttribute\('aria-expanded', 'false'\)/);
+  assert.match(renderer, /value\.textContent = tr\('quotaMap\.minimum', \{ pct \}\)/);
   // Agent 管理已升级为原生模态 Dialog；Renderer 只打开确定对象，关闭和 Esc 交给原生 Dialog 语义。
-  assert.match(html, /id="accountManage"[^>]*aria-haspopup="dialog"[^>]*aria-controls="agentManageDialog"/);
+  assert.match(html, /class="account-card-manage"[^>]*aria-haspopup="dialog"[^>]*aria-controls="agentManageDialog"/);
   assert.match(renderer, /function openAgentManageDialog\(\)[\s\S]*?agentManageDialog\.showModal\(\)/);
   assert.match(renderer, /function closeAgentManageDialog\(\)[\s\S]*?agentManageDialog\.close\(\)/);
   // 无官方额度接口的账号折叠为尾部一行，不逐行刷灰

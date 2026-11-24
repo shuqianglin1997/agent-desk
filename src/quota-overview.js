@@ -174,7 +174,24 @@
       || right.observedAt - left.observedAt
       || String(left.member.id).localeCompare(String(right.member.id))
     ));
-    return resolved[0] ? { status: 'ok', ...resolved[0] } : { status: 'unknown', reason: 'no-trusted-snapshot' };
+    if (resolved[0]) return { status: 'ok', ...resolved[0] };
+    // Only an explicit, fresh local API-key observation establishes that a
+    // subscription quota does not apply. Mixed, failed or old observations
+    // remain unknown; an API slot must not hide a subscription slot's quota.
+    const localMembers = (group?.members || []).filter(member => member && member._remote !== true);
+    const apiOnly = localMembers.length > 0 && localMembers.every(member => {
+      const snapshot = quotas[member.id];
+      const age = now - Date.parse(snapshot?.observedAt);
+      return quotaProviderForMember(member) === 'codex'
+        && snapshot?.provider === 'codex' && snapshot.source === 'agentdesk'
+        && snapshot.status === 'unsupported' && snapshot.reasonCode === 'api-key-auth'
+        && Number.isFinite(age) && age >= 0 && age <= maxAgeMs;
+    });
+    if (apiOnly) {
+      const member = localMembers[0];
+      return { status: 'not_applicable', reason: 'api-key-auth', member, snapshot: quotas[member.id] };
+    }
+    return { status: 'unknown', reason: 'no-trusted-snapshot' };
   }
 
   // Card, yard and overview share the same source/conflict/freshness decision.
@@ -186,7 +203,7 @@
       const holder = evidence.member || group.primary;
       profiles.push({ ...holder, name: group.primary.name });
       snapshots[holder.id] = evidence.status === 'ok' ? { ...evidence.snapshot, windows: evidence.windows } : {
-        status: evidence.status === 'conflict' ? 'error' : 'unsupported',
+        status: evidence.status === 'conflict' ? 'error' : (evidence.status === 'not_applicable' ? 'not_applicable' : 'unsupported'),
         windows: [], reason: options.reasonFor?.(evidence) || evidence.reason
       };
     }

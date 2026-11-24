@@ -261,7 +261,11 @@ const APPS = {
         createdAt: sessions.parseDate(first?.timestamp)
       };
     },
-    contentActivityAt: (_profile, filePath) => sessions.codexActivityFromFile(filePath)
+    contentActivityAt: (_profile, filePath) => sessions.codexActivityFromFile(filePath),
+    exportTranscript: (session) => ({
+      markdown: transcripts.codexTranscriptMarkdown(session.filePath),
+      suggestedName: transcripts.suggestedTranscriptName(session.title)
+    })
   },
   kimi: {
     id: 'kimi',

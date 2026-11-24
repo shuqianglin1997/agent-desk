@@ -23,6 +23,19 @@ test('首次使用按版本决定是否展示，旧 welcomed 布尔值不能跳�
   assert.equal(complete.phase, 'done');
 });
 
+test('首次导入本机 Codex 账号可完成空工作区的引导，已有登记仍需迁移确认', () => {
+  const now = '2026-11-23T00:00:00.000Z';
+  const empty = Onboarding.create({ clients: CLIENTS });
+  const existing = Onboarding.create({ clients: CLIENTS, profiles: [{ id: 'existing', appId: 'codex' }] });
+  const catalog = Onboarding.create({ clients: CLIENTS, overview: { initialized: true } });
+  assert.deepEqual(Onboarding.localImportCompletionPatch(empty, now), {
+    welcomed: true,
+    onboarding: { completedVersion: Onboarding.CURRENT_VERSION, completedAt: now }
+  });
+  assert.equal(Onboarding.localImportCompletionPatch(existing, now), null);
+  assert.equal(Onboarding.localImportCompletionPatch(catalog, now), null);
+});
+
 test('已有 Profile 先进入无损迁移预览且只保留安全展示字段', () => {
   const model = Onboarding.create({
     clients: CLIENTS,

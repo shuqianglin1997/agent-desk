@@ -1,4 +1,7 @@
 const { registerLocalReadIpc } = require('./main/ipc/local-reads');
+const { windowChromeOptions, windowsControls } = require('./main/window-chrome');
+const { resolveLocalSessions, sessionDirectories } = require('./main/session-actions');
+const { prepareSessionExport } = require('./session-export');
 const {
   app,
   BrowserWindow,
@@ -8,6 +11,7 @@ const {
   clipboard,
   dialog,
   net,
+  nativeTheme,
   safeStorage,
   desktopCapturer,
   screen,
@@ -44,6 +48,19 @@ const {
   activateMacProfileApplication
 } = require('./mac-application-activator');
 const { ensureCodexRuntimeHome } = require('./codex-runtime-home');
+const {
+  canonicalDirectory,
+  codexHomeKey,
+  codexProfileAtHome,
+  discoverCodexHomes,
+  inspectCodexHome,
+  profileWithSameCodexAuth,
+  readCodexAuthFile,
+  stageCodexAuthHome
+} = require('./codex-account-import');
+const { packagedCliArguments, createCliBroker, runPackagedCli } = require('./automation/packaged-cli');
+const { discoverLocalProfileLocations } = require('./automation/local-locations');
+const { InterfaceError } = require('./automation/service');
 const { prepareManagedProfileHome } = require('./profile-home');
 const { terminalLauncherScript } = require('./terminal-launcher');
 const { QuotaService } = require('./quota-service');
@@ -199,11 +216,15 @@ const PROFILE_COPY_EXCLUDES = new Set([
   'shadercache'
 ]);
 
+const cliLaunchArgs = packagedCliArguments(process.argv, process.defaultApp === true);
+const cliUserData = app.getPath('userData');
+const cliBroker = createCliBroker({ userData: cliUserData, whenReady: () => app.whenReady(), dispatch: runCliProfileAction });
+
 function createWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
   mainWindow = new BrowserWindow({
-    // 固定窗口比例（统一设计）：不自适应，布局按此尺寸设计。外框 1040×840，
-    // 内容区 ≈ 1040×812（macOS 原生标题栏 ~28px）。
+    // Keep the fixed outer dimensions. The renderer toolbar also hosts the
+    // native window controls on macOS and Windows.
     width: 1040,
     height: 840,
     resizable: false,
@@ -211,6 +232,8 @@ function createWindow() {
     fullscreenable: false,
     show: false,
     title: APP_NAME,
+    ...windowChromeOptions(process.platform, process.platform === 'win32' ? loadSettings().theme : null, nativeTheme.shouldUseDarkColors),
+    ...(process.platform === 'win32' ? { icon: path.join(__dirname, '..', 'assets', 'icon.ico') } : {}),
     backgroundColor: '#efe6cd',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -259,12 +282,20 @@ function showMainWindow() {
   mainWindow.focus();
 }
 
-const hasSingleInstanceLock = app.requestSingleInstanceLock();
+function syncWindowControlTheme(preferences) {
+  if (process.platform !== 'win32' || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.setTitleBarOverlay(windowsControls(preferences.theme, nativeTheme.shouldUseDarkColors));
+}
 
-if (!hasSingleInstanceLock) {
+if (cliLaunchArgs !== null) {
+  void runPackagedCli(cliLaunchArgs, {
+    app, userData: cliUserData, broker: cliBroker, version: app.getVersion(), discover: discoverLocalProfileLocations
+  }).then((exitCode) => app.exit(exitCode), () => app.exit(1));
+} else if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, _argv, _cwd, data) => {
+    if (cliBroker.accept(data)) return;
     if (app.isReady()) showMainWindow();
     else app.whenReady().then(showMainWindow);
   });
@@ -364,11 +395,15 @@ function registerIpc() {
   });
 
   ipcMain.handle('settings:get', (_event, legacySettings = {}) => {
-    return loadSettings(legacySettings);
+    const preferences = loadSettings(legacySettings);
+    syncWindowControlTheme(preferences);
+    return preferences;
   });
 
   ipcMain.handle('settings:update', (_event, patch = {}) => {
-    return updateSettings(patch);
+    const preferences = updateSettings(patch);
+    if (Object.hasOwn(patch || {}, 'theme')) syncWindowControlTheme(preferences);
+    return preferences;
   });
 
   ipcMain.handle('updates:check', async () => {
@@ -1313,6 +1348,44 @@ function registerIpc() {
     });
   });
 
+  ipcMain.handle('profiles:discoverCodexHomes', () => {
+    return discoverCodexHomes().map(({ source, directory }) => ({
+      source,
+      ...pathSelectionRegistry.issue({ kind: 'codex-home', path: directory })
+    }));
+  });
+
+  ipcMain.handle('profiles:registerCodexHome', (_event, input = {}) => codexImportResult(() => {
+    const selectionId = boundedText(input?.selectionId, 128);
+    const directory = pathSelectionRegistry.resolve(selectionId, 'codex-home');
+    const result = registerCodexHome(directory);
+    pathSelectionRegistry.consume([selectionId]);
+    return result;
+  }));
+
+  ipcMain.handle('profiles:pickCodexHome', () => codexImportResult(async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: t('main.picker.codexHome'),
+      defaultPath: os.homedir(),
+      properties: ['openDirectory', 'showHiddenFiles']
+    });
+    return result.canceled ? null : registerCodexHome(result.filePaths[0]);
+  }));
+
+  ipcMain.handle('profiles:pickCodexAuth', () => codexImportResult(async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: t('main.picker.codexAuth'),
+      properties: ['openFile', 'showHiddenFiles'],
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+    return result.canceled ? null : importCodexAuth(result.filePaths[0]);
+  }));
+
+  // The preload supplies a disk-backed path from a native File drop.
+  ipcMain.handle('profiles:importDroppedCodexAuth', (_event, filePath) => (
+    codexImportResult(() => importCodexAuth(filePath))
+  ));
+
   ipcMain.handle('profiles:update', async (_event, input = {}) => {
     if (['profilePath', 'sessionRoot', 'executablePath'].some((key) => (
       Object.prototype.hasOwnProperty.call(input, key)
@@ -1387,22 +1460,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('profiles:launch', async (_event, id) => {
-    const profiles = loadProfiles();
-    const index = profiles.findIndex((profile) => profile.id === id);
-    if (index < 0) return { ok: false, reason: t('main.err.slotNotFound') };
-
-    const profile = profiles[index];
-    const result = await launchProfile(profile);
-    if (result.ok) {
-      // Launch discovery can take several seconds on Windows. Reload the
-      // latest profile before committing the timestamp so an edit made while
-      // discovery was running cannot be overwritten by this stale snapshot.
-      updateStoredProfile(id, (current) => ({
-        ...current,
-        lastLaunchedAt: new Date().toISOString()
-      }));
-    }
-    return result;
+    return launchStoredProfile(id);
   });
 
   ipcMain.handle('profiles:runtimeStatus', (_event, id) => {
@@ -1429,6 +1487,7 @@ function registerIpc() {
 
   registerLocalReadIpc({
     ipcMain, loadProfiles, apps, boundedText, revealSessionFile, exportSessionTranscript,
+    listSessionDirectories, openSessionDirectory,
     probeActivities, snapshotProcesses, profileIsRunning, quotaService, getVersion: () => app.getVersion()
   });
 
@@ -1514,31 +1573,159 @@ function resolveKnownProfilePath(input = {}) {
   return profile[field];
 }
 
-function createStoredProfile(input = {}) {
+async function codexImportResult(operation) {
+  try {
+    const result = await operation();
+    return result ? { ok: true, ...result } : { ok: false, canceled: true };
+  } catch (error) {
+    const known = ['codex-auth-filename', 'codex-auth-format', 'codex-auth-size', 'codex-auth-unreadable',
+      'codex-home-invalid', 'path-selection-expired'];
+    return { ok: false, reasonCode: known.includes(error?.message) ? error.message : 'codex-import-failed' };
+  }
+}
+
+function registerCodexHome(directory, name) {
+  let home;
+  try { home = inspectCodexHome(directory); } catch (_error) { /* Report a fixed error code. */ }
+  if (!home) throw new Error('codex-home-invalid');
+  const profile = codexProfileAtHome(loadProfiles(), home);
+  if (profile) return { profileId: profile.id, existing: true };
+  const registered = createStoredProfile({ appId: 'codex', name }, { codexHome: home });
+  return { profileId: registered.id };
+}
+
+function importCodexAuth(filePath) {
+  const auth = readCodexAuthFile(filePath);
+  const profiles = loadProfiles();
+  const sourceHome = path.dirname(filePath);
+  const existing = codexProfileAtHome(profiles, sourceHome);
+  if (existing) return { profileId: existing.id, existing: true };
+  const sourceKey = codexHomeKey(sourceHome);
+  if (sourceKey && discoverCodexHomes().some(({ directory }) => codexHomeKey(directory) === sourceKey)) {
+    return registerCodexHome(sourceHome);
+  }
+  const copied = profileWithSameCodexAuth(profiles, auth);
+  if (copied) return { profileId: copied.id, existing: true };
+  const profile = createStoredProfile({ appId: 'codex' }, { codexAuth: auth });
+  return { profileId: profile.id };
+}
+
+function createStoredProfile(input = {}, options = {}) {
   const profiles = loadProfiles();
   const appId = apps.isKnownApp(input.appId) ? input.appId : apps.DEFAULT_APP;
-  const name = String(input.name || '').trim() || `${apps.getApp(appId).label} 账号`;
+  const { codexAuth, codexHome, externalLocation } = options;
+  let name = String(input.name || '').trim();
+  if (!name && (codexAuth || codexHome)) {
+    const names = new Set(profiles.filter((profile) => profile.appId === 'codex').map((profile) => profile.name));
+    name = 'Codex';
+    for (let index = 2; names.has(name); index += 1) name = `Codex ${index}`;
+  }
+  name ||= `${apps.getApp(appId).label} 账号`;
   const id = crypto.randomUUID();
-  const profilePath = makeIsolatedProfilePath(appId, name, id);
+  const isDefaultCodexHome = Boolean(codexHome && codexHomeKey(codexHome) === codexHomeKey(path.join(os.homedir(), '.codex')));
+  const isDefault = isDefaultCodexHome || externalLocation?.isDefault === true;
+  const profilePath = externalLocation?.profilePath
+    || (isDefault ? defaultProfilePath(appId) : makeIsolatedProfilePath(appId, name, id));
+  const existingRoot = codexHome || externalLocation?.sessionRoot;
   const profile = normalizeProfile({
     id,
     appId,
     name,
     profilePath,
-    sessionRoot: defaultSessionRoot(appId, profilePath, false),
-    profilePathMode: 'managed',
-    sessionRootMode: 'managed',
-    isProtected: false,
+    sessionRoot: existingRoot || defaultSessionRoot(appId, profilePath, false),
+    profilePathMode: isDefault ? 'auto' : (externalLocation?.profilePath ? 'custom' : 'managed'),
+    sessionRootMode: existingRoot ? 'custom' : 'managed',
+    isProtected: isDefault,
+    ...(codexAuth ? { codexAuthImported: true } : {}),
     createdAt: new Date().toISOString(),
     lastLaunchedAt: null,
     group: input.group,
     note: input.note
   });
 
-  prepareManagedProfileHome(profile);
-  profiles.push(profile);
-  saveProfiles(profiles);
+  const cleanupAuth = codexAuth ? stageCodexAuthHome(profile, codexAuth) : null;
+  if (!existingRoot && !codexAuth) prepareManagedProfileHome(profile);
+  try {
+    profiles.push(profile);
+    saveProfiles(profiles);
+  } catch (error) {
+    cleanupAuth?.();
+    throw error;
+  }
   return profile;
+}
+
+function requireCliDirectory(value) {
+  const resolved = canonicalDirectory(value);
+  if (!resolved || resolved === path.parse(resolved).root) {
+    throw new InterfaceError('client-directory-invalid', 'Choose an existing, absolute client directory.', 2);
+  }
+  return resolved;
+}
+
+function registerExistingProfileFromCli(input) {
+  const appId = input.app;
+  if (!apps.isKnownApp(appId)) throw new InterfaceError('unknown-client', 'Choose a client ID from apps.', 2);
+  const sessionRoot = requireCliDirectory(input['session-root']);
+  const name = boundedText(input.name, 80);
+  if (appId === 'codex' && !input['profile-path']) {
+    if (!inspectCodexHome(sessionRoot)) throw new InterfaceError('codex-home-invalid', 'The directory has no recognized Codex state.', 2);
+    return registerCodexHome(sessionRoot, name);
+  }
+
+  const client = apps.getApp(appId);
+  const officialPath = defaultProfilePath(appId);
+  const homeKey = codexHomeKey(sessionRoot);
+  const officialHomeKey = codexHomeKey(client.defaultSessionRoot(officialPath, true));
+  const profilePath = client.cliDiscoveryId ? sessionRoot
+    : input['profile-path'] ? requireCliDirectory(input['profile-path'])
+      : (homeKey === officialHomeKey ? canonicalDirectory(officialPath) : null);
+  const profileKey = codexHomeKey(profilePath);
+  const isDefault = !client.cliDiscoveryId && Boolean(profileKey)
+    && profileKey === codexHomeKey(officialPath) && homeKey === officialHomeKey;
+  if (client.profileIsolation?.mode === 'official-default-only' && !isDefault) {
+    throw new InterfaceError('client-default-only', 'This client launches from its official desktop directory only.', 5);
+  }
+  const existing = loadProfiles().find((profile) => (
+    profile.appId === appId && codexHomeKey(profile.sessionRoot) === homeKey
+    && (client.cliDiscoveryId || !profileKey || codexHomeKey(profile.profilePath) === profileKey)
+  ));
+  if (existing) return { profileId: existing.id, existing: true };
+  const profile = createStoredProfile({ appId, name }, { externalLocation: { profilePath, sessionRoot, isDefault } });
+  return { profileId: profile.id };
+}
+
+async function runCliProfileAction(command, input) {
+  if (command === 'profiles launch') {
+    const result = await launchStoredProfile(input.profile);
+    if (!result.ok) throw new InterfaceError(result.reasonCode || 'profile-launch-failed', 'The client could not be opened. Check the selected profile and launcher.');
+    return { profileId: input.profile, opened: true, alreadyRunning: result.alreadyRunning === true };
+  }
+  let result;
+  if (command === 'profiles register') result = registerExistingProfileFromCli(input);
+  else if (command === 'profiles import-auth') {
+    if (input.app !== 'codex') throw new InterfaceError('credential-import-unsupported', 'Check apps for supported credential-file formats.', 5);
+    const imported = await codexImportResult(() => importCodexAuth(input.file));
+    if (!imported.ok) throw new InterfaceError(imported.reasonCode, 'Codex credential-file import failed.');
+    result = { profileId: imported.profileId, existing: imported.existing === true };
+  } else {
+    throw new InterfaceError('unknown-command', 'Unknown profile action. Use capabilities.', 2);
+  }
+  if (!result.existing && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('profiles:registrationsChanged');
+  }
+  return result;
+}
+
+async function launchStoredProfile(id) {
+  const profile = loadProfiles().find((item) => item.id === id);
+  if (!profile) return { ok: false, reasonCode: 'profile-not-found', reason: t('main.err.slotNotFound') };
+  const result = await launchProfile(profile);
+  if (result.ok) {
+    // Reload after launch discovery so concurrent edits are preserved.
+    updateStoredProfile(id, (current) => ({ ...current, lastLaunchedAt: new Date().toISOString() }));
+  }
+  return result;
 }
 
 function removeStoredProfileRegistration(id) {
@@ -4334,42 +4521,67 @@ function shouldCopyProfileItem(sourcePath) {
   return !PROFILE_COPY_EXCLUDES.has(name);
 }
 
-// 导出会话为 Markdown。与 reveal 相同的口径：先重扫拿最新 filePath，防止
-// 过期路径；写盘位置由系统保存对话框决定，渲染进程不提交任意路径。
-async function exportSessionTranscript(input) {
-  const profiles = loadProfiles();
-  const profile = profiles.find((item) => item.id === boundedText(input?.profileId, 128));
-  if (!profile) return { ok: false, reason: t('main.err.slotNotFoundDot') };
-
-  const app_ = apps.getApp(profile.appId);
-  if (typeof app_.exportTranscript !== 'function') {
-    return { ok: false, reason: t('main.exp.notSupported', { label: app_.label }) };
+function listSessionDirectories(input) {
+  try {
+    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp);
+    return { ok: true, directories: sessionDirectories(records) };
+  } catch (_error) {
+    return { ok: false, reason: t('main.sessionActions.directoryUnavailable') };
   }
+}
 
-  const records = app_.scan(profile);
-  const session = records.find((item) => item.id === boundedText(input?.sessionId, 256));
-  if (!session) return { ok: false, reason: t('main.exp.sessionNotFound') };
+async function openSessionDirectory(input) {
+  const result = listSessionDirectories({ profileId: input?.profileId, sessionId: input?.sessionId });
+  const directory = result.directories?.[0]?.path;
+  // The UI may send the directory it offered as a check only. The actual open
+  // target always comes from the current session record and never from IPC.
+  if (!directory || typeof input?.expectedPath !== 'string' || !pathsEqual(directory, input.expectedPath)) {
+    return { ok: false, reason: t('main.sessionActions.directoryUnavailable') };
+  }
+  try {
+    if (await shell.openPath(directory)) return { ok: false, reason: t('main.sessionActions.directoryUnavailable') };
+    return { ok: true };
+  } catch (_error) {
+    return { ok: false, reason: t('main.sessionActions.directoryUnavailable') };
+  }
+}
 
+async function exportSessionTranscript(input) {
   let exported;
   try {
-    exported = app_.exportTranscript(session);
+    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp);
+    const unsupported = records.find(({ client }) => typeof client.exportTranscript !== 'function');
+    if (unsupported) return { ok: false, reason: t('main.exp.notSupported', { label: unsupported.client.label }) };
+    exported = await prepareSessionExport(records, { attachmentsHeading: t('main.sessionActions.attachments') });
   } catch (error) {
-    return { ok: false, reason: t('main.exp.failed', { msg: error.message }) };
+    const message = error.message === 'session-export-too-large' ? 'main.sessionActions.exportTooLarge'
+      : error.message === 'session-not-found' ? 'main.exp.sessionNotFound' : 'main.sessionActions.exportUnavailable';
+    return { ok: false, reason: t(message) };
   }
 
   const result = await dialog.showSaveDialog(mainWindow, {
-    title: t('main.exp.dialogTitle'),
-    defaultPath: path.join(app.getPath('desktop'), exported.suggestedName || 'session.md'),
-    filters: [{ name: 'Markdown', extensions: ['md'] }]
+    title: t('main.sessionActions.saveTitle'),
+    defaultPath: path.join(app.getPath('desktop'), exported.suggestedName),
+    filters: [{ name: exported.format === 'zip' ? 'ZIP' : 'Markdown', extensions: [exported.format] }]
   });
   if (result.canceled || !result.filePath) return { ok: false, canceled: true, reason: t('main.exp.cancelled') };
 
+  const temporary = path.join(path.dirname(result.filePath), `.agentdesk-export-${crypto.randomUUID()}.tmp`);
   try {
-    fs.writeFileSync(result.filePath, exported.markdown, 'utf8');
+    await fs.promises.writeFile(temporary, exported.data, { flag: 'wx', mode: 0o600 });
+    await fs.promises.rename(temporary, result.filePath);
   } catch (error) {
-    return { ok: false, reason: t('main.exp.writeFail', { msg: error.message }) };
+    return { ok: false, reason: t('main.sessionActions.writeUnavailable') };
+  } finally {
+    await fs.promises.rm(temporary, { force: true }).catch(() => {});
   }
-  return { ok: true, savedPath: result.filePath, message: t('main.exp.done', { path: result.filePath }) };
+  return {
+    ok: true,
+    savedPath: result.filePath,
+    format: exported.format,
+    attachmentCount: exported.attachmentCount,
+    message: t('main.exp.done', { path: result.filePath })
+  };
 }
 
 async function revealSessionFile(input) {

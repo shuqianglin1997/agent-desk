@@ -1,16 +1,14 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-09-26T10:56:30.530Z",
-  "baseCommit": "1ca42ec78da8c25948cc3d6217dd39a6a6191485",
+  "recordedAt": "2026-11-24T06:02:16.169409Z",
+  "baseCommit": "760dace0aa318100981399f4de47e06b05a0f302",
   "uncommitted": true,
-  "sourceSha256": "817c44712d3a92ce27a94d95976e94d843c095e15872e2abb4510e5261951f38",
+  "sourceSha256": "d1debc204ac28e655c053c6f1205f394bd5c7c8bda1b1fb12c233e18f51763db",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
-    "osRelease": "25.6.0",
-    "macOS": "26.6.1",
-    "node": "v24.21.0",
-    "electron": "43.3.0"
+    "node": "v24.22.1",
+    "os": "25.6.0"
   },
   "integration": {
     "base": "existing local simplification",
@@ -20,48 +18,349 @@
   },
   "checks": [
     {
-      "command": "node --test --test-concurrency=2 --test-reporter=spec --test-reporter-destination=docs/validation/node-results.txt",
+      "command": "node --test --test-concurrency=2",
       "result": "passed",
-      "tests": 585,
-      "pass": 584,
+      "tests": 843,
+      "pass": 841,
       "fail": 0,
-      "skipped": 1,
-      "scope": "Final full Node suite; one Windows-only test skipped; no GUI"
+      "skipped": 2,
+      "scope": "Full background Node suite; no test GUI windows",
+      "recordedAt": "2026-10-08T04:13:57.366Z",
+      "sourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77"
     },
     {
-      "command": "node --test test/automation-cli.test.js",
+      "command": "node --test test/codex-quota.test.js test/quota-service.test.js test/quota.test.js test/quota-overview.test.js test/quota-ipc.test.js test/quota-ui.test.js test/automation-cli.test.js",
       "result": "passed",
-      "tests": 12,
-      "pass": 12,
-      "scope": "JSON CLI contract, exact IDs, read-only behavior, credential exclusion, adapters, pagination, unsupported/ambiguous records, canonical path overlap and safe errors"
+      "tests": 54,
+      "pass": 54,
+      "fail": 0,
+      "scope": "New/legacy app layouts, system/user installs, native/wrapper priority, explicit override, API-key auth short-circuit, managed auth, quota freshness and mixed-account behavior",
+      "recordedAt": "2026-10-08T04:13:57.366Z",
+      "sourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77"
     },
     {
       "command": "package.json scripts.check via Node child_process",
       "result": "passed",
-      "scope": "Full JavaScript syntax checks including both new CLI modules"
+      "checks": 120,
+      "scope": "All repository JavaScript syntax checks",
+      "recordedAt": "2026-10-08T04:13:57.366Z",
+      "sourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77"
     },
     {
-      "command": "CLI profiles list/inspect and tools against explicit local userData; output summarized without names, paths or session text",
+      "command": "fetchProfileQuota for six explicitly selected local Profiles with Finder PATH and no launcher override",
       "result": "passed",
       "profiles": 6,
-      "scope": "Six Codex Profile roots readable; fixed Codex CLI discovered without launch. No auth/config files or API requests; not proof of login or company API health"
+      "liveSubscriptionQuotas": 4,
+      "apiKeyNotApplicable": 2,
+      "scope": "Official read-only account/rate-limit RPC; no model inference, direct credential-file reads or account changes",
+      "recordedAt": "2026-10-08T04:13:57.366Z",
+      "sourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77"
+    },
+    {
+      "command": "verifyElectronPackage and byte-for-byte ASAR src comparison; package identity/version/main check",
+      "result": "passed",
+      "regularFiles": 127,
+      "sourceFiles": 122,
+      "scope": "Five Electron fuses, all ASAR file/block hashes, embedded macOS header and exact current source",
+      "recordedAt": "2026-10-08T04:13:57.366Z",
+      "sourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77"
+    },
+    {
+      "command": "codesign --verify --deep --strict",
+      "result": "passed",
+      "scope": "Local ad-hoc signature integrity",
+      "recordedAt": "2026-10-08T04:13:57.366Z",
+      "sourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77"
+    },
+    {
+      "command": "installLocalMacApp --preserve-clients and installed ASAR readback",
+      "result": "passed",
+      "scope": "Canonical /Applications launch, exact verified ASAR hash and existing official client PID preservation",
+      "recordedAt": "2026-10-08T04:13:57.366Z",
+      "sourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77"
+    },
+    {
+      "command": "Focused installed-app quota GUI verification through macOS accessibility state",
+      "result": "passed",
+      "liveSubscriptionCards": 4,
+      "apiKeyCardNotApplicable": true,
+      "selfAndOverviewChipsVisible": true,
+      "selectedSubscriptionOfficialDetailVisible": true,
+      "scope": "Real user-data and canonical installed app; subscription weekly percentages, API card, self/overview chips, selected quota progress bar and official-live label only; no account switching or full GUI acceptance",
+      "recordedAt": "2026-10-08T04:13:57.366Z",
+      "sourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77"
+    },
+    {
+      "command": "node --test test/codex-history-retention.test.js test/profile-runtime.test.js",
+      "result": "passed",
+      "tests": 16,
+      "pass": 16,
+      "fail": 0,
+      "skipped": 0,
+      "scope": "Explicit retention, image hash preservation, exact human messages, successful previews only, incomplete/error/patch/resource retention, symlink refusal, policy recheck, owned exit/relaunch, transparent compression and unchanged existing session scanner.",
+      "recordedAt": "2026-10-19T10:57:35.854095+00:00",
+      "sourceSha256": "57d4136aa148e6f5a53e73bb2fd24ef635f1ce05e376f4edba1724e21177d27a"
+    },
+    {
+      "command": "node --check src/codex-history-retention.js; node --check src/profile-runtime.js; node --check test/codex-history-retention.test.js",
+      "result": "passed",
+      "checks": 3,
+      "scope": "Storage maintenance source and affected lifecycle/test syntax; no GUI or model invocation.",
+      "recordedAt": "2026-10-19T10:57:35.854095+00:00",
+      "sourceSha256": "57d4136aa148e6f5a53e73bb2fd24ef635f1ce05e376f4edba1724e21177d27a"
+    },
+    {
+      "command": "node --test test/codex-history-retention.test.js test/profile-runtime.test.js test/install-local-macos.test.js",
+      "result": "passed",
+      "tests": 28,
+      "pass": 28,
+      "fail": 0,
+      "recordedAt": "2026-10-23T03:05:40.791Z",
+      "sourceSha256": "d484c9a828738eab82f36d24962dff40adc4b89b286307f440a890467037627b",
+      "scope": "History preservation, nested MCP output, terminal interrupted/failed turns, live idle guards, worker locking/status, periodic lifecycle, safe local installation."
+    },
+    {
+      "command": "verify-electron-package-integrity.js --artifact /Applications/AgentDesk.app; packaged Node worker; native thread/read + thread/items/list",
+      "result": "passed",
+      "recordedAt": "2026-10-23T03:05:40.791Z",
+      "sourceSha256": "d484c9a828738eab82f36d24962dff40adc4b89b286307f440a890467037627b",
+      "scope": "128 ASAR files, required fuses/header binding; actual packaged cleanup worker; 12 existing archived threads and 16 native item pages, human items/cursors unchanged."
+    },
+    {
+      "command": "Focused Codex import, packaged CLI, onboarding, IPC and Windows adapter Node regression",
+      "result": "passed",
+      "tests": 77,
+      "pass": 76,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Synthetic auth, exact registration and session reads, duplicate requests, and native Windows PowerShell skip on macOS.",
+      "recordedAt": "2026-11-24T03:56:34.735Z",
+      "sourceSha256": "d665257f7915688f2bbae4a2521b20df16ee4a83dfd1529ffeb194d577322d5b"
+    },
+    {
+      "command": "node --test test/*.test.js",
+      "result": "partial",
+      "tests": 617,
+      "pass": 614,
+      "fail": 2,
+      "skipped": 1,
+      "scope": "Existing history retention RunAsNode allowlist mismatch and local Codex history smoke with no scanned sessions. New feature tests passed.",
+      "recordedAt": "2026-11-24T03:56:34.735Z",
+      "sourceSha256": "d665257f7915688f2bbae4a2521b20df16ee4a83dfd1529ffeb194d577322d5b"
+    },
+    {
+      "command": "Packaged CLI verification against a temporary ad-hoc macOS arm64 bundle and icon format verification",
+      "result": "passed",
+      "scope": "Current ASAR source bytes and package integrity, JSON output, existing registration, synthetic standalone auth import, duplicate handling, session list and Markdown, and opaque PNG/ICO/ICNS frames. No GUI, actual login, public release or Windows native executable run.",
+      "recordedAt": "2026-11-24T03:56:34.735Z",
+      "sourceSha256": "d665257f7915688f2bbae4a2521b20df16ee4a83dfd1529ffeb194d577322d5b"
+    },
+    {
+      "command": "Focused session selection, export, UI contracts, and local IPC Node regression",
+      "result": "passed",
+      "tests": 103,
+      "pass": 103,
+      "fail": 0,
+      "skipped": 0,
+      "scope": "Exact Profile routing, one scan per Profile, folder deduplication, existing copy contract, Markdown, ZIP attachments and existing Activity actions.",
+      "recordedAt": "2026-11-24T04:24:42.099Z",
+      "sourceSha256": "a27fbaeb3a1387f73875fc7fd50cb06f93a1e622bef7ef2e979dc3821e6bf312"
+    },
+    {
+      "command": "Headless Chromium session-toolbar fixture and native macOS ZIP extraction",
+      "result": "passed",
+      "scope": "1040px full-width list, empty, focused and checked selection, single/multiple directories, exact action payloads, and ZIP integrity plus UTF-8 paths. Renderer uses a mocked Electron bridge. No installed app changes or Windows native validation.",
+      "recordedAt": "2026-11-24T04:24:42.099Z",
+      "sourceSha256": "a27fbaeb3a1387f73875fc7fd50cb06f93a1e622bef7ef2e979dc3821e6bf312"
+    },
+    {
+      "command": "node --test test/*.test.js",
+      "result": "partial",
+      "tests": 620,
+      "pass": 617,
+      "fail": 2,
+      "skipped": 1,
+      "scope": "Existing history retention RunAsNode allowlist mismatch and local Codex history smoke with no scanned sessions.",
+      "recordedAt": "2026-11-24T04:24:42.099Z",
+      "sourceSha256": "a27fbaeb3a1387f73875fc7fd50cb06f93a1e622bef7ef2e979dc3821e6bf312"
+    },
+    {
+      "command": "Focused Node window chrome and UI contract tests",
+      "result": "passed",
+      "tests": 73,
+      "pass": 73,
+      "fail": 0,
+      "skipped": 0,
+      "scope": "Platform window options and native caption colors, toolbar placement, and existing application UI contracts.",
+      "recordedAt": "2026-11-24T04:35:40.958Z",
+      "sourceSha256": "f9177d48095d6c84a8263be709b4a240b469fda799ae367615893e6f6bfb0910"
+    },
+    {
+      "command": "Headless Chromium window toolbar fixture",
+      "result": "passed",
+      "scope": "macOS and Windows toolbar layouts in zh/en/ja, menu and view controls, focus return, four utility dialogs and drag-region styles. Electron bridge mocked; real native caption controls and OS drag were not run.",
+      "recordedAt": "2026-11-24T04:35:40.958Z",
+      "sourceSha256": "f9177d48095d6c84a8263be709b4a240b469fda799ae367615893e6f6bfb0910"
+    },
+    {
+      "command": "node --test test/*.test.js",
+      "result": "partial",
+      "tests": 622,
+      "pass": 619,
+      "fail": 2,
+      "skipped": 1,
+      "scope": "Existing history retention RunAsNode allowlist mismatch and local Codex history smoke with no scanned sessions.",
+      "recordedAt": "2026-11-24T04:35:40.958Z",
+      "sourceSha256": "f9177d48095d6c84a8263be709b4a240b469fda799ae367615893e6f6bfb0910"
+    },
+    {
+      "command": "Focused Node card, quota, roster, persistence and UI contract tests",
+      "result": "passed",
+      "tests": 76,
+      "pass": 76,
+      "fail": 0,
+      "skipped": 0,
+      "scope": "Card action placement and routing, running-location memory, roster input exclusion, and existing quota, session, and Agent management contracts.",
+      "recordedAt": "2026-11-24T04:40:50.487Z",
+      "sourceSha256": "bf78e636fae8138f72b3a56f56ecda5d2458395343c7aae5b5ca871c049a1e29"
+    },
+    {
+      "command": "Headless Chromium card and title bar fixtures",
+      "result": "passed",
+      "scope": "Twelve card/yard screen layouts across zh/en/ja and light/dark; exact mocked local launch target and location memory, stable control focus, management, quota, and selector behavior. Six titlebar platform/language layouts with a 216x34 picker at x=387, long labels and caption exclusion. Electron bridge mocked; no native window runtime or real account launch.",
+      "recordedAt": "2026-11-24T04:40:50.487Z",
+      "sourceSha256": "bf78e636fae8138f72b3a56f56ecda5d2458395343c7aae5b5ca871c049a1e29"
+    },
+    {
+      "command": "Generate and compare PNG, ICO and ICNS icon frames with the existing YardSprites orange SIT drawing",
+      "result": "passed",
+      "scope": "Pixel equality for the PNG master, seven Windows sizes and six macOS sizes. All frames verified opaque, square, and nearest-neighbor scaled.",
+      "recordedAt": "2026-11-24T04:40:50.487Z",
+      "sourceSha256": "bf78e636fae8138f72b3a56f56ecda5d2458395343c7aae5b5ca871c049a1e29"
+    },
+    {
+      "command": "node --test test/*.test.js",
+      "result": "partial",
+      "tests": 623,
+      "pass": 620,
+      "fail": 2,
+      "skipped": 1,
+      "scope": "Existing history retention RunAsNode allowlist mismatch and local Codex history smoke with no scanned sessions.",
+      "recordedAt": "2026-11-24T04:40:50.487Z",
+      "sourceSha256": "bf78e636fae8138f72b3a56f56ecda5d2458395343c7aae5b5ca871c049a1e29"
+    },
+    {
+      "command": "Verified ASAR and ad-hoc signature; install-local-macos.js --preserve-clients; local readback",
+      "result": "passed",
+      "recordedAt": "2026-11-24T04:42:12.396Z",
+      "sourceSha256": "bf78e636fae8138f72b3a56f56ecda5d2458395343c7aae5b5ca871c049a1e29",
+      "regularFiles": 134,
+      "scope": "Integrity and icons matched the installed app, registration and settings were byte-identical, seven account/session directory pairs retained their inodes, and catalog keys from the pre-install SQLite backup remained present."
+    },
+    {
+      "command": "Headless Chromium card-only workbench fixture",
+      "result": "passed",
+      "scope": "9 platform, theme and language layouts. Device picker x=387, y=11.5, 216x34 in 1040px window; legacy yard preferences ignored; single and batch controls, keyboard focus restoration, quota, management, and detailed titles checked. Platform chrome is simulated.",
+      "recordedAt": "2026-11-24T05:00:11.092Z",
+      "sourceSha256": "3c6460e88d84cb6f72fc74e1a33df43f8d44fea36c788e96887bcfce98dd7636"
+    },
+    {
+      "command": "node --test test/*.test.js",
+      "result": "partial",
+      "tests": 615,
+      "pass": 612,
+      "fail": 2,
+      "skipped": 1,
+      "scope": "Existing RunAsNode history retention allowlist mismatch and unrelated real Codex default fixture with no sessions.",
+      "recordedAt": "2026-11-24T05:00:11.092Z",
+      "sourceSha256": "3c6460e88d84cb6f72fc74e1a33df43f8d44fea36c788e96887bcfce98dd7636"
+    },
+    {
+      "command": "Verified ASAR, ad-hoc signature, install-local-macos.js --preserve-clients and native readback",
+      "result": "passed",
+      "regularFiles": 134,
+      "scope": "Installed ASAR and app icon matched the verified build. Seven account directory pairs and 342 indexed local session records verified before and after, account registry and settings byte-identical, existing catalog entries retained.",
+      "recordedAt": "2026-11-24T05:00:11.092Z",
+      "sourceSha256": "3c6460e88d84cb6f72fc74e1a33df43f8d44fea36c788e96887bcfce98dd7636"
+    },
+    {
+      "command": "Headless Chromium quota popover and card-only workbench fixture",
+      "result": "passed",
+      "scope": "Nine shell layouts with simulated platform chrome. Account and overview anchors, unchanged session geometry and selection, forced refresh, account switching, low-quota activity handoff, click-away, Escape and focus restoration.",
+      "recordedAt": "2026-11-24T05:03:46.860Z",
+      "sourceSha256": "0a9d93247cfc3e00615ed9bd28157981f9335fb54c4d85de3ce725724a64b38e"
+    },
+    {
+      "command": "node --test --test-concurrency=2 test/*.test.js",
+      "result": "partial",
+      "tests": 615,
+      "pass": 612,
+      "fail": 2,
+      "skipped": 1,
+      "scope": "Same two pre-existing failures: RunAsNode launcher allowlist and the default real Codex session fixture with no sessions.",
+      "recordedAt": "2026-11-24T05:03:46.860Z",
+      "sourceSha256": "0a9d93247cfc3e00615ed9bd28157981f9335fb54c4d85de3ce725724a64b38e"
+    },
+    {
+      "command": "package.json scripts.check and node --check scripts/ui-acceptance.js",
+      "result": "passed",
+      "checks": 121,
+      "scope": "Repository syntax checks and the updated desktop acceptance script.",
+      "recordedAt": "2026-11-24T05:03:46.860Z",
+      "sourceSha256": "0a9d93247cfc3e00615ed9bd28157981f9335fb54c4d85de3ce725724a64b38e"
+    },
+    {
+      "command": "Verified ASAR, ad-hoc signature, install-local-macos.js --preserve-clients and local session readback",
+      "result": "passed",
+      "regularFiles": 134,
+      "scope": "Seven quota UI source files updated over the existing macOS bundle. All 129 packaged source files matched the workspace. Canonical launch, visible window, seven preserved profile records and 342 indexed local sessions verified.",
+      "recordedAt": "2026-11-24T05:12:01.577Z",
+      "sourceSha256": "0a9d93247cfc3e00615ed9bd28157981f9335fb54c4d85de3ce725724a64b38e"
+    },
+    {
+      "command": "node --test --test-concurrency=2",
+      "result": "passed",
+      "tests": 868,
+      "pass": 866,
+      "fail": 0,
+      "skipped": 2,
+      "recordedAt": "2026-11-24T06:02:16.169409Z",
+      "sourceSha256": "d1debc204ac28e655c053c6f1205f394bd5c7c8bda1b1fb12c233e18f51763db",
+      "scope": "Complete background Node regression with lockfile dependencies installed; no GUI, installation or live user-data maintenance."
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "recordedAt": "2026-11-24T06:02:16.169409Z",
+      "sourceSha256": "d1debc204ac28e655c053c6f1205f394bd5c7c8bda1b1fb12c233e18f51763db",
+      "scope": "Existing repository JavaScript syntax checks."
+    },
+    {
+      "command": "node scripts/check-docs.js",
+      "result": "passed",
+      "recordedAt": "2026-11-24T06:02:16.169409Z",
+      "sourceSha256": "d1debc204ac28e655c053c6f1205f394bd5c7c8bda1b1fb12c233e18f51763db",
+      "scope": "Canonical documentation links, implementation authority, release boundaries and validation source digest."
     }
   ],
   "artifact": {
-    "path": "release/local-integration-20260926/mac-arm64/AgentDesk.app",
+    "path": "release/local-quota-fix-20261008/mac-arm64/AgentDesk.app",
     "version": "0.10.1-preview.1",
-    "asarSha256": "ea28845467572928cd5a83238abb49f3afa2a822456ce07416d4327a320b6717",
-    "asarHeaderSha256": "67f6a2db5229de6a1d80e210e78a1e170a39f48bfcb9c976a6dc693e52277920",
+    "asarSha256": "c66a7b1ab76f86abbc9ed35e5050374cfde26f372b8005de469d51917013c73e",
+    "asarHeaderSha256": "e32f5bbb7c1dc8de38b2b48c704446a52be4d8460a2be5609a7d51532185d576",
+    "sourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77",
+    "sourceFilesMatched": 122,
+    "regularFilesVerified": 127,
+    "matchesCurrentSource": false,
     "installed": true,
     "launched": true,
-    "sourceCommit": "1ca42ec78da8c25948cc3d6217dd39a6a6191485",
-    "sourceSha256": "c5a24fe0101f134f4cf5b64964235eba765fa54e766ca29ea11b5e653d19acd8",
-    "matchesCurrentSource": false,
     "installationVerification": {
       "target": "/Applications/AgentDesk.app",
       "asarMatches": true,
       "canonicalProcessObserved": true,
-      "scope": "Explicit owner-requested normal install and launch of prior integration; not GUI acceptance or three-start smoke"
+      "existingClientProcessesPreserved": true,
+      "existingClientProcessCount": 124,
+      "scope": "Owner-requested local reinstall via existing preserve-clients installer; canonical process, exact ASAR and existing official clients verified; focused quota GUI check passed"
     }
   },
   "partialChecks": [
@@ -72,16 +371,13 @@
     }
   ],
   "notRun": [
-    "verify_all",
-    "GUI acceptance in this iteration",
-    "packaged first-use smoke",
-    "real company API/login or billable model request",
-    "physical peers/public NAT/TURN",
+    "Full GUI acceptance suite",
+    "Packaged three-start first-use smoke",
     "Windows runtime",
-    "Developer ID/notarization/release/push",
-    "rebuild/install/restart desktop for the CLI iteration"
+    "Physical peers/public NAT/TURN",
+    "Developer ID/notarization/public release/push"
   ],
-  "scope": "AI-facing local read-only CLI and customization documentation; prior integration preserved; no push or desktop restart",
+  "scope": "2026-11-23 source and Git consolidation on official main; complete background Node regression and syntax/document checks only. Existing package, installation, GUI and physical-platform records retain their original source digests and dates.",
   "previousArtifactChecks": [
     {
       "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration)",
@@ -105,5 +401,129 @@
       "sourceFilesMatched": 120,
       "scope": "All src files and package version/main match final workspace"
     }
-  ]
+  ],
+  "previousArtifact": {
+    "path": "release/local-integration-20260926/mac-arm64/AgentDesk.app",
+    "version": "0.10.1-preview.1",
+    "asarSha256": "ea28845467572928cd5a83238abb49f3afa2a822456ce07416d4327a320b6717",
+    "asarHeaderSha256": "67f6a2db5229de6a1d80e210e78a1e170a39f48bfcb9c976a6dc693e52277920",
+    "installed": true,
+    "launched": true,
+    "sourceCommit": "1ca42ec78da8c25948cc3d6217dd39a6a6191485",
+    "sourceSha256": "c5a24fe0101f134f4cf5b64964235eba765fa54e766ca29ea11b5e653d19acd8",
+    "matchesCurrentSource": false,
+    "installationVerification": {
+      "target": "/Applications/AgentDesk.app",
+      "asarMatches": true,
+      "canonicalProcessObserved": true,
+      "scope": "Explicit owner-requested normal install and launch of prior integration; not GUI acceptance or three-start smoke"
+    }
+  },
+  "previousRecordedAt": "2026-10-08T04:13:57.366Z",
+  "previousSourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77",
+  "previousScope": "2026-10-08 Codex quota discovery and API-key presentation repair; owner-authorized rebuild and local reinstall completed; package, install and focused real-data quota GUI evidence recorded",
+  "historyRetention": {
+    "sourceSha256": "d484c9a828738eab82f36d24962dff40adc4b89b286307f440a890467037627b",
+    "installed": true,
+    "configurationApplied": true,
+    "policyOptIn": true,
+    "enabledRoots": 6,
+    "automaticRunsObserved": 6,
+    "baselineHumanRecordsVerified": 72473,
+    "uniqueMediaPreserved": true,
+    "nativeHistoricalReadPassed": true,
+    "deployment": {
+      "app": "/Applications/AgentDesk.app",
+      "appAsarSha256": "95a030a25be9c7dd0324c2ec4ba79c0fb6f6e3cffeff4fa7715247f76dbcc322",
+      "changedPreviousFiles": [
+        "src/profile-runtime.js"
+      ],
+      "addedFiles": [
+        "src/codex-history-retention.js"
+      ],
+      "allOtherPriorAsarBytesUnchanged": true,
+      "modules": {
+        "src/codex-history-retention.js": {
+          "source": "f4bd82a74050ca9b40e2b0a6a229f14e6c3312b015ae20054b9a4d45e38f9b35",
+          "packaged": "f4bd82a74050ca9b40e2b0a6a229f14e6c3312b015ae20054b9a4d45e38f9b35"
+        },
+        "src/profile-runtime.js": {
+          "source": "f5998ed602348c6b157fb96742dcf3a5e850cc64c4f1f74e25c1b0f5e92f9082",
+          "packaged": "f5998ed602348c6b157fb96742dcf3a5e850cc64c4f1f74e25c1b0f5e92f9082"
+        }
+      }
+    },
+    "clientProcessesPreserved": true,
+    "settingsRestoredExactly": true,
+    "scope": "Actual /Applications AgentDesk ad-hoc local compatibility build installed through install-local-macos.js --preserve-clients. All 6 enabled roots completed automatic workers using the installed module hash. Existing official native clients remained running. No full GUI/public release/Windows claim; rollout bytes and offsets unchanged."
+  },
+  "localDesktopInstallation": {
+    "recordedAt": "2026-11-24T05:12:01.577Z",
+    "sourceSha256": "0a9d93247cfc3e00615ed9bd28157981f9335fb54c4d85de3ce725724a64b38e",
+    "path": "/Applications/AgentDesk.app",
+    "version": "0.10.1-preview.1",
+    "asarSha256": "ede9c71db6f35a594b0acbe08ba1645cbcc7888e2fafb0a16dadb5f4413b4fea",
+    "asarHeaderSha256": "7174d7a0976cf0f2256d930d07c170f7849d90f641069be171da0a5996a45da4",
+    "matchesCurrentSource": true,
+    "installed": true,
+    "launched": true,
+    "priorBundleAndDataBackupVerified": true,
+    "profileRecords": 7,
+    "directoryPairs": 7,
+    "baselineSessionsVerified": 342,
+    "postInstallSessions": 342,
+    "settingsIdentical": true,
+    "catalogPreserved": true,
+    "nativeClientProcessesPreserved": 2,
+    "visibleWindowSize": "1040x840",
+    "scope": "Owner-requested Apple Silicon Mac reinstall with a private backup of the previous app, account register, device catalog database and seven local conversation roots. Packaged code and process readback covered this Mac."
+  },
+  "previousLocalDesktopInstallation": {
+    "recordedAt": "2026-11-24T04:42:12.396Z",
+    "sourceSha256": "bf78e636fae8138f72b3a56f56ecda5d2458395343c7aae5b5ca871c049a1e29",
+    "path": "/Applications/AgentDesk.app",
+    "version": "0.10.1-preview.1",
+    "asarSha256": "4cac1f07c5f3835ec145bf1c3af3a0dc0a14851d5a070f486acc0ffee674c4c7",
+    "asarHeaderSha256": "6a9055f5436375c3a56982b4aeb7cdc7d2a7b0fb9ba6e3665bc93f1257b11ba3",
+    "installed": true,
+    "launched": true,
+    "profilesVerified": 7,
+    "directoryPairsVerified": 7,
+    "profilesExact": true,
+    "settingsExact": true,
+    "meshCatalogPreserved": {
+      "agents": 5,
+      "account_bindings": 5,
+      "agent_slots": 16
+    },
+    "priorBundleAndDataBackupVerified": true,
+    "workspaceObserved": {
+      "agents": 5,
+      "localSessionsInCurrentAgent": 79
+    },
+    "scope": "Canonical application launch and focused accessibility readback on this Mac. No public release or Windows runtime check."
+  },
+  "previousCardOnlyDesktopInstallation": {
+    "recordedAt": "2026-11-24T05:00:11.092Z",
+    "sourceSha256": "3c6460e88d84cb6f72fc74e1a33df43f8d44fea36c788e96887bcfce98dd7636",
+    "path": "/Applications/AgentDesk.app",
+    "version": "0.10.1-preview.1",
+    "asarSha256": "85cb5990e2c73bc319ed546918818d6e81b36ee46476338f1c6ee594493c04dd",
+    "asarHeaderSha256": "082e42ba5faaec8d93dfa723a7ce63d7b154350fcade8f6835fc598db2629939",
+    "installed": true,
+    "launched": true,
+    "priorBundleAndDataBackupVerified": true,
+    "profileRecords": 7,
+    "directoryPairs": 7,
+    "baselineSessionsVerified": 342,
+    "postInstallSessions": 342,
+    "settingsIdentical": true,
+    "catalogPreserved": true,
+    "workspaceObserved": {
+      "agentCards": 5,
+      "localSessionsInCurrentAgent": 79
+    },
+    "scope": "Owner-requested macOS local install, read-only account and indexed session comparison, and native accessibility readback.",
+    "matchesCurrentSource": false
+  }
 }

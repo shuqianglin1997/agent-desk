@@ -1427,6 +1427,47 @@ function assertNoRuntimeExceptions(instance, label) {
   assert.deepEqual(exceptions, [], `${label} must not emit uncaught Renderer exceptions`);
 }
 
+function verifyPackagedCli(artifact, directory, timeoutMs) {
+  const userData = path.join(directory, 'cli-user-data');
+  const codexHome = path.join(directory, 'cli-codex-home');
+  fs.mkdirSync(userData, { recursive: true });
+  fs.mkdirSync(path.join(codexHome, 'sessions'), { recursive: true });
+  const authPath = path.join(codexHome, 'auth.json');
+  fs.writeFileSync(authPath, JSON.stringify({ OPENAI_API_KEY: 'packaged-smoke-fixture' }), { mode: 0o600 });
+  const sessionId = '7c22b023-7308-4fd0-abcf-afde170a5170';
+  fs.writeFileSync(path.join(codexHome, 'sessions', `${sessionId}.jsonl`), [
+    { type: 'session_meta', timestamp: '2026-08-14T03:00:00Z', payload: { id: sessionId } },
+    { type: 'event_msg', payload: { type: 'user_message', message: 'Packaged CLI fixture conversation' } }
+  ].map((entry) => JSON.stringify(entry)).join('\n') + '\n');
+  let sequence = 0;
+  function invoke(...args) {
+    const outputPath = path.join(directory, `cli-${++sequence}.json`);
+    const result = spawnSync(artifact.executablePath, [
+      `--user-data-dir=${userData}`, '--cli', ...args, '--output', outputPath
+    ], { timeout: timeoutMs, encoding: 'utf8', windowsHide: true });
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, `packaged CLI failed: ${args.slice(0, 2).join(' ')}`);
+    const response = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+    assert.equal(response.ok, true);
+    return response.data;
+  }
+  const capabilities = invoke('capabilities');
+  assert.equal(capabilities.packaged, true);
+  assert.ok(capabilities.commands.some(({ name }) => name === 'profiles import-auth'));
+  assert.equal(fs.realpathSync(invoke('paths').userData), fs.realpathSync(userData));
+  const registered = invoke('profiles', 'register', '--app', 'codex', '--session-root', codexHome);
+  assert.ok(registered.profileId);
+  assert.deepEqual(invoke('profiles', 'import-auth', '--app', 'codex', '--file', authPath), {
+    profileId: registered.profileId, existing: true
+  });
+  assert.deepEqual(invoke('profiles', 'list').profiles.map(({ id }) => id), [registered.profileId]);
+  const sessions = invoke('sessions', 'list', '--profile', registered.profileId).sessions;
+  assert.equal(sessions.length, 1);
+  assert.match(invoke('sessions', 'read', '--profile', registered.profileId, '--session', sessions[0].id).markdown, /Packaged CLI fixture conversation/);
+  assert.equal(fs.existsSync(path.join(userData, 'settings.json')), false, 'headless CLI must not start desktop setup');
+  return { name: 'packaged-cli', version: capabilities.version, operations: sequence };
+}
+
 async function runSmoke(options) {
   const artifact = resolvePackagedArtifact(options.artifact);
   const keychainMode = resolveSmokeKeychainMode(options, artifact);
@@ -1455,6 +1496,8 @@ async function runSmoke(options) {
   let primaryFailure = null;
   try {
     process.stdout.write(`Packaged artifact: ${artifact.kind} · ${artifact.artifactPath} · keychain=${keychainMode}\n`);
+    report.phases.push(verifyPackagedCli(artifact, tempRoot, options.timeoutMs));
+    process.stdout.write('✓ packaged CLI discovered commands, registered a local fixture and queried its profile and sessions\n');
     instance = await launchPackagedApp(artifact, userData, output, options.timeoutMs, keychainMode);
     const firstWindow = await assertPackagedMainWindow(instance, options.expectedVersion);
     const first = await initializeFirstAgent(instance, userData, options);
@@ -1588,6 +1631,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  verifyPackagedCli,
   NETWORK_ENV_KEYS,
   assertAdHocMacSignatureDetails,
   assertBrowserLaunchIdentity,

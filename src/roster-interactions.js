@@ -104,9 +104,13 @@
       const card = event.target.closest?.(selector);
       return card && container.contains(card) ? card : null;
     }
+    function reorderCard(event) {
+      if (event.target.closest?.('[data-roster-control]')) return null;
+      return targetCard(event);
+    }
     listen(container, 'pointerdown', event => {
       if (destroyed || gesture || event.button !== 0 || event.isPrimary === false || (event.pointerType && event.pointerType !== 'mouse')) return;
-      const card = targetCard(event);
+      const card = reorderCard(event);
       if (!card || cards().length < 2) return;
       suppressClick = false;
       win.clearTimeout(suppressTimer);
@@ -155,7 +159,7 @@
     listen(container, 'dragstart', event => { if (targetCard(event)) consume(event); });
     listen(container, 'keydown', event => {
       if (!event.altKey || event.ctrlKey || event.metaKey || !['ArrowLeft', 'ArrowRight'].includes(event.key) || gesture) return;
-      const card = targetCard(event);
+      const card = reorderCard(event);
       if (!card) return;
       consume(event);
       const order = ids();
@@ -163,7 +167,7 @@
       const result = moveId(order, id, order.indexOf(id) + (event.key === 'ArrowLeft' ? -1 : 1));
       if (result.join('\0') === order.join('\0')) return;
       restoreOrder(result);
-      card.focus({ preventScroll: true });
+      (card.querySelector('.account-card-select') || card).focus({ preventScroll: true });
       card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       options.onReorder?.(result, { agentId: id, position: result.indexOf(id) + 1, total: result.length, method: 'keyboard' });
       options.onEnd?.({ cancelled: false, changed: true });

@@ -40,6 +40,25 @@ function codexRecord(root, id, extra = {}) {
   return file;
 }
 
+test('an explicit session read returns a bounded human transcript for the exact Codex record', (t) => {
+  const f = fixture(t);
+  const sessionId = '6a647833-8a54-4894-9d10-039bae111dfa';
+  const file = codexRecord(f.profile.sessionRoot, sessionId);
+  fs.appendFileSync(file, [
+    { type: 'event_msg', payload: { type: 'user_message', message: 'Hello from the selected session' } },
+    { type: 'event_msg', payload: { type: 'agent_message', message: 'Answer '.repeat(200) } },
+    { type: 'response_item', payload: { type: 'function_call_output', output: 'DO-NOT-OUTPUT-SECRET' } }
+  ].map((record) => JSON.stringify(record)).join('\n') + '\n');
+  const list = invoke(['sessions', 'list', ...f.args]);
+  assert.equal(list.result.data.sessions.length, 1);
+  const result = invoke(['sessions', 'read', ...f.args, '--session', list.result.data.sessions[0].id, '--max-chars', '200']);
+  assert.equal(result.code, 0);
+  assert.equal(result.result.data.markdown.length, 200);
+  assert.equal(result.result.data.truncated, true);
+  assert.match(result.result.data.markdown, /Hello from the selected session/);
+  assert.doesNotMatch(result.output, /DO-NOT-OUTPUT-SECRET/);
+});
+
 test('CLI discovers its complete contract without loading Electron or creating files', () => {
   const result = invoke(['capabilities']);
   assert.equal(result.code, 0);

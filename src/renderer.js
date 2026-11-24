@@ -8,19 +8,14 @@ const state = {
   query: '',
   theme: null,
   agentOrder: [],
-  view: 'classic',
   detailMode: 'session',
   detailBeforeRemote: 'session',
   utilityDialog: null,
   activity: {},
   quotas: {},
   quotaError: null,
-  quotaSelfOpen: false,     // 「本号」chip 展开额度 Beta 详情块
-  quotaOverviewOpen: false, // 「全院」chip 展开跨账号额度总览带
+  quotaAnchor: null,
   profileQuitBehavior: 'close',
-  atmosTime: 'auto',
-  atmosWeather: 'auto',
-  yardPositions: {},
   welcomed: false,
   onboardingProgress: { completedVersion: 0, completedAt: null },
   startupStage: 'created',
@@ -109,12 +104,8 @@ function activeOutgoingRemoteSessions() {
 }
 
 function currentProfileId() {
-  const agentId = currentAgentId();
-  const slotKey = currentSlotKey();
-  const group = identityGroups().find((item) => item.key === agentId);
-  const member = group?.members.find((item) => item._meshSlotKey === slotKey || item.id === slotKey)
-    || (group?.members.length === 1 ? group.members[0] : null);
-  return member?.id || null;
+  const group = identityGroups().find((item) => item.key === currentAgentId());
+  return selectedGroupProfile(group)?.id || null;
 }
 
 function updateUi(next) {
@@ -163,48 +154,28 @@ function appLabel(appId) {
 }
 const els = {
   accountRoster: document.querySelector('#accountRoster'),
+  accountCardTemplate: document.querySelector('#accountCardTemplate'),
   presenterCount: document.querySelector('#presenterCount'),
-  accountId: document.querySelector('#accountId'),
-  accountBadge: document.querySelector('#accountBadge'),
-  formSwitcher: document.querySelector('#formSwitcher'),
-  formSelect: document.querySelector('#formSelect'),
-  quotaChipSelf: document.querySelector('#quotaChipSelf'),
   quotaChipAll: document.querySelector('#quotaChipAll'),
-  atmosSceneBtn: document.querySelector('#atmosSceneBtn'),
-  atmosSceneLabel: document.querySelector('#atmosSceneLabel'),
-  atmosPopover: document.querySelector('#atmosPopover'),
   topbarContext: document.querySelector('#topbarContext'),
   remoteActivityBtn: document.querySelector('#remoteActivityBtn'),
-  yardStage: document.querySelector('#yardStage'),
-  yardCanvas: document.querySelector('#yardCanvas'),
-  yardOverlay: document.querySelector('#yardOverlay'),
-  viewToggle: document.querySelector('#viewToggle'),
-  classicViewBtn: document.querySelector('#classicViewBtn'),
-  viewToggleLabel: document.querySelector('#viewToggleLabel'),
   langToggle: document.querySelector('#langToggle'),
-  accountActions: document.querySelector('#accountActions'),
-  accountManage: document.querySelector('#accountManage'),
   agentManageDialog: document.querySelector('#agentManageDialog'),
   agentManageSummary: document.querySelector('#agentManageSummary'),
   agentManageRuntimeLabel: document.querySelector('#agentManageRuntimeLabel'),
   yardManageActions: document.querySelector('#yardManageActions'),
   addRuntimeLocationBtn: document.querySelector('#addRuntimeLocationBtn'),
-  atmosTime: document.querySelector('#atmosTime'),
-  atmosWeather: document.querySelector('#atmosWeather'),
   toolCenterBtn: document.querySelector('#toolCenterBtn'),
   activityCenterBtn: document.querySelector('#activityCenterBtn'),
   activityCountBadge: document.querySelector('#activityCountBadge'),
   settingsBtn: document.querySelector('#settingsBtn'),
   deviceCenterBtn: document.querySelector('#deviceCenterBtn'),
   deviceLensSelect: document.querySelector('#deviceLensSelect'),
+  windowAddMenu: document.querySelector('#windowAddMenu'),
   deviceCountBadge: document.querySelector('#deviceCountBadge'),
   mainGrid: document.querySelector('#mainGrid'),
   detailPanel: document.querySelector('#detailPanel'),
-  detailSurfaceQuota: document.querySelector('#detailSurfaceQuota'),
   sessionPane: document.querySelector('#sessionPane'),
-  sessionInspector: document.querySelector('#sessionInspector'),
-  sessionInspectorEmpty: document.querySelector('#sessionInspectorEmpty'),
-  sessionInspectorFields: document.querySelector('.inspector-primary-fields'),
   remoteWorkspaceHost: document.querySelector('#remoteWorkspaceHost'),
   deviceCenterDialog: document.querySelector('#deviceCenterDialog'),
   deviceCenterMoreMenu: document.querySelector('#deviceCenterMoreMenu'),
@@ -322,17 +293,18 @@ const els = {
   editProfileBtn: document.querySelector('#editProfileBtn'),
   removeProfileBtn: document.querySelector('#removeProfileBtn'),
   manageAgentRelationsBtn: document.querySelector('#manageAgentRelationsBtn'),
-  launchBtn: document.querySelector('#launchBtn'),
   pathConfigBtn: document.querySelector('#pathConfigBtn'),
   diagnosticsBtn: document.querySelector('#diagnosticsBtn'),
   stopProfileBtn: document.querySelector('#stopProfileBtn'),
   cleanCrashpadBtn: document.querySelector('#cleanCrashpadBtn'),
   profileFolderBtn: document.querySelector('#profileFolderBtn'),
   refreshBtn: document.querySelector('#refreshBtn'),
-  accountTitle: document.querySelector('#accountTitle'),
   quotaOverview: document.querySelector('#quotaOverview'),
   quotaOverviewList: document.querySelector('#quotaOverviewList'),
   quotaOverviewMeta: document.querySelector('#quotaOverviewMeta'),
+  quotaPopover: document.querySelector('#quotaPopover'),
+  quotaPopoverTitle: document.querySelector('#quotaPopoverTitle'),
+  quotaPopoverClose: document.querySelector('#quotaPopoverClose'),
   quotaSummary: document.querySelector('#quotaSummary'),
   quotaPlan: document.querySelector('#quotaPlan'),
   quotaStateBadge: document.querySelector('#quotaStateBadge'),
@@ -347,12 +319,11 @@ const els = {
   sessionDetailBtn: document.querySelector('#sessionDetailBtn'),
   sessionDisplayMenu: document.querySelector('#sessionDisplayMenu'),
   sessionDisplayLabel: document.querySelector('#sessionDisplayLabel'),
-  sessionActionDock: document.querySelector('#sessionActionDock'),
   sessionSelectionBar: document.querySelector('#sessionSelectionBar'),
   sessionSelectionCount: document.querySelector('#sessionSelectionCount'),
+  sessionSelectionNotice: document.querySelector('#sessionSelectionNotice'),
   sessionSelectionIssue: document.querySelector('#sessionSelectionIssue'),
   clearSessionSelectionBtn: document.querySelector('#clearSessionSelectionBtn'),
-  sessionFocusedActions: document.querySelector('#sessionFocusedActions'),
   sessionTable: document.querySelector('#sessionTable'),
   sessionHead: document.querySelector('#sessionHead'),
   sessionRows: document.querySelector('#sessionRows'),
@@ -360,17 +331,12 @@ const els = {
   sendSessionInfoBtn: document.querySelector('#sendSessionInfoBtn'),
   statusBar: document.querySelector('#statusBar'),
   statusText: document.querySelector('#statusText'),
-  detailTitle: document.querySelector('#detailTitle'),
-  detailAccount: document.querySelector('#detailAccount'),
-  detailLocation: document.querySelector('#detailLocation'),
-  detailCreated: document.querySelector('#detailCreated'),
-  detailUpdated: document.querySelector('#detailUpdated'),
-  detailSource: document.querySelector('#detailSource'),
-  detailProject: document.querySelector('#detailProject'),
-  detailCoordinate: document.querySelector('#detailCoordinate'),
+  chooseSessionReplicaBtn: document.querySelector('#chooseSessionReplicaBtn'),
   sessionReplicaPicker: document.querySelector('#sessionReplicaPicker'),
   sessionReplicaOptions: document.querySelector('#sessionReplicaOptions'),
-  sessionTechnicalDetails: document.querySelector('#sessionTechnicalDetails'),
+  sessionDirectoryDialog: document.querySelector('#sessionDirectoryDialog'),
+  sessionDirectoryOptions: document.querySelector('#sessionDirectoryOptions'),
+  sessionDirectoryStatus: document.querySelector('#sessionDirectoryStatus'),
   openSessionFileBtn: document.querySelector('#openSessionFileBtn'),
   exportSessionBtn: document.querySelector('#exportSessionBtn'),
   taskPackageActionBtn: document.querySelector('#taskPackageActionBtn'),
@@ -419,6 +385,13 @@ const els = {
   taskPackageImportStatus: document.querySelector('#taskPackageImportStatus'),
   commitTaskPackageBtn: document.querySelector('#commitTaskPackageBtn'),
   profileDialog: document.querySelector('#profileDialog'),
+  codexImportBtn: document.querySelector('#codexImportBtn'),
+  codexImportDialog: document.querySelector('#codexImportDialog'),
+  codexAuthDrop: document.querySelector('#codexAuthDrop'),
+  codexHomeList: document.querySelector('#codexHomeList'),
+  pickCodexHomeBtn: document.querySelector('#pickCodexHomeBtn'),
+  codexImportStatus: document.querySelector('#codexImportStatus'),
+  onboardingCodexImportBtn: document.querySelector('#onboardingCodexImportBtn'),
   agentCreateDialog: document.querySelector('#agentCreateDialog'),
   newAgentName: document.querySelector('#newAgentName'),
   newAgentApp: document.querySelector('#newAgentApp'),
@@ -520,13 +493,13 @@ const els = {
 };
 
 let lastDiagnostics = null;
-let yardMounted = false;
 let updateBusy = false;
 let updateButtonTimer = null;
 let quotaRequest = null;
 let quotaHasLoaded = false;
 let quotaRequestedAt = 0;
 let foregroundSessionRefreshAt = 0;
+let codexImportBusy = false;
 const QUOTA_REFRESH_INTERVAL = 5 * 60_000;
 const FOREGROUND_SESSION_REFRESH_INTERVAL = 2_000;
 
@@ -545,6 +518,7 @@ state.tools = toolCenter.state;
 const { refreshToolInventory, renderToolCenter, handleToolProgress } = toolCenter;
 
 window.addEventListener('DOMContentLoaded', async () => {
+  document.documentElement.dataset.windowPlatform = window.manager.windowPlatform || 'browser';
   state.startupStage = 'settings-loading';
   await loadUserSettings();
   initTheme();
@@ -552,8 +526,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindEvents();
   await loadApps();
   await loadDeviceOverview({ silent: true, skipWorkspaceRefresh: true });
-  initYard();
-  applyView();
   state.startupStage = 'profiles-loading';
   await loadProfiles(null, { presentFirstUseBeforeSessions: true });
   state.startupStage = 'task-package-history-loading';
@@ -561,7 +533,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   state.startupStage = 'ready';
   loadActivity();
   loadQuotas();
-  // 庭院和经典卡片都会展示活动状态/最近活跃，因此两种 Presenter 可见时都要刷新。
+  // 卡片中的活动和最近活跃在可见时定时刷新。
   // 8 秒一轮：干活/在岗要跟得上会话节奏，60 秒太钝会漏掉短生成；应用在后台时不扫。
   setInterval(() => {
     if (!document.hidden) loadActivity();
@@ -570,15 +542,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   setInterval(() => {
     if (!document.hidden) loadQuotas();
   }, QUOTA_REFRESH_INTERVAL);
-  // Auto time follows the clock; auto weather advances on a calm 20–45 minute
-  // deterministic schedule. A one-minute UI tick is enough and avoids work in
-  // the background.
-  setInterval(() => {
-    if (!document.hidden && isYardView()) {
-      window.YardScene.refreshAtmosphere();
-      updateAtmosphereReadout();
-    }
-  }, 60_000);
   // 从最小化/后台切回前台时立刻刷新一次，别等下一轮
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
@@ -637,7 +600,6 @@ function legacyUserSettings() {
 function applyUserSettings(value = {}) {
   state.agentOrder = Array.isArray(value.agentOrder) ? value.agentOrder : [];
   state.theme = value.theme === 'light' || value.theme === 'dark' ? value.theme : null;
-  state.view = value.view === 'yard' ? 'yard' : 'classic';
   state.ui = window.UiContext.create({
     ...state.ui,
     selectedDeviceLensId: value.selectedDeviceLensId || 'all',
@@ -648,19 +610,10 @@ function applyUserSettings(value = {}) {
   state.sessionView = value.sessionView === 'detail' ? 'detail' : 'compact';
   state.profileQuitBehavior = value.profileQuitBehavior === 'keep' ? 'keep' : 'close';
   if (els.profileQuitBehavior) els.profileQuitBehavior.value = state.profileQuitBehavior;
-  state.atmosTime = ['auto', 'day', 'dusk', 'night'].includes(value.atmosTime)
-    ? value.atmosTime
-    : 'auto';
-  state.atmosWeather = ['auto', 'clear', 'cloudy', 'rain', 'snow'].includes(value.atmosWeather)
-    ? value.atmosWeather
-    : 'auto';
   state.welcomed = value.welcomed === true;
   state.onboardingProgress = window.OnboardingState
     ? window.OnboardingState.normalizeProgress(value.onboarding)
     : { completedVersion: 0, completedAt: null };
-  state.yardPositions = window.YardInteractions
-    ? window.YardInteractions.normalizePositions(value.yardPositions)
-    : {};
   // i18n：优先用户存过的语言，否则跟随系统；init 会替换所有 data-i18n 静态文案
   if (window.I18N) window.I18N.init(value.lang);
   updateLangToggle();
@@ -680,15 +633,6 @@ function mirrorLegacySettings(patch) {
     if (Object.prototype.hasOwnProperty.call(patch, 'theme')) {
       if (patch.theme) localStorage.setItem(LEGACY_SETTING_KEYS.theme, patch.theme);
       else localStorage.removeItem(LEGACY_SETTING_KEYS.theme);
-    }
-    if (Object.prototype.hasOwnProperty.call(patch, 'view')) {
-      localStorage.setItem(LEGACY_SETTING_KEYS.view, patch.view);
-    }
-    if (Object.prototype.hasOwnProperty.call(patch, 'atmosTime')) {
-      localStorage.setItem(LEGACY_SETTING_KEYS.atmosTime, patch.atmosTime);
-    }
-    if (Object.prototype.hasOwnProperty.call(patch, 'atmosWeather')) {
-      localStorage.setItem(LEGACY_SETTING_KEYS.atmosWeather, patch.atmosWeather);
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'welcomed')) {
       localStorage.setItem(LEGACY_SETTING_KEYS.welcomed, patch.welcomed ? '1' : '0');
@@ -927,6 +871,10 @@ function renderFirstUseActions(model) {
   back.disabled = state.firstUse.busy;
   advanced.hidden = !['migration', 'agent'].includes(model.phase);
   advanced.disabled = state.firstUse.busy;
+  if (els.onboardingCodexImportBtn) {
+    els.onboardingCodexImportBtn.hidden = !['migration', 'agent'].includes(model.phase);
+    els.onboardingCodexImportBtn.disabled = state.firstUse.busy;
+  }
   if (els.welcomeDialogCloseBtn) els.welcomeDialogCloseBtn.disabled = state.firstUse.busy;
 
   if (model.phase === 'migration') {
@@ -1175,11 +1123,15 @@ function finishFirstUseLater() {
 function finishFirstUse() {
   const patch = window.OnboardingState?.completionPatch(state.firstUse.model);
   if (!patch) return;
+  recordFirstUseCompletion(patch);
+  els.welcomeDialog?.close();
+  setStatus(tr('onboarding.status.complete'));
+}
+
+function recordFirstUseCompletion(patch) {
   state.welcomed = true;
   state.onboardingProgress = patch.onboarding;
   persistSettings(patch);
-  els.welcomeDialog?.close();
-  setStatus(tr('onboarding.status.complete'));
 }
 
 function closeAgentManageDialog() {
@@ -1212,6 +1164,12 @@ function openAgentManageDialog() {
 }
 
 function bindEvents() {
+  els.windowAddMenu.addEventListener('click', (event) => {
+    if (!event.target.closest('.context-menu-panel button')) return;
+    const summary = els.windowAddMenu.querySelector('summary');
+    els.windowAddMenu.open = false;
+    summary.focus({ preventScroll: true });
+  }, { capture: true });
   els.remoteActivityBtn?.addEventListener('click', () => {
     const sessions = activeOutgoingRemoteSessions();
     if (!sessions.length) return;
@@ -1223,6 +1181,15 @@ function bindEvents() {
     if (onboardingNeedsPresentation() && openFirstUseDialog({ force: true })) return;
     if (state.mesh.overview?.initialized) openAgentCreationDialog();
     else openProfileCreationDialog();
+  });
+  bindCodexImportEvents();
+  window.manager.onProfileRegistrationsChanged?.(() => {
+    void (async () => {
+      if (state.mesh.overview?.initialized) {
+        await loadDeviceOverview({ silent: true, skipWorkspaceRefresh: true });
+      }
+      await loadProfiles();
+    })().catch(() => setStatus(tr('codexImport.refreshError')));
   });
   els.addRuntimeLocationBtn?.addEventListener('click', () => {
     openProfileCreationDialog({ agentId: currentAgentId() });
@@ -1292,7 +1259,6 @@ function bindEvents() {
     event.preventDefault();
     if (!els.onboardingPrimaryBtn?.disabled) els.onboardingPrimaryBtn?.click();
   });
-  els.accountManage?.addEventListener('click', () => openAgentManageDialog());
   els.newProfileMode?.addEventListener('change', () => syncProfileAssignmentControls());
   els.newProfileApp?.addEventListener('change', () => syncProfileAssignmentControls());
   els.newProfileAgent?.addEventListener('change', () => syncProfileAssignmentControls());
@@ -1359,22 +1325,6 @@ function bindEvents() {
     state.mesh.editingAgentId = null;
   });
 
-  els.launchBtn.addEventListener('click', () => void openCurrentAgent());
-
-  // 运行位置切换只改变副作用落点；不重新加载会话，也不清空搜索或会话选择。
-  els.formSelect?.addEventListener('change', () => {
-    const value = els.formSelect.value;
-    if (value.startsWith('prepare:')) {
-      const [, appId, clientForm = 'desktop'] = value.split(':');
-      const group = identityGroups().find((item) => item.key === currentAgentId()) || null;
-      const action = currentAgentActionContext(group, null);
-      rememberProvisioningChoice(group, action.deviceId, appId, clientForm);
-      renderAccountHeader();
-      return;
-    }
-    if (value && value !== currentProfileId()) selectSlot(value);
-  });
-
   els.updateBtn.addEventListener('click', async () => {
     await handleUpdateClick();
   });
@@ -1402,7 +1352,6 @@ function bindEvents() {
     state.theme = next;
     document.documentElement.dataset.theme = next;
     persistSettings({ theme: next });
-    syncYard();
   });
 
   els.profileQuitBehavior?.addEventListener('change', () => {
@@ -1414,27 +1363,13 @@ function bindEvents() {
   });
 
   // 语言切换：循环 中 → EN → 日 → 中，持久化到 settings；setLang 已替换静态文案，
-  // applyView 顺带刷新 viewToggle 的动态标签。
   els.langToggle?.addEventListener('click', () => {
     if (!window.I18N) return;
     const next = window.I18N.setLang(window.I18N.next(), { persist: true });
     persistSettings({ lang: next });
     updateLangToggle();
-    applyView();
     rerenderLocalizedText(); // apply() 只换静态 data-i18n；动态渲染的文案也要重刷一遍
   });
-
-  els.viewToggle.addEventListener('click', () => {
-    state.view = 'yard';
-    persistSettings({ view: state.view });
-    applyView();
-  });
-  els.classicViewBtn?.addEventListener('click', () => {
-    state.view = 'classic';
-    persistSettings({ view: state.view });
-    applyView();
-  });
-
 
   els.helpBtn.addEventListener('click', () => {
     prepareWelcomeGuide();
@@ -1896,7 +1831,6 @@ function bindEvents() {
 
   els.refreshBtn.addEventListener('click', async () => {
     closeAgentManageDialog();
-    if (isYardView()) window.YardScene.fx('bell');
     const profile = selectedProfile();
     if (profile?._remote === true && window.manager.refreshMeshInventory) {
       await refreshRemoteInventoryForDevice(profile._meshDeviceId);
@@ -1904,25 +1838,21 @@ function bindEvents() {
     }
     await loadSessions();
     await loadActivity();
-    setStatus(isYardView() ? tr('status.refreshBell') : tr('status.refreshList'));
+    setStatus(tr('status.refreshList'));
   });
 
-  // 额度 chips 只切换右下详情，不再在 Agent 面板下方插入新行。
-  els.quotaChipSelf?.addEventListener('click', () => {
-    const opening = state.detailMode !== 'quota' || !state.quotaSelfOpen;
-    state.quotaSelfOpen = opening;
-    state.quotaOverviewOpen = false;
-    setWorkspaceMode(opening ? 'quota' : 'sessions');
-    renderQuotaSummary();
+  els.quotaChipAll.addEventListener('click', (event) => {
+    event.preventDefault();
+    toggleQuotaPopover(event.currentTarget);
   });
-  els.quotaChipAll?.addEventListener('click', () => {
-    const opening = state.detailMode !== 'quota' || !state.quotaOverviewOpen;
-    state.quotaSelfOpen = false;
-    state.quotaOverviewOpen = opening;
-    setWorkspaceMode(opening ? 'quota' : 'sessions');
-    renderQuotaSummary();
-    renderQuotaOverview();
+  els.quotaPopoverClose.addEventListener('click', () => els.quotaPopover.hidePopover());
+  els.quotaPopover.addEventListener('beforetoggle', (event) => {
+    if (event.newState !== 'closed') return;
+    state.quotaAnchor?.setAttribute('aria-expanded', 'false');
+    state.quotaAnchor = null;
   });
+  els.accountRoster.addEventListener('scroll', positionQuotaPopover, { passive: true });
+  window.addEventListener('resize', positionQuotaPopover);
 
   // 所有轻量菜单遵循同一规则：点菜单外、选择菜单项或按 Esc 后关闭。
   document.addEventListener('pointerdown', (event) => {
@@ -1938,6 +1868,7 @@ function bindEvents() {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     for (const menu of document.querySelectorAll('details.context-menu[open]')) {
+      if (menu.contains(document.activeElement)) menu.querySelector('summary')?.focus({ preventScroll: true });
       menu.open = false;
     }
   });
@@ -1999,6 +1930,11 @@ function bindEvents() {
 
   els.clearSessionSelectionBtn?.addEventListener('click', () => {
     clearSessionActionSelection();
+  });
+
+  els.chooseSessionReplicaBtn.addEventListener('click', () => {
+    renderReplicaPicker(actionSessions());
+    openChildDialog(els.sessionReplicaPicker, els.chooseSessionReplicaBtn);
   });
 
   els.confirmSessionSendBtn?.addEventListener('click', async () => {
@@ -2116,30 +2052,8 @@ function bindEvents() {
     await loadTransfers();
   });
 
-  els.openSessionFileBtn.addEventListener('click', async () => {
-    const session = resolvedFocusedSession();
-    const profile = sessionOwnerProfile(session);
-    if (!profile || !session?.filePath) return;
-    // 合流列表中会话可能属于组内另一个槽位，操作按归属槽位走
-    const result = await window.manager.revealSession({
-      profileId: sessionOwnerProfile(session).id,
-      sessionId: session.id,
-      filePath: session.filePath
-    });
-    setStatus(result.message || result.reason || (result.ok ? tr('status.sessionLocOk') : tr('status.sessionLocFail')));
-  });
-
-  els.exportSessionBtn.addEventListener('click', async () => {
-    const session = resolvedFocusedSession();
-    const profile = sessionOwnerProfile(session);
-    if (!profile || !session || !window.manager.exportSession) return;
-    const result = await window.manager.exportSession({
-      profileId: sessionOwnerProfile(session).id,
-      sessionId: session.id
-    });
-    if (result?.canceled) return;
-    setStatus(result?.message || result?.reason || (result?.ok ? tr('status.exportOk') : tr('status.exportFail')));
-  });
+  els.openSessionFileBtn.addEventListener('click', () => void openSelectedSessionDirectories());
+  els.exportSessionBtn.addEventListener('click', () => void exportSelectedSessions());
 }
 
 function catalogProviderForApp(appId) {
@@ -2301,6 +2215,128 @@ function openProfileCreationDialog(options = {}) {
   }
   els.profileDialog.showModal();
   (meshMode && !options.agentId ? els.newProfileMode : els.newProfileName).focus();
+}
+
+function bindCodexImportEvents() {
+  if (!els.codexImportDialog) return;
+  els.codexImportBtn.addEventListener('click', () => void openCodexImportDialog());
+  els.onboardingCodexImportBtn.addEventListener('click', () => void openCodexImportDialog());
+  els.codexAuthDrop.addEventListener('click', () => void runCodexImport(window.manager.pickCodexAuth));
+  els.pickCodexHomeBtn.addEventListener('click', () => void runCodexImport(window.manager.pickCodexHome));
+  els.codexImportDialog.addEventListener('cancel', (event) => {
+    if (codexImportBusy) event.preventDefault();
+  });
+  els.codexImportDialog.addEventListener('dragover', (event) => {
+    if (!event.dataTransfer?.types.includes('Files')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = codexImportBusy ? 'none' : 'copy';
+    els.codexAuthDrop.dataset.dragging = String(!codexImportBusy);
+  });
+  els.codexImportDialog.addEventListener('dragleave', (event) => {
+    if (!els.codexImportDialog.contains(event.relatedTarget)) delete els.codexAuthDrop.dataset.dragging;
+  });
+  els.codexImportDialog.addEventListener('drop', (event) => {
+    event.preventDefault();
+    delete els.codexAuthDrop.dataset.dragging;
+    if (!event.isTrusted || codexImportBusy) return;
+    const files = event.dataTransfer?.files;
+    if (files?.length !== 1) {
+      setCodexImportStatus('codexImport.error.single');
+      return;
+    }
+    void runCodexImport(() => window.manager.importDroppedCodexAuth(files[0]));
+  });
+}
+
+async function openCodexImportDialog() {
+  if (els.codexImportDialog.open || codexImportBusy) return;
+  els.codexImportStatus.hidden = true;
+  delete els.codexAuthDrop.dataset.dragging;
+  els.codexImportDialog.showModal();
+  await refreshCodexHomeList();
+}
+
+async function refreshCodexHomeList() {
+  els.codexHomeList.textContent = tr('codexImport.searching');
+  try {
+    const homes = await window.manager.discoverCodexHomes();
+    els.codexHomeList.replaceChildren();
+    if (!homes.length) {
+      els.codexHomeList.textContent = tr('codexImport.noHomes');
+      return;
+    }
+    for (const home of homes) {
+      const row = document.createElement('div');
+      row.className = 'codex-home-row';
+      const label = document.createElement('div');
+      label.textContent = tr(home.source === 'default' ? 'codexImport.defaultHome' : 'codexImport.envHome');
+      const location = document.createElement('code');
+      location.textContent = home.displayPath;
+      label.append(location);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.disabled = codexImportBusy;
+      button.textContent = tr('codexImport.addHome');
+      button.addEventListener('click', () => void runCodexImport(() => window.manager.registerCodexHome(home.selectionId)));
+      row.append(label, button);
+      els.codexHomeList.append(row);
+    }
+  } catch (_error) {
+    els.codexHomeList.textContent = tr('codexImport.searchError');
+  }
+}
+
+function setCodexImportStatus(key) {
+  els.codexImportStatus.hidden = !key;
+  els.codexImportStatus.textContent = key ? tr(key) : '';
+}
+
+function setCodexImportBusy(busy) {
+  codexImportBusy = busy;
+  for (const button of els.codexImportDialog.querySelectorAll('button')) button.disabled = busy;
+}
+
+async function runCodexImport(operation) {
+  if (codexImportBusy) return;
+  setCodexImportBusy(true);
+  setCodexImportStatus('codexImport.importing');
+  try {
+    const result = await operation();
+    if (result?.canceled) {
+      setCodexImportStatus(null);
+      return;
+    }
+    if (!result?.ok) {
+      const key = `codexImport.error.${result?.reasonCode}`;
+      setCodexImportStatus(tr(key) === key ? 'codexImport.error.generic' : key);
+      if (result?.reasonCode === 'path-selection-expired') await refreshCodexHomeList();
+      return;
+    }
+
+    const fromFirstUse = els.welcomeDialog?.open && state.firstUse.mode === 'onboarding';
+    els.codexImportDialog.close();
+    if (fromFirstUse) {
+      const patch = window.OnboardingState.localImportCompletionPatch(state.firstUse.model);
+      if (patch) recordFirstUseCompletion(patch);
+      els.welcomeDialog.close();
+    }
+    if (state.mesh.overview?.initialized) {
+      await loadDeviceOverview({ silent: true, skipWorkspaceRefresh: true });
+      const localDeviceId = state.mesh.overview?.localDeviceId;
+      if (localDeviceId && !['all', localDeviceId].includes(currentDeviceLensId())) {
+        state.ui = window.UiContext.setDeviceLens(state.ui, localDeviceId);
+        renderDeviceLens(state.mesh.overview);
+      }
+    }
+    await loadProfiles(result.profileId);
+    setStatus(tr(result.existing ? 'codexImport.alreadyAdded' : 'codexImport.added'));
+    if (currentProfileId() === result.profileId) selectedCardControl('.account-card-launch')?.focus();
+  } catch (_error) {
+    if (els.codexImportDialog.open) setCodexImportStatus('codexImport.error.generic');
+    else setStatus(tr('codexImport.refreshError'));
+  } finally {
+    setCodexImportBusy(false);
+  }
 }
 
 function syncProfileAssignmentControls() {
@@ -3040,9 +3076,8 @@ async function loadSessions() {
       const localResult = await loadLocalSessions({ source: 'local-fallback' });
       state.mesh.sessionErrorCode = meshResult.reasonCode;
       setStatus(tr('status.sessionsLocalFallback', {
-        n: localResult.count,
-        code: meshResult.reasonCode
-      }));
+        n: localResult.count
+      }), 'warning');
       return;
     }
 
@@ -3054,7 +3089,7 @@ async function loadSessions() {
     state.mesh.sessionErrorCode = meshResult.reasonCode;
     validateSessionContext();
     applySessionFilter();
-    setStatus(tr('status.sessionsRemoteUnavailable', { code: meshResult.reasonCode }));
+    setStatus(tr('status.sessionsRemoteUnavailable', { code: meshResult.reasonCode }), 'warning');
     return;
   }
 
@@ -3283,9 +3318,8 @@ async function loadQuotas(force = false) {
     } finally {
       quotaHasLoaded = true;
       quotaRequest = null;
-      // 刷整个控制条（含 ⚡ 能量徽章），renderAccountHeader 内部会级联 renderQuotaSummary → chips
       renderAccountHeader();
-      syncYard();
+      renderAttentionInbox();
     }
   })();
   // Render once more after quotaRequest becomes truthy so the loading marker
@@ -3296,14 +3330,14 @@ async function loadQuotas(force = false) {
 
 function selectedQuota() {
   const profile = selectedProfile();
+  const group = profile ? groupOfProfile(profile.id) : null;
+  const evidence = trustedLocalAccountCardQuota(group, Date.now());
+  if (evidence.status === 'ok') return { ...evidence.snapshot, windows: evidence.windows };
+  if (evidence.status === 'not_applicable') return evidence.snapshot;
+  if (evidence.status === 'conflict') return { status: 'error', windows: [], reason: tr('card.quotaConflict') };
   const snapshot = profile ? state.quotas[profile.id] : null;
   if (!snapshot || snapshot.status !== 'ok') return snapshot || null;
-  const group = groupOfProfile(profile.id);
-  const members = (group?.members || [profile]).filter((member) =>
-    profile._accountBindingId ? member._accountBindingId === profile._accountBindingId : true);
-  const evidence = trustedLocalAccountCardQuota({ ...group, members }, Date.now());
-  if (evidence.status === 'ok') return { ...evidence.snapshot, windows: evidence.windows };
-  return { ...snapshot, status: 'stale', windows: [], reason: tr(evidence.status === 'conflict' ? 'card.quotaConflict' : 'energy.unknown') };
+  return { ...snapshot, status: 'stale', windows: [], reason: tr('energy.unknown') };
 }
 
 function quotaPlanLabel(value) {
@@ -3396,18 +3430,72 @@ function renderQuotaMeters(snapshot) {
   }
 }
 
+function toggleQuotaPopover(anchor) {
+  if (state.quotaAnchor === anchor) {
+    els.quotaPopover.hidePopover();
+  } else {
+    openQuotaPopover(anchor);
+  }
+}
+
+function openQuotaPopover(anchor) {
+  if (!anchor || anchor.disabled || anchor.hidden) return;
+  els.quotaPopover.hidePopover();
+  if (state.ui.workspaceMode === 'remote') setWorkspaceMode('sessions');
+  state.quotaAnchor = anchor;
+  renderQuotaSummary();
+  if (anchor.hidden || (anchor !== els.quotaChipAll && els.quotaSummary.hidden)) {
+    state.quotaAnchor = null;
+    return;
+  }
+  anchor.focus({ preventScroll: true });
+  els.quotaPopover.showPopover({ source: anchor });
+  anchor.setAttribute('aria-expanded', 'true');
+  positionQuotaPopover();
+}
+
+function positionQuotaPopover() {
+  const { quotaAnchor: anchor } = state;
+  const popup = els.quotaPopover;
+  if (!anchor || !popup.matches(':popover-open')) return;
+  const gap = 6;
+  const inset = 12;
+  const rect = anchor.getBoundingClientRect();
+  const roster = els.accountRoster.getBoundingClientRect();
+  if (!rect.width || (anchor !== els.quotaChipAll && (rect.right <= roster.left || rect.left >= roster.right))) {
+    popup.hidePopover();
+    return;
+  }
+
+  const below = window.innerHeight - rect.bottom - gap - inset;
+  const above = rect.top - gap - inset;
+  const openBelow = below >= above;
+  popup.style.maxHeight = `${Math.max(below, above)}px`;
+  const width = popup.offsetWidth;
+  const left = anchor === els.quotaChipAll ? rect.right - width : Math.max(rect.left, roster.left);
+  popup.style.left = `${Math.max(inset, Math.min(left, window.innerWidth - width - inset))}px`;
+  popup.style.top = `${openBelow ? rect.bottom + gap : rect.top - gap - popup.offsetHeight}px`;
+}
+
 function renderQuotaSummary() {
-  // 总览与单账号额度共用同一批刷新时机（loadQuotas / selectProfile / refreshAll）。
   renderQuotaOverview();
   const profile = selectedProfile();
-  els.quotaSummary.hidden = !profile;
-  els.quotaRefreshBtn.disabled = !profile || Boolean(quotaRequest);
-  if (!profile) return;
+  const { quotaAnchor: anchor } = state;
+  els.quotaSummary.hidden = !profile || !anchor || anchor !== selectedCardControl('.account-card-quota-summary') || anchor.disabled;
+  if (els.quotaSummary.hidden) {
+    if (anchor && anchor !== els.quotaChipAll) els.quotaPopover.hidePopover();
+    return;
+  }
+  const name = groupOfProfile(profile.id)?.primary.name || profile.name;
+  els.quotaPopoverTitle.textContent = tr('quota.accountTitle', { name });
+  renderAccountQuota();
+  positionQuotaPopover();
+}
 
-  // 额度 Beta 详情块默认收起（原型）：控制条上只留「本号」chip，点击 chip 展开本块
-  els.quotaSummary.hidden = !state.quotaSelfOpen;
+function renderAccountQuota() {
   const snapshot = selectedQuota();
   const loading = Boolean(quotaRequest);
+  els.quotaRefreshBtn.disabled = loading;
   els.quotaSummary.classList.toggle('is-loading', loading);
   const refreshFailed = Boolean(state.quotaError) && snapshot?.status === 'ok';
   els.quotaSummary.dataset.status = refreshFailed ? 'stale' : (snapshot?.status || (loading ? 'loading' : 'unknown'));
@@ -3425,7 +3513,7 @@ function renderQuotaSummary() {
   }
 
   const statusLabels = {
-    unsupported: tr('quota.status.unsupported'),
+    unsupported: tr(snapshot.reasonCode === 'api-key-auth' ? 'quota.status.notApplicable' : 'quota.status.unsupported'),
     signed_out: tr('quota.status.signed_out'),
     stale: tr('quota.status.stale'),
     error: tr('quota.status.error')
@@ -3465,15 +3553,14 @@ function renderQuotaOverview() {
   const groups = identityGroups();
   const rows = window.QuotaOverview?.buildTrustedQuotaOverview(groups, state.quotas, Date.now(), {
     quotaError: state.quotaError,
-    reasonFor: (evidence) => tr(evidence.status === 'conflict' ? 'card.quotaConflict' : 'energy.unknown')
+    reasonFor: (evidence) => tr(evidence.status === 'conflict' ? 'card.quotaConflict'
+      : (evidence.status === 'not_applicable' ? 'quota.status.notApplicable' : 'energy.unknown'))
   }) || [];
 
-  // 控制条 chips（本号/全院）永远刷新，且不依赖总览带/聚合模块是否存在
-  // （code-review：控制条核心 UI 不能被可选模块的守卫连带闸住）
-  renderQuotaChips(groups, rows);
-  if (!els.quotaOverview || !window.QuotaOverview) return;
-  els.quotaOverview.hidden = !state.quotaOverviewOpen || groups.length < 2;
+  renderQuotaOverviewButton(groups, rows);
+  els.quotaOverview.hidden = state.quotaAnchor !== els.quotaChipAll || groups.length < 2;
   if (els.quotaOverview.hidden) return;
+  els.quotaPopoverTitle.textContent = tr('quotaMap.title');
   const withQuota = rows.filter((row) => row.hasQuota).length;
   if (els.quotaOverviewMeta) {
     els.quotaOverviewMeta.textContent = withQuota
@@ -3519,53 +3606,30 @@ function renderQuotaOverview() {
     rest.title = unsupported.map((row) => row.name).join('、');
     els.quotaOverviewList.append(rest);
   }
+  positionQuotaPopover();
 }
 
-// ── 控制条额度 chips（原型：本号 / 全院 各一枚，条形量表 + 百分比）────────
-// 本号 = 选中账号（组）的最紧窗口剩余；全院 = 全部账号里最紧的那个（一眼看底线）。
-function renderQuotaChips(groups, rows) {
-  if (!els.quotaChipSelf || !els.quotaChipAll) return;
-  const rowById = new Map(rows.map((row) => [String(row.profileId), row]));
-  const selectedGroup = groups.find((group) => group.key === currentAgentId()) || null;
-  let selfRow = null;
-  if (selectedGroup) {
-    for (const member of selectedGroup.members) {
-      const row = rowById.get(String(member.id));
-      if (row && (!selfRow || (row.hasQuota && !selfRow.hasQuota))) selfRow = row;
-    }
-  }
-  setQuotaChip(els.quotaChipSelf, selfRow, tr('quota.chip.selfHint'));
-
+function renderQuotaOverviewButton(groups, rows) {
   const known = rows.filter((row) => row.hasQuota);
   const allRow = known.length
     ? known.reduce((a, b) => (a.tightest.remainingPercent <= b.tightest.remainingPercent ? a : b))
     : null;
-  setQuotaChip(els.quotaChipAll, allRow, tr('quota.chip.allHint'), allRow ? tr('quota.chip.allPrefix', { name: allRow.name }) : null);
-
-  // 可展开控件惯例：aria-expanded 反映面板实际可见态；单账号没有总览可展，置灰
-  els.quotaChipSelf.setAttribute('aria-expanded', String(Boolean(selectedGroup) && state.detailMode === 'quota' && state.quotaSelfOpen));
-  els.quotaChipAll.disabled = groups.length < 2;
-  els.quotaChipAll.setAttribute('aria-expanded', String(groups.length >= 2 && state.detailMode === 'quota' && state.quotaOverviewOpen));
-  if (els.quotaChipAll.disabled) els.quotaChipAll.title = tr('quota.chip.noAll');
-}
-
-function setQuotaChip(chip, row, hint, prefix = null) {
-  const fill = chip.querySelector('.mtr i');
+  const chip = els.quotaChipAll;
   const value = chip.querySelector('b');
-  if (!fill || !value) return; // chip 内部结构被改动时安静降级，别抛 TypeError（code-review 加固）
-  const loading = Boolean(quotaRequest);
-  if (row && row.hasQuota) {
-    const percent = Math.max(0, Math.min(100, Math.round(row.tightest.remainingPercent)));
-    chip.dataset.level = window.YardEnergy?.energyForRemaining?.(percent) || 'unknown';
-    fill.style.width = `${percent}%`;
-    value.textContent = `${percent}%`;
-    chip.title = tr('quota.chip.title', { prefix: prefix || row.name, label: row.tightest.label, pct: percent, hint });
+  const hint = tr('quota.chip.allHint');
+  if (allRow) {
+    const pct = Math.max(0, Math.min(100, Math.round(allRow.tightest.remainingPercent)));
+    value.textContent = tr('quotaMap.minimum', { pct });
+    chip.title = tr('quota.chip.title', {
+      prefix: tr('quota.chip.allPrefix', { name: allRow.name }),
+      label: allRow.tightest.label, pct, hint
+    });
   } else {
-    chip.dataset.level = 'unknown';
-    fill.style.width = '0%';
-    value.textContent = loading ? '…' : '—';
-    chip.title = tr('quota.chip.hintOnly', { reason: row?.reason || (loading ? tr('quota.chip.querying') : tr('quota.chip.noData')), hint });
+    value.textContent = quotaRequest ? '…' : '—';
+    chip.title = tr('quota.chip.hintOnly', { reason: tr(quotaRequest ? 'quota.chip.querying' : 'quota.chip.noData'), hint });
   }
+  chip.hidden = groups.length < 2;
+  if (chip.hidden && state.quotaAnchor === chip) els.quotaPopover.hidePopover();
 }
 
 function applySessionFilter() {
@@ -3594,7 +3658,6 @@ function applySessionFilter() {
 
   renderSessionControls();
   renderSessions();
-  renderInspector();
 }
 
 // ── 猫咪档案卡（编辑对话框换装） ─────────────────────
@@ -3685,102 +3748,12 @@ function renderCatPreview() {
   });
 }
 
-// ── 庭院视图 ─────────────────────────────────────────
-function isYardView() {
-  return yardMounted && document.body.dataset.view === 'yard';
-}
-
-function initYard() {
-  if (!window.YardScene || !window.YardCats || !els.yardCanvas) return;
-  window.YardScene.mount({
-    canvas: els.yardCanvas,
-    overlay: els.yardOverlay,
-    onSelect: async (presenterId) => {
-      const group = groupOfPresenterId(presenterId);
-      if (!group) return;
-      await selectAgent(group.key);
-      setStatus(tr('status.selected', { name: group.agent?.displayName || group.primary.name }));
-    },
-    onPet: (profile) => {
-      window.YardScene.say(profile.id, { text: tr('yard.say.purr'), kind: 'ambient', duration: 2800 });
-      setStatus(tr('status.purr', { name: profile.name }));
-    },
-    onDrop: handleYardDrop
-  });
-  yardMounted = true;
-  // 固定窗口 + 满铺裁剪横带：场景用固定逻辑尺寸（原生 480×236），CSS 满铺整宽、
-  // 木框裁掉底部空草坪 —— 不再按容器宽响应式重算（回退改动①的 ResizeObserver）。
-  initAtmosphere();
-}
-
-// 时间 / 天气控件：从稳定设置恢复，点击切换并持久化
-function initAtmosphere() {
-  const syncPressed = () => {
-    els.atmosTime.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.time === state.atmosTime)));
-    els.atmosWeather.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.weather === state.atmosWeather)));
-  };
-  els.atmosTime.addEventListener('click', (event) => {
-    const btn = event.target.closest('button');
-    if (!btn) return;
-    state.atmosTime = btn.dataset.time;
-    persistSettings({ atmosTime: state.atmosTime });
-    window.YardScene.setAtmosphere({ time: state.atmosTime });
-    syncPressed();
-    updateAtmosphereReadout();
-    setStatus(tr('status.yardTime', { label: tr('yard.time.' + state.atmosTime) }));
-  });
-  els.atmosWeather.addEventListener('click', (event) => {
-    const btn = event.target.closest('button');
-    if (!btn) return;
-    state.atmosWeather = btn.dataset.weather;
-    persistSettings({ atmosWeather: state.atmosWeather });
-    window.YardScene.setAtmosphere({ weather: state.atmosWeather });
-    syncPressed();
-    updateAtmosphereReadout();
-    setStatus(tr('status.yardWeather', { label: tr('yard.weather.' + state.atmosWeather) }));
-  });
-  els.atmosPopover?.addEventListener('toggle', (event) => {
-    if (event.newState !== 'open' || !els.atmosSceneBtn) return;
-    const anchor = els.atmosSceneBtn.getBoundingClientRect();
-    const width = Math.min(320, window.innerWidth - 24);
-    els.atmosPopover.style.width = `${width}px`;
-    els.atmosPopover.style.left = `${Math.max(12, Math.min(window.innerWidth - width - 12, anchor.right - width))}px`;
-    els.atmosPopover.style.top = `${Math.min(window.innerHeight - 230, anchor.bottom + 8)}px`;
-  });
-
-  window.YardScene.setAtmosphere({ time: state.atmosTime, weather: state.atmosWeather });
-  syncPressed();
-  updateAtmosphereReadout();
-}
-
-function updateAtmosphereReadout() {
-  if (!window.YardScene?.getAtmosphere) return;
-  const current = window.YardScene.getAtmosphere();
-  els.yardStage.dataset.time = current.time;
-  els.yardStage.dataset.weather = current.weather;
-  const autoTime = els.atmosTime.querySelector('[data-time="auto"]');
-  const autoWeather = els.atmosWeather.querySelector('[data-weather="auto"]');
-  if (els.atmosSceneLabel) {
-    const timeKey = state.atmosTime === 'auto' ? 'auto' : current.time;
-    const weatherKey = state.atmosWeather === 'auto' ? 'auto' : current.weather;
-    els.atmosSceneLabel.textContent = tr('yard.atmos.sceneValue', {
-      time: tr(`yard.time.${timeKey}`),
-      weather: tr(`yard.weather.${weatherKey}`)
-    });
-  }
-  if (autoTime) autoTime.title = tr('atmos.autoTimeTip', { label: tr('yard.time.' + current.time) });
-  if (autoWeather) {
-    const next = current.nextWeatherAt ? compactDate(current.nextWeatherAt) : tr('atmos.later');
-    autoWeather.title = tr('atmos.autoWeatherTip', { label: tr('yard.weather.' + current.weather), next });
-  }
-}
-
 // ── Personal Agent Mesh / 设备中心 ──────────────────
 let remoteSurfaceLayoutFrame = null;
 let remoteSurfaceObserver = null;
 let deviceJourneyPollTimer = null;
 let deviceJourneyPollPromise = null;
-const DETAIL_MODES = new Set(['session', 'quota', 'remote']);
+const DETAIL_MODES = new Set(['session', 'remote']);
 const childDialogReturnFocus = new WeakMap();
 const childDialogFocusBound = new WeakSet();
 
@@ -3840,7 +3813,7 @@ function closeUtilityDialogs(exceptDialog = null) {
   }
 }
 
-function closeUtilityDialog(dialog) {
+function closeUtilityDialog(dialog, { restoreFocus = true } = {}) {
   if (!dialog) return;
   const entry = utilityDialogEntries().find(([, , candidate]) => candidate === dialog);
   let returnFocus = null;
@@ -3851,7 +3824,7 @@ function closeUtilityDialog(dialog) {
     if (state.utilityDialog === kind) state.utilityDialog = null;
   }
   if (dialog.open) dialog.close();
-  if (returnFocus) {
+  if (returnFocus && restoreFocus) {
     requestAnimationFrame(() => {
       if (!document.querySelector('dialog:modal')) returnFocus.focus({ preventScroll: true });
     });
@@ -3879,27 +3852,20 @@ function mountWorkspaceSurfaces() {
   setWorkspaceMode('sessions');
 }
 
-function detailSurfaceEntries() {
-  return [
-    ['session', els.sessionInspector],
-    ['quota', els.detailSurfaceQuota],
-    ['remote', els.remoteWorkspaceHost]
-  ];
-}
-
 function setDetailMode(mode) {
   const next = DETAIL_MODES.has(mode) ? mode : 'session';
   state.detailMode = next;
   if (els.mainGrid) els.mainGrid.dataset.detail = next;
-  if (els.detailPanel) els.detailPanel.dataset.detail = next;
-  for (const [name, surface] of detailSurfaceEntries()) {
-    if (surface) surface.hidden = name !== next;
+  if (els.detailPanel) {
+    els.detailPanel.dataset.detail = next;
+    els.detailPanel.hidden = next === 'session';
   }
+  if (els.remoteWorkspaceHost) els.remoteWorkspaceHost.hidden = next !== 'remote';
 
-  if (els.quotaChipSelf) els.quotaChipSelf.setAttribute('aria-expanded', String(next === 'quota' && state.quotaSelfOpen));
-  if (els.quotaChipAll) els.quotaChipAll.setAttribute('aria-expanded', String(next === 'quota' && state.quotaOverviewOpen));
-
-  if (next === 'remote') scheduleRemoteSurfaceLayout();
+  if (next === 'remote') {
+    els.quotaPopover.hidePopover();
+    scheduleRemoteSurfaceLayout();
+  }
 }
 
 function setWorkspaceMode(mode, options = {}) {
@@ -5600,38 +5566,15 @@ function renderAttentionInbox() {
       if (item.profileId && item.profileId !== currentProfileId()) await selectProfile(item.profileId);
       if (item.action === 'diagnostics') await showDiagnostics();
       else if (item.action === 'quota') {
-        closeUtilityDialog(els.activityCenterDialog);
-        state.quotaSelfOpen = true;
-        state.quotaOverviewOpen = false;
-        setWorkspaceMode('quota');
-        renderQuotaSummary();
-        els.quotaSummary.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        const anchor = selectedCardControl('.account-card-quota-summary');
+        closeUtilityDialog(els.activityCenterDialog, { restoreFocus: !anchor || anchor.disabled });
+        openQuotaPopover(anchor);
       }
       else if (item.action === 'update') await handleUpdateClick();
       else if (item.action === 'assign-slot') openSlotAssignmentDialog(catalogSlotByKey(item.slotKey));
     });
     els.attentionItems.append(button);
   }
-}
-
-function saveYardPosition(profileId, point, zoneId = 'ground') {
-  if (!window.YardInteractions) return false;
-  const normalized = window.YardInteractions.normalizePoint(point);
-  if (!normalized) return false;
-  state.yardPositions = {
-    ...state.yardPositions,
-    [profileId]: { ...normalized, zoneId, updatedAt: Date.now() }
-  };
-  persistSettings({ yardPositions: state.yardPositions });
-  return true;
-}
-
-// Dropping a cat only changes its saved position; account/session actions use the controls.
-function handleYardDrop({ profile, point }) {
-  if (!profile || !saveYardPosition(profile.id, point)) return false;
-  window.YardScene.say(profile.id, { text: tr('yard.say.nice'), kind: 'ambient' });
-  setStatus(tr('status.yardPosSaved', { name: profile.name }));
-  return { keepPosition: true };
 }
 
 // i18n 便捷取词（window.I18N 由 src/i18n/ 提供；未加载时回退到 key，永不抛错）
@@ -5659,7 +5602,6 @@ function rerenderLocalizedText() {
   renderAccounts();
   renderAccountHeader();
   renderSessions();
-  renderInspector();
   renderQuotaSummary();
   renderAttentionInbox();
   renderToolCenter();
@@ -5668,23 +5610,6 @@ function rerenderLocalizedText() {
     if (state.firstUse.mode === 'onboarding') renderFirstUse();
     else prepareWelcomeGuide();
   }
-  updateAtmosphereReadout();
-  if (yardMounted) syncYard();
-}
-
-function applyView() {
-  const yard = state.view === 'yard' && yardMounted;
-  document.body.dataset.view = yard ? 'yard' : 'classic';
-  // 统一骨架：账号呈现层随视图切换 —— 庭院视图显示场景，经典视图显示账号名册（CSS 控制显隐）。
-  // 新增/编辑/移除按钮固定在控制条（新增紧跟打开账号，编辑/移除在「管理」菜单），两视图共用、不再搬家。
-  els.yardStage.hidden = !yard;
-  if (els.viewToggleLabel) els.viewToggleLabel.textContent = tr('topbar.toYard');
-  els.viewToggle?.setAttribute('aria-pressed', String(yard));
-  els.classicViewBtn?.setAttribute('aria-pressed', String(!yard));
-  if (yardMounted) window.YardScene.setActive(yard);
-  if (yard) loadActivity(); // 切回庭院时立刻刷新猫的状态
-  else revealSelectedAccountCard();
-  renderTopbarContext();
 }
 
 let activityLoading = false;
@@ -5701,61 +5626,20 @@ async function loadActivity() {
   } finally {
     activityLoading = false;
   }
-  // 并行会话数变化时刷新账号列表徽章（签名不变就不重建 DOM，避免 8 秒一闪）
   const signature = Object.values(state.activity)
     .map((item) => `${item.profileId}:${item.activeNow || 0}`)
     .join('|');
   if (signature !== busySignature) {
     busySignature = signature;
-    renderAccounts();
     renderAccountHeader();
+  } else {
+    renderAccountRoster();
+    renderTopbarContext();
   }
-  syncYard();
-}
-
-// 庭院与卡片共享活动和额度证据。
-function syncYard() {
-  if (yardMounted) {
-    const now = Date.now();
-    const groups = identityGroups();
-    const statesById = {};
-    const energyById = {};
-    // 一只猫 = 一个账号（组）：状态吃组内所有形态的聚合活跃，
-    // 任一形态在干活猫就在打字；额度取组内有真实快照的那个槽位。
-    for (const group of groups) {
-      const primary = group.primary;
-      const merged = window.IdentityGroups
-        ? window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))
-        : state.activity[primary.id];
-      statesById[primary.id] = window.YardCats.deriveState(now, primary, merged);
-      const evidence = trustedLocalAccountCardQuota(group, now);
-      const snapshot = evidence.status === 'ok' ? evidence.snapshot : null;
-      energyById[primary.id] = window.YardEnergy
-        ? window.YardEnergy.deriveEnergy(state.quotaError ? null : snapshot, now)
-        : 'unknown';
-    }
-    const selectedGroup = groups.find((group) => group.key === currentAgentId()) || null;
-    window.YardScene.update({
-      profiles: groups.map((group) => group.primary),
-      statesById,
-      energyById,
-      positionsById: state.yardPositions,
-      // Persistent attention belongs to the Header Activity dialog. The compact
-      // yard keeps transient cat speech only, so path/quota warnings cannot
-      // cover the Agent presenter or become a second activity surface.
-      attentionById: {},
-      selectedId: selectedGroup ? selectedGroup.primary.id : currentProfileId(),
-      night: document.documentElement.dataset.theme === 'dark'
-    });
-  }
-  renderAccountRoster();
-  renderTopbarContext();
   renderAttentionInbox();
 }
 
-
-// 账号名册（经典视图的账号呈现层）：一个卡片 = 一个账号（身份组），带真像素猫头像、
-// 名称、分组、活跃状态。与庭院的猫是同一批账号的两种呈现（庭院靠 syncYard 喂场景）。
+// 一个卡片对应一个 Agent，活动、可信额度和运行位置均从同一账号组呈现。
 const CARD_STATE_DOT = {
   working: '#6d9440', onduty: '#3d6aa8', arriving: '#e0a63a', confused: '#c94f2e',
   play: '#d05a7a', rest: '#9a8b6a', nap: '#8a7fa8', hibernate: '#6a6a8a'
@@ -5780,16 +5664,11 @@ function deploymentStateLabel(value) {
   return tr(`deployment.state.${stateName}`);
 }
 
-function provisioningAppLabel(appId) {
-  return appId && appId !== 'unknown'
-    ? appLabel(appId)
-    : tr('deployment.client.unselected');
-}
-
 function renderAccounts() {
-  renderAccountRoster();
   populateGroupDatalist();
-  syncYard();
+  renderAccountRoster();
+  renderTopbarContext();
+  renderAttentionInbox();
 }
 
 let rosterController = null;
@@ -5818,31 +5697,40 @@ function renderAccountRoster() {
   if (!els.accountRoster || rosterController?.isInteracting()) return;
   ensureRosterInteractions();
   const scrollLeft = els.accountRoster.scrollLeft;
-  const focusedId = els.accountRoster.contains(document.activeElement) ? document.activeElement.dataset.agentId : null;
-  els.accountRoster.replaceChildren();
   const groups = orderedAgentGroups();
-  if (els.presenterCount) els.presenterCount.textContent = String(groups.length);
+  if (els.presenterCount) els.presenterCount.textContent = tr('presenter.count', { n: groups.length });
   if (!groups.length) {
     const empty = document.createElement('p');
     empty.className = 'account-roster-empty';
     empty.textContent = tr('presenter.empty');
-    els.accountRoster.append(empty);
+    els.accountRoster.replaceChildren(empty);
     return;
   }
+
+  const cards = new Map([...els.accountRoster.children].map((card) => [card.dataset.agentId, card]));
   const now = Date.now();
-  for (const group of groups) {
-    els.accountRoster.append(buildAccountCard(group, now));
+  const orderedCards = groups.map((group) => {
+    const card = cards.get(group.key) || createAccountCard(group.key);
+    cards.delete(group.key);
+    updateAccountCard(card, group, now);
+    return card;
+  });
+  for (const card of cards.values()) card.remove();
+  for (const [index, card] of orderedCards.entries()) {
+    // Polling updates the labels in place so an open selector and keyboard focus survive.
+    const current = els.accountRoster.children[index];
+    if (current !== card) els.accountRoster.insertBefore(card, current || null);
   }
   els.accountRoster.scrollLeft = scrollLeft;
   if (lastRevealedAgent !== currentAgentId()) {
     lastRevealedAgent = currentAgentId();
     revealSelectedAccountCard();
   }
-  if (focusedId) [...els.accountRoster.children].find(card => card.dataset.agentId === focusedId)?.focus({ preventScroll: true });
+  positionQuotaPopover();
 }
 
 function revealSelectedAccountCard() {
-  if (!els.accountRoster || document.body.dataset.view !== 'classic') return;
+  if (!els.accountRoster) return;
   const selected = els.accountRoster.querySelector('.account-card.selected');
   if (!selected) return;
   // Keep the roster itself as the explicit horizontal owner. Chromium's
@@ -5884,15 +5772,62 @@ function trustedLocalAccountCardQuota(group, now) {
   });
 }
 
-function buildAccountCard(group, now) {
+function selectedCardControl(selector) {
+  return els.accountRoster.querySelector(`.account-card.selected ${selector}`);
+}
+
+function activateAccountCard(agentId) {
+  if (agentId !== currentAgentId()) void selectAgent(agentId);
+  return agentId === currentAgentId();
+}
+
+function createAccountCard(agentId) {
+  const card = els.accountCardTemplate.content.firstElementChild.cloneNode(true);
+  card.dataset.agentId = agentId;
+  card.addEventListener('click', (event) => {
+    if (!event.target.closest('[data-roster-control]')) activateAccountCard(agentId);
+  });
+  card.querySelector('.account-card-launch').addEventListener('click', () => {
+    if (activateAccountCard(agentId)) void openCurrentAgent();
+  });
+  card.querySelector('.account-card-manage').addEventListener('click', () => {
+    if (activateAccountCard(agentId)) openAgentManageDialog();
+  });
+  card.querySelector('select').addEventListener('change', (event) => {
+    changeAccountCardRuntime(agentId, event.target.value);
+  });
+  card.querySelector('.account-card-quota-summary').addEventListener('click', (event) => {
+    event.preventDefault();
+    if (activateAccountCard(agentId)) toggleQuotaPopover(event.currentTarget);
+  });
+  return card;
+}
+
+function changeAccountCardRuntime(agentId, value) {
+  const group = identityGroups().find((item) => item.key === agentId);
+  if (!group || !value) return;
+  if (value.startsWith('prepare:')) {
+    if (group.members.length || !activateAccountCard(agentId)) return;
+    const [, appId, clientForm = 'desktop'] = value.split(':');
+    const action = currentAgentActionContext(group, null);
+    rememberProvisioningChoice(group, action.deviceId, appId, clientForm);
+    renderAccountHeader();
+    return;
+  }
+  if (!group.members.some((member) => member.id === value)) return;
+  if (agentId !== currentAgentId()) void selectProfile(value);
+  else if (value !== currentProfileId()) selectSlot(value);
+}
+
+function updateAccountCard(card, group, now) {
   const primary = group.primary;
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'account-card';
-  card.dataset.agentId = group.key;
-  card.setAttribute('aria-describedby', 'rosterHelp');
-  card.title = tr('roster.help');
-  card.classList.toggle('selected', group.key === currentAgentId());
+  const selected = group.key === currentAgentId();
+  const profile = selected ? selectedGroupProfile(group) : preferredGroupSlot(group);
+  const action = currentAgentActionContext(group, profile);
+  const selectAgentButton = card.querySelector('.account-card-select');
+  card.classList.toggle('selected', selected);
+  selectAgentButton.setAttribute('aria-pressed', String(selected));
+  selectAgentButton.title = accountCardTooltip(action);
 
   const activityEvidence = window.IdentityGroups?.cardActivityEvidence
     ? window.IdentityGroups.cardActivityEvidence(group.members, state.activity)
@@ -5911,16 +5846,16 @@ function buildAccountCard(group, now) {
     ? deploymentStateLabel(deploymentState)
     : (activityState ? tr('state.' + activityState) : tr('card.activityUnknown'));
 
-  const top = document.createElement('div');
+  const top = document.createElement('span');
   top.className = 'account-card-top';
   const avatar = document.createElement('canvas');
   avatar.className = 'account-card-avatar';
   avatar.width = 52;
   avatar.height = 48;
   drawAccountAvatar(avatar, primary);
-  const meta = document.createElement('div');
+  const meta = document.createElement('span');
   meta.className = 'account-card-meta';
-  const name = document.createElement('div');
+  const name = document.createElement('span');
   name.className = 'account-card-name';
   name.textContent = primary.name;
   const activeNow = window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))?.activeNow || 0;
@@ -5931,27 +5866,19 @@ function buildAccountCard(group, now) {
     busy.title = tr('card.busy', { n: activeNow });
     name.append(busy);
   }
-  if (group.members.length > 1) {
-    const link = document.createElement('span');
-    link.className = 'account-card-link';
-    link.textContent = ' ⛓';
-    link.title = tr('card.forms', { n: group.members.length });
-    name.append(link);
-  }
-  const gp = document.createElement('div');
+  const gp = document.createElement('span');
   gp.className = 'account-card-group';
   if (meshMode) {
     // “运行位置”以 Slot 为口径；同一设备上的 Desktop/CLI 是两个明确动作落点。
     const positions = (group.allMembers || group.members).length;
     const online = (group.allMembers || group.members).filter((member) => member._deviceStatus === 'online').length;
-    gp.textContent = tr('presenter.positions', { positions, online });
+    gp.textContent = tr('presenter.locations', { n: positions });
+    gp.title = tr('presenter.positions', { positions, online });
   } else {
     gp.textContent = primary.group ? tr('card.group', { g: primary.group }) : appLabel(primary.appId);
   }
-  meta.append(name, gp);
-  top.append(avatar, meta);
 
-  const st = document.createElement('div');
+  const st = document.createElement('span');
   st.className = 'account-card-state';
   st.dataset.activity = meshMode ? deploymentState : (activityState || 'unknown');
   const dot = document.createElement('span');
@@ -5959,13 +5886,11 @@ function buildAccountCard(group, now) {
   dot.style.background = meshMode
     ? (DEPLOYMENT_STATE_DOT[deploymentState] || '#9a9a9a')
     : (CARD_STATE_DOT[activityState] || '#9a9a9a');
-  st.append(dot, document.createTextNode(`${stateLabel} · ${provisioningAppLabel(primary.appId)}`));
+  st.append(dot, document.createTextNode(`${stateLabel} · `), gp);
+  meta.append(name, st);
+  top.append(avatar, meta);
 
-  const details = document.createElement('div');
-  details.className = 'account-card-details';
-
-  const lastActive = document.createElement('div');
-  lastActive.className = 'account-card-fact account-card-last-active';
+  const lastActive = card.querySelector('.account-card-last-active');
   const lastActiveLabel = document.createElement('span');
   lastActiveLabel.className = 'account-card-fact-label';
   lastActiveLabel.textContent = tr(activityEvidence.remoteUnknown && merged ? 'card.lastActiveLocal' : 'card.lastActive');
@@ -5977,10 +5902,11 @@ function buildAccountCard(group, now) {
   lastActiveValue.textContent = compactDate(hasActivityTime ? activityAt : null);
   lastActiveValue.title = hasActivityTime ? fullDate(activityAt) : tr('common.unrecorded');
   if (hasActivityTime) lastActiveValue.dateTime = activityDate.toISOString();
-  lastActive.append(lastActiveLabel, lastActiveValue);
+  lastActive.replaceChildren(lastActiveLabel, lastActiveValue);
 
-  const quotaSummary = document.createElement('div');
-  quotaSummary.className = 'account-card-fact account-card-quota-summary';
+  const quotaSummary = card.querySelector('.account-card-quota-summary');
+  const quotaFact = document.createElement('span');
+  quotaFact.className = 'account-card-fact';
   const quotaLabel = document.createElement('span');
   quotaLabel.className = 'account-card-fact-label';
   quotaLabel.textContent = tr('card.quota');
@@ -5988,11 +5914,12 @@ function buildAccountCard(group, now) {
   quotaValue.className = 'account-card-fact-value';
 
   // 只展示本地 Slot 的新鲜实时快照；旧采样、已过重置点和远端缓存都不进入卡片额度。
-  const quotaTrack = document.createElement('div');
+  const quotaTrack = document.createElement('span');
   quotaTrack.className = 'account-card-quota';
   const quotaFill = document.createElement('i');
   quotaTrack.append(quotaFill);
   const trustedQuota = trustedLocalAccountCardQuota(group, now);
+  delete quotaSummary.dataset.source;
   if (trustedQuota.status === 'ok') {
     const { member, snapshot, tightest } = trustedQuota;
     const source = accountCardQuotaSource(member);
@@ -6013,20 +5940,30 @@ function buildAccountCard(group, now) {
     quotaTrack.title = title;
   } else {
     const conflict = trustedQuota.status === 'conflict';
-    quotaValue.textContent = tr(conflict ? 'card.quotaConflict' : 'devices.value.unknown');
-    quotaValue.title = tr(conflict ? 'card.quotaConflictHint' : 'quota.chip.noData');
+    const notApplicable = trustedQuota.status === 'not_applicable';
+    quotaValue.textContent = tr(conflict ? 'card.quotaConflict'
+      : (notApplicable ? 'quota.status.notApplicable' : 'devices.value.unknown'));
+    quotaValue.title = notApplicable ? trustedQuota.snapshot.reason
+      : tr(conflict ? 'card.quotaConflictHint' : 'quota.chip.noData');
     quotaTrack.dataset.trusted = 'false';
     quotaTrack.dataset.reason = trustedQuota.reason || 'unknown';
     quotaTrack.dataset.level = 'unknown';
     quotaFill.style.width = '0%';
     quotaTrack.title = quotaValue.title;
   }
-  quotaSummary.append(quotaLabel, quotaValue);
-  details.append(lastActive, quotaSummary, quotaTrack);
+  quotaFact.append(quotaLabel, quotaValue);
+  quotaSummary.replaceChildren(quotaFact, quotaTrack);
+  quotaSummary.disabled = !profile;
+  quotaSummary.title = tr('quota.self.title');
+  quotaSummary.setAttribute('aria-label', `${primary.name} · ${quotaLabel.textContent} · ${quotaValue.textContent}`);
 
-  card.append(top, st, details);
-  card.addEventListener('click', () => selectAgent(group.key));
-  return card;
+  selectAgentButton.replaceChildren(top);
+  renderAccountCardRuntime(card.querySelector('.account-card-runtime'), action);
+  renderAccountCardLaunch(card.querySelector('.account-card-launch'), action);
+  const manage = card.querySelector('.account-card-manage');
+  manage.textContent = tr('account.manageShort');
+  manage.title = tr('account.manageAgent');
+  manage.setAttribute('aria-label', `${primary.name} · ${manage.title}`);
 }
 
 function drawAccountAvatar(canvas, profile) {
@@ -6048,12 +5985,11 @@ function drawAccountAvatar(canvas, profile) {
 
 function renderTopbarContext() {
   if (!els.topbarContext) return;
-  const ctx = tr(state.view === 'yard' ? 'ctx.yard' : 'ctx.classic');
   const deviceContext = selectedDeviceLensLabel();
   if (state.ui.workspaceMode === 'remote') {
     const session = state.mesh.remoteSessions.find((item) => item.sessionId === state.ui.activeRemoteSessionId)
       || state.mesh.remoteSessions.find((item) => item.direction === 'outgoing');
-    els.topbarContext.textContent = [deviceContext, ctx, tr('remote.workspace.context', {
+    els.topbarContext.textContent = [deviceContext, tr('remote.workspace.context', {
       name: session?.deviceName || '-'
     })].filter(Boolean).join(' · ');
     return;
@@ -6064,7 +6000,6 @@ function renderTopbarContext() {
     const remoteCount = activeOutgoingRemoteSessions().length;
     els.topbarContext.textContent = [
       deviceContext,
-      ctx,
       selectedGroup?.agent?.displayName || selectedGroup?.primary?.name || tr('ctx.noAgent'),
       selectedGroup ? deploymentStateLabel(selectedGroup.readiness?.state) : null,
       remoteCount ? tr('remote.workspace.activeCount', { n: remoteCount }) : null
@@ -6077,7 +6012,6 @@ function renderTopbarContext() {
   const remoteCount = activeOutgoingRemoteSessions().length;
   els.topbarContext.textContent = [
     deviceContext,
-    ctx,
     profile.name,
     tr('state.' + activityState),
     remoteCount ? tr('remote.workspace.activeCount', { n: remoteCount }) : null
@@ -6110,13 +6044,20 @@ function groupOfProfile(profileId) {
   return identityGroups().find((group) => group.members.some((member) => member.id === profileId)) || null;
 }
 
-function groupOfPresenterId(presenterId) {
-  if (!presenterId) return null;
-  return identityGroups().find((group) => group.primary?.id === presenterId) || null;
+function selectedGroupProfile(group) {
+  if (!group) return null;
+  const key = window.UiContext.selectedSlotKey(state.ui, currentDeviceLensId(), group.key);
+  return group.members.find((member) => member._meshSlotKey === key || member.id === key)
+    || (group.members.length === 1 ? group.members[0] : null);
 }
 
-function preferredSlot(members) {
-  return (members || []).find((member) => member._meshSlotKey === currentSlotKey())
+function preferredGroupSlot(group) {
+  const key = window.UiContext.selectedSlotKey(state.ui, currentDeviceLensId(), group.key);
+  return preferredSlot(group.members, key);
+}
+
+function preferredSlot(members, key = currentSlotKey()) {
+  return (members || []).find((member) => member._meshSlotKey === key || member.id === key)
     || (members || []).find((member) => !member._remote && member._deviceStatus !== 'offline')
     || (members || []).find((member) => member._deviceStatus === 'online')
     || (members || [])[0]
@@ -6137,7 +6078,7 @@ function setProfileContext(profileId) {
 function setAgentContext(agentId) {
   const group = identityGroups().find((item) => item.key === agentId);
   if (!group) return false;
-  const member = preferredSlot(group.members);
+  const member = preferredGroupSlot(group);
   state.ui = window.UiContext.setAgent(state.ui, group.key, {
     slotKey: member?._meshSlotKey || member?.id || null
   });
@@ -6258,7 +6199,6 @@ function selectSlot(profileId) {
   persistUiSelectionMemory();
   renderAccounts();
   renderAccountHeader();
-  renderInspector();
 }
 
 function populateGroupDatalist() {
@@ -6413,7 +6353,7 @@ async function openCurrentAgent() {
   if (!action.requested?.appId) {
     const result = { ok: false, reasonCode: 'provisioning-client-required' };
     setStatus(provisioningResultMessage(result, action.agent.displayName));
-    els.formSelect?.focus();
+    selectedCardControl('.account-card-runtime select')?.focus();
     return result;
   }
   if (action.isRemote) {
@@ -6493,79 +6433,84 @@ async function openCurrentAgent() {
   }
 }
 
-// 卡片/猫只负责选中 Agent。已有 Slot 时选择器列出确切运行位置；当前
-// 工作环境没有 Slot 时，同一个控件原位列出受支持的首选客户端，普通流程
-// 直接进入首次准备，不要求用户先创建运行位置。
-function renderFormSwitcher(profile, group) {
-  if (!els.formSwitcher || !els.formSelect) return;
-  const label = els.formSwitcher.querySelector('.form-switcher-label');
-  if (label) label.textContent = tr('devices.slot.label');
-  els.formSelect.title = tr('devices.slot.title');
-  // 复用调用方已算好的组；缺省时才自己算一次，保持函数自足
-  const grp = group || (profile ? groupOfProfile(profile.id) : null);
-  const members = grp ? grp.members : [];
-  if (!grp) {
-    els.formSwitcher.hidden = true;
-    els.formSelect.replaceChildren();
-    return;
+function renderAccountCardRuntime(label, action) {
+  const { group, profile, requested } = action;
+  const select = label.querySelector('select');
+  label.querySelector('span').textContent = tr('devices.slot.label');
+  select.title = tr('devices.slot.title');
+  const single = label.querySelector('.account-card-runtime-single');
+  const singleMember = group.members.length === 1 ? group.members[0] : null;
+  single.hidden = !singleMember;
+  select.hidden = Boolean(singleMember);
+  if (singleMember) {
+    const device = singleMember._remote ? singleMember._meshDeviceName : tr('devices.device.local');
+    single.textContent = `${device || singleMember.name} · ${appLabel(singleMember.appId)}`;
+    single.title = `${singleMember._meshDeviceName || singleMember.name} · ${appLabel(singleMember.appId)}`;
   }
-  els.formSelect.replaceChildren();
-  if (members.length && !profile) {
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = tr('devices.slot.choose');
-    placeholder.selected = true;
-    placeholder.disabled = true;
-    els.formSelect.append(placeholder);
-  }
-  for (const member of members) {
-    const option = document.createElement('option');
-    option.value = member.id;
-    option.textContent = member._meshDeviceName
-      ? `${member._meshDeviceName} / ${appLabel(member.appId)}`
-      : `${member.name} · ${appLabel(member.appId)}`;
-    option.selected = member.id === profile?.id;
-    els.formSelect.append(option);
-  }
-
-  if (!members.length && state.mesh.overview?.initialized) {
-    const action = currentAgentActionContext(grp, null);
-    const requested = action.requested;
+  const options = [];
+  let value = profile?.id || '';
+  if (group.members.length) {
+    if (!profile) options.push({ value: '', text: tr('devices.slot.choose'), disabled: true });
+    const locations = group.members.map((member) => {
+      const device = member._remote ? member._meshDeviceName : tr('devices.device.local');
+      return { member, text: `${device || member.name} · ${appLabel(member.appId)}` };
+    });
+    for (const { member, text } of locations) {
+      const ambiguous = locations.some((location) => location.member !== member && location.text === text);
+      options.push({
+        value: member.id,
+        text: ambiguous ? `${text} · ${member.name}` : text,
+        disabled: false
+      });
+    }
+  } else {
     const apps = supportedProvisioningApps();
-    if (!requested) {
-      const placeholder = document.createElement('option');
-      placeholder.value = '';
-      placeholder.textContent = tr('deployment.client.choose');
-      placeholder.selected = true;
-      placeholder.disabled = true;
-      els.formSelect.append(placeholder);
+    if (!requested || !apps.length) {
+      options.push({ value: '', text: tr(apps.length ? 'deployment.client.choose' : 'deployment.client.noneSupported'), disabled: true });
     }
     for (const app of apps) {
-      const option = document.createElement('option');
-      option.value = `prepare:${app.appId}:${app.clientForm}`;
-      option.textContent = tr('deployment.client.unprepared', { app: app.label });
-      option.selected = app.appId === requested?.appId && app.clientForm === requested?.clientForm;
-      els.formSelect.append(option);
-    }
-    if (!apps.length) {
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = tr('deployment.client.noneSupported');
-      option.selected = true;
-      option.disabled = true;
-      els.formSelect.append(option);
+      const optionValue = `prepare:${app.appId}:${app.clientForm}`;
+      options.push({ value: optionValue, text: tr('deployment.client.unprepared', { app: app.label }), disabled: false });
+      if (app.appId === requested?.appId && app.clientForm === requested?.clientForm) value = optionValue;
     }
   }
-  els.formSwitcher.hidden = false;
+  // Retain the open native picker on ordinary activity and quota refreshes.
+  if (select.options.length !== options.length || !options.every((item, index) => {
+    const option = select.options[index];
+    return option.value === item.value && option.textContent === item.text && option.disabled === item.disabled;
+  })) {
+    select.replaceChildren(...options.map((item) => {
+      const option = new Option(item.text, item.value);
+      option.disabled = item.disabled;
+      return option;
+    }));
+  }
+  if (select.value !== value) select.value = value;
+  select.disabled = options.every((item) => item.disabled);
+}
+
+function accountCardTooltip(action) {
+  const { profile, group, agent } = action;
+  if (!profile) {
+    const device = action.device?.name || selectedDeviceLensLabel() || '-';
+    return [group.primary.name, tr('deployment.environmentStatus', { device, state: deploymentStateLabel(action.readiness?.state) }), agent?.note].filter(Boolean).join('\n');
+  }
+  const groupLabel = agent?.group || profile.group;
+  const meta = profile._remote
+    ? tr('devices.slot.remoteMeta', { device: profile._meshDeviceName || '-', status: tr(`devices.status.${profile._deviceStatus || 'offline'}`) })
+    : [appLabel(profile.appId), tr(profile.isProtected ? 'acct.slotDefault' : 'acct.slotIndependent'),
+      groupLabel, tr('acct.lastOpen', { t: compactDate(profile.lastLaunchedAt) })].filter(Boolean).join(' · ');
+  const location = profile._remote
+    ? tr('devices.slot.remotePath')
+    : tr('acct.tip', { p: shortPath(profile.profilePath), s: shortPath(profile.sessionRoot) });
+  return [group.primary.name, meta, location, profile.note ? tr('acct.note', { note: profile.note }) : ''].filter(Boolean).join('\n');
 }
 
 function renderAccountHeader() {
   const profile = selectedProfile();
-  const selectedGroup = identityGroups().find((group) => group.key === currentAgentId()) || null;
   const remote = profile?._remote === true;
   const meshMode = state.mesh.overview?.initialized === true;
   const selectedAgent = catalogAgentById(currentAgentId());
-  const action = currentAgentActionContext(selectedGroup, profile);
   const localLens = !meshMode
     || currentDeviceLensId() === 'all'
     || currentDeviceLensId() === state.mesh.overview.localDeviceId;
@@ -6591,12 +6536,27 @@ function renderAccountHeader() {
     els.addRuntimeLocationBtn.disabled = !selectedAgent || !localLens;
     els.addRuntimeLocationBtn.title = localLens ? '' : tr('account.addRemoteDisabled');
   }
-  if (els.accountManage) els.accountManage.disabled = !selectedGroup && !profile;
   if (els.manageAgentRelationsBtn) {
     els.manageAgentRelationsBtn.hidden = !meshMode;
     els.manageAgentRelationsBtn.disabled = !selectedAgent;
   }
 
+  els.pathConfigBtn.disabled = !profile || remote;
+  els.diagnosticsBtn.disabled = !profile || remote;
+  els.profileFolderBtn.disabled = !profile || remote;
+  els.refreshBtn.disabled = !profile || (remote && !window.manager.refreshMeshInventory);
+  els.editProfileBtn.disabled = meshMode ? !selectedAgent : (!profile || remote);
+  els.removeProfileBtn.disabled = meshMode ? !selectedAgent : (!profile || remote);
+
+  renderAccountRoster();
+  renderQuotaSummary();
+  renderTopbarContext();
+  renderAgentManageContext();
+}
+
+function renderAccountCardLaunch(button, action) {
+  const { profile, meshMode } = action;
+  const remote = profile?._remote === true;
   const profileCanLaunch = profile ? state.appMeta[profile.appId]?.canLaunch !== false : false;
   const requestedCanProvision = action.requested?.appId
     ? state.appMeta[action.requested.appId]?.canProvision === true
@@ -6608,114 +6568,26 @@ function renderAccountHeader() {
   const remotePermitted = !action.isRemote
     || (action.device?.permissions || []).includes(remoteCapability);
   const canOpen = meshMode
-    ? Boolean(selectedAgent && !action.busy && !unavailable && remoteSupported && remotePermitted && (
+    ? Boolean(action.agent && !action.busy && !unavailable && remoteSupported && remotePermitted && (
         (profile && profileCanLaunch) || (!profile && requestedCanProvision)
       ))
     : Boolean(profile && profileCanLaunch && !remote);
-  els.launchBtn.textContent = meshMode ? provisioningButtonLabel(action) : tr('account.open');
-  els.launchBtn.disabled = !canOpen;
-  if (action.isRemote && !remoteSupported) els.launchBtn.title = tr('deployment.action.remoteUnsupported');
-  else if (action.isRemote && !remotePermitted) els.launchBtn.title = tr('deployment.action.remotePermission');
-  else if (unavailable) els.launchBtn.title = tr('deployment.action.offline');
-  else if (!profile && !action.requested?.appId) els.launchBtn.title = tr('deployment.action.chooseClient');
-  else if (!profile && !requestedCanProvision) els.launchBtn.title = tr('deployment.action.unsupportedClient');
-  else if (profile && !profileCanLaunch) els.launchBtn.title = tr('deployment.action.externalClient');
-  else els.launchBtn.title = '';
-  els.pathConfigBtn.disabled = !profile || remote;
-  els.diagnosticsBtn.disabled = !profile || remote;
-  els.profileFolderBtn.disabled = !profile || remote;
-  els.refreshBtn.disabled = !profile || (remote && !window.manager.refreshMeshInventory);
-  els.editProfileBtn.disabled = meshMode ? !selectedAgent : (!profile || remote);
-  els.removeProfileBtn.disabled = meshMode ? !selectedAgent : (!profile || remote);
-
-  if (!profile && !selectedGroup) {
-    els.accountTitle.textContent = selectedGroup?.agent?.displayName
-      || selectedGroup?.primary?.name
-      || tr(meshMode ? 'account.noneAgent' : 'account.none');
-    if (els.accountBadge) els.accountBadge.hidden = true;
-    if (els.accountId) els.accountId.title = '';
-
-
-
-
-    renderFormSwitcher(null, selectedGroup);
-    renderQuotaSummary();
-    renderTopbarContext();
-    renderAgentManageContext();
-    return;
-  }
-
-  // 主名牌只表达全局 Agent；客户端与设备属于下方明确的运行位置选择器。
-  // 长信息（槽位/分组/上次打开/路径/备注）收进名牌 tooltip，不再占控制条版面。
-  const identityGroup = selectedGroup || (profile ? groupOfProfile(profile.id) : null);
-  const agentName = selectedAgent?.displayName || identityGroup?.primary?.name || profile?.name || tr('account.noneAgent');
-  els.accountTitle.textContent = agentName;
-  const groupLabel = (selectedAgent?.group || profile?.group) ? ` · ${selectedAgent?.group || profile.group}` : '';
-  const members = identityGroup ? identityGroup.members : (profile ? [profile] : []);
-  // 并行会话数按整个账号（组）聚合：桌面在跑 + 终端在跑 = 一起数
-  const activeNow = window.IdentityGroups.mergeActivity(members.map((member) => state.activity[member.id]))?.activeNow || 0;
-  const badgeParts = [];
-  if (meshMode) badgeParts.push(deploymentStateLabel(action.readiness?.state));
-  if (activeNow > 0) badgeParts.push(tr('acct.badgeParallel', { n: activeNow }));
-  if (members.length > 1) badgeParts.push(tr('acct.badgeForms', { n: members.length }));
-  const quotaSnapshot = profile ? selectedQuota() : null;
-  if (quotaSnapshot?.status === 'ok' && window.YardEnergy) {
-    const energyKey = window.YardEnergy.deriveEnergy(quotaSnapshot, Date.now());
-    badgeParts.push(`⚡ ${tr('energy.' + energyKey)}`);
-  }
-  if (els.accountBadge) {
-    els.accountBadge.textContent = badgeParts.join(' · ');
-    els.accountBadge.hidden = badgeParts.length === 0;
-  }
-  renderFormSwitcher(profile, identityGroup);
-
-  if (!profile) {
-    const environmentName = action.device?.name || selectedDeviceLensLabel() || '-';
-    const metaLine = tr('deployment.environmentStatus', {
-      device: environmentName,
-      state: deploymentStateLabel(action.readiness?.state)
-    });
-    const clientLine = action.requested?.appId
-      ? tr('deployment.client.selected', { app: appLabel(action.requested.appId) })
-      : tr('deployment.client.chooseHint');
-    if (els.accountId) {
-      els.accountId.title = [metaLine, clientLine, selectedAgent?.note || ''].filter(Boolean).join('\n');
-    }
-
-
-
-
-    renderQuotaSummary();
-    renderTopbarContext();
-    renderAgentManageContext();
-    return;
-  }
-
-  const metaLine = remote
-    ? tr('devices.slot.remoteMeta', {
-        device: profile._meshDeviceName || '-',
-        status: tr(`devices.status.${profile._deviceStatus || 'offline'}`)
-      })
-    : `${appLabel(profile.appId)} · ${tr(profile.isProtected ? 'acct.slotDefault' : 'acct.slotIndependent')}${groupLabel} · ${tr('acct.lastOpen', { t: compactDate(profile.lastLaunchedAt) })}`;
-  const pathLine = remote
-    ? tr('devices.slot.remotePath')
-    : tr('acct.tip', { p: shortPath(profile.profilePath), s: shortPath(profile.sessionRoot) });
-  if (els.accountId) {
-    els.accountId.title = [metaLine, pathLine, profile.note ? tr('acct.note', { note: profile.note }) : ''].filter(Boolean).join('\n');
-  }
-
-
-
-
-  renderQuotaSummary();
-  renderTopbarContext();
-  renderAgentManageContext();
+  button.textContent = meshMode ? provisioningButtonLabel(action) : tr('account.open');
+  button.disabled = !canOpen;
+  if (action.isRemote && !remoteSupported) button.title = tr('deployment.action.remoteUnsupported');
+  else if (action.isRemote && !remotePermitted) button.title = tr('deployment.action.remotePermission');
+  else if (unavailable) button.title = tr('deployment.action.offline');
+  else if (!profile && !action.requested?.appId) button.title = tr('deployment.action.chooseClient');
+  else if (!profile && !requestedCanProvision) button.title = tr('deployment.action.unsupportedClient');
+  else if (profile && !profileCanLaunch) button.title = tr('deployment.action.externalClient');
+  else button.title = '';
+  button.setAttribute('aria-label', `${action.group.primary.name} · ${button.textContent}`);
 }
 
 const COMPACT_SESSION_COLUMNS = [
   { key: 'title', label: 'session.col.title', className: 'col-title', cellClass: 'title-cell' },
+  { key: 'project', label: 'session.col.project', className: 'col-project', cellClass: 'path-cell' },
   { key: 'updatedAt', label: 'session.col.active', className: 'col-date' },
-  { key: 'project', label: 'session.col.project', className: 'col-project', cellClass: 'mono path-cell' },
   { key: 'source', label: 'session.col.source', className: 'col-source' }
 ];
 
@@ -6774,54 +6646,150 @@ function resolvedActionSessions() {
   return actionSessions().map(resolvedSessionRow).filter(Boolean);
 }
 
-function resolvedFocusedSession() {
-  return resolvedSessionRow(selectedSession());
+let sessionFileActionBusy = false;
+
+function isLocalActionSession(session) {
+  return Boolean(session?._profileId && !session._remote && !session._stale
+    && state.profiles.some((profile) => String(profile.id) === String(session._profileId)));
 }
 
-function renderSessionCopyControl() {
-  if (!els.copySessionInfoBtn) return;
-  const count = actionSessions().length;
-  const unresolved = unresolvedActionSessions();
-  const hasExplicitChecks = state.ui.checkedConversationIds.size > 0;
+function sessionFileActionRefs(sessions) {
+  return sessions.map((session) => ({
+    profileId: String(session._profileId),
+    sessionId: String(session.id)
+  }));
+}
+
+function renderSessionActionToolbar() {
+  const selected = actionSessions();
+  const count = selected.length;
+  const resolved = selected.map(resolvedSessionRow);
+  const unresolved = resolved.filter((session) => !session).length;
+  const folders = resolved.filter((session) => isLocalActionSession(session) && session.filePath).length;
+  const exportable = resolved.filter((session) => (
+    isLocalActionSession(session) && state.appMeta[session.appId]?.canExportTranscript
+  )).length;
   const visibility = window.UiContext.actionVisibility(
     state.ui,
     state.filteredSessions.map(sessionKey)
   );
-  if (els.sessionActionDock) els.sessionActionDock.hidden = count === 0;
-  if (els.sessionSelectionBar) els.sessionSelectionBar.hidden = count === 0;
-  if (els.sessionFocusedActions) {
-    els.sessionFocusedActions.hidden = count === 0 || hasExplicitChecks || !selectedSession();
-  }
-  if (els.sessionSelectionCount) {
-    els.sessionSelectionCount.textContent = tr('session.selection.count', { n: count });
-  }
-  if (els.sessionSelectionIssue) {
-    const issues = [
-      visibility.hidden ? tr('session.selection.hiddenCount', { n: visibility.hidden }) : null,
-      unresolved.length ? tr('session.replica.requiredCount', { n: unresolved.length }) : null
-    ].filter(Boolean);
-    els.sessionSelectionIssue.hidden = issues.length === 0;
-    els.sessionSelectionIssue.textContent = issues.join(' · ');
-  }
-  els.copySessionInfoBtn.disabled = count === 0 || unresolved.length > 0;
+  els.sessionSelectionBar.hidden = count === 0;
+  els.sessionSelectionCount.textContent = tr('session.selection.count', { n: count });
+  const issues = [];
+  if (visibility.hidden) issues.push(tr('session.selection.hiddenCount', { n: visibility.hidden }));
+  if (unresolved) issues.push(tr('session.replica.requiredCount', { n: unresolved }));
+  else if (folders < count) issues.push(tr('session.actions.localOnly'));
+  else if (exportable < count) issues.push(tr('session.actions.unsupportedExport'));
+  const hasReplicaChoice = selected.some((session) => replicaResolution(session).candidates?.length > 1);
+  els.chooseSessionReplicaBtn.hidden = !hasReplicaChoice;
+  els.sessionSelectionNotice.hidden = issues.length === 0 && !hasReplicaChoice;
+  els.sessionSelectionIssue.textContent = issues.join(' · ');
+  els.copySessionInfoBtn.disabled = count === 0 || unresolved > 0;
   els.copySessionInfoBtn.textContent = count > 1
     ? tr('session.copyInfoCount', { n: count })
     : tr('session.copyInfo');
-  els.copySessionInfoBtn.title = unresolved.length
+  els.copySessionInfoBtn.title = unresolved
     ? tr('session.replica.requiredAction')
     : tr('session.copyInfoHint');
+  els.openSessionFileBtn.disabled = !count || count !== folders || sessionFileActionBusy;
+  els.openSessionFileBtn.title = tr('session.actions.openHint');
+  els.exportSessionBtn.disabled = !count || count !== exportable || sessionFileActionBusy;
+  els.exportSessionBtn.title = tr('session.actions.exportHint');
+  const handoff = count === 1 && isLocalActionSession(resolved[0])
+    && ['native', 'transcript'].includes(state.appMeta[resolved[0].appId]?.taskPackageMode);
+  els.taskPackageActionBtn.disabled = !handoff;
+  els.taskPackageActionBtn.title = tr(handoff ? 'taskPackage.action.hint' : 'taskPackage.action.unsupported');
   if (els.sendSessionInfoBtn) {
     const remotes = (state.mesh.overview?.devices || []).filter((device) => !device.isLocal);
     const paused = crossDeviceActionsPaused();
-    els.sendSessionInfoBtn.disabled = count === 0 || unresolved.length > 0 || remotes.length === 0 || paused;
+    els.sendSessionInfoBtn.disabled = count === 0 || unresolved > 0 || remotes.length === 0 || paused;
     els.sendSessionInfoBtn.textContent = count > 1
       ? tr('session.sendInfoCount', { n: count })
       : tr('session.sendInfo');
     els.sendSessionInfoBtn.title = paused
       ? tr('status.crossDevicePaused')
-      : (unresolved.length
+      : (unresolved
           ? tr('session.replica.requiredAction')
           : tr('session.sendInfoHint'));
+  }
+}
+
+async function openSessionDirectoryOption(option) {
+  let result;
+  try { result = await window.manager.openSessionDirectory(option.ref, option.path); } catch (_error) { /* Show a fixed error below. */ }
+  const message = result?.ok ? tr('status.sessionLocOk') : (result?.reason || tr('status.sessionLocFail'));
+  setStatus(message);
+  if (!els.sessionDirectoryDialog.open) return;
+  if (result?.ok) els.sessionDirectoryDialog.close();
+  else {
+    els.sessionDirectoryStatus.hidden = false;
+    els.sessionDirectoryStatus.textContent = message;
+  }
+}
+
+async function openSelectedSessionDirectories() {
+  if (els.openSessionFileBtn.disabled) return;
+  const refs = sessionFileActionRefs(resolvedActionSessions());
+  sessionFileActionBusy = true;
+  renderSessionActionToolbar();
+  try {
+    const result = await window.manager.listSessionDirectories(refs);
+    if (!result?.ok || !result.directories.length) {
+      setStatus(result?.reason || tr('status.sessionLocFail'));
+      return;
+    }
+    if (result.directories.length === 1) {
+      await openSessionDirectoryOption(result.directories[0]);
+      return;
+    }
+    els.sessionDirectoryOptions.replaceChildren();
+    els.sessionDirectoryStatus.hidden = true;
+    for (const option of result.directories) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      const location = document.createElement('code');
+      location.textContent = shortPath(option.path);
+      location.title = option.path;
+      const count = document.createElement('span');
+      count.textContent = tr('session.actions.directorySessions', { n: option.count });
+      button.append(location, count);
+      button.addEventListener('click', async () => {
+        if (sessionFileActionBusy) return;
+        sessionFileActionBusy = true;
+        const choices = els.sessionDirectoryOptions.querySelectorAll('button');
+        for (const choice of choices) choice.disabled = true;
+        try {
+          await openSessionDirectoryOption(option);
+        } finally {
+          sessionFileActionBusy = false;
+          for (const choice of choices) choice.disabled = false;
+        }
+      });
+      els.sessionDirectoryOptions.append(button);
+    }
+    openChildDialog(els.sessionDirectoryDialog, els.openSessionFileBtn);
+  } catch (_error) {
+    setStatus(tr('status.sessionLocFail'));
+  } finally {
+    sessionFileActionBusy = false;
+    renderSessionActionToolbar();
+  }
+}
+
+async function exportSelectedSessions() {
+  if (els.exportSessionBtn.disabled) return;
+  const refs = sessionFileActionRefs(resolvedActionSessions());
+  sessionFileActionBusy = true;
+  renderSessionActionToolbar();
+  setStatus(tr('session.actions.preparingExport'));
+  try {
+    const result = await window.manager.exportSessions(refs);
+    setStatus(result?.message || result?.reason || tr(result?.ok ? 'status.exportOk' : 'status.exportFail'));
+  } catch (_error) {
+    setStatus(tr('status.exportFail'));
+  } finally {
+    sessionFileActionBusy = false;
+    renderSessionActionToolbar();
   }
 }
 
@@ -6937,7 +6905,9 @@ function renderTaskPackageDeliveryOptions() {
 }
 
 async function openTaskPackageExportDialog(returnFocus = document.activeElement) {
-  const session = resolvedFocusedSession();
+  const sessions = resolvedActionSessions();
+  if (sessions.length !== 1) return;
+  const session = sessions[0];
   const profile = sessionOwnerProfile(session);
   if (!session || !profile || !els.taskPackageDialog || !window.manager.previewTaskPackageExport) return;
   resetTaskPackageExportState();
@@ -8117,20 +8087,17 @@ function setAllVisibleSessionsSelected(selected) {
   }
   state.ui = window.UiContext.setCheckedConversations(state.ui, next);
   renderSessions();
-  renderInspector();
 }
 
 function clearSessionActionSelection() {
   state.ui = window.UiContext.clearConversationActions(state.ui);
   renderSessions();
-  renderInspector();
 }
 
 function setSessionChecked(session, checked) {
   const key = sessionKey(session);
   state.ui = window.UiContext.checkConversation(state.ui, key, checked);
   renderSessions();
-  renderInspector();
 }
 
 function focusSession(session) {
@@ -8140,6 +8107,10 @@ function focusSession(session) {
 
 function renderSessionHead() {
   if (!els.sessionHead) return;
+  const activeControl = document.activeElement;
+  const restoreSelectAll = activeControl?.id === 'sessionSelectAll';
+  const restoreSort = els.sessionHead.contains(activeControl) ? activeControl.dataset.sortKey : null;
+  let sortControl = null;
   const row = document.createElement('tr');
   const selectHeading = document.createElement('th');
   selectHeading.scope = 'col';
@@ -8170,6 +8141,8 @@ function renderSessionHead() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'sort-button';
+    button.dataset.sortKey = column.key;
+    if (restoreSort === column.key) sortControl = button;
     const label = tr(column.label);
     button.title = tr('session.sort.hint', { label });
     const text = document.createElement('span');
@@ -8191,11 +8164,16 @@ function renderSessionHead() {
   }
 
   els.sessionHead.replaceChildren(row);
+  (restoreSelectAll ? selectAll : sortControl)?.focus({ preventScroll: true });
 }
 
 function renderSessions() {
+  const activeControl = document.activeElement;
+  const restoreKey = activeControl?.closest('tr[data-session-key]')?.dataset.sessionKey;
+  const restoreSelector = activeControl?.classList.contains('session-select-box') ? '.session-select-box' : '.title-cell-main';
+  let rowControl = null;
   renderSessionControls();
-  renderSessionCopyControl();
+  renderSessionActionToolbar();
   renderSessionHead();
   els.sessionRows.replaceChildren();
   const accountCount = sessionAccountCount(state.filteredSessions);
@@ -8219,6 +8197,7 @@ function renderSessions() {
   for (const session of state.filteredSessions) {
     const key = sessionKey(session);
     const row = document.createElement('tr');
+    row.dataset.sessionKey = key;
     const checked = state.ui.checkedConversationIds.has(key);
     row.classList.toggle('selected', checked);
     row.classList.toggle('session-active', key === state.ui.focusedConversationId);
@@ -8239,6 +8218,7 @@ function renderSessions() {
     for (const column of sessionColumns()) {
       row.append(renderSessionCell(session, column));
     }
+    if (key === restoreKey) rowControl = row.querySelector(restoreSelector);
 
     row.addEventListener('click', (event) => {
       if (event.metaKey || event.ctrlKey) {
@@ -8246,21 +8226,22 @@ function renderSessions() {
       } else {
         focusSession(session);
         renderSessions();
-        renderInspector();
       }
     });
     els.sessionRows.append(row);
   }
+  rowControl?.focus({ preventScroll: true });
 }
 
 function renderSessionCell(session, column) {
   const cell = document.createElement('td');
-  cell.className = column.cellClass || '';
+  cell.className = [column.className, column.cellClass].filter(Boolean).join(' ');
   let value = '';
   let fullValue = '';
   switch (column.key) {
     case 'title': {
-      const title = document.createElement('span');
+      const title = document.createElement('button');
+      title.type = 'button';
       title.className = 'title-cell-main';
       title.textContent = session.title || '-';
       cell.append(title);
@@ -8291,8 +8272,12 @@ function renderSessionCell(session, column) {
       fullValue = fullDate(session.updatedAt);
       break;
     case 'project':
-      value = session.projectPath ? shortPath(session.projectPath) : '-';
       fullValue = session.projectPath || '';
+      value = fullValue ? (
+        state.sessionView === 'compact'
+          ? fullValue.split(/[\\/]/).filter(Boolean).at(-1) || fullValue
+          : shortPath(fullValue)
+      ) : '-';
       break;
     case 'id':
       value = session.address || session.id || '-';
@@ -8319,121 +8304,47 @@ function sessionAccountCount(sessions) {
   )).filter(Boolean)).size;
 }
 
-function renderInspector() {
-  const focused = selectedSession();
-  const resolution = focused ? replicaResolution(focused) : null;
-  const session = resolution?.resolved ? resolvedSessionRow(focused) : focused;
-  const disabled = !focused || resolution?.resolved === false;
-  els.openSessionFileBtn.disabled = disabled || session?._remote === true || session?._stale === true;
-  els.openSessionFileBtn.title = resolution?.resolved === false ? tr('session.replica.requiredAction') : '';
-  // 导出能力按客户端目录声明。
-  const canExport = Boolean(!disabled && session && !session._remote && !session._stale && state.appMeta[session.appId]?.canExportTranscript);
-  els.exportSessionBtn.disabled = !canExport;
-  els.exportSessionBtn.title = canExport
-    ? tr('detail.export.can')
-    : (session ? tr('detail.export.cannot') : '');
-  const canTaskPackage = Boolean(
-    !disabled
-    && session
-    && !session._remote
-    && !session._stale
-    && state.appMeta[session.appId]?.taskPackageMode !== 'unsupported'
-  );
-  if (els.taskPackageActionBtn) {
-    els.taskPackageActionBtn.disabled = !canTaskPackage;
-    els.taskPackageActionBtn.title = canTaskPackage
-      ? tr('taskPackage.action.hint')
-      : (session ? tr('taskPackage.action.unsupported') : '');
-  }
-
-  renderReplicaPicker(focused, resolution);
-  if (els.sessionInspectorEmpty) els.sessionInspectorEmpty.hidden = Boolean(focused);
-  if (els.sessionInspectorFields) els.sessionInspectorFields.hidden = !focused;
-  if (els.sessionTechnicalDetails) els.sessionTechnicalDetails.hidden = !focused;
-
-  if (!focused) {
-    setDetail(els.detailTitle, tr('detail.unselected'), { keep: true });
-    for (const dd of [els.detailAccount, els.detailLocation, els.detailCreated, els.detailUpdated, els.detailSource, els.detailProject, els.detailCoordinate]) {
-      setDetail(dd, '');
-    }
-    if (els.sessionTechnicalDetails) els.sessionTechnicalDetails.open = false;
-    return;
-  }
-
-  const owner = sessionOwnerProfile(session);
-  setDetail(els.detailTitle, focused.title, { keep: true });
-  setDetail(els.detailAccount, session._accountName || owner?.name);
-  setDetail(els.detailLocation, resolution?.resolved === false
-    ? tr('session.replica.requiredInline')
-    : [
-        session._deviceName,
-        session._profileName && session._profileName !== session._accountName ? session._profileName : null,
-        session._appLabel || (owner ? appLabel(owner.appId) : null),
-        session._stale ? tr('session.offlineSnapshot') : null
-      ].filter(Boolean).join(' · '));
-  setDetail(els.detailCreated, fullDate(session.createdAt));
-  setDetail(els.detailUpdated, fullDate(session.updatedAt));
-  setDetail(els.detailSource, [
-    session.source,
-    session.status,
-    session.model
-  ].filter(Boolean).join(' · '));
-  setDetail(els.detailProject, resolution?.resolved === false
-    ? ''
-    : (window.SessionLocation ? shortPath(window.SessionLocation.pathOf(session)) : shortPath(session.projectPath || session.filePath)));
-  setDetail(els.detailCoordinate, resolution?.resolved === false
-    ? ''
-    : (window.SessionLocation ? shortPath(window.SessionLocation.coordinateOf(session)) : shortPath(session.filePath || session.address || session.id)));
-}
-
-function renderReplicaPicker(session, resolution) {
-  if (!els.sessionReplicaPicker || !els.sessionReplicaOptions) return;
-  const candidates = resolution?.candidates || [];
-  const needsPicker = Boolean(session && candidates.length > 1);
-  els.sessionReplicaPicker.hidden = !needsPicker;
+function renderReplicaPicker(sessions) {
   els.sessionReplicaOptions.replaceChildren();
-  if (!needsPicker) return;
-
   const overview = state.mesh.overview;
-  for (const replica of candidates) {
-    const device = overview?.devices?.find((item) => item.deviceId === replica.deviceId);
-    const slot = overview?.slots?.find((item) => (
-      item.deviceId === replica.deviceId && String(item.profileId) === String(replica.profileId)
-    ));
-    const label = document.createElement('label');
-    label.className = 'session-replica-option';
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = `session-replica-${sessionKey(session)}`;
-    radio.value = replica.replicaId;
-    radio.checked = resolution.replicaId === replica.replicaId;
-    const copy = document.createElement('span');
-    const name = document.createElement('strong');
-    name.textContent = device?.name || replica.deviceName || replica.deviceId;
-    const meta = document.createElement('small');
-    meta.textContent = [
-      slot?.localLabel,
-      appLabel(replica.appId || slot?.appId),
-      replica.stale ? tr('session.offlineSnapshot') : tr(`devices.status.${device?.status || 'offline'}`)
-    ].filter(Boolean).join(' · ');
-    copy.append(name, meta);
-    radio.addEventListener('change', () => {
-      state.ui = window.UiContext.selectReplica(state.ui, sessionKey(session), replica.replicaId);
-      renderSessions();
-      renderInspector();
-    });
-    label.append(radio, copy);
-    els.sessionReplicaOptions.append(label);
+  for (const session of sessions) {
+    const resolution = replicaResolution(session);
+    if (!(resolution.candidates?.length > 1)) continue;
+    const group = document.createElement('fieldset');
+    const legend = document.createElement('legend');
+    legend.textContent = session.title || session.id;
+    group.append(legend);
+    for (const replica of resolution.candidates) {
+      const device = overview?.devices?.find((item) => item.deviceId === replica.deviceId);
+      const slot = overview?.slots?.find((item) => (
+        item.deviceId === replica.deviceId && String(item.profileId) === String(replica.profileId)
+      ));
+      const label = document.createElement('label');
+      label.className = 'session-replica-option';
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = `session-replica-${sessionKey(session)}`;
+      radio.value = replica.replicaId;
+      radio.checked = resolution.replicaId === replica.replicaId;
+      const copy = document.createElement('span');
+      const name = document.createElement('strong');
+      name.textContent = device?.name || replica.deviceName || replica.deviceId;
+      const meta = document.createElement('small');
+      meta.textContent = [
+        slot?.localLabel,
+        appLabel(replica.appId || slot?.appId),
+        replica.stale ? tr('session.offlineSnapshot') : tr(`devices.status.${device?.status || 'offline'}`)
+      ].filter(Boolean).join(' · ');
+      copy.append(name, meta);
+      radio.addEventListener('change', () => {
+        state.ui = window.UiContext.selectReplica(state.ui, sessionKey(session), replica.replicaId);
+        renderSessions();
+      });
+      label.append(radio, copy);
+      group.append(label);
+    }
+    els.sessionReplicaOptions.append(group);
   }
-}
-
-// 会话详情：空字段连同标签一起折叠，详情栏更紧凑（keep=true 的字段始终保留）
-function setDetail(dd, value, { keep = false } = {}) {
-  const empty = !keep && (!value || value === '-' || value === tr('common.unrecorded'));
-  dd.textContent = value || '-';
-  dd.hidden = empty;
-  const dt = dd.previousElementSibling;
-  if (dt && dt.tagName === 'DT') dt.hidden = empty;
 }
 
 async function showDiagnostics() {
@@ -8664,12 +8575,6 @@ function sessionKey(session) {
   return `${session._profileId || ''}::${session.address || session.id || session.filePath || ''}`;
 }
 
-function selectedSession() {
-  return state.sessions.find((session) => (
-    sessionKey(session) === state.ui.focusedConversationId
-  )) || null;
-}
-
 function compactDate(value) {
   if (!value) return tr('common.unrecorded');
   const date = new Date(value);
@@ -8710,6 +8615,8 @@ function formatBytes(value) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function setStatus(message) {
+function setStatus(message, tone = 'neutral') {
+  els.statusText.parentElement.dataset.tone = tone;
+  els.statusText.removeAttribute('data-i18n');
   els.statusText.textContent = message;
 }

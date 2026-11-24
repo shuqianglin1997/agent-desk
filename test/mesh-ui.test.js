@@ -24,7 +24,7 @@ test('设备入口位于工具之前，设备中心使用独立模态弹窗且�
   assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?dialog\.showModal\(\)/);
   assert.match(workspaceStyles, /\.device-center-dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?--dialog-preferred-height:\s*680px/);
   assert.match(workspaceStyles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*hidden/);
-  assert.match(workspaceStyles, /--header-h:\s*58px;[\s\S]*?--footer-h:\s*38px;[\s\S]*?--agent-h:\s*244px;[\s\S]*?--detail-w:\s*316px/);
+  assert.match(workspaceStyles, /--header-h:\s*58px;[\s\S]*?--footer-h:\s*38px;[\s\S]*?--agent-h:\s*222px;[\s\S]*?--detail-w:\s*316px/);
   assert.match(workspaceStyles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\);[\s\S]*?grid-template-rows:\s*var\(--agent-h\) minmax\(0, 1fr\)/);
   assert.match(styles, /\.mesh-ready-state\[hidden\],[\s\S]*?\.mesh-empty-state\[hidden\][\s\S]*?display:\s*none/);
 });
@@ -118,10 +118,10 @@ test('工作环境始终投影完整员工库，并用同一主按钮确保就�
   assert.match(renderer, /function identityGroupsForLens[\s\S]*?AgentWorkspace\.projectMeshAgentGroups/);
   assert.doesNotMatch(renderer, /if \(!slots\.length\) continue/);
   assert.match(projection, /return \(overview\.agents \|\| \[\]\)\.map/);
-  assert.match(renderer, /card\.addEventListener\('click', \(\) => selectAgent\(group\.key\)\)/);
+  assert.match(renderer, /card\.querySelector\('\.account-card-launch'\)\.addEventListener\('click',[\s\S]*?if \(activateAccountCard\(agentId\)\) void openCurrentAgent\(\)/);
   assert.match(renderer, /function openCurrentAgent\(\)[\s\S]*?ensureAgentReady\(\{[\s\S]*?agentId:[\s\S]*?deviceId:[\s\S]*?requestedAppId:/);
   assert.match(renderer, /deployment\.action\.firstOpen/);
-  assert.match(renderer, /if \(!members\.length && state\.mesh\.overview\?\.initialized\)[\s\S]*?deployment\.client\.unprepared/);
+  assert.match(renderer, /if \(group\.members\.length\)[\s\S]*?else \{\s*const apps = supportedProvisioningApps\(\);[\s\S]*?deployment\.client\.unprepared/);
   assert.match(renderer, /resolveUnambiguousLocalSelection\(\{[\s\S]*?overview: state\.mesh\.overview,[\s\S]*?profiles: state\.profiles/);
   assert.match(renderer, /selectedDeviceLensId: currentDeviceLensId\(\)[\s\S]*?selectedAgentIdByDeviceLens:[\s\S]*?selectedSlotKeyByAgentAndLens:/);
   assert.match(renderer, /function selectDeviceLens[\s\S]*?persistUiSelectionMemory\(\)/);
@@ -249,12 +249,13 @@ test('远控返回保留后台查看提示，断开才移除；错误按真实�
   assert.match(renderer, /disabled: state\.mesh\.loading \|\| !canView \|\| !canReachRemote/);
 });
 
-test('会话发送是复制主按钮旁的次级动作，只提交稳定 ID，项目根由 Main 选择', () => {
+test('会话发送从活动弹窗发起，只提交稳定 ID，项目根由 Main 选择', () => {
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
   const preload = read('src/preload.js');
   const main = read('src/main.js');
-  assert.match(html, /id="copySessionInfoBtn"[\s\S]{0,300}id="sendSessionInfoBtn" class="session-send-info"/);
+  const activity = html.slice(html.indexOf('id="activityCenterDialog"'));
+  assert.match(activity, /activity-center-actions[\s\S]*?id="sendSessionInfoBtn"/);
   assert.match(renderer, /conversationId:\s*session\.conversationId,[\s\S]{0,100}replicaId:\s*session\._replicaId/);
   assert.doesNotMatch(renderer, /createSessionPointerTransfer\(\{[^}]*projectPath|chooseProjectBinding\(\{[^}]*localRoot/);
   assert.match(preload, /ipcRenderer\.invoke\('transfers:createSessionPointer'/);

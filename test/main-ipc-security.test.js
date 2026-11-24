@@ -165,6 +165,10 @@ test('path selection capabilities are purpose-bound, expiring, and one registry 
   const directory = registry.issue({ kind: 'profile-directory', path: '/chosen/by/user' });
   assert.equal(registry.resolve(directory.selectionId, 'profile-directory'), '/chosen/by/user');
   assert.throws(() => registry.resolve(directory.selectionId, 'profile-executable'), /purpose-mismatch/);
+  assert.throws(() => registry.resolve(directory.selectionId, 'codex-home'), /purpose-mismatch/);
+  const codexHome = registry.issue({ kind: 'codex-home', path: '/discovered/.codex' });
+  assert.equal(registry.resolve(codexHome.selectionId, 'codex-home'), '/discovered/.codex');
+  assert.throws(() => registry.resolve(codexHome.selectionId, 'profile-directory'), /purpose-mismatch/);
   assert.throws(() => registry.resolve('/arbitrary/path', 'profile-directory'), /expired/);
   assert.throws(() => registry.resolve('/Applications/Evil.app/Contents/MacOS/Evil', 'profile-executable'), /expired/);
   registry.consume([directory.selectionId]);

@@ -326,6 +326,15 @@
 
   function completionPatch(model, now = new Date().toISOString()) {
     if (model?.phase !== 'complete' || model.completeShown !== true) return null;
+    return onboardingProgressPatch(model, now);
+  }
+
+  function localImportCompletionPatch(model, now = new Date().toISOString()) {
+    if (model?.phase !== 'agent' || model.initialized || model.profiles.length) return null;
+    return onboardingProgressPatch(model, now);
+  }
+
+  function onboardingProgressPatch(model, now) {
     return {
       welcomed: true,
       onboarding: {
@@ -343,6 +352,7 @@
     transition,
     selectedClient,
     canSubmit,
-    completionPatch
+    completionPatch,
+    localImportCompletionPatch
   };
 });

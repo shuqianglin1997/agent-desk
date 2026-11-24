@@ -198,3 +198,28 @@ test('overview uses the same trust decision as cards, preserves conflicts, and s
   assert.ok(buildTrustedQuotaOverview(groups, quotas, NOW + 86400000).every(r => !r.hasQuota));
   assert.ok(buildTrustedQuotaOverview(groups, quotas, NOW, { quotaError: 'offline' }).every(r => !r.hasQuota));
 });
+
+test('新鲜 API Key 槽位明确不适用，混合订阅、过期与失败仍按实际证据展示', () => {
+  const { buildTrustedQuotaOverview } = require('../src/quota-overview');
+  const api = member('api');
+  const group = { key: 'api', primary: api, members: [api] };
+  const snapshot = {
+    profileId: 'api', provider: 'codex', status: 'unsupported', source: 'agentdesk',
+    reasonCode: 'api-key-auth', reason: 'API Key does not have subscription quota',
+    observedAt: '2026-07-20T11:59:00Z', windows: []
+  };
+  const quotas = { api: snapshot };
+  assert.equal(selectTrustedAccountQuota(group, quotas, NOW).status, 'not_applicable');
+  const row = buildTrustedQuotaOverview([group], quotas, NOW, { reasonFor: () => '不适用' })[0];
+  assert.equal(row.status, 'not_applicable');
+  assert.equal(row.reason, '不适用');
+  assert.equal(row.hasQuota, false);
+  assert.equal(row.tightest, null);
+  assert.equal(selectTrustedAccountQuota(group, quotas, NOW + 86400000).status, 'unknown');
+  assert.equal(selectTrustedAccountQuota(group, quotas, NOW, { quotaError: 'offline' }).status, 'unknown');
+  assert.equal(selectTrustedAccountQuota(group, { api: { ...snapshot, source: 'codex-session-log' } }, NOW).status, 'unknown');
+  assert.equal(selectTrustedAccountQuota(group, { api: { ...snapshot, provider: 'claude' } }, NOW).status, 'unknown');
+  const mixed = { ...group, members: [api, member('subscription')] };
+  assert.equal(selectTrustedAccountQuota(mixed, quotas, NOW).status, 'unknown');
+  assert.equal(selectTrustedAccountQuota(mixed, { ...quotas, subscription: okQuota('subscription', 65) }, NOW).status, 'ok');
+});

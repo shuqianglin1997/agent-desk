@@ -12,17 +12,12 @@ function dialogSlice(html, id) {
   return html.slice(start, html.indexOf('</dialog>', start));
 }
 
-test('任务交接只作为单会话次级动作，并把导入与历史放入活动弹窗', () => {
+test('任务交接从活动弹窗执行，复用当前唯一选中的会话', () => {
   const html = read('src/index.html');
-  const focusedActions = html.slice(
-    html.indexOf('id="sessionFocusedActions"'),
-    html.indexOf('</div>', html.indexOf('id="sessionFocusedActions"'))
-  );
-  assert.match(focusedActions, /id="openSessionFileBtn"[\s\S]*?id="taskPackageActionBtn"[\s\S]*?id="exportSessionBtn"/);
-  assert.doesNotMatch(focusedActions, /class="[^"]*primary/);
-
+  const renderer = read('src/renderer.js');
   const activity = dialogSlice(html, 'activityCenterDialog');
-  assert.match(activity, /id="importTaskPackageBtn"[\s\S]*?id="incomingTaskPackages"[\s\S]*?id="taskPackageHistory"/);
+  assert.match(activity, /id="importTaskPackageBtn"[\s\S]*?id="taskPackageActionBtn"[^>]*disabled[\s\S]*?id="incomingTaskPackages"[\s\S]*?id="taskPackageHistory"/);
+  assert.match(renderer, /function openTaskPackageExportDialog[\s\S]*?resolvedActionSessions\(\)[\s\S]*?sessions\.length !== 1/);
   assert.doesNotMatch(html, /handoffBulkBar|copySelectedHandoffBtn|handoffPlan/);
 });
 

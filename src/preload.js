@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const knownProfiles = new Map();
 const pathSelections = new Map();
@@ -107,6 +107,13 @@ function knownProfilePath(displayPath) {
   return null;
 }
 
+function importDroppedCodexAuth(file) {
+  let selectedPath = '';
+  try { selectedPath = webUtils.getPathForFile(file); } catch (_error) { /* Only accept native files. */ }
+  if (!selectedPath) return Promise.resolve({ ok: false, reasonCode: 'codex-auth-unreadable' });
+  return ipcRenderer.invoke('profiles:importDroppedCodexAuth', selectedPath);
+}
+
 function showKnownItem(displayPath) {
   const target = knownProfilePath(displayPath);
   if (!target) return Promise.resolve({ ok: false, reason: 'known-path-required' });
@@ -120,6 +127,7 @@ function openKnownPath(displayPath) {
 }
 
 contextBridge.exposeInMainWorld('manager', {
+  windowPlatform: typeof process === 'undefined' ? null : process.platform,
   listApps: () => ipcRenderer.invoke('apps:list'),
   getSettings: (legacySettings) => ipcRenderer.invoke('settings:get', legacySettings),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
@@ -258,11 +266,21 @@ contextBridge.exposeInMainWorld('manager', {
     group: input.group,
     note: input.note
   }),
+  discoverCodexHomes: () => ipcRenderer.invoke('profiles:discoverCodexHomes'),
+  registerCodexHome: (selectionId) => ipcRenderer.invoke('profiles:registerCodexHome', { selectionId }),
+  pickCodexHome: () => ipcRenderer.invoke('profiles:pickCodexHome'),
+  pickCodexAuth: () => ipcRenderer.invoke('profiles:pickCodexAuth'),
+  importDroppedCodexAuth,
   updateProfile,
   removeProfile: (id) => ipcRenderer.invoke('profiles:remove', id),
   migrateWindowsProfilePath: (id) => ipcRenderer.invoke('profiles:migrateWindowsPath', id),
   launchProfile: (id) => ipcRenderer.invoke('profiles:launch', id),
   getProfileRuntimeStatus: (id) => ipcRenderer.invoke('profiles:runtimeStatus', id),
+  onProfileRegistrationsChanged: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('profiles:registrationsChanged', listener);
+    return () => ipcRenderer.removeListener('profiles:registrationsChanged', listener);
+  },
   stopProfile: (id) => ipcRenderer.invoke('profiles:stop', id),
   cleanProfileCrashpad: (id) => ipcRenderer.invoke('profiles:cleanCrashpad', id),
   onProfileRuntimeIncident: (callback) => {
@@ -283,6 +301,13 @@ contextBridge.exposeInMainWorld('manager', {
   exportSession: (input) => ipcRenderer.invoke('sessions:export', {
     profileId: input?.profileId,
     sessionId: input?.sessionId
+  }),
+  exportSessions: (selections) => ipcRenderer.invoke('sessions:export', { selections }),
+  listSessionDirectories: (selections) => ipcRenderer.invoke('sessions:directories', { selections }),
+  openSessionDirectory: (ref, expectedPath) => ipcRenderer.invoke('sessions:open-directory', {
+    profileId: ref?.profileId,
+    sessionId: ref?.sessionId,
+    expectedPath
   }),
   listActivity: () => ipcRenderer.invoke('activity:all'),
   listQuotas: (options = {}) => ipcRenderer.invoke('quota:all', options),

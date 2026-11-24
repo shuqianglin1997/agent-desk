@@ -156,7 +156,7 @@ test('注册表：导出能力与所有受支持桌面客户端的多 Profile �
   const byId = Object.fromEntries(list.map((item) => [item.id, item]));
   assert.equal(byId.kimi.canExportTranscript, true);
   assert.equal(byId.claude.canExportTranscript, false);
-  assert.equal(byId.codex.canExportTranscript, false);
+  assert.equal(byId.codex.canExportTranscript, true);
   assert.equal(byId.cursor.canExportTranscript, false);
 
   for (const appId of ['claude', 'codex', 'kimi', 'cursor']) {

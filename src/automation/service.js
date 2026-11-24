@@ -37,6 +37,10 @@ const COMMANDS = {
   'sessions locate': { description: 'Return the shared path/coordinate format; do not open files or modify clipboard.', parameters: {
     'user-data': userData, profile: profileId, session: parameter('Exact session ID returned by sessions list.', true)
   } },
+  'sessions read': { description: 'Read an exact local session as Markdown when the client supports transcript export.', parameters: {
+    'user-data': userData, profile: profileId, session: parameter('Exact session ID returned by sessions list.', true),
+    'max-chars': parameter('Maximum Markdown characters.', false, { type: 'integer', minimum: 200, maximum: 262144, default: 32000 })
+  } },
   'integration plan': { description: 'Preflight existing client roots for registration; never writes configuration or applies a plan.', parameters: {
     'user-data': userData, app: parameter('Registered client ID from apps.', true),
     'profile-path': parameter('Absolute client data directory.', true),
@@ -53,7 +57,7 @@ function capabilities() {
     boundaries: {
       scope: 'local persisted Profiles, not the global Mesh Agent catalog',
       network: false, writes: false, launchesClients: false, readsCredentials: false,
-      sessionContents: 'Adapters may read session records to derive metadata; no transcript is returned.',
+      sessionContents: 'Session lists contain metadata. Only explicit sessions read returns a local transcript.',
       sqlite: 'Cursor and Kimi Work adapters may run the fixed sqlite3 read-only query.',
       notAvailable: ['profile mutations', 'provider configuration writes', 'launch', 'live quota', 'remote actions', 'Mesh writes', 'generic execution', 'HTTP server', 'MCP server']
     },
@@ -251,11 +255,21 @@ function execute(command, options = {}) {
   const profile = getProfile(store, options.profile);
   if (command === 'profiles inspect') return inspectProfile(profile);
   const sessions = scanProfile(profile);
-  if (command === 'sessions locate') {
+  if (command === 'sessions locate' || command === 'sessions read') {
     const matches = sessions.filter((session) => sessionId(session) === options.session);
     if (!matches.length) throw new InterfaceError('session-not-found', 'No session matches that ID in the selected Profile scan.', 3);
     if (matches.length !== 1) throw new InterfaceError('session-ambiguous', 'The adapter returned multiple records for that ID. No source was guessed.', 4);
     const session = matches[0];
+    if (command === 'sessions read') {
+      const exporter = apps.getApp(profile.appId).exportTranscript;
+      if (typeof exporter !== 'function') throw new InterfaceError('transcript-unsupported', 'This client does not have a transcript parser. Use sessions locate for its local record.', 5);
+      let markdown;
+      try { markdown = exporter(session).markdown; } catch (_error) {
+        throw new InterfaceError('transcript-unavailable', 'The selected session transcript could not be read.', 4);
+      }
+      const limit = options['max-chars'] ?? 32000;
+      return { profileId: profile.id, sessionId: sessionId(session), markdown: markdown.slice(0, limit), truncated: markdown.length > limit };
+    }
     return { profileId: profile.id, sessionId: sessionId(session), path: locations.pathOf(session), coordinate: locations.coordinateOf(session), text: locations.format(session), warnings: scanWarnings() };
   }
   const query = (options.query || '').toLowerCase();

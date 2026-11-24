@@ -23,6 +23,8 @@ Personal Agent Mesh 的有人值守代码链路已经接入运行时：版本化
 
 `src/automation/cli.js` 是独立 Node 入口，`service.js` 共用命令定义、客户端注册表、CLI discovery、扫描器和会话定位格式。它不加载 Electron Main、Mesh/Keychain 或桌面 store 恢复逻辑；只读取显式 userData 中的 v2 Profile 快照，不写回。Cursor/Kimi Work 可使用既有固定 sqlite3 只读查询。接口/扩展方法见 [AI_INTERFACE.md](AI_INTERFACE.md)。桌面 IPC 不因此成为公共 API，写入仍只在现有 Main 事务和授权流程中进行。
 
+成品 `--cli` 在应用启动分支中运行。查询复用同一服务，默认使用 Electron 的 userData。登记、认证导入与打开走客户端专用命令，由持有 Electron 单实例锁的 Main 串行处理。已有桌面实例时通过单实例事件传递请求编号，由该 Main 读取、校验和处理本机请求。以 CLI 方式启动的实例不创建窗口。Windows portable 的 `--output` 使用新文件返回 JSON 和进程退出码。
+
 本地 PR 融合新增 `profile-home.js`（只创建独立目录，不播种凭据）、`terminal-launcher.js`（按完整目标环境生成固定工具启动脚本）和 `roster-interactions.js`（排序/取消/滚轮）。Main 从工具注册表与本机 Profile 解析动作，不接收 Renderer 命令。Windows 环境清理匹配大小写别名，Node shebang 启动保留解释器、参数和 PATH；临时终端脚本不使用二次展开的 CALL。名册顺序由 settings 归一化持久化。
 
 ```text
@@ -263,14 +265,14 @@ Codex 适配器只信任 Profile `sessionRoot` 下 `sessions` / `archived_sessio
 
 ### 固定工作台与 CSS 层级
 
-`src/workspace.css` 是 1.14 主窗口与全局弹窗的唯一 canonical 表现层，按 `reset / tokens / shell / components / features / themes` 组织；旧 `styles.css` 与 `yard/yard.css` 被放入低优先级 `legacy` 层，不能再通过文件尾覆盖改变三面板几何或弹窗滚动归属。最高主题层保留语义 `[hidden]` 规则，避免后写的 `display:grid` 把已隐藏视图重新显示。
+`src/workspace.css` 是 1.14 主窗口与全局弹窗的唯一 canonical 表现层，按 `reset / tokens / shell / components / features / themes` 组织；旧 `styles.css` 被放入低优先级 `legacy` 层，不能再通过文件尾覆盖改变三面板几何或弹窗滚动归属。最高主题层保留语义 `[hidden]` 规则，避免后写的 `display:grid` 把已隐藏视图重新显示。
 
-- Renderer 内容区按 58px Header、38px Footer、12px 横向 padding、10px 纵向 padding、10px gap、244px Agent 面板和 316px 详情宽度布局；Compact 表 `min-width: 0` 且没有水平滚动。
-- “庭院 / 卡片”是共用业务状态的当前模式分段；运行位置始终渲染，即使当前 Agent 只有一个 Slot。
-- 场景时间/天气使用原生 Top Layer Popover；Agent 与运行位置管理使用原生对象 Dialog；设备、工具、活动、设置分别使用四个全局 Dialog。
+- Renderer 内容区按 58px Header、38px Footer、20px 横向 padding、10px 纵向 padding、10px gap 和 222px Agent 面板布局，隔离远控使用 316px 右侧区域。Compact 表 `min-width: 0` 且没有水平滚动。
+- Agent 仅以卡片呈现；运行位置始终可见，唯一位置显示为文字，多位置使用选择器。旧场景设置只保留作为兼容数据。
+- Agent 与运行位置管理使用原生对象 Dialog；设备、工具、活动、设置分别使用四个全局 Dialog。
 - 四个全局 Dialog 使用 `utility-dialog-shell`：Shell 自身 `overflow: hidden`，Header/Command Bar/Footer 固定，只有 `utility-dialog-content` 纵向滚动；设备中心外层 Content 不滚动，只允许设备列表与设备 Agent 列表两个命名窗格独立滚动。
 - `openChildDialog()` 为帮助、传输记录、网络、权限、诊断等次级流程记录触发控件和所属 disclosure；关闭或 Esc 只移除最上层，恢复父弹窗原滚动、菜单展开和焦点。只有明确导航工作台的动作才关闭根层。
-- 像素样式只保留在 Canvas、猫、紧凑名牌等 Agent Presenter 内。应用按钮、表格、Footer 和弹窗统一使用组件 token。
+- 像素样式用于 Agent 卡片头像和外观编辑。应用按钮、表格、Footer 和弹窗统一使用组件 token。
 - 会话行的 focused 与 checked 视觉落在真实 table cell 上，不向 `<tr>` 注入会被 Chromium 当作匿名单元格的伪元素。
 
 ## 5. 客户端与会话扫描
@@ -287,6 +289,14 @@ Codex 适配器只信任 Profile `sessionRoot` 下 `sessions` / `archived_sessio
 macOS 标准候选由注册表给出并在存在已知 bundle id 时重新读取 `Info.plist` 核对；Codex 当前优先定位 `ChatGPT.app/Contents/MacOS/ChatGPT` 与 `com.openai.codex`，旧 `Codex.app` 只作为同 bundle identity 的兼容候选。用户经系统选择器明确登记的 executablePath 继续作为手动能力处理。安装检查、工具扫描、诊断和实际启动共用这一个解析结果，不能各自维护另一张应用名表。
 
 `sessions:list` 接收 profile 形状，但 main 会先规范化，再调用目录中的扫描器。会话定位和导出只接受 profile/session 标识，并从当前扫描结果重新找到可信文件。
+
+### Codex 历史的显式保留策略
+
+`codex-history-retention.js` 是 `ProfileRuntimeSupervisor` 的默认关闭、按 canonical `sessionRoot` 明确启用的历史维护器。`agentdesk-history-retention.json` 为 `{"version":1,"enabled":true,"maxToolBytes":8192,"previewChars":512,"compressArchived":true}`；保留已有自定义值，禁用或删除策略即停止此根维护。既有监管循环启动后和每小时检查一次，另在受管客户端退出时收尾；同一时刻只启动一个周期 worker，同 Profile 重开等待在途维护，不新增 daemon、不终止客户端。已启用的默认/custom 根同样可参加周期维护，未启用的根不写状态文件。
+
+手动 `node src/codex-history-retention.js --root <绝对根>` 只预览，`--apply` 才写；`--apply --enable-policy` 只在成功后创建缺失策略，不覆盖已有值。客户端打开时，`--open-archived` 只处理至少一小时前更新的已归档完整轮次；周期维护另使用 `--open-idle`，纳入超过一天无更新、无未知/未完成轮次、原始 rollout 仍在此根且无进程持有它的未归档会话。状态更新复核与 item JSON 的 CAS 在每批十六项提交前执行。自动 worker 有 40 秒工作预算和 60 秒进程上限，超时事务由 SQLite 回滚、后续周期重试；根级 PID 锁防止双重维护，死亡 worker 锁可恢复。唯一 `agentdesk-history-retention-status.json` 原子覆盖本次起止、结果和实际 worker SHA-256，不积累运行日志。
+
+维护只改已结束轮次（completed / interrupted / failed）中成功项的 paginated `thread_items.item_json`：生成图片先逐字节验证私有 PNG，缺失时保全到同根 `generated_images/history-media/<sha256>.png`，同哈希共享文件，再清空冗余 Base64；成功工具超长文本保留首尾和裁剪标记，嵌套序列化的 MCP 结果逐层处理文本并保留媒体/资源。用户与助手原始 JSON 哈希不变；失败、未完成、补丁、图片、资源和未知结构化数据保留，realtime items、轮次、索引与继承关系不改。完整性检查后 VACUUM 回收空闲页，自动仅在客户端关闭、空闲达 64 MiB 且预算允许时执行；在线先让空闲页复用，避免 VACUUM 把整库写入被读事务钉住的 WAL。归档原文只对无进程持有且闲置一小时的 `.jsonl` 使用 macOS 透明压缩，逐文件 SHA-256 不变并实际节省空间才原子替换；手动可加 `--compress-archives`，周期压缩最多 20 秒并服从总预算。暂存及时移除，旧的本模块私有暂存有界收口。当前其他原生 `.zst` 消费者未全部适配，继续保持 `local_thread_store_compression=false`，不通过改格式隐藏记录。原生提供等价维护 API 后退役本适配器；未知 schema/进程检查失败一律延期。
 
 ## 6. 工具维护
 
@@ -386,13 +396,9 @@ TaskPackage 同时支持便携文件和同 Mesh Preview 直送。两条通道发
 
 断线、失焦、暂停、目标切换、撤销、紧急停止和 helper 心跳超时都会释放按键。多设备控制台最多四路，只给当前目标活动画质，其余为低频缩略图。返回会话工作台会先释放输入、降为仅查看并隐藏 Surface，仍在 viewing 的会话由主 Renderer 顶栏提示；只有 disconnect/stopAll、撤销或终止路径才结束媒体。
 
-## 9. 庭院
+## 9. Agent 卡片
 
-庭院是同一份 profile/session/activity/quota 数据的可视化，不是独立业务层。今日完成/陪伴账本与提醒总开关已退休，Footer 只显示全局状态，庭院 DOM 不再拥有 `yardLedger` 或提醒 HUD；路径、额度等持久 attention 只由 Header 的活动弹窗承载，scene 的 `attentionById` 保持空，只保留用户摸猫或拖放后的短暂直接反馈。会话动作由右下 `sessionActionDock` 承载：focused 单条保留定位/导出与复制/发送，显式 checked 集合隐藏 focused 专用动作，只保留批量摘要/取消/复制/发送。
-
-拖放只保存猫位置；工作亭与池塘不再承担业务动作。账号启动与会话聚焦分别由主工作台控件负责。
-
-详见 [YARD.md](YARD.md)。
+卡片显示同一 Agent 的运行位置、活动和可信额度。卡片额度按钮与名册的额度总览共用原生浮层，按当前入口显示本号周期和刷新，或显示跨账号快照。额度浮层独立于会话网格。头像继续使用 `src/yard/sprites.js` 的像素素材；旧庭院场景及其设置入口已退出窗口。账号、会话、头像配置及旧版回退所需的偏好继续由各自的既有文件管理。
 
 ## 10. 测试与构建
 
@@ -408,7 +414,7 @@ npm run build:mac:dir
 
 物理证据单独存在：两台 Mac 在同一局域网通过 host/UDP 建立认证 DataChannel，562,009 字节库存中的 9 个 Slot 与 638 条 SessionReplica 完整落库，显式刷新与 4 分钟全快照把 revision 从 7 推进到 8 和 9，连接连续 5 分钟无错误或断开。该记录不覆盖远控媒体/输入权限、断网/睡眠恢复、公网 NAT/coturn 或 Windows。
 
-`npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。窗口任务路径包括：新增全新首 Agent 的真实本机事务与无网络断言、首次使用重启恢复且不生成默认 Profile、设备任务向导固定 Shell/分层状态，以及 TaskPackage 直送资格和接收阶段投影；原有 58/244/316/38 固定几何、Compact 无横滚、会话选择、庭院/卡片、三语/明暗主题、父子弹窗、小视口、目录对象、传输草稿和 Remote Surface 契约继续覆盖。直送窗口验收只证明 UI 资格、状态与明文码不可见，不代表真实 WebRTC 数据面已经传过 TaskPackage。
+`npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。窗口任务路径包括：新增全新首 Agent 的真实本机事务与无网络断言、首次使用重启恢复且不生成默认 Profile、设备任务向导固定 Shell/分层状态，以及 TaskPackage 直送资格和接收阶段投影；原有 58/222/316/38 固定几何、Compact 无横滚、会话选择、庭院/卡片、三语/明暗主题、父子弹窗、小视口、目录对象、传输草稿和 Remote Surface 契约继续覆盖。直送窗口验收只证明 UI 资格、状态与明文码不可见，不代表真实 WebRTC 数据面已经传过 TaskPackage。
 
 成品验证分成两层。`verify-electron-package-integrity.js` 不启动应用，直接证明 `app.asar` 存在、`default_app.asar` 不存在，流式复算每个常规文件的整文件与 4 MiB 分块 SHA-256，拒绝缺失元数据、链接、范围空洞/重叠和尾部载荷；`RunAsNode` 仅作为固定 CLI launcher 的兼容 fuse 保留，`NODE_OPTIONS`/inspect 关闭、embedded integrity/only-load-from-ASAR 开启，archive header 再绑定 macOS `Info.plist` 或 Windows PE 的唯一 `INTEGRITY/ELECTRONASAR`。历史 macOS unpacked 成品的 118/118 结果只对应当时产物，不代表当前源码。`packaged-first-use-smoke.js` 才会对同一确切 `AgentDesk.app`、`win-unpacked` 或带版本 portable 使用临时 userData 连续启动三次，核对固定窗口、首次初始化/恢复、零默认 Profile、零 Mesh 网络，以及原始启动句柄和回环调试端点清理；随机 launch token 与 Browser command line 防止同机其他页面冒充本次产物。当时本机确切 `release/mac-arm64/AgentDesk.app` 已使用真实语义开关 `--macos-ci-mock-keychain` 通过这三次启动：runner 先证明 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，再在每次 Browser command line 中核对唯一原生 `--use-mock-keychain`，报告为 `keychainMode=mock`。这只证明该字节在 mock Keychain 下的打包与首次使用事务；新的 GitHub macOS `main` CI 运行仍待结果，且该模式不验证 `safeStorage` 的 macOS 系统 Keychain/OS 密钥保护。Developer ID、签名公证、Draft/公开重下载和物理干净机继续使用系统 Keychain，并仍是开放门禁。
 
@@ -423,7 +429,7 @@ npm run build:mac:dir
 - Electron 成品必须只从 `app.asar` 加载且匹配五项 fuse；`RunAsNode` 的调用面不得超出现有 `cli-discovery.js` 与 `codex-quota.js` 两个固定 launcher；
 - 成品首次使用 smoke 必须使用同一确切产物完成三次启动，产物类型、版本、UI、首次使用状态、零 Mesh 网络、进程与回环调试端点都有白名单；
 - Preview 发布只接受受保护的 Preview Tag、精确三资产、Draft/公开状态与摘要/实际下载字节一致；公开后失败必须回 Draft 并烧毁候选版本；
-- 庭院只暴露三类核心意图。
+- 工作台只渲染 Agent 卡片和会话列表。
 - Mesh 账号关联键在同 Mesh 内稳定、跨 Mesh 不可关联，成员证书和握手证明可检测篡改与过期；
 - 签名目录事件、来源连续向量、字段并发合并、同字段稳定冲突、结构事务门禁、删除 tombstone 与 0.9.4 快照兼容；inventory 不能越权修改全局目录；
 - `agent.prepare` 在确认后重新核对当前权限与连接代次，撤权/断连后的迟到允许不产生副作用；
@@ -449,5 +455,5 @@ npm run build:mac:dir
 - `main/ipc/local-reads.js` 通过 Main 的 trusted registrar 注册会话、活动和额度读取，保留来源验证与本机 Profile 重查。
 - `activity.js` 每轮按适配器与 realpath 去重扫描；Codex 使用 `sessions.codexRecordIdentity` 的有界、按文件版本缓存的首行身份。`fileCount` 保留物理诊断含义，`sessionCount` 和活动计数按用户根去重，内部分支不贡献活动，最新归档根不计此刻活跃。
 - `identity-groups.mergeActivity` 按设备与不可逆 sourceKey 去重活动计数。sourceKey 是来源目录标识，不用于账号身份合并；无来源证据的记录保持独立。
-- 额度卡片、庭院、总览和当前账号详情共用可信源、新鲜度与同绑定冲突判断；公司 API 没有订阅额度时显示未知。
+- 额度卡片、总览和当前账号详情共用可信源、新鲜度与同绑定冲突判断；公司 API 没有订阅额度时显示未知。
 - `workspace.css` 独占上下文菜单样式；剩余 legacy 组件未经过全状态迁移，不整文件删除。旧账本/提醒设置仅保留读取迁移，活动轮询不再写账本。

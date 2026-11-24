@@ -17,12 +17,17 @@ function sourceBetween(startMarker, endMarker) {
 test('异步打开账号结束后只合并启动时间，不回写启动前的整份旧快照', () => {
   const handler = sourceBetween(
     "ipcMain.handle('profiles:launch'",
-    "registerLocalReadIpc({"
+    "ipcMain.handle('profiles:runtimeStatus'"
+  );
+  const launch = sourceBetween(
+    'async function launchStoredProfile',
+    'function removeStoredProfileRegistration'
   );
 
-  assert.match(handler, /await launchProfile\(profile\)/);
-  assert.match(handler, /updateStoredProfile\(id,/);
-  assert.doesNotMatch(handler, /saveProfiles\(profiles\)/);
+  assert.match(handler, /launchStoredProfile\(id\)/);
+  assert.match(launch, /await launchProfile\(profile\)/);
+  assert.match(launch, /updateStoredProfile\(id,/);
+  assert.doesNotMatch(launch, /saveProfiles\(profiles\)/);
 });
 
 test('Windows 路径迁移在异步复制后重新读取最新账号并做局部更新', () => {
@@ -82,7 +87,7 @@ test('所有账号都可删除，删除最后一个后空账本不会按平台�
     'function normalizeProfile(profile)'
   );
   const removeClickStart = rendererSource.indexOf("els.removeProfileBtn.addEventListener('click'");
-  const removeClickEnd = rendererSource.indexOf("els.launchBtn.addEventListener('click'", removeClickStart);
+  const removeClickEnd = rendererSource.indexOf("els.updateBtn.addEventListener('click'", removeClickStart);
   const headerStart = rendererSource.indexOf('function renderAccountHeader()');
   const headerEnd = rendererSource.indexOf('function sessionColumns()', headerStart);
   assert.ok(removeClickStart >= 0 && removeClickEnd > removeClickStart);

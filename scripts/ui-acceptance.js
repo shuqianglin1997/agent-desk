@@ -255,7 +255,7 @@ function seedUserData(userData) {
     version: 2,
     settings: {
       theme: 'light',
-      view: 'classic',
+      view: 'yard', // Old preferences still boot into the card workspace.
       lang: 'zh',
       sessionScope: 'current',
       sessionView: 'compact',
@@ -363,7 +363,10 @@ async function layoutSnapshot(client) {
       boardPanels: document.querySelectorAll('#mainGrid > .workspace-panel').length,
       documentOverflow: document.documentElement.scrollWidth - innerWidth,
       bodyOverflow: document.body.scrollWidth - innerWidth,
-      topbarOverlap: overlaps(brand, lens) || overlaps(lens, actions) || overlaps(brand, actions),
+      lens,
+      lensControl: rect('.device-lens-control'),
+      topbarOverlap: [brand, lens, actions].some((left, index, targets) =>
+        targets.slice(index + 1).some((right) => overlaps(left, right))),
       brand: {
         rect: brand,
         display: getComputedStyle(document.querySelector('.topbar-brand')).display,
@@ -376,7 +379,6 @@ async function layoutSnapshot(client) {
       compactTableWidthOverflow: tableWrap && sessionTable?.dataset.mode === 'compact'
         ? Math.max(0, sessionTable.getBoundingClientRect().width - tableWrap.getBoundingClientRect().width)
         : null,
-      bodyView: document.body.dataset.view,
       theme: document.documentElement.dataset.theme,
       lang: document.documentElement.lang
     };
@@ -392,24 +394,33 @@ function assertFixedShell(layout) {
   assert.equal(layout.boardPanels, 3, 'workspace board must contain exactly three fixed panels');
   assert.ok(Math.abs(layout.header.height - 58) <= 1, `Header must be 58px, got ${layout.header.height}px`);
   assert.ok(Math.abs(layout.status.height - 38) <= 1, `Footer must be 38px, got ${layout.status.height}px`);
-  assert.ok(Math.abs(layout.agent.height - 244) <= 1, `Agent panel must be 244px, got ${layout.agent.height}px`);
-  assert.ok(Math.abs(layout.detail.width - 316) <= 1, `Detail panel must be 316px, got ${layout.detail.width}px`);
-  assert.ok(Math.abs(layout.sessions.width - 690) <= 2, `Session panel must be about 690px, got ${layout.sessions.width}px`);
-  assert.ok(layout.agent.x <= layout.sessions.x + 1 && layout.agent.right >= layout.detail.right - 1, 'Agent panel must span the board');
+  assert.ok(Math.abs(layout.agent.height - 222) <= 1, `Agent panel must be 222px, got ${layout.agent.height}px`);
+  assert.ok(Math.abs(layout.agent.x - layout.sessions.x) <= 1, 'Agent and session panels must align');
   assert.ok(layout.sessions.y >= layout.agent.bottom + 8, 'sessions must stay below the Agent panel');
-  assert.ok(layout.detail.y >= layout.agent.bottom + 8, 'detail must stay below the Agent panel');
-  assert.ok(layout.sessions.right <= layout.detail.x - 8, 'sessions and detail must remain separate lower panels');
+  if (layout.detail.width) {
+    assert.ok(Math.abs(layout.detail.width - 316) <= 1, `Detail panel must be 316px, got ${layout.detail.width}px`);
+    assert.ok(layout.sessions.right <= layout.detail.x - 8, 'the active side surface must fit next to the list');
+    assert.ok(Math.abs(layout.detail.y - layout.sessions.y) <= 1, 'lower panels must align');
+  } else {
+    assert.ok(Math.abs(layout.sessions.width - layout.agent.width) <= 1, 'sessions must fill the lower board');
+  }
   assert.ok(layout.status.y >= layout.main.bottom - 1, 'Footer must remain below the board');
   assert.ok(layout.documentOverflow <= 1 && layout.bodyOverflow <= 1, 'the fixed shell must not overflow horizontally');
   if (layout.compactTableOverflow !== null) {
     assert.ok(layout.compactTableOverflow <= 1, `Compact table must not scroll horizontally, overflow ${layout.compactTableOverflow}px`);
     assert.ok(layout.compactTableWidthOverflow <= 1, `Compact table must fit its panel, overflow ${layout.compactTableWidthOverflow}px`);
   }
-  assert.ok(layout.brand.rect?.width > 100 && layout.brand.rect?.height > 24, 'the AgentDesk brand must remain visible in every view');
+  assert.ok(layout.brand.rect?.width > 45 && layout.brand.rect?.height > 15, 'the text-only AgentDesk title must remain visible');
   assert.notEqual(layout.brand.display, 'none');
   assert.equal(layout.brand.visibility, 'visible');
   assert.equal(layout.brand.opacity, '1');
   assert.equal(layout.topbarOverlap, false, 'topbar regions must not overlap');
+  assert.ok(Math.abs(layout.lens.x + layout.lens.width / 2 - (layout.innerWidth / 2 - 25)) <= 1,
+    'device view must stay at its original window position');
+  if (layout.lensControl.width) {
+    assert.equal(layout.lensControl.width, 216);
+    assert.equal(layout.lensControl.height, 34);
+  }
 }
 
 async function accountRosterSnapshot(client) {
@@ -427,7 +438,6 @@ async function accountRosterSnapshot(client) {
     const rosterNode = document.querySelector('#accountRoster');
     const roster = rectOf(rosterNode);
     const presenter = rectOf(document.querySelector('.agent-panel .presenter'));
-    const controls = rectOf(document.querySelector('.agent-panel .account-bar'));
     const cards = [...rosterNode.querySelectorAll('.account-card')]
       .filter((card) => !card.hidden)
       .map((card) => {
@@ -441,7 +451,10 @@ async function accountRosterSnapshot(client) {
       const details = rectOf(card.querySelector('.account-card-details'));
       const lastActive = rectOf(card.querySelector('.account-card-last-active'));
       const quotaSummary = rectOf(card.querySelector('.account-card-quota-summary'));
+      const quotaFact = rectOf(card.querySelector('.account-card-quota-summary .account-card-fact'));
       const quota = rectOf(card.querySelector('.account-card-quota'));
+      const runtime = rectOf(card.querySelector('.account-card-runtime'));
+      const actions = rectOf(card.querySelector('.account-card-actions'));
       const style = getComputedStyle(card);
       return {
         selected: card.classList.contains('selected'),
@@ -462,11 +475,13 @@ async function accountRosterSnapshot(client) {
         quotaSummary,
         quota,
         quotaTrusted: card.querySelector('.account-card-quota')?.dataset.trusted || '',
-        childrenInside: [top, state, details].every((item) => contains(cardRect, item)),
+        childrenInside: [top, state, details, runtime, actions].every((item) => contains(cardRect, item)),
         topChildrenInside: [avatar, meta, name, group].every((item) => contains(top, item)),
         detailsChildrenInside: [lastActive, quotaSummary, quota].every((item) => contains(details, item)),
-        verticalOrder: top.bottom <= state.y + 1 && state.bottom <= details.y + 1,
-        detailsOrder: lastActive.bottom <= quotaSummary.y + 1 && quotaSummary.bottom <= quota.y + 1,
+        verticalOrder: contains(top, state) && top.bottom <= details.y + 1
+          && details.bottom <= runtime.y + 1 && runtime.bottom <= actions.y + 1,
+        detailsOrder: lastActive.bottom <= quotaSummary.y + 1
+          && contains(quotaSummary, quotaFact) && contains(quotaSummary, quota) && quotaFact.bottom <= quota.y + 1,
         metaOrder: name.bottom <= group.y + 1,
         lastActiveText: card.querySelector('.account-card-last-active')?.textContent.trim() || '',
         quotaText: card.querySelector('.account-card-quota-summary')?.textContent.trim() || ''
@@ -477,7 +492,6 @@ async function accountRosterSnapshot(client) {
     return {
       roster,
       presenter,
-      controls,
       overflowX: rosterStyle.overflowX,
       scrollbarGutter: rosterStyle.scrollbarGutter,
       clientWidth: rosterNode.clientWidth,
@@ -502,13 +516,12 @@ function assertAccountRosterGeometry(snapshot, options = {}) {
   } else {
     assert.ok(snapshot.scrollWidth <= snapshot.clientWidth + 1, 'a small Agent set must not create horizontal overflow');
   }
-  assert.ok(snapshot.roster.right <= snapshot.controls.x + 1, 'the roster scrollport must stop before the right Agent controls');
-  assert.ok(snapshot.presenter.right <= snapshot.controls.x + 1, 'the presenter must not visually cover the right Agent controls');
+  assert.ok(Math.abs(snapshot.roster.right - snapshot.presenter.right) <= 1, 'the card roster must fill the presenter width');
   assert.equal(snapshot.selectedVisible, true, 'the selected Agent card must be fully visible inside the roster scrollport');
   for (const [index, card] of snapshot.cards.entries()) {
-    assert.ok(card.rect.width >= 163 && card.rect.width <= 165, `Agent card ${index + 1} must remain 164px wide, got ${card.rect.width}px`);
-    assert.equal(card.display, 'grid', `Agent card ${index + 1} must reset the shared inline-flex button layout`);
-    assert.notEqual(card.computedHeight, '32px', `Agent card ${index + 1} must not inherit the shared button height`);
+    assert.ok(card.rect.width >= 179 && card.rect.width <= 181, `Agent card ${index + 1} must remain 180px wide, got ${card.rect.width}px`);
+    assert.equal(card.display, 'grid', `Agent card ${index + 1} must use a card grid`);
+    assert.notEqual(card.computedHeight, '32px', `Agent card ${index + 1} must leave room for the card controls`);
     assert.equal(card.whiteSpace, 'normal', `Agent card ${index + 1} must restore card text wrapping rules`);
     assert.ok(card.rect.height >= 90, `Agent card ${index + 1} is flattened to ${card.rect.height}px`);
     assert.ok(card.rect.height <= snapshot.roster.height + 1, `Agent card ${index + 1} escapes the roster vertically`);
@@ -520,7 +533,7 @@ function assertAccountRosterGeometry(snapshot, options = {}) {
     assert.equal(card.metaOrder, true, `Agent card ${index + 1} name overlaps its group/position summary`);
     assert.ok(card.lastActiveText.length > 0, `Agent card ${index + 1} must expose a recent-activity fact`);
     assert.ok(card.quotaText.length > 0, `Agent card ${index + 1} must expose a quota fact`);
-    assert.match(card.stateActivity, /^(working|onduty|arriving|confused|play|rest|nap|hibernate|unknown)$/);
+    assert.match(card.stateActivity, /^(working|onduty|arriving|confused|play|rest|nap|hibernate|unknown|ready|absent|planning|preparing|verifying|waiting-install|waiting-login|error|unsupported|offline|retired)$/);
     assert.match(card.quotaTrusted, /^(true|false)$/);
     if (index > 0) {
       assert.ok(snapshot.cards[index - 1].rect.right <= card.rect.x + 0.5, `Agent cards ${index} and ${index + 1} overlap`);
@@ -675,18 +688,18 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(initial.workspace, 'sessions');
     assert.equal(initial.mesh, false);
     const placement = await client.evaluate(`({
-      detailOwnsActions: document.querySelector('#sessionInspector').contains(document.querySelector('#sessionSelectionBar')),
+      toolbarOwnsActions: document.querySelector('.session-toolbar').contains(document.querySelector('#sessionActionDock')),
       footerOwnsActions: document.querySelector('#statusBar').contains(document.querySelector('#sessionSelectionBar')),
       footerHasGlobalState: document.querySelector('#statusBar').contains(document.getElementById('statusText')) && !document.querySelector('#ledgerDone, #ledgerMin, #reminderToggle'),
       yardLedger: Boolean(document.querySelector('#yardLedger')),
-      dockHidden: document.querySelector('#sessionActionDock').hidden
+      buttonsDisabled: [...document.querySelectorAll('#sessionActionDock > button')].every(button => button.disabled)
     })`);
     assert.deepEqual(placement, {
-      detailOwnsActions: true,
+      toolbarOwnsActions: true,
       footerOwnsActions: false,
       footerHasGlobalState: true,
       yardLedger: false,
-      dockHidden: true
+      buttonsDisabled: true
     });
   });
   await capture(client, artifactDir, '01-local-zh-light');
@@ -697,24 +710,23 @@ async function runAcceptance(client, artifactDir) {
     assert.ok(focused);
     let action = await client.evaluate(`({
       checked: state.ui.checkedConversationIds.size,
-      dockHidden: document.querySelector('#sessionActionDock').hidden,
       barHidden: document.querySelector('#sessionSelectionBar').hidden,
-      focusedActionsHidden: document.querySelector('#sessionFocusedActions').hidden,
-      copyDisabled: document.querySelector('#copySessionInfoBtn').disabled
+      copyDisabled: document.querySelector('#copySessionInfoBtn').disabled,
+      openDisabled: document.querySelector('#openSessionFileBtn').disabled
     })`);
-    assert.deepEqual(action, { checked: 0, dockHidden: false, barHidden: false, focusedActionsHidden: false, copyDisabled: false });
+    assert.deepEqual(action, { checked: 0, barHidden: false, copyDisabled: false, openDisabled: false });
 
     await client.evaluate(`document.querySelectorAll('#sessionRows .session-select-box')[1].click()`);
     action = await client.evaluate(`({
       focused: state.ui.focusedConversationId,
       checked: state.ui.checkedConversationIds.size,
       actionIds: window.UiContext.actionConversationIds(state.ui).length,
-      focusedActionsHidden: document.querySelector('#sessionFocusedActions').hidden
+      openDisabled: document.querySelector('#openSessionFileBtn').disabled
     })`);
     assert.equal(action.focused, focused, 'checking another row must not steal focus');
     assert.equal(action.checked, 1);
     assert.equal(action.actionIds, 1, 'checked rows become the explicit batch action set');
-    assert.equal(action.focusedActionsHidden, true, 'explicit batch actions must hide focused-session-only actions');
+    assert.equal(action.openDisabled, false, 'explicit selection also enables local directory actions');
 
     await client.evaluate(`(() => {
       const input = document.querySelector('#searchInput');
@@ -737,9 +749,9 @@ async function runAcceptance(client, artifactDir) {
       focused: state.ui.focusedConversationId,
       checked: state.ui.checkedConversationIds.size,
       barHidden: document.querySelector('#sessionSelectionBar').hidden,
-      dockHidden: document.querySelector('#sessionActionDock').hidden
+      buttonsDisabled: [...document.querySelectorAll('#sessionActionDock > button')].every(button => button.disabled)
     })`);
-    assert.deepEqual(action, { focused: null, checked: 0, barHidden: true, dockHidden: true });
+    assert.deepEqual(action, { focused: null, checked: 0, barHidden: true, buttonsDisabled: true });
     await client.evaluate(`(() => {
       const input = document.querySelector('#searchInput');
       input.value = '';
@@ -749,6 +761,7 @@ async function runAcceptance(client, artifactDir) {
 
   await run('TaskPackage export and receive keep fixed transaction controls around one scrolling content owner', async () => {
     await client.evaluate(`document.querySelectorAll('#sessionRows tr:not(.empty-row)')[0].click()`);
+    await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
     await waitFor(client, `!document.querySelector('#taskPackageActionBtn').disabled`, 'TaskPackage action for a local Codex session');
     await client.evaluate(`document.querySelector('#taskPackageActionBtn').click()`);
     await waitFor(
@@ -785,7 +798,6 @@ async function runAcceptance(client, artifactDir) {
     await waitFor(client, `!document.querySelector('#taskPackageDialog').open`, 'TaskPackage export close');
     await waitFor(client, `document.activeElement?.id === 'taskPackageActionBtn'`, 'TaskPackage export focus return');
 
-    await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
     await waitFor(client, `state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'activity parent for TaskPackage receive');
     await client.evaluate(`document.querySelector('#importTaskPackageBtn').click()`);
     await waitFor(
@@ -822,44 +834,22 @@ async function runAcceptance(client, artifactDir) {
     await waitFor(client, `state.utilityDialog === null && !document.querySelector('#activityCenterDialog').open`, 'activity closes after TaskPackage receive');
   });
 
-  await run('yard/cards share state; scene popover uses Top Layer; Agent management is an object Dialog', async () => {
-    await client.evaluate(`document.querySelector('#viewToggle').click()`);
-    assert.equal((await layoutSnapshot(client)).bodyView, 'yard');
-    let mode = await client.evaluate(`({
-      yardPressed: document.querySelector('#viewToggle').getAttribute('aria-pressed'),
-      cardsPressed: document.querySelector('#classicViewBtn').getAttribute('aria-pressed'),
-      runtimeVisible: !document.querySelector('#formSwitcher').hidden,
-      runtimeText: document.querySelector('#formSelect').selectedOptions[0]?.textContent || ''
-    })`);
-    assert.deepEqual({ yardPressed: mode.yardPressed, cardsPressed: mode.cardsPressed }, { yardPressed: 'true', cardsPressed: 'false' });
-    assert.equal(mode.runtimeVisible, true, 'current runtime must remain visible for the selected Agent');
-    assert.ok(mode.runtimeText.length > 0, 'current runtime must have an explicit label');
-    await capture(client, artifactDir, '02-yard');
-
-    await client.evaluate(`document.querySelector('#atmosSceneBtn').click()`);
-    await waitFor(client, `document.querySelector('#atmosPopover').matches(':popover-open')`, 'yard scene Top Layer popover');
-    const popover = await client.evaluate(`(() => {
-      const node = document.querySelector('#atmosPopover');
-      const rect = node.getBoundingClientRect();
+  await run('card workspace ignores the legacy yard setting and keeps Agent management in its object dialog', async () => {
+    const workspace = await client.evaluate(`(() => {
+      const card = document.querySelector('.account-card.selected');
+      const runtime = card.querySelector('.account-card-runtime');
+      const select = runtime.querySelector('select');
       return {
-        native: node.getAttribute('popover'),
-        open: node.matches(':popover-open'),
-        rect: { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom },
-        viewport: { width: innerWidth, height: innerHeight },
-        timeItems: document.querySelectorAll('#atmosTime button').length,
-        weatherItems: document.querySelectorAll('#atmosWeather button').length
+        retiredUi: Boolean(document.querySelector('#viewToggle,#classicViewBtn,#yardStage,.topbar-brand img')),
+        title: document.querySelector('.topbar-brand').textContent.trim(),
+        runtimeText: select.hidden ? runtime.querySelector('.account-card-runtime-single').textContent : select.selectedOptions[0]?.textContent
       };
     })()`);
-    assert.equal(popover.native, 'auto');
-    assert.equal(popover.open, true);
-    assert.equal(popover.timeItems, 4);
-    assert.equal(popover.weatherItems, 5);
-    assert.ok(popover.rect.x >= 0 && popover.rect.y >= 0 && popover.rect.right <= popover.viewport.width && popover.rect.bottom <= popover.viewport.height);
-    await new Promise((resolve) => setTimeout(resolve, 180));
-    await capture(client, artifactDir, '03-yard-scene-popover');
-    await client.evaluate(`document.querySelector('#atmosPopover').hidePopover()`);
+    assert.equal(workspace.retiredUi, false);
+    assert.equal(workspace.title, 'AgentDesk');
+    assert.ok(workspace.runtimeText?.length > 0);
 
-    await client.evaluate(`document.querySelector('#accountManage').click()`);
+    await client.evaluate(`document.querySelector('.account-card.selected .account-card-manage').click()`);
     await waitFor(client, `document.querySelector('#agentManageDialog').open`, 'Agent management dialog');
     const agentDialog = await dialogSnapshot(client, '#agentManageDialog');
     assertDialogFits(agentDialog, { noScroll: true });
@@ -885,20 +875,12 @@ async function runAcceptance(client, artifactDir) {
     await capture(client, artifactDir, '04-agent-manage-dialog');
     await client.evaluate(`document.querySelector('#agentManageDialog').close()`);
 
-    await client.evaluate(`document.querySelector('#classicViewBtn').click()`);
-    assert.equal((await layoutSnapshot(client)).bodyView, 'classic');
-    mode = await client.evaluate(`({
-      yardPressed: document.querySelector('#viewToggle').getAttribute('aria-pressed'),
-      cardsPressed: document.querySelector('#classicViewBtn').getAttribute('aria-pressed')
-    })`);
-    assert.deepEqual(mode, { yardPressed: 'false', cardsPressed: 'true' });
-
     await waitFor(client, `document.querySelectorAll('#accountRoster .account-card').length >= 7`, '7+ Agent roster fixture');
     assertAccountRosterGeometry(await accountRosterSnapshot(client));
 
     await client.evaluate(`(() => {
       const cards = document.querySelectorAll('#accountRoster .account-card');
-      cards[cards.length - 1].click();
+      cards[cards.length - 1].querySelector('.account-card-select').click();
     })()`);
     await waitFor(
       client,
@@ -925,7 +907,7 @@ async function runAcceptance(client, artifactDir) {
     // Reuse the same isolated renderer to prove that a small account set does
     // not redistribute the available track width. Hiding the fixture-only
     // surplus cards changes no persisted profile or Mesh data.
-    await client.evaluate(`document.querySelector('#accountRoster .account-card').click()`);
+    await client.evaluate(`document.querySelector('#accountRoster .account-card-select').click()`);
     await waitFor(
       client,
       `document.querySelector('#accountRoster .account-card')?.classList.contains('selected')`,
@@ -1045,17 +1027,29 @@ async function runAcceptance(client, artifactDir) {
       await waitFor(client, `document.activeElement === document.querySelector(${JSON.stringify(button)})`, `${kind} trigger focus return`);
     }
 
-    await client.evaluate(`document.querySelector('#quotaChipSelf').click()`);
-    await waitFor(client, `state.detailMode === 'quota' && !document.querySelector('#detailSurfaceQuota').hidden`, 'quota detail');
+    await client.evaluate(`document.querySelector('.account-card.selected .account-card-quota-summary').click()`);
+    await waitFor(client, `document.querySelector('#quotaPopover').matches(':popover-open') && !document.querySelector('#quotaSummary').hidden`, 'account quota popover');
     const quotaGeometry = await client.evaluate(`(() => {
       const pick = (selector) => {
         const rect = document.querySelector(selector).getBoundingClientRect();
         return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
       };
-      return { agent: pick('#agentPanel'), sessions: pick('#sessionPane'), detail: pick('#detailPanel') };
+      return {
+        agent: pick('#agentPanel'), sessions: pick('#sessionPane'), detail: pick('#detailPanel'),
+        popup: pick('#quotaPopover'), anchor: pick('.account-card.selected .account-card-quota-summary'),
+        viewport: { width: innerWidth, height: innerHeight }
+      };
     })()`);
-    assert.deepEqual(quotaGeometry, baseline.geometry, 'quota must not insert a new row');
-    await client.evaluate(`setWorkspaceMode('sessions')`);
+    assert.deepEqual(quotaGeometry.agent, baseline.geometry.agent, 'quota must keep the Agent row fixed');
+    assert.deepEqual(quotaGeometry.sessions, baseline.geometry.sessions, 'quota must keep the session list full-width');
+    assert.deepEqual(quotaGeometry.detail, baseline.geometry.detail, 'quota must not occupy the remote pane');
+    const { popup, anchor, viewport } = quotaGeometry;
+    assert.ok(popup.width > 0 && popup.x >= 0 && popup.x + popup.width <= viewport.width);
+    assert.ok(popup.y >= 0 && popup.y + popup.height <= viewport.height);
+    assert.ok(Math.abs(popup.y - anchor.y - anchor.height) < 8 || Math.abs(anchor.y - popup.y - popup.height) < 8);
+    await pressEscape(client);
+    await waitFor(client, `!document.querySelector('#quotaPopover').matches(':popover-open')
+      && document.activeElement === document.querySelector('.account-card.selected .account-card-quota-summary')`, 'Escape closes quota and restores trigger focus');
   });
 
   await run('settings/help and activity/history keep a real parent-child modal stack with layered Escape', async () => {
@@ -1385,13 +1379,13 @@ async function runAcceptance(client, artifactDir) {
       query: state.query,
       focused: state.ui.focusedConversationId,
       checked: [...state.ui.checkedConversationIds],
-      options: [...document.querySelector('#formSelect').options].map((item) => item.value),
-      current: document.querySelector('#formSelect').value
+      options: [...document.querySelector('.account-card.selected .account-card-runtime select').options].map((item) => item.value),
+      current: document.querySelector('.account-card.selected .account-card-runtime select').value
     })`);
     assert.ok(before.options.length >= 2, 'the seeded shared login must expose two Slots');
     const nextSlot = before.options.find((item) => item !== before.current);
     await client.evaluate(`(() => {
-      const select = document.querySelector('#formSelect');
+      const select = document.querySelector('.account-card.selected .account-card-runtime select');
       select.value = ${JSON.stringify(nextSlot)};
       select.dispatchEvent(new Event('change', { bubbles: true }));
     })()`);
@@ -1399,7 +1393,7 @@ async function runAcceptance(client, artifactDir) {
       query: state.query,
       focused: state.ui.focusedConversationId,
       checked: [...state.ui.checkedConversationIds],
-      current: document.querySelector('#formSelect').value
+      current: document.querySelector('.account-card.selected .account-card-runtime select').value
     })`);
     assert.equal(after.query, before.query);
     assert.equal(after.focused, before.focused);
@@ -1430,6 +1424,7 @@ async function runAcceptance(client, artifactDir) {
       });
       document.querySelectorAll('#sessionRows tr:not(.empty-row)')[0].click();
     })()`);
+    await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
     await waitFor(client, `!document.querySelector('#taskPackageActionBtn').disabled`, 'direct TaskPackage source');
     await client.evaluate(`document.querySelector('#taskPackageActionBtn').click()`);
     await waitFor(
@@ -1459,7 +1454,6 @@ async function runAcceptance(client, artifactDir) {
     await client.evaluate(`document.querySelector('#taskPackageCloseBtn').click()`);
     await waitFor(client, `!document.querySelector('#taskPackageDialog').open`, 'direct TaskPackage composer close');
 
-    await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
     await waitFor(
       client,
       `document.querySelector('#activityCenterDialog').open && state.mesh.transferLoading === false`,
@@ -1670,11 +1664,11 @@ async function runAcceptance(client, artifactDir) {
       renderAccounts();
       renderAccountHeader();
       renderSessions();
-      renderInspector();
       return { remoteId, conversationId: common.conversationId };
     })()`);
+    await client.evaluate(`document.querySelector('#chooseSessionReplicaBtn').click()`);
     let result = await client.evaluate(`({
-      pickerHidden: document.querySelector('#sessionReplicaPicker').hidden,
+      pickerOpen: document.querySelector('#sessionReplicaPicker').open,
       options: document.querySelectorAll('#sessionReplicaOptions input').length,
       copyDisabled: document.querySelector('#copySessionInfoBtn').disabled,
       sendDisabled: document.querySelector('#sendSessionInfoBtn').disabled,
@@ -1682,8 +1676,8 @@ async function runAcceptance(client, artifactDir) {
       issue: document.querySelector('#sessionSelectionIssue').textContent.trim()
     })`);
     assert.deepEqual(
-      { pickerHidden: result.pickerHidden, options: result.options, copyDisabled: result.copyDisabled, sendDisabled: result.sendDisabled, openDisabled: result.openDisabled },
-      { pickerHidden: false, options: 2, copyDisabled: true, sendDisabled: true, openDisabled: true }
+      { pickerOpen: result.pickerOpen, options: result.options, copyDisabled: result.copyDisabled, sendDisabled: result.sendDisabled, openDisabled: result.openDisabled },
+      { pickerOpen: true, options: 2, copyDisabled: true, sendDisabled: true, openDisabled: true }
     );
     assert.ok(result.issue.length > 0);
 
@@ -1693,7 +1687,7 @@ async function runAcceptance(client, artifactDir) {
       copyDisabled: document.querySelector('#copySessionInfoBtn').disabled,
       sendDisabled: document.querySelector('#sendSessionInfoBtn').disabled,
       openDisabled: document.querySelector('#openSessionFileBtn').disabled,
-      location: document.querySelector('#detailLocation').textContent
+      location: document.querySelector('#sessionReplicaOptions input:checked').closest('label').textContent
     })`);
     assert.equal(result.selected, 'acceptance-remote-replica');
     assert.equal(result.copyDisabled, false, 'an offline cached replica remains copyable');
@@ -1708,10 +1702,12 @@ async function runAcceptance(client, artifactDir) {
     })`);
     assert.deepEqual(result, { copyDisabled: false, openDisabled: false });
     assert.ok(injected.remoteId);
+    await client.evaluate(`document.querySelector('#sessionReplicaPicker').close()`);
   });
   await capture(client, artifactDir, '08-multi-replica-source');
 
   await run('SessionPointer, file, and history dialogs keep independent drafts', async () => {
+    await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
     await client.evaluate(`document.querySelector('#sendSessionInfoBtn').click()`);
     await waitFor(client, `document.querySelector('#sessionSendDialog').open`, 'SessionPointer dialog');
     let snapshot = await dialogSnapshot(client, '#sessionSendDialog');
@@ -1740,6 +1736,7 @@ async function runAcceptance(client, artifactDir) {
     assertDialogFits(snapshot);
     assert.equal(await client.evaluate(`state.ui.transferDraft`), null);
     await client.evaluate(`document.querySelector('#transferCenterDialog').close()`);
+    await client.evaluate(`document.querySelector('#activityCenterDialog .utility-dialog-close').click()`);
   });
 
   await run('background remote viewing is textual, reopenable, and clears on disconnect', async () => {
@@ -2116,14 +2113,14 @@ async function runRosterAcceptance(client, userData) {
 
 async function runFocusedRosterAcceptance(client, userData) {
   await client.call('Page.bringToFront');
-  await client.evaluate(`document.querySelector('#classicViewBtn').click()`);
   const order = () => client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].map(card => card.dataset.agentId)`);
   const selected = await client.evaluate('currentAgentId()');
   const initial = await order();
   assert.ok(initial.length > 3, 'drag fixture must have several agents');
   const point = async (index) => client.evaluate(`(() => {
     const node = document.querySelectorAll('#accountRoster .account-card')[${index}];
-    const rect = node.getBoundingClientRect(); return {x: rect.x + rect.width / 2, y: rect.y + 35};
+    const rect = node.querySelector('.account-card-select').getBoundingClientRect();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
   })()`);
   const mouse = (type, position, extra = {}) => client.call('Input.dispatchMouseEvent', {type, ...position, ...extra});
   await client.evaluate(`document.querySelector('#accountRoster').scrollLeft = 0`);
@@ -2167,12 +2164,12 @@ async function runFocusedRosterAcceptance(client, userData) {
   await client.evaluate('renderAccountRoster()');
   assert.equal(await client.evaluate(`document.querySelector('#accountRoster').scrollLeft`), scrolled, 'refresh must preserve manual scroll');
   const movingId = dragged[1];
-  await client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].find(card => card.dataset.agentId === ${JSON.stringify(movingId)}).focus()`);
+  await client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].find(card => card.dataset.agentId === ${JSON.stringify(movingId)}).querySelector('.account-card-select').focus()`);
   await client.call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37, modifiers: 1});
   await client.call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37, modifiers: 1});
   const reordered = await order();
   assert.equal(reordered[0], movingId, 'Alt+Left must move the focused Agent');
-  assert.equal(await client.evaluate('document.activeElement.dataset.agentId'), movingId, 'keyboard reorder must retain focus');
+  assert.equal(await client.evaluate(`document.activeElement.closest('.account-card')?.dataset.agentId`), movingId, 'keyboard reorder must retain focus');
   const deadline = Date.now() + 5000;
   let saved;
   do {

@@ -89,6 +89,14 @@ The current source version is `0.10.1-preview.1`. It is only a Preview candidate
 
 On macOS, move AgentDesk.app into `/Applications` and open it normally. Do not bypass Gatekeeper for an unsigned or revoked package. On Windows, see [docs/WINDOWS.md](docs/WINDOWS.md) for Store/MSIX path handling.
 
+### Import a Codex account
+
+Choose **Add → Import Codex** in the window toolbar. Drop a Codex `auth.json` to add an account, then select **Open account**. A file from a detected Codex home registers that home directly. A standalone file initializes an isolated account on this computer. Codex handles credential refresh and sign-in when needed.
+
+To add an account you already use locally, select a detected `~/.codex` or `CODEX_HOME` folder, or choose a custom Codex folder. AgentDesk registers the location in place so it can open the account and read its existing sessions.
+
+The packaged application exposes `--cli capabilities` for local agents, with commands for existing profiles, Codex credential-file import, launch and session access. See the [CLI guide](docs/AI_INTERFACE.md) for macOS and Windows examples.
+
 ### Run from source
 
 Requires Node.js 22.12 or newer.
@@ -174,7 +182,7 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 - **额度总览（Beta）。** 通过本机 Codex 官方 app-server 读取额度周期；不支持的客户端明确标注，不抓 Cookie 或 token。
 - **独立全局弹窗。** 设备、工具、活动、设置从 Header 各自打开有界弹窗，不替换右下会话详情，也不改变 Device Lens、Agent/Slot 或会话选择。
 - **工具维护台。** 在独立工具弹窗发现桌面 App 与常用 CLI，显示版本和安装来源；用户明确点击后，符合条件的 CLI 才会沿用 npm、Homebrew、uv 或自身更新器维护。
-- **猫猫庭院 / 卡片名册。** 顶部“庭院 / 卡片”分段只切呈现，不改变 Agent、运行位置或会话选择；时间/天气进入一个 Top Layer 场景浮层，持久待处理事项归“活动”弹窗。
+- **Agent 卡片工作台。** 每张卡片显示账号头像、活动、额度和运行位置，并提供打开和管理；持久待处理事项归“活动”弹窗。
 
 工具发现覆盖 Claude Code、DSH、Codex CLI、Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi Code 和 Qwen Code。发现模块只定位本机启动器，不附加运行参数，也不创建会话。
 
@@ -198,6 +206,10 @@ Personal Mesh 当前只做有人值守：应用退出后不在线，不控制登
 
 当前没有可供下载的 `v0.10.1-preview.1` 公开 Preview，不要把 [Releases](https://github.com/shuqianglin1997/agent-desk/releases) 中的旧版本当成本源码。首个候选只有在真实签名/公证、仓库或组织 Actions variables `APPLE_TEAM_ID` / `WIN_SIGNER_THUMBPRINT`、受保护 `preview-release` 环境、真实 Tag、Draft 与公开匿名重下载以及物理干净机检查完成后才可供他人安装；届时 Release 只应包含 DMG、portable 和 `SHA256SUMS.txt`。当前源码仍只是 Preview 候选，不是稳定版，也不会把 `0.10.0` 开发基线补发成稳定版。Windows 的 Store/MSIX 与 portable 说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
 
+**导入 Codex 账号。** 在窗口顶栏选择「添加 → 导入 Codex」，拖入 `auth.json` 或点击选择文件，即可添加账号并使用「打开账号」启动。导入文件保存在本机，后续由官方客户端刷新凭据。已经在本机使用的账号可以直接添加检测到的 `~/.codex` 或 `CODEX_HOME`，也可以手动选择自定义目录。登记原目录后可继续读取现有会话。
+
+**成品 CLI。** 其他 Agent 可以直接在可执行文件上运行 `--cli capabilities`，查询账号、登记现有目录、导入 Codex 认证文件、打开客户端和读取会话。macOS 和 Windows 用法见[接口指南](docs/AI_INTERFACE.md)。
+
 ```bash
 npm ci
 npm run check:docs
@@ -207,4 +219,4 @@ npm run check
 npm run accept:ui # 使用临时 userData，需要可用桌面会话
 ```
 
-先看[文档导航与证据台账](docs/README.md)；产品边界见 [docs/PRODUCT.md](docs/PRODUCT.md)，完整功能梳理见 [docs/FUNCTION_AUDIT.md](docs/FUNCTION_AUDIT.md)，内部结构见 [docs/INTERNAL.md](docs/INTERNAL.md)，庭院语义见 [docs/YARD.md](docs/YARD.md)。
+先看[文档导航与证据台账](docs/README.md)；产品边界见 [docs/PRODUCT.md](docs/PRODUCT.md)，完整功能梳理见 [docs/FUNCTION_AUDIT.md](docs/FUNCTION_AUDIT.md)，内部结构见 [docs/INTERNAL.md](docs/INTERNAL.md)。

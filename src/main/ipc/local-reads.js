@@ -1,7 +1,7 @@
 'use strict';
 
 // Caller passes the trusted main-window registrar; this module never imports raw Electron IPC.
-function registerLocalReadIpc({ ipcMain, loadProfiles, apps, boundedText, revealSessionFile, exportSessionTranscript, probeActivities, snapshotProcesses, profileIsRunning, quotaService, getVersion }) {
+function registerLocalReadIpc({ ipcMain, loadProfiles, apps, boundedText, revealSessionFile, exportSessionTranscript, listSessionDirectories, openSessionDirectory, probeActivities, snapshotProcesses, profileIsRunning, quotaService, getVersion }) {
   ipcMain.handle('sessions:list', (_event, input = {}) => {
     const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
     if (!profile) return [];
@@ -15,6 +15,9 @@ function registerLocalReadIpc({ ipcMain, loadProfiles, apps, boundedText, reveal
   ipcMain.handle('sessions:export', async (_event, input = {}) => {
     return exportSessionTranscript(input);
   });
+
+  ipcMain.handle('sessions:directories', (_event, input = {}) => listSessionDirectories(input));
+  ipcMain.handle('sessions:open-directory', (_event, input = {}) => openSessionDirectory(input));
 
   ipcMain.handle('activity:all', () => {
     const profiles = loadProfiles();

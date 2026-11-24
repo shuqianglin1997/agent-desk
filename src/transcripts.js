@@ -104,6 +104,29 @@ function renderTurns(turns, assistantLabel = 'Kimi') {
   return blocks;
 }
 
+function codexTranscriptMarkdown(filePath) {
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile() || stat.size > 64 * 1024 * 1024) throw new Error('codex-transcript-unavailable');
+  const uiEvents = [];
+  const responseItems = [];
+  for (const line of fs.readFileSync(filePath, 'utf8').split('\n')) {
+    let entry;
+    try { entry = JSON.parse(line); } catch (_error) { continue; }
+    const payload = entry?.payload;
+    if (entry?.type === 'event_msg' && typeof payload?.message === 'string') {
+      if (payload.type === 'user_message') uiEvents.push({ kind: 'user', text: payload.message });
+      if (payload.type === 'agent_message') uiEvents.push({ kind: 'assistant', text: payload.message });
+    } else if (entry?.type === 'response_item' && payload?.type === 'message' && ['user', 'assistant'].includes(payload.role)) {
+      const parts = Array.isArray(payload.content) ? payload.content : [];
+      const kind = payload.role === 'user' ? 'input_text' : 'output_text';
+      const text = parts.filter((item) => item?.type === kind && typeof item.text === 'string')
+        .map((item) => item.text).join('\n');
+      if (text.trim()) responseItems.push({ kind: payload.role, text });
+    }
+  }
+  return renderTurns(uiEvents.length ? uiEvents : responseItems, 'Codex').join('\n\n');
+}
+
 function kimiTranscriptMarkdown(stateJsonPath, opts = {}) {
   if (!stateJsonPath || typeof stateJsonPath !== 'string') {
     throw new Error('没有可导出的会话文件路径。');
@@ -222,4 +245,4 @@ function suggestedTranscriptName(title) {
   return `${cleaned || 'kimi-session'}.md`;
 }
 
-module.exports = { kimiTranscriptMarkdown, claudeCliTranscriptMarkdown, suggestedTranscriptName };
+module.exports = { codexTranscriptMarkdown, kimiTranscriptMarkdown, claudeCliTranscriptMarkdown, suggestedTranscriptName };

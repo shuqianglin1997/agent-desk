@@ -96,13 +96,19 @@ function codexCliCandidates(options = {}) {
     add(p.join(home, '.npm-global', 'bin', 'codex'), 'npm');
     add('/opt/homebrew/bin/codex', 'Homebrew');
     add('/usr/local/bin/codex', '系统工具目录');
-    // Recent ChatGPT desktop builds bundle Codex directly inside ChatGPT.app.
-    // Keep the legacy Codex.app compatibility path too: not every rollout
-    // creates that bundle, especially after an in-place desktop app update.
-    add('/Applications/ChatGPT.app/Contents/Resources/codex', 'ChatGPT App');
-    add(p.join(home, 'Applications', 'ChatGPT.app', 'Contents', 'Resources', 'codex'), 'ChatGPT App');
-    add('/Applications/Codex.app/Contents/Resources/codex', 'Codex App');
-    add(p.join(home, 'Applications', 'Codex.app', 'Contents', 'Resources', 'codex'), 'Codex App');
+    // Desktop updates can change both the app name and the bundled CLI layout.
+    // Prefer the native executable, then the bundled shell launcher, while
+    // retaining the older direct Resources/codex layout for existing installs.
+    if (platform === 'darwin') {
+      for (const [appName, source] of [['ChatGPT.app', 'ChatGPT App'], ['Codex.app', 'Codex App']]) {
+        for (const applications of ['/Applications', p.join(home, 'Applications')]) {
+          const resources = p.join(applications, appName, 'Contents', 'Resources');
+          add(p.join(resources, 'codex-cli', 'CodexCLI.app', 'Contents', 'MacOS', 'codex'), source);
+          add(p.join(resources, 'codex-cli', 'bin', 'codex'), source);
+          add(p.join(resources, 'codex'), source);
+        }
+      }
+    }
     for (const prefix of [p.join(home, '.npm-global'), '/opt/homebrew', '/usr/local']) {
       addPackageRoot(p.join(prefix, 'lib', 'node_modules', '@openai', 'codex'), 'npm');
     }
@@ -205,6 +211,7 @@ function queryCodexAppServer(profile, options = {}) {
 
     let settled = false;
     let initialized = false;
+    let rateLimitsRequested = false;
     let accountReceived = false;
     let rateLimitsReceived = false;
     let accountResult = null;
@@ -246,7 +253,6 @@ function queryCodexAppServer(profile, options = {}) {
       initialized = true;
       send({ method: 'initialized' });
       send({ id: 2, method: 'account/read', params: { refreshToken: false } });
-      send({ id: 3, method: 'account/rateLimits/read', params: null });
     }
 
     function handleMessage(message) {
@@ -275,6 +281,19 @@ function queryCodexAppServer(profile, options = {}) {
             planType: account.planType || null
           } : null
         };
+        // API-key accounts have no ChatGPT subscription quota. Querying their
+        // rate-limit endpoint returns an RPC error and would hide this known
+        // auth mode behind a generic connection failure or a rollout cache.
+        if (account?.type === 'apiKey') {
+          finish(resolve, { account: accountResult, rateLimits: {} });
+          return;
+        }
+        // A null account can still be backed by externally managed ChatGPT
+        // auth. Let a concrete rate-limit response establish availability.
+        if (!rateLimitsRequested) {
+          rateLimitsRequested = true;
+          send({ id: 3, method: 'account/rateLimits/read', params: null });
+        }
       }
       if (message.id === 3) {
         if (message.error) {
@@ -348,16 +367,18 @@ async function readCodexQuota(profile, options = {}) {
     if (!snapshot.planType && account.account?.planType) snapshot.planType = account.account.planType;
     return snapshot;
   }
-  if (account.requiresOpenaiAuth || !account.account) {
+  if (!account.account) {
     return quotaUnavailable(profile.id, 'codex', 'signed_out', 'Codex 账号尚未登录或尚未返回额度');
   }
   if (account.account.type !== 'chatgpt') {
-    return quotaUnavailable(
+    const unavailable = quotaUnavailable(
       profile.id,
       'codex',
       'unsupported',
       '当前 Codex 使用 API Key 或外部凭据，不适用 ChatGPT 订阅额度'
     );
+    if (account.account.type === 'apiKey') unavailable.reasonCode = 'api-key-auth';
+    return unavailable;
   }
   return {
     ...quotaUnavailable(profile.id, 'codex', 'unsupported', '当前账号没有返回可展示的订阅额度'),

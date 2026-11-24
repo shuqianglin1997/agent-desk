@@ -58,8 +58,10 @@ Every packaged form is checked independently of source tests:
    `EnableNodeCliInspectArguments=false`,
    `EnableEmbeddedAsarIntegrityValidation=true`, and
    `OnlyLoadAppFromAsar=true`.
-3. `RunAsNode` remains enabled only because the existing fixed launchers in
-   `src/cli-discovery.js` and `src/codex-quota.js` use it. Adding another caller
+3. `RunAsNode` is limited to the fixed launchers in `src/cli-discovery.js` and
+   `src/codex-quota.js`, plus the opted-in `src/codex-history-retention.js`
+   worker. That worker runs its own packaged module with fixed maintenance
+   flags and a validated, policy-enabled Codex root. Adding another caller
    is a security-boundary change, not a generic child-process facility.
 4. Every regular file in `app.asar` must carry SHA-256 whole-file and 4 MiB
    block hashes. The verifier streams the packed or unpacked bytes, rejects

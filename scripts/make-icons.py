@@ -1,52 +1,69 @@
+import json
+import subprocess
 from pathlib import Path
+
 from PIL import Image, ImageDraw
+
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
-ASSETS.mkdir(exist_ok=True)
+SPRITES = ROOT / "src" / "yard" / "sprites.js"
+CANVAS_SIZE = 20
+BACKGROUND = "#f6f0d7"
+WINDOWS_SIZES = (16, 24, 32, 48, 64, 128, 256)
+MAC_SIZES = (32, 64, 128, 256, 512, 1024)
 
-SIZE = 1024
-img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-draw = ImageDraw.Draw(img)
 
-bg = (31, 35, 40, 255)
-blue = (22, 101, 216, 255)
-blue_light = (95, 165, 250, 255)
-paper = (246, 248, 250, 255)
-line = (183, 193, 203, 255)
+def orange_cat_pixels():
+    result = subprocess.run(
+        [
+            "node", "-e",
+            """
+            const { YardSprites } = require(process.argv[1]);
+            const pixels = [];
+            const ctx = { fillRect(x, y) { pixels.push([x, y, this.fillStyle]); } };
+            YardSprites.drawCat(ctx, YardSprites.SIT, YardSprites.BREEDS.orange, {
+              dx: 2, dy: 2, scale: 1
+            });
+            process.stdout.write(JSON.stringify(pixels));
+            """,
+            str(SPRITES),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(result.stdout)
 
-draw.rounded_rectangle((64, 64, 960, 960), radius=220, fill=bg)
-draw.rounded_rectangle((156, 190, 412, 834), radius=54, fill=(46, 54, 64, 255))
-draw.rounded_rectangle((448, 190, 868, 834), radius=54, fill=paper)
 
-for y in (282, 392, 502):
-    draw.rounded_rectangle((200, y, 368, y + 46), radius=23, fill=blue if y == 282 else (112, 122, 134, 255))
+def main():
+    pixels = orange_cat_pixels()
+    master = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), BACKGROUND)
+    draw = ImageDraw.Draw(master)
+    for x, y, color in pixels:
+        draw.point((x, y), fill=color)
 
-for y in (282, 382, 482, 582):
-    draw.rounded_rectangle((504, y, 808, y + 34), radius=17, fill=line if y != 282 else blue)
+    svg = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CANVAS_SIZE} {CANVAS_SIZE}" shape-rendering="crispEdges">',
+        '  <!-- Generated from the orange SIT sprite in src/yard/sprites.js. -->',
+        f'  <rect width="{CANVAS_SIZE}" height="{CANVAS_SIZE}" fill="{BACKGROUND}"/>',
+    ]
+    by_color = {}
+    for x, y, color in pixels:
+        by_color.setdefault(color, []).append(f"M{x} {y}h1v1h-1z")
+    svg.extend(f'  <path fill="{color}" d="{" ".join(paths)}"/>' for color, paths in by_color.items())
+    (ASSETS / "icon.svg").write_text("\n".join([*svg, "</svg>", ""]), encoding="utf-8")
 
-draw.rounded_rectangle((504, 690, 720, 748), radius=29, fill=blue)
-draw.ellipse((764, 676, 826, 738), fill=blue_light)
-draw.line((720, 720, 764, 704), fill=blue_light, width=18)
+    sizes = set(WINDOWS_SIZES + MAC_SIZES)
+    frames = {size: master.resize((size, size), Image.Resampling.NEAREST) for size in sizes}
+    frames[1024].save(ASSETS / "icon.png")
+    frames[256].save(
+        ASSETS / "icon.ico",
+        sizes=[(size, size) for size in WINDOWS_SIZES],
+        append_images=[frames[size] for size in WINDOWS_SIZES],
+    )
+    frames[1024].save(ASSETS / "icon.icns", append_images=[frames[size] for size in MAC_SIZES])
 
-img.save(ASSETS / "icon.png")
-img.save(ASSETS / "icon.ico", sizes=[(256, 256), (128, 128), (64, 64), (32, 32), (16, 16)])
 
-iconset = ASSETS / "icon.iconset"
-iconset.mkdir(exist_ok=True)
-sizes = {
-    "icon_16x16.png": 16,
-    "icon_16x16@2x.png": 32,
-    "icon_32x32.png": 32,
-    "icon_32x32@2x.png": 64,
-    "icon_128x128.png": 128,
-    "icon_128x128@2x.png": 256,
-    "icon_256x256.png": 256,
-    "icon_256x256@2x.png": 512,
-    "icon_512x512.png": 512,
-    "icon_512x512@2x.png": 1024,
-}
-
-for name, size in sizes.items():
-    resized = img.resize((size, size), Image.Resampling.LANCZOS)
-    resized.save(iconset / name)
+if __name__ == "__main__":
+    main()

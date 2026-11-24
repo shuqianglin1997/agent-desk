@@ -115,7 +115,7 @@ test('macOS 正式构建强制签名、公证和 Hardened Runtime', () => {
   }
 });
 
-test('RunAsNode 兼容面只限现有 Main 固定 CLI launcher', () => {
+test('RunAsNode 兼容面只限 Main 固定 CLI launcher 与历史维护 worker', () => {
   const sources = listJavaScriptFiles(path.join(root, 'src')).map((filePath) => ({
     filePath,
     relativePath: path.relative(root, filePath).split(path.sep).join('/'),
@@ -126,18 +126,24 @@ test('RunAsNode 兼容面只限现有 Main 固定 CLI launcher', () => {
     .map((source) => source.relativePath)
     .sort();
 
-  // RunAsNode remains enabled only for these existing, fixed known-CLI
-  // launchers. Replacing them with a controlled external Node runtime is a
-  // separate migration; new production call sites must not expand this fuse.
+  // These are the only fixed entry points. The opt-in history worker runs its
+  // own packaged module; it does not accept an arbitrary script or command.
   assert.deepEqual(runAsNodeSources, [
     'src/cli-discovery.js',
+    'src/codex-history-retention.js',
     'src/codex-quota.js'
   ]);
-  for (const relativePath of runAsNodeSources) {
+  for (const relativePath of ['src/cli-discovery.js', 'src/codex-quota.js']) {
     const contents = fs.readFileSync(path.join(root, relativePath), 'utf8');
     assert.match(contents, /command: options\.nodeExecutable \|\| process\.execPath/);
     assert.match(contents, /extraEnv: \{ ELECTRON_RUN_AS_NODE: '1' \}/);
   }
+
+  const historyWorker = fs.readFileSync(path.join(root, 'src/codex-history-retention.js'), 'utf8');
+  assert.match(historyWorker, /const args = \[__filename, '--root', root, '--apply', '--automatic'\]/);
+  assert.match(historyWorker, /spawn\(options\.execPath \|\| process\.execPath, args,/);
+  assert.match(historyWorker, /env: \{ \.\.\.process\.env, ELECTRON_RUN_AS_NODE: '1' \}/);
+  assert.match(historyWorker, /if \(!readPolicy\(root\)\) return Promise\.resolve\(\{ skipped: 'not-enabled' \}\)/);
 
   const productionSource = sources.map((source) => source.contents).join('\n');
   assert.doesNotMatch(productionSource, /\bNODE_OPTIONS\b/);
