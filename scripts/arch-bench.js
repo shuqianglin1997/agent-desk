@@ -115,8 +115,11 @@ async function mainThreadNow(fixture, repeats) {
       fixture.profiles, await host.activityRaw(fixture.profiles, Date.now(), 0), null
     ), repeats);
     const processList = await longestBlockRepeated(async () => processText(await collectProcessRecords()), repeats);
-    // The hub's end-of-run lookup still scans one profile here (findSync,
-    // maxAgeMs -1). Main's memo is cold the first time for each profile.
+    // The synchronous fallback: rowsSync scans here only when the index has
+    // no entry for the profile yet (one created moments ago). Since phase 5
+    // the routine paths (user actions, the Mesh inventory, the hub's
+    // end-of-run lookup) read an entry a worker scan left. Main's memo is
+    // cold the first time for each profile.
     const syncScans = fixture.profiles.map((profile) => {
       memo.clear();
       const cold = measure(() => index.rowsSync(profile, { maxAgeMs: -1 }));
@@ -132,7 +135,7 @@ async function mainThreadNow(fixture, repeats) {
       activityProbeViaWorker: activity,
       processListAsync: processList,
       remainingSyncScan: {
-        where: 'hub end-of-run lookup (src/main.js hubLocateSession): one profile, findSync maxAgeMs -1',
+        where: 'synchronous fallback (rowsSync) for a profile the index has no entry for yet; routine paths read entries from worker scans since phase 5',
         perProfile: syncScans,
         worstColdMs: worstSync.coldMs,
         worstColdProfile: worstSync.id,

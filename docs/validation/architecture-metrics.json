@@ -1,25 +1,19 @@
 {
-  "recordedAt": "2026-11-24T19:11:06.181Z",
-  "sourceSha256": "a4cedc1ab3263e4d24966386404eb94ce299c89159fed64f20deb03dc311f8f4",
+  "recordedAt": "2026-11-24T20:20:27.882Z",
+  "sourceSha256": "85cb93ca9208debc7e8690b6c1a0b5443f11d5bf308dea1f74c4f529f50612e6",
   "schemaVersion": 1,
-  "srcFiles": 223,
-  "srcJsLines": 59578,
-  "mainJsLines": 5196,
+  "srcFiles": 251,
+  "srcJsLines": 61543,
+  "mainJsLines": 680,
   "rendererJsLines": 9774,
   "rendererScripts": 31,
   "functions": {
-    "total": 3809,
+    "total": 4041,
     "moduleWrappers": 30,
     "rendererJs": 597,
-    "mainJs": 351,
+    "mainJs": 185,
     "over150Lines": 17,
     "longest": [
-      {
-        "file": "src/main.js",
-        "name": "registerIpc",
-        "line": 475,
-        "lines": 1254
-      },
       {
         "file": "src/renderer.js",
         "name": "bindEvents",
@@ -63,9 +57,9 @@
         "lines": 196
       },
       {
-        "file": "src/main.js",
+        "file": "src/main/profile-launch.js",
         "name": "launchProfile",
-        "line": 3698,
+        "line": 60,
         "lines": 187
       },
       {
@@ -77,25 +71,27 @@
       {
         "file": "src/clients/codex/quota.js",
         "name": "queryCodexAppServer",
-        "line": 179,
-        "lines": 175
+        "line": 191,
+        "lines": 179
       },
       {
         "file": "src/main/agent-hub.js",
         "name": "createAgentHub",
         "line": 67,
         "lines": 175
+      },
+      {
+        "file": "src/roster-interactions.js",
+        "name": "attach",
+        "line": 24,
+        "lines": 171
       }
     ]
   },
   "ipcHandleLiterals": {
-    "total": 116,
-    "mainJs": 105,
-    "files": {
-      "src/main.js": 105,
-      "src/main/ipc/local-reads.js": 7,
-      "src/main/ipc/recruit.js": 4
-    }
+    "total": 0,
+    "mainJs": 0,
+    "files": {}
   },
   "clientNameComparisonsOutsideApps": {
     "total": 0,
@@ -122,19 +118,21 @@
       {
         "file": "src/core/paths.js",
         "function": "samePathReal",
-        "line": 49
+        "line": 87
       }
     ]
   },
   "syncCalls": {
     "mainProcessTotal": 433,
-    "mainProcessFiles": 59,
+    "mainProcessFiles": 66,
     "refreshPathTotal": 12,
     "refreshPath": {
       "src/activity.js": 0,
       "src/apps.js": 0,
+      "src/commands/local-reads.js": 0,
+      "src/commands/registry.js": 0,
       "src/identity.js": 0,
-      "src/main/ipc/local-reads.js": 0,
+      "src/main/ipc/command-shell.js": 0,
       "src/mesh/main/mesh-service.js": 7,
       "src/process-snapshots.js": 0,
       "src/process.js": 5,
@@ -236,17 +234,16 @@
     }
   },
   "tests": {
-    "files": 132,
-    "testCallsAtLineStart": 874,
-    "filesReadingSourceAsText": 47,
-    "textOnlyFiles": 15,
+    "files": 137,
+    "testCallsAtLineStart": 894,
+    "filesReadingSourceAsText": 43,
+    "textOnlyFiles": 14,
     "textOnlyList": [
       "test/codex-config-ownership.test.js",
       "test/device-journey-ui.test.js",
       "test/mesh-ui.test.js",
       "test/onboarding-ui.test.js",
       "test/packaged-first-use-smoke.test.js",
-      "test/persistence-contract.test.js",
       "test/profile-runtime-ui.test.js",
       "test/quota-ipc.test.js",
       "test/quota-ui.test.js",
