@@ -1,24 +1,24 @@
 {
-  "recordedAt": "2026-11-24T18:21:54.809Z",
-  "sourceSha256": "81754a438f4b098b51325cf47278e7c729a8f7e94b5dd7ef56491a426d78b74c",
+  "recordedAt": "2026-11-24T19:11:06.181Z",
+  "sourceSha256": "a4cedc1ab3263e4d24966386404eb94ce299c89159fed64f20deb03dc311f8f4",
   "schemaVersion": 1,
-  "srcFiles": 217,
-  "srcJsLines": 58798,
-  "mainJsLines": 5130,
+  "srcFiles": 223,
+  "srcJsLines": 59578,
+  "mainJsLines": 5196,
   "rendererJsLines": 9774,
   "rendererScripts": 31,
   "functions": {
-    "total": 3740,
+    "total": 3809,
     "moduleWrappers": 30,
     "rendererJs": 597,
-    "mainJs": 347,
+    "mainJs": 351,
     "over150Lines": 17,
     "longest": [
       {
         "file": "src/main.js",
         "name": "registerIpc",
-        "line": 431,
-        "lines": 1241
+        "line": 475,
+        "lines": 1254
       },
       {
         "file": "src/renderer.js",
@@ -41,7 +41,7 @@
       {
         "file": "src/mesh/main/peer-manager.js",
         "name": "receiveDataEnvelope",
-        "line": 390,
+        "line": 392,
         "lines": 249
       },
       {
@@ -65,7 +65,7 @@
       {
         "file": "src/main.js",
         "name": "launchProfile",
-        "line": 3633,
+        "line": 3698,
         "lines": 187
       },
       {
@@ -112,34 +112,9 @@
     }
   ],
   "findSessionByIdAfterRescan": {
-    "count": 5,
-    "sites": [
-      {
-        "file": "src/automation/service.js",
-        "function": "execute",
-        "line": 263
-      },
-      {
-        "file": "src/main.js",
-        "function": "hubLocateSession",
-        "line": 1982
-      },
-      {
-        "file": "src/main.js",
-        "function": "revealSessionFile",
-        "line": 5057
-      },
-      {
-        "file": "src/main/session-actions.js",
-        "function": "<arrow>",
-        "line": 24
-      },
-      {
-        "file": "src/task-package/service.js",
-        "function": "resolveLocalSession",
-        "line": 467
-      }
-    ]
+    "count": 1,
+    "shared": "src/session-index.js findSession",
+    "sites": []
   },
   "pathEqualityOrContainmentHelpers": {
     "count": 1,
@@ -152,12 +127,24 @@
     ]
   },
   "syncCalls": {
-    "mainProcessTotal": 432,
-    "mainProcessFiles": 58,
-    "refreshPathTotal": 50,
+    "mainProcessTotal": 433,
+    "mainProcessFiles": 59,
+    "refreshPathTotal": 12,
     "refreshPath": {
-      "src/activity.js": 6,
+      "src/activity.js": 0,
       "src/apps.js": 0,
+      "src/identity.js": 0,
+      "src/main/ipc/local-reads.js": 0,
+      "src/mesh/main/mesh-service.js": 7,
+      "src/process-snapshots.js": 0,
+      "src/process.js": 5,
+      "src/scan-host.js": 0,
+      "src/session-index.js": 0,
+      "src/session-marks.js": 0
+    },
+    "scanWorkerTotal": 39,
+    "scanWorker": {
+      "src/activity-files.js": 6,
       "src/clients/claude-cli/sessions.js": 2,
       "src/clients/claude/sessions.js": 0,
       "src/clients/cli-scan.js": 6,
@@ -165,18 +152,14 @@
       "src/clients/codex/sessions.js": 2,
       "src/clients/cursor/sessions.js": 3,
       "src/clients/dsh-cli/sessions.js": 1,
+      "src/clients/file-memo.js": 1,
       "src/clients/gemini-cli/sessions.js": 0,
       "src/clients/kimi-work/sessions.js": 2,
       "src/clients/kimi/sessions.js": 0,
       "src/clients/opencode/sessions.js": 0,
       "src/clients/qwen-code/sessions.js": 0,
       "src/clients/scan.js": 11,
-      "src/clients/sqlite.js": 2,
-      "src/identity.js": 0,
-      "src/main/ipc/local-reads.js": 0,
-      "src/mesh/main/mesh-service.js": 7,
-      "src/process.js": 5,
-      "src/session-marks.js": 0
+      "src/clients/sqlite.js": 2
     }
   },
   "css": {
@@ -253,8 +236,8 @@
     }
   },
   "tests": {
-    "files": 127,
-    "testCallsAtLineStart": 853,
+    "files": 132,
+    "testCallsAtLineStart": 874,
     "filesReadingSourceAsText": 47,
     "textOnlyFiles": 15,
     "textOnlyList": [

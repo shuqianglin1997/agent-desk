@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T19:10:41.422Z",
-  "baseCommit": "c88d1109a431ba4588264456a50652163bc9fd61",
-  "uncommitted": true,
+  "recordedAt": "2026-11-24T19:13:59.052Z",
+  "baseCommit": "4f52a1d74147ed04128d4fb8c17fd3f0338483f2",
+  "uncommitted": false,
   "sourceSha256": "a4cedc1ab3263e4d24966386404eb94ce299c89159fed64f20deb03dc311f8f4",
   "environment": {
     "platform": "darwin",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 903,
+      "pass": 901,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite at architecture phase 4 close; digest identical before and after the run",
+      "recordedAt": "2026-11-24T19:13:59.052Z",
+      "sourceSha256": "a4cedc1ab3263e4d24966386404eb94ce299c89159fed64f20deb03dc311f8f4"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T19:13:59.052Z",
+      "sourceSha256": "a4cedc1ab3263e4d24966386404eb94ce299c89159fed64f20deb03dc311f8f4"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",
