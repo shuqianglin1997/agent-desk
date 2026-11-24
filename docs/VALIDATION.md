@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 3 阶段第 3 批：Gemini 的 parts 文字只有一个读取者。Gemini CLI 的 `content` 与 Qwen Code（Gemini CLI 的分支）的 `message.parts` 是同一种格式，原来扫描器的标题、导出正文、调度中枢的最终回答各写了一份 `partsText`，三份不同：调度中枢那份不看对象里的 `parts`，扫描器那份用空格连接且不跳过“思考”。现在 `src/clients/gemini-cli/parts.js` 一份（标题传空格作分隔），`src/clients/gemini-cli/records.js` 与 `src/clients/qwen-code/records.js` 各读一家的会话记录（哪些是人的提问、哪些是模型的回答、最后一个回答），三处都用它们。新增 `test/gemini-qwen-records.test.js` 3 项：导出正文和列表标题改动前后一致；第三项在改动前失败——最后一个回答的文字放在 `{ parts }` 对象里时，调度中枢原来把上一个回答当成最终回答（Gemini 与 Qwen 都是），现在取到真正的最后一个回答。这是本批唯一的行为变化，只影响这种记录写法下调度中枢的回答。
+
 2026-11-24 架构整理第 3 阶段第 2 批：Codex 的 rollout 记录只有一个读取者 `src/clients/codex/rollout.js`。它负责“一行是什么意思”：session_meta 分类（用户根会话或内部子分支，原 `src/mesh/domain/session-identity.js` 整个并入后删除）、首行逐段读到行尾（最多 8MB）、用户与助手消息（事件流或响应项）、附件要用的原始消息、token_count 里的额度；各读者读多少照旧。会话扫描、导出正文与附件、调度中枢的最终回答、缓存额度、任务包都改为调用它。新增 `test/codex-rollout-readers.test.js` 3 项：导出正文、调度回答、缓存额度三项在改动前后一致；第三项在改动前失败——任务包原来自己只读首行前 64KB，首行更长的内部子记录（session_meta 带长指令时很常见）会被悄悄漏掉，现在和扫描器一样读到行尾，任务包会带上它。这是本批唯一的行为变化，只影响任务包捕获与导入时的冲突检查。
 
 2026-11-24 架构整理第 3 阶段第 1 批：每个客户端一个适配器目录。`src/apps.js` 里十个客户端的登记条目逐字搬进 `src/clients/<id>/index.js`（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor），几个适配器共用、不点名任何客户端的小工具放进 `src/clients/shared.js`，Claude Code 读的环境变量清单放进 `src/clients/claude-cli/environment.js`（Claude 桌面版启动时也用它清掉这些变量）。`src/apps.js` 只按原来的顺序收集适配器，保留与具体客户端无关的通用函数和原有导出。逐项比对：客户端顺序、每个条目的每个字段（函数按去掉空白后的源码）、给界面的 `listApps()` 和全部导出与改动前完全相同。指标脚本改为从适配器目录读客户端名，适配器目录与 `apps.js` 里的判断不计入“适配器之外”；分层表把 `src/clients/` 归入 clients 层。新增 `test/client-adapters.test.js` 2 项，`test/architecture-tools.test.js` 加 1 项。

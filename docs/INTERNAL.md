@@ -120,7 +120,7 @@ src/
       task-package-transfer.js  直送 IPC 的稳定 ID/枚举 schema
 
   apps.js                 客户端目录：按固定顺序收集各适配器，并提供与具体客户端无关的启动计划、默认路径和给界面的精简元数据
-  clients/<id>/           每个客户端一个适配器目录（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor），集中它的名称、可执行文件、数据目录、扫描区域、发现特征与密钥交接方式；clients/shared.js 放几个适配器共用、不点名任何客户端的小工具；每种记录格式只有一个读取者，例如 clients/codex/rollout.js 读 Codex 的 rollout（session_meta 分类出用户根会话与内部子分支、用户与助手消息、额度、首行可超过 64KB），扫描、导出与附件、调度中枢的最终回答、缓存额度和任务包都用它
+  clients/<id>/           每个客户端一个适配器目录（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor），集中它的名称、可执行文件、数据目录、扫描区域、发现特征与密钥交接方式；clients/shared.js 放几个适配器共用、不点名任何客户端的小工具；每种记录格式只有一个读取者，例如 clients/codex/rollout.js 读 Codex 的 rollout（session_meta 分类出用户根会话与内部子分支、用户与助手消息、额度、首行可超过 64KB），扫描、导出与附件、调度中枢的最终回答、缓存额度和任务包都用它；clients/gemini-cli/parts.js 读 Gemini 的 parts 文字（Qwen Code 沿用同一格式），clients/gemini-cli/records.js 与 clients/qwen-code/records.js 读两家的会话记录，标题、导出和调度回答共用
   sessions.js             Claude / Claude CLI / Codex / Kimi 会话扫描
   agent-workspace.js      全局员工库在工作环境上的就绪投影
   mesh/domain/

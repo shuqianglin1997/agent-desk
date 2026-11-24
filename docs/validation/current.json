@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T17:42:29.898Z",
-  "baseCommit": "a992aa83abad2387358b671230616ca6d467c6b2",
+  "recordedAt": "2026-11-24T17:45:01.685Z",
+  "baseCommit": "4a9d781f429c8e0ba09f2a50c1ecd8434f523ed9",
   "uncommitted": true,
-  "sourceSha256": "9f155145bec1ac131cf6d576752128d5c621e87340168f463f4e725648260d87",
+  "sourceSha256": "140a43c2a6852924f536825714397b859f3cc9b2d35351285cfe076162657d19",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 877,
+      "pass": 875,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 3 batch 3 (one Gemini parts reader); digest identical before and after the run",
+      "recordedAt": "2026-11-24T17:45:01.685Z",
+      "sourceSha256": "140a43c2a6852924f536825714397b859f3cc9b2d35351285cfe076162657d19"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T17:45:01.685Z",
+      "sourceSha256": "140a43c2a6852924f536825714397b859f3cc9b2d35351285cfe076162657d19"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

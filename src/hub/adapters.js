@@ -15,6 +15,8 @@
 
 const fs = require('node:fs');
 const codexRollout = require('../clients/codex/rollout');
+const geminiRecords = require('../clients/gemini-cli/records');
+const qwenRecords = require('../clients/qwen-code/records');
 
 const MAX_ANSWER_CHARS = 200_000;
 const MAX_LINE_BYTES = 8 * 1024 * 1024;
@@ -83,11 +85,13 @@ function documentParser(onDocument) {
   };
 }
 
-function partsText(value) {
-  if (typeof value === 'string') return value;
-  if (Array.isArray(value)) return value.map(partsText).filter(Boolean).join('\n');
-  if (value && typeof value === 'object' && typeof value.text === 'string' && value.thought !== true) return value.text;
-  return '';
+// The parsed lines of a record, skipping the ones that are not JSON.
+function parsedLines(lines) {
+  const records = [];
+  for (const line of lines) {
+    try { records.push(JSON.parse(line)); } catch (_error) { /* half-written or damaged */ }
+  }
+  return records;
 }
 
 function readRecordLines(filePath) {
@@ -269,20 +273,13 @@ const gemini = Object.freeze({
     return { push: parser.push, end: parser.end };
   },
   lastAnswerFromRecord(filePath) {
-    let answer = null;
+    let document = null;
     if (filePath.endsWith('.json')) {
-      let json = null;
-      try { json = JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (_error) { json = null; }
-      for (const message of Array.isArray(json?.messages) ? json.messages : []) {
-        if (message?.type === 'gemini' && partsText(message.content).trim()) answer = partsText(message.content);
-      }
+      try { document = JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (_error) { document = null; }
     } else {
-      for (const line of readRecordLines(filePath).slice(1)) {
-        let message;
-        try { message = JSON.parse(line); } catch (_error) { continue; }
-        if (message?.type === 'gemini' && partsText(message.content).trim()) answer = partsText(message.content);
-      }
+      document = parsedLines(readRecordLines(filePath));
     }
+    const answer = geminiRecords.lastAnswerText(geminiRecords.messagesOf(document));
     return answer === null ? null : bounded(answer);
   }
 });
@@ -337,14 +334,7 @@ const qwen = Object.freeze({
     return { push: parser.push, end: parser.end };
   },
   lastAnswerFromRecord(filePath) {
-    let answer = null;
-    for (const line of readRecordLines(filePath)) {
-      let record;
-      try { record = JSON.parse(line); } catch (_error) { continue; }
-      if (!record || record.isSidechain || record.type !== 'assistant') continue;
-      const text = partsText(record.message?.parts || record.message?.content);
-      if (text.trim()) answer = text;
-    }
+    const answer = qwenRecords.lastAnswerText(parsedLines(readRecordLines(filePath)));
     return answer === null ? null : bounded(answer);
   }
 });

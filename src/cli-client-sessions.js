@@ -22,6 +22,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const coreJson = require('./core/json-file');
+const { partsText } = require('./clients/gemini-cli/parts');
+const qwenRecords = require('./clients/qwen-code/records');
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_ROWS = 5000;
@@ -85,16 +87,8 @@ function sortByRecency(records) {
   return records.sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')));
 }
 
-// Gemini `content` and Qwen `message.parts`: a string, a part or a list of parts.
-function partsText(value) {
-  if (typeof value === 'string') return value;
-  if (Array.isArray(value)) return value.map(partsText).filter(Boolean).join(' ');
-  if (value && typeof value === 'object') {
-    if (typeof value.text === 'string') return value.text;
-    if (Array.isArray(value.parts)) return partsText(value.parts);
-  }
-  return '';
-}
+// Titles join Gemini parts with a space.
+const titleText = (value) => partsText(value, ' ');
 
 // ---------- OpenCode ----------
 
@@ -212,7 +206,7 @@ function geminiTitle(messages, summary) {
   if (cleanTitle(summary)) return cleanTitle(summary);
   for (const message of messages) {
     if (message?.type !== 'user') continue;
-    const text = cleanTitle(partsText(message.content));
+    const text = cleanTitle(titleText(message.content));
     if (text && !text.startsWith('/')) return text;
   }
   return '';
@@ -289,12 +283,6 @@ function scanGemini(profile) {
 
 // ---------- Qwen Code ----------
 
-function qwenPromptText(record) {
-  const display = record?.systemPayload?.displayText;
-  if (typeof display === 'string') return display.trim();
-  return partsText(record?.message?.parts || record?.message?.content || '').trim();
-}
-
 function scanQwenFile(filePath) {
   const lines = jsonLines(readText(filePath));
   let id = path.basename(filePath, '.jsonl');
@@ -316,8 +304,8 @@ function scanQwenFile(filePath) {
       customTitle = cleanTitle(record.systemPayload?.customTitle) || customTitle;
     } else if (record.type === 'system' && record.subtype === 'parent_session') {
       child = true;
-    } else if (record.type === 'user' && record.subtype === undefined && !record.isSidechain && !firstPrompt) {
-      firstPrompt = cleanTitle(qwenPromptText(record));
+    } else if (qwenRecords.isPrompt(record) && !firstPrompt) {
+      firstPrompt = cleanTitle(qwenRecords.promptText(record, ' ').trim());
     }
   }
   if (child || !lines.length) return null;
@@ -476,4 +464,4 @@ function scanDsh(profile) {
   return sortByRecency([...records.values()]);
 }
 
-module.exports = { scanOpenCode, scanGemini, scanQwen, scanDsh, partsText };
+module.exports = { scanOpenCode, scanGemini, scanQwen, scanDsh };

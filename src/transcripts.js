@@ -13,6 +13,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { readJson } = require('./core/json-file');
 const codexRollout = require('./clients/codex/rollout');
+const geminiRecords = require('./clients/gemini-cli/records');
+const qwenRecords = require('./clients/qwen-code/records');
 
 function readJsonSafe(filePath) {
   return readJson(filePath);
@@ -215,18 +217,7 @@ function claudeCliTranscriptMarkdown(jsonlPath, opts = {}) {
 }
 
 // ---------- OpenCode、Gemini CLI、Qwen Code ----------
-// Shared helpers: a string, a part or a list of parts; JSONL read with a cap.
-function partsText(value) {
-  if (typeof value === 'string') return value;
-  if (Array.isArray(value)) return value.map(partsText).filter(Boolean).join('\n');
-  if (value && typeof value === 'object') {
-    if (value.thought === true) return '';
-    if (typeof value.text === 'string') return value.text;
-    if (Array.isArray(value.parts)) return partsText(value.parts);
-  }
-  return '';
-}
-
+// JSONL read with a cap.
 function readJsonLines(filePath, limit = 64 * 1024 * 1024) {
   const stat = fs.statSync(filePath);
   if (!stat.isFile() || stat.size > limit) throw new Error('transcript-unavailable');
@@ -322,38 +313,19 @@ function openCodeTranscriptMarkdown(session) {
 
 // Gemini CLI: JSONL (first line metadata) or an older whole-file JSON.
 function geminiTranscriptMarkdown(filePath) {
-  let messages;
+  let document;
   if (filePath.endsWith('.json')) {
-    const json = readJsonSafe(filePath);
-    if (!json) throw new Error('transcript-unavailable');
-    messages = Array.isArray(json.messages) ? json.messages : [];
+    document = readJsonSafe(filePath);
+    if (!document) throw new Error('transcript-unavailable');
   } else {
-    messages = readJsonLines(filePath).slice(1).filter((record) => record && record.type);
+    document = readJsonLines(filePath);
   }
-  const turns = [];
-  for (const message of messages) {
-    const text = partsText(message.content).trim();
-    if (!text) continue;
-    if (message.type === 'user') turns.push({ kind: 'user', text });
-    else if (message.type === 'gemini') turns.push({ kind: 'assistant', text });
-  }
-  return renderTurns(turns, 'Gemini').join('\n\n');
+  return renderTurns(geminiRecords.conversationTurns(geminiRecords.messagesOf(document)), 'Gemini').join('\n\n');
 }
 
 // Qwen Code: user prompts (not sidechain, no subtype) and assistant text parts.
 function qwenTranscriptMarkdown(filePath) {
-  const turns = [];
-  for (const record of readJsonLines(filePath)) {
-    if (!record || record.isSidechain) continue;
-    if (record.type === 'user' && record.subtype === undefined) {
-      const text = (typeof record.systemPayload?.displayText === 'string' ? record.systemPayload.displayText : partsText(record.message?.parts || record.message?.content)).trim();
-      if (text) turns.push({ kind: 'user', text });
-    } else if (record.type === 'assistant') {
-      const text = partsText(record.message?.parts || record.message?.content).trim();
-      if (text) turns.push({ kind: 'assistant', text });
-    }
-  }
-  return renderTurns(turns, 'Qwen').join('\n\n');
+  return renderTurns(qwenRecords.conversationTurns(readJsonLines(filePath)), 'Qwen').join('\n\n');
 }
 
 // 文件名建议：去掉路径分隔与 Windows 非法字符，限长，避免空名。
