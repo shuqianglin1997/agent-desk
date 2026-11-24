@@ -44,7 +44,8 @@
   "devDependencies": {
     "@electron/fuses": "1.8.0",
     "electron": "43.3.0",
-    "electron-builder": "26.15.3"
+    "electron-builder": "26.15.3",
+    "typescript": "6.0.3"
   },
   "build": {
     "beforePack": "scripts/build-native-helpers.js",
