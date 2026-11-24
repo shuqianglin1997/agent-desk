@@ -888,6 +888,89 @@ async function runAcceptance(client, artifactDir) {
     })()`);
   });
 
+  await run('the session table keeps unchanged rows and draws again only what changed', async () => {
+    // docs/ARCHITECTURE_PLAN.md 5.7: rows are keyed by the ConversationIdentity
+    // row key (Mesh plan 11.5); focus, checks and scroll survive an update.
+    const total = await client.evaluate(`(() => {
+      const s = AgentDeskInspect.state;
+      window.__acceptanceSessions = s.sessions;
+      window.__acceptanceSort = s.sessionSort;
+      const first = s.sessions[0];
+      const extra = Array.from({ length: 120 }, (_, index) => {
+        const row = { ...first, id: 'acceptance-row-' + index, address: 'acceptance-row-' + index, title: 'Acceptance row ' + index, updatedAt: '2026-08-01T00:00:00.000Z' };
+        delete row.conversationId;
+        return row;
+      });
+      s.sessions = [...s.sessions, ...extra];
+      AgentDeskInspect.applySessionFilter();
+      return document.querySelectorAll('#sessionRows tr[data-session-key]').length;
+    })()`);
+    assert.ok(total >= 120, `synthetic rows drawn: ${total}`);
+    await client.evaluate(`document.querySelectorAll('#sessionRows tr[data-session-key] .title-cell-main')[5].click()`);
+    await client.evaluate(`document.querySelectorAll('#sessionRows tr[data-session-key] .session-select-box')[7].click()`);
+    const result = await client.evaluate(`(() => {
+      const s = AgentDeskInspect.state;
+      const wrap = document.querySelector('.session-pane .table-wrap');
+      wrap.scrollTop = 600;
+      const top = wrap.scrollTop;
+      [...document.querySelectorAll('#sessionRows tr[data-session-key]')].forEach((row) => { row.__acceptanceProbe = true; });
+      const focused = s.ui.focusedConversationId;
+      const checked = [...s.ui.checkedConversationIds];
+      // A background refresh: every session a new object, one title changed.
+      s.sessions = s.sessions.map((row) => (row.title === 'Acceptance row 3' ? { ...row, title: 'Acceptance row 3 changed' } : { ...row }));
+      AgentDeskInspect.applySessionFilter();
+      const rows = [...document.querySelectorAll('#sessionRows tr[data-session-key]')];
+      return {
+        total: rows.length,
+        kept: rows.filter((row) => row.__acceptanceProbe).length,
+        redrawn: rows.filter((row) => !row.__acceptanceProbe).map((row) => row.querySelector('.title-cell-main')?.textContent),
+        scrollMoved: wrap.scrollTop - top,
+        top,
+        focusedSame: s.ui.focusedConversationId === focused,
+        checkedSame: JSON.stringify([...s.ui.checkedConversationIds]) === JSON.stringify(checked),
+        focusedRowMarked: document.querySelector('#sessionRows tr.session-active')?.dataset.sessionKey === focused,
+        writtenIn: rows.filter((row) => row.classList.contains('fx-in')).length
+      };
+    })()`);
+    assert.ok(result.top > 0, 'the table scrolls');
+    assert.equal(result.kept, result.total - 1, 'every unchanged row is kept');
+    assert.deepEqual(result.redrawn, ['Acceptance row 3 changed'], 'only the changed row is drawn again');
+    assert.equal(result.scrollMoved, 0, 'the scroll position stays');
+    assert.deepEqual([result.focusedSame, result.checkedSame, result.focusedRowMarked], [true, true, true]);
+    assert.equal(result.writtenIn, 0, 'a background update writes no row in');
+
+    // A sort by a real click is the user's own action: the top rows, kept
+    // ones included, write in again as before.
+    const point = await client.evaluate(`(() => {
+      const rect = document.querySelector('#sessionHead .sort-button[data-sort-key="title"]').getBoundingClientRect();
+      [...document.querySelectorAll('#sessionRows tr[data-session-key]')].forEach((row) => { row.__acceptanceProbe = true; });
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`);
+    await client.call('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+    await client.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+    const sorted = await client.evaluate(`(() => {
+      const rows = [...document.querySelectorAll('#sessionRows tr[data-session-key]')].slice(0, 12);
+      return {
+        sortKey: AgentDeskInspect.state.sessionSort.key,
+        kept: rows.filter((row) => row.__acceptanceProbe).length,
+        writing: rows.filter((row) => row.classList.contains('fx-in') && row.getAnimations().length > 0).length
+      };
+    })()`);
+    assert.equal(sorted.sortKey, 'title');
+    assert.ok(sorted.kept >= 10, `sorting keeps the rows: ${sorted.kept}`);
+    assert.equal(sorted.writing, 12, 'the top rows write in again after the user sorts');
+
+    await client.evaluate(`(() => {
+      const s = AgentDeskInspect.state;
+      s.sessions = window.__acceptanceSessions;
+      s.sessionSort = window.__acceptanceSort;
+      document.querySelector('#clearSessionSelectionBtn').click();
+      AgentDeskInspect.applySessionFilter();
+      document.querySelector('.session-pane .table-wrap').scrollTop = 0;
+    })()`);
+    await waitFor(client, `AgentDeskInspect.state.ui.checkedConversationIds.size === 0`, 'checks cleared after the row checks');
+  });
+
   await run('TaskPackage export and receive keep fixed transaction controls around one scrolling content owner', async () => {
     await client.evaluate(`document.querySelectorAll('#sessionRows tr:not(.empty-row)')[0].click()`);
     assert.equal(

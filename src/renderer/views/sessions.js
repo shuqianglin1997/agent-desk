@@ -206,7 +206,6 @@ function renderSessions() {
   renderSessionActionToolbar();
   fitSessionToolbar();
   renderSessionHead();
-  els.sessionRows.replaceChildren();
   const accountCount = sessionAccountCount(state.filteredSessions);
   els.sessionCount.title = state.ui.agentScope === 'all'
     ? tr('session.countAll', { n: state.filteredSessions.length, accounts: accountCount })
@@ -238,66 +237,159 @@ function renderSessions() {
         ? 'session.empty.noAgents'
         : state.ui.agentScope === 'all' ? 'session.empty.noneAll' : 'session.empty.none');
     row.append(cell);
-    els.sessionRows.append(row);
+    sessionRowCache = new Map();
+    els.sessionRows.replaceChildren(row);
+    announceSessionRows();
     return;
   }
 
+  // Rows whose drawing would not change are kept; the others are drawn anew.
+  const columns = sessionColumns();
+  const view = sessionRowsView(columns);
+  const previous = sessionRowCache;
+  const next = new Map();
+  const wanted = [];
   for (const session of state.filteredSessions) {
     if (session._hubRun) {
       const row = renderHubRow(session);
       if (sessionKey(session) === restoreKey) rowControl = row.querySelector(restoreSelector);
-      els.sessionRows.append(row);
+      wanted.push(row);
       continue;
     }
     const key = sessionKey(session);
-    const row = document.createElement('tr');
-    row.dataset.sessionKey = key;
-    const checked = state.ui.checkedConversationIds.has(key);
-    row.classList.toggle('selected', checked);
-    row.classList.toggle('session-active', key === state.ui.focusedConversationId);
-    row.setAttribute('aria-selected', String(checked || key === state.ui.focusedConversationId));
-
-    const selectCell = document.createElement('td');
-    selectCell.className = 'select-cell';
-    const checkbox = document.createElement('input');
-    checkbox.className = 'session-select-box';
-    checkbox.type = 'checkbox';
-    checkbox.checked = checked;
-    checkbox.setAttribute('aria-label', tr('session.selectOne', { title: session.title || session.id || '' }));
-    checkbox.addEventListener('click', (event) => event.stopPropagation());
-    checkbox.addEventListener('change', () => setSessionChecked(session, checkbox.checked));
-    selectCell.append(checkbox);
-    row.append(selectCell);
-
-    for (const column of sessionColumns()) {
-      row.append(renderSessionCell(session, column));
+    const signature = sessionRowSignature(session, view, columns);
+    const kept = next.has(key) ? null : previous.get(key);
+    let row;
+    if (kept && kept.signature === signature) {
+      row = kept.row;
+      // A kept row is moved into place, not written in again.
+      row.classList.remove('fx-in');
+    } else {
+      row = buildSessionRow(session, key, columns);
     }
+    row._session = session;
+    if (!next.has(key)) next.set(key, { row, signature });
     if (key === restoreKey) rowControl = row.querySelector(restoreSelector);
-
-    row.addEventListener('click', (event) => {
-      const tagButton = event.target.closest('.session-tag-btn');
-      if (tagButton) {
-        sessionMarks.openPicker(markTargets(session), tagButton);
-        return;
-      }
-      if (event.metaKey || event.ctrlKey) {
-        setSessionChecked(session, !state.ui.checkedConversationIds.has(key));
-      } else {
-        focusSession(session);
-        renderSessions();
-        // 点开这一行就算在这里看过了；从 AgentDesk 打开客户端不算。
-        void sessionMarks.markSeen([session]);
-      }
-    });
-    row.addEventListener('contextmenu', (event) => {
-      const targets = markTargets(session);
-      if (!targets.length) return;
-      event.preventDefault();
-      sessionMarks.openPicker(targets, { x: event.clientX, y: event.clientY });
-    });
-    els.sessionRows.append(row);
+    wanted.push(row);
   }
+  sessionRowCache = next;
+  placeSessionRows(wanted);
+  announceSessionRows();
   rowControl?.focus({ preventScroll: true });
+}
+
+// Rows already drawn, by session key (the ConversationIdentity row key, Mesh
+// plan 11.5): the element and the signature of what it shows. An update draws
+// only the rows whose signature changed (docs/ARCHITECTURE_PLAN.md 5.7).
+let sessionRowCache = new Map();
+
+// What every row's drawing depends on beyond its own session: the columns,
+// the scope and view, the language, the date locale, and today's date
+// (compactDate shows only the time for today's sessions, no year this year).
+function sessionRowsView(columns) {
+  return JSON.stringify([
+    columns.map((column) => [column.key, column.className || '', column.cellClass || '']),
+    state.ui.agentScope,
+    state.sessionView,
+    window.I18N ? window.I18N.getLang() : 'zh',
+    dateLocale(),
+    new Date().toDateString()
+  ]);
+}
+
+// What one session row shows: the view, its key, whether it is checked or
+// focused, every field its cells read, and its title marks.
+function sessionRowSignature(session, view, columns) {
+  const key = sessionKey(session);
+  const replicas = Array.isArray(session.replicas) ? session.replicas : [];
+  return JSON.stringify([
+    view,
+    key,
+    state.ui.checkedConversationIds.has(key),
+    key === state.ui.focusedConversationId,
+    columns.map((column) => session[column.key] ?? null),
+    session.title ?? null,
+    session.id ?? null,
+    session.address ?? null,
+    session._accountName ?? null,
+    session._profileName ?? null,
+    session._appLabel ?? null,
+    session.appId ?? null,
+    session.createdAt ?? null,
+    session.updatedAt ?? null,
+    session.projectPath ?? null,
+    session._deviceName ?? null,
+    replicas.length,
+    replicas.map((replica) => replica.deviceName || replica.deviceId),
+    sessionMarks.titleSignature(session)
+  ]);
+}
+
+// Puts the wanted rows in order, moving or removing only what differs.
+function placeSessionRows(wanted) {
+  const body = els.sessionRows;
+  const keep = new Set(wanted);
+  for (const child of [...body.children]) if (!keep.has(child)) child.remove();
+  wanted.forEach((row, index) => {
+    if (body.children[index] !== row) body.insertBefore(row, body.children[index] || null);
+  });
+}
+
+// The rows were drawn: the focus band, the copy stamp and the write-in
+// (src/pixel/ui.js) follow every drawing, also one that changed no element.
+function announceSessionRows() {
+  els.sessionRows.dispatchEvent(new CustomEvent('agentdesk:session-rows'));
+}
+
+// One session row; its handlers act on the session it shows now (row._session).
+function buildSessionRow(session, key, columns) {
+  const row = document.createElement('tr');
+  row._session = session;
+  row.dataset.sessionKey = key;
+  const checked = state.ui.checkedConversationIds.has(key);
+  row.classList.toggle('selected', checked);
+  row.classList.toggle('session-active', key === state.ui.focusedConversationId);
+  row.setAttribute('aria-selected', String(checked || key === state.ui.focusedConversationId));
+
+  const selectCell = document.createElement('td');
+  selectCell.className = 'select-cell';
+  const checkbox = document.createElement('input');
+  checkbox.className = 'session-select-box';
+  checkbox.type = 'checkbox';
+  checkbox.checked = checked;
+  checkbox.setAttribute('aria-label', tr('session.selectOne', { title: session.title || session.id || '' }));
+  checkbox.addEventListener('click', (event) => event.stopPropagation());
+  checkbox.addEventListener('change', () => setSessionChecked(row._session, checkbox.checked));
+  selectCell.append(checkbox);
+  row.append(selectCell);
+
+  for (const column of columns) {
+    row.append(renderSessionCell(session, column));
+  }
+
+  row.addEventListener('click', (event) => {
+    const session = row._session;
+    const tagButton = event.target.closest('.session-tag-btn');
+    if (tagButton) {
+      sessionMarks.openPicker(markTargets(session), tagButton);
+      return;
+    }
+    if (event.metaKey || event.ctrlKey) {
+      setSessionChecked(session, !state.ui.checkedConversationIds.has(key));
+    } else {
+      focusSession(session);
+      renderSessions();
+      // 点开这一行就算在这里看过了；从 AgentDesk 打开客户端不算。
+      void sessionMarks.markSeen([session]);
+    }
+  });
+  row.addEventListener('contextmenu', (event) => {
+    const targets = markTargets(row._session);
+    if (!targets.length) return;
+    event.preventDefault();
+    sessionMarks.openPicker(targets, { x: event.clientX, y: event.clientY });
+  });
+  return row;
 }
 
 // 会话工具栏只有一行（面板标题 38–48px）。放不下时一级一级收起次要的字，直到不溢出为止；放得下就全部显示。

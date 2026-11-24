@@ -44,7 +44,8 @@ const CONTRACTS = [
     acceptance: [
       '1040×840 Header / three-panel board / Footer shell',
       'render, filter and reconcile change no selection; popovers open in the Top Layer',
-      'focus, explicit check, hidden selection, and clear lifecycle'
+      'focus, explicit check, hidden selection, and clear lifecycle',
+      'the session table keeps unchanged rows and draws again only what changed'
     ]
   },
   {

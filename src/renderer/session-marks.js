@@ -288,6 +288,18 @@
   // ── 行上的记号 ───────────────────────────────────────
   // 标签的形状在最前，然后是新回复的小气泡或在跑的三个点；标题加粗；后面是“新回复”或“在跑”小标，
   // 最后是正在看（或指着、聚焦在里面）的那一行才露出来的“标签”按钮。
+  // Everything decorateTitle draws for this session, as one string: the
+  // session table keeps a row while this (and the rest of the row) is the
+  // same, and draws it again when it changes. A "new reply" that has not
+  // popped yet counts as a change, so it still pops.
+  function titleSignature(session) {
+    const key = keyOf(session);
+    if (!key) return '';
+    const tag = tagOf(session);
+    const fresh = isFresh(session);
+    return JSON.stringify([key, tag, tag ? fullName(tag) : null, fresh, isWriting(session), fresh && state.popReady && !state.shown.has(key)]);
+  }
+
   function decorateTitle(cell, session, title, options = {}) {
     if (!keyOf(session)) return;
     const key = keyOf(session);
@@ -456,6 +468,7 @@
     showFresh,
     renderFilters,
     decorateTitle,
+    titleSignature,
     openPicker,
     closePicker,
     setTag,

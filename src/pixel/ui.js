@@ -239,6 +239,11 @@
     if (signature !== rowSignature && !typing && !Fx.reduced() && userCaused) {
       rows.slice(0, 12).forEach((row, index) => {
         row.style.setProperty('--i', String(index));
+        // The table keeps unchanged rows (src/renderer/views/sessions.js); a
+        // kept row starts its write-in again, as a newly drawn one does: the
+        // style is flushed without the class before it is added.
+        row.classList.remove('fx-in');
+        void row.offsetWidth;
         row.classList.add('fx-in');
       });
     }
@@ -260,6 +265,8 @@
     const body = $('#sessionRows');
     if (!body) return;
     new MutationObserver(rowsChanged).observe(body, { childList: true });
+    // The table announces every drawing, also one that kept every row.
+    body.addEventListener('agentdesk:session-rows', rowsChanged);
     body.addEventListener('change', (event) => {
       const box = event.target.closest('.session-select-box');
       if (box && box.checked) stampKey = box.closest('tr')?.dataset.sessionKey || null;
