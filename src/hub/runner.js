@@ -16,6 +16,9 @@ const { ACTIVE_STATES } = require('./store');
 
 const KILL_GRACE_MS = 3000;
 const STOP_WAIT_MS = 6000;
+// How long a run that has exited waits for its session lookup before it is
+// recorded as ended without the link (filled in later when found).
+const LOOKUP_TIMEOUT_MS = 2000;
 
 function defaultKillTree(child, signal, platform = process.platform, spawnImpl = spawn) {
   if (!child?.pid) return;
@@ -40,7 +43,12 @@ class HubRunner {
     this.spawnImpl = options.spawnImpl || spawn;
     this.platform = options.platform || process.platform;
     this.killTree = options.killTree || ((child, signal) => defaultKillTree(child, signal, this.platform, this.spawnImpl));
+    // locateSession(profile, sessionId): the session's file, or a promise of it
+    // (Main looks it up on the scan worker). onSessionUnlinked({ runId,
+    // profileId, sessionId }) is told when a run ended without the link.
     this.locateSession = options.locateSession || (() => null);
+    this.onSessionUnlinked = typeof options.onSessionUnlinked === 'function' ? options.onSessionUnlinked : () => {};
+    this.lookupTimeoutMs = options.lookupTimeoutMs ?? LOOKUP_TIMEOUT_MS;
     this.now = options.now || (() => Date.now());
     this.killGraceMs = options.killGraceMs ?? KILL_GRACE_MS;
     this.stopWaitMs = options.stopWaitMs ?? STOP_WAIT_MS;
@@ -102,10 +110,16 @@ class HubRunner {
       }
     }, { sessionId: presetSessionId });
 
+    // A run ends in two steps. When the process exits, how it ended and when
+    // are fixed. The record says so once the session lookup returns, at most
+    // lookupTimeoutMs later; a stop, a quit, a client that never started or a
+    // run without a session does not wait for it. The state order stays
+    // starting -> running -> completed/failed/stopped.
     let finished = false;
     const finish = (code, signal, spawnFailed = false) => {
       if (finished) return;
       finished = true;
+      const endedAt = this.iso();
       clearTimeout(entry.killTimer);
       const result = parser.end();
       if (result.answer !== null) this.answers.set(id, { text: result.answer, truncated: result.truncated });
@@ -115,16 +129,31 @@ class HubRunner {
       else if (spawnFailed) { state = 'failed'; reasonCode = 'client-start-failed'; }
       else if (code === 0 && !result.failed) state = 'completed';
       else { state = 'failed'; reasonCode = result.failed ? 'client-reported-error' : (signal ? 'client-killed' : 'client-exit-nonzero'); }
-      let session = null;
-      if (result.sessionId) {
-        let file = null;
-        try { file = this.locateSession(spec.profile, result.sessionId) || null; } catch (_error) { file = null; }
-        session = { id: result.sessionId, file };
-      }
-      this.active.delete(id);
-      record = this.store.updateRun(id, { state, reasonCode, endedAt: this.iso(), session }) || record;
-      this.changed(record);
-      resolveClosed(record);
+      const sessionId = result.sessionId || null;
+      let lookupTimer = null;
+      const complete = (file) => {
+        if (entry.complete !== complete) return;
+        entry.complete = null;
+        clearTimeout(lookupTimer);
+        this.active.delete(id);
+        record = this.store.updateRun(id, { state, reasonCode, endedAt, session: sessionId ? { id: sessionId, file: file || null } : null }) || record;
+        this.changed(record);
+        resolveClosed(record);
+        if (sessionId && !file && !spawnFailed) {
+          try { this.onSessionUnlinked({ runId: id, profileId: String(spec.profile.id), sessionId }); } catch (_error) { /* presentation only */ }
+        }
+      };
+      entry.complete = complete;
+      if (!sessionId || spawnFailed) { complete(null); return; }
+      let located;
+      try { located = Promise.resolve(this.locateSession(spec.profile, sessionId)); } catch (_error) { located = Promise.resolve(null); }
+      located.then((file) => {
+        if (entry.complete === complete) complete(file || null);
+        else if (file) this.linkSession(id, sessionId, file);
+      }, () => complete(null));
+      if (entry.stopReason) { complete(null); return; }
+      lookupTimer = setTimeout(() => complete(null), this.lookupTimeoutMs);
+      lookupTimer.unref?.();
     };
 
     let child;
@@ -158,9 +187,21 @@ class HubRunner {
     return this.store.getRun(id);
   }
 
+  // Fills in the session file of a run that ended without it, once; only for
+  // the run's own session ID. Returns the updated record, or null.
+  linkSession(id, sessionId, file) {
+    const run = this.store.getRun(id);
+    if (!run || !file || !run.session || run.session.id !== sessionId || run.session.file) return null;
+    const updated = this.store.updateRun(id, { session: { id: sessionId, file } });
+    if (updated) this.changed(updated);
+    return updated;
+  }
+
   async stop(id, reason = 'stopped-by-person') {
     const entry = this.active.get(id);
     if (!entry) return this.store.getRun(id);
+    // Already exited and only waiting for its session lookup: end it now.
+    if (entry.complete) { entry.complete(null); return this.store.getRun(id); }
     if (!entry.stopReason) {
       entry.stopReason = reason;
       if (entry.child) {
@@ -183,4 +224,4 @@ class HubRunner {
   }
 }
 
-module.exports = { HubRunner, KILL_GRACE_MS, defaultKillTree };
+module.exports = { HubRunner, KILL_GRACE_MS, LOOKUP_TIMEOUT_MS, defaultKillTree };

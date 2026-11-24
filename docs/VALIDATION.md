@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 5 阶段第 2 批：调度中枢收尾时找会话离开主线程（规划会话批准的时序变化，行为不变）。一段后台对话的进程退出时，怎么结束、什么时候结束就定下来了；找它刚写的会话改为在工作线程里扫（会话索引，扫描在请求之后开始），找到后再把“已结束”写进记录，记下的结束时间是进程退出的那一刻，不是写记录的时刻。最多等 2 秒：找不到、出错或超时都照样记为结束、只是先不带会话链接；之后迟到的结果或会话索引下一次扫到这条会话时再补上链接（同一条只补一次、只补它自己的会话，最多记 64 条、30 分钟后忘掉）。状态顺序不变（启动中 → 运行中 → 完成 / 失败 / 已停止）；停止、退出应用、客户端根本没起来、没有会话标识的对话都不等这次查找。新增 `test/hub-run-end.test.js` 5 项（先写、改之前 4 项失败），`test/session-index.test.js` 1 项（索引把保留下来的好结果告诉监听者，失败与丢弃的不说）。不显示窗口的检查：扫描 21 次全在工作线程，读接口形状不变，24 条验收路径通过。
+
 2026-11-24 架构整理第 5 阶段第 1 批：打包后的应用里工作线程能起来。新增 `scripts/hidden-package.js`：按 `package.json` 的打包配置（同样的 fuses、ASAR 完整性校验、文件清单）做一份只用于检查的包，唯一区别是 app.asar 里多放了不显示窗口的检查入口并以它为入口；Electron 用本机 `node_modules/electron/dist` 的副本（去掉开发版的 `default_app.asar`），不下载；产物必须通过发布用的 `scripts/verify-electron-package-integrity.js`。`scripts/hidden-check.js` 加 `--packaged <binary>` 运行这份包，并报告每个扫描宿主是否真在用工作线程（`scanHostsUseWorker`）。结果（macOS arm64，Electron 43.3.0）：打包后 237 个文件全在 app.asar 里、没有解包，工作线程从 asar 里正常起来，启动到探针结束 21 次扫描都在工作线程里、主线程 0 次，启动完整扫描 1 次，读接口形状与基准相同，刷新一轮主线程同步调用 0 次；不需要 asarUnpack。第一次试做时 electron-builder 换了一个缓存位置，从官方源又下载了一次同版本的 Electron（122 MB），之后改用本机副本。检查用的包都建在系统临时目录、用完删除，不是发布产物；Windows 未验证。
 
 2026-11-24 架构整理第 4 阶段收尾后一批：只在开发时用的类型检查。开发依赖 `typescript` 6.0.3（规划会话在所有者同意后安装，提交 `6fc92f7`）。根目录 `tsconfig.json` 只查 `src/core/**`（`allowJs`、`checkJs`、`noEmit`、`strict`），`npm run typecheck` 运行它，`npm run check` 先跑它；Node 的类型用 `node_modules` 里已有的 `@types/node` 24.13.3（electron 带进来的），没有另装任何包。`src/core` 的五个文件只加了 JSDoc 注释和两处写在注释里的类型断言，行为不变；`types/agentdesk-globals.d.ts` 只声明界面里的 `self`。第 4 阶段新加的六个文件进了 `npm run check` 的逐文件语法检查清单；验证用的源码摘要也算进 `tsconfig.json` 与 `types/`。生产依赖仍为空，打包内容不变。

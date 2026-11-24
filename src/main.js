@@ -28,14 +28,18 @@ const { spawn, spawnSync, execFileSync } = require('node:child_process');
 const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const apps = require('./apps');
-const { createSessionIndex, registryScan } = require('./session-index');
+const { createSessionIndex, registryScan, findSession } = require('./session-index');
 const { probeRawActivities, finishActivities } = require('./activity');
 const { createScanHost } = require('./scan-host');
 
 // Every Main-side reader of a profile's sessions goes through the index (src/session-index.js).
 // Scans and activity probes run on a worker thread (src/scan-host.js).
 const scanHost = createScanHost({ inProcess: { scan: registryScan(apps), activityRaw: probeRawActivities } });
-const sessionIndex = createSessionIndex({ scan: (profile) => scanHost.scan(profile), scanSync: registryScan(apps) });
+const sessionIndex = createSessionIndex({
+  scan: (profile) => scanHost.scan(profile),
+  scanSync: registryScan(apps),
+  onRecord: (profile, entry) => linkHubSessions(profile, entry.rows)
+});
 // The activity probe: file work on the worker, the "seen" comparison here.
 async function probeActivities(profiles, now, marks) {
   const baselineAt = marks && Number(marks.baselineAt) > 0 ? Number(marks.baselineAt) : 0;
@@ -2033,12 +2037,37 @@ function hubEnergy(snapshot) {
   try { return deriveEnergy(snapshot); } catch (_error) { return 'unknown'; }
 }
 
-function hubLocateSession(profile, sessionId) {
+// The session a background run just wrote: a scan that starts now, on the
+// scan worker, through the index's one lookup. The runner waits for it at most
+// two seconds before recording the run as ended without the link.
+async function hubLocateSession(profile, sessionId) {
   const app_ = apps.getApp(profile.appId);
   if (app_.sessionScanSupported === false) return null;
-  // Just written by the run: always a fresh scan, through the index's one lookup.
-  const match = sessionIndex.findSync(profile, sessionId, { key: 'address', maxAgeMs: -1 });
+  const match = await sessionIndex.find(profile, sessionId, { key: 'address', maxAgeMs: 0 });
   return match?.filePath || null;
+}
+
+// Runs that ended before their session turned up are linked when the session
+// index next keeps a scan that has it. At most 64, forgotten after 30 minutes.
+const HUB_PENDING_LINK_MS = 30 * 60_000;
+const hubPendingLinks = new Map();
+let hubRunner = null;
+function rememberHubLink({ runId, profileId, sessionId }) {
+  hubPendingLinks.delete(runId);
+  if (hubPendingLinks.size >= 64) hubPendingLinks.delete(hubPendingLinks.keys().next().value);
+  hubPendingLinks.set(runId, { profileId, sessionId, until: Date.now() + HUB_PENDING_LINK_MS });
+}
+function linkHubSessions(profile, rows) {
+  if (!hubPendingLinks.size || !hubRunner) return;
+  const now = Date.now();
+  for (const [runId, pending] of hubPendingLinks) {
+    if (pending.until < now) { hubPendingLinks.delete(runId); continue; }
+    if (pending.profileId !== String(profile.id)) continue;
+    const match = findSession(rows, pending.sessionId, { key: 'address' });
+    if (!match?.filePath) continue;
+    hubRunner.linkSession(runId, pending.sessionId, match.filePath);
+    hubPendingLinks.delete(runId);
+  }
 }
 
 // Run state is pushed at each transition (starting, running, session found,
@@ -2052,7 +2081,8 @@ function notifyHubChanged(record = null) {
 function getAgentHub() {
   if (agentHub) return agentHub;
   const store = new HubStore({ file: hubStoreFile() });
-  const runner = new HubRunner({ store, locateSession: hubLocateSession, onChange: notifyHubChanged });
+  const runner = new HubRunner({ store, locateSession: hubLocateSession, onSessionUnlinked: rememberHubLink, onChange: notifyHubChanged });
+  hubRunner = runner;
   agentHub = createAgentHub({
     store,
     runner,

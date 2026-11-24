@@ -17,6 +17,8 @@
  *    changed folder never serves the old rows, and a scan for a definition
  *    that is no longer the latest one asked about is dropped when it lands
  *    (its caller still gets its answer). Entries carry a generation.
+ *  - `onRecord(profile, entry)`, when given, hears about every good scan the
+ *    index keeps (not failures, not dropped results).
  *  - Scanning runs through `scan(profile)`, a result or a promise of one.
  *    `scanSync` is the same scan done here and now, for the few synchronous
  *    callers that need rows the index does not have yet.
@@ -73,6 +75,7 @@ function createSessionIndex(options = {}) {
   const scanSync = options.scanSync || scan;
   if (typeof scan !== 'function') throw new TypeError('scan is required');
   const now = options.now || (() => Date.now());
+  const onRecord = typeof options.onRecord === 'function' ? options.onRecord : null;
   const reuseMs = Number.isFinite(options.reuseMs) ? options.reuseMs : DEFAULT_REUSE_MS;
   const entries = new Map();
   const inFlight = new Map();
@@ -94,7 +97,12 @@ function createSessionIndex(options = {}) {
       stale: !good && lastGood !== null,
       truncated: good ? result.truncated === true : Boolean(previous && previous.key === key && previous.truncated)
     };
-    if (!stale) entries.set(id, entry);
+    if (!stale) {
+      entries.set(id, entry);
+      if (good && onRecord) {
+        try { onRecord(profile, entry); } catch (_error) { /* a listener never breaks the index */ }
+      }
+    }
     return entry;
   }
 

@@ -114,6 +114,22 @@ test('the synchronous path reads what the index has, and scans only when it has 
   assert.deepEqual(index.rowsSync(profile, { maxAgeMs: -1 }), [{ id: 'b' }], 'a caller can ask for a fresh scan');
 });
 
+test('the index tells a listener about rows it keeps, not about failures or dropped results', async () => {
+  const seen = [];
+  const results = [ok([{ id: 'a' }]), fail('session-store-unreadable')];
+  const index = createSessionIndex({
+    now: () => 0,
+    reuseMs: -1,
+    scan: () => results.shift(),
+    onRecord: (current, entry) => seen.push([current.id, entry.rows.map((row) => row.id)])
+  });
+  await index.rows(profile);
+  await index.rows(profile);
+  assert.deepEqual(seen, [['p', ['a']]], 'a failed rescan keeps the old rows and is not announced');
+  const throwing = createSessionIndex({ scan: () => ok([{ id: 'b' }]), onRecord: () => { throw new Error('listener'); } });
+  assert.deepEqual(await throwing.rows(profile), [{ id: 'b' }], 'a failing listener does not break the index');
+});
+
 test('one lookup: by id or by address, first match or unique', () => {
   const rows = [{ id: 'one', address: 'addr-1' }, { id: 'two' }, { id: 'dup' }, { id: 'dup', address: 'x' }];
   assert.equal(findSession(rows, 'one').id, 'one');
