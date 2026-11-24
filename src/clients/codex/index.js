@@ -82,6 +82,8 @@ module.exports = {
   }),
   // How a pasted key or token reaches this client (./credentials.js).
   credentialHandoff: require('./credentials'),
+  // Which dropped sign-in files belong to this client and how they are copied (./import.js).
+  credentialImport: require('./import'),
   scan: (profile, report) => sessions.scanCodex(profile, report),
   activityRecord: (filePath, stat) => {
     const { first, identity } = sessions.codexRecordIdentity(filePath, stat);

@@ -76,6 +76,8 @@ module.exports = {
   }),
   // How a pasted key or token reaches this client (./credentials.js).
   credentialHandoff: require('./credentials'),
+  // Which dropped sign-in files belong to this client and how they are copied (./import.js).
+  credentialImport: require('./import'),
   scan: (profile) => sessions.scanClaudeCli(profile),
   // 活动探测的会话键（文件路径）→ 列表里这条会话的地址（文件名里的会话 ID）
   sessionAddressOf: (key) => path.basename(key, '.jsonl'),

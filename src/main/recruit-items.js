@@ -15,8 +15,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const accountDiscovery = require('../account-discovery');
+const apps = require('../apps');
 const credentialImport = require('../credential-import');
-const { codexProfileAtHome, codexHomeKey, profileWithSameCodexAuth, readCodexAuthFile } = require('../clients/codex/account-import');
+const { codexHomeKey } = require('../clients/codex/account-import');
 
 class RecruitItemError extends Error {
   constructor(code) { super(code); this.code = code; }
@@ -38,19 +39,9 @@ function createRecruitItems(deps) {
 
   async function planCredentialFile(appId, filePath) {
     const profiles = loadProfiles();
-    if (appId === 'codex') {
-      const auth = readCodexAuthFile(filePath);
-      const sourceHome = path.dirname(filePath);
-      const existing = codexProfileAtHome(profiles, sourceHome);
-      if (existing) return { action: 'existing', profileId: existing.id };
-      const sourceKey = codexHomeKey(sourceHome);
-      if (sourceKey && discoverCodexHomes().some(({ directory }) => codexHomeKey(directory) === sourceKey)) {
-        return { action: 'register', sourceHome };
-      }
-      const copied = profileWithSameCodexAuth(profiles, auth);
-      if (copied) return { action: 'existing', profileId: copied.id };
-      return { action: 'copy', payload: auth };
-    }
+    // A client may read and plan a dropped sign-in file itself (Codex's auth.json).
+    const ownPlan = apps.isKnownApp(appId) ? apps.getApp(appId).credentialImport?.plan : null;
+    if (typeof ownPlan === 'function') return ownPlan(filePath, { profiles, discoverHomes: discoverCodexHomes });
     const importer = credentialImport.importerFor(appId, platform);
     if (!importer) {
       throw new RecruitItemError(credentialImport.IMPORTERS[appId] ? 'credential-import-unsupported-platform' : 'credential-import-unsupported');
@@ -77,10 +68,12 @@ function createRecruitItems(deps) {
       if (!registered.ok) throw new RecruitItemError(registered.reasonCode);
       return { profileId: registered.profileId, existing: registered.existing, inPlace: true };
     }
-    if (appId === 'codex') {
-      return { profileId: createStoredProfile({ appId: 'codex' }, { codexAuth: plan.payload }).id, copied: true };
+    // A client's own plan says how the new profile is built.
+    if (plan.profileOptions) {
+      return { profileId: createStoredProfile({ appId }, plan.profileOptions).id, copied: true };
     }
-    if (appId === 'opencode' && plan.payload.export) {
+    // An exported sign-in list is imported by the client itself (OpenCode).
+    if (plan.payload?.export) {
       // A new home first, then OpenCode's own import; undo the home if that fails.
       const profile = createStoredProfile({ appId }, {
         credentialImport: appId,
@@ -101,10 +94,11 @@ function createRecruitItems(deps) {
       credentialImport: appId,
       stage: (created) => credentialImport.stageNewHome(appId, created, plan.payload)
     });
+    const warnings = credentialImport.IMPORTERS[appId]?.warningsFor?.(plan.payload) || [];
     return {
       profileId: profile.id,
       copied: true,
-      ...(appId === 'kimi' && plan.payload.config?.complete === false ? { warnings: ['kimi-config-minimal'] } : {})
+      ...(warnings.length ? { warnings } : {})
     };
   }
 

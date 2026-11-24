@@ -73,6 +73,8 @@ module.exports = {
   }),
   // How a pasted key or token reaches this client (./credentials.js).
   credentialHandoff: require('./credentials'),
+  // Which dropped sign-in files belong to this client and how they are copied (./import.js).
+  credentialImport: require('./import'),
   scan: (profile, report) => sessions.scanKimi(profile, report),
   contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
   sessionAddressOf: (key) => path.basename(key),

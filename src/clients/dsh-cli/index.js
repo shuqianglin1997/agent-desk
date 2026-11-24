@@ -69,6 +69,8 @@ module.exports = {
   // One row per root session: a header line plus durable events per session folder.
   // How a pasted key or token reaches this client (./credentials.js).
   credentialHandoff: require('./credentials'),
+  // Which dropped sign-in files belong to this client and how they are copied (./import.js).
+  credentialImport: require('./import'),
   scan: (profile) => cliClientSessions.scanDsh(profile),
   sessionKeyOf: (filePath) => path.dirname(filePath),
 };

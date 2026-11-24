@@ -75,7 +75,7 @@ src/
   profile-runtime.js      Profile 进程归属、重复启动、退出收口、Crashpad 限额/熔断与窄范围清理
   account-discovery.js    招募：按注册表特征找已有账号目录（默认/环境变量、有界主目录扫描、指定文件夹），身份只出邮箱或套餐
   account-credentials.js  招募：把粘贴的密钥交给账号自己的客户端（标准输入、单一文档变量或该目录文档写明的文件），按各家成功判据报告登录状态；规则与校验在这里，各家怎么交接在 clients/<id>/credentials.js（适配器的 credentialHandoff），共用的私有文件写入、TOML/.env/YAML/JSON 合并编辑和运行官方命令在 clients/credential-files.js
-  credential-import.js    招募：DSH、Kimi Code、Claude CLI 登录文件的检查与复制进新独立目录
+  credential-import.js    招募：拖进来的登录文件归哪家、读取检查与复制进新独立目录；各家认哪些文件、怎么复制在 clients/<id>/import.js（适配器的 credentialImport；OpenCode 靠内容区分与 Codex 同名的 auth.json，Codex 用自己的读法和计划），共用的有界读取在 clients/import-files.js
   main/profile-registration.js  已有目录的登记规划与一次保存的批量登记（幂等）
   main/ipc/recruit.js     招募 IPC：发现结果只发一次性选择编号，登记前在 Main 重新核对
   main/recruit-items.js   拖进来或选中的文件夹、登录文件：先判定会做什么（原地登记/复制/已在台面上），执行前再核对一次
