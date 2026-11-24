@@ -107,6 +107,7 @@ function mainContext() {
     get loadSettings() { return loadSettings; },
     get locationRegistrar() { return locationRegistrar; },
     get mainContext() { return mainContext; },
+    get mainOwner() { return mainOwner; },
     get mainWindow() { return mainWindow; }, set mainWindow(value) { mainWindow = value; },
     get makeIsolatedProfilePath() { return makeIsolatedProfilePath; },
     get managedAppName() { return managedAppName; },
@@ -142,6 +143,7 @@ function mainContext() {
     get peerManager() { return peerManager; }, set peerManager(value) { peerManager = value; },
     get planRecruitItem() { return planRecruitItem; },
     get probeActivities() { return probeActivities; },
+    get processSnapshots() { return processSnapshots; },
     get profileCredentialStatus() { return profileCredentialStatus; },
     get profileIsRunning() { return profileIsRunning; },
     get profileRuntimeSupervisor() { return profileRuntimeSupervisor; }, set profileRuntimeSupervisor(value) { profileRuntimeSupervisor = value; },
@@ -167,6 +169,7 @@ function mainContext() {
     get runWebRtcProbe() { return runWebRtcProbe; },
     get safeStorage() { return safeStorage; },
     get saveProfiles() { return saveProfiles; },
+    get scanHost() { return scanHost; },
     get scanMaintenanceTools() { return scanMaintenanceTools; },
     get screen() { return screen; },
     get secureMeshAccessUnlocked() { return secureMeshAccessUnlocked; }, set secureMeshAccessUnlocked(value) { secureMeshAccessUnlocked = value; },
@@ -216,6 +219,8 @@ const { hubInterfaceError, hubStoreFile, hubCatNames, hubEnergy, hubLocateSessio
 require('./main/hub-wiring').bind(mainContext());
 const { detectSecureMeshStartupDeferral, markSecureMeshAccessUnlocked, setMeshReachability, forgetSignalingClient, stopSignalingClient, stopMeshJobServices, getMeshService, getProvisioningService, publicProvisioningResult, getPeerManager, getAgentActionService, confirmRemoteAgentPreparation, requestPairingClaimApproval, getSignalingClient, ensureSignalingOnline, sendPeerSignalWithFallback, getTransferService, getTaskPackageService, getRemoteControlService, getRemoteInputAdapter, emitTransferChange, emitTaskPackageChange, emitAgentActionChange, emitRemoteControlChange, emitRemoteControlReturn, registerRemoteEmergencyStop, emitPeerState, publicIceServers, publicNetworkRuntime, configuredSignalingUrls, meshNetworkEnrollmentEnabled, setMeshNetworkEnrollmentEnabled, withMeshRuntime, deviceDiagnostics, permissionState, localScreenPermission, isLoopbackService, meshCall, catalogMeshCall, openPairingEndpoint, schedulePairingEndpointClose, closePairingEndpoint, boundedTaskCheckpoint, taskPackageSuggestedName } = require('./main/mesh-wiring');
 require('./main/mesh-wiring').bind(mainContext());
+const { probeActivities, defaultCatForClient, currentLang, finiteRevision, resolveKnownProfilePath, boundedText, getProfileRuntimeSupervisor, ensureDir } = require('./main/support');
+require('./main/support').bind(mainContext());
 // moved modules:end
 const { createSessionIndex, registryScan, findSession } = require('./session-index');
 const { probeRawActivities, finishActivities } = require('./activity');
@@ -232,15 +237,6 @@ const sessionIndex = createSessionIndex({
   scanSync: registryScan(apps),
   onRecord: (profile, entry) => linkHubSessions(profile, entry.rows)
 });
-// The activity probe: file work on the worker, the "seen" comparison here.
-async function probeActivities(profiles, now, marks) {
-  const baselineAt = marks && Number(marks.baselineAt) > 0 ? Number(marks.baselineAt) : 0;
-  const raws = await scanHost.activityRaw(profiles, now, baselineAt);
-  // Session counts come from the session index, as in the list and the device page.
-  return finishActivities(profiles, raws, marks, {
-    sessionCountOf: (profile) => (Array.isArray(sessionIndex.peek(profile)?.rows) ? sessionIndex.peek(profile).rows.length : null)
-  });
-}
 // A user action on chosen sessions re-reads them: a fresh scan, as before.
 // User actions on chosen sessions (open folder, export, task packages,
 // diagnostics) read a scan made after the request, on the worker thread:
@@ -295,10 +291,6 @@ const { adapterFor, unsupportedReason } = require('./hub/adapters');
 const { createAgentHub } = require('./main/agent-hub');
 const { normalizeCat, defaultCatForLook } = require('./yard/cats');
 
-// A new cat wears its client's coat when the adapter declares one.
-function defaultCatForClient(appId, seedText) {
-  return defaultCatForLook(apps.isKnownApp(appId) ? apps.getApp(appId).catCoat : null, seedText);
-}
 const { mt } = require('./i18n/main-i18n');
 const { MeshService } = require('./mesh/main/mesh-service');
 const { ProvisioningService } = require('./mesh/main/provisioning-service');
@@ -365,24 +357,6 @@ const { writeFileAtomicAsync } = require('./core/json-file');
 // This machine's path rules (src/core/paths.js), under the names used below.
 const { isInside: isSubpath, samePath: pathsEqual } = require('./core/paths').native;
 
-// 主进程当前界面语言：直接读持久化 settings 文件（无副作用；renderer 切语言时已写入）。
-function currentLang() {
-  try {
-    const lang = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'))?.settings?.lang;
-    if (lang === 'en' || lang === 'ja' || lang === 'zh') return lang;
-  } catch (_error) {
-    // 没有显式偏好时跟随 Electron 的系统 locale，与 renderer 的 navigator.language 保持一致。
-  }
-  try {
-    const locale = String(app.isReady() ? app.getLocale() : process.env.LANG || '').toLowerCase();
-    if (locale.startsWith('ja')) return 'ja';
-    if (locale.startsWith('en')) return 'en';
-    if (locale.startsWith('zh')) return 'zh';
-  } catch (_error) {
-    // app 尚未 ready 时回退中文。
-  }
-  return 'zh';
-}
 // 便捷取词：按当前语言解析主进程侧文案（键在 src/i18n/*.js 的 main.* 命名空间）。
 const t = (key, params) => mt(currentLang(), key, params);
 
@@ -675,26 +649,6 @@ function registerIpc() {
 
 }
 
-function finiteRevision(value) {
-  if (value === undefined || value === null || value === '') return undefined;
-  const revision = Number(value);
-  if (!Number.isSafeInteger(revision) || revision < 0) {
-    throw new Error('catalog-revision-invalid');
-  }
-  return revision;
-}
-
-function resolveKnownProfilePath(input = {}) {
-  if (boundedText(input.kind, 80) !== 'profile-directory') {
-    throw new Error('known-path-kind-invalid');
-  }
-  const field = ['profilePath', 'sessionRoot'].includes(input.field) ? input.field : null;
-  if (!field) throw new Error('known-path-field-invalid');
-  const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
-  if (!profile) throw new Error('profile-not-found');
-  return profile[field];
-}
-
 const recruitItems = createRecruitItems({
   loadProfiles: () => loadProfiles(),
   registerLocations: (inputs) => registerLocations(inputs),
@@ -724,39 +678,3 @@ const locationRegistrar = createLocationRegistrar({
 });
 const registerLocations = (inputs) => locationRegistrar.registerLocations(inputs);
 
-function boundedText(value, limit) {
-  return String(value || '').trim().slice(0, limit);
-}
-
-function getProfileRuntimeSupervisor() {
-  if (profileRuntimeSupervisor) {
-    profileRuntimeSupervisor.updateProfiles(loadProfiles());
-    return profileRuntimeSupervisor;
-  }
-  profileRuntimeSupervisor = new ProfileRuntimeSupervisor({
-    stateFile: profileRuntimeStateFile(),
-    snapshotProcessRecords: (options) => processSnapshots.records(options),
-    // The tick keeps running while the window is hidden: it guards disk and processes.
-    schedule: (run, ms) => mainOwner.every('profile-runtime', ms, run),
-    // status() after a launch, or before the first tick, collects synchronously.
-    snapshotProcessRecordsSync: snapshotProcessRecords,
-    isManagedProfile: (profile) => isManagedProfilePath(profile?.profilePath),
-    onIncident: (incident) => {
-      if (!mainWindow || mainWindow.isDestroyed()) return;
-      mainWindow.webContents.send('profiles:runtimeIncident', {
-        profileId: boundedText(incident.profileId, 128),
-        occurredAt: incident.occurredAt || null,
-        reason: boundedText(incident.reason, 80),
-        fileCount: Number.isFinite(incident.fileCount) ? incident.fileCount : null,
-        totalBytes: Number.isFinite(incident.totalBytes) ? incident.totalBytes : null,
-        removedFiles: Number.isFinite(incident.removedFiles) ? incident.removedFiles : null
-      });
-    }
-  });
-  profileRuntimeSupervisor.updateProfiles(loadProfiles());
-  return profileRuntimeSupervisor;
-}
-
-function ensureDir(dir) {
-  fs.mkdirSync(dir, { recursive: true });
-}

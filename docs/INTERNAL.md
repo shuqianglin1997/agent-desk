@@ -124,6 +124,7 @@ src/
     session-files.js      对选中会话的操作：显示文件、打开所在文件夹、导出
     stores.js             profiles.json 与 settings.json 的读写、备份与恢复、默认与受管目录、会话记号存储
     hub-wiring.js         调度中枢在 Main 这一侧的接线与命令行桌面动作的转发
+    support.js            几个共用的小工具：有界文本、界面语言、新猫的默认外观、经工作线程的活动探测、首次用到时创建的运行监管（由 owner 调度）、目录与路径
     mesh-wiring.js        设备网在 Main 这一侧的接线：各服务首次用到时创建、信令与临时配对端口、网络设置、诊断与权限、发给窗口的通知
     ipc/
       first-agent-onboarding.js 首个 Agent 的本机离线事务

@@ -132,7 +132,8 @@ test('Main owns its resources in the old quit order, then the quota children and
     'task-packages', 'agent-actions', 'global-shortcuts', 'remote-control', 'remote-input', 'peers', 'signaling',
     'pairing-endpoint', 'quota-app-servers', 'scan-worker'
   ]);
-  assert.match(main, /schedule: \(run, ms\) => mainOwner\.every\('profile-runtime', ms, run\)/);
+  // The supervisor is created in src/main/support.js, scheduled by Main's owner.
+  assert.match(require('./helpers/main-handler-source').mainHandlerSource(), /schedule: \(run, ms\) => (?:main\.)?mainOwner\.every\('profile-runtime', ms, run\)/);
   const quit = main.slice(main.indexOf("app.on('before-quit'"), main.indexOf('function ownMainResources() {'));
   assert.match(quit, /appQuitting = true;\n\s*void mainOwner\.shutdown\('app-quit'\);/);
 });
