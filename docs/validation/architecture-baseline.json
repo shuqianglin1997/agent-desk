@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-11-24T16:22:26.271Z",
+  "sourceSha256": "e8f8896337b504724531bc4dd2247d8be468b294144fc29b8e9f5ea036a0802a",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v22.23.5",
+    "osRelease": "25.6.0",
+    "cpus": 10
+  },
+  "fixture": {
+    "mode": "full",
+    "accounts": 10,
+    "sessionsPerAccount": 500,
+    "clients": [
+      "claude-cli",
+      "codex",
+      "claude-cli",
+      "codex",
+      "claude-cli",
+      "codex",
+      "claude",
+      "kimi",
+      "gemini-cli",
+      "qwen-code"
+    ],
+    "bytesOnDisk": 779863204,
+    "internalChildren": 300,
+    "generateMs": 2394
+  },
+  "repeats": 5,
+  "note": "Warm values are the median of the repeats (min/max alongside); page cache warm; every measured call is synchronous on the Electron main thread. Timings vary with machine load.",
+  "sessionsListPerProfile": [
+    {
+      "id": "synthetic-0",
+      "appId": "claude-cli",
+      "rows": 500,
+      "coldMs": 176.51,
+      "warmMs": 169.17,
+      "warmMinMs": 165.67,
+      "warmMaxMs": 176.14,
+      "bytesRead": 163840000,
+      "opens": 1000,
+      "stats": 500
+    },
+    {
+      "id": "synthetic-1",
+      "appId": "codex",
+      "rows": 500,
+      "coldMs": 112.85,
+      "warmMs": 78.18,
+      "warmMinMs": 74.52,
+      "warmMaxMs": 86.12,
+      "bytesRead": 32833890,
+      "opens": 500,
+      "stats": 1100
+    },
+    {
+      "id": "synthetic-2",
+      "appId": "claude-cli",
+      "rows": 500,
+      "coldMs": 171.68,
+      "warmMs": 164.64,
+      "warmMinMs": 160.9,
+      "warmMaxMs": 173.05,
+      "bytesRead": 163840000,
+      "opens": 1000,
+      "stats": 500
+    },
+    {
+      "id": "synthetic-3",
+      "appId": "codex",
+      "rows": 500,
+      "coldMs": 125.69,
+      "warmMs": 80.65,
+      "warmMinMs": 77.16,
+      "warmMaxMs": 92.76,
+      "bytesRead": 32833890,
+      "opens": 500,
+      "stats": 1100
+    },
+    {
+      "id": "synthetic-4",
+      "appId": "claude-cli",
+      "rows": 500,
+      "coldMs": 177.13,
+      "warmMs": 174.19,
+      "warmMinMs": 169.27,
+      "warmMaxMs": 180.63,
+      "bytesRead": 163840000,
+      "opens": 1000,
+      "stats": 500
+    },
+    {
+      "id": "synthetic-5",
+      "appId": "codex",
+      "rows": 500,
+      "coldMs": 178.88,
+      "warmMs": 84.34,
+      "warmMinMs": 80.57,
+      "warmMaxMs": 100.05,
+      "bytesRead": 32833890,
+      "opens": 500,
+      "stats": 1100
+    },
+    {
+      "id": "synthetic-6",
+      "appId": "claude",
+      "rows": 500,
+      "coldMs": 15.21,
+      "warmMs": 10.93,
+      "warmMinMs": 10.61,
+      "warmMaxMs": 11.72,
+      "bytesRead": 686390,
+      "opens": 0,
+      "stats": 500
+    },
+    {
+      "id": "synthetic-7",
+      "appId": "kimi",
+      "rows": 500,
+      "coldMs": 28.67,
+      "warmMs": 18.94,
+      "warmMinMs": 17.54,
+      "warmMaxMs": 21.26,
+      "bytesRead": 650390,
+      "opens": 0,
+      "stats": 500
+    },
+    {
+      "id": "synthetic-8",
+      "appId": "gemini-cli",
+      "rows": 500,
+      "coldMs": 60.24,
+      "warmMs": 41.17,
+      "warmMinMs": 40.45,
+      "warmMaxMs": 42.63,
+      "bytesRead": 24917146,
+      "opens": 0,
+      "stats": 1001
+    },
+    {
+      "id": "synthetic-9",
+      "appId": "qwen-code",
+      "rows": 500,
+      "coldMs": 49.65,
+      "warmMs": 43.43,
+      "warmMinMs": 42.5,
+      "warmMaxMs": 45.14,
+      "bytesRead": 25290506,
+      "opens": 0,
+      "stats": 1000
+    }
+  ],
+  "sessionsAllRefresh": {
+    "ms": 922.81,
+    "bytesRead": 641566102,
+    "opens": 4500,
+    "stats": 7801,
+    "readdirs": 628,
+    "minMs": 861.66,
+    "maxMs": 937.77,
+    "samples": 5,
+    "rows": 5000
+  },
+  "overviewSessionCounts": {
+    "ms": 950.12,
+    "bytesRead": 641566102,
+    "opens": 4500,
+    "stats": 7801,
+    "readdirs": 628,
+    "minMs": 884.97,
+    "maxMs": 1030.68,
+    "samples": 5
+  },
+  "activityProbe": {
+    "cold": {
+      "ms": 40.69,
+      "bytesRead": 1231470,
+      "opens": 24,
+      "stats": 5310,
+      "readdirs": 652
+    },
+    "warm": {
+      "ms": 32.93,
+      "bytesRead": 395886,
+      "opens": 6,
+      "stats": 5310,
+      "readdirs": 652,
+      "minMs": 30.79,
+      "maxMs": 35.22,
+      "samples": 5
+    }
+  },
+  "identityFingerprints": {
+    "ms": 0.2,
+    "bytesRead": 0,
+    "opens": 0,
+    "stats": 0,
+    "readdirs": 0
+  },
+  "processSnapshot": {
+    "ms": 30.45,
+    "bytesRead": 0,
+    "opens": 0,
+    "stats": 0,
+    "readdirs": 0,
+    "minMs": 29.48,
+    "maxMs": 32.4,
+    "samples": 5,
+    "available": true
+  },
+  "mainThreadBlock": {
+    "largestSingleProfileListMs": 174.19,
+    "largestSingleProfileList": "synthetic-4",
+    "meshModeAllSessionsMs": 922.81,
+    "activityTickMs": 63.379999999999995
+  }
+}

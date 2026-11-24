@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:18:16.798Z",
-  "baseCommit": "67638b37fa4a2185ecadb3807349a20b10bab0d7",
+  "recordedAt": "2026-11-24T16:23:35.691Z",
+  "baseCommit": "b8d0155234d2cc1457d544ba066097ebfa7c5c58",
   "uncommitted": true,
-  "sourceSha256": "8d3902627049bf9fba8052374daa5548bc0b472dc9dfb712580b36bd8f5eafa2",
+  "sourceSha256": "e8f8896337b504724531bc4dd2247d8be468b294144fc29b8e9f5ea036a0802a",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,41 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 788,
+      "pass": 787,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after architecture phase 0 batch 2 (synthetic data generator and timing harness, test/architecture-bench.test.js 4 tests); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:23:35.691Z",
+      "sourceSha256": "e8f8896337b504724531bc4dd2247d8be468b294144fc29b8e9f5ea036a0802a"
+    },
+    {
+      "command": "node --test test/architecture-bench.test.js",
+      "result": "passed",
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "scope": "Generator refuses roots outside the temp folder; every one of six scanners returns exactly the generated sessions with content titles and no internal Codex children; output deterministic for a fixed clock; harness runs light data in its own process with a temp HOME and removes it",
+      "recordedAt": "2026-11-24T16:23:35.691Z",
+      "sourceSha256": "e8f8896337b504724531bc4dd2247d8be468b294144fc29b8e9f5ea036a0802a"
+    },
+    {
+      "command": "node scripts/arch-bench.js --write",
+      "result": "recorded",
+      "scope": "Baseline on synthetic data, 10 accounts x 500 sessions (Claude CLI x3, Codex x3, Claude desktop, Kimi Code, Gemini CLI, Qwen Code), about 780 MB in a temp dir, deleted afterwards; warm values are the median of five repeats with min and max, warm page cache; numbers in docs/validation/architecture-baseline.json",
+      "recordedAt": "2026-11-24T16:23:35.691Z",
+      "sourceSha256": "e8f8896337b504724531bc4dd2247d8be468b294144fc29b8e9f5ea036a0802a"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check including scripts/arch-fixtures.js and scripts/arch-bench.js",
+      "recordedAt": "2026-11-24T16:23:35.691Z",
+      "sourceSha256": "e8f8896337b504724531bc4dd2247d8be468b294144fc29b8e9f5ea036a0802a"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

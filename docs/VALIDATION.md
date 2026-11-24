@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 0 阶段第 2 批：`scripts/arch-fixtures.js` 只在系统临时目录里造 10 个账号 × 500 条会话的合成数据（命令行 Claude 3、Codex 3、Claude 桌面、Kimi Code、Gemini CLI、Qwen Code，约 780 MB，用完删除），`scripts/arch-bench.js` 在指向空临时主目录的进程里计时主进程的同步工作。基线（本机一次运行，热缓存，取五次的中位数）：一次“全部”会话刷新读 642 MB、阻塞主线程约 923 毫秒（862–938），单个命令行 Claude 账号约 174 毫秒，8 秒一次的活动探测连同进程快照约 63 毫秒；全部数字在 [architecture-baseline.json](validation/architecture-baseline.json)。后台完整 Node 回归 788 项：787 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 通过。新增 `test/architecture-bench.test.js` 4 项。没有改动应用代码。
+
 2026-11-24 架构整理第 0 阶段第 1 批（见 [ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md)）：`scripts/arch-metrics.js` 读出第 8 节各项指标（不依赖任何包，函数长度是估算，每个数字都列出来源位置），`scripts/check-layers.js` 按五层表报告越层依赖，目前只报告不拦。后台完整 Node 回归 784 项：783 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 通过。新增 `test/architecture-tools.test.js` 7 项。没有改动应用代码。
 
 2026-11-24 猫有多忙、新回复、颜色标签第 4 批：收尾（见 [SESSION_MARKS_PLAN.md](SESSION_MARKS_PLAN.md) 第 8 节）。产品、场景与内部文档；验收脚本允许卡片的“忙”“抓狂”两种状态。后台完整 Node 回归 777 项：776 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 与文档检查通过。不显示窗口走了一遍真实界面（真实主进程与界面、一次性数据目录、造出来的 Claude 命令行与 Codex 账号、窗口从不显示、打开客户端的通道换成空实现）：列表 28 项在夜间中文下全部通过；猫的三档在正常中文与夜间日文下通过；减少动态效果时抓狂的猫停在第一帧、在跑的三个点不动但看得见、条数照常；中英日三种语言在不勾选、勾选两行、勾选并筛选时工具栏都不溢出、不重叠。仓库的验收脚本经不显示窗口的入口运行，仍停在猫档案的分段清单（不认识调度中枢那一批加的“调用”一段，本工作开始前就如此）；在脚本副本里只改这一行（另加副本的根目录）后，24 条任务路径全部通过。没有验证的：真实账号、可见窗口里的观感与动起来顺不顺眼、真实音频（提示音只验证到播放器收到请求）、Windows。
