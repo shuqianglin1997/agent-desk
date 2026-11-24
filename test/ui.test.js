@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
-const { rendererSource } = require('./helpers/renderer-source');
+const { rendererSource, rendererFunction } = require('./helpers/renderer-source');
 
 test('更新按钮归入系统页的设置一栏，Header 只保留收件箱和系统两个入口', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
@@ -229,7 +229,7 @@ test('每张卡的运行位置独立，同一 Agent 内切换保留会话上下�
   assert.match(renderer, /function renderAccountCardRuntime\(label, action\)[\s\S]*?if \(group\.members\.length\)[\s\S]*?devices\.slot\.choose[\s\S]*?deployment\.client\.unprepared/);
   assert.match(renderer, /function preferredGroupSlot\(group\)[\s\S]*?selectedSlotKey\(state\.ui, currentDeviceLensId\(\), group\.key\)/);
   // 在卡片上换运行位置只记在这只猫身上，不选中它，所以正在看的列表不变。
-  const changeRuntime = renderer.slice(renderer.indexOf('function changeAccountCardRuntime('), renderer.indexOf('const READINESS_BADGE'));
+  const changeRuntime = rendererFunction('changeAccountCardRuntime');
   assert.match(changeRuntime, /group\.members\.find[\s\S]*?UiContext\.setAgentSlot\(state\.ui, group\.key, member\._meshSlotKey \|\| member\.id\)/);
   assert.doesNotMatch(changeRuntime, /selectProfile|selectAgent|loadSessions/);
   const selectSlot = renderer.slice(renderer.indexOf('function selectSlot('), renderer.indexOf('function populateGroupDatalist('));

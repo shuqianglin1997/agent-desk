@@ -2303,7 +2303,7 @@ async function runRosterAcceptance(client, userData) {
 async function runFocusedRosterAcceptance(client, userData) {
   await client.call('Page.bringToFront');
   const order = () => client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].map(card => card.dataset.agentId)`);
-  const selected = await client.evaluate('currentAgentId()');
+  const selected = await client.evaluate('AgentDeskInspect.currentAgentId()');
   const initial = await order();
   assert.ok(initial.length > 3, 'drag fixture must have several agents');
   const point = async (index) => client.evaluate(`(() => {
@@ -2316,7 +2316,7 @@ async function runFocusedRosterAcceptance(client, userData) {
   let start = await point(0);
   await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
   await mouse('mouseReleased', start, {button: 'left', buttons: 0, clickCount: 1});
-  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'short press must select normally');
+  assert.equal(await client.evaluate('AgentDeskInspect.currentAgentId()'), initial[0], 'short press must select normally');
   assert.deepEqual(await order(), initial, 'short press must not reorder');
   start = await point(0); const target = await point(2);
   await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
@@ -2326,7 +2326,7 @@ async function runFocusedRosterAcceptance(client, userData) {
   await client.call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27});
   await mouse('mouseReleased', target, {button: 'left', buttons: 0, clickCount: 1});
   assert.deepEqual(await order(), initial, 'Esc must restore the starting order');
-  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'cancelled drag cannot select another card');
+  assert.equal(await client.evaluate('AgentDeskInspect.currentAgentId()'), initial[0], 'cancelled drag cannot select another card');
   start = await point(0);
   await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
   await waitFor(client, `document.querySelector('#accountRoster').classList.contains('roster-reordering')`, 'blur-cancel reorder activation');
@@ -2334,8 +2334,8 @@ async function runFocusedRosterAcceptance(client, userData) {
   await client.evaluate(`window.dispatchEvent(new Event('blur'))`);
   await mouse('mouseReleased', target, {button: 'left', buttons: 0, clickCount: 1});
   assert.deepEqual(await order(), initial, 'window blur must restore the starting order');
-  assert.equal(await client.evaluate('rosterController.isInteracting()'), false, 'window blur must end the gesture');
-  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'blur-cancelled drag cannot select another card');
+  assert.equal(await client.evaluate('AgentDeskInspect.rosterIsInteracting()'), false, 'window blur must end the gesture');
+  assert.equal(await client.evaluate('AgentDeskInspect.currentAgentId()'), initial[0], 'blur-cancelled drag cannot select another card');
   start = await point(0);
   await mouse('mousePressed', start, {button: 'left', buttons: 1, clickCount: 1});
   await waitFor(client, `document.querySelector('#accountRoster').classList.contains('roster-reordering')`, 'long-press reorder activation');
@@ -2343,14 +2343,14 @@ async function runFocusedRosterAcceptance(client, userData) {
   await mouse('mouseReleased', target, {button: 'left', buttons: 0, clickCount: 1});
   const dragged = await order();
   assert.notDeepEqual(dragged, initial, 'long press must commit a changed order');
-  assert.equal(await client.evaluate('currentAgentId()'), initial[0], 'drag must not change the selected Agent');
+  assert.equal(await client.evaluate('AgentDeskInspect.currentAgentId()'), initial[0], 'drag must not change the selected Agent');
   await client.evaluate(`document.querySelector('#accountRoster').scrollLeft = 0`);
   const wheelPoint = await point(0);
   await mouse('mouseWheel', wheelPoint, {deltaX: 0, deltaY: 180});
   await new Promise(resolve => setTimeout(resolve, 150));
   const scrolled = await client.evaluate(`document.querySelector('#accountRoster').scrollLeft`);
   assert.ok(scrolled > 0, 'vertical mouse wheel must scroll roster horizontally');
-  await client.evaluate('renderAccountRoster()');
+  await client.evaluate('AgentDeskInspect.renderAccountRoster()');
   assert.equal(await client.evaluate(`document.querySelector('#accountRoster').scrollLeft`), scrolled, 'refresh must preserve manual scroll');
   const movingId = dragged[1];
   await client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].find(card => card.dataset.agentId === ${JSON.stringify(movingId)}).querySelector('.account-card-select').focus()`);

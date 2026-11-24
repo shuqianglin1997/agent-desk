@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
-const { rendererSource } = require('./helpers/renderer-source');
+const { rendererSource, rendererFunction } = require('./helpers/renderer-source');
 
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
@@ -132,7 +132,7 @@ test('工作环境始终投影完整员工库，并用同一主按钮确保就�
   assert.match(renderer, /function cardActionProfile\(group\) \{[\s\S]*?group\.key === currentAgentId\(\) \? selectedGroupProfile\(group\) : preferredGroupSlot\(group\)/);
   assert.match(renderer, /const profile = cardActionProfile\(group\);\s*const action = currentAgentActionContext\(group, profile\);/);
   assert.match(renderer, /async function openAgent\(agentId\)[\s\S]*?const profile = cardActionProfile\(group\);[\s\S]*?const reselect = \(profileId\) => \(viewing \? profileId : null\);[\s\S]*?ensureAgentReady\(\{[\s\S]*?agentId:[\s\S]*?deviceId:[\s\S]*?requestedAppId:/);
-  const openAgentBody = renderer.slice(renderer.indexOf('async function openAgent(agentId)'), renderer.indexOf('function renderAccountCardRuntime'));
+  const openAgentBody = rendererFunction('openAgent');
   assert.doesNotMatch(openAgentBody, /loadProfiles\((?!reselect\()/);
   assert.match(renderer, /deployment\.action\.firstOpen/);
   assert.match(renderer, /if \(group\.members\.length\)[\s\S]*?else \{\s*const apps = supportedProvisioningApps\(\);[\s\S]*?deployment\.client\.unprepared/);

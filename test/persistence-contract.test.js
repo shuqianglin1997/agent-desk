@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { mainHandlerSource } = require('./helpers/main-handler-source');
-const { rendererSource: readRendererSource } = require('./helpers/renderer-source');
+const { rendererSource: readRendererSource, rendererFunction } = require('./helpers/renderer-source');
 
 const mainSource = mainHandlerSource();
 const rendererSource = readRendererSource();
@@ -91,10 +91,9 @@ test('所有账号都可删除，删除最后一个后空账本不会按平台�
   );
   const removeClickStart = rendererSource.indexOf("els.removeProfileBtn.addEventListener('click'");
   const removeClickEnd = rendererSource.indexOf("els.updateBtn.addEventListener('click'", removeClickStart);
-  const headerStart = rendererSource.indexOf('function renderAccountHeader()');
-  const headerEnd = rendererSource.indexOf('function sessionColumns()', headerStart);
+  // The selected Agent's header and its launch button.
+  const header = rendererFunction('renderAccountHeader') + rendererFunction('renderAccountCardLaunch');
   assert.ok(removeClickStart >= 0 && removeClickEnd > removeClickStart);
-  assert.ok(headerStart >= 0 && headerEnd > headerStart);
 
   assert.match(handler, /if \(!target\).*main\.err\.slotNotFound/);
   assert.match(handler, /saveProfiles\(profiles\.filter/);
@@ -105,7 +104,7 @@ test('所有账号都可删除，删除最后一个后空账本不会按平台�
     /isProtected/
   );
   assert.doesNotMatch(
-    rendererSource.slice(headerStart, headerEnd),
+    header,
     /removeProfileBtn\.disabled\s*=\s*[^;]*isProtected/
   );
 });

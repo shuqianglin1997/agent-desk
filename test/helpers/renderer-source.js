@@ -21,4 +21,12 @@ function rendererSource() {
   return rendererFiles().map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 }
 
-module.exports = { rendererSource, rendererFiles };
+// One top-level function's text, from whichever renderer file holds it: from
+// its declaration to the closing brace at the start of a line.
+function rendererFunction(name) {
+  const match = rendererSource().match(new RegExp(`^(?:async )?function ${name}\\([^\\n]*\\) \\{\\n[\\s\\S]*?^\\}`, 'm'));
+  if (!match) throw new Error(`renderer function not found: ${name}`);
+  return match[0];
+}
+
+module.exports = { rendererSource, rendererFiles, rendererFunction };
