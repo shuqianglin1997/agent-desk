@@ -9,7 +9,7 @@ const createSessionMarks = require('../src/renderer/session-marks.js');
 const { normalizeSettings } = require('../src/settings');
 const PixelIcons = require('../src/pixel/icons.js');
 const Sfx = require('../src/pixel/sfx.js');
-const { rendererSource } = require('./helpers/renderer-source');
+const { rendererSource, rendererFunction } = require('./helpers/renderer-source');
 
 function words(lang) {
   const source = read(`src/i18n/${lang}.js`);
@@ -101,8 +101,7 @@ test('toolbar: the filter strip sits left of the search box; the picker is a top
 });
 
 test('filtering treats focused and ticked rows exactly as the search box does', () => {
-  const renderer = rendererSource();
-  const body = renderer.slice(renderer.indexOf('function applySessionFilter()'), renderer.indexOf('// ── 猫咪档案卡'));
+  const body = rendererFunction('applySessionFilter');
   assert.match(body, /const filtered = sessionMarks\.filter\(searched\);/);
   assert.doesNotMatch(body, /checkedConversationIds|focusedConversationId|UiContext\./, 'filtering never edits the selection');
   const module = read('src/renderer/session-marks.js');
