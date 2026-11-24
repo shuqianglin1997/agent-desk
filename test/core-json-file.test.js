@@ -74,3 +74,21 @@ test('a versioned store loads defaults, migrates in order keeping other fields, 
   fs.writeFileSync(file, '{"nope":1}');
   assert.deepEqual(store.load(), { ok: false, code: 'invalid-shape' });
 });
+
+test('the asynchronous atomic write replaces a file whole and cleans up when it cannot', async (t) => {
+  const dir = tempDir(t);
+  const file = path.join(dir, 'export.zip');
+  fs.writeFileSync(file, 'old');
+  await json.writeFileAtomicAsync(file, Buffer.from('new bytes'), { fsync: false });
+  assert.equal(fs.readFileSync(file, 'utf8'), 'new bytes');
+  assert.deepEqual(fs.readdirSync(dir), ['export.zip']);
+  if (process.platform !== 'win32') assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  // A folder where the file should go: the rename fails, the folder stays and
+  // no temporary file is left behind.
+  const blocked = path.join(dir, 'blocked');
+  fs.mkdirSync(path.join(blocked, 'inside'), { recursive: true });
+  await assert.rejects(json.writeFileAtomicAsync(blocked, 'data'));
+  assert.ok(fs.statSync(blocked).isDirectory());
+  assert.deepEqual(fs.readdirSync(dir).sort(), ['blocked', 'export.zip']);
+  await assert.rejects(json.writeFileAtomicAsync(path.join(dir, 'missing', 'x.md'), 'data'), { code: 'ENOENT' });
+});

@@ -122,22 +122,29 @@ test('metrics run on this repository and name the files each count comes from', 
   assert.ok(metrics.css.mainWindowSheets.includes('src/pixel.css'));
 });
 
-test('layer check reports an upward require and electron in core without failing', (t) => {
+test('layer check enforces the core layer and unmapped files, and only reports the rest', (t) => {
   const root = tree(t, {
     'src/json-store.js': "require('electron');\nrequire('./activity');\n",
     'src/activity.js': "require('./json-store');\n",
+    'src/apps.js': "require('./activity');\n",
     'src/new-file.js': ''
   });
   const report = layers.check(root);
-  assert.equal(report.mode, 'report-only');
-  assert.deepEqual(report.upward.map((edge) => [edge.from, edge.to]), [['src/json-store.js', 'src/activity.js']]);
+  assert.equal(report.mode, 'core-enforced');
+  assert.deepEqual(report.enforcedLayers, ['core']);
+  assert.deepEqual(report.upward.map((edge) => [edge.from, edge.to]).sort(),
+    [['src/apps.js', 'src/activity.js'], ['src/json-store.js', 'src/activity.js']]);
   assert.deepEqual(report.electronBelowServices, [{ file: 'src/json-store.js', layer: 'core' }]);
   assert.deepEqual(report.unmapped, ['src/new-file.js']);
+  // clients -> services is reported but not yet enforced (phase 3 tightens clients).
+  assert.deepEqual(report.enforced.map((item) => [item.rule, item.from || item.file]),
+    [['upward', 'src/json-store.js'], ['electron', 'src/json-store.js'], ['unmapped', 'src/new-file.js']]);
 });
 
-test('layer check maps every current source file and reports, but does not yet enforce', () => {
+test('this repository has no enforced layer violation: core requires nothing above it, no electron, every file mapped', () => {
   const report = layers.check();
   assert.deepEqual(report.unmapped, [], 'every new source file needs a layer in scripts/check-layers.js');
   assert.ok(report.relativeRequires > 0);
-  assert.equal(report.mode, 'report-only');
+  assert.equal(report.mode, 'core-enforced');
+  assert.deepEqual(report.enforced, []);
 });

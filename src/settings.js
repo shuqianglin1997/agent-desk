@@ -7,7 +7,7 @@
  */
 
 const { normalizeServiceUrls } = require('./mesh/protocol/signaling-auth');
-const { normalizeStunUrls } = require('./mesh/network/ice-config');
+const { normalizeStunUrls } = require('./mesh/protocol/ice-urls');
 const { normalizeProgress: normalizeOnboardingProgress } = require('./onboarding-state');
 
 // Version 5 retires the yard-scene, reminder and ledger fields (see RETIRED_FIELDS).

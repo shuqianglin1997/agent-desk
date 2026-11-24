@@ -146,6 +146,7 @@ src/
     secure-payload.js     SessionPointer/文件 payload 加密
     membership-events.js  成员权限、撤销和 revision
     signaling-auth.js     网关请求签名、TTL、nonce 与 URL 约束
+    ice-urls.js           STUN/TURN 地址列表的纯规整（设置与网络层共用）
   mesh/network/
     lan-endpoint.js       用户临时开放的 LAN 配对/连接端点
     signaling-client.js   在线租约、长轮询、配对和 offer/answer 回退
@@ -188,6 +189,7 @@ src/
   codex-quota.js          Codex 本机官方 RPC
   quota-service.js        并发、缓存和失败降级
 
+  core/                   最底层的纯函数与基础件，不用 electron、不引用上层（分层检查会失败）：结果与事实类型 result.js、路径判断 paths.js、读 JSON 与原子写入（同步与异步各一）和带版本的小存储 json-file.js、profiles.json 的唯一读取 profile-file.js、“在跑 / 活跃 / 额度新鲜”时间窗 time-windows.js
   json-store.js           原子 JSON 写入与备份
   settings.js             设置归一化与迁移
   updater.js              AgentDesk Release 解析与校验
@@ -210,7 +212,7 @@ scripts/
   hidden-electron-entry.js 不显示、不聚焦窗口的 Electron 入口：模拟钥匙串，启动客户端、对话框、显示文件、剪贴板与联网都由记录用的替身回答
   hidden-check.js         用上面的入口跑一遍真实界面：17 个读接口返回值的形状对照基准，并数启动时的完整扫描次数
   arch-metrics.js         架构整理第 8 节的各项指标（无依赖的估算，列出每个数字的来源）
-  check-layers.js         五层依赖表与越层报告（目前只报告）
+  check-layers.js         五层依赖表与越层报告（core 层越层、core 里用 electron、未登记的文件会失败，其余只报告）
   arch-fixtures.js        只在系统临时目录里造 10 个账号 × 500 条会话的合成数据
   arch-bench.js           在临时主目录里计时主进程的同步工作，结果写入 docs/validation/architecture-baseline.json
   verify-electron-package-integrity.js  流式核验成品 fuse、ASAR 每个文件及 macOS/Windows header 绑定

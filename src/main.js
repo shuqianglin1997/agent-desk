@@ -127,6 +127,7 @@ const {
 } = require('./main/ipc/pairing-approvals');
 const { resolveProfileStore } = require('./main/profile-store-policy');
 const { readProfileFile } = require('./core/profile-file');
+const { writeFileAtomicAsync } = require('./core/json-file');
 // This machine's path rules (src/core/paths.js), under the names used below.
 const { isInside: isSubpath, samePath: pathsEqual } = require('./core/paths').native;
 
@@ -5029,14 +5030,11 @@ async function exportSessionTranscript(input) {
   });
   if (result.canceled || !result.filePath) return { ok: false, canceled: true, reason: t('main.exp.cancelled') };
 
-  const temporary = path.join(path.dirname(result.filePath), `.agentdesk-export-${crypto.randomUUID()}.tmp`);
   try {
-    await fs.promises.writeFile(temporary, exported.data, { flag: 'wx', mode: 0o600 });
-    await fs.promises.rename(temporary, result.filePath);
-  } catch (error) {
+    // A complete file next to the target, renamed into place (as before, without fsync).
+    await writeFileAtomicAsync(result.filePath, exported.data, { fsync: false });
+  } catch (_error) {
     return { ok: false, reason: t('main.sessionActions.writeUnavailable') };
-  } finally {
-    await fs.promises.rm(temporary, { force: true }).catch(() => {});
   }
   return {
     ok: true,

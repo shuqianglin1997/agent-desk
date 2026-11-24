@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 2 阶段第 8 批：最底层 `core` 开始由检查看住。设置（core）原来为规整 STUN 地址去引用网络层的 `mesh/network/ice-config.js`，这是唯一一条往上的依赖；两个纯函数移到 `src/mesh/protocol/ice-urls.js`（core），`ice-config.js` 照旧导出同一个函数，结果逐项不变（新增 `test/ice-urls.test.js`，移动前后都通过）。`scripts/check-layers.js` 从“只报告”改为“core 强制”：core 引用上层、core 里用 electron、没登记层的源文件会让测试和命令失败，其余层仍只报告，后面的阶段逐层加入。会话导出原来自己写一遍“临时文件再改名”，改为调用 `core/json-file.js` 新增的异步原子写入（不阻塞主进程；导出照旧不刷盘、权限 0600、失败不留临时文件）；新增 `test/session-export-write.test.js` 从 `main.js` 取出导出处理在替身下运行，改动前后的 `main.js` 都通过。`docs/INTERNAL.md` 补上 `core/` 与 `ice-urls.js`。
+
 2026-11-24 架构整理第 2 阶段第 7 批（第 1 阶段第 4、5 条留下的部分）：读不出来与“没有”从此在数据上分开。Cursor 与 Kimi Work 的 sqlite3 查询改为返回结果（成功带行，或“sqlite3 不能运行 / 查询失败”）：数据库不存在仍是没有会话；数据库在但读不出来时扫描报错而不再返回空表，桌面沿用上一次的行（第 1 阶段已有），成品命令行返回新的原因码 `session-store-unreadable`；活动探测读不出 Cursor 的聚合数时“在跑”为不知道。目录遍历在 12000 项处停下、还有目录没读时，`apps.scanResult()` 的结果带 `truncated: true`，活动探测的结果多一个 `truncated` 字段。这些状态都只放在数据里，界面暂不显示（要新文字，留到第 6、8 阶段）。新增 `test/scan-failure-and-truncation.test.js` 4 项，修改前全部失败、修改后通过；会话扫描基准里每个活动结果多了 `truncated: false`，其余不变。
 
 2026-11-24 架构整理第 2 阶段第 6 批：删除旧的 Codex 导入。它的按钮早已不在页面里，剩下的对话框、五个通信接口（`profiles:discoverCodexHomes`、`registerCodexHome`、`pickCodexHome`、`pickCodexAuth`、`importDroppedCodexAuth`）、preload 里对应的五个方法、界面里的打开与执行代码、对应样式和三种语言各 23 条文案一起删掉；首次使用里的“导入 Codex”按钮照旧打开招募的“拖进来”一段（它的文案和招募刷新失败的提示两条保留）。招募和成品命令行登记已有 Codex 目录原来走自己的 `registerCodexHome`，现在走与其他客户端相同的 `src/main/profile-registration.js`；命令行仍先检查目录像不像 Codex。改之前先写了 `test/codex-registration-path.test.js` 两项，证明两条路对同一个 Codex 目录（普通目录与官方默认 `~/.codex`）建出的账号逐字段相同、找到的已有账号也相同；改动后通过。preload 的拖入测试改为检查剩下的唯一拖入入口（招募）同样不暴露路径、没有通用调用。

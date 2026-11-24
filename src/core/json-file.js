@@ -78,6 +78,26 @@ function writeFileAtomic(filePath, data, options = {}) {
   }
 }
 
+// The same write without blocking the main process, for large files such as
+// session exports. Options: mode (0o600), fsync (true). The parent folder must
+// exist; a failure leaves the target as it was and no temporary file.
+async function writeFileAtomicAsync(filePath, data, options = {}) {
+  const mode = options.mode ?? 0o600;
+  const temporary = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`);
+  let handle;
+  try {
+    handle = await fs.promises.open(temporary, 'wx', mode);
+    await handle.writeFile(data);
+    if (options.fsync !== false) await handle.sync();
+    await handle.close();
+    handle = undefined;
+    await fs.promises.rename(temporary, filePath);
+  } finally {
+    if (handle) await handle.close().catch(() => {});
+    await fs.promises.rm(temporary, { force: true }).catch(() => {});
+  }
+}
+
 function writeJsonAtomic(filePath, value, options = {}) {
   writeFileAtomic(filePath, JSON.stringify(value, null, 2), options);
 }
@@ -135,4 +155,4 @@ function createVersionedStore(definition) {
   return { file, version, load, save };
 }
 
-module.exports = { readJsonFile, readJson, writeFileAtomic, writeJsonAtomic, createVersionedStore };
+module.exports = { readJsonFile, readJson, writeFileAtomic, writeFileAtomicAsync, writeJsonAtomic, createVersionedStore };

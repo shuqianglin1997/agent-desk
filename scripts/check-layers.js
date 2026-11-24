@@ -6,8 +6,11 @@
 // sandboxed renderer processes are `ui`. The table below describes today's
 // files; later phases move files and tighten it.
 //
-// Mode: report-only (phase 0). `--strict` exits 1 on violations; phases that
-// tighten the rule switch the test to strict.
+// Mode: core-enforced (phase 2). Enforced, so the test and the CLI fail on
+// them: a `core` file requiring a higher layer, a `core` file requiring
+// electron, and a source file with no layer. Every other violation is only
+// reported; later phases add their layer to ENFORCED_LAYERS. `--strict` exits 1
+// on every violation.
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -16,6 +19,7 @@ const { maskSource } = require('./arch-metrics');
 const ROOT = path.resolve(__dirname, '..');
 const LAYERS = ['core', 'clients', 'services', 'commands', 'bridge', 'ui'];
 const RANK = Object.fromEntries(LAYERS.map((name, index) => [name, index]));
+const ENFORCED_LAYERS = ['core'];
 
 // First match wins. Patterns are path prefixes or exact files under src/.
 const TABLE = [
@@ -99,25 +103,32 @@ function check(root = ROOT) {
     }
   }
   const counts = Object.fromEntries(['entry', ...LAYERS].map((name) => [name, Object.values(layers).filter((value) => value === name).length]));
+  const enforced = [
+    ...upward.filter((edge) => ENFORCED_LAYERS.includes(edge.fromLayer)).map((edge) => ({ rule: 'upward', ...edge })),
+    ...electronBelowServices.filter((item) => ENFORCED_LAYERS.includes(item.layer)).map((item) => ({ rule: 'electron', ...item })),
+    ...unmapped.map((file) => ({ rule: 'unmapped', file }))
+  ];
   return {
     schemaVersion: 1,
-    mode: 'report-only',
+    mode: 'core-enforced',
+    enforcedLayers: [...ENFORCED_LAYERS],
     files: files.length,
     counts,
     relativeRequires: edges,
     unmapped,
     upward,
     electronBelowServices,
-    violations: upward.length + electronBelowServices.length + unmapped.length
+    violations: upward.length + electronBelowServices.length + unmapped.length,
+    enforced
   };
 }
 
-module.exports = { LAYERS, TABLE, layerOf, check };
+module.exports = { LAYERS, TABLE, ENFORCED_LAYERS, layerOf, check };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
   const root = args.includes('--root') ? path.resolve(args[args.indexOf('--root') + 1]) : ROOT;
   const report = check(root);
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
-  if (args.includes('--strict') && report.violations) process.exitCode = 1;
+  if (report.enforced.length || (args.includes('--strict') && report.violations)) process.exitCode = 1;
 }

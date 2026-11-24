@@ -1,4 +1,5 @@
 const { normalizeServiceUrls } = require('../protocol/signaling-auth');
+const { splitUrls, normalizeStunUrls } = require('../protocol/ice-urls');
 
 function signalingUrlsFromEnv(env = process.env) {
   return normalizeServiceUrls(env.AGENTDESK_SIGNALING_URLS || '', {
@@ -15,10 +16,6 @@ function staticIceServers(env = process.env) {
   if (stunUrls.length) result.push({ urls: stunUrls });
   if (turnUrls.length && username && credential) result.push({ urls: turnUrls, username, credential });
   return result;
-}
-
-function normalizeStunUrls(value) {
-  return splitUrls(Array.isArray(value) ? value.join(',') : value, /^(stun|stuns):/i, 8);
 }
 
 function mergeIceServers(...groups) {
@@ -76,14 +73,6 @@ function publicIceDiagnostics(servers, dynamic = {}) {
     turnCredentialExpiresAt: turnUrlCount > 0 ? (dynamic.expiresAt || null) : null,
     turnTransports: [...transports]
   };
-}
-
-function splitUrls(value, pattern, limit) {
-  return [...new Set(String(value || '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => pattern.test(item)))]
-    .slice(0, limit);
 }
 
 function cleanSecret(value, limit) {
