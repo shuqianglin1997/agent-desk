@@ -9,7 +9,9 @@
 //     test/fixtures/characterisation/ipc-shapes.json (`--update` rewrites it),
 //   - reports how many full session scans start-up performed.
 //
-//   node scripts/hidden-check.js [--update] [--keep]
+//   node scripts/hidden-check.js [--update] [--keep] [--eval '<renderer expression>']
+// --eval adds the JSON value of one renderer expression to the report, for a
+// phase check of something the shapes do not show (for example cat states).
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -42,9 +44,11 @@ function seed(base) {
   return { userData, home, profiles };
 }
 
-function launch(base, userData, home, outputFile) {
+function launch(base, userData, home, outputFile, evalExpression) {
   const electronPath = require('electron');
   const env = { ...process.env, HOME: home, USERPROFILE: home, AGENTDESK_HIDDEN_TASK: 'probe', AGENTDESK_HIDDEN_OUTPUT: outputFile };
+  if (evalExpression) env.AGENTDESK_HIDDEN_EVAL = evalExpression;
+  else delete env.AGENTDESK_HIDDEN_EVAL;
   delete env.ELECTRON_RUN_AS_NODE;
   const log = [];
   return new Promise((resolve) => {
@@ -69,7 +73,8 @@ async function main() {
   try {
     const { userData, home, profiles } = seed(base);
     const outputFile = path.join(base, 'result.json');
-    const { code, log } = await launch(base, userData, home, outputFile);
+    const evalIndex = args.indexOf('--eval');
+    const { code, log } = await launch(base, userData, home, outputFile, evalIndex >= 0 ? args[evalIndex + 1] : '');
     assert.ok(fs.existsSync(outputFile), `hidden run produced no result (exit ${code})\n${log.slice(-3000)}`);
     const result = JSON.parse(fs.readFileSync(outputFile, 'utf8'));
     if (result.error) throw new Error(`hidden run failed: ${result.error}\n${log.slice(-3000)}`);
@@ -97,6 +102,7 @@ async function main() {
       report.shapeDifferences = differing.map((channel) => ({ channel, expected: golden[channel], actual: result.shapes[channel] }));
     }
     report.shapesMatch = shapesMatch;
+    if (result.extra !== undefined) report.extra = result.extra;
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
     if (shapesMatch === false || serious.length) process.exitCode = 1;
   } finally {

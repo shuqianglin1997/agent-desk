@@ -203,7 +203,9 @@ async function runProbe(window) {
     return out;
   })()`);
   const profileCount = await evaluate(window, 'state.profiles.length');
-  finish({ ready, shapes, profileCount, ...record });
+  // Optional extra renderer expression for a phase check (hidden-check --eval).
+  const extra = process.env.AGENTDESK_HIDDEN_EVAL ? await evaluate(window, process.env.AGENTDESK_HIDDEN_EVAL) : undefined;
+  finish({ ready, shapes, profileCount, extra, ...record });
 }
 
 require(path.join(ROOT, 'src/main.js'));

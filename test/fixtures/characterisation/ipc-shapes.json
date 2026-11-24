@@ -416,7 +416,12 @@
       "profileId": "string",
       "rootExists": "boolean",
       "rootReadable": "boolean",
-      "running": "boolean",
+      "running": {
+        "anyOf": [
+          "null",
+          "boolean"
+        ]
+      },
       "sessionCount": "number",
       "sourceKey": "string",
       "writingKeys": {

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:56:06.680Z",
-  "baseCommit": "a1dd904d92b97a1e0ddad4f7f4c3e46acc46ffc2",
+  "recordedAt": "2026-11-24T16:59:36.180Z",
+  "baseCommit": "7e12e3fb5517e5e52bc7df9c24665a5f2edab87a",
   "uncommitted": true,
-  "sourceSha256": "0185bc259e7a40056e7f30bbe7cceedcb453a4c51025284efd5bdf48d11512ec",
+  "sourceSha256": "f0b974a00a96de9b69d6c3b81b78f34135ac1c7782efdda7e57a55d4c07e0efd",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,59 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 840,
+      "pass": 838,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite at the close of architecture phase 1; digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:59:36.180Z",
+      "sourceSha256": "f0b974a00a96de9b69d6c3b81b78f34135ac1c7782efdda7e57a55d4c07e0efd"
+    },
+    {
+      "command": "node scripts/ui-acceptance.js --hidden",
+      "result": "passed",
+      "scope": "24 task paths through the hidden entry after architecture phase 1; stubs used: quota:all; one process start blocked: probeMaintenanceVersion running the installed codex --version. Not a visible-window run",
+      "recordedAt": "2026-11-24T16:59:36.180Z",
+      "sourceSha256": "f0b974a00a96de9b69d6c3b81b78f34135ac1c7782efdda7e57a55d4c07e0efd"
+    },
+    {
+      "command": "node scripts/hidden-check.js (then --update, then again)",
+      "result": "passed",
+      "scope": "Only shape change after phase 1: activity:all running may now be null (item 2), accepted as deliberate and written to the golden; 17 read IPC shapes then match; start-up still performs 4 full scans; no serious console errors",
+      "recordedAt": "2026-11-24T16:59:36.180Z",
+      "sourceSha256": "f0b974a00a96de9b69d6c3b81b78f34135ac1c7782efdda7e57a55d4c07e0efd"
+    },
+    {
+      "command": "node scripts/hidden-check.js --eval <cat states per card>",
+      "result": "recorded",
+      "scope": "Real renderer on light synthetic data: three Claude CLI accounts with fresh sessions show working with running null (play before the fix); three Codex desktop accounts with the client closed stay play with running false; Gemini CLI and Qwen Code running null",
+      "recordedAt": "2026-11-24T16:59:36.180Z",
+      "sourceSha256": "f0b974a00a96de9b69d6c3b81b78f34135ac1c7782efdda7e57a55d4c07e0efd"
+    },
+    {
+      "command": "node scripts/arch-bench.js",
+      "result": "recorded",
+      "scope": "10 x 500 synthetic data after phase 1: all-sessions refresh median 751 ms (736-756), 642 MB read; largest single profile 143 ms; activity tick 60 ms; scanning paths unchanged by phase 1, difference to phase 0 is machine load",
+      "recordedAt": "2026-11-24T16:59:36.180Z",
+      "sourceSha256": "f0b974a00a96de9b69d6c3b81b78f34135ac1c7782efdda7e57a55d4c07e0efd"
+    },
+    {
+      "command": "node scripts/arch-metrics.js --write",
+      "result": "recorded",
+      "scope": "Section 8 metrics after phase 1 in docs/validation/architecture-metrics.json",
+      "recordedAt": "2026-11-24T16:59:36.180Z",
+      "sourceSha256": "f0b974a00a96de9b69d6c3b81b78f34135ac1c7782efdda7e57a55d4c07e0efd"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T16:59:36.180Z",
+      "sourceSha256": "f0b974a00a96de9b69d6c3b81b78f34135ac1c7782efdda7e57a55d4c07e0efd"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

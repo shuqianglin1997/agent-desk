@@ -501,7 +501,8 @@ if (require.main === module) {
       findSessionById: result.findSessionByIdAfterRescan.count, pathHelpers: result.pathEqualityOrContainmentHelpers.count,
       syncRefreshPath: result.syncCalls.refreshPathTotal, syncMainProcess: result.syncCalls.mainProcessTotal,
       cssDuplicateSelectors: result.css.selectorsInMoreThanOneSheet, cssImportant: result.css.important,
-      cssMultiFileProperties: result.css.customPropertiesInMoreThanOneSheet, textOnlyTestFiles: result.tests.textOnlyFiles
+      cssMultiFileProperties: result.css.customPropertiesInMoreThanOneSheet, textOnlyTestFiles: result.tests.textOnlyFiles,
+      textComparisonOnlyTestFiles: result.tests.textOnlyFiles - result.tests.textOnlyButRunExtractedSource.length
     };
     process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
   } else {

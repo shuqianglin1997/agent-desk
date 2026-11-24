@@ -1,16 +1,16 @@
 {
-  "recordedAt": "2026-11-24T16:41:46.336Z",
-  "sourceSha256": "487827d9b11b656c7ac6b2058adf1d63695f9772e1a0a2f9f2ec657a672dc303",
+  "recordedAt": "2026-11-24T16:59:27.462Z",
+  "sourceSha256": "f0b974a00a96de9b69d6c3b81b78f34135ac1c7782efdda7e57a55d4c07e0efd",
   "schemaVersion": 1,
   "srcFiles": 153,
-  "srcJsLines": 57748,
-  "mainJsLines": 5217,
-  "rendererJsLines": 9865,
+  "srcJsLines": 57874,
+  "mainJsLines": 5223,
+  "rendererJsLines": 9924,
   "rendererScripts": 30,
   "functions": {
-    "total": 3712,
+    "total": 3717,
     "moduleWrappers": 31,
-    "rendererJs": 604,
+    "rendererJs": 607,
     "mainJs": 355,
     "over150Lines": 17,
     "longest": [
@@ -23,7 +23,7 @@
       {
         "file": "src/renderer.js",
         "name": "bindEvents",
-        "line": 1327,
+        "line": 1362,
         "lines": 939
       },
       {
@@ -65,13 +65,13 @@
       {
         "file": "src/main.js",
         "name": "launchProfile",
-        "line": 3717,
+        "line": 3723,
         "lines": 187
       },
       {
         "file": "src/renderer.js",
         "name": "renderTransferList",
-        "line": 8505,
+        "line": 8564,
         "lines": 181
       },
       {
@@ -98,7 +98,7 @@
     }
   },
   "clientNameComparisonsOutsideApps": {
-    "total": 69,
+    "total": 68,
     "files": {
       "src/account-credentials.js": 2,
       "src/activity.js": 3,
@@ -115,7 +115,7 @@
       "src/profile-runtime.js": 2,
       "src/quota-overview.js": 2,
       "src/quota-service.js": 3,
-      "src/renderer.js": 6,
+      "src/renderer.js": 5,
       "src/renderer/recruit.js": 5,
       "src/session-export.js": 7,
       "src/sessions.js": 5,
@@ -165,7 +165,7 @@
       {
         "file": "src/main.js",
         "function": "revealSessionFile",
-        "line": 5144
+        "line": 5150
       },
       {
         "file": "src/main/session-actions.js",
@@ -336,10 +336,10 @@
     }
   },
   "tests": {
-    "files": 107,
-    "testCallsAtLineStart": 788,
-    "filesReadingSourceAsText": 37,
-    "textOnlyFiles": 15,
+    "files": 115,
+    "testCallsAtLineStart": 811,
+    "filesReadingSourceAsText": 44,
+    "textOnlyFiles": 17,
     "textOnlyList": [
       "test/codex-config-ownership.test.js",
       "test/device-journey-ui.test.js",
@@ -352,12 +352,16 @@
       "test/quota-ui.test.js",
       "test/recruit-ui.test.js",
       "test/release-security.test.js",
+      "test/sessions-load-race.test.js",
+      "test/sessions-refresh-on-activity.test.js",
       "test/simplification.test.js",
       "test/task-package-ui.test.js",
       "test/ui-redesign.test.js",
       "test/ui.test.js"
     ],
     "textOnlyButRunExtractedSource": [
+      "test/sessions-load-race.test.js",
+      "test/sessions-refresh-on-activity.test.js",
       "test/simplification.test.js"
     ]
   }
