@@ -31,7 +31,11 @@ function unpackRawActivity(packed) {
 }
 
 // The last step, in Main: which replies are new since this machine last looked.
-function finishActivities(profiles, raws, marks = null) {
+// options.sessionCountOf(profile): the session index's count for the profile,
+// or null when the index has not read it; with a count, the activity reports
+// the same number as the list and the device page (the walk alone also counts
+// files the list leaves out, such as Claude CLI sub-agent records).
+function finishActivities(profiles, raws, marks = null, options = {}) {
   const baselineAt = marks && Number(marks.baselineAt) > 0 ? Number(marks.baselineAt) : 0;
   const seenAt = marks && typeof marks.seenAt === 'function' ? marks.seenAt : () => null;
   return profiles.map((profile, index) => {
@@ -46,8 +50,10 @@ function finishActivities(profiles, raws, marks = null) {
       }
     }
     const replyApp = typeof apps.getApp(profile.appId).replyState === 'function' && baselineAt > 0;
+    const indexed = typeof options.sessionCountOf === 'function' ? options.sessionCountOf(profile) : null;
     return {
       ...raw,
+      ...(Number.isInteger(indexed) && indexed >= 0 ? { sessionCount: indexed } : {}),
       profileId: profile.id,
       writingKeys: (raw.writingAddresses || []).map((address) => `${id}::${address}`),
       freshReplies: replyApp ? fresh.length : null,

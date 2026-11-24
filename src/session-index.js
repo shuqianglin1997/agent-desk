@@ -14,7 +14,9 @@
  *    truncated, or a failure code. A failed rescan keeps the last good rows and
  *    marks them stale; a profile that never scanned well reports its failure.
  *  - An entry belongs to one profile definition (id, client, folders): a
- *    changed folder never serves the old rows.
+ *    changed folder never serves the old rows, and a scan for a definition
+ *    that is no longer the latest one asked about is dropped when it lands
+ *    (its caller still gets its answer). Entries carry a generation.
  *  - Scanning runs through `scan(profile)`, a result or a promise of one.
  *    `scanSync` is the same scan done here and now, for the few synchronous
  *    callers that need rows the index does not have yet.
@@ -74,10 +76,12 @@ function createSessionIndex(options = {}) {
   const reuseMs = Number.isFinite(options.reuseMs) ? options.reuseMs : DEFAULT_REUSE_MS;
   const entries = new Map();
   const inFlight = new Map();
+  const latestKey = new Map();
   let generation = 0;
 
   function record(profile, key, result) {
     const id = String(profile.id);
+    const stale = latestKey.has(id) && latestKey.get(id) !== key;
     const previous = entries.get(id);
     const lastGood = previous && previous.key === key ? previous.rows : null;
     const good = result && result.ok === true;
@@ -90,7 +94,7 @@ function createSessionIndex(options = {}) {
       stale: !good && lastGood !== null,
       truncated: good ? result.truncated === true : Boolean(previous && previous.key === key && previous.truncated)
     };
-    entries.set(id, entry);
+    if (!stale) entries.set(id, entry);
     return entry;
   }
 
@@ -108,9 +112,10 @@ function createSessionIndex(options = {}) {
   function refreshOne(profile, request = {}) {
     const maxAgeMs = Number.isFinite(request.maxAgeMs) ? request.maxAgeMs : reuseMs;
     const key = profileKey(profile);
+    const id = String(profile.id);
+    latestKey.set(id, key);
     const fresh = current(profile, maxAgeMs);
     if (fresh) return Promise.resolve(fresh);
-    const id = String(profile.id);
     const running = inFlight.get(id);
     const sameDefinition = running && running.key === key;
     if (sameDefinition && (running.startedAt === null || now() - running.startedAt <= maxAgeMs)) return running.promise;
@@ -148,6 +153,7 @@ function createSessionIndex(options = {}) {
   // one no older than maxAgeMs (any age by default), else one scan here and now.
   function rowsSync(profile, request = {}) {
     const maxAgeMs = Number.isFinite(request.maxAgeMs) ? request.maxAgeMs : Infinity;
+    latestKey.set(String(profile.id), profileKey(profile));
     const entry = current(profile, maxAgeMs);
     if (entry) return rowsOrThrow(entry);
     let result;
@@ -172,6 +178,7 @@ function createSessionIndex(options = {}) {
 
   function forget(profileId) {
     entries.delete(String(profileId));
+    latestKey.delete(String(profileId));
   }
 
   return { refresh, rows, rowsSync, find, findSync, peek, forget };

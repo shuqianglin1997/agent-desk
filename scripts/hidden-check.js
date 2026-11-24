@@ -11,9 +11,11 @@
 //     ran, and the synchronous file/process calls the main thread made while
 //     serving the refresh path.
 //
-//   node scripts/hidden-check.js [--update] [--keep] [--eval '<renderer expression>']
+//   node scripts/hidden-check.js [--update] [--keep] [--eval '<renderer expression>'] [--sessions N]
 // --eval adds the JSON value of one renderer expression to the report, for a
 // phase check of something the shapes do not show (for example cat states).
+// --sessions N seeds N sessions per account (default 20, at most 500) for a
+// timing check; payload shapes are compared only at the default.
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -25,12 +27,12 @@ const { generate } = require('./arch-fixtures');
 const ROOT = path.resolve(__dirname, '..');
 const GOLDEN = path.join(ROOT, 'test', 'fixtures', 'characterisation', 'ipc-shapes.json');
 
-function seed(base) {
+function seed(base, sessionsPerAccount = 20) {
   const userData = path.join(base, 'user-data');
   const home = path.join(base, 'home');
   fs.mkdirSync(userData, { recursive: true });
   fs.mkdirSync(home, { recursive: true });
-  const fixture = generate(path.join(base, 'data'), { sessionsPerAccount: 20, scale: 0.05, now: Date.now() });
+  const fixture = generate(path.join(base, 'data'), { sessionsPerAccount, scale: 0.05, now: Date.now() });
   const profiles = fixture.profiles.map((profile, index) => ({
     ...profile,
     group: index < 5 ? 'Work' : '',
@@ -73,7 +75,9 @@ async function main() {
   const args = process.argv.slice(2);
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hidden-check-'));
   try {
-    const { userData, home, profiles } = seed(base);
+    const sessionsIndex = args.indexOf('--sessions');
+    const perAccount = sessionsIndex >= 0 ? Math.max(1, Math.min(500, Number(args[sessionsIndex + 1]) || 20)) : 20;
+    const { userData, home, profiles } = seed(base, perAccount);
     const outputFile = path.join(base, 'result.json');
     const evalIndex = args.indexOf('--eval');
     const { code, log } = await launch(base, userData, home, outputFile, evalIndex >= 0 ? args[evalIndex + 1] : '');
@@ -100,7 +104,9 @@ async function main() {
       seriousLogLines: serious
     };
     let shapesMatch = null;
-    if (args.includes('--update')) {
+    if (perAccount !== 20) {
+      // A timing run: the golden shapes were recorded on the default data.
+    } else if (args.includes('--update')) {
       fs.mkdirSync(path.dirname(GOLDEN), { recursive: true });
       fs.writeFileSync(GOLDEN, JSON.stringify(result.shapes, null, 2) + '\n');
     } else {

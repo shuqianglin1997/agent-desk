@@ -119,3 +119,24 @@ test('tied Codex active/archive revisions follow the same content/index lifecycl
   assert.equal(scanCodex(profile)[0].status, '可用');
   assert.equal(probeActivity(profile, now).activeNow, 1);
 });
+
+test('the session count Main reports with activity is the session index count', (t) => {
+  const { finishActivities, probeRawActivities } = require('../src/activity');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-activity-count-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dir = path.join(root, 'projects', '-w');
+  fs.mkdirSync(dir, { recursive: true });
+  const line = (extra) => JSON.stringify({ type: 'user', timestamp: '2026-11-24T10:00:00.000Z', cwd: '/w', message: { role: 'user', content: 'hi' }, ...extra });
+  fs.writeFileSync(path.join(dir, '11111111-1111-4111-8111-111111111111.jsonl'), line({}) + '\n');
+  // A sub-agent record: the list leaves it out, the file walk sees it.
+  fs.writeFileSync(path.join(dir, '22222222-2222-4222-8222-222222222222.jsonl'), line({ isSidechain: true }) + '\n');
+  const profile = { id: 'p', appId: 'claude-cli', sessionRoot: root };
+  const rows = require('../src/apps').getApp('claude-cli').scan(profile);
+  assert.equal(rows.length, 1);
+  const raws = probeRawActivities([profile], Date.now(), 0);
+  assert.equal(raws[0].sessionCount, 2, 'the walk alone counts the sub-agent file');
+  const [withIndex] = finishActivities([profile], raws, null, { sessionCountOf: () => rows.length });
+  assert.equal(withIndex.sessionCount, 1, 'with the index the counts agree');
+  const [withoutEntry] = finishActivities([profile], raws, null, { sessionCountOf: () => null });
+  assert.equal(withoutEntry.sessionCount, 2, 'a profile the index has not read keeps the walk count');
+});

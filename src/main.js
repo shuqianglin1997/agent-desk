@@ -39,7 +39,11 @@ const sessionIndex = createSessionIndex({ scan: (profile) => scanHost.scan(profi
 // The activity probe: file work on the worker, the "seen" comparison here.
 async function probeActivities(profiles, now, marks) {
   const baselineAt = marks && Number(marks.baselineAt) > 0 ? Number(marks.baselineAt) : 0;
-  return finishActivities(profiles, await scanHost.activityRaw(profiles, now, baselineAt), marks);
+  const raws = await scanHost.activityRaw(profiles, now, baselineAt);
+  // Session counts come from the session index, as in the list and the device page.
+  return finishActivities(profiles, raws, marks, {
+    sessionCountOf: (profile) => (Array.isArray(sessionIndex.peek(profile)?.rows) ? sessionIndex.peek(profile).rows.length : null)
+  });
 }
 // A user action on chosen sessions re-reads them: a fresh scan, as before.
 // User actions on chosen sessions (open folder, export, task packages,

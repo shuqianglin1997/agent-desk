@@ -70,6 +70,27 @@ test('another folder for the same profile never serves the old rows', async () =
   assert.equal(scans.length, 2);
 });
 
+test('a scan for a folder the profile no longer uses is dropped when it lands', async () => {
+  let release;
+  const scans = [];
+  const index = createSessionIndex({
+    scan: (current) => {
+      scans.push(current.sessionRoot);
+      if (current.sessionRoot === '/old') return new Promise((resolve) => { release = resolve; });
+      return ok([{ id: 'new-folder' }]);
+    }
+  });
+  const old = index.rows({ ...profile, sessionRoot: '/old' });
+  await new Promise((resolve) => setImmediate(resolve));
+  const moved = { ...profile, sessionRoot: '/new' };
+  assert.deepEqual(await index.rows(moved), [{ id: 'new-folder' }]);
+  release(ok([{ id: 'old-folder' }]));
+  assert.deepEqual(await old, [{ id: 'old-folder' }], 'the caller that asked still gets its answer');
+  assert.deepEqual(index.peek(moved).rows, [{ id: 'new-folder' }], 'but the late result does not replace the current one');
+  assert.deepEqual(index.rowsSync(moved), [{ id: 'new-folder' }]);
+  assert.deepEqual(scans, ['/old', '/new']);
+});
+
 test('a failed rescan keeps the last good rows and says so; no good rows means the failure', async () => {
   const { index, advance } = harness([ok([{ id: 'a' }], { truncated: true }), fail('session-store-unreadable')]);
   await index.rows(profile);
