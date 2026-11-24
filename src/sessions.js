@@ -663,16 +663,35 @@ function readJson(filePath) {
   }
 }
 
+// The first line of a Codex rollout (session_meta) can be far longer than one
+// read when it embeds instructions. Read on in 64 KB steps until the line ends,
+// up to a fixed bound, and always close the file.
+const FIRST_LINE_STEP = 64 * 1024;
+const FIRST_LINE_LIMIT = 8 * 1024 * 1024;
 function readFirstJsonLine(filePath) {
+  let fd = null;
   try {
-    const fd = fs.openSync(filePath, 'r');
-    const buffer = Buffer.alloc(64 * 1024);
-    const bytes = fs.readSync(fd, buffer, 0, buffer.length, 0);
-    fs.closeSync(fd);
-    const first = buffer.subarray(0, bytes).toString('utf8').split(/\r?\n/)[0];
+    fd = fs.openSync(filePath, 'r');
+    const chunks = [];
+    let total = 0;
+    while (total < FIRST_LINE_LIMIT) {
+      const buffer = Buffer.alloc(FIRST_LINE_STEP);
+      const bytes = fs.readSync(fd, buffer, 0, buffer.length, total);
+      if (bytes <= 0) break;
+      const chunk = buffer.subarray(0, bytes);
+      const newline = chunk.indexOf(0x0a);
+      chunks.push(newline < 0 ? chunk : chunk.subarray(0, newline));
+      total += bytes;
+      if (newline >= 0) break;
+    }
+    const first = Buffer.concat(chunks).toString('utf8').replace(/\r$/, '');
     return first ? JSON.parse(first) : null;
   } catch (_error) {
     return null;
+  } finally {
+    if (fd !== null) {
+      try { fs.closeSync(fd); } catch (_error) { /* already closed */ }
+    }
   }
 }
 
