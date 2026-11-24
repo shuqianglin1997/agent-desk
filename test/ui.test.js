@@ -36,10 +36,11 @@ test('1.13 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下�
   // 账号名册是唯一的 Agent 呈现面。
   assert.match(styles, /\.agent-panel \.account-roster \{[\s\S]*?display:\s*grid/);
   // 庭院场景已经退出窗口，它的场景代码、调色板、氛围和皮肤不再随应用提供；猫的素材、状态和额度判断保留。
-  for (const gone of ['scene.js', 'palettes.js', 'atmosphere.js', 'yard.css']) {
+  // 第 2 阶段：旧位置设置退休（settings 版本 5 收进 retired），interactions.js 一并删除。
+  for (const gone of ['scene.js', 'palettes.js', 'atmosphere.js', 'yard.css', 'interactions.js']) {
     assert.equal(fs.existsSync(path.join(__dirname, '..', 'src', 'yard', gone)), false, `${gone} 应已删除`);
   }
-  for (const kept of ['sprites.js', 'cats.js', 'energy.js', 'interactions.js']) {
+  for (const kept of ['sprites.js', 'cats.js', 'energy.js']) {
     assert.equal(fs.existsSync(path.join(__dirname, '..', 'src', 'yard', kept)), true, `${kept} 仍在使用`);
   }
 });

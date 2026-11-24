@@ -1,0 +1,187 @@
+/*
+ * AgentDesk — stable user-interface settings.
+ *
+ * These values used to live only in renderer localStorage. Keeping the
+ * canonical copy in Electron's userData directory makes them independent of
+ * the packaged executable path and safe across portable updates.
+ */
+
+const { normalizePositions } = require('./yard/interactions');
+const { normalizeServiceUrls } = require('./mesh/protocol/signaling-auth');
+const { normalizeStunUrls } = require('./mesh/network/ice-config');
+const { normalizeProgress: normalizeOnboardingProgress } = require('./onboarding-state');
+
+const SETTINGS_VERSION = 4;
+const THEMES = new Set(['light', 'dark']);
+const VIEWS = new Set(['yard', 'classic']);
+const LANGS = new Set(['zh', 'en', 'ja']);
+const SESSION_SCOPES = new Set(['current', 'all']);
+const SESSION_VIEWS = new Set(['compact', 'detail']);
+// 会话列表的三种排序（docs/SESSION_MARKS_PLAN.md 第 5.2 节）；筛选只是这一次看的方式，不记进设置。
+const SESSION_ORDERS = new Set(['recent', 'fresh', 'tag']);
+const YARD_TIMES = new Set(['auto', 'day', 'dusk', 'night']);
+const YARD_WEATHER = new Set(['auto', 'clear', 'cloudy', 'rain', 'snow']);
+const PROFILE_QUIT_BEHAVIORS = new Set(['close', 'keep']);
+// 声音三档：全部 / 只要要紧的 / 静音；默认只要要紧的。音量 0–100，默认 55（与所有者试听时的默认值相同）。
+const SOUND_LEVELS = new Set(['all', 'key', 'off']);
+
+const DEFAULT_SETTINGS = Object.freeze({
+  theme: null,
+  agentOrder: Object.freeze([]),
+  view: 'classic',
+  lang: null, // null = 跟随系统语言（中 / 英 / 日）
+  sessionScope: 'current',
+  sessionView: 'compact',
+  sessionOrder: 'recent',
+  selectedDeviceLensId: 'all',
+  selectedAgentIdByDeviceLens: Object.freeze({}),
+  selectedSlotKeyByAgentAndLens: Object.freeze({}),
+  remindersOn: true,
+  profileQuitBehavior: 'close',
+  soundLevel: 'key',
+  soundVolume: 55,
+  atmosTime: 'auto',
+  atmosWeather: 'auto',
+  welcomed: false,
+  onboarding: Object.freeze({ completedVersion: 0, completedAt: null }),
+  ledger: null,
+  // null preserves the compatibility inference for installations created
+  // before explicit network enrollment existed. First-use initialization
+  // writes false; only an explicit device/network action may turn it on.
+  meshNetworkEnrollmentEnabled: null,
+  meshSignalingUrls: Object.freeze([]),
+  meshStunUrls: Object.freeze([]),
+  yardPositions: Object.freeze({})
+});
+
+function isPlainObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function settingsFromPayload(payload) {
+  if (!isPlainObject(payload)) return null;
+  if (Object.prototype.hasOwnProperty.call(payload, 'settings')) {
+    return isPlainObject(payload.settings) ? payload.settings : null;
+  }
+  // A versioned object without a settings body is a damaged wrapper, not a
+  // legacy raw settings object. Let the caller fall back to a backup.
+  if (Object.prototype.hasOwnProperty.call(payload, 'version')) return null;
+  return payload;
+}
+
+function finiteNonNegative(value, fallback = 0) {
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function boundedId(value, maxLength = 256) {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized && normalized.length <= maxLength ? normalized : null;
+}
+
+function normalizeSelectionMap(value, options = {}) {
+  if (!isPlainObject(value)) return {};
+  const maxEntries = Number.isInteger(options.maxEntries) ? options.maxEntries : 200;
+  const normalized = {};
+  for (const [rawKey, rawValue] of Object.entries(value).slice(0, maxEntries)) {
+    const key = boundedId(rawKey);
+    const selection = boundedId(rawValue);
+    if (key && selection) normalized[key] = selection;
+  }
+  return normalized;
+}
+
+function normalizeAgentOrder(value) {
+  return [...new Set((Array.isArray(value) ? value : []).slice(0, 1000)
+    .map(id => boundedId(id)).filter(Boolean))];
+}
+
+function normalizeSoundVolume(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_SETTINGS.soundVolume;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function normalizeLedger(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.date !== 'string') {
+    return null;
+  }
+
+  const active = {};
+  const entries = value.active && typeof value.active === 'object' && !Array.isArray(value.active)
+    ? Object.entries(value.active).slice(0, 100)
+    : [];
+  for (const [id, item] of entries) {
+    if (!item || typeof item !== 'object') continue;
+    if (!Number.isFinite(item.start) || !Number.isFinite(item.last)) continue;
+    active[String(id)] = { start: item.start, last: item.last };
+  }
+
+  return {
+    ...value,
+    date: value.date,
+    completed: finiteNonNegative(value.completed),
+    workedMs: finiteNonNegative(value.workedMs),
+    active,
+    lastStretchAt: finiteNonNegative(value.lastStretchAt)
+  };
+}
+
+function normalizeSettings(value) {
+  const input = isPlainObject(value) ? value : {};
+  return {
+    ...input,
+    theme: THEMES.has(input.theme) ? input.theme : DEFAULT_SETTINGS.theme,
+    agentOrder: normalizeAgentOrder(input.agentOrder),
+    view: VIEWS.has(input.view) ? input.view : DEFAULT_SETTINGS.view,
+    lang: LANGS.has(input.lang) ? input.lang : DEFAULT_SETTINGS.lang,
+    sessionScope: SESSION_SCOPES.has(input.sessionScope)
+      ? input.sessionScope
+      : DEFAULT_SETTINGS.sessionScope,
+    sessionView: SESSION_VIEWS.has(input.sessionView)
+      ? input.sessionView
+      : DEFAULT_SETTINGS.sessionView,
+    sessionOrder: SESSION_ORDERS.has(input.sessionOrder) ? input.sessionOrder : DEFAULT_SETTINGS.sessionOrder,
+    selectedDeviceLensId: boundedId(input.selectedDeviceLensId) || DEFAULT_SETTINGS.selectedDeviceLensId,
+    selectedAgentIdByDeviceLens: normalizeSelectionMap(input.selectedAgentIdByDeviceLens),
+    selectedSlotKeyByAgentAndLens: normalizeSelectionMap(input.selectedSlotKeyByAgentAndLens),
+    remindersOn: typeof input.remindersOn === 'boolean'
+      ? input.remindersOn
+      : DEFAULT_SETTINGS.remindersOn,
+    profileQuitBehavior: PROFILE_QUIT_BEHAVIORS.has(input.profileQuitBehavior)
+      ? input.profileQuitBehavior
+      : DEFAULT_SETTINGS.profileQuitBehavior,
+    soundLevel: SOUND_LEVELS.has(input.soundLevel) ? input.soundLevel : DEFAULT_SETTINGS.soundLevel,
+    soundVolume: normalizeSoundVolume(input.soundVolume),
+    atmosTime: YARD_TIMES.has(input.atmosTime) ? input.atmosTime : DEFAULT_SETTINGS.atmosTime,
+    atmosWeather: YARD_WEATHER.has(input.atmosWeather)
+      ? input.atmosWeather
+      : DEFAULT_SETTINGS.atmosWeather,
+    welcomed: input.welcomed === true,
+    // `welcomed` is retained only for old builds. A legacy boolean never
+    // suppresses a newer first-use contract: each onboarding revision must be
+    // completed explicitly after its completion screen was actually shown.
+    onboarding: normalizeOnboardingProgress(input.onboarding),
+    ledger: normalizeLedger(input.ledger),
+    meshNetworkEnrollmentEnabled: typeof input.meshNetworkEnrollmentEnabled === 'boolean'
+      ? input.meshNetworkEnrollmentEnabled
+      : null,
+    meshSignalingUrls: normalizeServiceUrls(input.meshSignalingUrls),
+    meshStunUrls: normalizeStunUrls(input.meshStunUrls),
+    yardPositions: normalizePositions(input.yardPositions)
+  };
+}
+
+function mergeSettings(current, patch) {
+  const base = isPlainObject(current) ? current : {};
+  const next = isPlainObject(patch) ? patch : {};
+  return normalizeSettings({ ...base, ...next });
+}
+
+module.exports = {
+  SETTINGS_VERSION,
+  DEFAULT_SETTINGS,
+  settingsFromPayload,
+  normalizeLedger,
+  normalizeSettings,
+  mergeSettings
+};

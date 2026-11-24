@@ -193,7 +193,7 @@ src/
   updater.js              AgentDesk Release 解析与校验
   windows.js              Windows 路径和安装发现
 
-  yard/                   猫的素材、状态、能量，以及旧位置设置的兼容读取（庭院场景已删除）
+  yard/                   猫的素材、状态与能量（庭院场景与旧位置设置都已退休）
     cat-art.js            所有者批准的像素猫：8 个姿势、19 个动作、24 种毛色、12 种配饰（与图鉴原件只差多留的头顶空间和客户端毛色的校正）
     cats.js               活动状态、外观的兼容存储与新猫默认、活动与能量到动作的规则
     sprites.js            旧的三张猫素材，只为还在用它的调用方（应用图标脚本、开灯时的影子）保留
@@ -255,7 +255,7 @@ Profile 的启动隔离由 `apps.js` 声明，不从显示名推断。每个桌�
 
 ### Settings
 
-`settings.json` 保存主题、语言、声音档位（`soundLevel`：all / key / off，默认 key）与音量（`soundVolume`：0–100，默认 55）、视图、会话范围/列视图、会话排序（`sessionOrder`：recent / fresh / tag，默认 recent；标签与新回复筛选不保存）、Device Lens / Agent / Slot 选择记忆、庭院时间和天气、猫位置（旧提醒与账本字段只读迁移）、版本化 `onboarding.completedVersion/completedAt`、`meshNetworkEnrollmentEnabled`、HTTPS 信令地址和 STUN 地址。首次 Agent 事务显式把联网 enrollment 保持为 false；只有添加设备或网络动作才开启。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。
+`settings.json` 保存主题、语言、声音档位（`soundLevel`：all / key / off，默认 key）与音量（`soundVolume`：0–100，默认 55）、会话范围/列视图、会话排序（`sessionOrder`：recent / fresh / tag，默认 recent；标签与新回复筛选不保存）、Device Lens / Agent / Slot 选择记忆、版本化 `onboarding.completedVersion/completedAt`、`meshNetworkEnrollmentEnabled`、HTTPS 信令地址和 STUN 地址。首次 Agent 事务显式把联网 enrollment 保持为 false；只有添加设备或网络动作才开启。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。设置版本 5 把已退休功能的字段（庭院视图 `view`、提醒 `remindersOn`、庭院时间与天气 `atmosTime`/`atmosWeather`、完成账本 `ledger`、猫位置 `yardPositions`）原样收进 `retired`，不再规整、不再读取；`retired` 里已有的值优先，所以旧版本回写的默认值不会覆盖它，旧版本读新文件也不会出错。
 
 ### Session
 

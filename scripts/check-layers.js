@@ -23,7 +23,7 @@ const TABLE = [
   ['bridge', ['src/preload.js', 'src/main/ipc/', 'src/main/window-lamp.js', 'src/main/window-chrome.js', 'src/remote/console-preload.js', 'src/remote/host-preload.js', 'src/mesh/peer/preload.js', 'src/mesh/probe/preload.js']],
   ['ui', ['src/renderer.js', 'src/renderer/', 'src/pixel/', 'src/i18n/i18n.js', 'src/i18n/zh.js', 'src/i18n/en.js', 'src/i18n/ja.js',
     'src/roster-interactions.js', 'src/ui-context.js', 'src/quota-overview.js', 'src/device-journey.js', 'src/agent-workspace.js',
-    'src/yard/sprites.js', 'src/yard/interactions.js', 'src/remote/console.js', 'src/remote/host.js', 'src/mesh/peer/peer.js',
+    'src/yard/sprites.js', 'src/remote/console.js', 'src/remote/host.js', 'src/mesh/peer/peer.js',
     'src/mesh/peer/e2e-runner.js', 'src/mesh/probe/probe.js', 'src/mesh/probe/runner.js']],
   ['commands', ['src/automation/service.js', 'src/automation/packaged-cli.js', 'src/automation/local-locations.js',
     'src/main/session-actions.js', 'src/main/recruit-items.js', 'src/main/profile-registration.js']],

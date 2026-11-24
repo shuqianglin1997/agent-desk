@@ -4,7 +4,6 @@ const assert = require('node:assert');
 const {
   DEFAULT_SETTINGS,
   settingsFromPayload,
-  normalizeLedger,
   normalizeSettings,
   mergeSettings
 } = require('../src/settings');
@@ -43,7 +42,7 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
   });
 
   assert.equal(normalized.theme, 'dark');
-  assert.equal(normalized.view, 'classic');
+  assert.equal(Object.hasOwn(normalized, 'view'), false);
   assert.equal(normalized.sessionScope, 'all');
   assert.equal(normalized.sessionView, 'detail');
   assert.equal(normalized.selectedDeviceLensId, 'device-local');
@@ -54,16 +53,18 @@ test('旧 localStorage 设置会被完整归一化到稳定设置结构', () => 
   assert.deepEqual(normalized.selectedSlotKeyByAgentAndLens, {
     'device-local::agent-peter': 'device-local:profile-peter'
   });
-  assert.equal(normalized.remindersOn, false);
   assert.equal(normalized.profileQuitBehavior, 'keep');
-  assert.equal(normalized.atmosTime, 'dusk');
-  assert.equal(normalized.atmosWeather, 'rain');
   assert.equal(normalized.welcomed, true);
   assert.deepEqual(normalized.onboarding, { completedVersion: 0, completedAt: null });
-  assert.deepEqual(normalized.ledger.active.a, { start: 10, last: 20 });
+  // Retired features' fields are kept untouched under `retired` (settings version 5).
+  assert.equal(normalized.retired.view, 'classic');
+  assert.equal(normalized.retired.remindersOn, false);
+  assert.equal(normalized.retired.atmosTime, 'dusk');
+  assert.equal(normalized.retired.atmosWeather, 'rain');
+  assert.deepEqual(normalized.retired.ledger.active.a, { start: 10, last: 20 });
 });
 
-test('非法设置安全回落默认值，损坏账本不会阻断启动', () => {
+test('非法设置安全回落默认值；退休字段原样收进 retired，不会阻断启动', () => {
   const normalized = normalizeSettings({
     theme: 'sepia',
     view: 'unknown',
@@ -79,11 +80,12 @@ test('非法设置安全回落默认值，损坏账本不会阻断启动', () =>
     ledger: { date: 123 }
   });
 
-  assert.deepEqual(normalized, DEFAULT_SETTINGS);
-  assert.equal(normalizeLedger(null), null);
+  const { retired, ...rest } = normalized;
+  assert.deepEqual(rest, DEFAULT_SETTINGS);
+  assert.deepEqual(retired, { view: 'unknown', remindersOn: 'no', atmosTime: 'sunset', atmosWeather: 'storm', ledger: { date: 123 } });
 });
 
-test('局部设置更新不会覆盖其他颜色、视图和账本设置', () => {
+test('局部设置更新不会覆盖其他设置，也不会动收起来的退休字段', () => {
   const current = normalizeSettings({
     theme: 'dark',
     view: 'yard',
@@ -99,15 +101,14 @@ test('局部设置更新不会覆盖其他颜色、视图和账本设置', () =>
       lastStretchAt: 0
     }
   });
-  const next = mergeSettings(current, { view: 'classic' });
+  const next = mergeSettings(current, { sessionView: 'detail' });
 
-  assert.equal(next.view, 'classic');
+  assert.equal(next.sessionView, 'detail');
   assert.equal(next.theme, 'dark');
-  assert.equal(next.atmosTime, 'night');
-  assert.equal(next.atmosWeather, 'snow');
-  assert.equal(next.remindersOn, false);
   assert.equal(next.profileQuitBehavior, 'close');
-  assert.deepEqual(next.ledger, current.ledger);
+  assert.deepEqual(next.retired, current.retired);
+  assert.equal(next.retired.view, 'yard');
+  assert.equal(next.retired.atmosTime, 'night');
 });
 
 test('localStorage 镜像可覆盖较旧的稳定设置，同时保留未修改字段', () => {
@@ -121,14 +122,13 @@ test('localStorage 镜像可覆盖较旧的稳定设置，同时保留未修改�
   });
   const reconciled = mergeSettings(stored, {
     theme: 'dark',
-    atmosWeather: 'rain'
+    welcomed: true
   });
 
   assert.equal(reconciled.theme, 'dark');
-  assert.equal(reconciled.atmosWeather, 'rain');
-  assert.equal(reconciled.view, 'yard');
-  assert.equal(reconciled.atmosTime, 'day');
   assert.equal(reconciled.welcomed, true);
+  assert.equal(reconciled.retired.view, 'yard');
+  assert.equal(reconciled.retired.atmosTime, 'day');
 });
 
 test('未来版本新增的设置字段会保留，不被旧归一化流程删除', () => {
@@ -144,22 +144,13 @@ test('未来版本新增的设置字段会保留，不被旧归一化流程删�
     }
   });
   assert.equal(normalized.futureAccent, '#123456');
-  assert.equal(normalized.ledger.futureStreak, 7);
+  assert.equal(normalized.retired.ledger.futureStreak, 7);
 });
 
-test('新版设置支持自动天气和持久化猫位置，损坏位置会被过滤', () => {
-  const normalized = normalizeSettings({
-    atmosWeather: 'auto',
-    yardPositions: {
-      catA: { x: 123.45, y: 99.95, zoneId: 'meadow', updatedAt: 42 },
-      bad: { x: 'left', y: null }
-    }
-  });
-
-  assert.equal(normalized.atmosWeather, 'auto');
-  assert.deepEqual(normalized.yardPositions, {
-    catA: { x: 123.5, y: 100, zoneId: 'meadow', updatedAt: 42 }
-  });
+test('退休的庭院位置原样收进 retired，不再被规整', () => {
+  const positions = { catA: { x: 123.45, y: 99.95, zoneId: 'meadow', updatedAt: 42 }, bad: { x: 'left', y: null } };
+  const normalized = normalizeSettings({ atmosWeather: 'auto', yardPositions: positions });
+  assert.deepEqual(normalized.retired, { atmosWeather: 'auto', yardPositions: positions });
 });
 
 test('首次使用完成状态按独立版本保存，旧 welcomed 不会跳过新向导', () => {
@@ -185,10 +176,10 @@ test('首次使用完成状态按独立版本保存，旧 welcomed 不会跳过�
   assert.deepEqual(damaged.onboarding, { completedVersion: 0, completedAt: null });
 });
 
-test('旧版没有天气和位置字段时迁移到自动天气与空位置表', () => {
+test('没有退休字段的设置不会凭空多出 retired', () => {
   const normalized = normalizeSettings({ theme: 'dark' });
-  assert.equal(normalized.atmosWeather, 'auto');
-  assert.deepEqual(normalized.yardPositions, {});
+  assert.equal(Object.hasOwn(normalized, 'retired'), false);
+  assert.equal(Object.hasOwn(normalized, 'atmosWeather'), false);
 });
 
 test('设备网络设置只保留 HTTPS/本机信令与 STUN 地址', () => {

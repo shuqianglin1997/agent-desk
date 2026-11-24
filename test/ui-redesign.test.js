@@ -46,7 +46,8 @@ test('窗口顶栏保留设备视角位置并使用纯文字标题', () => {
   assert.match(workspaceStyles, /\.app-topbar :is\(button, select, summary, a, \.context-menu-panel\)\s*\{\s*-webkit-app-region: no-drag/);
   assert.match(workspaceStyles, /env\(titlebar-area-width, 100%\)/);
   assert.match(presenter, /id="quotaChipAll"[^>]*aria-controls="quotaPopover"/);
-  assert.match(settings, /view:\s*'classic'/);
+  // The yard/classic view choice is retired (settings version 5 keeps it under `retired`).
+  assert.equal(Object.hasOwn(require('../src/settings').normalizeSettings({}), 'view'), false);
 });
 
 test('卡片工作台不加载旧庭院并保留共用像素头像', () => {

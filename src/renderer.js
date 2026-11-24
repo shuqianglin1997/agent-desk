@@ -170,10 +170,6 @@ async function loadApps() {
   } catch (_error) {
     // 保留内置默认
   }
-  // 把配色喂给像素猫（浏览器侧模块无法 require 注册表）
-  if (window.YardSprites) {
-    for (const [id, meta] of Object.entries(state.appMeta)) window.YardSprites.APP_TAG[id] = meta.tagColor;
-  }
   // 新增对话框的「应用」下拉按注册表填充
   if (els.newProfileApp) {
     els.newProfileApp.replaceChildren();
@@ -678,14 +674,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('focus', refreshSessionsOnForeground);
 });
 
+// localStorage keys an older build may still hold. The yard view, reminder,
+// scene and ledger keys belong to retired features and are no longer read.
 const LEGACY_SETTING_KEYS = {
   theme: 'agentdesk-theme',
-  view: 'agentdesk-view',
-  remindersOn: 'agentdesk-reminders',
-  atmosTime: 'agentdesk-yard-time',
-  atmosWeather: 'agentdesk-yard-weather',
-  welcomed: 'agentdesk-welcomed',
-  ledger: 'agentdesk-ledger'
+  welcomed: 'agentdesk-welcomed'
 };
 let settingsWriteQueue = Promise.resolve();
 
@@ -700,26 +693,9 @@ function localSetting(key) {
 function legacyUserSettings() {
   const legacy = {};
   const theme = localSetting(LEGACY_SETTING_KEYS.theme);
-  const view = localSetting(LEGACY_SETTING_KEYS.view);
-  const reminders = localSetting(LEGACY_SETTING_KEYS.remindersOn);
-  const atmosTime = localSetting(LEGACY_SETTING_KEYS.atmosTime);
-  const atmosWeather = localSetting(LEGACY_SETTING_KEYS.atmosWeather);
   const welcomed = localSetting(LEGACY_SETTING_KEYS.welcomed);
-  const ledger = localSetting(LEGACY_SETTING_KEYS.ledger);
-
   if (theme !== null) legacy.theme = theme;
-  if (view !== null) legacy.view = view;
-  if (reminders !== null) legacy.remindersOn = reminders !== '0';
-  if (atmosTime !== null) legacy.atmosTime = atmosTime;
-  if (atmosWeather !== null) legacy.atmosWeather = atmosWeather;
   if (welcomed !== null) legacy.welcomed = welcomed === '1';
-  if (ledger !== null) {
-    try {
-      legacy.ledger = JSON.parse(ledger);
-    } catch (_error) {
-      // Invalid legacy localStorage is ignored; the stable store will repair it.
-    }
-  }
   return legacy;
 }
 
