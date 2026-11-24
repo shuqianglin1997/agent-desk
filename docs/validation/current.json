@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:23:35.691Z",
-  "baseCommit": "b8d0155234d2cc1457d544ba066097ebfa7c5c58",
+  "recordedAt": "2026-11-24T16:25:38.754Z",
+  "baseCommit": "488ab47ba4e088fd7d2d24e75ea4598f42bad901",
   "uncommitted": true,
-  "sourceSha256": "e8f8896337b504724531bc4dd2247d8be468b294144fc29b8e9f5ea036a0802a",
+  "sourceSha256": "13b798562746fef23f4969fa9c9e50ce679bd3ed82529d21e201d10dd2d0677b",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,34 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 799,
+      "pass": 798,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after architecture phase 0 batch 3 (characterisation golden for every session scanner and the activity probe, test/characterisation-sessions.test.js 11 tests); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:25:38.754Z",
+      "sourceSha256": "13b798562746fef23f4969fa9c9e50ce679bd3ed82529d21e201d10dd2d0677b"
+    },
+    {
+      "command": "node --test test/characterisation-sessions.test.js (TZ=Asia/Shanghai, America/Los_Angeles, UTC; four repeated runs)",
+      "result": "passed",
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "scope": "Complete output of ten scanners (Claude desktop, Claude CLI, DSH, Codex, Kimi Code, OpenCode, Gemini CLI, Qwen Code, Cursor, Kimi Work) and of probeActivities on one fixed fixture per client with sub-agents, archives, title precedence and broken files; golden in test/fixtures/characterisation/sessions.golden.json; stable across time zones and repeats; skipped on Windows (POSIX paths in the golden)",
+      "recordedAt": "2026-11-24T16:25:38.754Z",
+      "sourceSha256": "13b798562746fef23f4969fa9c9e50ce679bd3ed82529d21e201d10dd2d0677b"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check unchanged",
+      "recordedAt": "2026-11-24T16:25:38.754Z",
+      "sourceSha256": "13b798562746fef23f4969fa9c9e50ce679bd3ed82529d21e201d10dd2d0677b"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

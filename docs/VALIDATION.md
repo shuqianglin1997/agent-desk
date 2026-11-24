@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 0 阶段第 3 批：`test/characterisation-sessions.test.js` 把十种客户端的会话扫描结果和活动探测结果逐字段记成基准文件（`test/fixtures/characterisation/sessions.golden.json`），每种客户端一份固定样例，带子代理、归档、标题先后和坏文件；以后改结构时任何一个字段变了都会失败，有意的改动要重新生成基准并在提交里看差异。在三个时区下、连续多次运行结果相同；基准里是 POSIX 路径，Windows 上跳过。基准已经如实记下第 3.1 节第 5 条：活动数出的会话数与列表不一致（命令行 Claude 4 对 2、DSH 3 对 2、Qwen 4 对 3、Gemini 3 对 2）。后台完整 Node 回归 799 项：798 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 通过。没有改动应用代码。
+
 2026-11-24 架构整理第 0 阶段第 2 批：`scripts/arch-fixtures.js` 只在系统临时目录里造 10 个账号 × 500 条会话的合成数据（命令行 Claude 3、Codex 3、Claude 桌面、Kimi Code、Gemini CLI、Qwen Code，约 780 MB，用完删除），`scripts/arch-bench.js` 在指向空临时主目录的进程里计时主进程的同步工作。基线（本机一次运行，热缓存，取五次的中位数）：一次“全部”会话刷新读 642 MB、阻塞主线程约 923 毫秒（862–938），单个命令行 Claude 账号约 174 毫秒，8 秒一次的活动探测连同进程快照约 63 毫秒；全部数字在 [architecture-baseline.json](validation/architecture-baseline.json)。后台完整 Node 回归 788 项：787 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 通过。新增 `test/architecture-bench.test.js` 4 项。没有改动应用代码。
 
 2026-11-24 架构整理第 0 阶段第 1 批（见 [ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md)）：`scripts/arch-metrics.js` 读出第 8 节各项指标（不依赖任何包，函数长度是估算，每个数字都列出来源位置），`scripts/check-layers.js` 按五层表报告越层依赖，目前只报告不拦。后台完整 Node 回归 784 项：783 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 通过。新增 `test/architecture-tools.test.js` 7 项。没有改动应用代码。
