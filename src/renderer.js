@@ -2264,10 +2264,12 @@ function bindEvents() {
   els.exportSessionBtn.addEventListener('click', () => void exportSelectedSessions());
 }
 
+// Must equal Main's providerNamespace() (src/mesh/domain/agent-catalog.js),
+// which is what each binding records; test/catalog-provider-namespace.test.js
+// checks every registered client.
 function catalogProviderForApp(appId) {
   const value = String(appId || '').trim().toLowerCase();
   if (value === 'claude' || value === 'claude-cli') return 'claude';
-  if (value === 'dsh-cli' || value === 'dsh') return 'dsh';
   if (value === 'kimi' || value === 'kimi-work') return 'kimi';
   return value || 'unknown';
 }

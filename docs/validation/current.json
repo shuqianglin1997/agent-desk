@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:47:56.093Z",
-  "baseCommit": "4ae479e31acc3ca11d1187325bcd116d10a58c39",
+  "recordedAt": "2026-11-24T16:48:33.874Z",
+  "baseCommit": "3602f786d72ed6cff08758325d8c00db2454f574",
   "uncommitted": true,
-  "sourceSha256": "e3de19342f5232c07db23326c4462103e4e81262f257872733ab2482eb83476d",
+  "sourceSha256": "7bc8f87e368d515efdf1bf39bf64a8cd9dba768e9cb3b6df771ef60d8e33cedd",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 826,
+      "pass": 824,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 1 item 7 (renderer provider namespace equals Main's for every client); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:48:33.874Z",
+      "sourceSha256": "7bc8f87e368d515efdf1bf39bf64a8cd9dba768e9cb3b6df771ef60d8e33cedd"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T16:48:33.874Z",
+      "sourceSha256": "7bc8f87e368d515efdf1bf39bf64a8cd9dba768e9cb3b6df771ef60d8e33cedd"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",
