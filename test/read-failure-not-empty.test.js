@@ -15,6 +15,7 @@ test('a failed activity poll keeps the cats as they were instead of making every
   const context = vm.createContext({
     state: { activity: {} }, renderAccountHeader() {}, renderAccountRoster() {}, renderTopbarContext() {}, renderAttentionInbox() {},
     sessionMarks: { updateFromActivity: () => 0 }, hubWritingKeys: () => [], applySessionFilter() {}, document: { dispatchEvent() {} },
+    refreshSessionsOnActivity() {},
     window: { manager: { listActivity: async () => { if (fail) throw new Error('probe failed'); return [{ profileId: 'a', activeNow: 2, writingNow: 1 }]; } } }
   });
   vm.runInContext("let activityLoading = false; let busySignature = ''; let replySignature = '';\n" + fn('loadActivity'), context);

@@ -566,6 +566,37 @@ let foregroundSessionRefreshAt = 0;
 let codexImportBusy = false;
 const QUOTA_REFRESH_INTERVAL = 5 * 60_000;
 const FOREGROUND_SESSION_REFRESH_INTERVAL = 2_000;
+// The cards follow the 8-second activity poll; the list follows it too when a
+// listed account wrote something new, but reloads at most this often (each
+// reload rescans the listed accounts).
+const ACTIVITY_SESSION_REFRESH_INTERVAL = 30_000;
+let activitySessionRefreshAt = 0;
+const listedActivityAt = new Map();
+
+// Local accounts whose sessions the list currently shows.
+function listedProfileIds() {
+  const local = new Set(state.profiles.map((profile) => String(profile.id)));
+  const groups = identityGroups();
+  const scoped = state.ui.agentScope === 'all' ? groups : groups.filter((group) => group.key === currentAgentId());
+  return scoped.flatMap((group) => group.members.map((member) => String(member.id))).filter((id) => local.has(id));
+}
+
+function refreshSessionsOnActivity() {
+  if (document.hidden || state.startupStage !== 'ready') return;
+  let advanced = false;
+  for (const id of listedProfileIds()) {
+    const at = Number(state.activity[id]?.latestMtime) || 0;
+    const known = listedActivityAt.get(id);
+    if (known === undefined) listedActivityAt.set(id, at);
+    else if (at > known) advanced = true;
+  }
+  if (!advanced) return;
+  const now = Date.now();
+  if (now - activitySessionRefreshAt < ACTIVITY_SESSION_REFRESH_INTERVAL) return;
+  activitySessionRefreshAt = now;
+  for (const id of listedProfileIds()) listedActivityAt.set(id, Number(state.activity[id]?.latestMtime) || 0);
+  void loadSessions();
+}
 
 function refreshSessionsOnForeground() {
   if (document.hidden || state.startupStage !== 'ready') return;
@@ -6037,14 +6068,17 @@ let busySignature = '';
 async function loadActivity() {
   if (activityLoading) return; // 上一轮还没回来就跳过，避免请求堆积
   activityLoading = true;
+  let polled = false;
   try {
     const list = await window.manager.listActivity();
     state.activity = Object.fromEntries(list.map((item) => [item.profileId, item]));
+    polled = true;
   } catch (_error) {
     // A failed probe is not "every cat idle": keep the last known activity.
   } finally {
     activityLoading = false;
   }
+  if (polled) refreshSessionsOnActivity();
   // 新回复与在跑：探测结果交给会话记号；这一轮新冒出来的新回复交给声音层（它决定响不响）。
   const added = sessionMarks.updateFromActivity(Object.values(state.activity), hubWritingKeys());
   if (added > 0) document.dispatchEvent(new CustomEvent('agentdesk:replies', { detail: { added } }));

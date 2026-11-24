@@ -11,6 +11,7 @@ test('repeated activity polls never write a guessed completion or companion ledg
     state: { activity: {} }, renderAccountHeader() {}, renderAccountRoster() {}, renderTopbarContext() {}, renderAttentionInbox() {},
     // 会话记号（新回复、在跑）只读探测结果，不写任何账本。
     sessionMarks: { updateFromActivity: () => 0 }, hubWritingKeys: () => [], applySessionFilter() {}, document: { dispatchEvent() {} },
+    refreshSessionsOnActivity() {},
     window: { manager: { listActivity: async () => [{ profileId: 'a', activeNow: 1 }] } }
   });
   vm.runInContext("let activityLoading = false; let busySignature = ''; let replySignature = '';\n" + fn('loadActivity'), context);

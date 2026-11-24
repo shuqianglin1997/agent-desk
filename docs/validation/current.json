@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:53:31.204Z",
-  "baseCommit": "b85945a0398a81fd6adabb95a4fd33e19738f8ba",
+  "recordedAt": "2026-11-24T16:56:06.680Z",
+  "baseCommit": "a1dd904d92b97a1e0ddad4f7f4c3e46acc46ffc2",
   "uncommitted": true,
-  "sourceSha256": "69ec24ac86b7e9666184167e78370092a5738b5893ff980215bb1815a22d9091",
+  "sourceSha256": "0185bc259e7a40056e7f30bbe7cceedcb453a4c51025284efd5bdf48d11512ec",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 840,
+      "pass": 838,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 1 item 3 (session list reloads on new activity in listed accounts, at most every 30 s); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:56:06.680Z",
+      "sourceSha256": "0185bc259e7a40056e7f30bbe7cceedcb453a4c51025284efd5bdf48d11512ec"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T16:56:06.680Z",
+      "sourceSha256": "0185bc259e7a40056e7f30bbe7cceedcb453a4c51025284efd5bdf48d11512ec"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",
