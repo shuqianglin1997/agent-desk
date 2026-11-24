@@ -114,10 +114,11 @@ async function shot(client, dir, name) {
   fs.writeFileSync(path.join(dir, `${name}.png`), Buffer.from(result.data, 'base64'));
 }
 
-// Reduced motion from the first frame: set it, then load the page again, and
-// wait until the lamp (src/pixel/boot.js) has finished.
-async function prepare(client, ready, label) {
-  await client.call('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+// Reduced motion (or, for scripts/ui-styles.js, full motion) from the first
+// frame: set it, then load the page again, and wait until the lamp
+// (src/pixel/boot.js) has finished.
+async function prepare(client, ready, label, motion = 'reduce') {
+  await client.call('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-reduced-motion', value: motion }] });
   await client.call('Emulation.setFocusEmulationEnabled', { enabled: true });
   await client.call('Page.reload', { ignoreCache: true });
   await new Promise((resolve) => setTimeout(resolve, 300));
@@ -299,7 +300,11 @@ async function main() {
   if (report.length) process.exitCode = 1;
 }
 
-main().catch((error) => {
-  process.stderr.write(`ui-snapshots failed: ${error.stack || error.message}\n`);
-  process.exitCode = 1;
-});
+module.exports = { THEMES, LANGS, STATES, setSettings, seedEmptyDesk, fixTimes, prepare, settle };
+
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`ui-snapshots failed: ${error.stack || error.message}\n`);
+    process.exitCode = 1;
+  });
+}
