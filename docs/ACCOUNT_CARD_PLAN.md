@@ -110,4 +110,6 @@
 
 ## 8. 顺带发现，交给架构整理的第 3 阶段
 
-现有的 Gemini 拖入导入写的是明文的 `oauth_creds.json`，而现在的 Gemini 命令行会把它迁进钥匙串或绑定本机的加密文件，实际行为和代码假设的不一样，需要复核。（来源：`docs/feature-evidence/A-credentials.md`）
+现有的 Gemini 拖入导入写的是明文的 `oauth_creds.json`，调研时以为现在的 Gemini 命令行会把它迁进钥匙串或绑定本机的加密文件（来源：`docs/feature-evidence/A-credentials.md`）。
+
+已在架构整理第 3 阶段按 Gemini CLI 源码复核（记录在 `docs/ARCHITECTURE_PLAN.md` 9.1 第 3 阶段）：默认情况下它仍然明文读写 `oauth_creds.json`，导入照界面所说的工作；只有设置了 `GEMINI_FORCE_ENCRYPTED_FILE_STORAGE=true` 时才迁进钥匙串或本机加密文件。调研报告里的说法只在那种设置下成立。代码不需要改；没有用真实账号验证。
