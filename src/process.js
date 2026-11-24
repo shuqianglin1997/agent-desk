@@ -9,7 +9,8 @@
  * 失败返回 null（表示探测不可用，上层退回启发）。
  */
 
-const { execFileSync } = require('node:child_process');
+const childProcess = require('node:child_process');
+const { execFileSync } = childProcess;
 
 /*
  * psText 里是否出现「归属于 profilePath 的」 `--user-data-dir=<profilePath>`。
@@ -257,12 +258,77 @@ function snapshotProcessRecords() {
   }
 }
 
+// The same records, collected without blocking the main thread. Every caller
+// shares one snapshot through src/process-snapshots.js.
+function execFileText(command, args, options) {
+  return new Promise((resolve, reject) => {
+    childProcess.execFile(command, args, options, (error, stdout) => (error ? reject(error) : resolve(stdout)));
+  });
+}
+
+async function collectProcessRecords() {
+  try {
+    if (process.platform === 'win32') {
+      const options = {
+        encoding: 'utf8', timeout: 5000, maxBuffer: 16 * 1024 * 1024, windowsHide: true
+      };
+      const script = [
+        'Get-CimInstance Win32_Process',
+        '| Select-Object ProcessId,ParentProcessId,CommandLine',
+        '| ConvertTo-Json -Compress'
+      ].join(' ');
+      for (const powershell of ['powershell.exe', 'pwsh.exe']) {
+        try {
+          const text = (await execFileText(powershell, [
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script
+          ], options)).trim();
+          if (!text) return [];
+          const parsed = JSON.parse(text);
+          return (Array.isArray(parsed) ? parsed : [parsed]).map((item) => ({
+            pid: Number(item.ProcessId),
+            ppid: Number(item.ParentProcessId),
+            pgid: null,
+            command: String(item.CommandLine || '')
+          })).filter((item) => Number.isInteger(item.pid) && item.pid > 0);
+        } catch (_error) {
+          // Try the next PowerShell host.
+        }
+      }
+      return null;
+    }
+
+    const text = await execFileText('ps', ['-axww', '-o', 'pid=,ppid=,pgid=,command='], {
+      encoding: 'utf8', timeout: 4000, maxBuffer: 24 * 1024 * 1024
+    });
+    return text.split(/\r?\n/).map((line) => {
+      const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/);
+      if (!match) return null;
+      return {
+        pid: Number(match[1]),
+        ppid: Number(match[2]),
+        pgid: Number(match[3]),
+        command: match[4]
+      };
+    }).filter(Boolean);
+  } catch (_error) {
+    return null;
+  }
+}
+
+// The command lines of a record list, one per line: what the text matchers
+// (isRunningIn, profileRunningSignal) read. null stays null (unavailable).
+function processText(records) {
+  return Array.isArray(records) ? records.map((record) => record.command).join('\n') : null;
+}
+
 module.exports = {
   isDefaultWindowsAppRunning,
   isRunningIn,
   profileRunningSignal,
   snapshotProcesses,
   snapshotProcessRecords,
+  collectProcessRecords,
+  processText,
   findProfileProcesses,
   findProfileClientProcesses,
   findProfileMainProcesses,

@@ -22,7 +22,7 @@ test('local read handlers resolve a current registered profile and keep quota se
   assert.deepEqual(handlers.get('sessions:list')(null, { profileId: 'a', sessionRoot: '/injected' }), ['/registered']);
   profiles = [{ ...profiles[0], sessionRoot: '/current' }];
   assert.deepEqual(handlers.get('sessions:list')(null, { profileId: 'a' }), ['/current']);
-  assert.deepEqual(handlers.get('activity:all')(), [{ profileId: 'a', activeNow: 1, running: true }]);
+  assert.deepEqual(await handlers.get('activity:all')(), [{ profileId: 'a', activeNow: 1, running: true }]);
   assert.equal(processCalls, 1); assert.equal(quotaCalls, 0);
   assert.deepEqual((await handlers.get('quota:all')(null, { force: true })).options, { force: true, clientVersion: 'test' });
 });

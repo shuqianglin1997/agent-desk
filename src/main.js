@@ -30,7 +30,11 @@ const { pipeline } = require('node:stream/promises');
 const apps = require('./apps');
 const { identityFingerprint } = require('./identity');
 const { probeActivities } = require('./activity');
-const { isDefaultWindowsAppRunning, isRunningIn, profileRunningSignal, snapshotProcesses } = require('./process');
+const { isDefaultWindowsAppRunning, isRunningIn, profileRunningSignal, snapshotProcesses, processText } = require('./process');
+const { createProcessSnapshots } = require('./process-snapshots');
+
+// One process list for the whole app (activity, runtime supervisor).
+const processSnapshots = createProcessSnapshots();
 const { ProfileRuntimeSupervisor } = require('./profile-runtime');
 const { readJsonStore, writeJsonStore, snapshotFile } = require('./json-store');
 const { nearestExistingDirectory } = require('./path-utils');
@@ -1605,7 +1609,9 @@ function registerIpc() {
   registerLocalReadIpc({
     ipcMain, loadProfiles, apps, boundedText, revealSessionFile, exportSessionTranscript,
     listSessionDirectories, openSessionDirectory,
-    probeActivities, sessionMarksFreshContext, snapshotProcesses, profileIsRunning, quotaService, getVersion: () => app.getVersion()
+    probeActivities, sessionMarksFreshContext,
+    snapshotProcesses: async () => processText(await processSnapshots.records({ maxAgeMs: 1000 })),
+    profileIsRunning, quotaService, getVersion: () => app.getVersion()
   });
 
   ipcMain.handle('diagnostics:get', (_event, input = {}) => {
@@ -3474,6 +3480,7 @@ function getProfileRuntimeSupervisor() {
   }
   profileRuntimeSupervisor = new ProfileRuntimeSupervisor({
     stateFile: profileRuntimeStateFile(),
+    snapshotProcessRecords: (options) => processSnapshots.records(options),
     isManagedProfile: (profile) => isManagedProfilePath(profile?.profilePath),
     onIncident: (incident) => {
       if (!mainWindow || mainWindow.isDestroyed()) return;

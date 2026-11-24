@@ -20,6 +20,7 @@ const apps = require('./apps');
 const historyUpkeepOf = (profile) => (apps.isKnownApp(profile?.appId) ? apps.getApp(profile.appId).historyUpkeep || null : null);
 const {
   snapshotProcessRecords,
+  collectProcessRecords,
   findProfileProcesses,
   findProfileClientProcesses
 } = require('./process');
@@ -353,7 +354,13 @@ class ProfileRuntimeSupervisor {
     this.stateFile = options.stateFile;
     this.fs = options.fs || fs;
     this.now = options.now || (() => Date.now());
-    this.snapshot = options.snapshotProcessRecords || snapshotProcessRecords;
+    // Process lists: the periodic tick and the launch and stop paths await a
+    // shared snapshot (`snapshotProcessRecords(options)` may return a promise);
+    // status() reads the most recent one and only collects synchronously when
+    // there is none recent (right after a launch, or before the first tick).
+    this.snapshot = options.snapshotProcessRecords || (() => collectProcessRecords());
+    this.snapshotSync = options.snapshotProcessRecordsSync || options.snapshotProcessRecords || snapshotProcessRecords;
+    this.lastSnapshot = null;
     this.signal = options.signalProcess || ((pid, signal) => process.kill(pid, signal));
     this.platform = options.platform || process.platform;
     this.isManagedProfile = typeof options.isManagedProfile === 'function'
@@ -436,18 +443,32 @@ class ProfileRuntimeSupervisor {
     this.timer = null;
   }
 
-  processRecords(profile) {
-    const records = this.snapshot();
+  async takeSnapshot(options = {}) {
+    const records = await this.snapshot(options);
+    this.lastSnapshot = { at: this.now(), records: Array.isArray(records) ? records : null };
+    return this.lastSnapshot.records;
+  }
+
+  recentRecords() {
+    if (this.lastSnapshot && this.now() - this.lastSnapshot.at <= this.limits.pollIntervalMs + 500) return this.lastSnapshot.records;
+    const records = this.snapshotSync();
+    this.lastSnapshot = { at: this.now(), records: Array.isArray(records) ? records : null };
+    return this.lastSnapshot.records;
+  }
+
+  ownProcesses(records, profile, finder) {
     if (records === null) return null;
-    return findProfileProcesses(records, profile.profilePath)
+    return finder(records, profile.profilePath)
       .filter((record) => record.pid !== process.pid && record.pid !== process.ppid);
   }
 
-  clientProcessRecords(profile) {
-    const records = this.snapshot();
-    if (records === null) return null;
-    return findProfileClientProcesses(records, profile.profilePath)
-      .filter((record) => record.pid !== process.pid && record.pid !== process.ppid);
+  // Fresh by default: launch and stop decisions never use an old list.
+  async processRecords(profile, options = { maxAgeMs: 0 }) {
+    return this.ownProcesses(await this.takeSnapshot(options), profile, findProfileProcesses);
+  }
+
+  async clientProcessRecords(profile, options = { maxAgeMs: 0 }) {
+    return this.ownProcesses(await this.takeSnapshot(options), profile, findProfileClientProcesses);
   }
 
   async refreshCrashpadStatus(profile) {
@@ -480,7 +501,7 @@ class ProfileRuntimeSupervisor {
 
   status(profile) {
     const record = this.records.get(profile.id) || null;
-    const processes = this.clientProcessRecords(profile);
+    const processes = this.ownProcesses(this.recentRecords(), profile, findProfileClientProcesses);
     const crashpad = this.crashpadStatuses.get(profile.id) || {
       exists: null,
       pendingPath: path.join(profile.profilePath, 'Crashpad', 'pending'),
@@ -525,7 +546,7 @@ class ProfileRuntimeSupervisor {
     this.updateProfiles([...this.profiles.values(), profile]);
     await this.tick();
     await this.historyMaintenance.get(profile.id);
-    const processes = this.clientProcessRecords(profile);
+    const processes = await this.clientProcessRecords(profile);
     if (processes === null) return { ok: false, reasonCode: 'profile-process-snapshot-unavailable' };
     if (processes.length) return { ok: true, alreadyRunning: true, processCount: processes.length };
     const record = this.records.get(profile.id);
@@ -551,6 +572,8 @@ class ProfileRuntimeSupervisor {
     });
     this.updateProfiles([...this.profiles.values(), profile]);
     this.saveState();
+    // The list from before this launch cannot show the new client.
+    this.lastSnapshot = null;
     return this.status(profile);
   }
 
@@ -629,7 +652,7 @@ class ProfileRuntimeSupervisor {
       return { ok: false, reasonCode: 'profile-process-not-owned' };
     }
     if (!record) return { ok: false, reasonCode: 'profile-runtime-record-missing' };
-    const matched = this.processRecords(profile);
+    const matched = await this.processRecords(profile);
     if (matched === null) return { ok: false, reasonCode: 'profile-process-snapshot-unavailable' };
     if (!matched.length) {
       this.records.set(profile.id, {
@@ -649,13 +672,13 @@ class ProfileRuntimeSupervisor {
       try { this.signal(item.pid, 'SIGTERM'); } catch (_error) { /* verify below */ }
     }
     await delay(this.limits.terminateGraceMs);
-    const afterTerm = this.processRecords(profile);
+    const afterTerm = await this.processRecords(profile);
     if (afterTerm === null) return { ok: false, reasonCode: 'profile-process-snapshot-unavailable' };
     for (const item of afterTerm) {
       try { this.signal(item.pid, 'SIGKILL'); } catch (_error) { /* verify below */ }
     }
     if (afterTerm.length) await delay(Math.min(500, this.limits.terminateGraceMs));
-    const remainingRecords = this.processRecords(profile);
+    const remainingRecords = await this.processRecords(profile);
     const remaining = remainingRecords === null ? null : remainingRecords.length;
     const next = {
       ...record,
@@ -726,7 +749,8 @@ class ProfileRuntimeSupervisor {
         void this.maintainStoppedHistory(profile, { openArchived: true, openIdle: true });
       }
       if (record?.owned && record.active) {
-        const clients = this.clientProcessRecords(profile);
+        // One shared list per tick, not one `ps` per profile.
+        const clients = await this.clientProcessRecords(profile, { maxAgeMs: this.limits.pollIntervalMs / 2 });
         if (Array.isArray(clients) && clients.length === 0) {
           // A crashed Electron browser can leave its Crashpad handlers alive.
           // They are still covered by the existing ownership record, so close

@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 4 阶段第 1 批：进程列表全应用共用一份，不再同步等待。新增 `src/process-snapshots.js`：同时到来的请求共用一次采集，调用方说明能接受多旧的列表，采集失败作为“不可用”（null）共享；`src/process.js` 增加不阻塞主线程的采集与按行的文字形式。活动探测（每 8 秒）原来每次同步跑一次 `ps`，现在用共用列表；Profile 运行监管原来每 2 秒对每个开着的账号各同步跑一次 `ps`，现在每一轮共用一次异步采集，启动前检查与关闭客户端仍取最新列表（最新的意思是不复用旧的）。`status()` 读最近一轮的列表，只有刚启动客户端或还没有任何一轮时才同步采集一次（用户操作，不在定时路径上），刚启动的客户端因此照旧能被看到。新增 `test/process-snapshots.test.js` 3 项，相关测试全部通过。按规划会话的要求暂不改 `package.json`，新文件尚未加进 `npm run check` 的语法检查清单，等允许后补上。
+
 2026-11-24 架构整理第 3 阶段收尾：`docs/ARCHITECTURE_PLAN.md` 第 9.1 节记下第 3 阶段（十四批，`a992aa8` 到 `dbcfb9f`），第 8 节更新实测数字（适配器之外按客户端名字的判断 67 → 0，`main.js` 5130 行，`renderer.js` 9774 行；10 × 500 合成数据上一次“全部”刷新中位约 684 毫秒，本阶段没有做性能工作），`docs/validation/architecture-metrics.json` 重新记下。不显示窗口的检查：`node scripts/ui-acceptance.js --hidden` 24 条路径通过；`node scripts/hidden-check.js` 只有 `apps:list` 多了界面要的提示，已更新 `test/fixtures/characterisation/ipc-shapes.json`，启动时 4 次完整扫描，没有严重控制台错误；分层检查（core 与 clients 强制）0 处违规。Gemini 拖入导入的复核结论记在第 9.1 节：按 gemini-cli 主分支源码，默认情况下仍用明文 `oauth_creds.json`，导入做的仍是界面写的事，代码未改。没有验证可见窗口、真实账号与客户端、跨设备、Windows。
 
 2026-11-24 架构整理第 3 阶段第 14 批：clients 层由检查看住，新增客户端有清单。`scripts/check-layers.js` 把 clients 层加入强制：clients 层的文件引用上层或用 electron 会让测试和命令失败（目前 0 处）。`docs/INTERNAL.md` 第 5 节写明“新增一个客户端的清单”：必填字段、按需能力，以及为排队中的两份计划预留、尚未实现的 `accountCard`（哪些非秘密配置可以写进名片、在哪些系统上可用）与 `update`（更新方式、怎么看出有更新在等）；每种记录格式的唯一读取者也写在这里。`test/client-adapters.test.js` 加 2 项：适配器只能声明清单里有的字段、预留字段尚未使用、清单里的每个字段文档都写到；每家要么能被调度中枢调用、要么写明为什么不能。
