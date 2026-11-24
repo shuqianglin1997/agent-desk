@@ -10,8 +10,6 @@ ASSETS = ROOT / "assets"
 SPRITES = ROOT / "src" / "yard" / "sprites.js"
 CANVAS_SIZE = 20
 BACKGROUND = "#f6f0d7"
-WINDOWS_SIZES = (16, 24, 32, 48, 64, 128, 256)
-MAC_SIZES = (32, 64, 128, 256, 512, 1024)
 
 
 def orange_cat_pixels():
@@ -54,15 +52,9 @@ def main():
     svg.extend(f'  <path fill="{color}" d="{" ".join(paths)}"/>' for color, paths in by_color.items())
     (ASSETS / "icon.svg").write_text("\n".join([*svg, "</svg>", ""]), encoding="utf-8")
 
-    sizes = set(WINDOWS_SIZES + MAC_SIZES)
-    frames = {size: master.resize((size, size), Image.Resampling.NEAREST) for size in sizes}
-    frames[1024].save(ASSETS / "icon.png")
-    frames[256].save(
-        ASSETS / "icon.ico",
-        sizes=[(size, size) for size in WINDOWS_SIZES],
-        append_images=[frames[size] for size in WINDOWS_SIZES],
-    )
-    frames[1024].save(ASSETS / "icon.icns", append_images=[frames[size] for size in MAC_SIZES])
+    # 只出方形原图 icon.svg 和 icon.png。带圆角的 icon.ico、icon.icns、icon-rounded.png
+    # 由 scripts/make-rounded-icons.js 生成，这里不再写，免得把圆角版盖回方的。
+    master.resize((1024, 1024), Image.Resampling.NEAREST).save(ASSETS / "icon.png")
 
 
 if __name__ == "__main__":
