@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T18:05:31.442Z",
-  "baseCommit": "16352038c01b7552973d302900944404993d7209",
+  "recordedAt": "2026-11-24T18:08:02.055Z",
+  "baseCommit": "8c14f707b7a942a9b7ce78dcb73a81a69af303a6",
   "uncommitted": true,
-  "sourceSha256": "bdae12fabb08338c131f3e54daf865fe9dc7dbe576d2b169fa4e1af0eea27852",
+  "sourceSha256": "32113fb915e622d1e1b8935271ab63e32ed1ba30e126eb822f9e40e215ab4fbc",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 879,
+      "pass": 877,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 3 batch 11 (identity, CLI lookup and quota from adapters); digest identical before and after the run",
+      "recordedAt": "2026-11-24T18:08:02.055Z",
+      "sourceSha256": "32113fb915e622d1e1b8935271ab63e32ed1ba30e126eb822f9e40e215ab4fbc"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T18:08:02.055Z",
+      "sourceSha256": "32113fb915e622d1e1b8935271ab63e32ed1ba30e126eb822f9e40e215ab4fbc"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

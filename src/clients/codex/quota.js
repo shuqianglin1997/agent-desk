@@ -464,8 +464,25 @@ function readCachedCodexQuota(profile) {
   return null;
 }
 
+function friendlyCodexFailure(error) {
+  if (error?.code === 'CODEX_CLI_NOT_FOUND') {
+    return '未找到 Codex CLI；安装或更新 Codex CLI 后即可读取实时额度';
+  }
+  if (error?.code === 'CODEX_RPC_UNSUPPORTED') {
+    return '当前 Codex CLI 版本不支持额度协议，请先更新 Codex';
+  }
+  if (error?.code === 'CODEX_RPC_TIMEOUT') {
+    return 'Codex 额度服务响应超时，请稍后刷新';
+  }
+  if (error?.code === 'CODEX_RATE_LIMITS_FAILED') {
+    return '无法连接 Codex 额度服务，请检查网络或稍后刷新';
+  }
+  return '暂时无法读取 Codex 实时额度';
+}
+
 module.exports = {
   RPC_TIMEOUT_MS,
+  friendlyCodexFailure,
   targetTriple,
   codexCliCandidates,
   resolveCodexCli,

@@ -176,11 +176,11 @@ src/
   cli-discovery.js        只读 CLI 启动器发现
   tool-maintenance.js     固定工具目录、版本/安装源识别、安全更新计划
 
-  identity.js             登录指纹
+  identity.js             登录指纹：各家账号 ID 在哪由适配器的 accountId 读取（clients/<id>/identity.js），这里只取哈希
   identity-groups.js      同一身份的跨客户端归组
   activity.js             活动聚合
   quota.js                额度展示纯函数
-  quota-service.js        并发、缓存和失败降级
+  quota-service.js        并发、缓存和失败降级；怎么查、为什么查不了由适配器的 quota 声明
 
   core/                   最底层的纯函数与基础件，不用 electron、不引用上层（分层检查会失败）：结果与事实类型 result.js、路径判断 paths.js、读 JSON 与原子写入（同步与异步各一）和带版本的小存储 json-file.js、profiles.json 的唯一读取 profile-file.js、“在跑 / 活跃 / 额度新鲜”时间窗 time-windows.js
   json-store.js           原子 JSON 写入与备份

@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 3 阶段第 11 批：账号身份、命令行查找和额度也由适配器回答。三家账号 ID 在哪（Claude 桌面、Claude 命令行、Codex）原来是 `identity.js` 里的一张表，现在各自放在 `src/clients/<id>/identity.js`，适配器以 `accountId` 声明，`identity.js` 只取哈希。命令行工具的查找原来写着 `id === 'codex'`，现在 Codex 适配器声明 `cliLauncher`（用它自己的查找方法，也看桌面版旁边），`tools` 命令的清单由此和工具目录拼出，顺序与原来相同（命令行基准不变）；工具目录本身列的是官方命令行工具（其中有几个不是 AgentDesk 管理的客户端），保留为工具目录。额度原来写着 Claude、Cursor、Codex 三处判断，现在适配器声明 `quota`：Codex 给出读取、缓存与失败说明（`friendlyCodexFailure` 搬进 Codex 的 `quota.js`），Claude 与 Cursor 写明为什么查不了；`test/quota-service.test.js` 注入读取函数的选项名随之从 `readCodexQuota` 改为通用的 `readQuota`，断言不变。
+
 2026-11-24 架构整理第 3 阶段第 10 批：调度中枢的各家写法归到各家目录。`src/hub/adapters.js` 里四家能被调用的客户端（Codex、Claude 命令行、Gemini CLI、Qwen Code）各自的固定参数、结束判断、回答来源逐字搬进 `src/clients/<id>/hub.js`，适配器以 `hub` 声明；不能被调用的六家把原因写进自己的适配器（`hubUnsupported`，原注释一并搬过去）；几家共用的输出解析、有界读取和“从标准输入读提示词”的固定 `-p` 文本放进 `src/clients/hub-io.js`。`hub/adapters.js` 只从注册表汇总出原来的 `ADAPTERS`、`UNSUPPORTED` 并保留原有导出，名册和后台运行的相关测试全部通过。
 
 2026-11-24 架构整理第 3 阶段第 9 批：拖进来的登录文件按客户端分开。`src/credential-import.js` 里五家的导入（认哪个文件、怎么检查、怎么复制进新目录）逐字搬进 `src/clients/<id>/import.js`，适配器以 `credentialImport` 声明，并写明自己认的文件名；共用的有界读取放进 `src/clients/import-files.js`。“这个文件归哪家”原来写着 `appId === 'opencode'` 的跳过和 `auth.json` 的特判，现在是通用规则：各家报自己认的文件名，同名（`auth.json`）时内容检查通过的那家优先，否则归没有内容检查的那家（Codex），没有人认的 `.json` 再按内容识别（OpenCode 的导出文件）。招募里 Codex 的单独分支变成 Codex 适配器自己的 `plan`（依赖照旧由外部注入），复制那一步的三处判断改为看计划和载荷：计划带来建档方式（Codex）、载荷是导出清单就交给客户端自己导入（OpenCode）、导入器说明要提醒什么（Kimi 的最小配置）。原有导出与相关测试不变，全部通过。

@@ -9,7 +9,7 @@ const { readProfileFile } = require('../core/profile-file');
 const apps = require('../apps');
 const locations = require('../session-location');
 const { needsShortRuntimeHome } = require('../clients/codex/runtime-home');
-const { CLI_DEFINITIONS, discoverCli } = require('../cli-discovery');
+const { TOOL_IDS, discoverCli } = require('../cli-discovery');
 const { provisioningAdapterDescriptor } = require('../mesh/main/provisioning-adapters');
 
 class InterfaceError extends Error {
@@ -250,9 +250,9 @@ function execute(command, options = {}) {
       }
     };
   }) };
-  // Codex uses the app-server resolver shared with quota instead of a generic
-  // CLI_DEFINITIONS entry; discovery still never invokes that server.
-  if (command === 'tools') return { tools: ['codex', ...Object.keys(CLI_DEFINITIONS)].map((id) => {
+  // Codex resolves its CLI with the app-server resolver shared with quota (its
+  // adapter's cliLauncher); discovery still never invokes that server.
+  if (command === 'tools') return { tools: TOOL_IDS.map((id) => {
     const launcher = discoverCli(id);
     return { id, found: Boolean(launcher), path: launcher?.path || null, source: launcher?.source || null };
   }), note: 'Discovery does not execute launchers or establish version, integrity, login or API availability.' };

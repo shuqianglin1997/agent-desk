@@ -15,61 +15,21 @@
  * 纯 Node（fs/path/crypto/os），可单测。
  */
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { readJson } = require('./core/json-file');
-const paths = require('./core/paths');
 const crypto = require('node:crypto');
-
-function readJsonSafe(filePath) {
-  return readJson(filePath);
-}
+const apps = require('./apps');
 
 function fingerprintOf(accountId) {
   if (typeof accountId !== 'string' || !accountId.trim()) return null;
   return crypto.createHash('sha256').update(accountId.trim()).digest('hex').slice(0, 16);
 }
 
-// 桌面 Claude App：<profilePath>/config.json 的 lastKnownAccountUuid
-function claudeDesktopAccountId(profile) {
-  const json = readJsonSafe(path.join(profile.profilePath || '', 'config.json'));
-  return json?.lastKnownAccountUuid ?? null;
-}
-
-// 路径比较需容忍尾分隔符与 Windows 大小写差异（路径可能经过用户手填/展开）
-function samePath(a, b) {
-  return paths.samePath(a, b);
-}
-
-// Claude Code CLI：配置文件是 <数据目录>/.claude.json；历史默认布局下数据目录
-// 是 ~/.claude 而配置在 home 根（~/.claude.json），CLAUDE_CONFIG_DIR 布局则同目录。
-function claudeCliAccountId(profile) {
-  const root = profile.sessionRoot || '';
-  const configPath = samePath(root, path.join(os.homedir(), '.claude'))
-    ? path.join(os.homedir(), '.claude.json')
-    : path.join(root, '.claude.json');
-  const json = readJsonSafe(configPath);
-  return json?.oauthAccount?.accountUuid ?? null;
-}
-
-// Codex（桌面 App 与 CLI 共用 CODEX_HOME）：<sessionRoot>/auth.json 的 tokens.account_id
-function codexAccountId(profile) {
-  const json = readJsonSafe(path.join(profile.sessionRoot || '', 'auth.json'));
-  return json?.tokens?.account_id ?? null;
-}
-
-const ACCOUNT_ID_READERS = {
-  claude: claudeDesktopAccountId,
-  'claude-cli': claudeCliAccountId,
-  codex: codexAccountId
-  // kimi / kimi-work：凭据无明文账号 ID（实测），走手动 identityKey 关联
-};
-
+// Each adapter that can read an account ID declares `accountId(profile)`
+// (src/clients/<id>/identity.js). Kimi Code and Kimi Work keep no plain account
+// ID in their credentials (checked), so they are linked by a manual identityKey.
 function identityFingerprint(profile) {
   if (!profile || typeof profile !== 'object') return null;
-  const reader = ACCOUNT_ID_READERS[profile.appId];
-  if (!reader) return null;
+  const reader = apps.isKnownApp(profile.appId) ? apps.getApp(profile.appId).accountId : null;
+  if (typeof reader !== 'function') return null;
   try {
     return fingerprintOf(reader(profile));
   } catch (_error) {

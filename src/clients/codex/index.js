@@ -13,6 +13,8 @@ const { suggestedTranscriptName } = require('../transcript');
 const codexRollout = require('./rollout');
 const { addGeneratedImages } = require('./attachments');
 const { matchJsonl, CHROMIUM_PROFILE_ISOLATION } = require('../shared');
+const codexQuota = require('./quota');
+const codexIdentity = require('./identity');
 
 module.exports = {
   id: 'codex',
@@ -86,6 +88,17 @@ module.exports = {
   credentialImport: require('./import'),
   // How the hub runs this client in the background (./hub.js).
   hub: require('./hub'),
+  // Account ID for recognising the same sign-in (./identity.js).
+  accountId: (profile) => codexIdentity.codexAccountId(profile),
+  // The Codex CLI is found by Codex's own resolver (./quota.js), also next to the desktop app.
+  cliLauncher: Object.freeze({ toolId: 'codex', resolve: (options) => codexQuota.resolveCodexCli(options) }),
+  // Quota: the official app-server, with the newest rollout's rate limits as a
+  // marked-stale fallback (./quota.js).
+  quota: Object.freeze({
+    read: (profile, options) => codexQuota.readCodexQuota(profile, options),
+    readCached: (profile) => codexQuota.readCachedCodexQuota(profile),
+    failureReason: (error) => codexQuota.friendlyCodexFailure(error)
+  }),
   scan: (profile, report) => sessions.scanCodex(profile, report),
   activityRecord: (filePath, stat) => {
     const { first, identity } = sessions.codexRecordIdentity(filePath, stat);

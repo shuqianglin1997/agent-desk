@@ -8,7 +8,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { resolveCodexCli } = require('./clients/codex/quota');
+const apps = require('./apps');
 
 const CLI_DEFINITIONS = Object.freeze({
   claude: Object.freeze({
@@ -184,9 +184,26 @@ function resolveExecutableCandidates(candidates, options = {}) {
   return null;
 }
 
+// A client may resolve its own command-line launcher (`cliLauncher` in its
+// adapter): Codex looks next to its desktop app as well as on PATH.
+function clientLauncher(toolId) {
+  for (const appId of apps.appIds()) {
+    const own = apps.getApp(appId).cliLauncher;
+    if (own?.toolId === toolId && typeof own.resolve === 'function') return own;
+  }
+  return null;
+}
+
+// Every tool id discovery knows: clients' own launchers first, then the catalog.
+const TOOL_IDS = Object.freeze([
+  ...apps.appIds().map((appId) => apps.getApp(appId).cliLauncher?.toolId).filter(Boolean),
+  ...Object.keys(CLI_DEFINITIONS)
+]);
+
 function discoverCli(toolId, options = {}) {
   const id = String(toolId || '');
-  if (id === 'codex') return resolveCodexCli(options);
+  const own = clientLauncher(id);
+  if (own) return own.resolve(options);
   const definition = CLI_DEFINITIONS[id];
   if (!definition) return null;
   return resolveExecutableCandidates(cliCandidates(definition.names, {
@@ -201,6 +218,7 @@ function discoverCliInventory(toolIds, options = {}) {
 
 module.exports = {
   CLI_DEFINITIONS,
+  TOOL_IDS,
   cliCandidates,
   resolveExecutableCandidates,
   discoverCli,

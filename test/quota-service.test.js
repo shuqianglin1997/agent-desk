@@ -73,15 +73,15 @@ test('Claude/Cursor 明确标记不支持，不尝试读取 Cookie', async () =>
 test('实时查询失败时优先返回 stale 本地缓存；无缓存才报 error', async () => {
   const failure = Object.assign(new Error('network detail'), { code: 'CODEX_RATE_LIMITS_FAILED' });
   const stale = await fetchProfileQuota(profile(), {
-    readCodexQuota: async () => { throw failure; },
-    readCachedCodexQuota: () => ({ ...snapshot('p1', 'stale'), reason: '本地缓存' })
+    readQuota: async () => { throw failure; },
+    readCachedQuota: () => ({ ...snapshot('p1', 'stale'), reason: '本地缓存' })
   });
   assert.equal(stale.status, 'stale');
   assert.match(stale.reason, /无法连接 Codex/);
 
   const unavailable = await fetchProfileQuota(profile(), {
-    readCodexQuota: async () => { throw failure; },
-    readCachedCodexQuota: () => null
+    readQuota: async () => { throw failure; },
+    readCachedQuota: () => null
   });
   assert.equal(unavailable.status, 'error');
   assert.doesNotMatch(unavailable.reason, /network detail/);

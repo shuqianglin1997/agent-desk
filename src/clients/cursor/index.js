@@ -44,6 +44,7 @@ module.exports = {
   }),
   // A desktop app: it can only open a window, so the hub cannot call it.
   hubUnsupported: 'desktop-only',
+  quota: Object.freeze({ unsupportedReason: 'Cursor 个人账号暂无公开额度 API；团队版后续可接入 Admin API' }),
   scan: (profile) => cursorSessions.scanCursor(profile),
   // 排行榜今日计数走 SQLite 聚合（会话是 db 行不是文件，按文件数会失真）
   sessionCounts: (profile, now) => cursorSessions.sessionCounts(profile, now),

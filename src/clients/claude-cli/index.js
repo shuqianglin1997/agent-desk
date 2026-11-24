@@ -12,6 +12,7 @@ const transcript = require('./transcript');
 const records = require('./records');
 const { suggestedTranscriptName } = require('../transcript');
 const { CLAUDE_CODE_ENV_KEYS, withoutClaudeCodeEnvironment } = require('./environment');
+const claudeCliIdentity = require('./identity');
 
 module.exports = {
   id: 'claude-cli',
@@ -80,6 +81,8 @@ module.exports = {
   credentialImport: require('./import'),
   // How the hub runs this client in the background (./hub.js).
   hub: require('./hub'),
+  // Account ID for recognising the same sign-in (./identity.js).
+  accountId: (profile) => claudeCliIdentity.claudeCliAccountId(profile),
   scan: (profile) => sessions.scanClaudeCli(profile),
   // 活动探测的会话键（文件路径）→ 列表里这条会话的地址（文件名里的会话 ID）
   sessionAddressOf: (key) => path.basename(key, '.jsonl'),

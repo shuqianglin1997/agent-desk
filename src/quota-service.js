@@ -6,7 +6,7 @@
  * limited to two concurrent Codex processes.
  */
 
-const { readCodexQuota, readCachedCodexQuota } = require('./clients/codex/quota');
+const apps = require('./apps');
 const { quotaUnavailable } = require('./quota');
 
 const SUCCESS_TTL_MS = 5 * 60_000;
@@ -25,55 +25,31 @@ function ttlForSnapshot(snapshot) {
   return ERROR_TTL_MS;
 }
 
-function unsupportedQuota(profile) {
-  if (profile.appId === 'claude') {
-    return quotaUnavailable(
-      profile.id,
-      'claude',
-      'unsupported',
-      'Claude 个人订阅暂无公开额度 API；为保护账号，AgentDesk 不读取浏览器 Cookie'
-    );
-  }
-  if (profile.appId === 'cursor') {
-    return quotaUnavailable(
-      profile.id,
-      'cursor',
-      'unsupported',
-      'Cursor 个人账号暂无公开额度 API；团队版后续可接入 Admin API'
-    );
-  }
-  return quotaUnavailable(profile.id, profile.appId, 'unsupported', '这个客户端暂不支持额度查询');
+// What the client's adapter says about quota (`quota`): a reader, or the reason
+// it has none. Clients without either are simply not supported yet.
+function quotaOf(profile) {
+  return apps.isKnownApp(profile?.appId) ? apps.getApp(profile.appId).quota || null : null;
 }
 
-function friendlyCodexFailure(error) {
-  if (error?.code === 'CODEX_CLI_NOT_FOUND') {
-    return '未找到 Codex CLI；安装或更新 Codex CLI 后即可读取实时额度';
-  }
-  if (error?.code === 'CODEX_RPC_UNSUPPORTED') {
-    return '当前 Codex CLI 版本不支持额度协议，请先更新 Codex';
-  }
-  if (error?.code === 'CODEX_RPC_TIMEOUT') {
-    return 'Codex 额度服务响应超时，请稍后刷新';
-  }
-  if (error?.code === 'CODEX_RATE_LIMITS_FAILED') {
-    return '无法连接 Codex 额度服务，请检查网络或稍后刷新';
-  }
-  return '暂时无法读取 Codex 实时额度';
+function unsupportedQuota(profile) {
+  return quotaUnavailable(profile.id, profile.appId, 'unsupported', quotaOf(profile)?.unsupportedReason || '这个客户端暂不支持额度查询');
 }
 
 async function fetchProfileQuota(profile, options = {}) {
-  if (profile.appId !== 'codex') return unsupportedQuota(profile);
+  const quota = quotaOf(profile);
+  if (typeof quota?.read !== 'function') return unsupportedQuota(profile);
   try {
-    return await (options.readCodexQuota || readCodexQuota)(profile, options);
+    return await (options.readQuota || quota.read)(profile, options);
   } catch (error) {
     let cached = null;
     try {
-      cached = (options.readCachedCodexQuota || readCachedCodexQuota)(profile);
+      cached = (options.readCachedQuota || quota.readCached)?.(profile) || null;
     } catch (_cacheError) {
       // A damaged/unreadable rollout must not make the whole IPC request fail.
     }
-    if (cached) return { ...cached, reason: `${friendlyCodexFailure(error)}；${cached.reason}` };
-    return quotaUnavailable(profile.id, 'codex', 'error', friendlyCodexFailure(error));
+    const reason = quota.failureReason(error);
+    if (cached) return { ...cached, reason: `${reason}；${cached.reason}` };
+    return quotaUnavailable(profile.id, profile.appId, 'error', reason);
   }
 }
 
@@ -167,7 +143,6 @@ module.exports = {
   profileCacheKey,
   ttlForSnapshot,
   unsupportedQuota,
-  friendlyCodexFailure,
   fetchProfileQuota,
   mapWithConcurrency,
   QuotaService
