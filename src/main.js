@@ -1,4 +1,4 @@
-const { registerLocalReadIpc } = require('./main/ipc/local-reads');
+const { registerCommandIpc } = require('./main/ipc/command-shell');
 const { windowChromeOptions, windowsControls } = require('./main/window-chrome');
 const { createWindowLamp } = require('./main/window-lamp');
 const { resolveLocalSessions, sessionDirectories } = require('./main/session-actions');
@@ -1660,13 +1660,14 @@ function registerIpc() {
     }
   });
 
-  registerLocalReadIpc({
-    ipcMain, loadProfiles: () => profileSnapshot.profiles(), listSessions: (profile) => sessionIndex.rows(profile), boundedText, revealSessionFile, exportSessionTranscript,
+  // Commands moved out of this file (src/commands/); the rest are still below.
+  registerCommandIpc({ ipcMain, deps: {
+    loadProfiles: () => profileSnapshot.profiles(), listSessions: (profile) => sessionIndex.rows(profile), boundedText, revealSessionFile, exportSessionTranscript,
     listSessionDirectories, openSessionDirectory,
     probeActivities, sessionMarksFreshContext,
     snapshotProcesses: async () => processText(await processSnapshots.records({ maxAgeMs: 1000 })),
     profileIsRunning, quotaService, getVersion: () => app.getVersion()
-  });
+  } });
 
   ipcMain.handle('diagnostics:get', async (_event, input = {}) => {
     const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));

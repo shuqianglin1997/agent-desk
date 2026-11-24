@@ -265,7 +265,7 @@ const SYNC_NAMES = (() => {
 // A static count cannot tell which functions of a module run on the refresh
 // path; scripts/hidden-check.js measures that at run time (syncOnRefresh).
 const REFRESH_PATH = [
-  'src/main/ipc/local-reads.js', 'src/activity.js', 'src/session-index.js', 'src/scan-host.js', 'src/process-snapshots.js',
+  'src/main/ipc/command-shell.js', 'src/commands/registry.js', 'src/commands/local-reads.js', 'src/activity.js', 'src/session-index.js', 'src/scan-host.js', 'src/process-snapshots.js',
   'src/process.js', 'src/identity.js', 'src/session-marks.js', 'src/apps.js', 'src/mesh/main/mesh-service.js'
 ];
 

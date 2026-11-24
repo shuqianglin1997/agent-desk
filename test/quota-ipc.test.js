@@ -4,11 +4,11 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'ipc', 'local-reads.js'), 'utf8');
+const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'local-reads.js'), 'utf8');
 const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
 
 test('额度 IPC 与 8 秒 activity 探测分离，并支持手动 force', () => {
-  assert.match(main, /ipcMain\.handle\('quota:all'/);
+  assert.match(main, /channel: 'quota:all'/);
   assert.match(main, /quotaService\.getAll\(await loadProfiles\(\), \{/);
   assert.match(main, /force: options\.force === true/);
   assert.match(main, /clientVersion: getVersion\(\)/);

@@ -185,6 +185,16 @@ if (authorityVersion) {
   requireText('docs/ADR_AGENTDESK_TASK_PACKAGE.md', `PERSONAL_AGENT_MESH_PLAN.md\` ${authorityVersion}`, 'TaskPackage ADR must point to the current authority');
 }
 
+// docs/INTERNAL.md §7 is generated from the command table.
+try {
+  const commandDocs = require('./command-docs');
+  const existing = commandDocs.current(read('docs/INTERNAL.md'));
+  if (existing === null) fail('docs/INTERNAL.md', 'missing the generated command section (§7)');
+  else if (existing !== commandDocs.section()) fail('docs/INTERNAL.md', 'command section is out of date; run node scripts/command-docs.js --write');
+} catch (error) {
+  fail('src/commands/registry.js', `command table: ${error.message}`);
+}
+
 const releaseWorkflow = read('.github/workflows/release.yml');
 const releaseRollback = read('scripts/redraft-github-release.sh');
 const requiredReleaseWorkflowMarkers = [

@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'ipc', 'local-reads.js'), 'utf8');
+const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'local-reads.js'), 'utf8');
 const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
 
 function sourceBetween(startMarker, endMarker) {
@@ -58,9 +58,9 @@ test('renderer 使用 contextIsolation 且启用 Chromium sandbox', () => {
 
 test('会话 IPC 只保留浏览、定位与导出，不再暴露资料索引入口', () => {
   const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
-  assert.match(mainSource, /ipcMain\.handle\('sessions:list'/);
-  assert.match(mainSource, /ipcMain\.handle\('sessions:reveal'/);
-  assert.match(mainSource, /ipcMain\.handle\('sessions:export'/);
+  const { commandTable } = require('../src/commands/registry');
+  const sessionChannels = commandTable().commands.filter((command) => command.feature === 'sessions').map((command) => command.channel).sort();
+  assert.deepEqual(sessionChannels, ['sessions:directories', 'sessions:export', 'sessions:list', 'sessions:open-directory', 'sessions:reveal']);
   assert.doesNotMatch(mainSource, /sessions:artifacts/);
   assert.doesNotMatch(preload, /listSessionArtifacts|sessions:artifacts/);
 });
