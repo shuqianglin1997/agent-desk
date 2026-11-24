@@ -30,6 +30,16 @@ function section(table = require('../src/commands/registry').commandTable()) {
     lines.push(`| ${command.feature} | ${code(command.id)} | ${code(command.channel)} | ${command.preload.map(code).join(' ')} | ${code(command.module)} |`);
   }
   lines.push('');
+  lines.push('命令行的命令（同一张命令表；“在哪里运行”：cli 是源码与成品命令行进程，packaged 只在成品命令行，desktop 转给正在运行的桌面）：');
+  lines.push('');
+  lines.push('| 命令 | 在哪里运行 | 效果 | 定义在 |');
+  lines.push('|---|---|---|---|');
+  const { cliTable } = require('../src/commands/registry');
+  for (const entry of cliTable()) {
+    const module = entry.runs === 'desktop' ? 'src/commands/cli-desktop.js' : 'src/commands/cli-local.js';
+    lines.push(`| ${code(entry.name)} | ${entry.runs} | ${entry.effects || 'read-only'} | ${code(module)} |`);
+  }
+  lines.push('');
   lines.push('| Main → 窗口的通知 | preload |');
   lines.push('|---|---|');
   for (const event of table.events) lines.push(`| ${code(event.channel)} | ${event.preload.map(code).join(' ')} |`);

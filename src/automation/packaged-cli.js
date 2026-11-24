@@ -6,116 +6,20 @@ const path = require('node:path');
 const { writeFileAtomic } = require('../core/json-file');
 const { setTimeout: delay } = require('node:timers/promises');
 const { parse, helpText, success, failure } = require('./cli');
-const { COMMANDS, InterfaceError, execute } = require('./service');
+const { InterfaceError, execute } = require('./service');
+const { cliTable, cliCommand, cliDescriptor } = require('../commands/registry');
 const { CALLER_HOME_KEYS } = require('../hub/roster');
 
-const pathParameter = (description, required = false) => ({ type: 'string', description, required });
-const ACTIONS = {
-  'profiles register': {
-    description: 'Register an existing local client home without moving its credentials or sessions.',
-    parameters: {
-      app: pathParameter('Exact supported client ID from apps.', true),
-      'session-root': pathParameter('Absolute existing client home or session root.', true),
-      'profile-path': pathParameter('Absolute existing desktop data directory, when needed.'),
-      name: pathParameter('Display name for a new registration.')
-    },
-    effects: 'register-local-profile'
-  },
-  'profiles import-auth': {
-    description: 'Import a local credential file for a supported client into a local account.',
-    parameters: {
-      app: pathParameter('Exact client ID with credential-file import capability.', true),
-      file: pathParameter('Absolute path to the original credential file.', true)
-    },
-    effects: 'import-local-credentials'
-  },
-  'profiles launch': {
-    description: 'Open an exact local Profile through its registered client launcher.',
-    parameters: { profile: COMMANDS['profiles inspect'].parameters.profile },
-    effects: 'launch-local-client'
-  },
-  'profiles create': {
-    description: 'Create a new isolated environment for one client and return its Profile ID and folders. It does not sign in or open the client.',
-    parameters: {
-      app: pathParameter('Exact supported client ID from apps.', true),
-      name: pathParameter('Display name for the new account.')
-    },
-    effects: 'create-local-profile'
-  },
-  'profiles set-key': {
-    description: 'Read an API key or token from standard input and hand it to the Profile\'s own client (its login command or its documented configuration file). The value is never accepted as an argument, stored by AgentDesk or echoed.',
-    parameters: {
-      profile: COMMANDS['profiles inspect'].parameters.profile,
-      method: pathParameter('key (default) or provider: a custom API endpoint for this account.'),
-      'provider-id': pathParameter('Provider identifier for --method provider (Codex, Kimi Code).'),
-      'base-url': pathParameter('HTTPS endpoint for --method provider.'),
-      model: pathParameter('Model ID for --method provider, or the default model for a Kimi Code catalog key.'),
-      'catalog-provider': pathParameter('Kimi Code: models.dev catalog provider ID for the key.')
-    },
-    effects: 'write-client-credentials'
-  },
-  // 调度中枢: relayed through the running desktop, which supervises each run.
-  'agents list': {
-    description: 'List the accounts the person has allowed to be called, with name, ID, client, readiness and energy level. Contains no secret.',
-    parameters: {},
-    effects: 'read-only'
-  },
-  run: {
-    description: 'Have one allowed account run a background conversation. The prompt is read from standard input (never an argument). Returns the run ID at once.',
-    parameters: {
-      agent: pathParameter('Exact cat name from agents list, or its ID when a name is shared.', true),
-      title: pathParameter('Short title shown in the AgentDesk ledger.', true),
-      cwd: pathParameter('Absolute working directory inside a folder the person allowed in AgentDesk.', true),
-      from: pathParameter('Display label for the caller, for example "Claude personal". Shown only; never an identity.'),
-      access: pathParameter('read (default) or write: write also needs the account\'s own "may edit files" switch.')
-    },
-    effects: 'start-background-run'
-  },
-  'runs list': {
-    description: 'Recent background runs: title, caller label, target account and state.',
-    parameters: { limit: { type: 'integer', description: 'Number of runs, newest first.', required: false, minimum: 1, maximum: 200, default: 20 } },
-    effects: 'read-only'
-  },
-  'runs status': {
-    description: 'State of one background run: starting, running, completed, failed or stopped, with elapsed time.',
-    parameters: { run: pathParameter('Run ID returned by run.', true) },
-    effects: 'read-only'
-  },
-  'runs output': {
-    description: 'The called account\'s final reply for a finished run, from its own output or its own session record.',
-    parameters: { run: pathParameter('Run ID returned by run.', true) },
-    effects: 'read-only'
-  },
-  'runs stop': {
-    description: 'Stop one background run.',
-    parameters: { run: pathParameter('Run ID returned by run.', true) },
-    effects: 'stop-background-run'
-  }
-};
-const SECRET_ACTIONS = new Set(['profiles set-key']);
-const PROMPT_ACTIONS = new Set(['run']);
+// The packaged CLI's commands are entries of the command table: the read-only
+// ones run here (src/commands/cli-local.js), the actions are relayed to the
+// running desktop (src/commands/cli-desktop.js).
+const ACTIONS = Object.fromEntries(cliTable().filter((entry) => entry.runs === 'desktop').map((entry) => [entry.name, cliDescriptor(entry)]));
+const SECRET_ACTIONS = new Set(cliTable().filter((entry) => entry.secretOnStdin).map((entry) => entry.name));
+const PROMPT_ACTIONS = new Set(cliTable().filter((entry) => entry.promptOnStdin).map((entry) => entry.name));
 const MAX_SECRET_BYTES = 8 * 1024;
 const MAX_PROMPT_BYTES = 64 * 1024;
 
-const PACKAGED_COMMANDS = {
-  ...COMMANDS,
-  'profiles discover': {
-    description: 'Find existing client homes (default locations, optional bounded home scan or one folder) to register in place. No credentials are read for output or copied.',
-    parameters: {
-      app: pathParameter('Limit discovery to one client ID.'),
-      scan: pathParameter('defaults (default) or home: also walk the home folder up to four levels, with time and size limits.'),
-      folder: pathParameter('Absolute folder to search with the same markers.')
-    }
-  },
-  'profiles status': {
-    description: 'Report whether a Profile is signed in, and how, using the client\'s success check. Prints no secret.',
-    parameters: {
-      profile: COMMANDS['profiles inspect'].parameters.profile,
-      check: pathParameter('files (default) or official: also run the client\'s own status command when it has one.')
-    }
-  },
-  ...ACTIONS
-};
+const PACKAGED_COMMANDS = Object.fromEntries(cliTable().map((entry) => [entry.name, cliDescriptor(entry)]));
 const MAX_REQUEST_BYTES = 20 * 1024;
 const REQUEST_TIMEOUT_MS = 45_000;
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -153,15 +57,9 @@ function parsePackaged(argv, userData) {
 async function packagedRead(parsed, options) {
   const { command, options: input } = parsed;
   if (command === 'paths') return { platform: process.platform, userData: options.userData, confirmed: true };
-  if (command === 'profiles discover') {
-    const result = await options.discover({ app: input.app, scan: input.scan, folder: input.folder }, { userData: options.userData });
-    return Array.isArray(result) ? { locations: result } : result;
-  }
-  if (command === 'profiles status') {
-    if (input.check && !['files', 'official'].includes(input.check)) {
-      throw new InterfaceError('invalid-arguments', 'Use --check files or --check official.', 2);
-    }
-    return options.status({ profile: input.profile, official: input.check === 'official' }, { userData: options.userData });
+  const packagedOnly = cliCommand(command, 'packaged');
+  if (packagedOnly) {
+    return packagedOnly.exec({ discover: options.discover, status: options.status, userData: options.userData, InterfaceError }, input);
   }
   if (command === 'apps') {
     const result = execute(command, input);

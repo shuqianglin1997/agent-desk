@@ -22,7 +22,7 @@ Personal Agent Mesh 的有人值守代码链路已经接入运行时：版本化
 
 ## 2. 进程边界
 
-`src/automation/cli.js` 是独立 Node 入口，`service.js` 共用命令定义、客户端注册表、CLI discovery、扫描器和会话定位格式。它不加载 Electron Main、Mesh/Keychain 或桌面 store 恢复逻辑；只读取显式 userData 中的 v2 Profile 快照，不写回。Cursor/Kimi Work 可使用既有固定 sqlite3 只读查询。接口/扩展方法见 [AI_INTERFACE.md](AI_INTERFACE.md)。桌面 IPC 不因此成为公共 API，写入仍只在现有 Main 事务和授权流程中进行。
+`src/automation/cli.js` 是独立 Node 入口；命令行的命令和窗口的命令在同一张命令表里（`src/commands/cli-local.js` 在命令行进程里运行，`src/commands/cli-desktop.js` 转给正在运行的桌面执行），`service.js` 是本地只读命令的外壳，共用客户端注册表、CLI discovery、扫描器和会话定位格式。它不加载 Electron Main、Mesh/Keychain 或桌面 store 恢复逻辑；只读取显式 userData 中的 v2 Profile 快照，不写回。Cursor/Kimi Work 可使用既有固定 sqlite3 只读查询。接口/扩展方法见 [AI_INTERFACE.md](AI_INTERFACE.md)。桌面 IPC 不因此成为公共 API，写入仍只在现有 Main 事务和授权流程中进行。
 
 成品 `--cli` 在应用启动分支中运行。查询复用同一服务，默认使用 Electron 的 userData。登记、认证导入与打开走客户端专用命令，由持有 Electron 单实例锁的 Main 串行处理。已有桌面实例时通过单实例事件传递请求编号，由该 Main 读取、校验和处理本机请求。以 CLI 方式启动的实例不创建窗口。Windows portable 的 `--output` 使用新文件返回 JSON 和进程退出码。
 
@@ -69,7 +69,7 @@ Optional Signaling Gateway
 src/
   main.js                 Electron 生命周期、IPC 与可信系统操作
   commands/               命令表：窗口能向 Main 发起的每个操作是一条命令（标识、通道、调用它的 preload 方法、可选的 input/poll，以及 exec），按功能一个文件；registry.js 汇总并校验，events.js 是 Main 发给窗口的通知；命令不引用 Electron，Main 把用到的服务作为参数传入
-  main/ipc/command-shell.js  窗口 IPC 是命令表的薄壳：每条已实现的命令经 Main 的可信登记器注册
+  main/ipc/command-shell.js  窗口 IPC 是命令表的薄壳：每条命令经 Main 的可信登记器注册；Main 用到的服务由 main.js 里 scripts/command-deps.js 生成的 commandDeps 交给命令
   preload.js              窄 IPC 桥
   renderer.js             UI 状态与交互
   onboarding-state.js     版本化首次使用的纯状态与完成门禁
@@ -542,6 +542,34 @@ macOS 标准候选由注册表给出并在存在已知 bundle id 时重新读取
 | recruit | `recruit.importItem` | `recruit:importItem` | `importRecruitItem` | `src/commands/recruit.js` |
 | window | `window.lampDone` | `window:lampDone` | `windowLampDone` | `src/commands/window.js` |
 | window | `window.showing` | `window:showing` | `windowShowing` | `src/commands/window.js` |
+
+命令行的命令（同一张命令表；“在哪里运行”：cli 是源码与成品命令行进程，packaged 只在成品命令行，desktop 转给正在运行的桌面）：
+
+| 命令 | 在哪里运行 | 效果 | 定义在 |
+|---|---|---|---|
+| `capabilities` | cli | read-only | `src/commands/cli-local.js` |
+| `paths` | cli | read-only | `src/commands/cli-local.js` |
+| `apps` | cli | read-only | `src/commands/cli-local.js` |
+| `tools` | cli | read-only | `src/commands/cli-local.js` |
+| `profiles list` | cli | read-only | `src/commands/cli-local.js` |
+| `profiles inspect` | cli | read-only | `src/commands/cli-local.js` |
+| `sessions list` | cli | read-only | `src/commands/cli-local.js` |
+| `sessions locate` | cli | read-only | `src/commands/cli-local.js` |
+| `sessions read` | cli | read-only | `src/commands/cli-local.js` |
+| `integration plan` | cli | read-only | `src/commands/cli-local.js` |
+| `profiles discover` | packaged | read-only | `src/commands/cli-local.js` |
+| `profiles status` | packaged | read-only | `src/commands/cli-local.js` |
+| `profiles register` | desktop | register-local-profile | `src/commands/cli-desktop.js` |
+| `profiles import-auth` | desktop | import-local-credentials | `src/commands/cli-desktop.js` |
+| `profiles launch` | desktop | launch-local-client | `src/commands/cli-desktop.js` |
+| `profiles create` | desktop | create-local-profile | `src/commands/cli-desktop.js` |
+| `profiles set-key` | desktop | write-client-credentials | `src/commands/cli-desktop.js` |
+| `agents list` | desktop | read-only | `src/commands/cli-desktop.js` |
+| `run` | desktop | start-background-run | `src/commands/cli-desktop.js` |
+| `runs list` | desktop | read-only | `src/commands/cli-desktop.js` |
+| `runs status` | desktop | read-only | `src/commands/cli-desktop.js` |
+| `runs output` | desktop | read-only | `src/commands/cli-desktop.js` |
+| `runs stop` | desktop | stop-background-run | `src/commands/cli-desktop.js` |
 
 | Main → 窗口的通知 | preload |
 |---|---|

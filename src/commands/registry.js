@@ -17,12 +17,19 @@
  * Feature modules (src/commands/<feature>.js) hold the commands; events are
  * what Main tells the window (./events.js).
  *
+ * The command line's commands are in the same table (cli-local.js: run in
+ * the CLI process; cli-desktop.js: relayed to the running desktop): name,
+ * description, parameters, effects and exec. `capabilities` prints the
+ * descriptor fields only (cliDescriptor).
+ *
  * Commands never import Electron; Main passes its services in as `deps`.
  * The IPC shell is src/main/ipc/command-shell.js; docs/INTERNAL.md §7 is
  * generated from this table (scripts/command-docs.js).
  */
 
 const { EVENTS } = require('./events');
+const { CLI_LOCAL } = require('./cli-local');
+const { CLI_DESKTOP } = require('./cli-desktop');
 
 // Feature modules with implemented commands, in the order the list shows them.
 const FEATURE_MODULES = [
@@ -98,6 +105,36 @@ function commandTable() {
   return cached;
 }
 
+const CLI_RUNS = new Set(['cli', 'packaged', 'desktop']);
+let cliCached = null;
+
+// The command line's commands, in the order capabilities lists them.
+function cliTable() {
+  if (cliCached) return cliCached;
+  const entries = [...CLI_LOCAL, ...CLI_DESKTOP];
+  const names = new Set();
+  for (const entry of entries) {
+    if (typeof entry.name !== 'string' || !/^[a-z][a-z-]*(?: [a-z][a-z-]*)?$/.test(entry.name)) throw new TypeError(`cli-name-invalid: ${entry.name}`);
+    if (names.has(entry.name)) throw new TypeError(`cli-name-duplicate: ${entry.name}`);
+    names.add(entry.name);
+    if (!CLI_RUNS.has(entry.runs)) throw new TypeError(`cli-runs-invalid: ${entry.name}`);
+    if (typeof entry.exec !== 'function') throw new TypeError(`cli-exec-missing: ${entry.name}`);
+  }
+  cliCached = Object.freeze(entries.map((entry) => Object.freeze({ ...entry })));
+  return cliCached;
+}
+
+// One CLI command by name, only when it runs where asked ('cli', 'packaged', 'desktop').
+function cliCommand(name, ...runs) {
+  return cliTable().find((entry) => entry.name === name && runs.includes(entry.runs)) || null;
+}
+
+// What capabilities prints for a command: description, parameters and, when
+// it has one, effects.
+function cliDescriptor(entry) {
+  return { description: entry.description, parameters: entry.parameters, ...(entry.effects ? { effects: entry.effects } : {}) };
+}
+
 // Runs one command: input, then poll, then exec. `context` carries what the
 // caller adds (the IPC shell passes { event } for commands that answer the
 // sender, such as progress).
@@ -113,4 +150,4 @@ async function runCommand(command, deps, raw, context = {}) {
   return command.exec(deps, input, context);
 }
 
-module.exports = { commandTable, runCommand, idOf, REASON };
+module.exports = { commandTable, runCommand, idOf, REASON, cliTable, cliCommand, cliDescriptor };

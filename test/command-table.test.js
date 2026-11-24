@@ -98,3 +98,23 @@ test('commands never import Electron, and the shell runs input, poll, then exec'
   assert.deepEqual(await runCommand(command, {}, { value: 'no' }), { ok: false, reasonCode: 'not-now' });
   await assert.rejects(runCommand({ poll: () => 'Not A Code', exec() {} }, {}, {}), /command-reason-invalid/);
 });
+
+test('Main hands the commands every service they take, as generated from src/commands/', () => {
+  const commandDeps = require('../scripts/command-deps');
+  const main = read('src/main.js');
+  assert.equal(commandDeps.current(main), commandDeps.block(main), 'run node scripts/command-deps.js --write');
+  assert.match(main, /registerCommandIpc\(\{ ipcMain, deps: commandDeps\(\) \}\)/);
+});
+
+test('the command line reads its commands from the same table, and prints only their descriptors', () => {
+  const { cliTable, cliDescriptor } = require('../src/commands/registry');
+  const service = require('../src/automation/service');
+  const packaged = require('../src/automation/packaged-cli');
+  assert.deepEqual(Object.keys(packaged.PACKAGED_COMMANDS), cliTable().map((entry) => entry.name));
+  assert.deepEqual(service.COMMANDS, Object.fromEntries(cliTable().filter((entry) => entry.runs === 'cli').map((entry) => [entry.name, cliDescriptor(entry)])));
+  for (const entry of cliTable()) {
+    assert.deepEqual(Object.keys(cliDescriptor(entry)).filter((key) => !['description', 'parameters', 'effects'].includes(key)), [], entry.name);
+  }
+  // Main relays the desktop actions through the table, not through its own list.
+  assert.match(read('src/main.js'), /const entry = cliCommand\(command, 'desktop'\);/);
+});

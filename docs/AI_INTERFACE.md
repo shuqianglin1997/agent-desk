@@ -56,7 +56,7 @@ node src/automation/cli.js tools
 
 有 npm 时也可用 `npm run --silent cli -- capabilities`。源码入口需要显式 `--user-data` 并提供只读命令。带 `--cli` 的新版成品直接从已打包的应用入口运行，沿用现有 Electron fuse 设置。
 
-`capabilities` 是机器可读的命令/参数清单，与参数解析及帮助共用 [service.js](../src/automation/service.js) 的定义，不另维护一份工具 schema。`apps` 来自产品注册表，`tools` 复用固定 CLI discovery，`sessions` 复用产品扫描器与唯一定位格式，不重新实现会话身份逻辑。
+`capabilities` 是机器可读的命令/参数清单，与参数解析及帮助共用命令表里的定义（[cli-local.js](../src/commands/cli-local.js) 是在命令行进程里运行的命令，[cli-desktop.js](../src/commands/cli-desktop.js) 是转给正在运行的桌面执行的动作；[service.js](../src/automation/service.js) 是本地只读命令的外壳），不另维护一份工具 schema。`apps` 来自产品注册表，`tools` 复用固定 CLI discovery，`sessions` 复用产品扫描器与唯一定位格式，不重新实现会话身份逻辑。
 
 ## 研究结论：现有接口到底是什么
 
@@ -244,7 +244,7 @@ node src/automation/cli.js sessions locate --user-data "/absolute/AgentDesk" --p
 |---|---|---|
 | 新客户端/历史格式 | 新建 `src/clients/<id>/` 适配器目录并在 [apps.js](../src/apps.js) 登记 + 独立 scanner | 分开声明扫描/启动/隔离/导出；根、归档、内部子记录、坏文件、空库 fixture；不在 renderer 散落客户端分支 |
 | 发现 CLI | [cli-discovery.js](../src/cli-discovery.js)；需工具中心维护才改 [tool-maintenance.js](../src/tool-maintenance.js) | 固定 ID、启动器来源、解释器、空格路径、Windows 环境大小写；发现不执行命令/联网 |
-| AI 只读查询 | [service.js](../src/automation/service.js)、[cli.js](../src/automation/cli.js) | 复用领域函数/命令定义、输出白名单、稳定错误码、不泄漏异常原文、不引入 Electron/密钥/写入副作用 |
+| AI 只读查询 | [cli-local.js](../src/commands/cli-local.js)（命令定义）、[service.js](../src/automation/service.js)（读取函数与外壳）、[cli.js](../src/automation/cli.js) | 复用领域函数/命令定义、输出白名单、稳定错误码、不泄漏异常原文、不引入 Electron/密钥/写入副作用 |
 | AI 写操作 | 目前没有公开写接口；先确认目标和授权，再设计 Main 单一写入者内的具体语义服务 | preview/明确 apply、状态复核、冲突/幂等、备份/回滚、敏感字段保护、原有路径/身份授权；不加离线第二写入者或 generic invoke |
 | 配置适配器 | 默认归官方客户端/外部工具；已批准的例外只有“添加账号”一节列出的密钥与接口账号写法 | 其他 provider/密钥写法仍须单独批准产品与安全边界 |
 | 设备/P2P/远控/迁移 | 先完整重读 [Mesh 权威](PERSONAL_AGENT_MESH_PLAN.md) | 不绕过身份、能力、有人确认和设备事实所有权，不把本地 CLI 变成远程任意执行 |

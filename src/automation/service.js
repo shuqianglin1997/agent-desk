@@ -11,6 +11,7 @@ const locations = require('../session-location');
 const { TOOL_IDS, discoverCli } = require('../cli-discovery');
 const { provisioningAdapterDescriptor } = require('../mesh/main/provisioning-adapters');
 const { findSession } = require('../session-index');
+const { cliTable, cliCommand, cliDescriptor } = require('../commands/registry');
 
 class InterfaceError extends Error {
   // `extra` carries explicit, non-sensitive fields such as the candidates of
@@ -23,35 +24,9 @@ class InterfaceError extends Error {
   }
 }
 
-const parameter = (description, required = false, extra = {}) => ({ type: 'string', description, required, ...extra });
-const userData = parameter('Absolute AgentDesk userData directory; never inferred from the shell client home.', true);
-const profileId = parameter('Exact local Profile ID returned by profiles list.', true);
-const COMMANDS = {
-  capabilities: { description: 'Discover this interface, its parameters, boundaries and extension guide.', parameters: {} },
-  paths: { description: 'Suggest the standard desktop data directory without reading it.', parameters: {} },
-  apps: { description: 'List registered client capabilities, not installed or authenticated state.', parameters: {} },
-  tools: { description: 'Discover fixed CLI launchers without executing them or checking updates.', parameters: {} },
-  'profiles list': { description: 'Read persisted local Profile metadata, without recovery or migration.', parameters: { 'user-data': userData } },
-  'profiles inspect': { description: 'Inspect one Profile, path availability and external configuration ownership.', parameters: { 'user-data': userData, profile: profileId } },
-  'sessions list': { description: 'Scan one local Profile using the existing best-effort adapter; no transcript output.', parameters: {
-    'user-data': userData, profile: profileId,
-    query: parameter('Literal case-insensitive title or project filter.'),
-    limit: parameter('Page size.', false, { type: 'integer', minimum: 1, maximum: 200, default: 50 }),
-    offset: parameter('Offset in this scan, not a persistent cursor.', false, { type: 'integer', minimum: 0, maximum: 1000000, default: 0 })
-  } },
-  'sessions locate': { description: 'Return the shared path/coordinate format; do not open files or modify clipboard.', parameters: {
-    'user-data': userData, profile: profileId, session: parameter('Exact session ID returned by sessions list.', true)
-  } },
-  'sessions read': { description: 'Read an exact local session as Markdown when the client supports transcript export.', parameters: {
-    'user-data': userData, profile: profileId, session: parameter('Exact session ID returned by sessions list.', true),
-    'max-chars': parameter('Maximum Markdown characters.', false, { type: 'integer', minimum: 200, maximum: 262144, default: 32000 })
-  } },
-  'integration plan': { description: 'Preflight existing client roots for registration; never writes configuration or applies a plan.', parameters: {
-    'user-data': userData, app: parameter('Registered client ID from apps.', true),
-    'profile-path': parameter('Absolute client data directory.', true),
-    'session-root': parameter('Absolute client configuration/session root.', true)
-  } }
-};
+// The CLI's commands are entries of the command table (src/commands/cli-local.js);
+// this file is their local shell: the readers they use, and execute().
+const COMMANDS = Object.fromEntries(cliTable().filter((entry) => entry.runs === 'cli').map((entry) => [entry.name, cliDescriptor(entry)]));
 
 function capabilities() {
   return {
@@ -234,63 +209,16 @@ function integrationPlan(options, store) {
   };
 }
 
+// What the local commands use.
+const LOCAL_DEPS = Object.freeze({
+  capabilities, apps, provisioningAdapterDescriptor, TOOL_IDS, discoverCli, readProfiles, publicProfile, getProfile,
+  inspectProfile, scanProfile, sessionId, scanWarnings, findSession, InterfaceError, locations, integrationPlan
+});
+
 function execute(command, options = {}) {
-  if (!Object.hasOwn(COMMANDS, command)) throw new InterfaceError('unknown-command', 'Unknown command. Use capabilities.', 2);
-  if (command === 'capabilities') return capabilities();
-  if (command === 'paths') return { platform: process.platform, suggestedUserData: apps.appSupportDir('AgentDesk'), confirmed: false, note: 'Pass --user-data explicitly. Portable/test/custom installations may use another directory; CODEX_HOME is not AgentDesk userData.' };
-  if (command === 'apps') return { apps: apps.listApps().map((item) => {
-    const descriptor = provisioningAdapterDescriptor(item.id);
-    return {
-      ...item,
-      canScanSessions: apps.getApp(item.id).sessionScanSupported !== false,
-      configurationOwner: 'external-client',
-      desktopPreparation: {
-        supportedOnThisPlatform: Boolean(descriptor?.supportedPlatforms.includes(process.platform)),
-        portableSettingKeys: [...(descriptor?.portableSettingKeys || [])]
-      }
-    };
-  }) };
-  // Codex resolves its CLI with the app-server resolver shared with quota (its
-  // adapter's cliLauncher); discovery still never invokes that server.
-  if (command === 'tools') return { tools: TOOL_IDS.map((id) => {
-    const launcher = discoverCli(id);
-    return { id, found: Boolean(launcher), path: launcher?.path || null, source: launcher?.source || null };
-  }), note: 'Discovery does not execute launchers or establish version, integrity, login or API availability.' };
-  const store = readProfiles(options['user-data']);
-  if (command === 'profiles list') return { storeState: store.state, scope: 'local-profiles', profiles: store.profiles.map(publicProfile) };
-  if (command === 'integration plan') return integrationPlan(options, store);
-  const profile = getProfile(store, options.profile);
-  if (command === 'profiles inspect') return inspectProfile(profile);
-  const sessions = scanProfile(profile);
-  if (command === 'sessions locate' || command === 'sessions read') {
-    // One lookup (src/session-index.js): by address, two matches are ambiguous.
-    const session = findSession(sessions, options.session, { key: 'address', unique: true });
-    if (!session) throw new InterfaceError('session-not-found', 'No session matches that ID in the selected Profile scan.', 3);
-    if (session.ambiguous) throw new InterfaceError('session-ambiguous', 'The adapter returned multiple records for that ID. No source was guessed.', 4);
-    if (command === 'sessions read') {
-      const exporter = apps.getApp(profile.appId).exportTranscript;
-      if (typeof exporter !== 'function') throw new InterfaceError('transcript-unsupported', 'This client does not have a transcript parser. Use sessions locate for its local record.', 5);
-      let markdown;
-      try { markdown = exporter(session).markdown; } catch (_error) {
-        throw new InterfaceError('transcript-unavailable', 'The selected session transcript could not be read.', 4);
-      }
-      const limit = options['max-chars'] ?? 32000;
-      return { profileId: profile.id, sessionId: sessionId(session), markdown: markdown.slice(0, limit), truncated: markdown.length > limit };
-    }
-    return { profileId: profile.id, sessionId: sessionId(session), path: locations.pathOf(session), coordinate: locations.coordinateOf(session), text: locations.format(session), warnings: scanWarnings() };
-  }
-  const query = (options.query || '').toLowerCase();
-  const filtered = sessions.filter((session) => !query || [session.title, session.projectPath].some((value) => String(value || '').toLowerCase().includes(query)));
-  const limit = options.limit ?? 50;
-  const offset = options.offset ?? 0;
-  return {
-    profileId: profile.id, scannedAt: new Date().toISOString(), totalInScan: filtered.length, offset, limit,
-    nextOffset: offset + limit < filtered.length ? offset + limit : null,
-    sessions: filtered.slice(offset, offset + limit).map((session) => ({
-      id: sessionId(session), title: session.title || null, createdAt: session.createdAt || null,
-      updatedAt: session.updatedAt || null, status: session.status || null
-    })), warnings: scanWarnings()
-  };
+  const entry = cliCommand(command, 'cli');
+  if (!entry) throw new InterfaceError('unknown-command', 'Unknown command. Use capabilities.', 2);
+  return entry.exec(LOCAL_DEPS, options);
 }
 
 module.exports = { COMMANDS, InterfaceError, execute, readProfiles, getProfile };
