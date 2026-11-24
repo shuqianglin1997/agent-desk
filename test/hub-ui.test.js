@@ -59,7 +59,10 @@ test('run state is pushed by Main at each transition, never polled by the Render
 test('copies show no arrival; hand-offs only move on a real send, receipt or incoming transfer', () => {
   const renderer = rendererSource();
   // Copy keeps the stamp and the slip into the footer (pixel/ui.js); nothing here animates an arrival for it.
-  assert.doesNotMatch(renderer.slice(renderer.indexOf('// ── 调度中枢：后台对话在台面上的样子')), /copySessionInfo|session\.copy/);
+  // The hub and desk section, up to the end of the file that holds it (each
+  // view module starts with a "// AgentDesk — " header).
+  const hubSection = renderer.slice(renderer.indexOf('// ── 调度中枢：后台对话在台面上的样子')).split(/\n(?=\/\/ AgentDesk — )/)[0];
+  assert.doesNotMatch(hubSection, /copySessionInfo|session\.copy/);
   assert.match(renderer, /if \(result\?\.ok && result\.transfer\?\.transferId\) \{\s*\/\/ 信封等送出的弹窗合上以后/);
   assert.match(renderer, /els\.sessionSendDialog\?\.addEventListener\('close', \(\) => deskSendFlights\(\)\);/);
   assert.match(renderer, /if \(now\.state === 'completed' && before\.get\(entry\.transferId\) !== 'completed' && entry\.flown && !entry\.delivered\)/);
