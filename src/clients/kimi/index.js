@@ -71,6 +71,8 @@ module.exports = {
     provider: Object.freeze({ fields: Object.freeze(['id', 'baseUrl', 'model']), via: 'config-file', plaintext: true }),
     importFiles: Object.freeze(['credentials/kimi-code.json'])
   }),
+  // How a pasted key or token reaches this client (./credentials.js).
+  credentialHandoff: require('./credentials'),
   scan: (profile, report) => sessions.scanKimi(profile, report),
   contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
   sessionAddressOf: (key) => path.basename(key),

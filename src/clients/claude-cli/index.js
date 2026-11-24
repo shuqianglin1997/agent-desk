@@ -74,6 +74,8 @@ module.exports = {
     provider: Object.freeze({ fields: Object.freeze(['baseUrl']), optional: Object.freeze(['model']), via: 'settings-file', plaintext: true }),
     importFiles: process.platform === 'darwin' ? Object.freeze([]) : Object.freeze(['.credentials.json'])
   }),
+  // How a pasted key or token reaches this client (./credentials.js).
+  credentialHandoff: require('./credentials'),
   scan: (profile) => sessions.scanClaudeCli(profile),
   // 活动探测的会话键（文件路径）→ 列表里这条会话的地址（文件名里的会话 ID）
   sessionAddressOf: (key) => path.basename(key, '.jsonl'),

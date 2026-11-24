@@ -48,6 +48,8 @@ module.exports = {
     { label: 'OpenCode 数据库', path: path.join(profile.sessionRoot, 'opencode.db'), kind: 'file' },
     { label: 'OpenCode 旧会话', path: path.join(profile.sessionRoot, 'storage', 'session'), kind: 'directory' }
   ],
+  // How a pasted key or token reaches this client (./credentials.js).
+  credentialHandoff: require('./credentials'),
   scan: (profile) => cliClientSessions.scanOpenCode(profile),
   exportTranscript: (session) => ({
     markdown: transcript.openCodeTranscriptMarkdown(session),

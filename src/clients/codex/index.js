@@ -75,9 +75,13 @@ module.exports = {
   credentials: Object.freeze({
     browser: true,
     key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'official-stdin', plaintext: false }),
-    provider: Object.freeze({ fields: Object.freeze(['id', 'baseUrl', 'model']), via: 'config-file', plaintext: true }),
+    // reservedIds: Codex's own built-in provider ids, which a pasted provider may not reuse.
+    provider: Object.freeze({ fields: Object.freeze(['id', 'baseUrl', 'model']), via: 'config-file', plaintext: true,
+      reservedIds: Object.freeze(['openai', 'ollama', 'lmstudio', 'oss', 'amazon-bedrock', 'bedrock', 'vertex', 'gcp', 'google']) }),
     importFiles: Object.freeze(['auth.json'])
   }),
+  // How a pasted key or token reaches this client (./credentials.js).
+  credentialHandoff: require('./credentials'),
   scan: (profile, report) => sessions.scanCodex(profile, report),
   activityRecord: (filePath, stat) => {
     const { first, identity } = sessions.codexRecordIdentity(filePath, stat);

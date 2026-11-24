@@ -74,7 +74,7 @@ src/
   device-journey.js       身份/信任/连接/目录/库存任务状态投影
   profile-runtime.js      Profile 进程归属、重复启动、退出收口、Crashpad 限额/熔断与窄范围清理
   account-discovery.js    招募：按注册表特征找已有账号目录（默认/环境变量、有界主目录扫描、指定文件夹），身份只出邮箱或套餐
-  account-credentials.js  招募：把粘贴的密钥交给账号自己的客户端（标准输入、单一文档变量或该目录文档写明的文件），按各家成功判据报告登录状态
+  account-credentials.js  招募：把粘贴的密钥交给账号自己的客户端（标准输入、单一文档变量或该目录文档写明的文件），按各家成功判据报告登录状态；规则与校验在这里，各家怎么交接在 clients/<id>/credentials.js（适配器的 credentialHandoff），共用的私有文件写入、TOML/.env/YAML/JSON 合并编辑和运行官方命令在 clients/credential-files.js
   credential-import.js    招募：DSH、Kimi Code、Claude CLI 登录文件的检查与复制进新独立目录
   main/profile-registration.js  已有目录的登记规划与一次保存的批量登记（幂等）
   main/ipc/recruit.js     招募 IPC：发现结果只发一次性选择编号，登记前在 Main 重新核对

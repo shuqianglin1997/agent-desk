@@ -44,6 +44,8 @@ module.exports = {
     { label: 'Gemini 会话', path: path.join(profile.sessionRoot, 'tmp'), kind: 'directory' },
     { label: 'Gemini 设置', path: path.join(profile.sessionRoot, 'settings.json'), kind: 'file' }
   ],
+  // How a pasted key or token reaches this client (./credentials.js).
+  credentialHandoff: require('./credentials'),
   scan: (profile) => cliClientSessions.scanGemini(profile),
   exportTranscript: (session) => ({
     markdown: transcript.geminiTranscriptMarkdown(session.filePath),

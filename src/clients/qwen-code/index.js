@@ -40,6 +40,8 @@ module.exports = {
     { label: 'Qwen 会话', path: path.join(profile.sessionRoot, 'projects'), kind: 'directory' },
     { label: 'Qwen 设置', path: path.join(profile.sessionRoot, 'settings.json'), kind: 'file' }
   ],
+  // How a pasted key or token reaches this client (./credentials.js).
+  credentialHandoff: require('./credentials'),
   scan: (profile) => cliClientSessions.scanQwen(profile),
   exportTranscript: (session) => ({
     markdown: transcript.qwenTranscriptMarkdown(session.filePath),

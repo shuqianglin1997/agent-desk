@@ -67,6 +67,8 @@ module.exports = {
     importFiles: Object.freeze(['.credentials.yaml'])
   }),
   // One row per root session: a header line plus durable events per session folder.
+  // How a pasted key or token reaches this client (./credentials.js).
+  credentialHandoff: require('./credentials'),
   scan: (profile) => cliClientSessions.scanDsh(profile),
   sessionKeyOf: (filePath) => path.dirname(filePath),
 };
