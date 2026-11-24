@@ -108,7 +108,6 @@ test('an OpenCode auth export is recognised by content and imported by OpenCode 
     loadProfiles: () => store.slice(),
     registerLocations: () => [],
     planExistingLocation: () => ({ existing: null }),
-    registerCodexHome: () => ({}),
     createStoredProfile: (input, options) => {
       const profilePath = path.join(root, 'AgentDesk', `oc-${store.length + 1}`);
       const profile = { id: `p${store.length + 1}`, appId: input.appId, profilePath, sessionRoot: path.join(profilePath, 'opencode-data', 'opencode'), credentialImported: options.credentialImport };

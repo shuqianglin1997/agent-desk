@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 2 阶段第 6 批：删除旧的 Codex 导入。它的按钮早已不在页面里，剩下的对话框、五个通信接口（`profiles:discoverCodexHomes`、`registerCodexHome`、`pickCodexHome`、`pickCodexAuth`、`importDroppedCodexAuth`）、preload 里对应的五个方法、界面里的打开与执行代码、对应样式和三种语言各 23 条文案一起删掉；首次使用里的“导入 Codex”按钮照旧打开招募的“拖进来”一段（它的文案和招募刷新失败的提示两条保留）。招募和成品命令行登记已有 Codex 目录原来走自己的 `registerCodexHome`，现在走与其他客户端相同的 `src/main/profile-registration.js`；命令行仍先检查目录像不像 Codex。改之前先写了 `test/codex-registration-path.test.js` 两项，证明两条路对同一个 Codex 目录（普通目录与官方默认 `~/.codex`）建出的账号逐字段相同、找到的已有账号也相同；改动后通过。preload 的拖入测试改为检查剩下的唯一拖入入口（招募）同样不暴露路径、没有通用调用。
+
 2026-11-24 架构整理第 2 阶段第 5 批：设置文件升到版本 5。已退休功能的六个字段（庭院视图、提醒开关、庭院时间与天气、完成账本、猫位置）不再规整、不再读取，迁移时原样收进 `retired`：不删任何数据（与设备网基准 1.34 “历史账本/提醒配置仍可读取”一致），`retired` 里已有的值优先，所以旧版本回写的默认值不会盖掉它；其他字段（含未来版本新增的字段）全部保留。新增 `test/settings-retired-fields.test.js` 3 项，其中一项用上一版的设置规整代码（作为测试素材保存在 `test/fixtures/settings-v4/`）读取新文件：不出错、其他字段都在、`retired` 原样保留，再由本版读回时收起来的值不被覆盖。随之删除只为猫位置服务的 `yard/interactions.js` 及其测试、界面里没人读的 `YardSprites.APP_TAG` 写入，以及从浏览器本地存储迁移这几个退休字段的代码（主题与 `welcomed` 的迁移保留）。分层检查里 `settings.js` 依赖界面层的那一条随之消失。`test/settings.test.js` 里针对退休字段规整的几项改为检查它们原样收进 `retired`；`test/ui.test.js`、`test/ui-redesign.test.js` 各有一处按源码文字的断言跟着改。
 
 2026-11-24 架构整理第 2 阶段第 4 批：`profiles.json` 原来有三种读法（桌面带恢复与迁移的、命令行严格只读的、`profiles discover` 宽松的），现在只有 `src/core/profile-file.js` 一个读取入口，它只读不改；三种策略照旧叠在上面。先写了 `test/profile-file-readers.test.js` 三项，在改动前确认命令行与宽松读法在缺文件、坏 JSON、旧格式数组、错误版本、无效条目、目录占位等情况下的现有结果，改动后结果不变；命令行的基准输出也不变。

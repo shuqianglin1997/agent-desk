@@ -53,11 +53,8 @@ const { ensureCodexRuntimeHome } = require('./codex-runtime-home');
 const {
   canonicalDirectory,
   codexHomeKey,
-  codexProfileAtHome,
   discoverCodexHomes,
   inspectCodexHome,
-  profileWithSameCodexAuth,
-  readCodexAuthFile,
   stageCodexAuthHome
 } = require('./codex-account-import');
 const { packagedCliArguments, createCliBroker, runPackagedCli } = require('./automation/packaged-cli');
@@ -1416,39 +1413,6 @@ function registerIpc() {
     });
   });
 
-  ipcMain.handle('profiles:discoverCodexHomes', () => {
-    return discoverCodexHomes().map(({ source, directory }) => ({
-      source,
-      ...pathSelectionRegistry.issue({ kind: 'codex-home', path: directory })
-    }));
-  });
-
-  ipcMain.handle('profiles:registerCodexHome', (_event, input = {}) => codexImportResult(() => {
-    const selectionId = boundedText(input?.selectionId, 128);
-    const directory = pathSelectionRegistry.resolve(selectionId, 'codex-home');
-    const result = registerCodexHome(directory);
-    pathSelectionRegistry.consume([selectionId]);
-    return result;
-  }));
-
-  ipcMain.handle('profiles:pickCodexHome', () => codexImportResult(async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: t('main.picker.codexHome'),
-      defaultPath: os.homedir(),
-      properties: ['openDirectory', 'showHiddenFiles']
-    });
-    return result.canceled ? null : registerCodexHome(result.filePaths[0]);
-  }));
-
-  ipcMain.handle('profiles:pickCodexAuth', () => codexImportResult(async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: t('main.picker.codexAuth'),
-      properties: ['openFile', 'showHiddenFiles'],
-      filters: [{ name: 'JSON', extensions: ['json'] }]
-    });
-    return result.canceled ? null : importCodexAuth(result.filePaths[0]);
-  }));
-
   registerRecruitIpc(ipcMain, {
     selections: recruitSelectionRegistry,
     loadProfiles,
@@ -1534,11 +1498,6 @@ function registerIpc() {
     recruitSelectionRegistry.consume([selectionId]);
     return executeRecruitItem(itemPath, meta?.action);
   }, 'credential-import-failed'));
-
-  // The preload supplies a disk-backed path from a native File drop.
-  ipcMain.handle('profiles:importDroppedCodexAuth', (_event, filePath) => (
-    codexImportResult(() => importCodexAuth(filePath))
-  ));
 
   ipcMain.handle('profiles:update', async (_event, input = {}) => {
     if (['profilePath', 'sessionRoot', 'executablePath'].some((key) => (
@@ -1727,17 +1686,6 @@ function resolveKnownProfilePath(input = {}) {
   return profile[field];
 }
 
-async function codexImportResult(operation) {
-  try {
-    const result = await operation();
-    return result ? { ok: true, ...result } : { ok: false, canceled: true };
-  } catch (error) {
-    const known = ['codex-auth-filename', 'codex-auth-format', 'codex-auth-size', 'codex-auth-unreadable',
-      'codex-home-invalid', 'path-selection-expired'];
-    return { ok: false, reasonCode: known.includes(error?.message) ? error.message : 'codex-import-failed' };
-  }
-}
-
 // Fixed reason codes for every import, sign-in and creation failure. Error
 // text never includes a path, key or file content.
 const ACCOUNT_REASON_CODES = new Set([
@@ -1769,7 +1717,6 @@ const recruitItems = createRecruitItems({
   loadProfiles: () => loadProfiles(),
   registerLocations: (inputs) => registerLocations(inputs),
   planExistingLocation: (input, profiles) => locationRegistrar.planExistingLocation(input, profiles),
-  registerCodexHome: (directory) => registerCodexHome(directory),
   createStoredProfile: (input, options) => createStoredProfile(input, options),
   discoverCodexHomes: () => discoverCodexHomes(),
   importOpenCodeExport: (profile, filePath) => accountCredentials.importOpenCodeExport(profile, filePath, credentialContext()),
@@ -1875,32 +1822,6 @@ async function createAccountWithSecret(input) {
   }
 }
 
-function registerCodexHome(directory, name) {
-  let home;
-  try { home = inspectCodexHome(directory); } catch (_error) { /* Report a fixed error code. */ }
-  if (!home) throw new Error('codex-home-invalid');
-  const profile = codexProfileAtHome(loadProfiles(), home);
-  if (profile) return { profileId: profile.id, existing: true };
-  const registered = createStoredProfile({ appId: 'codex', name }, { codexHome: home });
-  return { profileId: registered.id };
-}
-
-function importCodexAuth(filePath) {
-  const auth = readCodexAuthFile(filePath);
-  const profiles = loadProfiles();
-  const sourceHome = path.dirname(filePath);
-  const existing = codexProfileAtHome(profiles, sourceHome);
-  if (existing) return { profileId: existing.id, existing: true };
-  const sourceKey = codexHomeKey(sourceHome);
-  if (sourceKey && discoverCodexHomes().some(({ directory }) => codexHomeKey(directory) === sourceKey)) {
-    return registerCodexHome(sourceHome);
-  }
-  const copied = profileWithSameCodexAuth(profiles, auth);
-  if (copied) return { profileId: copied.id, existing: true };
-  const profile = createStoredProfile({ appId: 'codex' }, { codexAuth: auth });
-  return { profileId: profile.id };
-}
-
 function uniqueProfileName(profiles, appId) {
   const label = apps.getApp(appId).label;
   const names = new Set(profiles.filter((profile) => profile.appId === appId).map((profile) => profile.name));
@@ -1981,9 +1902,9 @@ function registerExistingProfileFromCli(input) {
   if (!apps.isKnownApp(appId)) throw new InterfaceError('unknown-client', 'Choose a client ID from apps.', 2);
   const sessionRoot = requireCliDirectory(input['session-root']);
   const name = boundedText(input.name, 80);
-  if (appId === 'codex' && !input['profile-path']) {
-    if (!inspectCodexHome(sessionRoot)) throw new InterfaceError('codex-home-invalid', 'The directory has no recognized Codex state.', 2);
-    return registerCodexHome(sessionRoot, name);
+  // A Codex home must look like one; it is then registered like any other location.
+  if (appId === 'codex' && !input['profile-path'] && !inspectCodexHome(sessionRoot)) {
+    throw new InterfaceError('codex-home-invalid', 'The directory has no recognized Codex state.', 2);
   }
   locationRegistrar.planExistingLocation({ appId, sessionRoot, profilePath: input['profile-path'], name }, loadProfiles());
   const [result] = registerLocations([{ appId, sessionRoot, profilePath: input['profile-path'], name }]);

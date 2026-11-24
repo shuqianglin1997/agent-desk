@@ -133,13 +133,6 @@ function inspectRecruitItem(file) {
   return ipcRenderer.invoke('recruit:inspectItem', selectedPath);
 }
 
-function importDroppedCodexAuth(file) {
-  let selectedPath = '';
-  try { selectedPath = webUtils.getPathForFile(file); } catch (_error) { /* Only accept native files. */ }
-  if (!selectedPath) return Promise.resolve({ ok: false, reasonCode: 'codex-auth-unreadable' });
-  return ipcRenderer.invoke('profiles:importDroppedCodexAuth', selectedPath);
-}
-
 function showKnownItem(displayPath) {
   const target = knownProfilePath(displayPath);
   if (!target) return Promise.resolve({ ok: false, reason: 'known-path-required' });
@@ -292,7 +285,6 @@ contextBridge.exposeInMainWorld('manager', {
     group: input.group,
     note: input.note
   }),
-  discoverCodexHomes: () => ipcRenderer.invoke('profiles:discoverCodexHomes'),
   recruitDiscover: (input = {}) => ipcRenderer.invoke('recruit:discover', { deep: input?.deep === true }),
   recruitDiscoverFolder: () => ipcRenderer.invoke('recruit:discoverFolder'),
   recruitCancelDiscover: () => ipcRenderer.invoke('recruit:cancelDiscover'),
@@ -315,10 +307,6 @@ contextBridge.exposeInMainWorld('manager', {
   recruitRegister: (selectionIds = []) => ipcRenderer.invoke('recruit:register', {
     selectionIds: Array.isArray(selectionIds) ? selectionIds.slice(0, 64).map((value) => String(value || '').slice(0, 128)) : []
   }),
-  registerCodexHome: (selectionId) => ipcRenderer.invoke('profiles:registerCodexHome', { selectionId }),
-  pickCodexHome: () => ipcRenderer.invoke('profiles:pickCodexHome'),
-  pickCodexAuth: () => ipcRenderer.invoke('profiles:pickCodexAuth'),
-  importDroppedCodexAuth,
   updateProfile,
   removeProfile: (id) => ipcRenderer.invoke('profiles:remove', id),
   migrateWindowsProfilePath: (id) => ipcRenderer.invoke('profiles:migrateWindowsPath', id),

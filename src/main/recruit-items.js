@@ -27,7 +27,6 @@ function createRecruitItems(deps) {
     loadProfiles,
     registerLocations,
     planExistingLocation,
-    registerCodexHome,
     createStoredProfile,
     discoverCodexHomes,
     discoverLocations = (options) => accountDiscovery.discoverLocations(options),
@@ -74,7 +73,6 @@ function createRecruitItems(deps) {
   async function executeCredentialPlan(appId, plan) {
     if (plan.action === 'existing') return { profileId: plan.profileId, existing: true };
     if (plan.action === 'register') {
-      if (appId === 'codex') return { ...registerCodexHome(plan.sourceHome), inPlace: true };
       const [registered] = registerLocations([{ appId, sessionRoot: plan.sourceHome }]);
       if (!registered.ok) throw new RecruitItemError(registered.reasonCode);
       return { profileId: registered.profileId, existing: registered.existing, inPlace: true };

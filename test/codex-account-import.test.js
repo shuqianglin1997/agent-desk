@@ -115,9 +115,11 @@ test('the preload accepts a native dropped file without exposing a path or a gen
   };
   const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
   vm.runInNewContext(preload, { require: () => electron });
-  assert.equal((await manager.importDroppedCodexAuth(selected)).reasonCode, 'codex-auth-unreadable');
+  // The old Codex-only drop was removed with its dialog; recruiting's drop is the one entry.
+  assert.equal(manager.importDroppedCodexAuth, undefined);
+  assert.equal((await manager.inspectRecruitItem(selected)).reasonCode, 'credential-file-unreadable');
   assert.deepEqual(calls, []);
-  assert.deepEqual(await manager.importDroppedCodexAuth(auth), { ok: true });
-  assert.deepEqual(calls, [['profiles:importDroppedCodexAuth', selected]]);
+  assert.deepEqual(await manager.inspectRecruitItem(auth), { ok: true });
+  assert.deepEqual(calls, [['recruit:inspectItem', selected]]);
   assert.equal(manager.invoke, undefined);
 });

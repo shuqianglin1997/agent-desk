@@ -438,13 +438,7 @@ const els = {
   taskPackageImportStatus: document.querySelector('#taskPackageImportStatus'),
   commitTaskPackageBtn: document.querySelector('#commitTaskPackageBtn'),
   profileDialog: document.querySelector('#profileDialog'),
-  codexImportBtn: document.querySelector('#codexImportBtn'),
   recruitDialog: document.querySelector('#recruitDialog'),
-  codexImportDialog: document.querySelector('#codexImportDialog'),
-  codexAuthDrop: document.querySelector('#codexAuthDrop'),
-  codexHomeList: document.querySelector('#codexHomeList'),
-  pickCodexHomeBtn: document.querySelector('#pickCodexHomeBtn'),
-  codexImportStatus: document.querySelector('#codexImportStatus'),
   onboardingCodexImportBtn: document.querySelector('#onboardingCodexImportBtn'),
   agentCreateDialog: document.querySelector('#agentCreateDialog'),
   newAgentName: document.querySelector('#newAgentName'),
@@ -559,7 +553,6 @@ let sessionsLoadGeneration = 0;
 let quotaHasLoaded = false;
 let quotaRequestedAt = 0;
 let foregroundSessionRefreshAt = 0;
-let codexImportBusy = false;
 const QUOTA_REFRESH_INTERVAL = 5 * 60_000;
 const FOREGROUND_SESSION_REFRESH_INTERVAL = 2_000;
 // The cards follow the 8-second activity poll; the list follows it too when a
@@ -1347,7 +1340,10 @@ function bindEvents() {
     if (onboardingNeedsPresentation() && openFirstUseDialog({ force: true })) return;
     recruitDialog.open('new');
   });
-  bindCodexImportEvents();
+  // The first-use "导入 Codex" entry opens recruiting's drop section.
+  els.onboardingCodexImportBtn?.addEventListener('click', () => {
+    if (!state.firstUse.busy) recruitDialog.open('drop');
+  });
   window.manager.onProfileRegistrationsChanged?.(() => {
     void (async () => {
       if (state.mesh.overview?.initialized) {
@@ -2474,129 +2470,6 @@ function openProfileCreationDialog(options = {}) {
   (meshMode && !options.agentId ? els.newProfileMode : els.newProfileName).focus();
 }
 
-function bindCodexImportEvents() {
-  if (!els.codexImportDialog) return;
-  els.codexImportBtn?.addEventListener('click', () => void openCodexImportDialog());
-  els.onboardingCodexImportBtn?.addEventListener('click', () => {
-    if (!state.firstUse.busy) recruitDialog.open('drop');
-  });
-  els.codexAuthDrop.addEventListener('click', () => void runCodexImport(window.manager.pickCodexAuth));
-  els.pickCodexHomeBtn.addEventListener('click', () => void runCodexImport(window.manager.pickCodexHome));
-  els.codexImportDialog.addEventListener('cancel', (event) => {
-    if (codexImportBusy) event.preventDefault();
-  });
-  els.codexImportDialog.addEventListener('dragover', (event) => {
-    if (!event.dataTransfer?.types.includes('Files')) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = codexImportBusy ? 'none' : 'copy';
-    els.codexAuthDrop.dataset.dragging = String(!codexImportBusy);
-  });
-  els.codexImportDialog.addEventListener('dragleave', (event) => {
-    if (!els.codexImportDialog.contains(event.relatedTarget)) delete els.codexAuthDrop.dataset.dragging;
-  });
-  els.codexImportDialog.addEventListener('drop', (event) => {
-    event.preventDefault();
-    delete els.codexAuthDrop.dataset.dragging;
-    if (!event.isTrusted || codexImportBusy) return;
-    const files = event.dataTransfer?.files;
-    if (files?.length !== 1) {
-      setCodexImportStatus('codexImport.error.single');
-      return;
-    }
-    void runCodexImport(() => window.manager.importDroppedCodexAuth(files[0]));
-  });
-}
-
-async function openCodexImportDialog() {
-  if (els.codexImportDialog.open || codexImportBusy) return;
-  els.codexImportStatus.hidden = true;
-  delete els.codexAuthDrop.dataset.dragging;
-  els.codexImportDialog.showModal();
-  await refreshCodexHomeList();
-}
-
-async function refreshCodexHomeList() {
-  els.codexHomeList.textContent = tr('codexImport.searching');
-  try {
-    const homes = await window.manager.discoverCodexHomes();
-    els.codexHomeList.replaceChildren();
-    if (!homes.length) {
-      els.codexHomeList.textContent = tr('codexImport.noHomes');
-      return;
-    }
-    for (const home of homes) {
-      const row = document.createElement('div');
-      row.className = 'codex-home-row';
-      const label = document.createElement('div');
-      label.textContent = tr(home.source === 'default' ? 'codexImport.defaultHome' : 'codexImport.envHome');
-      const location = document.createElement('code');
-      location.textContent = home.displayPath;
-      label.append(location);
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.disabled = codexImportBusy;
-      button.textContent = tr('codexImport.addHome');
-      button.addEventListener('click', () => void runCodexImport(() => window.manager.registerCodexHome(home.selectionId)));
-      row.append(label, button);
-      els.codexHomeList.append(row);
-    }
-  } catch (_error) {
-    els.codexHomeList.textContent = tr('codexImport.searchError');
-  }
-}
-
-function setCodexImportStatus(key) {
-  els.codexImportStatus.hidden = !key;
-  els.codexImportStatus.textContent = key ? tr(key) : '';
-}
-
-function setCodexImportBusy(busy) {
-  codexImportBusy = busy;
-  for (const button of els.codexImportDialog.querySelectorAll('button')) button.disabled = busy;
-}
-
-async function runCodexImport(operation) {
-  if (codexImportBusy) return;
-  setCodexImportBusy(true);
-  setCodexImportStatus('codexImport.importing');
-  try {
-    const result = await operation();
-    if (result?.canceled) {
-      setCodexImportStatus(null);
-      return;
-    }
-    if (!result?.ok) {
-      const key = `codexImport.error.${result?.reasonCode}`;
-      setCodexImportStatus(tr(key) === key ? 'codexImport.error.generic' : key);
-      if (result?.reasonCode === 'path-selection-expired') await refreshCodexHomeList();
-      return;
-    }
-
-    const fromFirstUse = els.welcomeDialog?.open && state.firstUse.mode === 'onboarding';
-    els.codexImportDialog.close();
-    if (fromFirstUse) {
-      const patch = window.OnboardingState.localImportCompletionPatch(state.firstUse.model);
-      if (patch) recordFirstUseCompletion(patch);
-      els.welcomeDialog.close();
-    }
-    if (state.mesh.overview?.initialized) {
-      await loadDeviceOverview({ silent: true, skipWorkspaceRefresh: true });
-      const localDeviceId = state.mesh.overview?.localDeviceId;
-      if (localDeviceId && !['all', localDeviceId].includes(currentDeviceLensId())) {
-        state.ui = window.UiContext.setDeviceLens(state.ui, localDeviceId);
-        renderDeviceLens(state.mesh.overview);
-      }
-    }
-    await loadProfiles(result.profileId);
-    setStatus(tr(result.existing ? 'codexImport.alreadyAdded' : 'codexImport.added'));
-    if (currentProfileId() === result.profileId) selectedCardControl('.account-card-launch')?.focus();
-  } catch (_error) {
-    if (els.codexImportDialog.open) setCodexImportStatus('codexImport.error.generic');
-    else setStatus(tr('codexImport.refreshError'));
-  } finally {
-    setCodexImportBusy(false);
-  }
-}
 
 function syncProfileAssignmentControls() {
   const meshMode = state.mesh.overview?.initialized === true;

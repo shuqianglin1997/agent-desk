@@ -52,10 +52,6 @@ function harness(t, platform = 'linux') {
     loadProfiles: () => store.profiles.slice(),
     registerLocations: (inputs) => registrar.registerLocations(inputs),
     planExistingLocation: (input, profiles) => registrar.planExistingLocation(input, profiles),
-    registerCodexHome: (directory) => {
-      const [result] = registrar.registerLocations([{ appId: 'codex', sessionRoot: directory }]);
-      return { profileId: result.profileId, ...(result.existing ? { existing: true } : {}) };
-    },
     createStoredProfile,
     discoverCodexHomes: () => defaults.filter((item) => item.appId === 'codex').map((item) => ({ directory: item.sessionRoot })),
     discoverLocations: async ({ appId }) => ({ locations: defaults.filter((item) => item.appId === appId) }),

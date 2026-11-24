@@ -741,48 +741,8 @@
   /* Agent panel -------------------------------------------------------- */
   .agent-panel > .presenter-head { grid-row: 1; }
 
-  .codex-auth-drop {
-    min-height: 68px;
-    border: 1px dashed var(--line-mid);
-    background: var(--surface-sunken);
-  }
-
-  .codex-auth-drop[data-dragging="true"] {
-    border-color: var(--accent);
-    color: var(--accent-ink, var(--accent));
-  }
-
-  .codex-home-section,
-  .codex-home-list {
-    display: grid;
-    gap: 8px;
-  }
-
-  .codex-home-section > h4,
-  .codex-home-list > p,
-  .codex-import-dialog > p {
-    margin: 0;
-  }
-
-  .codex-home-section > button,
   #onboardingCodexImportBtn {
     justify-self: start;
-  }
-
-  .codex-home-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  .codex-home-row code {
-    display: block;
-    overflow-wrap: anywhere;
-  }
-
-  .codex-home-row > button {
-    flex-shrink: 0;
   }
 
   .agent-panel .presenter {
