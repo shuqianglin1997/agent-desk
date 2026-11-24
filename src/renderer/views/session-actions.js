@@ -266,7 +266,47 @@ function renderReplicaPicker(sessions) {
   }
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindSessionActionEvents() {
+  els.copySessionInfoBtn.addEventListener('click', async () => {
+    const sessions = resolvedActionSessions();
+    if (!sessions.length || !window.SessionLocation) return;
+    const value = window.SessionLocation.format(sessions, {
+      path: tr('session.location.path'),
+      coordinate: tr('session.location.coordinate'),
+      empty: tr('common.unrecorded')
+    });
+    await window.manager.writeClipboard(value);
+    setStatus(tr(
+      sessions.length === 1 ? 'status.sessionInfoCopied' : 'status.sessionInfosCopied',
+      { n: sessions.length }
+    ));
+    window.PixelUi?.copied(sessions.map((session) => sessionKey(session)), tr('fx.copied', { n: sessions.length }));
+  });
+
+  els.sendSessionInfoBtn?.addEventListener('click', async () => {
+    await openSessionSendDialog(null, els.sendSessionInfoBtn);
+  });
+
+  els.clearSessionSelectionBtn?.addEventListener('click', () => {
+    clearSessionActionSelection();
+  });
+
+  els.chooseSessionReplicaBtn.addEventListener('click', () => {
+    renderReplicaPicker(actionSessions());
+    openChildDialog(els.sessionReplicaPicker, els.chooseSessionReplicaBtn);
+  });
+}
+
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindSessionFileEvents() {
+  els.openSessionFileBtn.addEventListener('click', () => void openSelectedSessionDirectories());
+  els.exportSessionBtn.addEventListener('click', () => void exportSelectedSessions());
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { markTargets, checkedMarkKeys, actionSessions, replicaResolution, resolvedSessionRow, unresolvedActionSessions, resolvedActionSessions, isLocalActionSession, sessionFileActionRefs, renderSessionActionToolbar, setHubReason, openSessionDirectoryOption, openSelectedSessionDirectories, exportSelectedSessions, crossDeviceActionsPaused, renderReplicaPicker };
-Object.assign(window, { markTargets, checkedMarkKeys, actionSessions, replicaResolution, resolvedSessionRow, unresolvedActionSessions, resolvedActionSessions, isLocalActionSession, sessionFileActionRefs, renderSessionActionToolbar, setHubReason, openSessionDirectoryOption, openSelectedSessionDirectories, exportSelectedSessions, crossDeviceActionsPaused, renderReplicaPicker });
+export { markTargets, checkedMarkKeys, actionSessions, replicaResolution, resolvedSessionRow, unresolvedActionSessions, resolvedActionSessions, isLocalActionSession, sessionFileActionRefs, renderSessionActionToolbar, setHubReason, openSessionDirectoryOption, openSelectedSessionDirectories, exportSelectedSessions, crossDeviceActionsPaused, renderReplicaPicker, bindSessionActionEvents, bindSessionFileEvents };
+Object.assign(window, { markTargets, checkedMarkKeys, actionSessions, replicaResolution, resolvedSessionRow, unresolvedActionSessions, resolvedActionSessions, isLocalActionSession, sessionFileActionRefs, renderSessionActionToolbar, setHubReason, openSessionDirectoryOption, openSelectedSessionDirectories, exportSelectedSessions, crossDeviceActionsPaused, renderReplicaPicker, bindSessionActionEvents, bindSessionFileEvents });

@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 6 阶段第 11 批：`bindEvents` 的 918 行按原来的先后切成 22 段 `bind…Events`，各放进它服务的视图模块；`bindEvents` 只剩按原顺序依次调用它们（监听器登记的先后不变），renderer.js 1573 → 681 行。切完核对过：没有哪个模块碰别的模块自己的状态，切出的代码没有给未声明的名字赋值（模块是严格模式）。两个按旧函数体切源码的测试改为读这些 `bind…Events`，断言不变。隐藏窗口验收 26 条路径通过，66 张截图与基准逐像素相同，读接口形状不变。
+
 2026-11-24 架构整理第 6 阶段第 10 批：又九块原样拆成原生模块（device-journey、devices、inbox、task-packages、transfers、data、context、settings、common，共 183 个函数），renderer.js 5658 → 1573 行，剩下状态仓库、元素表、加载时建的三个工厂、启动、`bindEvents` 和出口。一个按相邻声明切源码的测试改为取整个函数，断言不变。隐藏窗口验收 26 条路径通过，66 张截图与基准逐像素相同，读接口形状不变。
 
 2026-11-24 架构整理第 6 阶段第 9 批：九块功能原样拆成原生模块（`src/renderer/views/` 下 first-use、agent-manage、catalog-dialogs、updates、quota、cat-customizer、diagnostics、hub、desk，共 130 个函数），renderer.js 8476 → 5658 行。renderer.js 加载时交给工具页、招募、会话记号的函数改为调用时再找；验收脚本替换首次准备的那一步改经 first-use 模块里的 `replaceContinueFirstPreparation`。还被 renderer.js 用到的三项状态留在原处。隐藏窗口验收 26 条路径通过，66 张截图与基准逐像素相同，读接口形状不变。

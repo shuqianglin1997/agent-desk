@@ -156,7 +156,60 @@ function rerenderLocalizedText() {
   }
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindSettingsEvents() {
+  els.themeToggle.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    state.theme = next;
+    document.documentElement.dataset.theme = next;
+    persistSettings({ theme: next });
+    updateThemeToggle();
+  });
+
+  els.profileQuitBehavior?.addEventListener('change', () => {
+    state.profileQuitBehavior = els.profileQuitBehavior.value === 'keep' ? 'keep' : 'close';
+    persistSettings({ profileQuitBehavior: state.profileQuitBehavior });
+    setStatus(tr(state.profileQuitBehavior === 'keep'
+      ? 'status.profileQuitKeep'
+      : 'status.profileQuitClose'));
+  });
+
+  // 语言切换：循环 中 → EN → 日 → 中，持久化到 settings；setLang 已替换静态文案，
+  els.langToggle?.addEventListener('click', () => {
+    if (!window.I18N) return;
+    const next = window.I18N.setLang(window.I18N.next(), { persist: true });
+    persistSettings({ lang: next });
+    updateLangToggle();
+    rerenderLocalizedText(); // apply() 只换静态 data-i18n；动态渲染的文案也要重刷一遍
+  });
+
+  els.helpBtn.addEventListener('click', () => {
+    prepareWelcomeGuide();
+    openChildDialog(els.welcomeDialog, els.helpBtn);
+  });
+}
+
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindSystemEvents() {
+  // 「系统」入口：这台电脑上的工具和 AgentDesk 自己的设置在同一页。
+  els.systemBtn?.addEventListener('click', async () => {
+    openUtilityDialog('system');
+    renderToolCenter();
+    await refreshToolInventory(false);
+  });
+
+  els.checkToolsBtn?.addEventListener('click', async () => {
+    await refreshToolInventory(true);
+  });
+
+  if (offersMainEvent('onToolProgress')) {
+    onMainEvent('onToolProgress', handleToolProgress);
+  }
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { localSetting, legacyUserSettings, applyUserSettings, loadUserSettings, mirrorLegacySettings, persistSettings, uiSelectionSettingsPatch, persistUiSelectionMemory, initTheme, tr, dateLocale, updateLangToggle, updateThemeToggle, rerenderLocalizedText };
-Object.assign(window, { localSetting, legacyUserSettings, applyUserSettings, loadUserSettings, mirrorLegacySettings, persistSettings, uiSelectionSettingsPatch, persistUiSelectionMemory, initTheme, tr, dateLocale, updateLangToggle, updateThemeToggle, rerenderLocalizedText });
+export { localSetting, legacyUserSettings, applyUserSettings, loadUserSettings, mirrorLegacySettings, persistSettings, uiSelectionSettingsPatch, persistUiSelectionMemory, initTheme, tr, dateLocale, updateLangToggle, updateThemeToggle, rerenderLocalizedText, bindSettingsEvents, bindSystemEvents };
+Object.assign(window, { localSetting, legacyUserSettings, applyUserSettings, loadUserSettings, mirrorLegacySettings, persistSettings, uiSelectionSettingsPatch, persistUiSelectionMemory, initTheme, tr, dateLocale, updateLangToggle, updateThemeToggle, rerenderLocalizedText, bindSettingsEvents, bindSystemEvents });

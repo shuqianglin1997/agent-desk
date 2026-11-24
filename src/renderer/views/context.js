@@ -513,7 +513,35 @@ function selectedProfile() {
   return null;
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindEntryEvents() {
+  els.remoteActivityBtn?.addEventListener('click', () => {
+    const sessions = activeOutgoingRemoteSessions();
+    if (!sessions.length) return;
+    const active = sessions.find((item) => item.sessionId === state.ui.activeRemoteSessionId) || sessions[0];
+    state.ui = window.UiContext.openRemote(state.ui, active.sessionId);
+    setWorkspaceMode('remote');
+  });
+  els.addProfileBtn.addEventListener('click', () => {
+    if (onboardingNeedsPresentation() && openFirstUseDialog({ force: true })) return;
+    recruitDialog.open('new');
+  });
+  // The first-use "导入 Codex" entry opens recruiting's drop section.
+  els.onboardingCodexImportBtn?.addEventListener('click', () => {
+    if (!state.firstUse.busy) recruitDialog.open('drop');
+  });
+  if (offersMainEvent('onProfileRegistrationsChanged')) onMainEvent('onProfileRegistrationsChanged', () => {
+    void (async () => {
+      if (state.mesh.overview?.initialized) {
+        await loadDeviceOverview({ silent: true, skipWorkspaceRefresh: true });
+      }
+      await loadProfiles();
+    })().catch(() => setStatus(tr('codexImport.refreshError')));
+  });
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { currentDeviceLensId, currentAgentId, actionAgentId, setActionAgent, currentSlotKey, activeOutgoingRemoteSessions, currentProfileId, updateUi, renderTopbarContext, identityGroups, identityGroupsForLens, groupOfProfile, selectedGroupProfile, preferredGroupSlot, preferredSlot, setProfileContext, setAgentContext, validateUiContext, validateSessionContext, selectDeviceLens, selectedDeviceLensLabel, populateIdentityDatalist, selectProfile, selectAgent, selectSlot, populateGroupDatalist, provisioningChoiceKey, supportedProvisioningApps, selectedProvisioningApp, currentAgentActionContext, rememberProvisioningChoice, provisioningButtonLabel, provisioningResultMessage, openAgent, selectedProfile };
-Object.assign(window, { currentDeviceLensId, currentAgentId, actionAgentId, setActionAgent, currentSlotKey, activeOutgoingRemoteSessions, currentProfileId, updateUi, renderTopbarContext, identityGroups, identityGroupsForLens, groupOfProfile, selectedGroupProfile, preferredGroupSlot, preferredSlot, setProfileContext, setAgentContext, validateUiContext, validateSessionContext, selectDeviceLens, selectedDeviceLensLabel, populateIdentityDatalist, selectProfile, selectAgent, selectSlot, populateGroupDatalist, provisioningChoiceKey, supportedProvisioningApps, selectedProvisioningApp, currentAgentActionContext, rememberProvisioningChoice, provisioningButtonLabel, provisioningResultMessage, openAgent, selectedProfile });
+export { currentDeviceLensId, currentAgentId, actionAgentId, setActionAgent, currentSlotKey, activeOutgoingRemoteSessions, currentProfileId, updateUi, renderTopbarContext, identityGroups, identityGroupsForLens, groupOfProfile, selectedGroupProfile, preferredGroupSlot, preferredSlot, setProfileContext, setAgentContext, validateUiContext, validateSessionContext, selectDeviceLens, selectedDeviceLensLabel, populateIdentityDatalist, selectProfile, selectAgent, selectSlot, populateGroupDatalist, provisioningChoiceKey, supportedProvisioningApps, selectedProvisioningApp, currentAgentActionContext, rememberProvisioningChoice, provisioningButtonLabel, provisioningResultMessage, openAgent, selectedProfile, bindEntryEvents };
+Object.assign(window, { currentDeviceLensId, currentAgentId, actionAgentId, setActionAgent, currentSlotKey, activeOutgoingRemoteSessions, currentProfileId, updateUi, renderTopbarContext, identityGroups, identityGroupsForLens, groupOfProfile, selectedGroupProfile, preferredGroupSlot, preferredSlot, setProfileContext, setAgentContext, validateUiContext, validateSessionContext, selectDeviceLens, selectedDeviceLensLabel, populateIdentityDatalist, selectProfile, selectAgent, selectSlot, populateGroupDatalist, provisioningChoiceKey, supportedProvisioningApps, selectedProvisioningApp, currentAgentActionContext, rememberProvisioningChoice, provisioningButtonLabel, provisioningResultMessage, openAgent, selectedProfile, bindEntryEvents });

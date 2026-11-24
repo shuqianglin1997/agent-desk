@@ -1085,7 +1085,246 @@ function platformLabel(platform) {
   return label === key ? platform : label;
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindDeviceEvents() {
+  els.deviceLensSelect?.addEventListener('change', async () => {
+    await selectDeviceLens(els.deviceLensSelect.value || 'all');
+  });
+
+  els.initializeMeshBtn?.addEventListener('click', async () => {
+    if (state.mesh.loading || !window.manager.initializeMesh) return;
+    state.mesh.loading = true;
+    state.mesh.errorCode = null;
+    state.mesh.message = tr('devices.status.initializing');
+    renderDeviceCenter();
+    const result = await window.manager.initializeMesh({});
+    state.mesh.loading = false;
+    if (!result?.ok) {
+      state.mesh.errorCode = result?.reasonCode || 'mesh-operation-failed';
+      state.mesh.message = '';
+      renderDeviceCenter();
+      return;
+    }
+    state.mesh.overview = result.overview;
+    validateUiContext();
+    state.mesh.message = tr('devices.status.initialized');
+    renderDeviceCenter();
+    renderTopbarContext();
+    renderAccounts();
+    renderAccountHeader();
+    await loadSessions();
+  });
+
+  els.showJoinMeshBtn?.addEventListener('click', () => {
+    openDeviceJourney('join', els.showJoinMeshBtn);
+  });
+
+  els.createDeviceInviteBtn?.addEventListener('click', async () => {
+    openDeviceJourney('host', els.createDeviceInviteBtn);
+  });
+
+  els.deviceJourneyCloseBtn?.addEventListener('click', () => {
+    if (state.mesh.deviceJourney?.busy) return;
+    els.deviceJourneyDialog?.close();
+  });
+  els.deviceJourneyDialog?.addEventListener('cancel', (event) => {
+    if (state.mesh.deviceJourney?.busy) event.preventDefault();
+  });
+  els.deviceJourneyDialog?.addEventListener('close', () => stopDeviceJourneyPolling());
+  els.meshJoinCode?.addEventListener('input', () => {
+    if (state.mesh.deviceJourney?.role !== 'join' || state.mesh.deviceJourney.preview) return;
+    renderDeviceJourneyActions(
+      state.mesh.deviceJourney,
+      window.DeviceJourney.facts(state.mesh.deviceJourney, state.mesh.overview)
+    );
+  });
+  els.deviceJourneyIdentityConfirm?.addEventListener('change', () => {
+    if (!state.mesh.deviceJourney || state.mesh.deviceJourney.busy) return;
+    state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+      type: 'confirm-identity',
+      confirmed: els.deviceJourneyIdentityConfirm.checked
+    }, state.mesh.overview);
+    renderDeviceJourney();
+  });
+  els.deviceJourneyCopyBtn?.addEventListener('click', async () => {
+    const code = state.mesh.deviceJourney?.invitation?.code;
+    if (!code || state.mesh.deviceJourney?.busy) return;
+    await window.manager.writeClipboard(code);
+    setStatus(tr('deviceJourney.status.copied'));
+  });
+  els.deviceJourneySecondaryBtn?.addEventListener('click', async () => {
+    const model = state.mesh.deviceJourney;
+    if (!model || model.busy) return;
+    if (els.deviceJourneySecondaryBtn.dataset.action === 'edit-code') {
+      state.mesh.deviceJourney = window.DeviceJourney.transition(model, {
+        type: 'code',
+        code: els.meshJoinCode?.value
+      }, state.mesh.overview);
+      renderDeviceJourney();
+      requestAnimationFrame(() => els.meshJoinCode?.focus());
+    } else if (els.deviceJourneySecondaryBtn.dataset.action === 'cancel-invite') {
+      const inviteId = model.invitation?.inviteId;
+      setDeviceJourneyBusy(true);
+      try {
+        if (inviteId && window.manager.cancelDeviceInvite) await window.manager.cancelDeviceInvite(inviteId);
+        state.mesh.invitation = null;
+        state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+          type: 'reset-invitation'
+        }, state.mesh.overview);
+      } finally {
+        setDeviceJourneyBusy(false);
+        renderDeviceCenter();
+      }
+    } else if (els.deviceJourneySecondaryBtn.dataset.action === 'reject-claim') {
+      await decideDeviceJourneyClaim(false);
+    }
+  });
+  els.deviceJourneyPrimaryBtn?.addEventListener('click', () => {
+    const action = els.deviceJourneyPrimaryBtn.dataset.action;
+    if (action === 'invite') void createDeviceJourneyInvitation();
+    else if (action === 'inspect') void inspectDeviceJourneyInvitation();
+    else if (action === 'join') void joinFromDeviceJourney();
+    else if (action === 'approve-claim') void decideDeviceJourneyClaim(true);
+    else if (action === 'connect' || action === 'sync') void connectFromDeviceJourney();
+    else if (action === 'finish') finishDeviceJourney();
+  });
+  els.deviceJourneyAdvancedBtn?.addEventListener('click', async () => {
+    if (state.mesh.deviceJourney?.busy) return;
+    els.deviceJourneyDialog?.close();
+    await openMeshNetworkSettings(els.deviceJourneyAdvancedBtn);
+  });
+
+  els.receiveConnectionsBtn?.addEventListener('click', async () => {
+    await toggleMeshReachability();
+  });
+
+  els.networkSettingsBtn?.addEventListener('click', async () => {
+    await openMeshNetworkSettings(els.networkSettingsBtn);
+  });
+
+  els.saveMeshNetworkBtn?.addEventListener('click', async () => {
+    await saveMeshNetworkSettings();
+  });
+
+  els.copyDeviceInviteBtn?.addEventListener('click', async () => {
+    const code = state.mesh.invitation?.code;
+    if (!code) return;
+    await window.manager.writeClipboard(code);
+    state.mesh.message = tr('devices.invite.copied');
+    renderDeviceCenter();
+  });
+
+  els.closeDeviceInviteBtn?.addEventListener('click', async () => {
+    const inviteId = state.mesh.invitation?.inviteId;
+    state.mesh.invitation = null;
+    renderDeviceCenter();
+    if (window.manager.cancelDeviceInvite) await window.manager.cancelDeviceInvite(inviteId);
+  });
+
+  els.saveDevicePermissionsBtn?.addEventListener('click', async () => {
+    await saveRemoteDevicePermissions();
+  });
+
+  els.revokeDeviceBtn?.addEventListener('click', async () => {
+    await revokeRemoteDevice();
+  });
+
+  els.refreshMeshDiagnosticsBtn?.addEventListener('click', async () => {
+    await refreshDeviceDiagnostics();
+  });
+
+  els.resetMeshBtn?.addEventListener('click', async () => {
+    if (state.mesh.loading || !window.manager.resetMesh) return;
+    if (!window.confirm(tr('devices.reset.confirm'))) return;
+    state.mesh.loading = true;
+    state.mesh.errorCode = null;
+    state.mesh.message = tr('devices.status.resetting');
+    renderDeviceCenter();
+    const result = await window.manager.resetMesh();
+    state.mesh.loading = false;
+    if (!result?.ok) {
+      state.mesh.errorCode = result?.reasonCode || 'mesh-operation-failed';
+      state.mesh.message = '';
+    } else {
+      state.mesh.overview = result.overview;
+      state.mesh.invitation = null;
+      state.mesh.message = tr('devices.status.resetDone');
+      validateUiContext();
+    }
+    renderDeviceCenter();
+    renderTopbarContext();
+  });
+}
+
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindMeshChangeEvents() {
+  if (offersMainEvent('onAgentDeploymentsChanged')) {
+    onMainEvent('onAgentDeploymentsChanged', (payload = {}) => {
+      if (payload.overview?.initialized) state.mesh.overview = payload.overview;
+      validateUiContext();
+      renderAccounts();
+      renderAccountHeader();
+      renderDeviceCenter();
+      if (payload.state === 'ready') {
+        void loadProfiles().catch(() => {});
+      }
+    });
+  }
+
+  if (offersMainEvent('onAgentActionsChanged')) {
+    onMainEvent('onAgentActionsChanged', (payload = {}) => {
+      if (payload.overview?.initialized) state.mesh.overview = payload.overview;
+      validateUiContext();
+      renderAccounts();
+      renderAccountHeader();
+      renderDeviceCenter();
+      const agentName = catalogAgentById(payload.agentId)?.displayName || null;
+      setStatus(provisioningResultMessage(payload, agentName));
+      if (payload.state === 'ready') requestDeviceOverviewReload();
+    });
+  }
+
+  if (offersMainEvent('onDeviceConnectionState')) {
+    onMainEvent('onDeviceConnectionState', (value) => {
+      if (state.mesh.deviceJourney && window.DeviceJourney) {
+        state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
+          type: 'connection-state',
+          ...value
+        }, state.mesh.overview);
+        renderDeviceJourney();
+      }
+      if (value?.state === 'authenticated' || value?.state === 'inventory-synced') {
+        state.mesh.message = tr('devices.connection.connected', { name: value.deviceName || value.deviceId || '-' });
+      } else if (value?.state === 'error') {
+        state.mesh.errorCode = value.reason || 'peer-connect-failed';
+      }
+      requestDeviceOverviewReload();
+    });
+  }
+
+  if (offersMainEvent('onDeviceNetworkState')) {
+    onMainEvent('onDeviceNetworkState', (network) => {
+      if (!state.mesh.overview?.reachability || !network) return;
+      state.mesh.overview.reachability = {
+        ...state.mesh.overview.reachability,
+        signaling: network.signaling,
+        ice: network.ice
+      };
+      renderDeviceCenter();
+      if (state.mesh.diagnosticDeviceId) void refreshDeviceDiagnostics({ quiet: true });
+    });
+  }
+
+  if (offersMainEvent('onPairingClaimsChanged')) {
+    onMainEvent('onPairingClaimsChanged', (claims) => {
+      applyPairingClaims(claims, { open: true });
+    });
+  }
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { requestDeviceOverviewReload, flushPendingDeviceOverviewReload, loadDeviceOverview, renderDeviceCenter, renderMeshPreview, renderDeviceLensMenu, renderDeviceLens, renderMeshSummary, fillMeshStats, renderDeviceList, selectedDeviceDetail, ensureDeviceDetailForEntry, renderSelectedDeviceDetail, deviceActionButton, deviceMoreMenu, refreshRemoteInventoryForDevice, viewDeviceSessions, viewDeviceAgentSessions, renderSelectedDeviceActions, renderMeshAgentList, toggleMeshReachability, connectMeshDevice, openRemoteDevice, disconnectMeshDevice, deviceDiagnosticsButton, openMeshNetworkSettings, saveMeshNetworkSettings, splitNetworkLines, connectionPathText, openDeviceDiagnostics, refreshDeviceDiagnostics, renderDeviceDiagnostics, appendDiagnosticSection, configuredText, diagnosticCode, diagnosticTime, openDevicePermissions, saveRemoteDevicePermissions, revokeRemoteDevice, renameLocalDevice, runMeshTransportProbe, meshErrorText, remoteInventoryRefreshFailureText, remoteErrorText, platformLabel };
-Object.assign(window, { requestDeviceOverviewReload, flushPendingDeviceOverviewReload, loadDeviceOverview, renderDeviceCenter, renderMeshPreview, renderDeviceLensMenu, renderDeviceLens, renderMeshSummary, fillMeshStats, renderDeviceList, selectedDeviceDetail, ensureDeviceDetailForEntry, renderSelectedDeviceDetail, deviceActionButton, deviceMoreMenu, refreshRemoteInventoryForDevice, viewDeviceSessions, viewDeviceAgentSessions, renderSelectedDeviceActions, renderMeshAgentList, toggleMeshReachability, connectMeshDevice, openRemoteDevice, disconnectMeshDevice, deviceDiagnosticsButton, openMeshNetworkSettings, saveMeshNetworkSettings, splitNetworkLines, connectionPathText, openDeviceDiagnostics, refreshDeviceDiagnostics, renderDeviceDiagnostics, appendDiagnosticSection, configuredText, diagnosticCode, diagnosticTime, openDevicePermissions, saveRemoteDevicePermissions, revokeRemoteDevice, renameLocalDevice, runMeshTransportProbe, meshErrorText, remoteInventoryRefreshFailureText, remoteErrorText, platformLabel });
+export { requestDeviceOverviewReload, flushPendingDeviceOverviewReload, loadDeviceOverview, renderDeviceCenter, renderMeshPreview, renderDeviceLensMenu, renderDeviceLens, renderMeshSummary, fillMeshStats, renderDeviceList, selectedDeviceDetail, ensureDeviceDetailForEntry, renderSelectedDeviceDetail, deviceActionButton, deviceMoreMenu, refreshRemoteInventoryForDevice, viewDeviceSessions, viewDeviceAgentSessions, renderSelectedDeviceActions, renderMeshAgentList, toggleMeshReachability, connectMeshDevice, openRemoteDevice, disconnectMeshDevice, deviceDiagnosticsButton, openMeshNetworkSettings, saveMeshNetworkSettings, splitNetworkLines, connectionPathText, openDeviceDiagnostics, refreshDeviceDiagnostics, renderDeviceDiagnostics, appendDiagnosticSection, configuredText, diagnosticCode, diagnosticTime, openDevicePermissions, saveRemoteDevicePermissions, revokeRemoteDevice, renameLocalDevice, runMeshTransportProbe, meshErrorText, remoteInventoryRefreshFailureText, remoteErrorText, platformLabel, bindDeviceEvents, bindMeshChangeEvents };
+Object.assign(window, { requestDeviceOverviewReload, flushPendingDeviceOverviewReload, loadDeviceOverview, renderDeviceCenter, renderMeshPreview, renderDeviceLensMenu, renderDeviceLens, renderMeshSummary, fillMeshStats, renderDeviceList, selectedDeviceDetail, ensureDeviceDetailForEntry, renderSelectedDeviceDetail, deviceActionButton, deviceMoreMenu, refreshRemoteInventoryForDevice, viewDeviceSessions, viewDeviceAgentSessions, renderSelectedDeviceActions, renderMeshAgentList, toggleMeshReachability, connectMeshDevice, openRemoteDevice, disconnectMeshDevice, deviceDiagnosticsButton, openMeshNetworkSettings, saveMeshNetworkSettings, splitNetworkLines, connectionPathText, openDeviceDiagnostics, refreshDeviceDiagnostics, renderDeviceDiagnostics, appendDiagnosticSection, configuredText, diagnosticCode, diagnosticTime, openDevicePermissions, saveRemoteDevicePermissions, revokeRemoteDevice, renameLocalDevice, runMeshTransportProbe, meshErrorText, remoteInventoryRefreshFailureText, remoteErrorText, platformLabel, bindDeviceEvents, bindMeshChangeEvents });

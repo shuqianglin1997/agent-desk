@@ -474,7 +474,75 @@ function replaceContinueFirstPreparation(fn) {
   return previous;
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindFirstUseEvents() {
+  els.onboardingAgentName?.addEventListener('input', () => {
+    if (!state.firstUse.model) return;
+    state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+      type: 'draft',
+      displayName: els.onboardingAgentName.value
+    });
+    renderFirstUseActions(state.firstUse.model);
+    if (els.onboardingStatus && state.firstUse.model.errorCode === null) {
+      els.onboardingStatus.hidden = true;
+      els.onboardingStatus.textContent = '';
+    }
+  });
+  els.onboardingAgentClient?.addEventListener('change', () => {
+    if (!state.firstUse.model) return;
+    state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+      type: 'draft',
+      ...parseOnboardingClientValue(els.onboardingAgentClient.value)
+    });
+    renderFirstUseActions(state.firstUse.model);
+  });
+  els.onboardingBackBtn?.addEventListener('click', () => {
+    if (!state.firstUse.model || state.firstUse.busy) return;
+    state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, { type: 'back' });
+    renderFirstUse();
+    focusFirstUseControl();
+  });
+  els.onboardingSecondaryBtn?.addEventListener('click', () => {
+    if (els.onboardingSecondaryBtn.dataset.action === 'later') finishFirstUseLater();
+  });
+  els.onboardingPrimaryBtn?.addEventListener('click', () => {
+    if (!state.firstUse.model || state.firstUse.busy) return;
+    const action = els.onboardingPrimaryBtn.dataset.action;
+    if (action === 'migration') {
+      state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, { type: 'continue' });
+      renderFirstUse();
+      focusFirstUseControl();
+    } else if (action === 'create') {
+      void startFirstAgentSetup();
+    } else if (action === 'review') {
+      state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, { type: 'review-complete' });
+      renderFirstUse();
+    } else if (action === 'prepare') {
+      void continueFirstPreparation();
+    } else if (action === 'finish') {
+      finishFirstUse();
+    }
+  });
+  els.onboardingAdvancedBtn?.addEventListener('click', () => {
+    if (state.firstUse.busy) return;
+    recruitDialog.open('existing');
+  });
+  els.welcomeDialogCloseBtn?.addEventListener('click', () => {
+    if (state.firstUse.busy) return;
+    els.welcomeDialog?.close();
+  });
+  els.welcomeDialog?.addEventListener('cancel', (event) => {
+    if (state.firstUse.busy) event.preventDefault();
+  });
+  els.welcomeDialog?.querySelector('form')?.addEventListener('submit', (event) => {
+    if (state.firstUse.mode !== 'onboarding') return;
+    event.preventDefault();
+    if (!els.onboardingPrimaryBtn?.disabled) els.onboardingPrimaryBtn?.click();
+  });
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { onboardingNeedsPresentation, onboardingClientValue, parseOnboardingClientValue, prepareWelcomeGuide, createFirstUseModel, openFirstUseDialog, maybeShowWelcome, firstUseErrorText, preparationStateText, preparationDetailText, renderOnboardingProgress, renderOnboardingMigration, renderOnboardingClientSelect, renderOnboardingExisting, renderFirstUseActions, renderFirstUse, focusFirstUseControl, startFirstAgentSetup, continueFirstPreparation, finishFirstUseLater, finishFirstUse, recordFirstUseCompletion, replaceContinueFirstPreparation };
-Object.assign(window, { onboardingNeedsPresentation, onboardingClientValue, parseOnboardingClientValue, prepareWelcomeGuide, createFirstUseModel, openFirstUseDialog, maybeShowWelcome, firstUseErrorText, preparationStateText, preparationDetailText, renderOnboardingProgress, renderOnboardingMigration, renderOnboardingClientSelect, renderOnboardingExisting, renderFirstUseActions, renderFirstUse, focusFirstUseControl, startFirstAgentSetup, continueFirstPreparation, finishFirstUseLater, finishFirstUse, recordFirstUseCompletion, replaceContinueFirstPreparation });
+export { onboardingNeedsPresentation, onboardingClientValue, parseOnboardingClientValue, prepareWelcomeGuide, createFirstUseModel, openFirstUseDialog, maybeShowWelcome, firstUseErrorText, preparationStateText, preparationDetailText, renderOnboardingProgress, renderOnboardingMigration, renderOnboardingClientSelect, renderOnboardingExisting, renderFirstUseActions, renderFirstUse, focusFirstUseControl, startFirstAgentSetup, continueFirstPreparation, finishFirstUseLater, finishFirstUse, recordFirstUseCompletion, replaceContinueFirstPreparation, bindFirstUseEvents };
+Object.assign(window, { onboardingNeedsPresentation, onboardingClientValue, parseOnboardingClientValue, prepareWelcomeGuide, createFirstUseModel, openFirstUseDialog, maybeShowWelcome, firstUseErrorText, preparationStateText, preparationDetailText, renderOnboardingProgress, renderOnboardingMigration, renderOnboardingClientSelect, renderOnboardingExisting, renderFirstUseActions, renderFirstUse, focusFirstUseControl, startFirstAgentSetup, continueFirstPreparation, finishFirstUseLater, finishFirstUse, recordFirstUseCompletion, replaceContinueFirstPreparation, bindFirstUseEvents });

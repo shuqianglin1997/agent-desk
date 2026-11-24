@@ -757,7 +757,88 @@ async function confirmSlotAssignment() {
   setStatus(tr('catalog.status.assigned'));
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindAgentCreationEvents() {
+  els.addRuntimeLocationBtn?.addEventListener('click', () => {
+    openProfileCreationDialog({ agentId: actionAgentId() });
+  });
+  els.confirmAddAgentBtn?.addEventListener('click', () => void confirmAgentCreation());
+}
+
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindCatalogDialogEvents() {
+  els.newProfileMode?.addEventListener('change', () => syncProfileAssignmentControls());
+  els.newProfileApp?.addEventListener('change', () => syncProfileAssignmentControls());
+  els.newProfileAgent?.addEventListener('change', () => syncProfileAssignmentControls());
+  els.newProfileBinding?.addEventListener('change', () => syncProfileAssignmentControls());
+  els.confirmAddProfileBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    void confirmProfileCreation();
+  });
+
+  els.editProfileBtn.addEventListener('click', () => {
+    openAgentOrProfileEditor();
+  });
+  els.confirmEditBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    void confirmAgentOrProfileEdit();
+  });
+
+  els.editCatRandom.addEventListener('click', () => {
+    const cats = window.YardCats;
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const look = pick(cats.LOOK_KEYS);
+    catDraft = { look, collar: pick(catCollarChoices(look)), accessory: pick(cats.ACCESSORY_KEYS) };
+    syncCatSwatches();
+    renderCatPreview();
+  });
+
+  els.manageAgentRelationsBtn?.addEventListener('click', () => {
+    openAgentRelationsDialog();
+  });
+  els.removeProfileBtn.addEventListener('click', () => {
+    void openAgentOrProfileRemoval();
+  });
+  els.agentManageDialog?.addEventListener('close', () => {
+    // 档案关上以后，被操作的猫回到正在看的那只。关闭事件晚到、档案已经为另一只猫重新打开时不动它。
+    if (els.agentManageDialog.open) return;
+    setActionAgent(null);
+    renderAccounts();
+  });
+  els.removeCatalogDialog?.querySelectorAll('input[name="catalogRemoveScope"]').forEach((radio) => {
+    radio.addEventListener('change', () => renderCatalogRemovalImpact());
+  });
+  els.confirmRemoveCatalogBtn?.addEventListener('click', () => void confirmCatalogRemoval());
+  els.removeCatalogDialog?.addEventListener('close', () => {
+    state.mesh.removingAgentId = null;
+    state.mesh.removingSlotKey = null;
+  });
+  els.mergeAgentTarget?.addEventListener('change', () => {
+    els.confirmMergeAgentBtn.disabled = !catalogAgentById(els.mergeAgentTarget.value);
+  });
+  els.confirmMergeAgentBtn?.addEventListener('click', () => void confirmAgentMerge());
+  els.splitAccountBinding?.addEventListener('change', () => syncSplitAgentName());
+  els.splitAgentName?.addEventListener('input', () => syncSplitConfirmState());
+  els.confirmSplitBindingBtn?.addEventListener('click', () => void confirmBindingSplit());
+  els.agentRelationsDialog?.addEventListener('close', () => {
+    state.mesh.relationAgentId = null;
+  });
+  els.slotAssignmentMode?.addEventListener('change', () => syncSlotAssignmentControls());
+  els.slotAssignmentAgent?.addEventListener('change', () => syncSlotAssignmentControls());
+  els.slotAssignmentBinding?.addEventListener('change', () => syncSlotAssignmentControls());
+  els.confirmSlotAssignmentBtn?.addEventListener('click', () => void confirmSlotAssignment());
+  document.querySelector('#removeUnassignedSlotBtn')?.addEventListener('click', () => void removeUnassignedLocalSlot());
+  els.slotAssignmentDialog?.addEventListener('close', () => {
+    state.mesh.assigningSlotKey = null;
+  });
+  els.editDialog?.addEventListener('close', () => {
+    state.mesh.editingAgentId = null;
+  });
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { catalogProviderForApp, catalogSlotKey, catalogSlotByKey, catalogAgentById, catalogBindingById, currentCatalogRevision, appendSelectOption, fillAgentAssignmentSelect, bindingOptionLabel, fillBindingAssignmentSelect, openAgentCreationDialog, confirmAgentCreation, createAgentAndPrepare, afterRecruitedAccount, openProfileCreationDialog, syncProfileAssignmentControls, confirmProfileCreation, openAgentOrProfileEditor, confirmAgentOrProfileEdit, refreshCatalogWorkspace, openAgentOrProfileRemoval, catalogRemovalContext, renderCatalogRemovalImpact, confirmCatalogRemoval, openAgentRelationsDialog, syncSplitAgentName, syncSplitConfirmState, confirmAgentMerge, confirmBindingSplit, openSlotAssignmentDialog, syncSlotAssignmentControls, removeUnassignedLocalSlot, confirmSlotAssignment };
-Object.assign(window, { catalogProviderForApp, catalogSlotKey, catalogSlotByKey, catalogAgentById, catalogBindingById, currentCatalogRevision, appendSelectOption, fillAgentAssignmentSelect, bindingOptionLabel, fillBindingAssignmentSelect, openAgentCreationDialog, confirmAgentCreation, createAgentAndPrepare, afterRecruitedAccount, openProfileCreationDialog, syncProfileAssignmentControls, confirmProfileCreation, openAgentOrProfileEditor, confirmAgentOrProfileEdit, refreshCatalogWorkspace, openAgentOrProfileRemoval, catalogRemovalContext, renderCatalogRemovalImpact, confirmCatalogRemoval, openAgentRelationsDialog, syncSplitAgentName, syncSplitConfirmState, confirmAgentMerge, confirmBindingSplit, openSlotAssignmentDialog, syncSlotAssignmentControls, removeUnassignedLocalSlot, confirmSlotAssignment });
+export { catalogProviderForApp, catalogSlotKey, catalogSlotByKey, catalogAgentById, catalogBindingById, currentCatalogRevision, appendSelectOption, fillAgentAssignmentSelect, bindingOptionLabel, fillBindingAssignmentSelect, openAgentCreationDialog, confirmAgentCreation, createAgentAndPrepare, afterRecruitedAccount, openProfileCreationDialog, syncProfileAssignmentControls, confirmProfileCreation, openAgentOrProfileEditor, confirmAgentOrProfileEdit, refreshCatalogWorkspace, openAgentOrProfileRemoval, catalogRemovalContext, renderCatalogRemovalImpact, confirmCatalogRemoval, openAgentRelationsDialog, syncSplitAgentName, syncSplitConfirmState, confirmAgentMerge, confirmBindingSplit, openSlotAssignmentDialog, syncSlotAssignmentControls, removeUnassignedLocalSlot, confirmSlotAssignment, bindAgentCreationEvents, bindCatalogDialogEvents };
+Object.assign(window, { catalogProviderForApp, catalogSlotKey, catalogSlotByKey, catalogAgentById, catalogBindingById, currentCatalogRevision, appendSelectOption, fillAgentAssignmentSelect, bindingOptionLabel, fillBindingAssignmentSelect, openAgentCreationDialog, confirmAgentCreation, createAgentAndPrepare, afterRecruitedAccount, openProfileCreationDialog, syncProfileAssignmentControls, confirmProfileCreation, openAgentOrProfileEditor, confirmAgentOrProfileEdit, refreshCatalogWorkspace, openAgentOrProfileRemoval, catalogRemovalContext, renderCatalogRemovalImpact, confirmCatalogRemoval, openAgentRelationsDialog, syncSplitAgentName, syncSplitConfirmState, confirmAgentMerge, confirmBindingSplit, openSlotAssignmentDialog, syncSlotAssignmentControls, removeUnassignedLocalSlot, confirmSlotAssignment, bindAgentCreationEvents, bindCatalogDialogEvents });

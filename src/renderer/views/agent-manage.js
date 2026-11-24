@@ -94,7 +94,115 @@ function openAgentDossier(agentId) {
   openAgentManageDialog();
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindAgentManageEvents() {
+  els.pathConfigBtn.addEventListener('click', () => {
+    const profile = selectedProfile();
+    if (!profile) return;
+    els.profilePathInput.value = profile.profilePath || '';
+    els.sessionRootInput.value = profile.sessionRoot || '';
+    els.executablePathInput.value = profile.executablePath || '';
+    openDialog(els.pathDialog);
+    els.profilePathInput.focus();
+  });
+
+  els.pickProfilePathBtn.addEventListener('click', async () => {
+    const picked = await window.manager.pickDirectory({
+      title: tr('picker.profileDir'),
+      defaultPath: els.profilePathInput.value
+    });
+    if (picked) els.profilePathInput.value = picked;
+  });
+
+  els.pickSessionRootBtn.addEventListener('click', async () => {
+    const picked = await window.manager.pickDirectory({
+      title: tr('picker.sessionRoot'),
+      defaultPath: els.sessionRootInput.value
+    });
+    if (picked) els.sessionRootInput.value = picked;
+  });
+
+  els.pickExecutablePathBtn.addEventListener('click', async () => {
+    const picked = await window.manager.pickFile({
+      title: tr('picker.executable'),
+      defaultPath: els.executablePathInput.value || undefined
+    });
+    if (picked) els.executablePathInput.value = picked;
+  });
+
+  els.confirmPathBtn.addEventListener('click', async (event) => {
+    event.preventDefault();
+    const profile = selectedProfile();
+    if (!profile) return;
+    const profilePath = els.profilePathInput.value.trim();
+    const sessionRoot = els.sessionRootInput.value.trim();
+    if (!profilePath || !sessionRoot) {
+      setStatus(tr('status.pathEmpty'));
+      return;
+    }
+    await window.manager.updateProfile({
+      id: profile.id,
+      profilePath,
+      sessionRoot,
+      executablePath: els.executablePathInput.value.trim()
+    });
+    els.pathDialog.close();
+    await loadProfiles(profile.id);
+    setStatus(tr('status.pathSaved'));
+  });
+
+  els.diagnosticsBtn.addEventListener('click', async () => {
+    await showDiagnostics();
+  });
+
+  els.stopProfileBtn?.addEventListener('click', async () => {
+    const profile = selectedProfile();
+    if (!profile) return;
+    if (!window.confirm(tr('status.stopProfileConfirm', { name: profile.name }))) return;
+    const result = await window.manager.stopProfile(profile.id);
+    setStatus(result.ok
+      ? tr('status.profileStopped', { name: profile.name })
+      : tr('status.profileStopFailed', { code: result.reasonCode || 'profile-stop-failed' }));
+    await loadActivity();
+  });
+
+  els.cleanCrashpadBtn?.addEventListener('click', async () => {
+    const profile = selectedProfile();
+    if (!profile) return;
+    if (!window.confirm(tr('status.cleanCrashpadConfirm', { name: profile.name }))) return;
+    const result = await window.manager.cleanProfileCrashpad(profile.id);
+    setStatus(result.ok
+      ? tr('status.crashpadCleaned', { n: result.removedFiles || 0 })
+      : tr('status.crashpadCleanFailed', { code: result.reasonCode || 'crashpad-clean-failed' }));
+  });
+
+  els.copyDiagnosticsBtn.addEventListener('click', async () => {
+    if (!lastDiagnostics) return;
+    await window.manager.writeClipboard(formatDiagnosticsText(lastDiagnostics));
+    setStatus(tr('status.diagCopied'));
+  });
+
+  els.profileFolderBtn.addEventListener('click', async () => {
+    const profile = selectedProfile();
+    if (!profile) return;
+    const result = await window.manager.openPath(profile.profilePath);
+    setStatus(result.message || result.reason || (result.ok ? tr('status.openAcctDirOk') : tr('status.openAcctDirFail')));
+  });
+
+  els.refreshBtn.addEventListener('click', async () => {
+    const profile = selectedProfile();
+    if (profile?._remote === true && window.manager.refreshMeshInventory) {
+      await refreshRemoteInventoryForDevice(profile._meshDeviceId);
+      return;
+    }
+    await loadSessions();
+    await loadActivity();
+    setStatus(tr('status.refreshList'));
+  });
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { renderAgentManageContext, agentManageLocationLabel, renderAgentManageLocations, openAgentManageDialog, openAgentDossier };
-Object.assign(window, { renderAgentManageContext, agentManageLocationLabel, renderAgentManageLocations, openAgentManageDialog, openAgentDossier });
+export { renderAgentManageContext, agentManageLocationLabel, renderAgentManageLocations, openAgentManageDialog, openAgentDossier, bindAgentManageEvents };
+Object.assign(window, { renderAgentManageContext, agentManageLocationLabel, renderAgentManageLocations, openAgentManageDialog, openAgentDossier, bindAgentManageEvents });

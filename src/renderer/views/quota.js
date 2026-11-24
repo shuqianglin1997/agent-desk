@@ -351,7 +351,44 @@ function renderQuotaOverviewButton(groups, rows) {
   if (chip.hidden && state.quotaAnchor === chip) els.quotaPopover.hidePopover();
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindQuotaEvents() {
+  els.quotaChipAll.addEventListener('click', (event) => {
+    event.preventDefault();
+    toggleQuotaPopover(event.currentTarget);
+  });
+  els.quotaPopoverClose.addEventListener('click', () => els.quotaPopover.hidePopover());
+  els.quotaPopover.addEventListener('beforetoggle', (event) => {
+    if (event.newState !== 'closed') return;
+    state.quotaAnchor?.setAttribute('aria-expanded', 'false');
+    state.quotaAnchor = null;
+    // 额度浮层收起后，被操作的猫回到正在看的那只；档案开着时由档案负责。
+    if (!els.agentManageDialog?.open) setActionAgent(null);
+  });
+  els.accountRoster.addEventListener('scroll', positionQuotaPopover, { passive: true });
+  window.addEventListener('resize', positionQuotaPopover);
+}
+
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindQuotaRefreshEvents() {
+  els.quotaRefreshBtn.addEventListener('click', async () => {
+    if (!selectedProfile()) return;
+    setStatus(tr('status.quotaRefreshing'));
+    await loadQuotas(true);
+    const quota = selectedQuota();
+    if (state.quotaError) {
+      setStatus(tr('status.quotaRefreshFail', { err: state.quotaError }));
+    } else if (quota?.status === 'ok') {
+      setStatus(tr('status.quotaRefreshed', { headline: quotaHeadline(quota) }));
+    } else {
+      setStatus(quota?.reason || state.quotaError || tr('status.quotaUnavailable'));
+    }
+  });
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { loadQuotas, selectedQuota, quotaPlanLabel, formatQuotaReset, quotaHeadline, renderQuotaMeters, toggleQuotaPopover, openQuotaPopover, positionQuotaPopover, renderQuotaSummary, renderAccountQuota, renderQuotaOverview, renderQuotaOverviewButton };
-Object.assign(window, { loadQuotas, selectedQuota, quotaPlanLabel, formatQuotaReset, quotaHeadline, renderQuotaMeters, toggleQuotaPopover, openQuotaPopover, positionQuotaPopover, renderQuotaSummary, renderAccountQuota, renderQuotaOverview, renderQuotaOverviewButton });
+export { loadQuotas, selectedQuota, quotaPlanLabel, formatQuotaReset, quotaHeadline, renderQuotaMeters, toggleQuotaPopover, openQuotaPopover, positionQuotaPopover, renderQuotaSummary, renderAccountQuota, renderQuotaOverview, renderQuotaOverviewButton, bindQuotaEvents, bindQuotaRefreshEvents };
+Object.assign(window, { loadQuotas, selectedQuota, quotaPlanLabel, formatQuotaReset, quotaHeadline, renderQuotaMeters, toggleQuotaPopover, openQuotaPopover, positionQuotaPopover, renderQuotaSummary, renderAccountQuota, renderQuotaOverview, renderQuotaOverviewButton, bindQuotaEvents, bindQuotaRefreshEvents });

@@ -366,7 +366,83 @@ function renderTransferList() {
   }
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindTransferChangeEvents() {
+  if (offersMainEvent('onTransfersChanged')) {
+    onMainEvent('onTransfersChanged', (transfers) => {
+      const previousTransfers = state.mesh.transfers;
+      state.mesh.transfers = Array.isArray(transfers) ? transfers : [];
+      deskTransfersChanged(previousTransfers, state.mesh.transfers);
+      const latest = state.mesh.transfers.find((item) => item.direction === 'incoming' && item.state === 'received');
+      if (latest) {
+        const messageKey = latest.type === 'task-package'
+          ? 'taskPackage.incoming.received'
+          : (latest.type === 'file' ? 'transfers.fileOfferReceived' : 'transfers.received');
+        state.mesh.transferMessage = tr(messageKey, {
+          n: latest.itemCount,
+          name: latest.receivedFromName || '-'
+        });
+        setStatus(state.mesh.transferMessage);
+      }
+      renderTransferList();
+      renderIncomingTaskPackages();
+    });
+  }
+
+  if (offersMainEvent('onTaskPackagesChanged')) {
+    onMainEvent('onTaskPackagesChanged', (history) => {
+      state.taskPackages.history = Array.isArray(history) ? history : [];
+      renderTaskPackageHistory();
+      renderIncomingTaskPackages();
+    });
+  }
+}
+
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindTransferEvents() {
+  els.confirmSessionSendBtn?.addEventListener('click', async () => {
+    await sendSelectedSessionsToDevice();
+  });
+
+  els.chooseFilesBtn?.addEventListener('click', async () => {
+    await chooseFilesForTransfer();
+  });
+
+  els.sessionSendTarget?.addEventListener('change', () => {
+    state.ui = window.UiContext.updateTransferDraft(state.ui, { targetDeviceId: els.sessionSendTarget.value });
+    renderSessionSendStatus();
+  });
+
+  els.fileSendTarget?.addEventListener('change', () => {
+    state.ui = window.UiContext.updateTransferDraft(state.ui, { targetDeviceId: els.fileSendTarget.value });
+    renderFileSendStatus();
+  });
+}
+
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindTransferDialogEvents() {
+  els.sessionSendDialog?.addEventListener('close', () => deskSendFlights());
+  els.sessionSendDialog?.addEventListener('close', () => {
+    if (state.ui.transferDraft?.kind === 'session-pointer') {
+      state.ui = window.UiContext.clearTransferDraft(state.ui);
+    }
+  });
+
+  els.fileSendDialog?.addEventListener('close', () => {
+    if (state.ui.transferDraft?.kind === 'files') {
+      state.ui = window.UiContext.clearTransferDraft(state.ui);
+    }
+  });
+
+  els.refreshTransfersBtn?.addEventListener('click', async () => {
+    await loadTransfers();
+  });
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { openSessionSendDialog, openFileSendDialog, populateTransferTargets, openTransferCenter, chooseFilesForTransfer, sendSelectedSessionsToDevice, loadTransfers, renderSessionSendStatus, renderFileSendStatus, renderTransferList };
-Object.assign(window, { openSessionSendDialog, openFileSendDialog, populateTransferTargets, openTransferCenter, chooseFilesForTransfer, sendSelectedSessionsToDevice, loadTransfers, renderSessionSendStatus, renderFileSendStatus, renderTransferList });
+export { openSessionSendDialog, openFileSendDialog, populateTransferTargets, openTransferCenter, chooseFilesForTransfer, sendSelectedSessionsToDevice, loadTransfers, renderSessionSendStatus, renderFileSendStatus, renderTransferList, bindTransferChangeEvents, bindTransferEvents, bindTransferDialogEvents };
+Object.assign(window, { openSessionSendDialog, openFileSendDialog, populateTransferTargets, openTransferCenter, chooseFilesForTransfer, sendSelectedSessionsToDevice, loadTransfers, renderSessionSendStatus, renderFileSendStatus, renderTransferList, bindTransferChangeEvents, bindTransferEvents, bindTransferDialogEvents });

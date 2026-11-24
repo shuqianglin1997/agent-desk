@@ -484,7 +484,30 @@ function ensureHubTicker() {
   }, 1000);
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindHubEvents() {
+  if (window.manager.hubState) void loadHub();
+  if (offersMainEvent('onHubChanged')) onMainEvent('onHubChanged', (payload) => applyHubChange(payload?.run));
+  window.AgentHubUi?.installTips?.(document, tr);
+  els.hubAllowCall?.addEventListener('change', () => {
+    const callable = els.hubAllowCall.checked;
+    void saveHubAccess({ callable, writable: callable && els.hubAllowWrite.checked });
+  });
+  els.hubAllowWrite?.addEventListener('change', () => {
+    void saveHubAccess({ callable: els.hubAllowCall.checked, writable: els.hubAllowCall.checked && els.hubAllowWrite.checked });
+  });
+  els.hubAddFolderBtn?.addEventListener('click', () => void addHubFolder());
+  els.hubFolderList?.addEventListener('click', (event) => {
+    const button = event.target.closest?.('button[data-folder-id]');
+    if (button) void removeHubFolder(button.dataset.folderId);
+  });
+  els.hubMaxConcurrent?.addEventListener('change', () => void setHubLimit(Number(els.hubMaxConcurrent.value)));
+  els.accountRoster?.addEventListener('scroll', () => renderHubLinks(), { passive: true });
+  window.addEventListener('resize', () => renderHubLinks());
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { loadHub, applyHubSettings, hubNameKey, renderHubCalling, saveHubAccess, renderHubSystem, addHubFolder, removeHubFolder, setHubLimit, hubRefresh, applyHubChange, hubGroupKey, hubNameOf, hubCardOf, hubCatPoint, hubEdgePoint, hubCue, hubCatAct, hubOverride, cardRunningCount, hubCardState, hubStart, hubEnd, hubStop, withHubRuns, hubRowContext, renderHubRow, renderHubLinks, renderHubFooter, ensureHubTicker };
-Object.assign(window, { loadHub, applyHubSettings, hubNameKey, renderHubCalling, saveHubAccess, renderHubSystem, addHubFolder, removeHubFolder, setHubLimit, hubRefresh, applyHubChange, hubGroupKey, hubNameOf, hubCardOf, hubCatPoint, hubEdgePoint, hubCue, hubCatAct, hubOverride, cardRunningCount, hubCardState, hubStart, hubEnd, hubStop, withHubRuns, hubRowContext, renderHubRow, renderHubLinks, renderHubFooter, ensureHubTicker });
+export { loadHub, applyHubSettings, hubNameKey, renderHubCalling, saveHubAccess, renderHubSystem, addHubFolder, removeHubFolder, setHubLimit, hubRefresh, applyHubChange, hubGroupKey, hubNameOf, hubCardOf, hubCatPoint, hubEdgePoint, hubCue, hubCatAct, hubOverride, cardRunningCount, hubCardState, hubStart, hubEnd, hubStop, withHubRuns, hubRowContext, renderHubRow, renderHubLinks, renderHubFooter, ensureHubTicker, bindHubEvents };
+Object.assign(window, { loadHub, applyHubSettings, hubNameKey, renderHubCalling, saveHubAccess, renderHubSystem, addHubFolder, removeHubFolder, setHubLimit, hubRefresh, applyHubChange, hubGroupKey, hubNameOf, hubCardOf, hubCatPoint, hubEdgePoint, hubCue, hubCatAct, hubOverride, cardRunningCount, hubCardState, hubStart, hubEnd, hubStop, withHubRuns, hubRowContext, renderHubRow, renderHubLinks, renderHubFooter, ensureHubTicker, bindHubEvents });

@@ -89,8 +89,10 @@ test('所有账号都可删除，删除最后一个后空账本不会按平台�
     'function normalizeProfileList(profiles)',
     'function normalizeProfile(profile)'
   );
-  const removeClickStart = rendererSource.indexOf("els.removeProfileBtn.addEventListener('click'");
-  const removeClickEnd = rendererSource.indexOf("els.updateBtn.addEventListener('click'", removeClickStart);
+  // From the remove button's handler to the end of the catalog dialog bindings.
+  const catalogBindings = rendererFunction('bindCatalogDialogEvents');
+  const removeClickStart = catalogBindings.indexOf("els.removeProfileBtn.addEventListener('click'");
+  const removeClickEnd = catalogBindings.length;
   // The selected Agent's header and its launch button.
   const header = rendererFunction('renderAccountHeader') + rendererFunction('renderAccountCardLaunch');
   assert.ok(removeClickStart >= 0 && removeClickEnd > removeClickStart);
@@ -100,7 +102,7 @@ test('所有账号都可删除，删除最后一个后空账本不会按平台�
   assert.doesNotMatch(handler, /isProtected|profiles\.length/);
   assert.doesNotMatch(listNormalizer, /normalized\.(?:push|unshift)\(|hasLocal\w+Data/);
   assert.doesNotMatch(
-    rendererSource.slice(removeClickStart, removeClickEnd),
+    catalogBindings.slice(removeClickStart, removeClickEnd),
     /isProtected/
   );
   assert.doesNotMatch(

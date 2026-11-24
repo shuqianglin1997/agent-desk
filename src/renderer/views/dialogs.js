@@ -133,7 +133,48 @@ function bindContextMenuRules() {
   });
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindUtilityDialogEvents() {
+  els.activityCenterBtn?.addEventListener('click', async () => {
+    openUtilityDialog('activity');
+    renderAttentionInbox();
+    await Promise.all([loadTransfers(), loadTaskPackageHistory()]);
+  });
+
+  els.deviceCenterBtn?.addEventListener('click', async () => {
+    openUtilityDialog('devices');
+    await loadDeviceOverview({ requestSecureAccess: true });
+    ensureDeviceDetailForEntry();
+    renderDeviceCenter();
+  });
+
+  for (const [kind, button, dialog] of utilityDialogEntries()) {
+    // One close path updates UI context and the native dialog synchronously.
+    // It also avoids form validation or a delayed native close event retaining stale utility state.
+    const close = dialog?.querySelector('.utility-dialog-close');
+    if (close) {
+      close.type = 'button';
+      close.addEventListener('click', () => closeUtilityDialog(dialog));
+    }
+    dialog?.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeUtilityDialog(dialog);
+    });
+    dialog?.addEventListener('close', () => {
+      const wasCurrent = state.utilityDialog === kind;
+      button?.setAttribute('aria-expanded', 'false');
+      if (!dialog.open && state.utilityDialog === kind) state.utilityDialog = null;
+      if (wasCurrent) {
+        requestAnimationFrame(() => {
+          if (!document.querySelector('dialog:modal')) utilityDialogFocusTarget(button)?.focus({ preventScroll: true });
+        });
+      }
+    });
+  }
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { bindContextMenuRules, closeContextMenu, openDialog, captureChildDialogReturnFocus, openChildDialog, utilityDialogEntries, closeUtilityDialogs, closeUtilityDialog, utilityDialogFocusTarget, openUtilityDialog };
-Object.assign(window, { bindContextMenuRules, closeContextMenu, openDialog, captureChildDialogReturnFocus, openChildDialog, utilityDialogEntries, closeUtilityDialogs, closeUtilityDialog, utilityDialogFocusTarget, openUtilityDialog });
+export { bindContextMenuRules, closeContextMenu, openDialog, captureChildDialogReturnFocus, openChildDialog, utilityDialogEntries, closeUtilityDialogs, closeUtilityDialog, utilityDialogFocusTarget, openUtilityDialog, bindUtilityDialogEvents };
+Object.assign(window, { bindContextMenuRules, closeContextMenu, openDialog, captureChildDialogReturnFocus, openChildDialog, utilityDialogEntries, closeUtilityDialogs, closeUtilityDialog, utilityDialogFocusTarget, openUtilityDialog, bindUtilityDialogEvents });

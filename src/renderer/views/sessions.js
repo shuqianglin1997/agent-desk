@@ -474,7 +474,71 @@ function sessionAccountCount(sessions) {
   )).filter(Boolean)).size;
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindSessionTableEvents() {
+  els.rosterAllCard?.addEventListener('click', () => {
+    void pickRosterAll();
+  });
+
+  els.sessionCompactBtn?.addEventListener('click', () => {
+    setSessionView('compact');
+  });
+
+  els.sessionDetailBtn?.addEventListener('click', () => {
+    setSessionView('detail');
+  });
+
+  els.searchInput.addEventListener('input', () => {
+    state.query = els.searchInput.value.trim().toLowerCase();
+    applySessionFilter();
+  });
+
+  els.clearSessionFiltersBtn?.addEventListener('click', () => {
+    sessionMarks.clearFilters();
+    state.query = '';
+    els.searchInput.value = '';
+    applySessionFilter();
+  });
+
+  for (const button of document.querySelectorAll('[data-session-order]')) {
+    button.addEventListener('click', () => {
+      const next = button.dataset.sessionOrder;
+      closeContextMenu(els.sessionDisplayMenu);
+      sessionMarks.setOrder(next);
+      if (next === state.sessionOrder) return;
+      state.sessionOrder = sessionMarks.currentOrder();
+      persistSettings({ sessionOrder: state.sessionOrder });
+      applySessionFilter();
+    });
+  }
+
+  els.markAllSeenBtn?.addEventListener('click', async () => {
+    closeContextMenu(els.sessionDisplayMenu);
+    const n = await sessionMarks.markSeen(state.sessions.filter((session) => sessionMarks.isFresh(session)));
+    setStatus(tr('marks.status.allSeen', { n }));
+  });
+
+  els.tagCheckedSessionsBtn?.addEventListener('click', (event) => {
+    sessionMarks.openPicker(checkedMarkKeys(), event.currentTarget);
+  });
+
+  // 选中一行后按 1–5 打标签，0 去掉；打字、弹窗和别处的焦点不受影响。
+  document.addEventListener('keydown', (event) => {
+    if (!/^[0-5]$/.test(event.key) || event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
+    const target = event.target instanceof Element ? event.target : document.body;
+    if (target.matches('input:not([type="checkbox"]), textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+    if (target.closest('[popover]') || document.querySelector('dialog[open]')) return;
+    if (target !== document.body && !els.sessionPane?.contains(target)) return;
+    const focused = state.ui.focusedConversationId;
+    const session = focused && state.filteredSessions.find((item) => sessionKey(item) === focused);
+    if (!session || session._hubRun) return;
+    event.preventDefault();
+    void sessionMarks.setTag(markTargets(session), Number(event.key));
+  });
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { setSessionView, renderSessionControls, applySessionFilter, sessionColumns, setAllVisibleSessionsSelected, clearSessionActionSelection, setSessionChecked, focusSession, renderSessionHead, renderSessions, fitSessionToolbar, renderSessionCell, sessionAccountCount };
-Object.assign(window, { setSessionView, renderSessionControls, applySessionFilter, sessionColumns, setAllVisibleSessionsSelected, clearSessionActionSelection, setSessionChecked, focusSession, renderSessionHead, renderSessions, fitSessionToolbar, renderSessionCell, sessionAccountCount });
+export { setSessionView, renderSessionControls, applySessionFilter, sessionColumns, setAllVisibleSessionsSelected, clearSessionActionSelection, setSessionChecked, focusSession, renderSessionHead, renderSessions, fitSessionToolbar, renderSessionCell, sessionAccountCount, bindSessionTableEvents };
+Object.assign(window, { setSessionView, renderSessionControls, applySessionFilter, sessionColumns, setAllVisibleSessionsSelected, clearSessionActionSelection, setSessionChecked, focusSession, renderSessionHead, renderSessions, fitSessionToolbar, renderSessionCell, sessionAccountCount, bindSessionTableEvents });

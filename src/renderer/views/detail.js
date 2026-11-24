@@ -111,7 +111,48 @@ async function syncRemoteSurfaceLayout() {
   }
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindRemoteEvents() {
+  if (offersMainEvent('onRemoteControlsChanged')) {
+    onMainEvent('onRemoteControlsChanged', (sessions) => {
+      const previousActiveSessionId = state.ui.activeRemoteSessionId;
+      state.mesh.remoteSessions = Array.isArray(sessions) ? sessions : [];
+      const outgoingIds = state.mesh.remoteSessions
+        .filter((item) => item.direction === 'outgoing')
+        .map((item) => item.sessionId);
+      state.ui = previousActiveSessionId && !outgoingIds.includes(previousActiveSessionId)
+        ? window.UiContext.disconnectRemote(state.ui, previousActiveSessionId, outgoingIds)
+        : window.UiContext.clearInvalid(state.ui, { validRemoteSessionIds: outgoingIds });
+      if (state.ui.workspaceMode === 'remote' && !outgoingIds.length) {
+        setWorkspaceMode('sessions', { remoteAlreadyReleased: true });
+      }
+      const failed = state.mesh.remoteSessions.find((item) => (
+        item.direction === 'outgoing'
+        && ['error', 'rejected'].includes(item.state)
+        && item.reason
+      ));
+      if (failed) setStatus(remoteErrorText(failed.reason, failed.deviceName));
+      renderDeviceCenter();
+      renderRemoteActivity();
+      renderTopbarContext();
+    });
+  }
+
+  if (offersMainEvent('onRemoteControlReturn')) {
+    onMainEvent('onRemoteControlReturn', (value = {}) => {
+      const destination = state.ui.workspaceMode === 'remote'
+        ? (state.detailBeforeRemote || 'sessions')
+        : state.detailMode;
+      state.ui = window.UiContext.returnFromRemote(state.ui, value.activeSessionId);
+      setWorkspaceMode(destination, { remoteAlreadyReleased: true });
+      renderRemoteActivity();
+      renderTopbarContext();
+    });
+  }
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { mountWorkspaceSurfaces, setDetailMode, setWorkspaceMode, renderRemoteActivity, scheduleRemoteSurfaceLayout, syncRemoteSurfaceLayout };
-Object.assign(window, { mountWorkspaceSurfaces, setDetailMode, setWorkspaceMode, renderRemoteActivity, scheduleRemoteSurfaceLayout, syncRemoteSurfaceLayout });
+export { mountWorkspaceSurfaces, setDetailMode, setWorkspaceMode, renderRemoteActivity, scheduleRemoteSurfaceLayout, syncRemoteSurfaceLayout, bindRemoteEvents };
+Object.assign(window, { mountWorkspaceSurfaces, setDetailMode, setWorkspaceMode, renderRemoteActivity, scheduleRemoteSurfaceLayout, syncRemoteSurfaceLayout, bindRemoteEvents });

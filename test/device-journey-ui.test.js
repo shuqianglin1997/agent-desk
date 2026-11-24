@@ -39,7 +39,8 @@ test('身份、信任、连接、目录、库存按独立步骤呈现', () => {
 
 test('普通添加与加入入口进入任务向导，30 分钟接收只留在高级更多菜单', () => {
   assert.match(html, /id="deviceCenterMoreMenu"[\s\S]*?id="receiveConnectionsBtn"/);
-  const bind = bodyOf('bindEvents', 'updateUi');
+  // bindEvents and the bind…Events parts it calls, in the view modules.
+  const bind = rendererSource().match(/^function bind\w*Events\(\) \{\n[\s\S]*?^\}/gm).join('\n');
   assert.match(bind, /showJoinMeshBtn[\s\S]*?openDeviceJourney\('join'/);
   assert.match(bind, /createDeviceInviteBtn[\s\S]*?openDeviceJourney\('host'/);
   const journey = html.slice(html.indexOf('id="deviceJourneyDialog"'), html.indexOf('id="devicePermissionsDialog"'));

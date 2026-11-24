@@ -107,7 +107,33 @@ function finishUpdateButton(label, title, className) {
   }, 2200);
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindUpdateEvents() {
+  els.updateBtn.addEventListener('click', async () => {
+    await handleUpdateClick();
+  });
+
+  onMainEvent('onUpdateProgress', (progress) => {
+    handleUpdateProgress(progress);
+  });
+
+  if (offersMainEvent('onProfileRuntimeIncident')) onMainEvent('onProfileRuntimeIncident', (incident) => {
+    if (incident?.reason === 'crashpad-burst-contained') {
+      setStatus(tr('status.crashpadContained'));
+    } else if (incident?.reason === 'crashpad-repeated-signature') {
+      setStatus(tr('status.crashpadFused'));
+    } else if (incident?.reason === 'crashpad-limit-pruned') {
+      setStatus(tr('status.crashpadPruned', { n: incident.removedFiles || 0 }));
+    }
+  });
+
+  if (offersMainEvent('onProfileQuitBlocked')) onMainEvent('onProfileQuitBlocked', () => {
+    setStatus(tr('status.profileQuitBlocked'));
+  });
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { handleUpdateClick, handleUpdateProgress, finishUpdateButton };
-Object.assign(window, { handleUpdateClick, handleUpdateProgress, finishUpdateButton });
+export { handleUpdateClick, handleUpdateProgress, finishUpdateButton, bindUpdateEvents };
+Object.assign(window, { handleUpdateClick, handleUpdateProgress, finishUpdateButton, bindUpdateEvents });

@@ -924,7 +924,88 @@ function taskPackageErrorText(code) {
   return tr('taskPackage.error.generic', { code: value });
 }
 
+// Part of the window's start-up bindings (bindEvents in src/renderer.js calls
+// these in their original order).
+function bindTaskPackageEvents() {
+  els.importTaskPackageBtn?.addEventListener('click', () => {
+    openTaskPackageImportDialog(els.importTaskPackageBtn);
+  });
+
+  els.taskPackageActionBtn?.addEventListener('click', async () => {
+    await openTaskPackageExportDialog(els.taskPackageActionBtn);
+  });
+
+  els.exportTaskPackageBtn?.addEventListener('click', async () => {
+    await exportCurrentTaskPackage();
+  });
+
+  for (const control of [els.taskPackageDeliveryPortable, els.taskPackageDeliveryDirect]) {
+    control?.addEventListener('change', () => {
+      if (!control.checked) return;
+      state.taskPackages.exportDelivery = control.value === 'direct' ? 'direct' : 'portable';
+      state.taskPackages.directTransfer = null;
+      renderTaskPackageDeliveryOptions();
+    });
+  }
+
+  els.taskPackageDirectTarget?.addEventListener('change', () => {
+    state.taskPackages.directTargetDeviceId = els.taskPackageDirectTarget.value || null;
+    renderTaskPackageDeliveryOptions();
+  });
+
+  els.taskPackageSwitchPortableBtn?.addEventListener('click', async () => {
+    await saveOrSwitchTaskPackageToPortable();
+  });
+
+  els.copyTaskPackageCodeBtn?.addEventListener('click', async () => {
+    const code = state.taskPackages.exportCode;
+    if (!code) return;
+    await window.manager.writeClipboard(code);
+    setTaskPackageStatus('export', tr('taskPackage.status.codeCopied'), 'idle');
+  });
+
+  els.chooseTaskPackageFileBtn?.addEventListener('click', async () => {
+    await chooseTaskPackageImportFile();
+  });
+
+  els.inspectTaskPackageBtn?.addEventListener('click', async () => {
+    await inspectTaskPackageImport();
+  });
+
+  els.commitTaskPackageBtn?.addEventListener('click', async () => {
+    await commitTaskPackageImport();
+  });
+
+  els.taskPackageDialog?.addEventListener('close', () => {
+    resetTaskPackageExportState();
+  });
+
+  for (const control of [els.taskPackageCloseBtn, els.taskPackageCancelBtn]) {
+    control?.addEventListener('click', () => {
+      if (!state.taskPackages.exportBusy) els.taskPackageDialog?.close('cancel');
+    });
+  }
+
+  els.taskPackageDialog?.addEventListener('cancel', (event) => {
+    if (state.taskPackages.exportBusy) event.preventDefault();
+  });
+
+  els.taskPackageImportDialog?.addEventListener('close', () => {
+    void cancelTaskPackageImportDraft();
+  });
+
+  for (const control of [els.taskPackageImportCloseBtn, els.taskPackageImportCancelBtn]) {
+    control?.addEventListener('click', () => {
+      if (!state.taskPackages.importBusy) els.taskPackageImportDialog?.close('cancel');
+    });
+  }
+
+  els.taskPackageImportDialog?.addEventListener('cancel', (event) => {
+    if (state.taskPackages.importBusy) event.preventDefault();
+  });
+}
+
 // Published by name while src/renderer.js is a classic script
 // (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { directTaskPackageTargets, renderTaskPackageDeliveryOptions, openTaskPackageExportDialog, resetTaskPackageExportState, renderTaskPackageExportPreview, exportCurrentTaskPackage, saveOrSwitchTaskPackageToPortable, openTaskPackageImportDialog, resetTaskPackageImportState, chooseTaskPackageImportFile, inspectTaskPackageImport, renderTaskPackageImportPreview, appendTaskPackagePreviewSection, commitTaskPackageImport, cancelTaskPackageImportDraft, clearTaskPackageImportInspection, lockTaskPackageDialog, loadTaskPackageHistory, handledIncomingTaskPackageTransferIds, incomingTaskPackageTransfers, pendingIncomingTaskPackageCount, renderIncomingTaskPackages, createIncomingTaskPackageCard, taskPackageTransferStateText, createTaskPackageTransferActions, acceptIncomingTaskPackage, rejectIncomingTaskPackage, prepareIncomingTaskPackage, saveTaskPackageTransferFallback, showTaskPackageFallbackResult, renderTaskPackageHistory, setTaskPackageStatus, taskPackageErrorText };
-Object.assign(window, { directTaskPackageTargets, renderTaskPackageDeliveryOptions, openTaskPackageExportDialog, resetTaskPackageExportState, renderTaskPackageExportPreview, exportCurrentTaskPackage, saveOrSwitchTaskPackageToPortable, openTaskPackageImportDialog, resetTaskPackageImportState, chooseTaskPackageImportFile, inspectTaskPackageImport, renderTaskPackageImportPreview, appendTaskPackagePreviewSection, commitTaskPackageImport, cancelTaskPackageImportDraft, clearTaskPackageImportInspection, lockTaskPackageDialog, loadTaskPackageHistory, handledIncomingTaskPackageTransferIds, incomingTaskPackageTransfers, pendingIncomingTaskPackageCount, renderIncomingTaskPackages, createIncomingTaskPackageCard, taskPackageTransferStateText, createTaskPackageTransferActions, acceptIncomingTaskPackage, rejectIncomingTaskPackage, prepareIncomingTaskPackage, saveTaskPackageTransferFallback, showTaskPackageFallbackResult, renderTaskPackageHistory, setTaskPackageStatus, taskPackageErrorText });
+export { directTaskPackageTargets, renderTaskPackageDeliveryOptions, openTaskPackageExportDialog, resetTaskPackageExportState, renderTaskPackageExportPreview, exportCurrentTaskPackage, saveOrSwitchTaskPackageToPortable, openTaskPackageImportDialog, resetTaskPackageImportState, chooseTaskPackageImportFile, inspectTaskPackageImport, renderTaskPackageImportPreview, appendTaskPackagePreviewSection, commitTaskPackageImport, cancelTaskPackageImportDraft, clearTaskPackageImportInspection, lockTaskPackageDialog, loadTaskPackageHistory, handledIncomingTaskPackageTransferIds, incomingTaskPackageTransfers, pendingIncomingTaskPackageCount, renderIncomingTaskPackages, createIncomingTaskPackageCard, taskPackageTransferStateText, createTaskPackageTransferActions, acceptIncomingTaskPackage, rejectIncomingTaskPackage, prepareIncomingTaskPackage, saveTaskPackageTransferFallback, showTaskPackageFallbackResult, renderTaskPackageHistory, setTaskPackageStatus, taskPackageErrorText, bindTaskPackageEvents };
+Object.assign(window, { directTaskPackageTargets, renderTaskPackageDeliveryOptions, openTaskPackageExportDialog, resetTaskPackageExportState, renderTaskPackageExportPreview, exportCurrentTaskPackage, saveOrSwitchTaskPackageToPortable, openTaskPackageImportDialog, resetTaskPackageImportState, chooseTaskPackageImportFile, inspectTaskPackageImport, renderTaskPackageImportPreview, appendTaskPackagePreviewSection, commitTaskPackageImport, cancelTaskPackageImportDraft, clearTaskPackageImportInspection, lockTaskPackageDialog, loadTaskPackageHistory, handledIncomingTaskPackageTransferIds, incomingTaskPackageTransfers, pendingIncomingTaskPackageCount, renderIncomingTaskPackages, createIncomingTaskPackageCard, taskPackageTransferStateText, createTaskPackageTransferActions, acceptIncomingTaskPackage, rejectIncomingTaskPackage, prepareIncomingTaskPackage, saveTaskPackageTransferFallback, showTaskPackageFallbackResult, renderTaskPackageHistory, setTaskPackageStatus, taskPackageErrorText, bindTaskPackageEvents });
