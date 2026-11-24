@@ -451,7 +451,9 @@ class ProfileRuntimeSupervisor {
 
   recentRecords() {
     if (this.lastSnapshot && this.now() - this.lastSnapshot.at <= this.limits.pollIntervalMs + 500) return this.lastSnapshot.records;
-    const records = this.snapshotSync();
+    let records = this.snapshotSync();
+    // An asynchronous source cannot answer here: unknown, never a guess.
+    if (records && typeof records.then === 'function') { records.catch?.(() => {}); records = null; }
     this.lastSnapshot = { at: this.now(), records: Array.isArray(records) ? records : null };
     return this.lastSnapshot.records;
   }

@@ -1,7 +1,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-function resolveLocalSessions(input, profiles, getApp) {
+const { findSession } = require('../session-index');
+
+// rowsOf(profile, client): the profile's rows; by default a scan through its client.
+function resolveLocalSessions(input, profiles, getApp, rowsOf = (profile, client) => client.scan(profile)) {
   const refs = Array.isArray(input?.selections) ? input.selections : [input];
   if (!refs.length) throw new Error('no-session-selection');
   const owners = new Map(profiles.map((profile) => [String(profile.id), profile]));
@@ -19,16 +22,10 @@ function resolveLocalSessions(input, profiles, getApp) {
     const profile = owners.get(profileId);
     if (!profile) throw new Error('session-not-found');
     const client = getApp(profile.appId);
-    if (!scans.has(profileId)) {
-      const sessions = new Map();
-      for (const record of client.scan(profile)) {
-        const id = String(record.id);
-        sessions.set(id, sessions.has(id) ? null : record);
-      }
-      scans.set(profileId, sessions);
-    }
-    const session = scans.get(profileId).get(sessionId);
-    if (!session) throw new Error('session-not-found');
+    if (!scans.has(profileId)) scans.set(profileId, rowsOf(profile, client));
+    // One lookup (src/session-index.js): by id; two records with the id are not a match.
+    const session = findSession(scans.get(profileId), sessionId, { key: 'id', unique: true });
+    if (!session || session.ambiguous) throw new Error('session-not-found');
     return [{ profile, session, client, ref: { profileId, sessionId } }];
   });
 }

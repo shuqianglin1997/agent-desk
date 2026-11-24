@@ -4,6 +4,7 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const apps = require('../apps');
+const { findSession } = require('../session-index');
 const { readJsonStore, writeJsonStore } = require('../json-store');
 const {
   TASK_PACKAGE_SCHEMA_VERSION,
@@ -28,6 +29,8 @@ const MAX_GIT_SNAPSHOT_ATTEMPTS = 3;
 class TaskPackageService {
   constructor(options = {}) {
     this.profileProvider = options.profileProvider || (() => []);
+    // A profile's session rows; by default a scan through its client.
+    this.sessionRows = options.sessionRows || ((profile) => apps.getApp(profile.appId).scan(profile));
     this.meshOverviewProvider = options.meshOverviewProvider || (() => null);
     this.historyFile = path.resolve(options.historyFile || path.join(os.tmpdir(), 'agentdesk-task-package-history.json'));
     this.consumedFile = path.resolve(options.consumedFile || path.join(
@@ -464,8 +467,8 @@ class TaskPackageService {
   resolveLocalSession(profileId, sessionId) {
     const profile = this.profileProvider().find((item) => item.id === String(profileId || ''));
     if (!profile) throw new Error('task-package-source-profile');
-    const session = apps.getApp(profile.appId).scan(profile)
-      .find((item) => String(item.id) === String(sessionId || ''));
+    // One lookup (src/session-index.js): by id, first match.
+    const session = findSession(this.sessionRows(profile), sessionId, { key: 'id' });
     if (!session) throw new Error('task-package-source-session');
     return { profile, session };
   }

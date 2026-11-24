@@ -10,6 +10,7 @@ const apps = require('../apps');
 const locations = require('../session-location');
 const { TOOL_IDS, discoverCli } = require('../cli-discovery');
 const { provisioningAdapterDescriptor } = require('../mesh/main/provisioning-adapters');
+const { findSession } = require('../session-index');
 
 class InterfaceError extends Error {
   // `extra` carries explicit, non-sensitive fields such as the candidates of
@@ -262,10 +263,10 @@ function execute(command, options = {}) {
   if (command === 'profiles inspect') return inspectProfile(profile);
   const sessions = scanProfile(profile);
   if (command === 'sessions locate' || command === 'sessions read') {
-    const matches = sessions.filter((session) => sessionId(session) === options.session);
-    if (!matches.length) throw new InterfaceError('session-not-found', 'No session matches that ID in the selected Profile scan.', 3);
-    if (matches.length !== 1) throw new InterfaceError('session-ambiguous', 'The adapter returned multiple records for that ID. No source was guessed.', 4);
-    const session = matches[0];
+    // One lookup (src/session-index.js): by address, two matches are ambiguous.
+    const session = findSession(sessions, options.session, { key: 'address', unique: true });
+    if (!session) throw new InterfaceError('session-not-found', 'No session matches that ID in the selected Profile scan.', 3);
+    if (session.ambiguous) throw new InterfaceError('session-ambiguous', 'The adapter returned multiple records for that ID. No source was guessed.', 4);
     if (command === 'sessions read') {
       const exporter = apps.getApp(profile.appId).exportTranscript;
       if (typeof exporter !== 'function') throw new InterfaceError('transcript-unsupported', 'This client does not have a transcript parser. Use sessions locate for its local record.', 5);

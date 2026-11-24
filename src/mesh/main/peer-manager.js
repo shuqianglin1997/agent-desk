@@ -32,6 +32,8 @@ class PeerManager {
     this.BrowserWindow = options.BrowserWindow;
     this.ipcMain = options.ipcMain;
     this.peerDirectory = options.peerDirectory;
+    // Called before building the inventory a peer receives (Main refreshes its session index).
+    this.beforeInventorySnapshot = typeof options.beforeInventorySnapshot === 'function' ? options.beforeInventorySnapshot : null;
     this.meshService = options.meshService;
     this.sendSignal = options.sendSignal;
     this.iceServersProvider = options.iceServersProvider || (() => []);
@@ -846,6 +848,10 @@ class PeerManager {
     this.assertContextActive(context, generation);
     this.requireCurrentCapability(context, 'inventory.read');
     context.lastInventorySnapshotStartedAt = Date.now();
+    if (this.beforeInventorySnapshot) {
+      await this.beforeInventorySnapshot();
+      this.assertContextActive(context, generation);
+    }
     const inventory = this.meshService.createInventorySnapshot({
       includeLegacyCatalogProjection: !this.supportsProtocolFeature(
         context,

@@ -28,9 +28,15 @@ const { spawn, spawnSync, execFileSync } = require('node:child_process');
 const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const apps = require('./apps');
+const { createSessionIndex, registryScan } = require('./session-index');
+
+// Every Main-side reader of a profile's sessions goes through the index (src/session-index.js).
+const sessionIndex = createSessionIndex({ scan: registryScan(apps) });
+// A user action on chosen sessions re-reads them: a fresh scan, as before.
+const freshRowsOf = (profile) => sessionIndex.rowsSync(profile, { maxAgeMs: -1 });
 const { identityFingerprint } = require('./identity');
 const { probeActivities } = require('./activity');
-const { isDefaultWindowsAppRunning, isRunningIn, profileRunningSignal, snapshotProcesses, processText } = require('./process');
+const { isDefaultWindowsAppRunning, isRunningIn, profileRunningSignal, snapshotProcesses, snapshotProcessRecords, processText } = require('./process');
 const { createProcessSnapshots } = require('./process-snapshots');
 
 // One process list for the whole app (activity, runtime supervisor).
@@ -509,7 +515,9 @@ function registerIpc() {
     }));
   });
 
-  ipcMain.handle('devices:list', (_event, input = {}) => {
+  ipcMain.handle('devices:list', async (_event, input = {}) => {
+    // Session counts come from the index; refresh it once (shared with the list).
+    await sessionIndex.refresh(loadProfiles()).catch(() => null);
     const requestSecureAccess = input?.requestSecureAccess === true;
     const deferKeyAccess = deferSecureMeshStartup
       && !secureMeshAccessUnlocked
@@ -1070,7 +1078,9 @@ function registerIpc() {
     }
   });
 
-  ipcMain.handle('remoteInventory:listSessions', () => {
+  ipcMain.handle('remoteInventory:listSessions', async () => {
+    // Local rows come from the index; refresh it once, then the inventory reads them.
+    await sessionIndex.refresh(loadProfiles()).catch(() => null);
     return meshCall(() => getMeshService().getUnifiedSessions(), 'sessions');
   });
 
@@ -1607,7 +1617,7 @@ function registerIpc() {
   });
 
   registerLocalReadIpc({
-    ipcMain, loadProfiles, apps, boundedText, revealSessionFile, exportSessionTranscript,
+    ipcMain, loadProfiles, listSessions: (profile) => sessionIndex.rows(profile), boundedText, revealSessionFile, exportSessionTranscript,
     listSessionDirectories, openSessionDirectory,
     probeActivities, sessionMarksFreshContext,
     snapshotProcesses: async () => processText(await processSnapshots.records({ maxAgeMs: 1000 })),
@@ -1985,7 +1995,8 @@ function hubEnergy(snapshot) {
 function hubLocateSession(profile, sessionId) {
   const app_ = apps.getApp(profile.appId);
   if (app_.sessionScanSupported === false) return null;
-  const match = app_.scan(profile).find((session) => String(session.address || session.id || '') === sessionId);
+  // Just written by the run: always a fresh scan, through the index's one lookup.
+  const match = sessionIndex.findSync(profile, sessionId, { key: 'address', maxAgeMs: -1 });
   return match?.filePath || null;
 }
 
@@ -2225,8 +2236,9 @@ function getMeshService() {
         launchable: launchPlan.ok
       };
     }),
-    sessionCountProvider: (profile) => apps.getApp(profile.appId).scan(profile).length,
-    sessionsProvider: (profile) => apps.getApp(profile.appId).scan(profile),
+    // The index's rows; a profile it has never scanned is scanned once here.
+    sessionCountProvider: (profile) => sessionIndex.rowsSync(profile).length,
+    sessionsProvider: (profile) => sessionIndex.rowsSync(profile),
     appVersion: app.getVersion(),
     platform: process.platform,
     arch: process.arch,
@@ -2391,6 +2403,8 @@ function getPeerManager() {
     BrowserWindow,
     ipcMain: electronIpcMain,
     peerDirectory: path.join(__dirname, 'mesh', 'peer'),
+    // The inventory sent to a peer reads the index; refresh it first.
+    beforeInventorySnapshot: () => sessionIndex.refresh(loadProfiles()).catch(() => null),
     meshService: getMeshService(),
     sendSignal: (remote, envelope) => sendPeerSignalWithFallback(remote, envelope),
     iceServersProvider: () => publicIceServers(),
@@ -2533,6 +2547,7 @@ function getTaskPackageService() {
   const userData = app.getPath('userData');
   taskPackageService = new TaskPackageService({
     profileProvider: () => loadProfiles(),
+    sessionRows: freshRowsOf,
     meshOverviewProvider: () => {
       if (meshService) return meshService.getOverview();
       if (!fs.existsSync(path.join(userData, 'mesh.db'))) return null;
@@ -3481,6 +3496,8 @@ function getProfileRuntimeSupervisor() {
   profileRuntimeSupervisor = new ProfileRuntimeSupervisor({
     stateFile: profileRuntimeStateFile(),
     snapshotProcessRecords: (options) => processSnapshots.records(options),
+    // status() after a launch, or before the first tick, collects synchronously.
+    snapshotProcessRecordsSync: snapshotProcessRecords,
     isManagedProfile: (profile) => isManagedProfilePath(profile?.profilePath),
     onIncident: (incident) => {
       if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -3838,7 +3855,7 @@ function diagnoseProfile(profile) {
     ...area,
     ...inspectPath(area.path, { createable: false })
   }));
-  const sessions = app_.scan(profile);
+  const sessions = sessionIndex.rowsSync(profile, { maxAgeMs: -1 });
   const warnings = [];
   const defaultProfile = apps.defaultProfilePathInfo(profile.appId);
   const migration = windowsMigrationInfo(profile);
@@ -4998,7 +5015,7 @@ function shouldCopyProfileItem(sourcePath) {
 
 function listSessionDirectories(input) {
   try {
-    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp);
+    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp, freshRowsOf);
     return { ok: true, directories: sessionDirectories(records) };
   } catch (_error) {
     return { ok: false, reason: t('main.sessionActions.directoryUnavailable') };
@@ -5024,7 +5041,7 @@ async function openSessionDirectory(input) {
 async function exportSessionTranscript(input) {
   let exported;
   try {
-    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp);
+    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp, freshRowsOf);
     const unsupported = records.find(({ client }) => typeof client.exportTranscript !== 'function');
     if (unsupported) return { ok: false, reason: t('main.exp.notSupported', { label: unsupported.client.label }) };
     exported = await prepareSessionExport(records, { attachmentsHeading: t('main.sessionActions.attachments') });
@@ -5061,8 +5078,7 @@ async function revealSessionFile(input) {
   const profile = profiles.find((item) => item.id === boundedText(input?.profileId, 128));
   if (!profile) return { ok: false, reason: t('main.err.slotNotFoundDot') };
 
-  const sessions = apps.getApp(profile.appId).scan(profile);
-  const refreshed = sessions.find((session) => session.id === boundedText(input?.sessionId, 256));
+  const refreshed = await sessionIndex.find(profile, boundedText(input?.sessionId, 256), { key: 'id', maxAgeMs: 0 });
   const itemPath = refreshed?.filePath || null;
   const result = await revealPath(itemPath, profile.sessionRoot);
   if (!refreshed && result.ok) {
