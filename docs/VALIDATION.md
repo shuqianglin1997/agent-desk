@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 6 阶段第 9 批：九块功能原样拆成原生模块（`src/renderer/views/` 下 first-use、agent-manage、catalog-dialogs、updates、quota、cat-customizer、diagnostics、hub、desk，共 130 个函数），renderer.js 8476 → 5658 行。renderer.js 加载时交给工具页、招募、会话记号的函数改为调用时再找；验收脚本替换首次准备的那一步改经 first-use 模块里的 `replaceContinueFirstPreparation`。还被 renderer.js 用到的三项状态留在原处。隐藏窗口验收 26 条路径通过，66 张截图与基准逐像素相同，读接口形状不变。
+
 2026-11-24 架构整理第 6 阶段第 8 批：主进程的变化通知经状态仓库到各视图。`src/renderer/views/main-events.js` 在 `bindEvents` 一开始把主进程发给窗口的 15 种事件（开灯事件仍由 `pixel/boot.js` 自己听）各接成仓库主题 `main:<preload 方法>`；原来直接挂在 `window.manager.on…` 上的 15 段处理改成订阅这些主题，内容与各自的“这个 preload 有没有这项”判断不变。新测试 3 项（事件表与主题一一对应、事件带着内容到订阅者、视图不再直接挂主进程）；两个钉住旧写法的测试改认新写法。隐藏窗口验收 26 条路径通过，66 张截图与基准逐像素相同。
 
 2026-11-24 架构整理第 6 阶段第 7 批：对话框、菜单、浮层各一种做法，落在 `src/renderer/views/dialogs.js`。弹窗只经 `openDialog` 显示（原来 12 处直接调用 `showModal()`，招募弹窗经依赖拿到同一个），子弹窗与顶栏三页仍是它的两种用法；菜单只经 `closeContextMenu` 关，三条规则（点外面、选一项、Esc）从 `bindEvents` 移到 `bindContextMenuRules`，在原来的位置登记；浮层本来就都是浏览器的 popover，不改。DOM 与类名没动。新测试 3 项看住这三件事；五个钉住 `showModal()` 文字的测试改认 `openDialog(...)`，含义不变。隐藏窗口验收 26 条路径通过，66 张截图与基准逐像素相同。
