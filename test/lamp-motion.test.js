@@ -461,7 +461,7 @@ test('接线：窗口底色是夜色，关客户端前降灯、被拦下亮灯�
   assert.match(beforeQuit, /onStopped: \(profileId\) => windowLamp\.send\(\{ step: 'closed'/);
   assert.equal((beforeQuit.match(/windowLamp\.relight\(\);/g) || []).length, 2, '两条拦下退出的路都重新亮灯');
   assert.ok(beforeQuit.indexOf('windowLamp.holdQuit(event') < beforeQuit.indexOf('appQuitting = true;'));
-  assert.ok(beforeQuit.indexOf('appQuitting = true;') < beforeQuit.indexOf('profileRuntimeSupervisor?.stopMonitoring();'));
+  assert.ok(beforeQuit.indexOf('appQuitting = true;') < beforeQuit.indexOf("mainOwner.shutdown('app-quit')"));
   // The window's lamp calls are commands; Main hands them the lamp.
   assert.match(main, /commandDepsCache = \{[\s\S]*?\bwindowLamp\b[\s\S]*?\};/);
   const preload = read('src/preload.js');

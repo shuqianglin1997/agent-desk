@@ -176,6 +176,18 @@ function resolveCodexCli(options = {}) {
   return null;
 }
 
+// The app-server children answering a quota request right now. Each closes
+// its standard input when it answers; quitting AgentDesk stops the rest.
+const LIVE_APP_SERVERS = new Set();
+
+function liveAppServers() {
+  return LIVE_APP_SERVERS.size;
+}
+
+function stopAppServers() {
+  for (const live of [...LIVE_APP_SERVERS]) live.stop();
+}
+
 function queryCodexAppServer(profile, options = {}) {
   const launcher = options.launcher || resolveCodexCli(options);
   if (!launcher) throw codedError('CODEX_CLI_NOT_FOUND', 'Codex CLI not found');
@@ -235,10 +247,14 @@ function queryCodexAppServer(profile, options = {}) {
     function finish(callback, value) {
       if (settled) return;
       settled = true;
+      LIVE_APP_SERVERS.delete(live);
       clearTimeout(timer);
       stopChild();
       callback(value);
     }
+    // Owned until it answers: quitting AgentDesk stops it (stopAppServers).
+    const live = { stop: () => finish(reject, codedError('CODEX_RPC_STOPPED', 'Codex app-server stopped because AgentDesk is quitting')) };
+    LIVE_APP_SERVERS.add(live);
 
     function send(message) {
       if (settled) return;
@@ -482,6 +498,8 @@ function friendlyCodexFailure(error) {
 
 module.exports = {
   RPC_TIMEOUT_MS,
+  liveAppServers,
+  stopAppServers,
   friendlyCodexFailure,
   targetTriple,
   codexCliCandidates,

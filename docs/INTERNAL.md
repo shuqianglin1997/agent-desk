@@ -69,6 +69,7 @@ Optional Signaling Gateway
 src/
   main.js                 Electron 生命周期、IPC 与可信系统操作
   commands/               命令表：窗口能向 Main 发起的每个操作是一条命令（标识、通道、调用它的 preload 方法、可选的 input/poll，以及 exec），按功能一个文件；registry.js 汇总并校验，events.js 是 Main 发给窗口的通知；命令不引用 Electron，Main 把用到的服务作为参数传入
+  main/owner.js           Main 的周期任务与资源的唯一归属：任务登记间隔、窗口隐藏时停不停；资源登记怎么停；退出时先停任务，再按登记顺序逐个开始停资源（不等慢的），包括还在回答额度的 codex app-server 子进程和扫描工作线程；运行监管每 2 秒一次的检查由它调度，窗口隐藏时照常跑
   main/ipc/command-shell.js  窗口 IPC 是命令表的薄壳：每条命令经 Main 的可信登记器注册；Main 用到的服务由 main.js 里 scripts/command-deps.js 生成的 commandDeps 交给命令
   preload.js              窄 IPC 桥
   renderer.js             UI 状态与交互

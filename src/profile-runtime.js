@@ -367,6 +367,13 @@ class ProfileRuntimeSupervisor {
       ? options.isManagedProfile
       : () => false;
     this.limits = { ...DEFAULT_LIMITS, ...(options.limits || {}) };
+    // The periodic tick: Main hands in its owner's scheduler (src/main/owner.js);
+    // it must keep running while the window is hidden (disk and process guard).
+    this.schedule = typeof options.schedule === 'function' ? options.schedule : (run, ms) => {
+      const timer = setInterval(run, ms);
+      timer.unref?.();
+      return { cancel: () => clearInterval(timer) };
+    };
     this.onIncident = typeof options.onIncident === 'function' ? options.onIncident : () => {};
     this.maintainHistory = options.maintainHistory || ((profile, opts) => historyUpkeepOf(profile).run(profile, opts));
     this.historyMaintenance = new Map();
@@ -433,13 +440,12 @@ class ProfileRuntimeSupervisor {
       // An unexpected failure must not become an unhandled Main rejection;
       // the next interval retries without weakening the fuse or path boundary.
     });
-    this.timer = setInterval(runTick, this.limits.pollIntervalMs);
-    this.timer.unref?.();
+    this.timer = this.schedule(runTick, this.limits.pollIntervalMs);
     runTick();
   }
 
   stopMonitoring() {
-    if (this.timer) clearInterval(this.timer);
+    if (this.timer) this.timer.cancel();
     this.timer = null;
   }
 

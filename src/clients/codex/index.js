@@ -113,7 +113,9 @@ module.exports = {
   quota: Object.freeze({
     read: (profile, options) => codexQuota.readCodexQuota(profile, options),
     readCached: (profile) => codexQuota.readCachedCodexQuota(profile),
-    failureReason: (error) => codexQuota.friendlyCodexFailure(error)
+    failureReason: (error) => codexQuota.friendlyCodexFailure(error),
+    // The app-server children still answering; stopped when AgentDesk quits.
+    stopAll: () => codexQuota.stopAppServers()
   }),
   // A Codex home stands on its own (no desktop data folder needed); <home>/.codex
   // is the official default. Registering one from the command line requires
