@@ -4,14 +4,16 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'local-reads.js'), 'utf8');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
+
+const main = mainHandlerSource();
 const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
 
 test('额度 IPC 与 8 秒 activity 探测分离，并支持手动 force', () => {
-  assert.match(main, /channel: 'quota:all'/);
-  assert.match(main, /quotaService\.getAll\(await loadProfiles\(\), \{/);
+  assert.match(main, /ipcMain\.handle\('quota:all'/);
+  assert.match(main, /quotaService\.getAll\(await refreshProfiles\(\), \{/);
   assert.match(main, /force: options\.force === true/);
-  assert.match(main, /clientVersion: getVersion\(\)/);
+  assert.match(main, /clientVersion: appVersion\(\)/);
   assert.match(preload, /listQuotas: \(options = \{\}\) => ipcRenderer\.invoke\('quota:all', options\)/);
 });
 

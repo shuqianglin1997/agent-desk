@@ -6,6 +6,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -46,7 +47,7 @@ test('the dossier switches act only on the expanded local location and only thro
 });
 
 test('Main exposes caller names and switches per account, nothing else, and refuses unsupported clients', () => {
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const accounts = main.slice(main.indexOf('function hubAccounts()'), main.indexOf('function hubPublicState()'));
   assert.match(accounts, /const names = hubCatNames\(profiles\);/);
   assert.match(accounts, /return \{\s*id: String\(profile\.id\),\s*name: [^\n]+,\s*callable: access\.callable,\s*writable: access\.writable\s*\};/);
@@ -74,7 +75,7 @@ test('the System page holds allowed folders and the limit; folders come only fro
   assert.match(renderer, /window\.manager\.hubRemoveFolder\(id\)/);
   assert.doesNotMatch(renderer, /hubAddFolder\([^)]/);
   assert.match(read('src/preload.js'), /hubAddFolder: \(\) => ipcRenderer\.invoke\('hub:addFolder'\),/);
-  assert.match(read('src/main.js'), /ipcMain\.handle\('hub:addFolder', async \(\) => \{\s*const result = await dialog\.showOpenDialog\(mainWindow,/);
+  assert.match(mainHandlerSource(), /ipcMain\.handle\('hub:addFolder', async \(\) => \{\s*const result = await dialog\.showOpenDialog\(mainWindow,/);
   // 换语言时动态的那几行也换
   assert.match(renderer, /function rerenderLocalizedText\(\) \{[\s\S]*?renderHubSystem\(\);/);
 });

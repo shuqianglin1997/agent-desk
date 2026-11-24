@@ -3,7 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'local-reads.js'), 'utf8');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
+
+const mainSource = mainHandlerSource();
 const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
 
 function sourceBetween(startMarker, endMarker) {

@@ -23,6 +23,7 @@ const { MeshService } = require('../src/mesh/main/mesh-service');
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { readJsonStore, writeJsonStore } = require('../src/json-store');
 const { resolveProfileStore } = require('../src/main/profile-store-policy');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 const {
   normalizeTaskPackageSendInput,
   normalizeTaskPackageTransferInput
@@ -477,7 +478,7 @@ test('pairing IPC requires a prior inspection token and exact approval fields', 
 });
 
 test('main/preload source closes raw path, full-profile, sender and navigation bypasses', () => {
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
   assert.match(main, /const MAIN_DOCUMENT_PATH = resolvePackagedDocumentPath\(path\.join\(__dirname, 'index\.html'\)\);/);
   assert.match(main, /const MAIN_DOCUMENT_URL = pathToFileURL\(MAIN_DOCUMENT_PATH\)\.href;/);
@@ -486,8 +487,9 @@ test('main/preload source closes raw path, full-profile, sender and navigation b
   assert.match(main, /installMainWindowSecurity\(mainWindow/);
   assert.match(main, /profile-path-input-forbidden/);
   const localReads = fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'local-reads.js'), 'utf8');
-  assert.match(main, /registerCommandIpc\(\{ ipcMain, deps: \{\s*loadProfiles/);
-  assert.match(localReads, /sessions:list'[\s\S]*?loadProfiles\(\)[\s\S]*?input\.profileId/);
+  assert.match(main, /registerCommandIpc\(\{ ipcMain, deps: commandDeps \}\)/);
+  assert.match(main, /const refreshProfiles = \(\) => profileSnapshot\.profiles\(\);/);
+  assert.match(localReads, /sessions:list'[\s\S]*?refreshProfiles\(\)[\s\S]*?input\.profileId/);
   assert.doesNotMatch(localReads, /require\('electron'\)/);
   assert.match(main, /diagnostics:get'[\s\S]*?input\.profileId[\s\S]*?loadProfiles\(\)/);
   assert.doesNotMatch(main, /refreshed\?\.filePath \|\| input\.filePath/);

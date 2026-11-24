@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
@@ -33,7 +34,7 @@ test('设备入口并入设备视角下拉，设备中心使用独立模态弹�
 
 test('设备 IPC 只暴露固定语义，不提供通用 channel、命令、路径或凭据接口', () => {
   const preload = read('src/preload.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   for (const channel of [
     'devices:list',
     'devices:initialize',
@@ -62,7 +63,7 @@ test('设备 IPC 只暴露固定语义，不提供通用 channel、命令、路�
 
 test('Agent 目录与 Slot 管理只通过固定语义 IPC 暴露', () => {
   const preload = read('src/preload.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   for (const channel of [
     'agentCatalog:list',
     'agentCatalog:get',
@@ -93,7 +94,7 @@ test('Agent 目录与 Slot 管理只通过固定语义 IPC 暴露', () => {
 
 test('首次准备只暴露员工、设备、客户端枚举和确认状态，不接受路径或命令', () => {
   const preload = read('src/preload.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   for (const channel of [
     'agentDeployments:ensureReady',
     'agentDeployments:retryPreparation',
@@ -142,7 +143,7 @@ test('工作环境始终投影完整员工库，并用同一主按钮确保就�
 
 test('全局员工目录通过独立 catalog 通道同步，先于来源设备 inventory 完成', () => {
   const peer = read('src/mesh/main/peer-manager.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const service = read('src/mesh/main/mesh-service.js');
   assert.match(peer, /await context\.firstCatalog\.promise;[\s\S]*?await context\.firstInventory\.promise/);
   assert.match(peer, /sendCatalogSnapshot\(context\)[\s\S]*?'catalog\.snapshot', 'catalog\.manage'/);
@@ -156,7 +157,7 @@ test('远端已就绪与首次准备共用主按钮，只走窄语义 IPC', () =
   const html = read('src/index.html');
   const preload = read('src/preload.js');
   const renderer = read('src/renderer.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const capabilities = read('src/mesh/domain/capabilities.js');
   assert.match(capabilities, /'agent\.prepare': \{ defaultPaired: false, dangerous: true \}/);
   assert.match(html, /data-capability="agent\.prepare"/);
@@ -173,7 +174,7 @@ test('公网会合设置与诊断使用固定 IPC，界面不接收 TURN 长期�
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
   const preload = read('src/preload.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   assert.match(html, /id="networkSettingsBtn"[\s\S]*?id="meshNetworkDialog"/);
   assert.match(html, /id="meshSignalingUrls"[\s\S]*?id="meshStunUrls"/);
   assert.doesNotMatch(html, /id="[^"\n]*(turn|credential)|<(input|textarea)[^>]*(turn|credential)/i);
@@ -186,7 +187,7 @@ test('公网会合设置与诊断使用固定 IPC，界面不接收 TURN 长期�
 });
 
 test('局域网配对端口只在用户创建邀请后临时开启，取消邀请会立即关闭', () => {
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const html = read('src/index.html');
   assert.match(main, /ipcMain\.handle\('devices:createInvite',[\s\S]*?await openPairingEndpoint\(\)[\s\S]*?createInvite\(\)/);
   assert.match(main, /ipcMain\.handle\('devices:cancelInvite',[\s\S]*?await closePairingEndpoint\(\)/);
@@ -245,7 +246,7 @@ test('Agent 管理明确区分新 Agent、新账号绑定、新运行位置和�
 test('远控返回保留后台查看提示，断开才移除；错误按真实原因分类', () => {
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const service = read('src/mesh/main/remote-control-service.js');
   assert.match(html, /id="remoteActivityBtn"[^>]*aria-live="polite"/);
   assert.match(renderer, /function activeOutgoingRemoteSessions[\s\S]*?direction === 'outgoing'[\s\S]*?error', 'rejected', 'disconnected/);
@@ -270,7 +271,7 @@ test('会话发送从会话工具栏的“送出”发起，只提交稳定 ID�
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
   const preload = read('src/preload.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const activity = html.slice(html.indexOf('id="activityCenterDialog"'));
   const sessionPane = html.slice(html.indexOf('id="sessionPane"'), html.indexOf('id="detailPanel"'));
   assert.match(sessionPane, /id="sessionSendMenu"[\s\S]*?id="sendSessionInfoBtn"/);
@@ -299,7 +300,7 @@ test('文件传输路径只来自 Main 系统选择器，Renderer 只提交设�
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
   const preload = read('src/preload.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const sessionDialog = html.slice(
     html.indexOf('id="sessionSendDialog"'),
     html.indexOf('</dialog>', html.indexOf('id="sessionSendDialog"'))

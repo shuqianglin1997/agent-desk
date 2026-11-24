@@ -28,7 +28,12 @@ const { EVENTS } = require('./events');
 
 // Feature modules with implemented commands, in the order the list shows them.
 const FEATURE_MODULES = [
-  ['local-reads', require('./local-reads')]
+  ['local-reads', require('./local-reads')],
+  ['settings', require('./settings')],
+  ['tools', require('./tools')],
+  ['session-marks', require('./session-marks')],
+  ['profiles', require('./profiles')],
+  ['system', require('./system')]
 ];
 
 const ID = /^[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*$/;
@@ -91,17 +96,19 @@ function commandTable() {
   return cached;
 }
 
-// Runs one command: input, then poll, then exec.
-async function runCommand(command, deps, raw) {
+// Runs one command: input, then poll, then exec. `context` carries what the
+// caller adds (the IPC shell passes { event } for commands that answer the
+// sender, such as progress).
+async function runCommand(command, deps, raw, context = {}) {
   const input = typeof command.input === 'function' ? command.input(raw) : raw;
   if (typeof command.poll === 'function') {
-    const reason = await command.poll(deps, input);
+    const reason = await command.poll(deps, input, context);
     if (reason) {
       if (!REASON.test(String(reason))) throw new TypeError('command-reason-invalid');
       return typeof command.refuse === 'function' ? command.refuse(reason, input) : { ok: false, reasonCode: reason };
     }
   }
-  return command.exec(deps, input);
+  return command.exec(deps, input, context);
 }
 
 module.exports = { commandTable, runCommand, idOf, REASON };

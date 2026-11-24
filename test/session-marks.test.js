@@ -15,6 +15,7 @@ const { probeActivities, WRITING_WINDOW_MS } = require('../src/activity');
 const { mergeActivity } = require('../src/identity-groups');
 const { markKeyOf, keyOf } = require('../src/session-table');
 const YardCats = require('../src/yard/cats');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 function tmp(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-marks-'));
@@ -221,7 +222,7 @@ test('SessionMarksStore: past the limit, the oldest automatic seen marks go befo
 });
 
 test('session marks travel only through four narrow IPC channels', () => {
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
   for (const channel of ['sessionMarks:get', 'sessionMarks:setTag', 'sessionMarks:markSeen', 'sessionMarks:rename']) {
     assert.match(main, new RegExp(`ipcMain\\.handle\\('${channel}'`));

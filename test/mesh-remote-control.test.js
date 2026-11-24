@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 const {
   REMOTE_SDP_LIMIT,
@@ -101,7 +102,7 @@ test('远控使用主窗口内嵌沙箱 Surface、目标端确认与常驻停止
 });
 
 test('右下详情面板承载隔离远控 Surface，其他两个面板和普通 Renderer 安全边界不变', () => {
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const preload = read('src/preload.js');
   const renderer = read('src/renderer.js');
   const styles = read('src/workspace.css');

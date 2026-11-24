@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 function read(relativePath) {
   return fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
@@ -41,7 +42,7 @@ test('同 Mesh 直送复用同一导出与导入弹窗，并在活动中逐次�
 test('直送失败的便携回退由 Main 选择路径并只向 UI 返回一次密钥', () => {
   const renderer = read('src/renderer.js');
   const preload = read('src/preload.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   assert.match(preload, /saveTaskPackageFallback:[\s\S]*?taskPackages:savePortableFallback/);
   assert.match(main, /ipcMain\.handle\('taskPackages:savePortableFallback'[\s\S]*?showSaveDialog[\s\S]*?saveTaskPackageFallback/);
   assert.match(renderer, /saveTaskPackageTransferFallback[\s\S]*?showTaskPackageFallbackResult/);
@@ -76,7 +77,7 @@ test('接收方在选择目标 Agent 前能看到人工检查点、项目状态�
 
 test('任务包 IPC 保持窄桥接，Main 负责选择路径并重新解析 Profile 与 Session', () => {
   const preload = read('src/preload.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const apps = require('../src/apps');
   assert.match(preload, /previewTaskPackageExport:[\s\S]*?exportTaskPackage:[\s\S]*?sendTaskPackageToDevice:[\s\S]*?acceptIncomingTaskPackage:[\s\S]*?chooseTaskPackageImport:[\s\S]*?commitTaskPackageImport:/);
   assert.doesNotMatch(preload, /taskPackages:invoke|taskPackages:openPath/);

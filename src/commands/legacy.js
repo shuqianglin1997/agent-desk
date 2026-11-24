@@ -7,28 +7,6 @@
 //   [channel, preload method(s), where]
 
 const LEGACY = [
-  // apps
-  ['apps:list', 'listApps', 'src/main.js'],
-  // settings
-  ['settings:get', 'getSettings', 'src/main.js'],
-  ['settings:update', 'updateSettings', 'src/main.js'],
-  // updates
-  ['updates:check', 'checkForUpdates', 'src/main.js'],
-  ['updates:install', 'installUpdate', 'src/main.js'],
-  // tools
-  ['tools:scan', 'scanTools', 'src/main.js'],
-  ['tools:open', 'openTool', 'src/main.js'],
-  ['tools:update', 'updateTool', 'src/main.js'],
-  // profiles
-  ['profiles:list', 'listProfiles', 'src/main.js'],
-  ['profiles:add', 'addProfile', 'src/main.js'],
-  ['profiles:update', 'updateProfile', 'src/main.js'],
-  ['profiles:remove', 'removeProfile', 'src/main.js'],
-  ['profiles:migrateWindowsPath', 'migrateWindowsProfilePath', 'src/main.js'],
-  ['profiles:launch', 'launchProfile', 'src/main.js'],
-  ['profiles:runtimeStatus', 'getProfileRuntimeStatus', 'src/main.js'],
-  ['profiles:stop', 'stopProfile', 'src/main.js'],
-  ['profiles:cleanCrashpad', 'cleanProfileCrashpad', 'src/main.js'],
   // recruit
   ['recruit:discover', 'recruitDiscover', 'src/main/ipc/recruit.js'],
   ['recruit:discoverFolder', 'recruitDiscoverFolder', 'src/main/ipc/recruit.js'],
@@ -41,20 +19,6 @@ const LEGACY = [
   // credentials
   ['credentials:apply', 'applyProfileCredential', 'src/main.js'],
   ['credentials:status', 'getProfileCredentialStatus', 'src/main.js'],
-  // sessionMarks
-  ['sessionMarks:get', 'getSessionMarks', 'src/main.js'],
-  ['sessionMarks:setTag', 'setSessionTag', 'src/main.js'],
-  ['sessionMarks:markSeen', 'markSessionsSeen', 'src/main.js'],
-  ['sessionMarks:rename', 'renameSessionTag', 'src/main.js'],
-  // diagnostics
-  ['diagnostics:get', 'getDiagnostics', 'src/main.js'],
-  // system
-  ['system:pickDirectory', 'pickDirectory', 'src/main.js'],
-  ['system:pickFile', 'pickFile', 'src/main.js'],
-  ['system:showItem', 'showItem', 'src/main.js'],
-  ['system:openPath', 'openPath', 'src/main.js'],
-  // clipboard
-  ['clipboard:writeText', 'writeClipboard', 'src/main.js'],
   // window
   ['window:lampDone', 'windowLampDone', 'src/main/window-lamp.js'],
   ['window:showing', 'windowShowing', 'src/main/window-lamp.js'],

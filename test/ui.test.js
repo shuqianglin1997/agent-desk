@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 test('更新按钮归入系统页的设置一栏，Header 只保留收件箱和系统两个入口', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
@@ -128,7 +129,7 @@ test('右下区域承载隔离远控，额度用浮层，会话操作归列表�
 test('会话编排边界已从 UI、preload、主进程和依赖中完整移除', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   const packageJson = fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8');
   const retiredFiles = ['runtime.js', 'acp-client.js', 'agent-registry.js', 'session-artifacts.js'];
 
@@ -193,7 +194,7 @@ test('不可 launch 的 CLI 槽位禁用打开按钮，账号卡片展示并行�
 
 test('同账号识别双通道：手动 identityKey 与自动登录指纹都构成分组', () => {
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   const groups = fs.readFileSync(path.join(__dirname, '..', 'src', 'identity-groups.js'), 'utf8');
   // 双通道归组逻辑收敛在 identity-groups.js（并查集），renderer 只消费组
   assert.match(groups, /profile\.identityKey/);
@@ -238,7 +239,7 @@ test('每张卡的运行位置独立，同一 Agent 内切换保留会话上下�
 test('工具入口打开独立模态弹窗 + 新增账号落盘链完整', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   assert.match(html, /class="topbar-actions"[\s\S]*?id="activityCenterBtn"[\s\S]*?id="systemBtn"/);
   assert.match(html, /id="systemBtn"[^>]*aria-controls="systemDialog"/);
   assert.doesNotMatch(html, /id="detailSurfaceTools"/);
@@ -255,7 +256,7 @@ test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项�
   const html = read('src/index.html');
   const renderer = read('src/renderer.js') + '\n' + read('src/renderer/tool-center.js');
   const preload = read('src/preload.js');
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const maintenance = read('src/tool-maintenance.js');
   const styles = read('src/styles.css');
 

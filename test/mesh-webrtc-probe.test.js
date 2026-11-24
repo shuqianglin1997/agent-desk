@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { normalizeProbeResult } = require('../src/mesh/main/webrtc-probe');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
 test('WebRTC 自检公开结果只保留路径类型、协议和耗时，不回传 IP/SDP/ICE 原文', () => {
@@ -50,7 +51,7 @@ test('WebRTC 自检使用隐藏沙箱 Renderer，preload 只有一次性固定�
 });
 
 test('设备中心通过固定 IPC 运行自检，并明确不把本机通过写成两设备已连接', () => {
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const preload = read('src/preload.js');
   const zh = read('src/i18n/zh.js');
   assert.match(main, /ipcMain\.handle\('devices:probeTransport'/);

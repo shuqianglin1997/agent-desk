@@ -172,6 +172,11 @@ const {
 const { resolveProfileStore, createProfileSnapshot } = require('./main/profile-store-policy');
 // The renderer's refresh path reads profiles.json again only when it changed.
 const profileSnapshot = createProfileSnapshot({ file: () => profilesFile(), load: () => loadProfiles() });
+// What the window's local-read commands use (src/commands/local-reads.js).
+const refreshProfiles = () => profileSnapshot.profiles();
+const listIndexedSessions = (profile) => sessionIndex.rows(profile);
+const snapshotProcessText = async () => processText(await processSnapshots.records({ maxAgeMs: 1000 }));
+const appVersion = () => app.getVersion();
 const { readProfileFile } = require('./core/profile-file');
 const { writeFileAtomicAsync } = require('./core/json-file');
 // This machine's path rules (src/core/paths.js), under the names used below.
@@ -486,72 +491,22 @@ function registerIpc() {
     allowedUrl: MAIN_DOCUMENT_URL
   });
   windowLamp.register(ipcMain);
-  ipcMain.handle('apps:list', () => {
-    return apps.listApps({ uiHints: true }).map((entry) => {
-      const descriptor = provisioningAdapterDescriptor(entry.id, 'desktop');
-      return {
-        ...entry,
-        canProvision: Boolean(descriptor?.supportedPlatforms?.includes(process.platform)),
-        provisioningClientForm: descriptor?.clientForm || null
-      };
-    });
-  });
-
-  ipcMain.handle('settings:get', (_event, legacySettings = {}) => {
-    const preferences = loadSettings(legacySettings);
-    syncWindowControlTheme(preferences);
-    return preferences;
-  });
-
-  ipcMain.handle('settings:update', (_event, patch = {}) => {
-    const preferences = updateSettings(patch);
-    if (Object.hasOwn(patch || {}, 'theme')) syncWindowControlTheme(preferences);
-    return preferences;
-  });
+  // command deps:start — generated from src/commands/ (the services the commands use; getters for state that changes)
+  const commandDeps = {
+    app, appVersion, apps, boundedText, checkForUpdates, clipboard, createStoredProfile, diagnoseProfile,
+    dialog, exportSessionTranscript, getProfileRuntimeSupervisor, identityFingerprint, installLatestUpdate,
+    launchStoredProfile, listIndexedSessions, listSessionDirectories, loadProfiles, loadSettings,
+    migrateWindowsProfilePath, normalizeConfiguredPath, openMaintenanceTool, openPathSafely,
+    openSessionDirectory, pathSelectionRegistry, pathsEqual, probeActivities, profileIsRunning,
+    provisioningAdapterDescriptor, quotaService, refreshForAction, refreshProfiles, resolveKnownProfilePath,
+    revealPath, revealSessionFile, saveProfiles, scanMaintenanceTools, sessionMarksFreshContext,
+    sessionMarksResult, snapshotProcessText, syncWindowControlTheme, t, updateMaintenanceTool, updateSettings,
+    updateStoredProfile
+  };
+  // command deps:end
+  registerCommandIpc({ ipcMain, deps: commandDeps });
 
   // 四个专用通道，只收会话键、1–5 的数字和有界字符串；SessionMarksStore 逐项重新校验，不开放通用读写。
-  ipcMain.handle('sessionMarks:get', () => sessionMarksResult((store) => store.snapshot()));
-  ipcMain.handle('sessionMarks:setTag', (_event, input = {}) => sessionMarksResult((store) => (
-    store.setTag(Array.isArray(input?.keys) ? input.keys : null, input?.tag)
-  )));
-  ipcMain.handle('sessionMarks:markSeen', (_event, input = {}) => sessionMarksResult((store) => (
-    store.markSeen(Array.isArray(input?.entries)
-      ? input.entries.slice(0, 5001).map((item) => ({ key: item?.key, at: item?.at }))
-      : null)
-  )));
-  ipcMain.handle('sessionMarks:rename', (_event, input = {}) => sessionMarksResult((store) => (
-    store.rename(input?.tag, typeof input?.name === 'string' || input?.name === null ? input.name : undefined)
-  )));
-
-  ipcMain.handle('updates:check', async () => {
-    return checkForUpdates({ force: true });
-  });
-
-  ipcMain.handle('updates:install', async (event) => {
-    return installLatestUpdate(event.sender);
-  });
-
-  ipcMain.handle('tools:scan', async (_event, options = {}) => {
-    return scanMaintenanceTools({ force: options.force === true });
-  });
-
-  ipcMain.handle('tools:open', async (_event, input = {}) => {
-    return openMaintenanceTool(String(input.toolId || ''), String(input.profileId || ''));
-  });
-
-  ipcMain.handle('tools:update', async (event, input = {}) => {
-    return updateMaintenanceTool(String(input.toolId || ''), event.sender);
-  });
-
-
-  ipcMain.handle('profiles:list', () => {
-    // identityFingerprint 是运行时算的登录身份哈希（同指纹 = 同账号），
-    // 不落盘：换号登录后自然更新，也不会把陈旧关联固化进 profiles.json。
-    return loadProfiles().map((profile) => ({
-      ...profile,
-      identityFingerprint: identityFingerprint(profile)
-    }));
-  });
 
   ipcMain.handle('devices:list', async (_event, input = {}) => {
     // Session counts come from the index; refresh it once (shared with the list).
@@ -1466,15 +1421,6 @@ function registerIpc() {
     }
   });
 
-  ipcMain.handle('profiles:add', (_event, input) => {
-    return createStoredProfile({
-      appId: boundedText(input?.appId, 80),
-      name: boundedText(input?.name, 80),
-      group: boundedText(input?.group, 80),
-      note: boundedText(input?.note, 1000)
-    });
-  });
-
   registerRecruitIpc(ipcMain, {
     selections: recruitSelectionRegistry,
     loadProfiles,
@@ -1561,175 +1507,6 @@ function registerIpc() {
     return executeRecruitItem(itemPath, meta?.action);
   }, 'credential-import-failed'));
 
-  ipcMain.handle('profiles:update', async (_event, input = {}) => {
-    if (['profilePath', 'sessionRoot', 'executablePath'].some((key) => (
-      Object.prototype.hasOwnProperty.call(input, key)
-    ))) throw new Error('profile-path-input-forbidden');
-    const profilePathSelectionId = boundedText(input.profilePathSelectionId, 128);
-    const sessionRootSelectionId = boundedText(input.sessionRootSelectionId, 128);
-    const executableSelectionId = boundedText(input.executableSelectionId, 128);
-    const profilePath = profilePathSelectionId
-      ? pathSelectionRegistry.resolve(profilePathSelectionId, 'profile-directory')
-      : null;
-    const sessionRoot = sessionRootSelectionId
-      ? pathSelectionRegistry.resolve(sessionRootSelectionId, 'profile-directory')
-      : null;
-    const executablePath = executableSelectionId
-      ? pathSelectionRegistry.resolve(executableSelectionId, 'profile-executable')
-      : null;
-    const currentProfile = loadProfiles().find((profile) => profile.id === boundedText(input.id, 128));
-    if (currentProfile && (profilePath || sessionRoot || executablePath)) {
-      const runtime = getProfileRuntimeSupervisor().status(currentProfile);
-      if (runtime.owned && runtime.active === true) {
-        const stopped = await getProfileRuntimeSupervisor().stopProfile(currentProfile, 'profile-path-change');
-        if (!stopped.ok) throw new Error(stopped.reasonCode || 'profile-process-stop-failed');
-      }
-    }
-    const updated = updateStoredProfile(boundedText(input.id, 128), (profile) => {
-      const next = { ...profile };
-      if (typeof input.name === 'string') next.name = boundedText(input.name, 80) || next.name;
-      if (profilePath) {
-        const normalizedProfilePath = normalizeConfiguredPath(profilePath);
-        if (!pathsEqual(normalizedProfilePath, next.profilePath)) next.profilePathMode = 'custom';
-        next.profilePath = normalizedProfilePath;
-      }
-      if (sessionRoot) {
-        const normalizedSessionRoot = normalizeConfiguredPath(sessionRoot);
-        if (!pathsEqual(normalizedSessionRoot, next.sessionRoot)) next.sessionRootMode = 'custom';
-        next.sessionRoot = normalizedSessionRoot;
-      }
-      if (executablePath) next.executablePath = normalizeConfiguredPath(executablePath);
-      if (input.clearExecutablePath === true) next.executablePath = null;
-      if (typeof input.group === 'string') next.group = boundedText(input.group, 80);
-      if (typeof input.note === 'string') next.note = String(input.note).slice(0, 1000);
-      // 同账号标识：同一登录身份的多个客户端槽位共用一个 key（空 = 不关联）
-      if (typeof input.identityKey === 'string') next.identityKey = boundedText(input.identityKey, 160) || null;
-      if (input.cat && typeof input.cat === 'object') next.cat = { ...next.cat, ...input.cat };
-      return next;
-    });
-    pathSelectionRegistry.consume([
-      profilePathSelectionId,
-      sessionRootSelectionId,
-      executableSelectionId
-    ]);
-    quotaService.invalidate(boundedText(input.id, 128));
-    return updated;
-  });
-
-  ipcMain.handle('profiles:remove', async (_event, id) => {
-    const profiles = loadProfiles();
-    const target = profiles.find((profile) => profile.id === id);
-    if (!target) return { ok: false, reason: t('main.err.slotNotFound') };
-    const runtime = getProfileRuntimeSupervisor().status(target);
-    if (runtime.owned && runtime.active === true) {
-      const stopped = await getProfileRuntimeSupervisor().stopProfile(target, 'profile-remove');
-      if (!stopped.ok) return { ok: false, reason: stopped.reasonCode || 'profile-process-stop-failed' };
-    }
-    saveProfiles(profiles.filter((profile) => profile.id !== id));
-    quotaService.invalidate(id);
-    return { ok: true };
-  });
-
-  ipcMain.handle('profiles:migrateWindowsPath', async (_event, id) => {
-    return migrateWindowsProfilePath(id);
-  });
-
-  ipcMain.handle('profiles:launch', async (_event, id) => {
-    return launchStoredProfile(id);
-  });
-
-  ipcMain.handle('profiles:runtimeStatus', (_event, id) => {
-    const profile = loadProfiles().find((item) => item.id === boundedText(id, 128));
-    if (!profile) return { ok: false, reasonCode: 'profile-not-found' };
-    return { ok: true, runtime: getProfileRuntimeSupervisor().status(profile) };
-  });
-
-  ipcMain.handle('profiles:stop', async (_event, id) => {
-    const profile = loadProfiles().find((item) => item.id === boundedText(id, 128));
-    if (!profile) return { ok: false, reasonCode: 'profile-not-found' };
-    return getProfileRuntimeSupervisor().stopProfile(profile, 'user-request');
-  });
-
-  ipcMain.handle('profiles:cleanCrashpad', async (_event, id) => {
-    const profile = loadProfiles().find((item) => item.id === boundedText(id, 128));
-    if (!profile) return { ok: false, reasonCode: 'profile-not-found' };
-    try {
-      return await getProfileRuntimeSupervisor().cleanCrashpad(profile);
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'crashpad-clean-failed', 160) };
-    }
-  });
-
-  // Commands moved out of this file (src/commands/); the rest are still below.
-  registerCommandIpc({ ipcMain, deps: {
-    loadProfiles: () => profileSnapshot.profiles(), listSessions: (profile) => sessionIndex.rows(profile), boundedText, revealSessionFile, exportSessionTranscript,
-    listSessionDirectories, openSessionDirectory,
-    probeActivities, sessionMarksFreshContext,
-    snapshotProcesses: async () => processText(await processSnapshots.records({ maxAgeMs: 1000 })),
-    profileIsRunning, quotaService, getVersion: () => app.getVersion()
-  } });
-
-  ipcMain.handle('diagnostics:get', async (_event, input = {}) => {
-    const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
-    if (!profile) return null;
-    await refreshForAction([profile.id]);
-    return diagnoseProfile(profile);
-  });
-
-  ipcMain.handle('system:pickDirectory', async (_event, input = {}) => {
-    if (boundedText(input.purpose, 80) !== 'profile-directory') {
-      throw new Error('directory-picker-purpose-invalid');
-    }
-    const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
-    const field = ['profilePath', 'sessionRoot'].includes(input.field) ? input.field : 'profilePath';
-    const result = await dialog.showOpenDialog({
-      title: t('main.picker.dir'),
-      defaultPath: profile?.[field] || app.getPath('home'),
-      properties: ['openDirectory', 'createDirectory']
-    });
-    if (result.canceled || !result.filePaths.length) return null;
-    return pathSelectionRegistry.issue({
-      kind: 'profile-directory',
-      path: result.filePaths[0]
-    });
-  });
-
-  ipcMain.handle('system:pickFile', async (_event, input = {}) => {
-    if (boundedText(input.purpose, 80) !== 'profile-executable') {
-      throw new Error('file-picker-purpose-invalid');
-    }
-    const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
-    const dialogOptions = {
-      title: t('main.picker.file'),
-      defaultPath: profile?.executablePath || app.getPath('home'),
-      properties: ['openFile']
-    };
-    if (process.platform === 'win32') {
-      dialogOptions.filters = [
-        { name: t('main.filter.winApp'), extensions: ['exe'] },
-        { name: t('main.filter.allFiles'), extensions: ['*'] }
-      ];
-    }
-    const result = await dialog.showOpenDialog(dialogOptions);
-    if (result.canceled || !result.filePaths.length) return null;
-    return pathSelectionRegistry.issue({
-      kind: 'profile-executable',
-      path: result.filePaths[0]
-    });
-  });
-
-  ipcMain.handle('system:showItem', async (_event, input = {}) => {
-    return revealPath(resolveKnownProfilePath(input));
-  });
-
-  ipcMain.handle('system:openPath', async (_event, input = {}) => {
-    return openPathSafely(resolveKnownProfilePath(input));
-  });
-
-  ipcMain.handle('clipboard:writeText', (_event, value) => {
-    clipboard.writeText(String(value || ''));
-    return true;
-  });
 }
 
 function finiteRevision(value) {

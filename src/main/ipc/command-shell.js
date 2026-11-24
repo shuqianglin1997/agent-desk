@@ -12,7 +12,7 @@ function registerCommandIpc({ ipcMain, deps, commands = commandTable().commands 
   const registered = [];
   for (const command of commands) {
     if (typeof command.exec !== 'function') continue;
-    ipcMain.handle(command.channel, (_event, raw) => runCommand(command, deps, raw));
+    ipcMain.handle(command.channel, (event, raw) => runCommand(command, deps, raw, { event }));
     registered.push(command.channel);
   }
   return registered;

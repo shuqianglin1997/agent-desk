@@ -13,6 +13,7 @@ const {
 } = require('../src/mesh/main/peer-manager');
 const { createEnvelope } = require('../src/mesh/protocol/envelope');
 const { encodeInventoryChunks } = require('../src/mesh/protocol/inventory');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 const ROOT = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -179,7 +180,7 @@ test('现有连接每次库存收发重读当前权限，撤销 inventory.read �
   assert.equal(context.closed, true, 'the active transport is torn down synchronously on revocation');
   assert.equal(manager.connectionsByDevice.has('remote-device'), false);
   assert.match(
-    read('src/main.js'),
+    mainHandlerSource(),
     /devices:updatePermissions[\s\S]*?peerManager\?\.handlePermissionsChanged\(device\.deviceId, device\.permissions\)/
   );
 });
@@ -333,7 +334,7 @@ test('目录变更可立即向所有已认证连接发布新库存', async () =>
   assert.equal(snapshots, 1);
   manager.closeContext(context, 'test-complete');
 
-  assert.match(read('src/main.js'), /function catalogMeshCall\(callback\)[\s\S]*?broadcastInventory\(\)/);
+  assert.match(mainHandlerSource(), /function catalogMeshCall\(callback\)[\s\S]*?broadcastInventory\(\)/);
 });
 
 test('扫描中发生的多次目录广播最多合并为一个后继快照且不会丢失', async () => {
@@ -362,7 +363,7 @@ test('扫描中发生的多次目录广播最多合并为一个后继快照且�
 });
 
 test('远程重扫通过固定 remoteInventory:refresh IPC/Preload 暴露，不提供通用通道', () => {
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   const preload = read('src/preload.js');
   const renderer = read('src/renderer.js');
   assert.match(main, /ipcMain\.handle\('remoteInventory:refresh'/);

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 const root = path.join(__dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
@@ -43,7 +44,7 @@ test('the dialog never handles a raw path and clears a pasted key right after re
   const preload = read('src/preload.js');
   assert.match(preload, /function inspectRecruitItem\(file\)[\s\S]*?webUtils\.getPathForFile\(file\)[\s\S]*?invoke\('recruit:inspectItem', selectedPath\)/);
   assert.match(preload, /importRecruitItem: \(selectionId\) => ipcRenderer\.invoke\('recruit:importItem', \{ selectionId: String\(selectionId \|\| ''\)\.slice\(0, 128\) \}\)/);
-  const main = read('src/main.js');
+  const main = mainHandlerSource();
   assert.match(main, /ipcMain\.handle\('recruit:importItem'[\s\S]*?resolveEntry\(selectionId, 'recruit-item'\)[\s\S]*?executeRecruitItem\(itemPath, meta\?\.action\)/);
   assert.match(read('src/main/recruit-items.js'), /if \(planned\.action !== expectedAction\) throw new RecruitItemError\('location-changed'\);/);
 });

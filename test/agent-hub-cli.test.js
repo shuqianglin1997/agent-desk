@@ -12,6 +12,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createCliBroker, runPackagedCli, readPromptFromStdin, PACKAGED_COMMANDS } = require('../src/automation/packaged-cli');
 const { InterfaceError } = require('../src/automation/service');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 const PROMPT = 'PROMPT-SENTINEL-c41 check the diff\n';
 
@@ -116,7 +117,7 @@ test('capabilities describe the hub; no command can switch an account on or add 
 });
 
 test('Main relays hub commands only from a running desktop and maps refusals to fixed codes', () => {
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   assert.match(main, /const cliOnlyInstance = cliLaunchArgs !== null;/);
   assert.match(main, /if \(cliOnlyInstance && HUB_DESKTOP_COMMANDS\.has\(command\)\) throw hubInterfaceError\(new HubError\('desktop-not-running'\)\)/);
   assert.match(main, /const HUB_DESKTOP_COMMANDS = new Set\(\['agents list', 'run', 'runs stop'\]\)/);
