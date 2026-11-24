@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 0 阶段收尾：阶段收尾的完整回归里，第 5 批保留的那一项真实 `lsof` 测试超时失败——本机 `lsof` 单次要八到十几秒，会超过它自己的 10 秒上限，这就是 `test/codex-history-retention.test.js` 原来时好时坏的原因；该项改为手动开启（`AGENTDESK_LSOF_INTEGRATION=1`，单独开启时通过），默认跳过，其余 16 项都用注入的检查。指标脚本只把“在 readFileSync 里读 src 路径、或把 src/… 路径交给读取函数”的测试算作读源码（结果仍是 15 个文件）；指标记在 [architecture-metrics.json](validation/architecture-metrics.json)，第 8 节表格与第 9.1 节第 0 阶段记录已更新（[ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md)）。界面模块试验只在临时目录里做：原生 ES 模块在与应用相同的 `file://`、内容安全策略和沙箱条件下可以加载，结论与代价写在第 9.1 节。
+
 2026-11-24 架构整理第 0 阶段第 6 批：`scripts/ui-acceptance.js` 的档案一步按所有者批准的五段（资料、位置、账号、调用、送走）核对，并确认“调用”一段跟着展开的本机位置出现；新增 `--hidden`，经 `scripts/hidden-electron-entry.js` 不显示、不聚焦窗口，用临时主目录跑同一套路径。隐藏入口补了两件事：网页里的确认框交给验收脚本通过开发者工具回答；任何官方客户端或命令行、`open`、`osascript` 都不会被启动（命令换成不存在的路径，调用方看到的是“没装”），每次替身或拦截当场写进记录。运行结果：24 条任务路径全部通过；替身只用到 `quota:all`；拦下一次进程启动——工具检查里 `probeMaintenanceVersion` 会运行本机装的 `codex --version`（不加 `--hidden` 的可见运行仍会这样）。`scripts/hidden-check.js` 再跑一次：17 个读接口形状一致，启动时 4 次完整扫描，没有严重控制台错误。没有改动应用代码。不显示窗口的运行不能证明可见窗口下与焦点、可见性有关的行为。 后台完整 Node 回归 817 项：816 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 通过。
 
 2026-11-24 架构整理第 0 阶段第 5 批：`src/codex-history-retention.js` 原来在三处直接调用 `lsof` 判断有没有进程占着客户端的文件；现在这三处调用原样收进一个 `LSOF_PROCESS_CHECK`，维护、归档压缩和命令行 worker 都可以接收注入的检查（命令行主体改成导出的 `runCli`，直接运行时行为不变）。`test/codex-history-retention.test.js` 改为注入检查，结果不再取决于这台电脑上还开着什么、`lsof` 在测试并发时慢不慢；只剩一项测试用真实 `lsof` 确认它能找到占着文件的进程。该文件单独连续运行五次、在完整测试并发压力下又运行三次，17 项每次全部通过。后台完整 Node 回归 817 项：816 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 通过。应用行为不变。

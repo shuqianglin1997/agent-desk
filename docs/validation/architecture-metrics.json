@@ -1,0 +1,364 @@
+{
+  "recordedAt": "2026-11-24T16:41:46.336Z",
+  "sourceSha256": "487827d9b11b656c7ac6b2058adf1d63695f9772e1a0a2f9f2ec657a672dc303",
+  "schemaVersion": 1,
+  "srcFiles": 153,
+  "srcJsLines": 57748,
+  "mainJsLines": 5217,
+  "rendererJsLines": 9865,
+  "rendererScripts": 30,
+  "functions": {
+    "total": 3712,
+    "moduleWrappers": 31,
+    "rendererJs": 604,
+    "mainJs": 355,
+    "over150Lines": 17,
+    "longest": [
+      {
+        "file": "src/main.js",
+        "name": "registerIpc",
+        "line": 427,
+        "lines": 1279
+      },
+      {
+        "file": "src/renderer.js",
+        "name": "bindEvents",
+        "line": 1327,
+        "lines": 939
+      },
+      {
+        "file": "src/mesh/peer/e2e-runner.js",
+        "name": "<arrow>",
+        "line": 15,
+        "lines": 258
+      },
+      {
+        "file": "src/pixel/sfx.js",
+        "name": "create",
+        "line": 170,
+        "lines": 255
+      },
+      {
+        "file": "src/mesh/main/peer-manager.js",
+        "name": "receiveDataEnvelope",
+        "line": 390,
+        "lines": 249
+      },
+      {
+        "file": "src/mesh/protocol/catalog-events.js",
+        "name": "materializeCatalogEvents",
+        "line": 323,
+        "lines": 220
+      },
+      {
+        "file": "src/mesh/main/provisioning-service.js",
+        "name": "advanceJobOnce",
+        "line": 95,
+        "lines": 211
+      },
+      {
+        "file": "src/mesh/domain/agent-catalog.js",
+        "name": "reconcileLocalCatalog",
+        "line": 18,
+        "lines": 195
+      },
+      {
+        "file": "src/main.js",
+        "name": "launchProfile",
+        "line": 3717,
+        "lines": 187
+      },
+      {
+        "file": "src/renderer.js",
+        "name": "renderTransferList",
+        "line": 8505,
+        "lines": 181
+      },
+      {
+        "file": "src/codex-quota.js",
+        "name": "queryCodexAppServer",
+        "line": 178,
+        "lines": 175
+      },
+      {
+        "file": "src/main/agent-hub.js",
+        "name": "createAgentHub",
+        "line": 67,
+        "lines": 175
+      }
+    ]
+  },
+  "ipcHandleLiterals": {
+    "total": 121,
+    "mainJs": 110,
+    "files": {
+      "src/main.js": 110,
+      "src/main/ipc/local-reads.js": 7,
+      "src/main/ipc/recruit.js": 4
+    }
+  },
+  "clientNameComparisonsOutsideApps": {
+    "total": 69,
+    "files": {
+      "src/account-credentials.js": 2,
+      "src/activity.js": 3,
+      "src/automation/service.js": 1,
+      "src/cli-discovery.js": 1,
+      "src/codex-account-import.js": 2,
+      "src/codex-history-retention.js": 1,
+      "src/credential-import.js": 1,
+      "src/main.js": 6,
+      "src/main/profile-registration.js": 1,
+      "src/main/recruit-items.js": 5,
+      "src/mesh/domain/agent-catalog.js": 5,
+      "src/profile-home.js": 5,
+      "src/profile-runtime.js": 2,
+      "src/quota-overview.js": 2,
+      "src/quota-service.js": 3,
+      "src/renderer.js": 6,
+      "src/renderer/recruit.js": 5,
+      "src/session-export.js": 7,
+      "src/sessions.js": 5,
+      "src/task-package/codex-adapter.js": 2,
+      "src/task-package/service.js": 4
+    }
+  },
+  "perClientTablesOutsideApps": [
+    {
+      "file": "src/account-credentials.js",
+      "clientKeys": 7
+    },
+    {
+      "file": "src/cli-discovery.js",
+      "clientKeys": 4
+    },
+    {
+      "file": "src/credential-import.js",
+      "clientKeys": 5
+    },
+    {
+      "file": "src/hub/adapters.js",
+      "clientKeys": 6
+    },
+    {
+      "file": "src/identity.js",
+      "clientKeys": 3
+    },
+    {
+      "file": "src/yard/cat-art.js",
+      "clientKeys": 3
+    }
+  ],
+  "findSessionByIdAfterRescan": {
+    "count": 5,
+    "sites": [
+      {
+        "file": "src/automation/service.js",
+        "function": "execute",
+        "line": 260
+      },
+      {
+        "file": "src/main.js",
+        "function": "hubLocateSession",
+        "line": 2053
+      },
+      {
+        "file": "src/main.js",
+        "function": "revealSessionFile",
+        "line": 5144
+      },
+      {
+        "file": "src/main/session-actions.js",
+        "function": "<arrow>",
+        "line": 24
+      },
+      {
+        "file": "src/task-package/service.js",
+        "function": "resolveLocalSession",
+        "line": 468
+      }
+    ]
+  },
+  "pathEqualityOrContainmentHelpers": {
+    "count": 12,
+    "sites": [
+      {
+        "file": "src/account-credentials.js",
+        "function": "samePath",
+        "line": 721
+      },
+      {
+        "file": "src/automation/service.js",
+        "function": "overlaps",
+        "line": 187
+      },
+      {
+        "file": "src/automation/service.js",
+        "function": "within",
+        "line": 190
+      },
+      {
+        "file": "src/codex-history-retention.js",
+        "function": "inside",
+        "line": 20
+      },
+      {
+        "file": "src/identity.js",
+        "function": "samePath",
+        "line": 43
+      },
+      {
+        "file": "src/main.js",
+        "function": "pathsEqual",
+        "line": 3688
+      },
+      {
+        "file": "src/main.js",
+        "function": "isSubpath",
+        "line": 3694
+      },
+      {
+        "file": "src/path-utils.js",
+        "function": "isSubpath",
+        "line": 76
+      },
+      {
+        "file": "src/profile-home.js",
+        "function": "samePath",
+        "line": 14
+      },
+      {
+        "file": "src/profile-runtime.js",
+        "function": "pathInside",
+        "line": 41
+      },
+      {
+        "file": "src/task-package/codex-adapter.js",
+        "function": "isWithin",
+        "line": 540
+      },
+      {
+        "file": "src/windows.js",
+        "function": "isSubpath",
+        "line": 479
+      }
+    ]
+  },
+  "syncCalls": {
+    "mainProcessTotal": 461,
+    "mainProcessFiles": 41,
+    "refreshPathTotal": 52,
+    "refreshPath": {
+      "src/activity.js": 6,
+      "src/apps.js": 0,
+      "src/cli-client-sessions.js": 7,
+      "src/cursor-sessions.js": 5,
+      "src/identity.js": 1,
+      "src/kimi-work-sessions.js": 2,
+      "src/main/ipc/local-reads.js": 0,
+      "src/mesh/main/mesh-service.js": 7,
+      "src/process.js": 5,
+      "src/session-marks.js": 0,
+      "src/sessions.js": 19
+    }
+  },
+  "css": {
+    "files": {
+      "src/cats.css": {
+        "rules": 27,
+        "important": 0
+      },
+      "src/mesh/peer/peer.css": {
+        "rules": 2,
+        "important": 0
+      },
+      "src/pixel.css": {
+        "rules": 651,
+        "important": 20
+      },
+      "src/remote/console.css": {
+        "rules": 190,
+        "important": 2
+      },
+      "src/remote/host.css": {
+        "rules": 54,
+        "important": 3
+      },
+      "src/styles.css": {
+        "rules": 497,
+        "important": 16
+      },
+      "src/workspace.css": {
+        "rules": 430,
+        "important": 0
+      }
+    },
+    "mainWindowSheets": [
+      "src/styles.css",
+      "src/workspace.css",
+      "src/pixel.css",
+      "src/cats.css"
+    ],
+    "styleRules": 1851,
+    "important": 41,
+    "selectorsInMoreThanOneSheet": 171,
+    "customProperties": 127,
+    "customPropertiesInMoreThanOneSheet": 41,
+    "examples": {
+      "selectors": [
+        ".agent-panel .account-card-avatar",
+        ".status-mascot",
+        ":root",
+        ":root[data-theme=\"dark\"]",
+        "[hidden]",
+        ".visually-hidden",
+        "button",
+        "select",
+        "input",
+        "textarea",
+        "button:hover:not(:disabled)",
+        "button:active:not(:disabled)"
+      ],
+      "properties": [
+        "--surface-canvas",
+        "--surface-glass",
+        "--surface-raised",
+        "--surface-float",
+        "--surface-sunken",
+        "--surface-warm",
+        "--surface-warm-strong",
+        "--ink-primary",
+        "--ink-secondary",
+        "--ink-tertiary",
+        "--ink-disabled",
+        "--ink-on-accent"
+      ]
+    }
+  },
+  "tests": {
+    "files": 107,
+    "testCallsAtLineStart": 788,
+    "filesReadingSourceAsText": 37,
+    "textOnlyFiles": 15,
+    "textOnlyList": [
+      "test/codex-config-ownership.test.js",
+      "test/device-journey-ui.test.js",
+      "test/mesh-ui.test.js",
+      "test/onboarding-ui.test.js",
+      "test/packaged-first-use-smoke.test.js",
+      "test/persistence-contract.test.js",
+      "test/profile-runtime-ui.test.js",
+      "test/quota-ipc.test.js",
+      "test/quota-ui.test.js",
+      "test/recruit-ui.test.js",
+      "test/release-security.test.js",
+      "test/simplification.test.js",
+      "test/task-package-ui.test.js",
+      "test/ui-redesign.test.js",
+      "test/ui.test.js"
+    ],
+    "textOnlyButRunExtractedSource": [
+      "test/simplification.test.js"
+    ]
+  }
+}

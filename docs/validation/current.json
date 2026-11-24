@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:39:27.163Z",
-  "baseCommit": "7e35c7769e8123c68c8e8094e03e32fdeaa897f3",
+  "recordedAt": "2026-11-24T16:42:02.214Z",
+  "baseCommit": "3b632111b33816ec8aaa6e75a723b395ce657d3e",
   "uncommitted": true,
-  "sourceSha256": "34ba388e7fe2080e7d1409ba18237496a0162c5e0064d8cb594e12ae41f2a3af",
+  "sourceSha256": "487827d9b11b656c7ac6b2058adf1d63695f9772e1a0a2f9f2ec657a672dc303",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,41 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 817,
+      "pass": 815,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite at the close of architecture phase 0; skipped: one Windows-only test and the opt-in real-lsof check (AGENTDESK_LSOF_INTEGRATION=1, passes when enabled alone; lsof on this machine takes 8 to 16 s and can exceed its 10 s limit); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:42:02.214Z",
+      "sourceSha256": "487827d9b11b656c7ac6b2058adf1d63695f9772e1a0a2f9f2ec657a672dc303"
+    },
+    {
+      "command": "AGENTDESK_LSOF_INTEGRATION=1 node --test --test-name-pattern='default process check' test/codex-history-retention.test.js",
+      "result": "passed",
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "scope": "Real lsof finds a child process holding a file; about 16 s wall time",
+      "recordedAt": "2026-11-24T16:42:02.214Z",
+      "sourceSha256": "487827d9b11b656c7ac6b2058adf1d63695f9772e1a0a2f9f2ec657a672dc303"
+    },
+    {
+      "command": "node scripts/arch-metrics.js --write",
+      "result": "recorded",
+      "scope": "Section 8 metrics in docs/validation/architecture-metrics.json; text-reading tests now counted only when a src path is inside readFileSync or handed to a reader helper (15 files)",
+      "recordedAt": "2026-11-24T16:42:02.214Z",
+      "sourceSha256": "487827d9b11b656c7ac6b2058adf1d63695f9772e1a0a2f9f2ec657a672dc303"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check unchanged",
+      "recordedAt": "2026-11-24T16:42:02.214Z",
+      "sourceSha256": "487827d9b11b656c7ac6b2058adf1d63695f9772e1a0a2f9f2ec657a672dc303"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

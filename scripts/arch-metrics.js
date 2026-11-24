@@ -364,7 +364,16 @@ function testMetrics(root) {
     const source = fs.readFileSync(path.join(root, file), 'utf8');
     const code = maskSource(source, { keepStrings: true });
     testCalls += (code.match(/^\s*(?:for\s*\([^\n]*\)\s*)?(?:test|it)\(/gm) || []).length;
-    const reads = /readFileSync\(/.test(code) && srcLiteral.test(code.replace(/require\(\s*['"][^'"]+['"]\s*\)/g, ''));
+    // Reading source as text: a src path inside a readFileSync(...) call, or a
+    // 'src/...' literal handed to a reader helper. Paths given to spawn/require
+    // (running the code) do not count.
+    const readArgs = [...code.matchAll(/readFileSync\(/g)].map((m) => {
+      const open = m.index + m[0].length - 1;
+      return code.slice(open, Math.max(open, matchForward(code, open, '(', ')')));
+    });
+    const direct = readArgs.some((arg) => srcLiteral.test(arg));
+    const viaHelper = readArgs.length > 0 && /['"`]src\/[^'"`]*\.(?:js|css|html)['"`]/.test(code.replace(/require\(\s*['"][^'"]+['"]\s*\)/g, ''));
+    const reads = direct || viaHelper;
     if (!reads) continue;
     readsSource++;
     const requiresSrc = /require\(\s*(?:['"](?:\.\.\/)+src\/|path\.(?:join|resolve)\([^)]*['"]src['"])/.test(code);
