@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:33:27.902Z",
-  "baseCommit": "f18b06223c7ac2feaa1e93be71e11a1fafafb9d9",
+  "recordedAt": "2026-11-24T16:39:27.163Z",
+  "baseCommit": "7e35c7769e8123c68c8e8094e03e32fdeaa897f3",
   "uncommitted": true,
-  "sourceSha256": "31c390cbc6113534942ea1efcd91711c8c43d65fe941f7f6e285547be8cc6000",
+  "sourceSha256": "34ba388e7fe2080e7d1409ba18237496a0162c5e0064d8cb594e12ae41f2a3af",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,38 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 817,
+      "pass": 816,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after architecture phase 0 batch 6 (acceptance script and hidden entry); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:39:27.163Z",
+      "sourceSha256": "34ba388e7fe2080e7d1409ba18237496a0162c5e0064d8cb594e12ae41f2a3af"
+    },
+    {
+      "command": "node scripts/ui-acceptance.js --hidden",
+      "result": "passed",
+      "scope": "24 task paths of the repository acceptance script through scripts/hidden-electron-entry.js (no window shown or focused, mock keychain, temp userData and HOME); dossier step checks the approved five sections including calling; renderer confirm() answered through DevTools; stubs used: quota:all; one process start blocked: probeMaintenanceVersion running the installed codex --version during the tool scan. Not a visible-window run",
+      "recordedAt": "2026-11-24T16:39:27.163Z",
+      "sourceSha256": "34ba388e7fe2080e7d1409ba18237496a0162c5e0064d8cb594e12ae41f2a3af"
+    },
+    {
+      "command": "node scripts/hidden-check.js",
+      "result": "passed",
+      "scope": "17 read IPC payload shapes match the golden; start-up performs 4 full session scans; no serious console errors",
+      "recordedAt": "2026-11-24T16:39:27.163Z",
+      "sourceSha256": "34ba388e7fe2080e7d1409ba18237496a0162c5e0064d8cb594e12ae41f2a3af"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check unchanged",
+      "recordedAt": "2026-11-24T16:39:27.163Z",
+      "sourceSha256": "34ba388e7fe2080e7d1409ba18237496a0162c5e0064d8cb594e12ae41f2a3af"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

@@ -8,6 +8,12 @@
  * every destructive Mesh/catalog action inside that temporary directory.
  * No clipboard write, account launch, filesystem reveal, remote connection,
  * or owner configuration is touched.
+ *
+ * `--hidden` (or AGENTDESK_UI_ACCEPTANCE_HIDDEN=1) runs the same paths through
+ * scripts/hidden-electron-entry.js with a temp HOME: the window is never shown
+ * or focused, the keychain is mocked, and client launches, quota RPC, native
+ * dialogs and network are stubbed. It does not prove focus/visibility-dependent
+ * behaviour of a visible window.
  */
 
 const assert = require('node:assert/strict');
@@ -19,6 +25,22 @@ const { spawn } = require('node:child_process');
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const TIMEOUT_MS = 30_000;
+const HIDDEN = process.argv.includes('--hidden') || process.env.AGENTDESK_UI_ACCEPTANCE_HIDDEN === '1';
+let hiddenHome = null;
+const hiddenRecords = [];
+
+// What the hidden entry stubbed or blocked across all launches of this run.
+function hiddenSummary() {
+  const stubbed = new Set();
+  const blocked = [];
+  for (const file of hiddenRecords) {
+    if (!fs.existsSync(file)) continue;
+    const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const item of record.stubbed) stubbed.add(item.channel || item.api);
+    blocked.push(...record.blockedProcesses);
+  }
+  return { stubbed: [...stubbed].sort(), blockedProcesses: blocked };
+}
 
 class DevToolsClient {
   constructor(url) {
@@ -916,9 +938,11 @@ async function runAcceptance(client, artifactDir) {
     const agentDialog = await dialogSnapshot(client, '#agentManageDialog');
     assertDialogFits(agentDialog, { noScroll: true });
     assert.equal(agentDialog.modal, true);
-    // 猫的档案一页四段：资料、位置、账号、送走；位置逐个列出，展开的那个下面是它自己的六个动作。
+    // 猫的档案一页五段：资料、位置、账号、调用、送走（调用段跟着展开的本机位置，远端位置时隐藏）；
+    // 位置逐个列出，展开的那个下面是它自己的六个动作。
     const sections = await client.evaluate(`({
       sections: [...document.querySelectorAll('#agentManageDialog .agent-manage-section')].map((node) => node.dataset.section),
+      callingVisible: !document.querySelector('#hubCallingSection').hidden,
       name: document.querySelector('#agentManageName').textContent.trim(),
       locations: [...document.querySelectorAll('#agentManageLocations .dossier-location')].map((node) => node.getAttribute('aria-expanded')),
       actionsUnderExpanded: document.querySelector('#agentManageLocations .dossier-location[aria-expanded="true"]')?.nextElementSibling?.id || '',
@@ -927,7 +951,8 @@ async function runAcceptance(client, artifactDir) {
         .every((id) => Boolean(document.querySelector('#agentManageDialog #' + id))),
       summary: document.querySelector('#agentManageSummary').textContent.trim()
     })`);
-    assert.deepEqual(sections.sections, ['profile', 'locations', 'accounts', 'farewell']);
+    assert.deepEqual(sections.sections, ['profile', 'locations', 'accounts', 'calling', 'farewell']);
+    assert.equal(sections.callingVisible, true, 'the calling section follows the expanded local location');
     assert.ok(sections.name.length > 0 && sections.summary.length > 0);
     assert.ok(sections.locations.length >= 1, 'the dossier must list this cat\'s runtime locations');
     assert.equal(sections.locations.filter((value) => value === 'true').length, 1, 'exactly one location is expanded');
@@ -2170,6 +2195,14 @@ async function launchElectronApp(userData, output) {
   assert.ok(fs.existsSync(electronPath), `Electron runtime not found: ${electronPath}`);
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
+  if (HIDDEN) {
+    hiddenHome ||= fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-ui-acceptance-home-'));
+    env.HOME = hiddenHome;
+    env.USERPROFILE = hiddenHome;
+    env.AGENTDESK_HIDDEN_JS_DIALOGS = 'devtools';
+    env.AGENTDESK_HIDDEN_OUTPUT = path.join(hiddenHome, `hidden-record-${hiddenRecords.length + 1}.json`);
+    hiddenRecords.push(env.AGENTDESK_HIDDEN_OUTPUT);
+  }
   const childState = { exited: false, code: null };
   const child = spawn(electronPath, [
     `--remote-debugging-port=${port}`,
@@ -2178,7 +2211,7 @@ async function launchElectronApp(userData, output) {
     '--disable-renderer-backgrounding',
     '--disable-background-timer-throttling',
     `--user-data-dir=${userData}`,
-    APP_ROOT
+    HIDDEN ? path.join(__dirname, 'hidden-electron-entry.js') : APP_ROOT
   ], {
     cwd: APP_ROOT,
     env,
@@ -2336,7 +2369,7 @@ async function main() {
     ));
     assert.deepEqual(seriousLogs, [], `Electron emitted serious errors:\n${seriousLogs.join('\n')}`);
     assert.ok(fs.existsSync(path.join(userData, 'mesh.db')), 'Mesh acceptance must stay inside the disposable userData directory');
-    process.stdout.write(`\nAgentDesk real-window acceptance passed (${checks.length} task paths).\n`);
+    process.stdout.write(`\nAgentDesk ${HIDDEN ? 'hidden-window' : 'real-window'} acceptance passed (${checks.length} task paths).\n`);
     if (artifactDir) process.stdout.write(`Screenshots: ${artifactDir}\n`);
   } catch (error) {
     const recentOutput = output.join('').trim().split(/\r?\n/).slice(-30).join('\n');
@@ -2346,6 +2379,10 @@ async function main() {
     await closeElectronApp(instance);
     if (keepTemp) process.stdout.write(`Temporary userData kept at: ${userData}\n`);
     else fs.rmSync(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    if (hiddenHome) {
+      process.stdout.write(`Hidden entry record: ${JSON.stringify(hiddenSummary())}\n`);
+      fs.rmSync(hiddenHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
   }
 }
 

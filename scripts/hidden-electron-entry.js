@@ -19,7 +19,15 @@ const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = electron;
 
 const ROOT = path.resolve(__dirname, '..');
 const startedAt = Date.now();
-const record = { stubbed: [], scans: [], clipboard: [], startupReadyAt: null };
+const record = { stubbed: [], blockedProcesses: [], scans: [], clipboard: [], startupReadyAt: null };
+const task = process.env.AGENTDESK_HIDDEN_TASK || '';
+const output = process.env.AGENTDESK_HIDDEN_OUTPUT || '';
+// Without a task the caller may kill this process at any time, so every stub
+// or block is written out as it happens.
+function note(list, entry) {
+  record[list].push(entry);
+  if (!task && output) fs.writeFileSync(output, JSON.stringify({ stubbed: record.stubbed, blockedProcesses: record.blockedProcesses }));
+}
 
 if (typeof app.setAppPath === 'function') app.setAppPath(ROOT);
 app.setName('AgentDesk');
@@ -33,12 +41,20 @@ for (const name of ['show', 'showInactive', 'focus', 'moveTop', 'flashFrame']) {
 app.focus = () => {};
 app.whenReady().then(() => { if (process.platform === 'darwin') app.dock?.hide(); });
 
-// Native dialogs would appear on screen: answer them as cancelled.
-dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] });
-dialog.showSaveDialog = async () => ({ canceled: true, filePath: undefined });
+// Native dialogs would appear on screen: answer them as cancelled. Renderer
+// confirm()/alert() reach Main as showMessageBox with an AbortSignal; when a
+// DevTools client drives the page (AGENTDESK_HIDDEN_JS_DIALOGS=devtools) those
+// stay pending until DevTools answers and Electron aborts the signal.
+dialog.showOpenDialog = async () => { note('stubbed', { api: 'dialog.showOpenDialog' }); return { canceled: true, filePaths: [] }; };
+dialog.showSaveDialog = async () => { note('stubbed', { api: 'dialog.showSaveDialog' }); return { canceled: true, filePath: undefined }; };
 dialog.showMessageBox = async (...args) => {
   const options = args.find((arg) => arg && typeof arg === 'object' && !(arg instanceof BrowserWindow)) || {};
-  return { response: Number.isInteger(options.cancelId) ? options.cancelId : 0, checkboxChecked: false };
+  const cancel = Number.isInteger(options.cancelId) ? options.cancelId : 0;
+  if (options.signal && process.env.AGENTDESK_HIDDEN_JS_DIALOGS === 'devtools') {
+    return new Promise((resolve) => options.signal.addEventListener('abort', () => resolve({ response: cancel, checkboxChecked: false }), { once: true }));
+  }
+  note('stubbed', { api: 'dialog.showMessageBox' });
+  return { response: cancel, checkboxChecked: false };
 };
 dialog.showOpenDialogSync = () => undefined;
 dialog.showSaveDialogSync = () => undefined;
@@ -47,12 +63,30 @@ dialog.showMessageBoxSync = (...args) => {
   return Number.isInteger(options.cancelId) ? options.cancelId : 0;
 };
 dialog.showErrorBox = () => {};
-shell.openPath = async (target) => { record.stubbed.push({ api: 'shell.openPath', target: String(target).length }); return ''; };
-shell.showItemInFolder = (target) => { record.stubbed.push({ api: 'shell.showItemInFolder', target: String(target).length }); };
-shell.openExternal = async () => { record.stubbed.push({ api: 'shell.openExternal' }); };
+shell.openPath = async () => { note('stubbed', { api: 'shell.openPath' }); return ''; };
+shell.showItemInFolder = () => { note('stubbed', { api: 'shell.showItemInFolder' }); };
+shell.openExternal = async () => { note('stubbed', { api: 'shell.openExternal' }); };
 clipboard.writeText = (value) => { record.clipboard.push(String(value).length); };
 // No network from a hidden check (update and tool version lookups fail as offline).
 globalThis.fetch = async () => { throw new Error('hidden-check-offline'); };
+
+// Official clients, their CLIs and app launchers never start from a hidden
+// check: the command is replaced by a path that does not exist, so callers see
+// the ordinary "not installed" error. Read-only system tools (ps, lsof,
+// sqlite3, git, plutil, codesign, ditto) and node itself still run.
+const childProcess = require('node:child_process');
+const BLOCKED = /(?:^|[\\/])(?:codex|claude|kimi|dsh|opencode|gemini|qwen|cursor-agent|cursor|copilot|goose|open|osascript|xdg-open|ChatGPT|Claude|Cursor|Kimi)(?:\.exe|\.cmd)?$/i;
+const callerOf = () => (new Error().stack.split('\n').slice(3).find((line) => line.includes(`${path.sep}src${path.sep}`)) || '').trim().replace(ROOT, '');
+for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync']) {
+  const original = childProcess[name];
+  childProcess[name] = function guarded(command, ...rest) {
+    if (typeof command === 'string' && BLOCKED.test(command)) {
+      note('blockedProcesses', { api: name, command: path.basename(command), caller: callerOf() });
+      return original.call(this, path.join(ROOT, 'hidden-check-blocked', path.basename(command)), ...rest);
+    }
+    return original.call(this, command, ...rest);
+  };
+}
 
 // Channels that start official clients or their CLIs. The renderer still gets
 // a well-formed refusal, so the surrounding UI paths keep running.
@@ -68,7 +102,7 @@ const STUBS = {
 };
 const originalHandle = ipcMain.handle.bind(ipcMain);
 ipcMain.handle = (channel, listener) => originalHandle(channel, STUBS[channel]
-  ? (...args) => { record.stubbed.push({ channel }); return STUBS[channel](...args); }
+  ? (...args) => { note('stubbed', { channel }); return STUBS[channel](...args); }
   : listener);
 
 // Count scanner calls per profile (a full scan = every profile scanned once).
@@ -79,9 +113,6 @@ apps.getApp = (appId) => {
   if (!app_ || typeof app_.scan !== 'function') return app_;
   return { ...app_, scan(profile, ...rest) { record.scans.push({ profileId: profile?.id, at: Date.now() - startedAt }); return app_.scan(profile, ...rest); } };
 };
-
-const task = process.env.AGENTDESK_HIDDEN_TASK || '';
-const output = process.env.AGENTDESK_HIDDEN_OUTPUT || '';
 
 if (task === 'probe') {
   app.on('browser-window-created', (_event, window) => {
