@@ -11,11 +11,14 @@
 //     ran, and the synchronous file/process calls the main thread made while
 //     serving the refresh path.
 //
-//   node scripts/hidden-check.js [--update] [--keep] [--eval '<renderer expression>'] [--sessions N]
+//   node scripts/hidden-check.js [--update] [--keep] [--eval '<renderer expression>'] [--sessions N] [--packaged <binary>]
 // --eval adds the JSON value of one renderer expression to the report, for a
 // phase check of something the shapes do not show (for example cat states).
 // --sessions N seeds N sessions per account (default 20, at most 500) for a
 // timing check; payload shapes are compared only at the default.
+// --packaged <binary> runs a packaged test build whose app.asar has the hidden
+// entry as its main (made by scripts/hidden-package.js), to check the
+// packaged runtime: Electron, app.asar, fuses and ASAR integrity as released.
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -48,7 +51,9 @@ function seed(base, sessionsPerAccount = 20) {
   return { userData, home, profiles };
 }
 
-function launch(base, userData, home, outputFile, evalExpression) {
+// packagedBinary: a packaged AgentDesk whose app.asar has scripts/hidden-electron-entry.js
+// as its main (a test-only build); otherwise the development Electron runs the entry.
+function launch(base, userData, home, outputFile, evalExpression, packagedBinary = null) {
   const electronPath = require('electron');
   const env = { ...process.env, HOME: home, USERPROFILE: home, AGENTDESK_HIDDEN_TASK: 'probe', AGENTDESK_HIDDEN_OUTPUT: outputFile };
   if (evalExpression) env.AGENTDESK_HIDDEN_EVAL = evalExpression;
@@ -56,7 +61,9 @@ function launch(base, userData, home, outputFile, evalExpression) {
   delete env.ELECTRON_RUN_AS_NODE;
   const log = [];
   return new Promise((resolve) => {
-    const child = spawn(electronPath, [`--user-data-dir=${userData}`, path.join(__dirname, 'hidden-electron-entry.js')], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const command = packagedBinary || electronPath;
+    const argv = packagedBinary ? [`--user-data-dir=${userData}`] : [`--user-data-dir=${userData}`, path.join(__dirname, 'hidden-electron-entry.js')];
+    const child = spawn(command, argv, { cwd: packagedBinary ? base : ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout.on('data', (chunk) => log.push(String(chunk)));
     child.stderr.on('data', (chunk) => log.push(String(chunk)));
     const timer = setTimeout(() => child.kill('SIGKILL'), 120_000);
@@ -80,7 +87,9 @@ async function main() {
     const { userData, home, profiles } = seed(base, perAccount);
     const outputFile = path.join(base, 'result.json');
     const evalIndex = args.indexOf('--eval');
-    const { code, log } = await launch(base, userData, home, outputFile, evalIndex >= 0 ? args[evalIndex + 1] : '');
+    const packagedIndex = args.indexOf('--packaged');
+    const packagedBinary = packagedIndex >= 0 ? path.resolve(args[packagedIndex + 1]) : null;
+    const { code, log } = await launch(base, userData, home, outputFile, evalIndex >= 0 ? args[evalIndex + 1] : '', packagedBinary);
     assert.ok(fs.existsSync(outputFile), `hidden run produced no result (exit ${code})\n${log.slice(-3000)}`);
     const result = JSON.parse(fs.readFileSync(outputFile, 'utf8'));
     if (result.error) throw new Error(`hidden run failed: ${result.error}\n${log.slice(-3000)}`);
@@ -94,6 +103,8 @@ async function main() {
       startup: fullScans(bootScans, profiles.map((profile) => profile.id)),
       untilProbe: fullScans(result.scans, profiles.map((profile) => profile.id)),
       // Where scans ran: on the worker thread, or in the main process.
+      packaged: result.packaged === true,
+      scanHostsUseWorker: result.scanHostsUseWorker,
       scanPlaces: result.scans.reduce((places, scan) => ({ ...places, [scan.where || 'here']: (places[scan.where || 'here'] || 0) + 1 }), {}),
       stubbed: [...new Set(result.stubbed.map((item) => item.channel || item.api))],
       clipboardWrites: result.clipboard.length,

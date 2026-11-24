@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 5 阶段第 1 批：打包后的应用里工作线程能起来。新增 `scripts/hidden-package.js`：按 `package.json` 的打包配置（同样的 fuses、ASAR 完整性校验、文件清单）做一份只用于检查的包，唯一区别是 app.asar 里多放了不显示窗口的检查入口并以它为入口；Electron 用本机 `node_modules/electron/dist` 的副本（去掉开发版的 `default_app.asar`），不下载；产物必须通过发布用的 `scripts/verify-electron-package-integrity.js`。`scripts/hidden-check.js` 加 `--packaged <binary>` 运行这份包，并报告每个扫描宿主是否真在用工作线程（`scanHostsUseWorker`）。结果（macOS arm64，Electron 43.3.0）：打包后 237 个文件全在 app.asar 里、没有解包，工作线程从 asar 里正常起来，启动到探针结束 21 次扫描都在工作线程里、主线程 0 次，启动完整扫描 1 次，读接口形状与基准相同，刷新一轮主线程同步调用 0 次；不需要 asarUnpack。第一次试做时 electron-builder 换了一个缓存位置，从官方源又下载了一次同版本的 Electron（122 MB），之后改用本机副本。检查用的包都建在系统临时目录、用完删除，不是发布产物；Windows 未验证。
+
 2026-11-24 架构整理第 4 阶段收尾后一批：只在开发时用的类型检查。开发依赖 `typescript` 6.0.3（规划会话在所有者同意后安装，提交 `6fc92f7`）。根目录 `tsconfig.json` 只查 `src/core/**`（`allowJs`、`checkJs`、`noEmit`、`strict`），`npm run typecheck` 运行它，`npm run check` 先跑它；Node 的类型用 `node_modules` 里已有的 `@types/node` 24.13.3（electron 带进来的），没有另装任何包。`src/core` 的五个文件只加了 JSDoc 注释和两处写在注释里的类型断言，行为不变；`types/agentdesk-globals.d.ts` 只声明界面里的 `self`。第 4 阶段新加的六个文件进了 `npm run check` 的逐文件语法检查清单；验证用的源码摘要也算进 `tsconfig.json` 与 `types/`。生产依赖仍为空，打包内容不变。
 
 2026-11-24 架构整理第 4 阶段收尾：在 `docs/ARCHITECTURE_PLAN.md` 第 9.1 节记下第 4 阶段，第 8 节“现在”一栏重新量过（`arch-metrics --write`、`arch-bench`、`hidden-check`）。按标识找会话的实现 5 → 1；界面刷新路径上的同步文件读写运行时为 0（启动完成后再刷新一轮，主线程同步调用 0 次）；启动时的完整扫描 4 → 1；经会话索引与工作线程刷新时主线程最长挡 2.2 毫秒。留一处待定：调度中枢一段对话结束时找会话仍在主线程扫一个账号，第一次最慢 139 毫秒。隐藏窗口验收 24 条路径通过，读接口形状与基准相同。

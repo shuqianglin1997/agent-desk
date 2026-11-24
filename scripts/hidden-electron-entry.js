@@ -149,13 +149,18 @@ apps.getApp = (appId) => {
 // in this process are counted by the getApp() wrapper above.
 const scanHostModule = require(path.join(ROOT, 'src/scan-host.js'));
 const originalCreateScanHost = scanHostModule.createScanHost;
-scanHostModule.createScanHost = (options = {}) => originalCreateScanHost({
-  ...options,
-  onScan: (profile, where) => {
-    if (where === 'worker') record.scans.push({ profileId: profile?.id, at: Date.now() - startedAt, where: 'worker' });
-    options.onScan?.(profile, where);
-  }
-});
+const scanHosts = [];
+scanHostModule.createScanHost = (options = {}) => {
+  const host = originalCreateScanHost({
+    ...options,
+    onScan: (profile, where) => {
+      if (where === 'worker') record.scans.push({ profileId: profile?.id, at: Date.now() - startedAt, where: 'worker' });
+      options.onScan?.(profile, where);
+    }
+  });
+  scanHosts.push(host);
+  return host;
+};
 
 if (task === 'probe') {
   app.on('browser-window-created', (_event, window) => {
@@ -262,6 +267,9 @@ async function runProbe(window) {
   const profileCount = await evaluate(window, 'state.profiles.length');
   // Optional extra renderer expression for a phase check (hidden-check --eval).
   const extra = process.env.AGENTDESK_HIDDEN_EVAL ? await evaluate(window, process.env.AGENTDESK_HIDDEN_EVAL) : undefined;
+  // Whether each scan host is using its worker thread now (false: the in-process fallback).
+  record.scanHostsUseWorker = scanHosts.map((host) => host.usesWorker());
+  record.packaged = app.isPackaged;
   finish({ ready, shapes, profileCount, extra, ...record });
 }
 
