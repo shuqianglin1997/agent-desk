@@ -3396,7 +3396,12 @@ async function loadLocalSessions(options = {}) {
         }))
       };
     } catch (_error) {
-      return { ok: false, profileId: member.id, records: [] };
+      // A failed scan is not "no sessions": keep this account's last rows.
+      return {
+        ok: false,
+        profileId: member.id,
+        records: state.sessions.filter((row) => String(row._profileId) === String(member.id) && row._remote !== true)
+      };
     }
   }));
 
@@ -6036,7 +6041,7 @@ async function loadActivity() {
     const list = await window.manager.listActivity();
     state.activity = Object.fromEntries(list.map((item) => [item.profileId, item]));
   } catch (_error) {
-    state.activity = {};
+    // A failed probe is not "every cat idle": keep the last known activity.
   } finally {
     activityLoading = false;
   }

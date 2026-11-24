@@ -79,6 +79,9 @@ class MeshService {
     this.profilesProvider = options.profilesProvider || (() => []);
     this.sessionCountProvider = options.sessionCountProvider || (() => 0);
     this.sessionsProvider = options.sessionsProvider || (() => []);
+    // Last successful scan per profile: a failed scan republishes these
+    // instead of telling paired devices (and the local list) that it is empty.
+    this.lastGoodSessions = new Map();
     this.appVersion = options.appVersion || 'unknown';
     this.platform = options.platform || process.platform;
     this.arch = options.arch || process.arch;
@@ -1488,11 +1491,14 @@ class MeshService {
     const profiles = this.currentProfiles();
     const sessionsByProfile = new Map();
     for (const profile of profiles) {
+      const id = String(profile.id);
       try {
         const sessions = this.sessionsProvider(profile);
-        sessionsByProfile.set(String(profile.id), Array.isArray(sessions) ? sessions : []);
+        const list = Array.isArray(sessions) ? sessions : [];
+        this.lastGoodSessions.set(id, list);
+        sessionsByProfile.set(id, list);
       } catch (_error) {
-        sessionsByProfile.set(String(profile.id), []);
+        sessionsByProfile.set(id, this.lastGoodSessions.get(id) || []);
       }
     }
     const local = snapshot.devices.find((device) => device.deviceId === snapshot.mesh.localDeviceId);

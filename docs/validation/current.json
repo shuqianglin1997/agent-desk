@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:52:18.936Z",
-  "baseCommit": "f9b00fab9c74fd545f9b02d3571ec558a0f89191",
+  "recordedAt": "2026-11-24T16:53:31.204Z",
+  "baseCommit": "b85945a0398a81fd6adabb95a4fd33e19738f8ba",
   "uncommitted": true,
-  "sourceSha256": "0ad16adf3bd41bd4d3a247f78803b55acf8b6d72527c78fadd45048f5d6d6cda",
+  "sourceSha256": "69ec24ac86b7e9666184167e78370092a5738b5893ff980215bb1815a22d9091",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 838,
+      "pass": 836,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 1 item 4 (failed reads keep the last good data in activity, session list, Codex index and Mesh inventory); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:53:31.204Z",
+      "sourceSha256": "69ec24ac86b7e9666184167e78370092a5738b5893ff980215bb1815a22d9091"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T16:53:31.204Z",
+      "sourceSha256": "69ec24ac86b7e9666184167e78370092a5738b5893ff980215bb1815a22d9091"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

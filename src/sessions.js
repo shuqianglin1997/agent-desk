@@ -608,7 +608,13 @@ function lastEventTimestamp(filePath) {
 function readCodexIndex(filePath) {
   const map = new Map();
   if (!fs.existsSync(filePath)) return map;
-  const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+  let lines;
+  try {
+    lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+  } catch (_error) {
+    // An unreadable title index must not empty the whole list: titles fall back.
+    return map;
+  }
   for (const line of lines) {
     if (!line.trim()) continue;
     try {
