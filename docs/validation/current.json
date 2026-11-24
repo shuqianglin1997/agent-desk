@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T20:06:53.335Z",
-  "baseCommit": "7e4a0844559e064e604dc99f5a37e2ce780f9668",
+  "recordedAt": "2026-11-24T20:09:12.401Z",
+  "baseCommit": "b0bca40d7923591af1ac5834557a9120dce18aff",
   "uncommitted": true,
-  "sourceSha256": "b374c6703219aa2f407e350bcba16e95c081c7ad1c37c4918508d87427e12c51",
+  "sourceSha256": "b45364bb6b1a44d1e775724455d28fe9960a071b84a22cc37078057b1a4c5b89",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 924,
+      "pass": 922,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 5 batch 10 (tool maintenance out of main.js); digest identical before and after the run",
+      "recordedAt": "2026-11-24T20:09:12.401Z",
+      "sourceSha256": "b45364bb6b1a44d1e775724455d28fe9960a071b84a22cc37078057b1a4c5b89"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T20:09:12.401Z",
+      "sourceSha256": "b45364bb6b1a44d1e775724455d28fe9960a071b84a22cc37078057b1a4c5b89"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

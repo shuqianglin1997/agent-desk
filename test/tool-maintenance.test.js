@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const maintenance = require('../src/tool-maintenance');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 test('工具目录覆盖桌面应用、CLI 工具和系统终端，ID 与入口唯一', () => {
   const ids = maintenance.TOOL_CATALOG.map((tool) => tool.id);
@@ -161,17 +162,20 @@ test('更新计划只为可写且识别出的来源自动执行，公开记录�
 test('工具中心只有匹配的 CLI 槽位传入账号环境，普通工具不被桌面选择阻断', async () => {
   const vm = require('node:vm');
   const apps = require('../src/apps');
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   const source = main.slice(main.indexOf('async function openMaintenanceTool('), main.indexOf('async function openMaintenanceOfficialPage('));
   const profiles = [{ id: 'desktop', appId: 'codex' }, { id: 'cli', appId: 'claude-cli', sessionRoot: '/isolated' }];
   const calls = [];
   const tool = maintenance.catalogTool('cli:claude');
-  const open = vm.runInNewContext(source + '\nopenMaintenanceTool', {
+  // Moved code reads Main's services as main.<name>: the context is also `main`.
+  const sandbox = {
     toolMaintenance: maintenance, apps, t: key => key,
     maintenanceRecord: async () => ({ installed: true, tool }),
     loadProfiles: () => profiles,
     openMaintenanceCliInTerminal: async (_record, profile, requested) => { calls.push({ profile, requested }); return { ok: true }; }
-  });
+  };
+  sandbox.main = sandbox;
+  const open = vm.runInNewContext(source + '\nopenMaintenanceTool', sandbox);
   assert.equal((await open('cli:claude', 'desktop')).ok, true);
   assert.deepEqual(calls.pop(), { profile: null, requested: false });
   assert.equal((await open('cli:claude', 'cli')).ok, true);
@@ -182,12 +186,14 @@ test('工具中心只有匹配的 CLI 槽位传入账号环境，普通工具不
 
 test('CLI 账号上下文拒绝错配并保留清理后的环境和固定 DSH web 参数', () => {
   const vm = require('node:vm');
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   const source = main.slice(main.indexOf('function cliMaintenanceProfileContext('), main.indexOf('async function openMaintenanceCliInTerminal('));
-  const context = vm.runInNewContext(source + '\ncliMaintenanceProfileContext', {
+  const sandbox = {
     apps: require('../src/apps'), t: key => key,
     process: { env: { Path: '/tools', Anthropic_Api_Key: 'synthetic', claude_config_dir: '/wrong' } }
-  });
+  };
+  sandbox.main = sandbox;
+  const context = vm.runInNewContext(source + '\ncliMaintenanceProfileContext', sandbox);
   assert.ok(context({ tool: { discoveryId: 'dsh' } }, { appId: 'claude-cli' }, true).error);
   assert.ok(context({}, null, true).error);
   const claude = context({ tool: { discoveryId: 'claude' } }, { appId: 'claude-cli', sessionRoot: '/isolated' }, true);

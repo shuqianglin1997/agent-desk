@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 const {
   prepareManagedProfileHome
@@ -83,7 +84,7 @@ test('官方默认 ~/.claude 与 ~/.dsh 不会被播种改写', () => {
 });
 
 test('main 在创建、准备和 CLI 启动时播种独立配置根', () => {
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const main = mainHandlerSource();
   assert.match(main, /prepareManagedProfileHome\(profile\)/);
   assert.match(main, /if \(app_\.cliDiscoveryId\)/);
   assert.match(main, /function createStoredProfile[\s\S]*prepareManagedProfileHome\(profile\)/);
