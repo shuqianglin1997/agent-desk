@@ -54,6 +54,7 @@ function formatBytes(value) {
 function setStatus(message, tone = 'neutral') {
   els.statusText.parentElement.dataset.tone = tone;
   els.statusText.removeAttribute('data-i18n');
+  delete els.statusText.dataset.emptyDesk;
   els.statusText.textContent = message;
   // 档案开着时主窗口的页脚被遮住，同一句话也写在档案页脚。
   if (els.agentManageStatus && els.agentManageDialog?.open) els.agentManageStatus.textContent = message;

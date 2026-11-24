@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T22:03:27.275Z",
-  "baseCommit": "addc82907db2d818e036cb0f75552d3817f80b42",
-  "uncommitted": false,
-  "sourceSha256": "e9e4ed0842c9eff1f76778a73e3d328dec4cb1e62dbba36556a8410103b4b477",
+  "recordedAt": "2026-11-24T22:11:11.301Z",
+  "baseCommit": "43c04567791eb6c9848a73ba4a240dfc3dbfd442",
+  "uncommitted": true,
+  "sourceSha256": "163e9dbc969afc67be8bc56b3fd621c527ffd95e64c7baebdaad62d420f583d3",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 946,
+      "pass": 944,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after the footer empty-desk fix; digest identical before and after the run",
+      "recordedAt": "2026-11-24T22:11:11.301Z",
+      "sourceSha256": "163e9dbc969afc67be8bc56b3fd621c527ffd95e64c7baebdaad62d420f583d3"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T22:11:11.301Z",
+      "sourceSha256": "163e9dbc969afc67be8bc56b3fd621c527ffd95e64c7baebdaad62d420f583d3"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

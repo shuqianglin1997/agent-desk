@@ -94,8 +94,25 @@ function renderRosterEmptyState() {
   empty.append(seat, body);
   els.accountRoster.replaceChildren(empty);
   window.PixelUi?.setCat(canvas, { look: 'orange', accessory: 'none', collar: '#2f9e8f', action: 'rest', seed: 'empty-desk' });
-  // 页脚还停在默认的“就绪”时，换成一句能照着做的话。
-  if (els.statusText?.dataset.i18n === 'status.ready') setStatus(tr('roster.empty.status'));
+  showEmptyDeskStatus();
+}
+
+// 页脚还停在默认的“就绪”时，换成一句能照着做的话。The line is marked as
+// the empty desk's own, so it can be taken back when cards arrive.
+function showEmptyDeskStatus() {
+  if (els.statusText?.dataset.i18n !== 'status.ready') return;
+  setStatus(tr('roster.empty.status'));
+  els.statusText.dataset.emptyDesk = '1';
+}
+
+// Cards are on the desk: a footer still saying the desk is empty goes back to
+// how it starts (“就绪”, following the language). A newer message stays.
+function clearEmptyDeskStatus() {
+  if (els.statusText?.dataset.emptyDesk !== '1') return;
+  delete els.statusText.dataset.emptyDesk;
+  delete els.statusText.parentElement.dataset.tone;
+  els.statusText.textContent = tr('status.ready');
+  els.statusText.dataset.i18n = 'status.ready';
 }
 
 function renderAccountRoster() {
@@ -109,6 +126,7 @@ function renderAccountRoster() {
     renderRosterEmptyState();
     return;
   }
+  clearEmptyDeskStatus();
 
   const cards = new Map([...els.accountRoster.children].map((card) => [card.dataset.agentId, card]));
   const now = Date.now();
@@ -620,4 +638,4 @@ function rosterIsInteracting() {
   return rosterController.isInteracting();
 }
 
-export { deploymentStateLabel, renderAccounts, orderedAgentGroups, ensureRosterInteractions, renderRosterEmptyState, renderAccountRoster, revealSelectedAccountCard, accountCardQuotaSource, trustedLocalAccountCardQuota, selectedCardControl, cardActionProfile, accountCardControl, createAccountCard, changeAccountCardRuntime, launchOutcome, pickRosterAgent, pickRosterAll, renderRosterAllCard, updateAccountCard, renderAccountCardRuntime, accountCardTooltip, renderAccountHeader, renderAccountCardLaunch, rosterIsInteracting };
+export { deploymentStateLabel, renderAccounts, orderedAgentGroups, ensureRosterInteractions, renderRosterEmptyState, renderAccountRoster, revealSelectedAccountCard, accountCardQuotaSource, trustedLocalAccountCardQuota, selectedCardControl, cardActionProfile, accountCardControl, createAccountCard, changeAccountCardRuntime, launchOutcome, pickRosterAgent, pickRosterAll, renderRosterAllCard, updateAccountCard, renderAccountCardRuntime, accountCardTooltip, renderAccountHeader, renderAccountCardLaunch, rosterIsInteracting, showEmptyDeskStatus, clearEmptyDeskStatus };

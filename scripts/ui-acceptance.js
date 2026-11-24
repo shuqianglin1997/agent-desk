@@ -769,6 +769,8 @@ async function runAcceptance(client, artifactDir) {
       toolbarOwnsActions: document.querySelector('.session-toolbar').contains(document.querySelector('#sessionActionDock')),
       footerOwnsActions: document.querySelector('#statusBar').contains(document.querySelector('#sessionSelectionBar')),
       footerHasGlobalState: document.querySelector('#statusBar').contains(document.getElementById('statusText')) && !document.querySelector('#ledgerDone, #ledgerMin, #reminderToggle'),
+      // A desk with cats does not say it has none (the empty desk's line is taken back).
+      footerNotEmptyDesk: document.getElementById('statusText').textContent !== window.I18N.t('roster.empty.status') && !document.getElementById('statusText').dataset.emptyDesk,
       yardLedger: Boolean(document.querySelector('#yardLedger')),
       buttonsDisabled: [...document.querySelectorAll('#sessionActionDock > button')].every(button => button.disabled)
     })`);
@@ -776,6 +778,7 @@ async function runAcceptance(client, artifactDir) {
       toolbarOwnsActions: true,
       footerOwnsActions: false,
       footerHasGlobalState: true,
+      footerNotEmptyDesk: true,
       yardLedger: false,
       buttonsDisabled: true
     });
