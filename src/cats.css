@@ -1,0 +1,109 @@
+/* ══ 像素猫 ═════════════════════════════════════════════════════════════
+   猫都是 pixel/cats.js 逐帧画在画布上的，没有拉伸和旋转。一格 4px，猫是 20×18 格（80×72），
+   头顶再多留 2 格（8px）透明的空，跳到最高时草帽、贝雷帽、斗笠不会被画布上沿切掉。
+
+   卡片：画布 80×80，猫的位子仍是原来的 64×68。画布底边贴着搁板，左右各伸出 8px、上面伸出 12px，
+   都在坑位允许往外画的范围里（.account-card-pit 的 clip-path 左右 12px、上面 60px），
+   所以卡片、名册、搁板和名牌的尺寸都不变。 */
+.agent-panel .account-card-avatar {
+  width: 80px;
+  height: 80px;
+  margin: -12px -8px 0;
+}
+
+/* 页脚的猫：20×18 格，一格 2px。平时揣着手只占下面 13 格；复制、导出时跳起来，会高出页脚的木板一点，不裁。 */
+.status-mascot {
+  width: 40px;
+  height: 36px;
+  align-self: flex-end;
+  margin-bottom: 2px;
+}
+
+/* ── 编辑 Agent 里的猫：三项选择（毛色、项圈、配饰），左边是会动的预览 ──
+   弹窗放宽到 760px，每组毛色和全部配饰各占一行，内容不多时不出现滚动条。 */
+#editDialog { width: min(760px, calc(100vw - 48px)); }
+.cat-customizer {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 12px 14px;
+  align-items: start;
+}
+.cc-preview {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.cc-preview canvas {
+  display: block;
+  width: 120px;
+  height: 120px;
+  image-rendering: pixelated;
+}
+/* 预览的猫坐在一小截同样的搁板上 */
+.cc-shelf {
+  display: block;
+  width: 128px;
+  height: 8px;
+  margin-top: -2px;
+  background: var(--px-wood);
+  box-shadow: inset 0 2px 0 0 var(--px-wood-hi), inset 0 -2px 0 0 var(--px-wood-lo), 0 -2px 0 0 var(--px-edge), 0 2px 0 0 var(--px-edge);
+}
+.cc-look-name {
+  margin-top: 6px;
+  color: var(--px-ink);
+  font: 400 12px/1.3 var(--font-px);
+  -webkit-font-smoothing: none;
+  text-align: center;
+}
+.cat-customizer .cc-look-note {
+  max-width: 128px;
+  text-align: center;
+}
+.cat-customizer .cc-look-note:empty { display: none; }
+.cc-groups { display: grid; gap: 10px; min-width: 0; }
+.cc-group { display: grid; gap: 4px; min-width: 0; }
+.cc-title,
+.cc-subtitle {
+  color: var(--px-ink);
+  font: 400 12px/1.3 var(--font-px);
+  -webkit-font-smoothing: none;
+}
+.cc-subtitle { margin-top: 2px; color: var(--px-ink-2); }
+.cc-swatches { display: flex; flex-wrap: wrap; gap: 2px; }
+/* 家猫一行；有来历的和跟着客户端并排一行 */
+.cc-looks { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.cc-look-group { display: grid; gap: 2px; }
+
+/* 一格一个选项：画着那只猫（或那件配饰）的小样；选中的那格下沿是朱红的，和名牌一样 */
+dialog button.cc-tile {
+  display: grid;
+  place-items: end center;
+  width: 44px;
+  height: 40px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--px-bg);
+  box-shadow: inset 0 0 0 2px var(--px-line);
+}
+dialog button.cc-tile canvas { display: block; width: 40px; height: 36px; margin-bottom: 2px; image-rendering: pixelated; }
+dialog button.cc-tile:hover:not(:disabled) { background: var(--px-hl); }
+dialog button.cc-tile[aria-checked="true"] { box-shadow: inset 0 0 0 2px var(--px-ink), inset 0 -6px 0 0 var(--px-brand); }
+dialog button.cc-tile:focus-visible { outline: 2px solid var(--px-focus); outline-offset: 1px; }
+
+/* 项圈：一个色块一种颜色；第一块是这种毛色自带的项圈色 */
+dialog button.cc-collar {
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--px-bg);
+  box-shadow: inset 0 0 0 2px var(--px-line);
+}
+dialog button.cc-collar i { display: block; width: 16px; height: 16px; margin: 6px; box-shadow: 0 0 0 2px var(--px-ink); }
+dialog button.cc-collar[aria-checked="true"] { box-shadow: inset 0 0 0 2px var(--px-ink), inset 0 -4px 0 0 var(--px-brand); }
+dialog button.cc-collar:focus-visible { outline: 2px solid var(--px-focus); outline-offset: 1px; }
+dialog button.cc-random { justify-self: center; margin-top: 2px; }
