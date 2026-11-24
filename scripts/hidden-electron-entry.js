@@ -111,8 +111,20 @@ const originalGetApp = apps.getApp;
 apps.getApp = (appId) => {
   const app_ = originalGetApp(appId);
   if (!app_ || typeof app_.scan !== 'function') return app_;
-  return { ...app_, scan(profile, ...rest) { record.scans.push({ profileId: profile?.id, at: Date.now() - startedAt }); return app_.scan(profile, ...rest); } };
+  return { ...app_, scan(profile, ...rest) { record.scans.push({ profileId: profile?.id, at: Date.now() - startedAt, where: 'here' }); return app_.scan(profile, ...rest); } };
 };
+
+// Scans on the worker thread are counted where they are requested; scans done
+// in this process are counted by the getApp() wrapper above.
+const scanHostModule = require(path.join(ROOT, 'src/scan-host.js'));
+const originalCreateScanHost = scanHostModule.createScanHost;
+scanHostModule.createScanHost = (options = {}) => originalCreateScanHost({
+  ...options,
+  onScan: (profile, where) => {
+    if (where === 'worker') record.scans.push({ profileId: profile?.id, at: Date.now() - startedAt, where: 'worker' });
+    options.onScan?.(profile, where);
+  }
+});
 
 if (task === 'probe') {
   app.on('browser-window-created', (_event, window) => {

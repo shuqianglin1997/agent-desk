@@ -75,6 +75,7 @@ src/
   profile-runtime.js      Profile 进程归属、重复启动、退出收口、Crashpad 限额/熔断与窄范围清理
   process-snapshots.js    全应用共用的一份进程列表：同时到来的请求共用一次采集，按调用方要的新旧程度复用，不在主线程上同步等待；活动探测与 Profile 运行监管都用它
   session-index.js        会话索引：主进程里读会话清单的地方都经过它（列表、设备页的数目、发给别的设备的库存、按标识找会话）；同一账号正在扫或刚扫过的请求共用一次扫描，扫描结果带“读不出 / 截断”，重扫失败保留上一次的好结果；按标识找会话只有它的 findSession 一种写法
+  scan-host.js            会话扫描与活动探测在一个工作线程（scan-worker.js）里跑，结果作为数据传回；线程起不来或反复出错时改在主进程里做（慢一些，但答案一样），正在等的请求在主进程里重做一次。工作线程只收到主进程给的账号记录和时间，只读文件
   account-discovery.js    招募：按注册表特征找已有账号目录（默认/环境变量、有界主目录扫描、指定文件夹），身份只出邮箱或套餐
   account-credentials.js  招募：把粘贴的密钥交给账号自己的客户端（标准输入、单一文档变量或该目录文档写明的文件），按各家成功判据报告登录状态；规则与校验在这里，各家怎么交接在 clients/<id>/credentials.js（适配器的 credentialHandoff），共用的私有文件写入、TOML/.env/YAML/JSON 合并编辑和运行官方命令在 clients/credential-files.js
   credential-import.js    招募：拖进来的登录文件归哪家、读取检查与复制进新独立目录；各家认哪些文件、怎么复制在 clients/<id>/import.js（适配器的 credentialImport；OpenCode 靠内容区分与 Codex 同名的 auth.json，Codex 用自己的读法和计划），共用的有界读取在 clients/import-files.js

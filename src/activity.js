@@ -246,19 +246,44 @@ function activitySourceKey(profile) {
  * marks（可选）：{ baselineAt, seenAt(key) }，来自本机的会话记号。会话键与 SessionTable.markKeyOf 同一口径：
  * “运行位置 ID::会话地址”。同一份数据根被几个运行位置共用时只扫一次，键按各自的运行位置给出。
  */
-function probeActivities(profiles, now = Date.now(), marks = null) {
+// The file work of a probe, one result per profile (profiles sharing a data
+// source read it once). Plain data, so it can run on a worker thread.
+function probeRawActivities(profiles, now = Date.now(), baselineAt = 0) {
   const bySource = new Map();
-  const baselineAt = marks && Number(marks.baselineAt) > 0 ? Number(marks.baselineAt) : 0;
-  const seenAt = marks && typeof marks.seenAt === 'function' ? marks.seenAt : () => null;
   return profiles.map((profile) => {
     const key = activitySourceKey(profile);
-    let raw;
-    if (!key || !bySource.has(key)) {
-      raw = probeActivity(profile, now, { baselineAt });
-      if (key) bySource.set(key, raw);
-    } else {
-      raw = bySource.get(key);
-    }
+    if (key && bySource.has(key)) return bySource.get(key);
+    const raw = probeActivity(profile, now, { baselineAt });
+    if (key) bySource.set(key, raw);
+    return raw;
+  });
+}
+
+function probeActivities(profiles, now = Date.now(), marks = null) {
+  const baselineAt = marks && Number(marks.baselineAt) > 0 ? Number(marks.baselineAt) : 0;
+  return finishActivities(profiles, probeRawActivities(profiles, now, baselineAt), marks);
+}
+
+// A raw result keeps writingAddresses and replies as hidden (non-enumerable)
+// fields so they never reach the window. Copying to another thread drops hidden
+// fields, so the worker packs them and Main restores them.
+function packRawActivity(raw) {
+  return { fields: { ...raw }, writingAddresses: [...(raw.writingAddresses || [])], replies: [...(raw.replies || [])] };
+}
+
+function unpackRawActivity(packed) {
+  const raw = { ...(packed?.fields || {}) };
+  Object.defineProperty(raw, 'writingAddresses', { value: Array.isArray(packed?.writingAddresses) ? packed.writingAddresses : [], enumerable: false });
+  Object.defineProperty(raw, 'replies', { value: Array.isArray(packed?.replies) ? packed.replies : [], enumerable: false });
+  return raw;
+}
+
+// The last step, in Main: which replies are new since this machine last looked.
+function finishActivities(profiles, raws, marks = null) {
+  const baselineAt = marks && Number(marks.baselineAt) > 0 ? Number(marks.baselineAt) : 0;
+  const seenAt = marks && typeof marks.seenAt === 'function' ? marks.seenAt : () => null;
+  return profiles.map((profile, index) => {
+    const raw = raws[index];
     const id = String(profile.id);
     const fresh = [];
     if (baselineAt > 0) {
@@ -279,4 +304,4 @@ function probeActivities(profiles, now = Date.now(), marks = null) {
   });
 }
 
-module.exports = { probeActivity, probeActivities, WRITING_WINDOW_MS };
+module.exports = { probeActivity, probeActivities, probeRawActivities, finishActivities, packRawActivity, unpackRawActivity, WRITING_WINDOW_MS };

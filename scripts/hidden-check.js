@@ -87,6 +87,8 @@ async function main() {
       startupReadyMs: ready,
       startup: fullScans(bootScans, profiles.map((profile) => profile.id)),
       untilProbe: fullScans(result.scans, profiles.map((profile) => profile.id)),
+      // Where scans ran: on the worker thread, or in the main process.
+      scanPlaces: result.scans.reduce((places, scan) => ({ ...places, [scan.where || 'here']: (places[scan.where || 'here'] || 0) + 1 }), {}),
       stubbed: [...new Set(result.stubbed.map((item) => item.channel || item.api))],
       clipboardWrites: result.clipboard.length,
       seriousLogLines: serious

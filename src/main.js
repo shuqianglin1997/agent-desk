@@ -29,13 +29,21 @@ const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const apps = require('./apps');
 const { createSessionIndex, registryScan } = require('./session-index');
+const { probeRawActivities, finishActivities } = require('./activity');
+const { createScanHost } = require('./scan-host');
 
 // Every Main-side reader of a profile's sessions goes through the index (src/session-index.js).
-const sessionIndex = createSessionIndex({ scan: registryScan(apps) });
+// Scans and activity probes run on a worker thread (src/scan-host.js).
+const scanHost = createScanHost({ inProcess: { scan: registryScan(apps), activityRaw: probeRawActivities } });
+const sessionIndex = createSessionIndex({ scan: (profile) => scanHost.scan(profile), scanSync: registryScan(apps) });
+// The activity probe: file work on the worker, the "seen" comparison here.
+async function probeActivities(profiles, now, marks) {
+  const baselineAt = marks && Number(marks.baselineAt) > 0 ? Number(marks.baselineAt) : 0;
+  return finishActivities(profiles, await scanHost.activityRaw(profiles, now, baselineAt), marks);
+}
 // A user action on chosen sessions re-reads them: a fresh scan, as before.
 const freshRowsOf = (profile) => sessionIndex.rowsSync(profile, { maxAgeMs: -1 });
 const { identityFingerprint } = require('./identity');
-const { probeActivities } = require('./activity');
 const { isDefaultWindowsAppRunning, isRunningIn, profileRunningSignal, snapshotProcesses, snapshotProcessRecords, processText } = require('./process');
 const { createProcessSnapshots } = require('./process-snapshots');
 
@@ -353,7 +361,12 @@ if (cliLaunchArgs !== null) {
     registerRemoteEmergencyStop();
     getProfileRuntimeSupervisor().start(loadProfiles());
     createWindow();
-    if (!deferSecureMeshStartup) getProvisioningService().resumeActiveJobs();
+    // Warm the session index on the worker thread first: resuming jobs reads the
+    // Mesh overview, whose session counts then come from the index instead of a
+    // scan on this thread.
+    void sessionIndex.refresh(loadProfiles()).catch(() => null).then(() => {
+      if (!deferSecureMeshStartup) getProvisioningService().resumeActiveJobs();
+    });
 
     app.on('activate', () => {
       showMainWindow();
