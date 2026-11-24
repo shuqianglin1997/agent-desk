@@ -75,7 +75,10 @@ test('卡片名册使用固定宽度与可信摘要，并用真实窗口验收�
   const identityGroups = read('src/identity-groups.js');
   const acceptance = read('scripts/ui-acceptance.js');
 
-  assert.match(workspaceStyles, /\.agent-panel \.account-roster \{[\s\S]*?grid-auto-columns:\s*180px;[\s\S]*?justify-content:\s*start;[\s\S]*?overflow-x:\s*auto;[\s\S]*?scroll-padding-inline:\s*1px;[\s\S]*?scrollbar-gutter:\s*stable;/);
+  assert.match(workspaceStyles, /\.agent-panel \.account-roster \{[\s\S]*?grid-auto-columns:\s*180px;[\s\S]*?justify-content:\s*start;/);
+  // Overflow, scroll padding and gutter come from the pixel skin's rule for the
+  // same selector (unlayered, so it always wins over workspace.css's layers).
+  assert.match(read('src/pixel.css'), /\.agent-panel \.account-roster \{[\s\S]*?overflow-x:\s*auto;[\s\S]*?\}/);
   assert.match(workspaceStyles, /\.agent-panel \.account-card \{\s*display:\s*grid;[\s\S]*?grid-template-rows:/);
   // 卡片里已经没有的包裹层，样式也一并清掉了。
   assert.doesNotMatch(workspaceStyles, /\.account-card-details|\.account-card-top|\.account-card-meta|\.agent-panel-body/);

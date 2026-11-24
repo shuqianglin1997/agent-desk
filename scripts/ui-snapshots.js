@@ -70,7 +70,8 @@ const STATES = [
   { name: 'archive', enter: `document.querySelector('.account-card.selected .account-card-manage').click()`, ready: `document.querySelector('#agentManageDialog').open`, escape: true },
   { name: 'devices', enter: `document.querySelector('#deviceCenterBtn').click()`, ready: `document.querySelector('#deviceCenterDialog').open`, escape: true },
   { name: 'inbox', enter: `document.querySelector('#activityCenterBtn').click()`, ready: `document.querySelector('#activityCenterDialog').open`, escape: true },
-  { name: 'system', enter: `document.querySelector('#systemBtn').click()`, ready: `document.querySelector('#systemDialog').open`, escape: true },
+  // Opening the system page checks the tools; wait until that check is done.
+  { name: 'system', enter: `document.querySelector('#systemBtn').click()`, ready: `document.querySelector('#systemDialog').open && AgentDeskInspect.state.tools?.loading === false && Boolean(AgentDeskInspect.state.tools?.checkedAt)`, escape: true },
   { name: 'recruit', enter: `document.querySelector('#addProfileBtn').click()`, ready: `document.querySelector('#recruitDialog').open`, escape: true },
   {
     name: 'quota',
@@ -110,6 +111,9 @@ async function settle(client) {
 
 async function shot(client, dir, name) {
   await settle(client);
+  // The one text that shows the clock (when the tools were last checked) is
+  // shown with its digits as zeros, so a capture does not change by the minute.
+  await client.evaluate(`for (const el of document.querySelectorAll('#toolCheckedAt')) el.textContent = el.textContent.replace(/[0-9]/g, '0')`);
   const result = await client.call('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
   fs.writeFileSync(path.join(dir, `${name}.png`), Buffer.from(result.data, 'base64'));
 }

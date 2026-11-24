@@ -165,14 +165,11 @@
   --edge-highlight: none;
   --font-px: "Fusion Pixel", var(--font-sans);
   --font-display: var(--font-px);
-  --px: 0 -2px 0 0 var(--px-ink), 0 2px 0 0 var(--px-ink), -2px 0 0 0 var(--px-ink), 2px 0 0 0 var(--px-ink);
-  --px-quiet: 0 -2px 0 0 var(--px-mute), 0 2px 0 0 var(--px-mute), -2px 0 0 0 var(--px-mute), 2px 0 0 0 var(--px-mute);
 }
 
 [hidden] { display: none !important; }
 
 .visually-hidden {
-  position: absolute !important;
   width: 1px;
   height: 1px;
   overflow: hidden;
@@ -269,7 +266,6 @@ textarea {
 /* ── 外壳 ─────────────────────────────────────────── */
 .app-shell {
   position: relative;
-  background: var(--px-bg);
   color: var(--px-ink);
 }
 .app-shell.fx-quake { animation: fx-quake 0.2s steps(1); }
@@ -277,8 +273,6 @@ textarea {
 .app-topbar {
   z-index: 20;
   border: 0;
-  background: transparent;
-  box-shadow: 0 2px 0 0 var(--px-ink);
   backdrop-filter: none;
 }
 
@@ -354,7 +348,6 @@ textarea {
   padding: 0 6px;
   gap: 7px;
   font-size: 13px;
-  box-shadow: inset 0 -2px 0 0 var(--px-ink);
 }
 .device-lens-menu > summary > span { flex: 1; overflow: hidden; text-align: left; text-overflow: ellipsis; }
 .device-lens-menu > summary > em { color: var(--px-ink-2); font: 500 12px/1 var(--font-px); -webkit-font-smoothing: none; font-style: normal; }
@@ -512,8 +505,6 @@ textarea {
 .account-card-cat { display: block; width: 64px; height: 68px; transform-origin: 50% 100%; }
 .agent-panel .account-card-avatar {
   display: block;
-  width: 64px;
-  height: 68px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -522,7 +513,7 @@ textarea {
 }
 .account-card:hover .account-card-avatar { transform: translateY(-3px); }
 .account-card[data-readiness="offline"] .account-card-avatar { opacity: 0.4; }
-.account-card-ledge { display: block; width: 100%; height: 2px; margin-top: -2px; background: var(--px-ink); }
+.account-card-ledge { display: block; margin-top: -2px; }
 .account-card-badge {
   position: absolute;
   top: 6px;
@@ -597,8 +588,8 @@ textarea {
   background: transparent;
   visibility: visible;
 }
-.account-card-quota i { display: block; flex: none; width: 10px; height: 8px; border-radius: 0; background: transparent; box-shadow: inset 0 0 0 2px var(--px-mute); }
-.account-card-quota i.on { background: var(--px-ok); box-shadow: none; animation: fx-pip 0.16s steps(1) both; animation-delay: calc(var(--i) * 60ms); }
+.account-card-quota i { display: block; flex: none; width: 10px; height: 8px; border-radius: 0; background: transparent; }
+.account-card-quota i.on { background: var(--px-ok); animation: fx-pip 0.16s steps(1) both; animation-delay: calc(var(--i) * 60ms); }
 .account-card-quota[data-level="steady"] i.on { background: var(--px-info); }
 .account-card-quota[data-level="tired"] i.on { background: var(--px-warn); }
 .account-card-quota[data-level="exhausted"] i.on { background: var(--px-bad); }
@@ -724,8 +715,6 @@ textarea {
   margin: 2px;
   border: 0;
   border-radius: 0;
-  background: var(--px-float);
-  box-shadow: var(--px);
   overflow: hidden;
 }
 .session-toolbar {
@@ -778,7 +767,7 @@ textarea {
 }
 .session-display-menu > summary { height: 26px; color: var(--px-ink); }
 .session-display-menu > summary > span { display: none; }
-.session-display-menu .context-menu-panel { right: auto; left: 0; min-width: 110px; }
+.session-display-menu .context-menu-panel { right: auto; left: 0; }
 
 .session-toolbar-actions { align-items: center; gap: 2px; }
 .session-toolbar-actions > button,
@@ -884,11 +873,8 @@ textarea {
   font-size: 12px;
 }
 .session-table tbody tr:is(.session-active, .selected) > td:first-child { box-shadow: none; }
-.session-table tbody tr:hover { background: color-mix(in srgb, var(--px-hl) 40%, transparent); }
-.session-table tbody tr.selected { background: var(--px-chk); }
 .session-table tbody tr.session-active { background: transparent; }
 .session-table tbody tr.selected.session-active { background: var(--px-hl); }
-.session-table tbody tr.fx-in { animation: fx-row-in 0.16s steps(4) both; animation-delay: calc(var(--i) * 14ms); }
 .session-table tbody tr.fx-flash { animation: fx-flash 0.3s steps(1); }
 .session-table td.select-cell,
 .session-table th.col-select { position: relative; width: 44px; padding-left: 20px; }
@@ -912,7 +898,6 @@ textarea {
   margin: 2px;
   border: 0;
   border-radius: 0;
-  background: transparent;
   box-shadow: var(--px);
   appearance: none;
   -webkit-appearance: none;
@@ -956,7 +941,7 @@ textarea {
   box-shadow: none;
   backdrop-filter: none;
 }
-.status-mascot { flex: none; width: 40px; height: 20px; image-rendering: pixelated; transform-origin: 50% 100%; }
+.status-mascot { flex: none; image-rendering: pixelated; transform-origin: 50% 100%; }
 .status-mascot.talk { transform: translateY(-2px); }
 .footer-status {
   flex: 1;
@@ -989,11 +974,8 @@ textarea {
 dialog {
   padding: 0;
   border: 0;
-  background: var(--px-float);
   color: var(--px-ink);
-  box-shadow: var(--px), 6px 6px 0 0 var(--px-shade);
 }
-dialog[open] { animation: fx-unroll 0.18s steps(5) both; }
 /* 弹窗跟着内容长高：内容少就矮，窗口放不下才滚动，不用固定高度逼出滚动条或留一片空白 */
 dialog { height: fit-content; max-height: calc(100dvh - 48px); }
 dialog .dialog-body,
@@ -1022,7 +1004,6 @@ dialog :is(section, .agent-manage-section) > header {
   background: transparent;
 }
 dialog :is(section, .agent-manage-section) > header :is(span, b, strong) { font-family: var(--font-sans); -webkit-font-smoothing: auto; }
-.utility-dialog-head { border-bottom: 2px solid var(--px-ink); }
 .utility-dialog-commandbar { border-bottom: 2px dotted var(--px-line); }
 .utility-dialog-footer { border-top: 2px dotted var(--px-line); }
 .utility-dialog-head > div > span:first-child {
@@ -1562,7 +1543,6 @@ button:disabled, button.primary:disabled, .session-toolbar-actions > button.prim
 /* 档案夹的“关闭”在右上角，和标签在同一行 */
 .utility-dialog-head > .utility-dialog-close { align-self: flex-start; margin-top: 10px; }
 
-
 /* 顶栏下拉出来的菜单是一张纸，上面的字用纸上的墨色（“管理设备…”原先沿用了木板上的浅色，在纸上看不见） */
 .app-topbar .context-menu-panel, .app-topbar .context-menu-panel *, .app-topbar .context-menu-panel .topbar-nav-button { color: var(--px-ink); }
 .app-topbar .context-menu-panel small, .app-topbar .context-menu-panel em { color: var(--px-ink-2); }
@@ -1585,10 +1565,6 @@ dialog label:has(input:checked), dialog .task-package-security, .session-table t
   --roster-fade-start: 0px;
   --roster-fade-end: 0px;
   scroll-padding-inline: 72px;
-  mask-image: linear-gradient(#000 0 0), var(--px-dissolve-start, linear-gradient(#000 0 0)), var(--px-dissolve-end, linear-gradient(#000 0 0));
-  mask-size: calc(100% - var(--roster-fade-start) - var(--roster-fade-end)) 100%, var(--roster-fade-start) 8px, var(--roster-fade-end) 8px;
-  mask-position: var(--roster-fade-start) 0, left top, right top;
-  mask-repeat: no-repeat, repeat-y, repeat-y;
 }
 .agent-panel .account-roster[data-more-start="true"] { --roster-fade-start: 64px; }
 .agent-panel .account-roster[data-more-end="true"] { --roster-fade-end: 64px; }

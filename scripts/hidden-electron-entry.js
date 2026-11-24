@@ -13,6 +13,10 @@
 // AGENTDESK_HIDDEN_OUTPUT and exit.
 
 const fs = require('node:fs');
+// The device name comes from the system hostname, which macOS changes with the
+// network (e.g. "localhost", "bogon"); hidden runs use one fixed name so the
+// screenshots and computed styles do not depend on it.
+require('node:os').hostname = () => 'agentdesk-hidden';
 const path = require('node:path');
 const electron = require('electron');
 const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = electron;

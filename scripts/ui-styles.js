@@ -126,6 +126,9 @@ const SHEET = `(() => {${PRELUDE}
 })()`;
 
 async function settleAll(client) {
+  // One-shot effects (the copy stamp, a button's bump) take their class off
+  // within 160 ms; wait them out so a capture never lands inside one.
+  await new Promise((resolve) => setTimeout(resolve, 500));
   await settleDialogMotion(client);
   await client.evaluate(`document.fonts.ready.then(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))`);
   // The footer's typed line has finished typing.
