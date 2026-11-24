@@ -183,7 +183,8 @@ test('不可 launch 的 CLI 槽位禁用打开按钮，账号卡片展示并行�
   assert.match(renderer, /const profileCanLaunch = profile \? state\.appMeta\[profile\.appId\]\?\.canLaunch !== false : false/);
   assert.match(renderer, /const canOpen = meshMode[\s\S]*?profile && profileCanLaunch[\s\S]*?button\.disabled = !canOpen/);
   assert.match(renderer, /activeNow/);
-  assert.match(renderer, /account-card-busy/);
+  // 并行会话数改为“N 条在跑”（docs/SESSION_MARKS_PLAN.md 第 3 节），写在名牌的状态那一行。
+  assert.match(renderer, /tr\('card\.running', \{ n: running \}\)/);
   assert.match(renderer, /presenter\.positions/);
   assert.match(html, /id="editIdentity"[^>]*list="identityOptions"/);
   assert.match(html, /<datalist id="identityOptions">/);

@@ -1737,7 +1737,6 @@
     'acct.lastOpen': 'Opened {t}',
     'acct.tip': 'Account {p} · Sessions {s}',
     'acct.note': 'Note: {note}',
-    'card.busy': '{n} sessions running',
     'card.group': 'Group · {g}',
     'card.lastActive': 'Last active',
     'card.lastActiveLocal': 'Local activity',
@@ -1785,6 +1784,10 @@
     'marks.status.allSeen': 'Marked {n} as seen',
     'marks.status.failed': 'The tag was not saved. Please try again.',
     'card.replies': '{n} new replies',
-    'card.mail.title': '{n} new replies. Click to see only these'
+    'card.mail.title': '{n} new replies. Click to see only these',
+    'card.running': '{n} running',
+    'card.running.hint': 'Conversations with new content in the last 90 seconds that have not finished, checked every 8 seconds. One that is waiting for you to approve something is not counted.',
+    'state.busy': 'Busy',
+    'state.frantic': 'Frantic'
   };
 })(typeof self !== 'undefined' ? self : this);

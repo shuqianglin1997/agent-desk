@@ -20,6 +20,9 @@ const approved = loadSource('test/fixtures/cats2-approved.source');
 const legacy = loadSource('test/fixtures/cats-v1.source');
 
 const ACTION_NAMES = Object.keys(art.ACTIONS);
+// 批准的图鉴里有的动作逐格钉住；之后加的“忙”“抓狂”（docs/SESSION_MARKS_PLAN.md 第 3.2 节）用到新的小块，另外单独钉。
+const APPROVED_ACTIONS = Object.keys(approved.ACTIONS);
+const NEW_ACTIONS = ACTION_NAMES.filter((name) => !APPROVED_ACTIONS.includes(name));
 const LOOK_NAMES = Object.keys(art.LOOKS);
 const ACCESSORY_NAMES = Object.keys(art.ACCESSORIES);
 
@@ -97,7 +100,8 @@ test('同一个头：坐、蹲、起跳、揣手、走路的头几行逐格相�
 });
 
 test('不多留行时，每一帧和批准的原件逐格相同；多留两行只补回被切掉的帽子', () => {
-  for (const name of ACTION_NAMES) {
+  assert.deepEqual(NEW_ACTIONS, ['busy', 'frantic'], 'only the two session-marks actions were added');
+  for (const name of APPROVED_ACTIONS) {
     art.ACTIONS[name].frames.forEach((spec, index) => {
       for (const accessory of ACCESSORY_NAMES) {
         const original = approved.frame(spec, { accessory });
@@ -122,7 +126,7 @@ test('两行就够：跳到最高、赶来时草帽、贝雷帽、斗笠一格�
         const wide = art.frame(spec, { accessory }, { headroom: 10 });
         assert.deepEqual(wide.slice(0, 8).join(''), '.'.repeat(160), `${name} ${accessory} needs more than 2 rows`);
         assert.deepEqual(wide.slice(8), art.frame(spec, { accessory }, { headroom: 2 }));
-        if (art.frame(spec, { accessory }, { headroom: 2 }).slice(2).join('') !== approved.frame(spec, { accessory }).join('')) restored += 1;
+        if (APPROVED_ACTIONS.includes(name) && art.frame(spec, { accessory }, { headroom: 2 }).slice(2).join('') !== approved.frame(spec, { accessory }).join('')) restored += 1;
       }
     }
   }
@@ -433,4 +437,72 @@ test('编辑器只有三项：毛色分三组、项圈、一件配饰，三种�
     for (const collar of cats.COLLAR_CHOICES) assert.ok(text.includes(`'cat.collar.${collar}':`), `${lang} ${collar}`);
     assert.ok(text.includes("'cat.collar.own':"), lang);
   }
+});
+
+test('忙与抓狂：干活的加深，排在干活那一档；1 条干活、2–3 条忙、4 条以上抓狂', () => {
+  assert.equal(cats.BUSY_AT, 2);
+  assert.equal(cats.FRANTIC_AT, 4);
+  for (const [count, expected] of [[null, null], [undefined, null], [0, null], [1, 'working'], [2, 'busy'], [3, 'busy'], [4, 'frantic'], [9, 'frantic']]) {
+    assert.equal(cats.busyAction(count), expected, String(count));
+  }
+  assert.equal(cats.actionFor('busy', 'exhausted'), 'busy', 'busy is urgent like working');
+  assert.equal(cats.actionFor('frantic', 'tired'), 'frantic');
+  for (const name of ['busy', 'frantic']) {
+    assert.equal(art.ACTIONS[name].loop, true, name);
+    for (const spec of art.ACTIONS[name].frames) assert.equal(spec.pose, 'sit', `${name} is drawn on the approved sitting cat`);
+  }
+});
+
+test('忙：干活加快，左边一摞纸（一条一张，最多 3 张），大约三秒一滴汗', () => {
+  const busy = art.ACTIONS.busy;
+  assert.ok(busy.fps > art.ACTIONS.working.fps);
+  assert.equal(busy.frames.length / busy.fps > 2.9 && busy.frames.length / busy.fps < 3.4, true);
+  assert.equal(busy.frames.filter((spec) => spec.props.some(([name]) => name === 'sweat')).length, 3);
+  assert.ok(busy.frames.every((spec) => spec.props.some(([name]) => name === 'laptop')));
+  const sheets = (grid) => grid.filter((row) => /^.?WWW/.test(row) && row.indexOf('WWW') <= 1).length;
+  for (const papers of [0, 2, 3, 5]) {
+    assert.equal(sheets(art.frame(busy.frames[0], { accessory: 'none' }, { headroom: 2, papers })), Math.min(papers, 3), `papers ${papers}`);
+  }
+  assert.deepEqual(art.frame(busy.frames[0], { accessory: 'none' }), art.frame(busy.frames[0], { accessory: 'none' }, { papers: 0 }), 'no paper unless asked');
+});
+
+test('抓狂：爪子轮流砸键盘，眼睛瞪圆，在 2px 格子上抖，纸摞高而歪，先两个叹号后一团汽', () => {
+  const frantic = art.ACTIONS.frantic;
+  assert.equal(frantic.frames.length, 12);
+  frantic.frames.forEach((spec, index) => {
+    assert.equal(spec.eyes, 'wide');
+    const paws = spec.props.filter(([name]) => name === 'paw').map(([, x, y]) => [x, y]);
+    assert.deepEqual(paws, index % 2 === 0 ? [[6, 12], [12, 10]] : [[6, 10], [12, 12]], `paws ${index}`);
+    assert.ok(spec.nudge.every((step) => Number.isInteger(step) && Math.abs(step) <= 1), 'shake by at most half a cell (2px on a card)');
+    const head = spec.props.filter(([name]) => ['bang', 'puff', 'steam'].includes(name)).map(([name]) => name);
+    assert.deepEqual([...new Set(head)], index < 6 ? ['bang'] : [index < 8 ? 'puff' : 'steam']);
+  });
+  const tall = art.frame(frantic.frames[1], { accessory: 'none' }, { headroom: 2, papers: 12 });
+  assert.equal(tall.filter((row) => row.includes('WWW')).length >= 7, true, 'up to seven sheets');
+  assert.ok(tall.slice(0, 12).some((row) => row.startsWith('.WWW') || row.startsWith('..WWW')), 'the top of the stack leans');
+  for (const accessory of ACCESSORY_NAMES) {
+    for (const spec of frantic.frames) {
+      const wide = art.frame(spec, { accessory }, { headroom: 10, papers: 7 });
+      assert.equal(wide.slice(0, 8).join(''), '.'.repeat(160), `two rows of headroom are enough (${accessory})`);
+    }
+  }
+});
+
+test('放映：纸摞的张数跟着在跑的条数；抖动交给画的那一步，格子本身不变', () => {
+  const calls = [];
+  const instance = player.createPlayer({
+    now: () => 0,
+    paint: (target, grid, look, scale, headroom, nudge) => calls.push({ grid, nudge }),
+    later: () => {}
+  });
+  instance.set('cat', { look: 'orange', state: 'frantic', papers: 5 });
+  assert.equal(instance.stateOf('cat').action, 'frantic');
+  assert.equal(instance.stateOf('cat').papers, 5);
+  assert.deepEqual(calls.at(-1).nudge, art.ACTIONS.frantic.frames[instance.stateOf('cat').index].nudge);
+  assert.equal(calls.at(-1).grid.filter((row) => row.includes('WWW')).length >= 5, true);
+  instance.set('cat', { look: 'orange', state: 'frantic', papers: 6 });
+  assert.equal(calls.length, 2, 'one more sheet repaints');
+  instance.set('cat', { look: 'orange', state: 'onduty', papers: 6 });
+  assert.equal(calls.at(-1).grid.some((row) => row.startsWith('WWW')), false, 'no paper when it is not busy');
+  assert.equal(calls.at(-1).nudge, null);
 });

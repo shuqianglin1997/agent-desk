@@ -554,7 +554,6 @@ textarea {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.account-card-busy { margin-left: 4px; color: var(--px-brand-ink); font: 700 12px/1 var(--font-px); -webkit-font-smoothing: none; }
 .agent-panel .account-card-state {
   display: inline-flex;
   align-items: center;
@@ -566,6 +565,8 @@ textarea {
 }
 .agent-panel .account-card-dot { width: 8px; height: 8px; border-radius: 0; background: var(--px-mute); }
 .account-card-state[data-activity="working"] .account-card-dot { background: var(--px-ok); }
+.account-card-state[data-activity="busy"] .account-card-dot { background: var(--px-warn); }
+.account-card-state[data-activity="frantic"] .account-card-dot { background: var(--px-bad); }
 .account-card-state[data-activity="onduty"] .account-card-dot { background: var(--px-info); }
 .account-card-state[data-activity="arriving"] .account-card-dot { background: var(--px-warn); }
 .account-card-state[data-activity="play"] .account-card-dot { background: var(--px-brand); }

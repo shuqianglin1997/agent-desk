@@ -1737,7 +1737,6 @@
     'acct.lastOpen': '最終起動 {t}',
     'acct.tip': 'アカウント {p} · セッション {s}',
     'acct.note': 'メモ: {note}',
-    'card.busy': '{n} 件のセッションが進行中',
     'card.group': 'グループ · {g}',
     'card.lastActive': '最終アクティブ',
     'card.lastActiveLocal': 'ローカル稼働',
@@ -1785,6 +1784,10 @@
     'marks.status.allSeen': '{n} 件を見たことにしました',
     'marks.status.failed': 'タグを保存できませんでした。もう一度お試しください。',
     'card.replies': '新しい返信 {n}',
-    'card.mail.title': '新しい返信 {n} 件。クリックでそれだけを表示'
+    'card.mail.title': '新しい返信 {n} 件。クリックでそれだけを表示',
+    'card.running': '{n} 件実行中',
+    'card.running.hint': '直近 90 秒に新しい内容があり、まだ終わっていない会話の数（8 秒ごとに確認）。承認待ちで止まっている会話は数えません。',
+    'state.busy': '忙しい',
+    'state.frantic': '大慌て'
   };
 })(typeof self !== 'undefined' ? self : this);

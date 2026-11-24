@@ -29,7 +29,10 @@
   const HEADROOM = 2;
   const DEFAULT_SCALE = 4;
   // 它自己的状态从醒着变成睡着时先“睡下”，从睡着变成醒着时先“醒来”。揣手和摊成饼不算两头。
-  const AWAKE = new Set(['onduty', 'working', 'arriving', 'play', 'confused', 'tired']);
+  const AWAKE = new Set(['onduty', 'working', 'busy', 'frantic', 'arriving', 'play', 'confused', 'tired']);
+  // 忙与抓狂旁边那摞纸：一条在跑的对话一张（张数上限在 cat-art 里）。
+  const PAPER_ACTIONS = new Set(['busy', 'frantic']);
+  const paperCount = (value) => { const n = Math.floor(Number(value)); return Number.isFinite(n) && n > 0 ? Math.min(n, 12) : 0; };
   const ASLEEP = new Set(['nap', 'hibernate']);
 
   function hashText(text) {
@@ -68,11 +71,12 @@
   }
 
   const frameCache = new Map();
-  function grid(actionName, index, accessory, headroom) {
-    const key = `${actionName}|${index}|${accessory}|${headroom}`;
+  function grid(actionName, index, accessory, headroom, papers) {
+    const count = PAPER_ACTIONS.has(actionName) ? paperCount(papers) : 0;
+    const key = `${actionName}|${index}|${accessory}|${headroom}|${count}`;
     let value = frameCache.get(key);
     if (!value) {
-      value = art.frame(art.ACTIONS[actionName].frames[index], { accessory }, { headroom });
+      value = art.frame(art.ACTIONS[actionName].frames[index], { accessory }, { headroom, papers: count });
       if (frameCache.size > 4000) frameCache.clear();
       frameCache.set(key, value);
     }
@@ -135,10 +139,12 @@
 
     function render(entry, at, force) {
       const { action, index } = current(entry, at);
-      const key = `${entry.lookKey}|${entry.scale}|${entry.headroom}|${action}|${index}`;
+      const key = `${entry.lookKey}|${entry.scale}|${entry.headroom}|${action}|${index}|${entry.papers}`;
       if (!force && key === entry.drawn) return false;
       entry.drawn = key;
-      paint(entry.target, grid(action, index, entry.look.accessory, entry.headroom), entry.look, entry.scale, entry.headroom);
+      // 抓狂时整幅画在 2px 的格子上抖：nudge 以半格为单位，放映机画的时候加上，格子本身不变。
+      const nudge = art.ACTIONS[action].frames[index].nudge || null;
+      paint(entry.target, grid(action, index, entry.look.accessory, entry.headroom, entry.papers), entry.look, entry.scale, entry.headroom, nudge);
       return true;
     }
 
@@ -157,6 +163,7 @@
       entry.lookKey = `${look.look}|${look.accessory}|${look.collar || ''}`;
       entry.scale = (spec && spec.scale) || DEFAULT_SCALE;
       entry.headroom = spec && Number.isInteger(spec.headroom) ? spec.headroom : HEADROOM;
+      entry.papers = paperCount(spec && spec.papers);
       const previous = entry.state;
       if (previous !== state) {
         entry.state = state;
@@ -248,7 +255,7 @@
       const entry = entries.get(target);
       if (!entry) return null;
       const { action, index } = current(entry, now());
-      return { state: entry.state, action, index, look: entry.look, shot: entry.shot ? entry.shot.name : null };
+      return { state: entry.state, action, index, look: entry.look, papers: entry.papers, shot: entry.shot ? entry.shot.name : null };
     }
 
     return { set, play, release, tick, nextChange, redrawAll, forget, stateOf, entries };
@@ -266,8 +273,9 @@
     const width = art.W * scale;
     const height = (art.H + headroom) * scale;
     // 横向居中、脚踩画布底边：画布比猫大时（编辑器的预览）猫仍坐在底上。
-    const dx = (o.dx !== undefined ? o.dx : Math.floor((canvas.width - width) / 2));
-    const dy = (o.dy !== undefined ? o.dy : canvas.height - height);
+    const nudge = Array.isArray(o.nudge) ? o.nudge : [0, 0];
+    const dx = (o.dx !== undefined ? o.dx : Math.floor((canvas.width - width) / 2)) + Math.round((nudge[0] || 0) * scale / 2);
+    const dy = (o.dy !== undefined ? o.dy : canvas.height - height) + Math.round((nudge[1] || 0) * scale / 2);
     try {
       art.draw(ctx, frameGrid, data, { scale, collar: look.collar || undefined, dx, dy });
     } catch (_error) { /* 画不出一只猫不影响别的 */ }
@@ -295,7 +303,7 @@
       now: clock,
       reduced,
       visible,
-      paint: (canvas, frameGrid, look, scale, headroom) => paintCanvas(canvas, frameGrid, look, scale, headroom),
+      paint: (canvas, frameGrid, look, scale, headroom, nudge) => paintCanvas(canvas, frameGrid, look, scale, headroom, { nudge }),
       later: (fn, ms) => setTimeout(fn, ms)
     });
 
@@ -350,7 +358,7 @@
       const index = Math.max(0, Math.min(action.frames.length - 1, input.frame || 0));
       const headroom = Number.isInteger(input.headroom) ? input.headroom : HEADROOM;
       const scale = input.scale || DEFAULT_SCALE;
-      paintCanvas(canvas, grid(name, index, look.accessory, headroom), look, scale, headroom, input);
+      paintCanvas(canvas, grid(name, index, look.accessory, headroom, input.papers), look, scale, headroom, { ...input, nudge: action.frames[index].nudge || null });
     }
     function forget(canvas) {
       player.forget(canvas);

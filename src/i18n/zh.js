@@ -1737,7 +1737,6 @@
     'acct.lastOpen': '上次打开 {t}',
     'acct.tip': '账号 {p} · 会话 {s}',
     'acct.note': '备注 {note}',
-    'card.busy': '{n} 个会话正在进行',
     'card.group': '分组 · {g}',
     'card.lastActive': '最近活跃',
     'card.lastActiveLocal': '本机活跃',
@@ -1785,6 +1784,10 @@
     'marks.status.allSeen': '已把 {n} 条标为已看',
     'marks.status.failed': '标签没有存上，请再试一次',
     'card.replies': '{n} 条新回复',
-    'card.mail.title': '{n} 条新回复，点一下只看这些'
+    'card.mail.title': '{n} 条新回复，点一下只看这些',
+    'card.running': '{n} 条在跑',
+    'card.running.hint': '最近 90 秒内有新内容、还没回完的对话条数，8 秒看一次。停着等你点允许的对话不算在内。',
+    'state.busy': '忙',
+    'state.frantic': '抓狂'
   };
 })(typeof self !== 'undefined' ? self : this);

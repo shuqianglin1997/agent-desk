@@ -6405,13 +6405,19 @@ function updateAccountCard(card, group, now) {
   // 后台对话是 AgentDesk 亲手中转的，在跑就是在干活；刚结束的那一会儿按结局显示。
   const hubCard = hubCardState(group);
   if (hubCard.state) activityState = hubCard.state;
+  // 猫有多忙：同时在跑的对话数决定演干活、忙还是抓狂；0 条或不知道时不改上面的判断。迷糊照旧先演。
+  const running = cardRunningCount(group, merged);
+  const busyAction = window.YardCats?.busyAction ? window.YardCats.busyAction(running) : null;
+  if (busyAction && activityState !== 'confused') activityState = busyAction;
   const meshMode = state.mesh.overview?.initialized === true;
   const deploymentState = group.readiness?.state || 'absent';
   const notReady = meshMode && deploymentState !== 'ready';
   // 状态只说一次：这一行说它在干嘛；要用户做的事交给徽章和按钮。
-  const stateLabel = activityState
-    ? tr('state.' + activityState)
-    : (notReady ? deploymentStateLabel(deploymentState) : tr('card.activityUnknown'));
+  const stateLabel = busyAction && activityState === busyAction
+    ? tr('card.running', { n: running })
+    : (activityState
+      ? tr('state.' + activityState)
+      : (notReady ? deploymentStateLabel(deploymentState) : tr('card.activityUnknown')));
 
   const activityAt = merged?.contentActiveAt || merged?.latestMtime || null;
   const activityDate = activityAt ? new Date(activityAt) : null;
@@ -6429,14 +6435,6 @@ function updateAccountCard(card, group, now) {
 
   const name = card.querySelector('.account-card-name');
   name.textContent = primary.name;
-  const activeNow = window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))?.activeNow || 0;
-  if (activeNow > 1) {
-    const busy = document.createElement('span');
-    busy.className = 'account-card-busy';
-    busy.textContent = `×${activeNow}`;
-    busy.title = tr('card.busy', { n: activeNow });
-    name.append(busy);
-  }
 
   // 新回复：本机运行位置上回完了、还没在这里点开过的条数；没有就什么都不显示。
   const replies = sessionMarks.freshCount(group.members
@@ -6462,6 +6460,7 @@ function updateAccountCard(card, group, now) {
 
   const st = card.querySelector('.account-card-state');
   st.dataset.activity = activityState || 'unknown';
+  st.title = busyAction && activityState === busyAction ? tr('card.running.hint') : '';
   card.querySelector('.account-card-state-label').textContent = stateLabel;
   card.dataset.readiness = meshMode ? deploymentState : 'local';
 
@@ -6532,6 +6531,7 @@ function updateAccountCard(card, group, now) {
     ...(hubCard.accessory ? { accessory: hubCard.accessory } : {}),
     seed: group.key,
     state: activityState || null,
+    papers: busyAction ? running : 0,
     energy: quotaTrack.dataset.trusted === 'true' ? quotaTrack.dataset.level : null
   });
 
@@ -9530,6 +9530,19 @@ function hubOverride(groupKey, catState, ms) {
 }
 
 // 卡片上这只猫此刻因为后台对话该是什么样：被叫在跑的在干活；同时叫着两只以上的那只戴上领结
+// 一只猫同时在跑几条对话：本机各运行位置的探测结果（同一份数据根只算一次），和调度中枢正在跑的、
+// 目标是它的那几段，两者可能是同一条，所以取较大的而不相加。远端位置没有这项数据，不计；都不知道时返回 null。
+function cardRunningCount(group, merged) {
+  const ids = new Set((group?.members || []).filter((member) => !member._remote).map((member) => String(member._meshProfileId || member.id)));
+  let hub = 0;
+  for (const run of state.hub.runs.values()) {
+    if (HUB_ACTIVE.has(run.state) && ids.has(String(run.target?.id))) hub += 1;
+  }
+  const files = merged && Number.isFinite(merged.writingNow) ? merged.writingNow : null;
+  if (files === null && hub === 0) return null;
+  return Math.max(files || 0, hub);
+}
+
 function hubCardState(group) {
   const ids = new Set((group?.members || []).filter((member) => !member._remote).map((member) => String(member._meshProfileId || member.id)));
   let working = false;

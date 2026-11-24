@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T15:55:12.685Z",
-  "baseCommit": "b0ef7efe8c3ace05a094541de221a97793aa42e6",
+  "recordedAt": "2026-11-24T16:04:37.298Z",
+  "baseCommit": "5088faa6b2357f4de5d2dd543838584184c10aff",
   "uncommitted": true,
-  "sourceSha256": "b1d916bb37af6d14e4340e5efe8bb99a4e24d93869b64874b1702afb8914c7dd",
+  "sourceSha256": "f2bdd5d7a5ad8f560aa4154aaa9fb59f6a5f7b7fb32029cd3da27957dfb9d981",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,38 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 777,
+      "pass": 776,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after 猫有多忙/新回复/颜色标签 batch 3 (busy and frantic cat actions, paper stack by running count, half-cell shake, running count on the name tag); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:04:37.298Z",
+      "sourceSha256": "f2bdd5d7a5ad8f560aa4154aaa9fb59f6a5f7b7fb32029cd3da27957dfb9d981"
+    },
+    {
+      "command": "node --test test/pixel-cats.test.js test/ui.test.js test/session-marks-ui.test.js",
+      "result": "passed",
+      "scope": "The 19 approved actions still equal the approved source cell for cell; busy/frantic tiers (2 and 4), frames, sweat cadence, paper caps, paw alternation, shake bounds, headroom; player passes paper count and nudge",
+      "recordedAt": "2026-11-24T16:04:37.298Z",
+      "sourceSha256": "f2bdd5d7a5ad8f560aa4154aaa9fb59f6a5f7b7fb32029cd3da27957dfb9d981"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T16:04:37.298Z",
+      "sourceSha256": "f2bdd5d7a5ad8f560aa4154aaa9fb59f6a5f7b7fb32029cd3da27957dfb9d981"
+    },
+    {
+      "command": "hidden-window renderer checks (real src/main.js, temporary userData, fixture Claude CLI account, window never shown)",
+      "result": "passed",
+      "scope": "1/3/5 running conversations give working/busy/frantic with 1/3/5 sheets, “N 条在跑” on the name tag with the approval note, no ×N badge; light/dark, zh/en screenshots",
+      "recordedAt": "2026-11-24T16:04:37.298Z",
+      "sourceSha256": "f2bdd5d7a5ad8f560aa4154aaa9fb59f6a5f7b7fb32029cd3da27957dfb9d981"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

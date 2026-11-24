@@ -209,9 +209,20 @@
    *   3. 平静的作息：在岗、玩耍、揣手、打盹、冬眠；活动未知时坐着待命。
    * 额度未知或不可信时不影响猫。
    */
-  const STATE_ACTIONS = ['onduty', 'working', 'arriving', 'play', 'rest', 'nap', 'hibernate', 'confused', 'tired', 'spent'];
+  const STATE_ACTIONS = ['onduty', 'working', 'busy', 'frantic', 'arriving', 'play', 'rest', 'nap', 'hibernate', 'confused', 'tired', 'spent'];
   const ONE_SHOT_ACTIONS = ['hop', 'pet', 'zap', 'cheer', 'no', 'arrive', 'leave', 'settle', 'wake'];
-  const URGENT_ACTIVITY = ['confused', 'working', 'arriving'];
+  // 忙、抓狂是干活的加深（docs/SESSION_MARKS_PLAN.md 第 3.2 节），和干活排在同一档：先演。
+  const URGENT_ACTIVITY = ['confused', 'working', 'busy', 'frantic', 'arriving'];
+
+  // 猫有多忙：同时在跑的对话数 → 演哪一档。1 条干活，2–3 条忙，4 条以上抓狂；0 条或不知道时不改现有的判断。
+  // 两个界线写成常量，以后好调。
+  const BUSY_AT = 2;
+  const FRANTIC_AT = 4;
+  function busyAction(count) {
+    const n = Number(count);
+    if (count === null || count === undefined || !Number.isFinite(n) || n < 1) return null;
+    return n >= FRANTIC_AT ? 'frantic' : (n >= BUSY_AT ? 'busy' : 'working');
+  }
   const CALM_ACTIVITY = ['onduty', 'play', 'rest', 'nap', 'hibernate'];
   function actionFor(activity, energy) {
     if (URGENT_ACTIVITY.includes(activity)) return activity;
@@ -224,6 +235,6 @@
   return {
     deriveState, WORKING_WINDOW, STATE_META, defaultCatFor, normalizeCat, BREED_KEYS, COLLAR_COLORS, ACCESSORIES,
     LOOK_KEYS, ACCESSORY_KEYS, LOOK_GROUPS, lookGroup, LEGACY_BREED, LEGACY_ACCESSORY, CLIENT_LOOKS, COLLAR_CHOICES,
-    resolveCat, storeCat, defaultCatForClient, actionFor, STATE_ACTIONS, ONE_SHOT_ACTIONS
+    resolveCat, storeCat, defaultCatForClient, actionFor, STATE_ACTIONS, ONE_SHOT_ACTIONS, BUSY_AT, FRANTIC_AT, busyAction
   };
 });

@@ -14,6 +14,9 @@
  *    （跳一下、好了）和赶来的第二步，头顶在第 0 或第 1 行，草帽、贝雷帽、斗笠的上沿会被格子切掉。
  *    多留两行就都画得下；不留时（默认）结果和批准的那份逐格相同，测试守着这一点。
  * 3. draw() 按传进来的格子画，不再假定只有 18 行；另外导出 colour() 给测试核对每个字符都有颜色。
+ * 之后加了两个动作“忙”“抓狂”（docs/SESSION_MARKS_PLAN.md 第 3.2 节），批准的动作一帧没动：
+ * 它们用到的爪子、键帽、纸屑、一团汽和纸摞是新加的小块；纸摞的张数等于同时在跑的对话数，由 frame() 的 options.papers 给出；
+ * 抓狂时整幅画在 2px 的格子上抖，抖动写在帧的 nudge 里（以半格为单位），由放映机在画的时候加上，格子本身不变。
  * 毛色数据另有两处按要求改过：“跟着客户端”一组的色值按各家官方资料校正；其中四种因品牌规定不许这样用而拿掉。
  */
 (function (root, factory) {
@@ -121,8 +124,25 @@
     sweat: [' u', 'uu', 'uu'],
     ball: [' kk ', 'krrk', 'krrk', ' kk '],
     laptop: ['kkkkkkkkkk', 'kggggggggk', 'kgggllgggk', 'kkkkkkkkkk'],
-    fuzz: ['o', ' ', 'o', ' ', 'o']
+    fuzz: ['o', ' ', 'o', ' ', 'o'],
+    // 忙与抓狂
+    paw: ['oo', 'ss'],
+    cap: ['gl'],
+    scrap: ['W'],
+    puff: [' gg ', 'gWWg', ' gg '],
+    steam: [' ggg ', 'gWWWg', 'gWWWg', ' ggg '],
+    sheet: ['WWW', 'zzz']
   };
+  // 纸摞：一条在跑的对话一张纸，从搁板往上叠；忙的时候最多 3 张，抓狂时最多 7 张、上面几张歪过去。
+  const PAPER_MAX = { stack: 3, tower: 7 };
+  function stampPapers(grid, top, count, kind, wiggle) {
+    const n = Math.max(0, Math.min(PAPER_MAX[kind] || 0, Math.floor(count) || 0));
+    for (let i = 0; i < n; i += 1) {
+      let x = kind === 'tower' && i >= 4 ? 1 : 0;
+      if (wiggle && i === n - 1) x += 1;
+      stamp(grid, x, top + H - 2 - i * 2, PROPS.sheet);
+    }
+  }
   // 配饰：贴在头上（相对头顶那一行）或项圈上（相对项圈那一行）
   const ACCESSORIES = {
     none: { label: '不戴' },
@@ -160,11 +180,54 @@
       grid = moved;
     }
     (spec.props || []).forEach(([name, x, y]) => stamp(grid, x, y + top, PROPS[name]));
+    if (spec.paper && options && options.papers) stampPapers(grid, top, options.papers, spec.paper, spec.wiggle);
     return grid;
   }
 
   const F = (pose, more) => Object.assign({ pose }, more || {});
   const rep = (spec, count) => Array(count).fill(spec);
+
+  // 忙（2–3 条在跑）：干活加快，左边一摞纸，隔三秒左右额头冒一滴汗。28 帧 × 9 帧/秒 ≈ 3 秒一轮。
+  const BUSY_BASE = [
+    { tail: 0, props: [['laptop', 5, 13]] },
+    { tail: 0, props: [['laptop', 5, 13], ['spark', 17, 11]] },
+    { tail: 1, props: [['laptop', 5, 13]] },
+    { tail: 0, props: [['laptop', 5, 13], ['spark', 17, 10]] }
+  ];
+  const BUSY_SWEAT = [[17, 3], [17, 5], [17, 7]];
+  const busyFrames = Array.from({ length: 28 }, (_, i) => {
+    const base = BUSY_BASE[i % 4];
+    const props = base.props.concat(i < BUSY_SWEAT.length ? [['sweat', BUSY_SWEAT[i][0], BUSY_SWEAT[i][1]]] : []);
+    return F('sit', { tail: base.tail, paper: 'stack', props });
+  });
+  // 抓狂（4 条以上）：两只爪子轮流砸键盘，眼睛瞪圆，整幅画在 2px 格子上抖；键帽和纸屑往外飞，
+  // 头顶先是两个叹号，后半秒冒一团汽；纸摞高而歪，最上面那张晃。12 帧 × 12 帧/秒 = 1 秒一轮。
+  const FRANTIC_NUDGE = [[1, 0], [0, -1], [-1, 0], [0, 1]];
+  const FRANTIC_BITS = [
+    [['cap', 16, 11], ['scrap', 6, 1]],
+    [['cap', 17, 9], ['scrap', 5, 0]],
+    [['cap', 18, 7], ['scrap', 4, -1], ['cap', 14, 1]],
+    [['cap', 18, 8], ['cap', 15, 0]],
+    [['scrap', 16, 12], ['cap', 16, -1]],
+    [['scrap', 17, 10], ['cap', 7, 1]],
+    [['scrap', 18, 9], ['cap', 6, 0]],
+    [['scrap', 19, 10], ['cap', 5, -1], ['scrap', 13, 1]],
+    [['cap', 16, 12], ['scrap', 14, 0]],
+    [['cap', 17, 10], ['scrap', 15, -1]],
+    [['cap', 18, 8], ['scrap', 6, 1]],
+    [['cap', 18, 9], ['scrap', 5, 0]]
+  ];
+  const franticFrames = FRANTIC_BITS.map((bits, i) => {
+    const leftDown = i % 2 === 0;
+    const paws = leftDown ? [['paw', 6, 12], ['paw', 12, 10]] : [['paw', 6, 10], ['paw', 12, 12]];
+    const top = i < 6
+      ? [['bang', 8, -2], ['bang', 11, -2]]
+      : [i < 8 ? ['puff', 12, -1] : ['steam', 12, -2]];
+    return F('sit', {
+      tail: 1 + (i % 2), eyes: 'wide', paper: 'tower', wiggle: i % 2 === 1, nudge: FRANTIC_NUDGE[i % 4],
+      props: [['laptop', 5, 13]].concat(paws, bits, top, [['sweat', 17, 3 + (i % 3)]])
+    });
+  });
   /* ── 动作 ─────────────────────────────────────────── */
   // loop: 一直循环（状态）；否则播一遍回到状态。fps 是每秒几帧。
   const ACTIONS = {
@@ -187,6 +250,8 @@
     tired: { label: '累了', when: '额度掉到最低一档', loop: true, fps: 2,
       frames: [F('sit', { tail: 0, eyes: 'closed', props: [['sweat', 17, 3]] }), F('sit', { tail: 0, eyes: 'closed', dy: 1, props: [['sweat', 17, 5]] }), F('sit', { tail: 0, eyes: 'closed', dy: 1 })] },
     spent: { label: '摊成饼', when: '额度用完了', loop: true, fps: 1, frames: [F('flat'), F('flat', { props: [['sweat', 17, 8]] })] },
+    busy: { label: '忙', when: '同时有 2–3 条对话在跑', loop: true, fps: 9, frames: busyFrames },
+    frantic: { label: '抓狂', when: '同时有 4 条以上对话在跑', loop: true, fps: 12, frames: franticFrames },
     // 一次性的动作
     hop: { label: '跳一下', when: '被选中', fps: 12, frames: [F('crouch', { tail: 0 }), F('leap', { dy: -1 }), F('leap', { dy: -1 }), F('leap'), F('crouch', { tail: 1 }), F('sit', { tail: 1 })] },
     pet: { label: '被摸', when: '点猫本身', fps: 8, frames: [F('sit', { tail: 2, eyes: 'happy' }), F('sit', { tail: 2, eyes: 'happy', dy: -1, props: [['heart', 16, 0]] }), F('sit', { tail: 1, eyes: 'happy', props: [['heart', 16, 1]] }), F('sit', { tail: 2, eyes: 'happy', dy: -1 }), F('sit', { tail: 1, eyes: 'happy' })] },
@@ -259,5 +324,5 @@
     }));
     return bad;
   }
-  return { W, H, POSES, ACTIONS, LOOKS, ACCESSORIES, frame, draw, colour, check };
+  return { W, H, POSES, ACTIONS, LOOKS, ACCESSORIES, PAPER_MAX, frame, draw, colour, check };
 });
