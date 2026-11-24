@@ -8,10 +8,12 @@ const {
 const INVENTORY_SCHEMA_VERSION = 1;
 const MAX_INVENTORY_SESSIONS = 20_000;
 const MAX_INVENTORY_BYTES = 16 * 1024 * 1024;
+// How long a device's own inventory stays fresh unless a caller says otherwise.
+const DEFAULT_STALE_AFTER_MS = 5 * 60_000;
 
 function buildLocalInventory(input = {}, options = {}) {
   const now = normalizeIso(options.now || new Date().toISOString(), 'generatedAt');
-  const staleAfterMs = clampNumber(options.staleAfterMs, 30_000, 24 * 60 * 60_000, 5 * 60_000);
+  const staleAfterMs = clampNumber(options.staleAfterMs, 30_000, 24 * 60 * 60_000, DEFAULT_STALE_AFTER_MS);
   const deviceId = requiredText(input.deviceId, 'deviceId', 128);
   const revision = nonNegativeInteger(input.revision, 'revision');
   const catalog = normalizeCatalog(input.catalog || {});
@@ -26,6 +28,7 @@ function buildLocalInventory(input = {}, options = {}) {
     : new Map(Object.entries(input.sessionsByProfile || {}));
   const replicas = [];
   const includeLegacyCatalogProjection = options.includeLegacyCatalogProjection !== false;
+  const keyMemo = memoFor(input.keyMemo, input.linkKey);
 
   for (const slot of localSlots) {
     const records = sessionsByProfile.get(String(slot.profileId));
@@ -34,6 +37,7 @@ function buildLocalInventory(input = {}, options = {}) {
       const replica = sessionReplica(record, slot, {
         deviceId,
         linkKey: input.linkKey,
+        keyMemo,
         clientFacts: input.clientFacts,
         providerNamespace: localBindingsById.get(slot.accountBindingId)?.providerNamespace
       });
@@ -206,6 +210,7 @@ function mergeCatalogInventory(existingValue, inventoryValue, options = {}) {
 
 function canonicalizeInventorySessions(inventoryValue, catalogValue, options = {}) {
   const inventory = normalizeInventory(inventoryValue);
+  const keyMemo = memoFor(options.keyMemo, options.linkKey);
   const catalog = normalizeCatalog(catalogValue || {});
   const agentIds = new Set(catalog.agents.map((agent) => agent.agentId));
   const bindingsById = new Map(catalog.accountBindings.map((binding) => [
@@ -251,7 +256,7 @@ function canonicalizeInventorySessions(inventoryValue, catalogValue, options = {
 
     return [normalizeReplica({
       ...replica,
-      conversationId: stableHmac(options.linkKey, identityInput),
+      conversationId: keyedHmac(options.linkKey, identityInput, keyMemo),
       agentId: slot.agentId,
       accountBindingId: slot.accountBindingId
     }, inventory.deviceId)];
@@ -341,13 +346,13 @@ function sessionReplica(record, slot, context) {
         profileId: slot.profileId,
         adapterConversationKey
       };
-  const conversationId = stableHmac(context.linkKey, identityInput);
-  const replicaId = stableHmac(context.linkKey, {
+  const conversationId = keyedHmac(context.linkKey, identityInput, context.keyMemo);
+  const replicaId = keyedHmac(context.linkKey, {
     kind: 'replica',
     deviceId: context.deviceId,
     profileId: slot.profileId,
     adapterConversationKey
-  });
+  }, context.keyMemo);
   return normalizeReplica({
     replicaId,
     conversationId,
@@ -406,9 +411,32 @@ function compareReplicaPreference(left, right, localDeviceId) {
 }
 
 function stableHmac(key, value) {
+  return hmacEncoded(key, canonicalEncode(value));
+}
+
+function hmacEncoded(key, encoded) {
   const secret = Buffer.isBuffer(key) ? key : Buffer.from(String(key || ''), 'base64');
   if (secret.length < 16) throw new TypeError('inventory link key is required');
-  return crypto.createHmac('sha256', secret).update(canonicalEncode(value)).digest('base64url');
+  return crypto.createHmac('sha256', secret).update(encoded).digest('base64url');
+}
+
+// Optional memo for conversation and replica keys (options.keyMemo /
+// input.keyMemo, kept by MeshService): { isFor(linkKey), get(encoded),
+// set(encoded, key) }. A key is a pure HMAC of (link key, canonical input), so
+// the memo is used only when it was made for this very link key; otherwise
+// every key is derived directly, as without one.
+function memoFor(memo, linkKey) {
+  return memo && typeof memo.isFor === 'function' && memo.isFor(linkKey) ? memo : null;
+}
+
+function keyedHmac(key, value, memo) {
+  if (!memo) return stableHmac(key, value);
+  const encoded = canonicalEncode(value);
+  const known = memo.get(encoded);
+  if (known !== undefined) return known;
+  const derived = hmacEncoded(key, encoded);
+  memo.set(encoded, derived);
+  return derived;
 }
 
 function mergeByKey(primary, incoming, keyOf) {
@@ -475,6 +503,7 @@ function clampNumber(value, min, max, fallback) {
 module.exports = {
   INVENTORY_SCHEMA_VERSION,
   MAX_INVENTORY_SESSIONS,
+  DEFAULT_STALE_AFTER_MS,
   buildLocalInventory,
   normalizeInventory,
   mergeCatalogInventory,

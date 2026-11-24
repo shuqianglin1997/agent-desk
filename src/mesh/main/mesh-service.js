@@ -28,7 +28,8 @@ const {
   normalizeInventory,
   mergeCatalogInventory,
   canonicalizeInventorySessions,
-  unifiedConversations
+  unifiedConversations,
+  DEFAULT_STALE_AFTER_MS
 } = require('../domain/inventory');
 const {
   KNOWN_CAPABILITIES,
@@ -72,6 +73,9 @@ const { createIdentityBundle, createDeviceIdentityBundle } = require('../storage
 const { MeshStore } = require('../storage/mesh-store');
 
 const PROTOCOL_VERSION = '1.0';
+// Up to 20 paired devices are planned, each with up to 20,000 sessions; the
+// memo keeps the most recent 60,000 keys (about 15 MB at most).
+const KEY_MEMO_LIMIT = 60_000;
 
 class MeshService {
   constructor(options = {}) {
@@ -95,6 +99,17 @@ class MeshService {
     this.pairingTransport = options.pairingTransport || null;
     this.onDeviceRevoked = options.onDeviceRevoked || (() => {});
     this.activeInvites = new Map();
+    // Conversation and replica keys already derived, for one link key (see
+    // keyMemoFor). Bounded; the oldest entry goes first.
+    this.keyMemoLimit = Number.isSafeInteger(options.conversationKeyMemoLimit) && options.conversationKeyMemoLimit > 0
+      ? options.conversationKeyMemoLimit
+      : KEY_MEMO_LIMIT;
+    this.keyMemo = null;
+    // The last session list and the inputs it was computed from, and each
+    // remote inventory's canonical projection by its inputs.
+    this.unifiedCache = null;
+    this.canonicalCache = new Map();
+    this.unifiedSessionsStats = { hits: 0, misses: 0 };
   }
 
   // Cat names for this device's Profiles, read without keys and without any
@@ -1271,9 +1286,11 @@ class MeshService {
         catalogRevision: snapshot.catalogRevision + 1,
         allowLegacyCatalogProjection: input.allowLegacyCatalogProjection === true
       });
+      const secrets = this.keyVault.load();
       const canonicalInventory = canonicalizeInventorySessions(inventory, catalog, {
         clientFacts: apps.clientFacts,
-        linkKey: this.keyVault.load().identityLinkKey
+        linkKey: secrets.identityLinkKey,
+        keyMemo: this.keyMemoFor(secrets)
       });
       const device = normalizeDevice({
         ...remote,
@@ -1288,28 +1305,100 @@ class MeshService {
     return this.getUnifiedSessions();
   }
 
+  // The session list in Mesh mode. It is computed again only when one of its
+  // inputs changed: the store data it reads (digests of exactly those parts,
+  // so every writer of mesh.db is covered), this device's session rows (by
+  // content: the index makes a new generation on every rescan, even when
+  // nothing changed), the link key (fingerprint and version), and which
+  // inventories are stale at this moment. A remote inventory's canonical
+  // projection (PERSONAL_AGENT_MESH_PLAN.md 17.2) is reused by its own inputs:
+  // that inventory, the catalog and the link key. The only field that changes
+  // with the clock alone, the local replicas' inventoryGeneratedAt, is set to
+  // this call's time on a reused list.
   getUnifiedSessions() {
     const store = new MeshStore(this.databasePath);
     try {
       const snapshot = store.readSnapshot();
       if (!snapshot) return [];
-      const local = this.buildInventory(snapshot, { advanceRevision: false });
-      const linkKey = this.keyVault.load().identityLinkKey;
-      const remoteInventories = snapshot.remoteInventories.flatMap((inventory) => {
-        try {
-          return [canonicalizeInventorySessions(inventory, snapshot, { linkKey, clientFacts: apps.clientFacts })];
-        } catch (_error) {
-          // One legacy or damaged cache must not hide healthy local/remote
-          // conversations. The next authenticated snapshot can replace it.
-          return [];
+      const collected = this.collectLocalSessions();
+      const secrets = this.keyVault.load();
+      const localDeviceId = snapshot.mesh.localDeviceId;
+      const inputs = this.unifiedSessionsInputs(snapshot, secrets, collected);
+      if (inputs && this.unifiedCache && this.unifiedCache.key === inputs.key) {
+        this.unifiedSessionsStats.hits += 1;
+        return copyUnifiedRows(this.unifiedCache.rows, localDeviceId, inputs.localGeneratedAt);
+      }
+      this.unifiedSessionsStats.misses += 1;
+      const local = this.buildInventory(snapshot, { advanceRevision: false }, collected);
+      const linkKey = secrets.identityLinkKey;
+      const keyMemo = this.keyMemoFor(secrets);
+      const canonicalCache = new Map();
+      const remoteInventories = snapshot.remoteInventories.flatMap((inventory, index) => {
+        const key = inputs ? JSON.stringify([inputs.inventories[index], inputs.catalog, inputs.linkKey]) : null;
+        let canonical = key ? this.canonicalCache.get(key) : undefined;
+        if (canonical === undefined) {
+          try {
+            canonical = canonicalizeInventorySessions(inventory, snapshot, { linkKey, keyMemo, clientFacts: apps.clientFacts });
+          } catch (_error) {
+            // One legacy or damaged cache must not hide healthy local/remote
+            // conversations. The next authenticated snapshot can replace it.
+            canonical = null;
+          }
         }
+        if (key) canonicalCache.set(key, canonical);
+        return canonical ? [canonical] : [];
       });
-      return unifiedConversations([local, ...remoteInventories], snapshot.devices, {
-        localDeviceId: snapshot.mesh.localDeviceId
+      this.canonicalCache = canonicalCache;
+      const rows = unifiedConversations([local, ...remoteInventories], snapshot.devices, {
+        localDeviceId
       });
+      // Kept only when no inventory turned stale while the list was computed.
+      const staleNow = inputs && this.staleTimes(snapshot);
+      this.unifiedCache = inputs && JSON.stringify(staleNow) === JSON.stringify(inputs.staleTimes)
+        ? { key: inputs.key, rows: copyUnifiedRows(rows, localDeviceId, local.generatedAt) }
+        : null;
+      return rows;
     } finally {
       store.close();
     }
+  }
+
+  unifiedSessionsInputs(snapshot, secrets, collected) {
+    const staleTimes = this.staleTimes(snapshot);
+    if (!staleTimes) return null;
+    const catalog = digestOf([
+      snapshot.mesh.localDeviceId,
+      snapshot.catalogRevision,
+      snapshot.devices,
+      snapshot.agents,
+      snapshot.accountBindings,
+      snapshot.slots,
+      snapshot.tombstones
+    ]);
+    const inventories = snapshot.remoteInventories.map((inventory) => digestOf(inventory));
+    const local = digestOf([...collected.sessionsByProfile.entries()]);
+    const linkKey = [keyFingerprint(secrets.identityLinkKey), Number(secrets.identityLinkKeyVersion) || 1];
+    return {
+      key: JSON.stringify([catalog, inventories, local, linkKey, staleTimes]),
+      catalog,
+      inventories,
+      linkKey,
+      staleTimes,
+      localGeneratedAt: new Date(Date.parse(this.now())).toISOString()
+    };
+  }
+
+  // Whether each inventory (this device's, then each stored remote one) is
+  // past its staleAt now, as unifiedConversations decides it; null when this
+  // call's time is not a valid time.
+  staleTimes(snapshot) {
+    const now = Date.parse(this.now());
+    if (!Number.isFinite(now)) return null;
+    const clock = Date.now();
+    return [
+      now + DEFAULT_STALE_AFTER_MS <= clock,
+      ...snapshot.remoteInventories.map((inventory) => Date.parse(inventory?.staleAt) <= clock)
+    ];
   }
 
   getPeerContext(deviceId) {
@@ -1494,7 +1583,9 @@ class MeshService {
     }
   }
 
-  buildInventory(snapshot, options = {}) {
+  // This device's sessions per profile as the providers give them now; a
+  // profile whose read fails keeps its last good list.
+  collectLocalSessions() {
     const profiles = this.currentProfiles();
     const sessionsByProfile = new Map();
     for (const profile of profiles) {
@@ -1508,6 +1599,11 @@ class MeshService {
         sessionsByProfile.set(id, this.lastGoodSessions.get(id) || []);
       }
     }
+    return { sessionsByProfile };
+  }
+
+  buildInventory(snapshot, options = {}, collected = this.collectLocalSessions()) {
+    const { sessionsByProfile } = collected;
     const local = snapshot.devices.find((device) => device.deviceId === snapshot.mesh.localDeviceId);
     const currentRevision = Number(local?.inventoryRevision) || 0;
     const secrets = this.keyVault.load();
@@ -1517,14 +1613,31 @@ class MeshService {
       revision: options.advanceRevision ? currentRevision + 1 : currentRevision,
       catalog: normalizeCatalog(snapshot),
       sessionsByProfile,
-      linkKey: secrets.identityLinkKey
+      linkKey: secrets.identityLinkKey,
+      keyMemo: this.keyMemoFor(secrets)
     }, {
       now: this.now(),
       includeLegacyCatalogProjection: options.includeLegacyCatalogProjection !== false
     });
   }
 
+  // Conversation and replica keys are HMACs of (identity link key, canonical
+  // input), so they are remembered for one link key: different key bytes (a
+  // re-created key store) or a new key version drop the whole table. The memo
+  // holds a SHA-256 fingerprint of the key, not the key.
+  keyMemoFor(secrets) {
+    const fingerprint = keyFingerprint(secrets.identityLinkKey);
+    const version = Number(secrets.identityLinkKeyVersion) || 1;
+    if (!this.keyMemo || this.keyMemo.fingerprint !== fingerprint || this.keyMemo.version !== version) {
+      this.keyMemo = createKeyMemo(fingerprint, version, this.keyMemoLimit);
+    }
+    return this.keyMemo;
+  }
+
   reset() {
+    this.keyMemo = null;
+    this.unifiedCache = null;
+    this.canonicalCache = new Map();
     this.activeInvites.clear();
     if (fs.existsSync(this.databasePath)) {
       const store = new MeshStore(this.databasePath);
@@ -1773,6 +1886,40 @@ function applyInitialMigrationSelection(catalog, profiles, profileIds, deviceId,
       liveBindingIds.has(binding.accountBindingId) && liveAgentIds.has(binding.agentId)
     )),
     slots
+  };
+}
+
+// A private copy of a session list (its rows and replicas hold only plain
+// values), with the local replicas' inventoryGeneratedAt set to this call's.
+function copyUnifiedRows(rows, localDeviceId, localGeneratedAt) {
+  return rows.map((row) => ({
+    ...row,
+    replicas: row.replicas.map((replica) => (replica.deviceId === localDeviceId
+      ? { ...replica, inventoryGeneratedAt: localGeneratedAt }
+      : { ...replica }))
+  }));
+}
+
+function digestOf(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('base64url');
+}
+
+function keyFingerprint(linkKey) {
+  return crypto.createHash('sha256').update(String(linkKey || '')).digest('base64url');
+}
+
+// The memo inventory.js uses for one link key (see MeshService.keyMemoFor).
+function createKeyMemo(fingerprint, version, limit) {
+  const values = new Map();
+  return {
+    fingerprint,
+    version,
+    isFor: (linkKey) => keyFingerprint(linkKey) === fingerprint,
+    get: (encoded) => values.get(encoded),
+    set(encoded, key) {
+      if (values.size >= limit) values.delete(values.keys().next().value);
+      values.set(encoded, key);
+    }
   };
 }
 
