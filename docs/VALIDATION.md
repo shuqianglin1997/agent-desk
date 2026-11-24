@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 2 阶段收尾：`docs/ARCHITECTURE_PLAN.md` 第 9.1 节记下第 2 阶段（八批，`d41f814` 到 `d46b27f`），第 8 节更新实测数字（路径判断 12 → 1，`main.js` 里的接口 110 → 105，`main.js` 5126 行，`renderer.js` 9773 行；10 × 500 合成数据上一次“全部”刷新中位约 831 毫秒，与上一阶段同一量级），`docs/validation/architecture-metrics.json` 重新记下。不显示窗口的检查：`node scripts/ui-acceptance.js --hidden` 24 条路径通过；`node scripts/hidden-check.js` 读接口形状只有两处有意的变化（`settings:get` 少了五个退休字段，`activity:all` 多了 `truncated`），已更新 `test/fixtures/characterisation/ipc-shapes.json`，启动时 4 次完整扫描，没有严重控制台错误；分层检查 0 处违规。没有验证可见窗口、真实账号与客户端、Windows。
+
 2026-11-24 架构整理第 2 阶段第 8 批：最底层 `core` 开始由检查看住。设置（core）原来为规整 STUN 地址去引用网络层的 `mesh/network/ice-config.js`，这是唯一一条往上的依赖；两个纯函数移到 `src/mesh/protocol/ice-urls.js`（core），`ice-config.js` 照旧导出同一个函数，结果逐项不变（新增 `test/ice-urls.test.js`，移动前后都通过）。`scripts/check-layers.js` 从“只报告”改为“core 强制”：core 引用上层、core 里用 electron、没登记层的源文件会让测试和命令失败，其余层仍只报告，后面的阶段逐层加入。会话导出原来自己写一遍“临时文件再改名”，改为调用 `core/json-file.js` 新增的异步原子写入（不阻塞主进程；导出照旧不刷盘、权限 0600、失败不留临时文件）；新增 `test/session-export-write.test.js` 从 `main.js` 取出导出处理在替身下运行，改动前后的 `main.js` 都通过。`docs/INTERNAL.md` 补上 `core/` 与 `ice-urls.js`。
 
 2026-11-24 架构整理第 2 阶段第 7 批（第 1 阶段第 4、5 条留下的部分）：读不出来与“没有”从此在数据上分开。Cursor 与 Kimi Work 的 sqlite3 查询改为返回结果（成功带行，或“sqlite3 不能运行 / 查询失败”）：数据库不存在仍是没有会话；数据库在但读不出来时扫描报错而不再返回空表，桌面沿用上一次的行（第 1 阶段已有），成品命令行返回新的原因码 `session-store-unreadable`；活动探测读不出 Cursor 的聚合数时“在跑”为不知道。目录遍历在 12000 项处停下、还有目录没读时，`apps.scanResult()` 的结果带 `truncated: true`，活动探测的结果多一个 `truncated` 字段。这些状态都只放在数据里，界面暂不显示（要新文字，留到第 6、8 阶段）。新增 `test/scan-failure-and-truncation.test.js` 4 项，修改前全部失败、修改后通过；会话扫描基准里每个活动结果多了 `truncated: false`，其余不变。

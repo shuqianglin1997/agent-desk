@@ -167,10 +167,7 @@
     "agentOrder": [
       "empty"
     ],
-    "atmosTime": "string",
-    "atmosWeather": "string",
     "lang": "string",
-    "ledger": "null",
     "meshNetworkEnrollmentEnabled": "null",
     "meshSignalingUrls": [
       "empty"
@@ -183,7 +180,6 @@
       "completedVersion": "number"
     },
     "profileQuitBehavior": "string",
-    "remindersOn": "boolean",
     "selectedAgentIdByDeviceLens": {},
     "selectedDeviceLensId": "string",
     "selectedSlotKeyByAgentAndLens": {},
@@ -193,9 +189,7 @@
     "soundLevel": "string",
     "soundVolume": "number",
     "theme": "string",
-    "view": "string",
-    "welcomed": "boolean",
-    "yardPositions": {}
+    "welcomed": "boolean"
   },
   "devices:list": {
     "ok": "boolean",
@@ -424,6 +418,7 @@
       },
       "sessionCount": "number",
       "sourceKey": "string",
+      "truncated": "boolean",
       "writingKeys": {
         "anyOf": [
           [

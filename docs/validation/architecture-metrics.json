@@ -1,30 +1,30 @@
 {
-  "recordedAt": "2026-11-24T16:59:27.462Z",
-  "sourceSha256": "f0b974a00a96de9b69d6c3b81b78f34135ac1c7782efdda7e57a55d4c07e0efd",
+  "recordedAt": "2026-11-24T17:28:27.195Z",
+  "sourceSha256": "9e34e470bebefb8645e8848e952da90fb378930364c954d1931de7828108e57a",
   "schemaVersion": 1,
-  "srcFiles": 153,
-  "srcJsLines": 57874,
-  "mainJsLines": 5223,
-  "rendererJsLines": 9924,
-  "rendererScripts": 30,
+  "srcFiles": 158,
+  "srcJsLines": 57822,
+  "mainJsLines": 5126,
+  "rendererJsLines": 9773,
+  "rendererScripts": 31,
   "functions": {
-    "total": 3717,
-    "moduleWrappers": 31,
-    "rendererJs": 607,
-    "mainJs": 355,
+    "total": 3709,
+    "moduleWrappers": 30,
+    "rendererJs": 597,
+    "mainJs": 345,
     "over150Lines": 17,
     "longest": [
       {
         "file": "src/main.js",
         "name": "registerIpc",
-        "line": 427,
-        "lines": 1279
+        "line": 428,
+        "lines": 1241
       },
       {
         "file": "src/renderer.js",
         "name": "bindEvents",
-        "line": 1362,
-        "lines": 939
+        "line": 1331,
+        "lines": 942
       },
       {
         "file": "src/mesh/peer/e2e-runner.js",
@@ -65,13 +65,13 @@
       {
         "file": "src/main.js",
         "name": "launchProfile",
-        "line": 3723,
+        "line": 3629,
         "lines": 187
       },
       {
         "file": "src/renderer.js",
         "name": "renderTransferList",
-        "line": 8564,
+        "line": 8413,
         "lines": 181
       },
       {
@@ -89,16 +89,16 @@
     ]
   },
   "ipcHandleLiterals": {
-    "total": 121,
-    "mainJs": 110,
+    "total": 116,
+    "mainJs": 105,
     "files": {
-      "src/main.js": 110,
+      "src/main.js": 105,
       "src/main/ipc/local-reads.js": 7,
       "src/main/ipc/recruit.js": 4
     }
   },
   "clientNameComparisonsOutsideApps": {
-    "total": 68,
+    "total": 67,
     "files": {
       "src/account-credentials.js": 2,
       "src/activity.js": 3,
@@ -109,7 +109,7 @@
       "src/credential-import.js": 1,
       "src/main.js": 6,
       "src/main/profile-registration.js": 1,
-      "src/main/recruit-items.js": 5,
+      "src/main/recruit-items.js": 4,
       "src/mesh/domain/agent-catalog.js": 5,
       "src/profile-home.js": 5,
       "src/profile-runtime.js": 2,
@@ -155,17 +155,17 @@
       {
         "file": "src/automation/service.js",
         "function": "execute",
-        "line": 260
+        "line": 264
       },
       {
         "file": "src/main.js",
         "function": "hubLocateSession",
-        "line": 2053
+        "line": 1978
       },
       {
         "file": "src/main.js",
         "function": "revealSessionFile",
-        "line": 5150
+        "line": 5053
       },
       {
         "file": "src/main/session-actions.js",
@@ -180,86 +180,31 @@
     ]
   },
   "pathEqualityOrContainmentHelpers": {
-    "count": 12,
+    "count": 1,
     "sites": [
       {
-        "file": "src/account-credentials.js",
-        "function": "samePath",
-        "line": 721
-      },
-      {
-        "file": "src/automation/service.js",
-        "function": "overlaps",
-        "line": 187
-      },
-      {
-        "file": "src/automation/service.js",
-        "function": "within",
-        "line": 190
-      },
-      {
-        "file": "src/codex-history-retention.js",
-        "function": "inside",
-        "line": 20
-      },
-      {
-        "file": "src/identity.js",
-        "function": "samePath",
-        "line": 43
-      },
-      {
-        "file": "src/main.js",
-        "function": "pathsEqual",
-        "line": 3688
-      },
-      {
-        "file": "src/main.js",
-        "function": "isSubpath",
-        "line": 3694
-      },
-      {
-        "file": "src/path-utils.js",
-        "function": "isSubpath",
-        "line": 76
-      },
-      {
-        "file": "src/profile-home.js",
-        "function": "samePath",
-        "line": 14
-      },
-      {
-        "file": "src/profile-runtime.js",
-        "function": "pathInside",
-        "line": 41
-      },
-      {
-        "file": "src/task-package/codex-adapter.js",
-        "function": "isWithin",
-        "line": 540
-      },
-      {
-        "file": "src/windows.js",
-        "function": "isSubpath",
-        "line": 479
+        "file": "src/core/paths.js",
+        "function": "samePathReal",
+        "line": 49
       }
     ]
   },
   "syncCalls": {
-    "mainProcessTotal": 461,
-    "mainProcessFiles": 41,
-    "refreshPathTotal": 52,
+    "mainProcessTotal": 433,
+    "mainProcessFiles": 40,
+    "refreshPathTotal": 50,
     "refreshPath": {
       "src/activity.js": 6,
       "src/apps.js": 0,
       "src/cli-client-sessions.js": 7,
       "src/cursor-sessions.js": 5,
-      "src/identity.js": 1,
+      "src/identity.js": 0,
       "src/kimi-work-sessions.js": 2,
       "src/main/ipc/local-reads.js": 0,
       "src/mesh/main/mesh-service.js": 7,
       "src/process.js": 5,
       "src/session-marks.js": 0,
-      "src/sessions.js": 19
+      "src/sessions.js": 18
     }
   },
   "css": {
@@ -289,7 +234,7 @@
         "important": 16
       },
       "src/workspace.css": {
-        "rules": 430,
+        "rules": 423,
         "important": 0
       }
     },
@@ -299,7 +244,7 @@
       "src/pixel.css",
       "src/cats.css"
     ],
-    "styleRules": 1851,
+    "styleRules": 1844,
     "important": 41,
     "selectorsInMoreThanOneSheet": 171,
     "customProperties": 127,
@@ -336,10 +281,10 @@
     }
   },
   "tests": {
-    "files": 115,
-    "testCallsAtLineStart": 811,
-    "filesReadingSourceAsText": 44,
-    "textOnlyFiles": 17,
+    "files": 123,
+    "testCallsAtLineStart": 839,
+    "filesReadingSourceAsText": 47,
+    "textOnlyFiles": 16,
     "textOnlyList": [
       "test/codex-config-ownership.test.js",
       "test/device-journey-ui.test.js",
@@ -356,7 +301,6 @@
       "test/sessions-refresh-on-activity.test.js",
       "test/simplification.test.js",
       "test/task-package-ui.test.js",
-      "test/ui-redesign.test.js",
       "test/ui.test.js"
     ],
     "textOnlyButRunExtractedSource": [
