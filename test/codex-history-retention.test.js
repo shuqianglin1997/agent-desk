@@ -4,8 +4,30 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
-const { POLICY, POLICY_FILE, maintainHistory, compactToolItem, runAfterProfileStop, compressArchivedRollouts } = require('../src/codex-history-retention');
+const { POLICY, POLICY_FILE, maintainHistory, compactToolItem, runAfterProfileStop, compressArchivedRollouts, LSOF_PROCESS_CHECK } = require('../src/codex-history-retention');
 const { ProfileRuntimeSupervisor } = require('../src/profile-runtime');
+
+// Process checks are injected: what else this machine has open (or how slow
+// lsof is under a loaded test run) must not decide the result. One test below
+// still exercises the real lsof check.
+const nobodyHolds = Object.freeze({ holders: () => [], heldAmong: () => new Set(), isIdle: () => true });
+function holding(files) {
+  const held = new Set(files.map((file) => fs.realpathSync(file)));
+  return {
+    holders: (list) => (list.some((file) => held.has(file)) ? [2147483646] : []),
+    heldAmong: (list) => new Set(list.filter((file) => held.has(file))),
+    isIdle: (file) => !held.has(file)
+  };
+}
+// Runs the worker CLI in its own process with an injected check.
+function workerCli(args, check) {
+  const { spawnSync } = require('node:child_process');
+  const source = `const m=require(${JSON.stringify(require.resolve('../src/codex-history-retention'))});
+    const check=${check === 'nobody' ? '{holders:()=>[],heldAmong:()=>new Set(),isIdle:()=>true}' : 'undefined'};
+    const r=m.runCli(JSON.parse(process.env.AGENTDESK_TEST_ARGS),{processCheck:check});
+    if(r.output)process.stdout.write(r.output);if(r.error)process.stderr.write(r.error);process.exitCode=r.code;`;
+  return spawnSync(process.execPath, ['-e', source], { encoding: 'utf8', env: { ...process.env, AGENTDESK_TEST_ARGS: JSON.stringify(args) } });
+}
 
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6xKsAAAAASUVORK5CYII=';
 
@@ -39,7 +61,7 @@ test('explicit cutoff leaves newer conversation items unchanged', {skip:process.
   db.prepare('INSERT INTO thread_turns VALUES(?,?,?)').run('recent','turn','completed');
   const original=JSON.stringify({type:'commandExecution',id:'recent-tool',status:'completed',exitCode:0,aggregatedOutput:'new output '.repeat(4000)});
   db.prepare('INSERT INTO thread_items VALUES(?,?,?,?,?)').run('recent','turn','recent-tool','commandExecution',original);db.close();
-  const result=maintainHistory(root,{explicit:true,apply:true,updatedBeforeSeconds:cutoff});
+  const result=maintainHistory(root,{explicit:true,apply:true,updatedBeforeSeconds:cutoff,processCheck:nobodyHolds});
   assert.equal(result.threadsInspected,1);assert.equal(result.updatedBeforeSeconds,cutoff);
   const after=new DatabaseSync(path.join(root,'thread_history_1.sqlite'));
   assert.equal(after.prepare('SELECT item_json FROM thread_items WHERE thread_id=?').get('recent').item_json,original);after.close();
@@ -49,11 +71,11 @@ test('explicit cutoff leaves newer conversation items unchanged', {skip:process.
 test('preview is read-only, then one unique image serves both history items and human text is byte-identical', {skip:process.platform!=='darwin'}, t=>{
   const {root,original}=fixture(t);
   const before=fs.readFileSync(path.join(root,'thread_history_1.sqlite'));
-  const preview=maintainHistory(root,{explicit:true});
+  const preview=maintainHistory(root,{explicit:true,processCheck:nobodyHolds});
   assert.equal(preview.imageItems,2);assert.equal(preview.toolItems,1);
   assert.deepEqual(fs.readFileSync(path.join(root,'thread_history_1.sqlite')),before);
   assert.equal(fs.existsSync(path.join(root,'generated_images')),false);
-  const applied=maintainHistory(root,{explicit:true,apply:true});
+  const applied=maintainHistory(root,{explicit:true,apply:true,processCheck:nobodyHolds});
   assert.equal(applied.imagesCreated,1);assert.equal(applied.imageItems,2);assert.equal(applied.toolItems,1);
   const db=new DatabaseSync(path.join(root,'thread_history_1.sqlite'),{readOnly:true});
   const rows=db.prepare('SELECT item_id,item_json FROM thread_items ORDER BY item_id').all();db.close();
@@ -62,7 +84,7 @@ test('preview is read-only, then one unique image serves both history items and 
   assert.equal(images[0].savedPath,images[1].savedPath);
   assert.equal(images[0].result,'');
   assert.deepEqual(fs.readFileSync(images[0].savedPath),Buffer.from(png,'base64'));
-  const again=maintainHistory(root,{explicit:true,apply:true});
+  const again=maintainHistory(root,{explicit:true,apply:true,processCheck:nobodyHolds});
   assert.equal(again.imageItems,0);assert.equal(again.toolItems,0);
 });
 
@@ -83,12 +105,12 @@ test('automatic maintenance requires the exact root policy and leaves unfinished
   assert.deepEqual(await runAfterProfileStop({appId:'codex',sessionRoot:root}),{skipped:'not-enabled'});
   fs.writeFileSync(path.join(root,POLICY_FILE),JSON.stringify(POLICY));
   const db=new DatabaseSync(path.join(root,'thread_history_1.sqlite'));db.exec("UPDATE thread_turns SET status='inProgress'");db.close();
-  const result=maintainHistory(root,{apply:true});assert.equal(result.imageItems,0);assert.equal(result.toolItems,0);
+  const result=maintainHistory(root,{apply:true,processCheck:nobodyHolds});assert.equal(result.imageItems,0);assert.equal(result.toolItems,0);
 });
 
 test('symlinked databases are rejected before any maintenance', {skip:process.platform!=='darwin'}, t=>{
   const {root}=fixture(t);const file=path.join(root,'thread_history_1.sqlite');fs.renameSync(file,file+'.original');fs.symlinkSync(file+'.original',file);
-  assert.throws(()=>maintainHistory(root,{explicit:true,apply:true}),/history-db-unsafe/);
+  assert.throws(()=>maintainHistory(root,{explicit:true,apply:true,processCheck:nobodyHolds}),/history-db-unsafe/);
 });
 
 test('owned natural/explicit exits schedule opt-in maintenance; relaunch waits and unowned stops cannot invoke it', async t=>{
@@ -117,11 +139,11 @@ test('filesystem compression keeps original rollout bytes and existing session-l
   fs.writeFileSync(file,bytes);fs.utimesSync(file,1,1);
   const {scanCodex}=require('../src/sessions');
   const before=scanCodex({sessionRoot:root}),blocks=fs.statSync(file).blocks;
-  const packed=compressArchivedRollouts(root,{budgetMs:5000});
+  const packed=compressArchivedRollouts(root,{budgetMs:5000,processCheck:nobodyHolds});
   assert.equal(packed.compressed,1);assert.ok(fs.statSync(file).blocks<blocks);
   assert.equal(fs.readFileSync(file,'utf8'),bytes);
   assert.deepEqual(scanCodex({sessionRoot:root}),before);
-  const again=compressArchivedRollouts(root,{budgetMs:5000});assert.equal(again.compressed,0);
+  const again=compressArchivedRollouts(root,{budgetMs:5000,processCheck:nobodyHolds});assert.equal(again.compressed,0);
   assert.deepEqual(fs.readdirSync(area),[path.basename(file)]);
 });
 
@@ -142,7 +164,7 @@ test('archive compression uses conversation update time and keeps newer archives
   state.prepare('UPDATE threads SET rollout_path=? WHERE id=?').run(old,'thread');
   state.prepare('INSERT INTO threads VALUES(?,?,?,?,?)').run('recent',1,now-86400,'paginated',recent);state.close();
   const recentStat=fs.statSync(recent);
-  const result=compressArchivedRollouts(root,{updatedBeforeSeconds:cutoff,budgetMs:5000});
+  const result=compressArchivedRollouts(root,{updatedBeforeSeconds:cutoff,budgetMs:5000,processCheck:nobodyHolds});
   assert.equal(result.compressed,1);
   assert.equal(fs.readFileSync(old,'utf8'),bytes);assert.equal(fs.readFileSync(recent,'utf8'),bytes);
   assert.equal(fs.statSync(recent).ino,recentStat.ino);assert.equal(fs.statSync(recent).blocks,recentStat.blocks);
@@ -176,39 +198,38 @@ test('existing supervisor also maintains managed idle archives once per hour, ex
 });
 
 test('automatic worker publishes a bounded auditable status and recovers a dead worker lock', {skip:process.platform!=='darwin'},t=>{
-  const {root}=fixture(t);const {spawnSync}=require('node:child_process');
+  const {root}=fixture(t);
   fs.writeFileSync(path.join(root,POLICY_FILE),JSON.stringify(POLICY));
   const lock=path.join(root,'.agentdesk-history-retention.lock');fs.mkdirSync(lock);
   fs.writeFileSync(path.join(lock,'owner.json'),JSON.stringify({pid:2147483647}));
-  const args=[require.resolve('../src/codex-history-retention'),'--root',root,'--apply','--automatic'];
-  const r=spawnSync(process.execPath,args,{encoding:'utf8'});assert.equal(r.status,0,r.stderr);
+  const args=['--root',root,'--apply','--automatic'];
+  const r=workerCli(args,'nobody');assert.equal(r.status,0,r.stderr);
   const status=JSON.parse(fs.readFileSync(path.join(root,'agentdesk-history-retention-status.json')));
   assert.equal(status.state,'finished');assert.equal(status.result.toolItems,1);
   assert.equal(status.automatic,true);assert.match(status.workerSha256,/^[0-9a-f]{64}$/);
   assert.equal(fs.existsSync(lock),false);
   fs.mkdirSync(lock);fs.writeFileSync(path.join(lock,'owner.json'),JSON.stringify({pid:process.pid}));
-  const busy=spawnSync(process.execPath,args,{encoding:'utf8'});
+  const busy=workerCli(args,'nobody');
   assert.equal(JSON.parse(busy.stdout).skipped,'maintenance-already-running');
 });
 
-test('live database handles restrict maintenance to old archived completed turns', {skip:process.platform!=='darwin'},async t=>{
-  const {root,original}=fixture(t);const {spawn}=require('node:child_process');
+test('live database handles restrict maintenance to old archived completed turns', {skip:process.platform!=='darwin'},t=>{
+  const {root,original}=fixture(t);
   let s=new DatabaseSync(path.join(root,'state_5.sqlite'));s.prepare('INSERT INTO threads VALUES(?,?,?,?)').run('active-thread',0,1,'paginated');s.close();
   let d=new DatabaseSync(path.join(root,'thread_history_1.sqlite'));
   d.prepare('INSERT INTO thread_turns VALUES(?,?,?)').run('active-thread','turn','completed');
   d.prepare('INSERT INTO thread_items VALUES(?,?,?,?,?)').run('active-thread','turn','command','commandExecution',original.find(x=>x.item_id==='command').item_json);d.close();
-  const child=spawn(process.execPath,['-e',`const fs=require('fs');const fd=fs.openSync(process.argv[1],'r');console.log('ready');setInterval(()=>{},1000);`,path.join(root,'thread_history_1.sqlite')],{stdio:['ignore','pipe','ignore']});
-  t.after(()=>child.kill());await new Promise((resolve,reject)=>{child.stdout.once('data',resolve);child.once('error',reject);});
-  assert.equal(maintainHistory(root,{explicit:true,apply:true}).skipped,'client-still-open');
-  const result=maintainHistory(root,{explicit:true,apply:true,openArchived:true});
+  const clientOpen=holding([path.join(root,'thread_history_1.sqlite')]);
+  assert.equal(maintainHistory(root,{explicit:true,apply:true,processCheck:clientOpen}).skipped,'client-still-open');
+  const result=maintainHistory(root,{explicit:true,apply:true,openArchived:true,processCheck:clientOpen});
   assert.equal(result.threadsInspected,1);assert.equal(result.toolItems,1);
   assert.equal(result.vacuumed,false);assert.equal(result.vacuumDeferred,true);
   d=new DatabaseSync(path.join(root,'thread_history_1.sqlite'),{readOnly:true});
   assert.equal(d.prepare("SELECT item_json FROM thread_items WHERE thread_id='active-thread' AND item_id='command'").get().item_json,original.find(x=>x.item_id==='command').item_json);d.close();
 });
 
-test('unarchived history requires a day idle, completed turns, a recoverable original and no rollout handle', {skip:process.platform!=='darwin'},async t=>{
-  const {root,original}=fixture(t);const {spawn}=require('node:child_process');
+test('unarchived history requires a day idle, completed turns, a recoverable original and no rollout handle', {skip:process.platform!=='darwin'},t=>{
+  const {root,original}=fixture(t);
   let s=new DatabaseSync(path.join(root,'state_5.sqlite'));s.exec('ALTER TABLE threads ADD COLUMN rollout_path TEXT');
   let d=new DatabaseSync(path.join(root,'thread_history_1.sqlite'));
   for(const id of ['idle','compressed','held','recent','unfinished','missing']){
@@ -217,9 +238,8 @@ test('unarchived history requires a day idle, completed turns, a recoverable ori
     d.prepare('INSERT INTO thread_turns VALUES(?,?,?)').run(id,'turn',id==='unfinished'?'inProgress':'completed');
     d.prepare('INSERT INTO thread_items VALUES(?,?,?,?,?)').run(id,'turn','command','commandExecution',original.find(x=>x.item_id==='command').item_json);
   }s.close();d.close();
-  const child=spawn(process.execPath,['-e',`const fs=require('fs');fs.openSync(process.argv[1],'r');fs.openSync(process.argv[2],'r');console.log('ready');setInterval(()=>{},1000);`,path.join(root,'thread_history_1.sqlite'),path.join(root,'held.jsonl')],{stdio:['ignore','pipe','ignore']});
-  t.after(()=>child.kill());await new Promise((resolve,reject)=>{child.stdout.once('data',resolve);child.once('error',reject);});
-  const result=maintainHistory(root,{explicit:true,apply:true,openIdle:true});
+  const clientOpen=holding([path.join(root,'thread_history_1.sqlite'),path.join(root,'held.jsonl')]);
+  const result=maintainHistory(root,{explicit:true,apply:true,openIdle:true,processCheck:clientOpen});
   assert.equal(result.idleUnarchivedInspected,2);assert.equal(result.toolItems,3);
   d=new DatabaseSync(path.join(root,'thread_history_1.sqlite'),{readOnly:true});
   for(const id of ['held','recent','unfinished','missing'])assert.equal(d.prepare('SELECT item_json FROM thread_items WHERE thread_id=?').get(id).item_json,original.find(x=>x.item_id==='command').item_json);
@@ -228,7 +248,20 @@ test('unarchived history requires a day idle, completed turns, a recoverable ori
 
 for(const parentStatus of ['interrupted','failed'])test(`terminal ${parentStatus} turns retain failed items while reducing successful tools and duplicate image bytes`,{skip:process.platform!=='darwin'},t=>{
   const {root,original}=fixture(t);let d=new DatabaseSync(path.join(root,'thread_history_1.sqlite'));d.prepare('UPDATE thread_turns SET status=?').run(parentStatus);d.close();
-  const result=maintainHistory(root,{explicit:true,apply:true});assert.equal(result.imageItems,2);assert.equal(result.toolItems,1);
+  const result=maintainHistory(root,{explicit:true,apply:true,processCheck:nobodyHolds});assert.equal(result.imageItems,2);assert.equal(result.toolItems,1);
   d=new DatabaseSync(path.join(root,'thread_history_1.sqlite'),{readOnly:true});
   for(const id of ['user','agent','failed','diff'])assert.equal(d.prepare('SELECT item_json FROM thread_items WHERE item_id=?').get(id).item_json,original.find(r=>r.item_id===id).item_json);d.close();
+});
+
+// The one test that still asks the real lsof: a process holding a file is found.
+test('the default process check finds another process holding a file', {skip:process.platform!=='darwin'}, async t=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'agentdesk-history-lsof-'));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const file=fs.realpathSync(root)+'/held.sqlite';fs.writeFileSync(file,'x');
+  const {spawn}=require('node:child_process');
+  const child=spawn(process.execPath,['-e',`require('fs').openSync(process.argv[1],'r');console.log('ready');setInterval(()=>{},1000);`,file],{stdio:['ignore','pipe','ignore']});
+  t.after(()=>child.kill());
+  await new Promise((resolve,reject)=>{child.stdout.once('data',resolve);child.once('error',reject);});
+  assert.ok(LSOF_PROCESS_CHECK.holders([file]).includes(child.pid));
+  assert.deepEqual([...LSOF_PROCESS_CHECK.heldAmong([file])],[file]);
 });

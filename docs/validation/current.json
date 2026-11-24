@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:30:45.628Z",
-  "baseCommit": "2741ff455b01685e052b193fc189f769ff9f9f9f",
+  "recordedAt": "2026-11-24T16:33:27.902Z",
+  "baseCommit": "f18b06223c7ac2feaa1e93be71e11a1fafafb9d9",
   "uncommitted": true,
-  "sourceSha256": "a0ec2f43b8ed7a7f5a7d23ed22800d4080bc57e37e5c9dab0812a11e5f73c1b9",
+  "sourceSha256": "31c390cbc6113534942ea1efcd91711c8c43d65fe941f7f6e285547be8cc6000",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,34 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 817,
+      "pass": 816,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after architecture phase 0 batch 5 (history-retention process check injected); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:33:27.902Z",
+      "sourceSha256": "31c390cbc6113534942ea1efcd91711c8c43d65fe941f7f6e285547be8cc6000"
+    },
+    {
+      "command": "node --test test/codex-history-retention.test.js (five plain runs, three under a concurrent full-suite load)",
+      "result": "passed",
+      "tests": 17,
+      "pass": 17,
+      "fail": 0,
+      "scope": "Process checks injected (nobody holds / database held / rollout held); worker CLI runs the same code path through runCli in its own process; one darwin test still exercises the real lsof check against a child process holding a file",
+      "recordedAt": "2026-11-24T16:33:27.902Z",
+      "sourceSha256": "31c390cbc6113534942ea1efcd91711c8c43d65fe941f7f6e285547be8cc6000"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check unchanged",
+      "recordedAt": "2026-11-24T16:33:27.902Z",
+      "sourceSha256": "31c390cbc6113534942ea1efcd91711c8c43d65fe941f7f6e285547be8cc6000"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

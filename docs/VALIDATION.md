@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 0 阶段第 5 批：`src/codex-history-retention.js` 原来在三处直接调用 `lsof` 判断有没有进程占着客户端的文件；现在这三处调用原样收进一个 `LSOF_PROCESS_CHECK`，维护、归档压缩和命令行 worker 都可以接收注入的检查（命令行主体改成导出的 `runCli`，直接运行时行为不变）。`test/codex-history-retention.test.js` 改为注入检查，结果不再取决于这台电脑上还开着什么、`lsof` 在测试并发时慢不慢；只剩一项测试用真实 `lsof` 确认它能找到占着文件的进程。该文件单独连续运行五次、在完整测试并发压力下又运行三次，17 项每次全部通过。后台完整 Node 回归 817 项：816 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 通过。应用行为不变。
+
 2026-11-24 架构整理第 0 阶段第 4 批：`test/characterisation-cli.test.js` 把源码态命令行每个只读命令和五种出错码的 JSON 输出记成基准（临时数据目录、空的临时主目录、子进程里运行；装了哪些命令行工具因机器而异，只记清单和每项的形状）。`scripts/hidden-electron-entry.js` 与 `scripts/hidden-check.js` 让真实主进程和界面在不显示、不聚焦窗口的方式下跑一遍：模拟钥匙串、临时数据目录与主目录，打开账号、首次准备、额度（会启动 codex app-server）、登录状态、工具打开与更新、安装更新和连接自检都由记录用的替身回答，原生对话框按取消，显示文件、打开路径、剪贴板和联网都被拦下。17 个读接口返回值的形状与 `test/fixtures/characterisation/ipc-shapes.json` 一致（三次运行），启动到稳定前做了 4 次完整的会话扫描，没有严重的控制台错误。后台完整 Node 回归 816 项：815 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 通过。没有改动应用代码。
 
 2026-11-24 架构整理第 0 阶段第 3 批：`test/characterisation-sessions.test.js` 把十种客户端的会话扫描结果和活动探测结果逐字段记成基准文件（`test/fixtures/characterisation/sessions.golden.json`），每种客户端一份固定样例，带子代理、归档、标题先后和坏文件；以后改结构时任何一个字段变了都会失败，有意的改动要重新生成基准并在提交里看差异。在三个时区下、连续多次运行结果相同；基准里是 POSIX 路径，Windows 上跳过。基准已经如实记下第 3.1 节第 5 条：活动数出的会话数与列表不一致（命令行 Claude 4 对 2、DSH 3 对 2、Qwen 4 对 3、Gemini 3 对 2）。后台完整 Node 回归 799 项：798 通过、1 项 Windows 专用跳过、0 失败，运行前后源码摘要不变；`npm run check` 通过。没有改动应用代码。

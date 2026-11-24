@@ -48,16 +48,39 @@ function readPolicy(root) {
   return p;
 }
 
-function foreignDatabaseHandles(root) {
+// Which processes hold the client's files. Production always asks lsof; tests
+// inject a fake so results never depend on what else the machine has open.
+const LSOF_PROCESS_CHECK = Object.freeze({
+  // PIDs holding any of `files`; a failed check is an error, never "nobody".
+  holders(files) {
+    const r = spawnSync('/usr/sbin/lsof', ['-t', '--', ...files], { encoding: 'utf8', timeout: 10000 });
+    if (r.error || ![0, 1].includes(r.status)) throw new Error('history-process-check-failed');
+    return [...new Set(r.stdout.trim().split(/\s+/).filter(Boolean).map(Number))];
+  },
+  // The subset of `files` some process holds, or null when the answer cannot be trusted.
+  heldAmong(files) {
+    const r=spawnSync('/usr/sbin/lsof',['-F','n','--',...files],{encoding:'utf8',timeout:10000});
+    if (r.error || ![0,1].includes(r.status)) return null;
+    const names=r.stdout.split('\n').filter(x=>x.startsWith('n')).map(x=>x.slice(1));
+    const allowed=new Set(files);
+    if (names.some(n=>!allowed.has(n))) return null;
+    return new Set(names);
+  },
+  // True only when lsof positively reports that nobody holds `file`.
+  isIdle(file) {
+    const r=spawnSync('/usr/sbin/lsof',['-t','--',file],{encoding:'utf8',timeout:2000});
+    return !r.error && r.status===1 && !r.stdout.trim();
+  }
+});
+
+function foreignDatabaseHandles(root, check = LSOF_PROCESS_CHECK) {
   if (process.platform !== 'darwin') throw new Error('history-platform-not-validated');
   const files = ['state_5.sqlite', 'thread_history_1.sqlite'].flatMap((name) =>
     ['', '-wal', '-shm'].map((suffix) => path.join(root, name + suffix)).filter((p) => fs.existsSync(p)));
-  const r = spawnSync('/usr/sbin/lsof', ['-t', '--', ...files], { encoding: 'utf8', timeout: 10000 });
-  if (r.error || ![0, 1].includes(r.status)) throw new Error('history-process-check-failed');
-  return [...new Set(r.stdout.trim().split(/\s+/).filter(Boolean).map(Number))].filter((pid) => pid !== process.pid);
+  return check.holders(files).filter((pid) => pid !== process.pid);
 }
 
-function idleUnarchivedThreads(root, state, db, threads) {
+function idleUnarchivedThreads(root, state, db, threads, check = LSOF_PROCESS_CHECK) {
   // "Unarchived" is not "in use": old finished chats are often never archived.
   // Require a full day of inactivity, no unfinished turn, an original rollout
   // inside this root, and no process holding that rollout. Unknown states defer.
@@ -82,12 +105,8 @@ function idleUnarchivedThreads(root, state, db, threads) {
   const idle = new Set();
   for (let i=0;i<candidates.length;i+=64) {
     const batch=candidates.slice(i,i+64);
-    const r=spawnSync('/usr/sbin/lsof',['-F','n','--',...batch.map(x=>x.file)],{encoding:'utf8',timeout:10000});
-    if (r.error || ![0,1].includes(r.status)) continue;
-    const names=r.stdout.split('\n').filter(x=>x.startsWith('n')).map(x=>x.slice(1));
-    const allowed=new Set(batch.map(x=>x.file));
-    if (names.some(n=>!allowed.has(n))) continue;
-    const held=new Set(names);
+    const held=check.heldAmong(batch.map(x=>x.file));
+    if (!held) continue;
     for(const c of batch) if(!held.has(c.file)) idle.add(c.id);
   }
   return idle;
@@ -261,10 +280,8 @@ function compressArchivedRollouts(input, options = {}) {
     const row=recheck.get(expected.id);
     return row && row.archived===1 && row.updated_at<cutoff && row.rollout_path===expected.original;
   };
-  const idle = (file) => {
-    const r=spawnSync('/usr/sbin/lsof',['-t','--',file],{encoding:'utf8',timeout:2000});
-    return !r.error && r.status===1 && !r.stdout.trim();
-  };
+  const check = options.processCheck || LSOF_PROCESS_CHECK;
+  const idle = (file) => check.isIdle(file);
   function walk(dir) {
     if (fs.lstatSync(dir).isSymbolicLink() || fs.realpathSync(dir)!==dir) return;
     for(const entry of fs.readdirSync(dir,{withFileTypes:true})) {
@@ -319,7 +336,8 @@ function maintainHistory(input, options = {}) {
   if (!policy) return { skipped: 'not-enabled' };
   const apply = options.apply === true;
   const deadline = Date.now() + (options.budgetMs ?? Infinity);
-  const handles = foreignDatabaseHandles(root);
+  const check = options.processCheck || LSOF_PROCESS_CHECK;
+  const handles = foreignDatabaseHandles(root, check);
   if (handles.length && !options.openArchived && !options.openIdle) return { skipped: 'client-still-open', foreignHandleCount: handles.length };
   const { DatabaseSync } = require('node:sqlite');
   const state = new DatabaseSync(path.join(root, 'state_5.sqlite'), { readOnly: true });
@@ -334,7 +352,7 @@ function maintainHistory(input, options = {}) {
     result.updatedBeforeSeconds = cutoff;
     const hasRolloutPath=state.prepare('PRAGMA table_info(threads)').all().some(c=>c.name==='rollout_path');
     const candidates = state.prepare(`SELECT id,archived,updated_at${hasRolloutPath?',rollout_path':''} FROM threads WHERE history_mode='paginated' AND updated_at<?`).all(cutoff);
-    const idleIds=handles.length && options.openIdle && hasRolloutPath ? idleUnarchivedThreads(root,state,db,candidates) : new Set();
+    const idleIds=handles.length && options.openIdle && hasRolloutPath ? idleUnarchivedThreads(root,state,db,candidates,check) : new Set();
     const eligible=candidates.filter(t=>!handles.length || t.archived===1 || idleIds.has(t.id));
     result.idleUnarchivedInspected=handles.length ? idleIds.size : 0;
     const ids = eligible.map((t) => t.id);
@@ -413,7 +431,7 @@ function maintainHistory(input, options = {}) {
       } catch { result.checkpointDeferred = true; }
     }
     if (apply && (options.compressArchives || (!options.explicit && policy.compressArchived))) {
-      result.archives = compressArchivedRollouts(root,{updatedBeforeSeconds:requestedCutoff,budgetMs: Math.max(0, Math.min(deadline-Date.now(), options.explicit ? 30*60*1000 : 20000))});
+      result.archives = compressArchivedRollouts(root,{updatedBeforeSeconds:requestedCutoff,processCheck:check,budgetMs: Math.max(0, Math.min(deadline-Date.now(), options.explicit ? 30*60*1000 : 20000))});
     }
     return result;
   } finally { db.close(); state.close(); }
@@ -445,7 +463,8 @@ function runAfterProfileStop(profile, options = {}) {
 }
 
 module.exports = { POLICY_FILE, POLICY, canonicalRoot, readPolicy, compactText, compactToolItem,
-  preserveImage, compressArchivedRollouts, maintainHistory, runAfterProfileStop, STATUS_FILE };
+  preserveImage, compressArchivedRollouts, maintainHistory, runAfterProfileStop, STATUS_FILE,
+  LSOF_PROCESS_CHECK, runCli };
 
 function withMaintenanceLock(root, action) {
   const lock = path.join(root, '.agentdesk-history-retention.lock');
@@ -490,9 +509,10 @@ function writeStatus(root, status) {
   } finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
 }
 
-if (require.main === module) {
+// The worker CLI. Returns { code, output, error } instead of writing, so a test
+// can run the same code path with an injected process check.
+function runCli(args, { processCheck } = {}) {
   try {
-    const args = process.argv.slice(2);
     const root = args[args.indexOf('--root')+1];
     if (args.indexOf('--root') < 0 || args.some((a,i) => a.startsWith('--') && !['--root','--apply','--open-archived','--open-idle','--automatic','--enable-policy','--compress-archives','--before'].includes(a))) throw new Error('history-arguments-invalid');
     const beforeIndex = args.indexOf('--before');
@@ -506,7 +526,7 @@ if (require.main === module) {
       const status = {version:1,startedAt,automatic,workerSha256:fileDigest(__filename)};
       if (apply) writeStatus(canonicalRoot(root),{...status,state:'running'});
       try {
-        const result = maintainHistory(root,{apply,explicit:!automatic,openArchived:args.includes('--open-archived'),openIdle:args.includes('--open-idle'),updatedBeforeSeconds,compressArchives:args.includes('--compress-archives'),budgetMs:automatic ? 40000 : undefined});
+        const result = maintainHistory(root,{apply,processCheck,explicit:!automatic,openArchived:args.includes('--open-archived'),openIdle:args.includes('--open-idle'),updatedBeforeSeconds,compressArchives:args.includes('--compress-archives'),budgetMs:automatic ? 40000 : undefined});
         if (apply) writeStatus(canonicalRoot(root),{...status,state:'finished',completedAt:new Date().toISOString(),result});
         return result;
       } catch (error) {
@@ -522,9 +542,15 @@ if (require.main === module) {
       if (!fs.existsSync(policyFile)) fs.writeFileSync(policyFile,JSON.stringify(POLICY,null,2)+'\n',{flag:'wx',mode:0o600});
       result.policyEnabled = readPolicy(canonicalRoot(root))?.enabled === true;
     }
-    process.stdout.write(JSON.stringify(result)+'\n');
+    return { code: 0, output: JSON.stringify(result)+'\n' };
   } catch (error) {
-    process.stderr.write(String(error?.message || 'history-maintenance-failed').replace(/[\r\n]/g,' ').slice(0,240)+'\n');
-    process.exitCode=1;
+    return { code: 1, error: String(error?.message || 'history-maintenance-failed').replace(/[\r\n]/g,' ').slice(0,240)+'\n' };
   }
+}
+
+if (require.main === module) {
+  const result = runCli(process.argv.slice(2));
+  if (result.output) process.stdout.write(result.output);
+  if (result.error) process.stderr.write(result.error);
+  process.exitCode = result.code;
 }
