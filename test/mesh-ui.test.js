@@ -281,7 +281,7 @@ test('会话发送从会话工具栏的“送出”发起，只提交稳定 ID�
   assert.match(main, /ipcMain\.handle\('transfers:createSessionPointer'/);
   assert.match(main, /ipcMain\.handle\('projects:chooseBinding'[\s\S]*?dialog\.showOpenDialog/);
   assert.match(html, /不生成交接模板/);
-  assert.match(renderer, /const keyState = state\.mesh\.overview\?\.keyState \|\| 'available';[\s\S]*?keyState === 'available'[\s\S]*?await loadMeshSessions\(\)[\s\S]*?loadLocalSessions\(\{ source: 'local-fallback' \}\)/);
+  assert.match(renderer, /const keyState = state\.mesh\.overview\?\.keyState \|\| 'available';[\s\S]*?keyState === 'available'[\s\S]*?await loadMeshSessions\(null, \{ generation \}\)[\s\S]*?loadLocalSessions\(\{ source: 'local-fallback', generation \}\)/);
   assert.match(renderer, /loadDeviceOverview\(\{ requestSecureAccess: true \}\)/);
   assert.match(renderer, /function loadMeshSessions[\s\S]*?return \{ ok: false, reasonCode:[\s\S]*?state\.mesh\.sessionSource = 'mesh'/);
   assert.match(renderer, /const localProfileIds = new Set\(state\.profiles[\s\S]*?if \(!localProfileIds\.has\(String\(member\.id\)\)\) continue/);

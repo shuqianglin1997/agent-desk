@@ -557,6 +557,9 @@ let updateBusy = false;
 let updateButtonTimer = null;
 let quotaRequest = null;
 let quotaForcedAfter = null;
+// Each list load takes the next number; an answer applies only while its
+// number is still the latest, so a slower earlier load cannot overwrite it.
+let sessionsLoadGeneration = 0;
 let quotaHasLoaded = false;
 let quotaRequestedAt = 0;
 let foregroundSessionRefreshAt = 0;
@@ -3300,6 +3303,7 @@ async function loadProfiles(preferredId = null, options = {}) {
 }
 
 async function loadSessions() {
+  const generation = ++sessionsLoadGeneration;
   if (!currentAgentId() && state.ui.agentScope === 'current') {
     // 没有选中的猫就是看全部：名册上高亮“全部”，不留一张要解释的空表。
     state.ui = window.UiContext.setAgentScope(state.ui, 'all');
@@ -3310,14 +3314,15 @@ async function loadSessions() {
   if (state.mesh.overview?.initialized && window.manager.listMeshSessions) {
     const keyState = state.mesh.overview?.keyState || 'available';
     const meshResult = keyState === 'available'
-      ? await loadMeshSessions()
+      ? await loadMeshSessions(null, { generation })
       : { ok: false, reasonCode: keyState };
-    if (meshResult.ok) return;
+    if (meshResult.ok || generation !== sessionsLoadGeneration) return;
 
     const lens = currentDeviceLensId();
     const canShowLocal = lens === 'all' || lens === state.mesh.overview.localDeviceId;
     if (canShowLocal) {
-      const localResult = await loadLocalSessions({ source: 'local-fallback' });
+      const localResult = await loadLocalSessions({ source: 'local-fallback', generation });
+      if (localResult.stale) return;
       state.mesh.sessionErrorCode = meshResult.reasonCode;
       setStatus(tr('status.sessionsLocalFallback', {
         n: localResult.count
@@ -3337,10 +3342,11 @@ async function loadSessions() {
     return;
   }
 
-  await loadLocalSessions({ source: 'local' });
+  await loadLocalSessions({ source: 'local', generation });
 }
 
 async function loadLocalSessions(options = {}) {
+  const generation = options.generation ?? ++sessionsLoadGeneration;
   // 当前账号：合流同一登录身份的全部形态；全部账号：一次扫描所有身份组。
   // 每条记录都带归属槽位 + 账号组元数据，跨账号排序、选择和操作仍能回到正确槽位。
   const groups = identityGroups();
@@ -3394,6 +3400,7 @@ async function loadLocalSessions(options = {}) {
     }
   }));
 
+  if (generation !== sessionsLoadGeneration) return { ok: true, stale: true, count: state.sessions.length };
   const loaded = results.flatMap((result) => result.records);
 
   state.sessions = loaded
@@ -3407,11 +3414,13 @@ async function loadLocalSessions(options = {}) {
   return { ok: true, count: state.sessions.length };
 }
 
-async function loadMeshSessions(prefetchedRows = null) {
+async function loadMeshSessions(prefetchedRows = null, options = {}) {
+  const generation = options.generation ?? ++sessionsLoadGeneration;
   let rows = Array.isArray(prefetchedRows) ? prefetchedRows : [];
   if (!Array.isArray(prefetchedRows)) {
     try {
       const result = await window.manager.listMeshSessions();
+      if (generation !== sessionsLoadGeneration) return { ok: true, stale: true, count: state.sessions.length };
       if (!result?.ok || !Array.isArray(result.sessions)) {
         return { ok: false, reasonCode: result?.reasonCode || 'inventory-list-failed' };
       }
