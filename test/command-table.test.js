@@ -99,11 +99,11 @@ test('commands never import Electron, and the shell runs input, poll, then exec'
   await assert.rejects(runCommand({ poll: () => 'Not A Code', exec() {} }, {}, {}), /command-reason-invalid/);
 });
 
-test('Main hands the commands every service they take, as generated from src/commands/', () => {
-  const commandDeps = require('../scripts/command-deps');
+test('Main hands the commands and the moved modules every service they take, as generated', () => {
+  const mainContext = require('../scripts/main-context');
   const main = read('src/main.js');
-  assert.equal(commandDeps.current(main), commandDeps.block(main), 'run node scripts/command-deps.js --write');
-  assert.match(main, /registerCommandIpc\(\{ ipcMain, deps: commandDeps\(\) \}\)/);
+  assert.equal(mainContext.current(main), mainContext.block(main), 'run node scripts/main-context.js --write');
+  assert.match(main, /registerCommandIpc\(\{ ipcMain, deps: mainContext\(\) \}\)/);
 });
 
 test('the command line reads its commands from the same table, and prints only their descriptors', () => {

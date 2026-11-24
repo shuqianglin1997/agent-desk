@@ -463,7 +463,7 @@ test('接线：窗口底色是夜色，关客户端前降灯、被拦下亮灯�
   assert.ok(beforeQuit.indexOf('windowLamp.holdQuit(event') < beforeQuit.indexOf('appQuitting = true;'));
   assert.ok(beforeQuit.indexOf('appQuitting = true;') < beforeQuit.indexOf("mainOwner.shutdown('app-quit')"));
   // The window's lamp calls are commands; Main hands them the lamp.
-  assert.match(main, /commandDepsCache = \{[\s\S]*?\bwindowLamp\b[\s\S]*?\};/);
+  assert.match(main, /mainContextCache = \{[\s\S]*?get windowLamp\(\)[\s\S]*?\};/);
   const preload = read('src/preload.js');
   assert.match(preload, /onWindowLamp: \(callback\) => \{/);
   assert.match(preload, /windowLampDone: \(token\) => ipcRenderer\.invoke\('window:lampDone', \{ token: Number\(token\) \|\| 0 \}\)/);

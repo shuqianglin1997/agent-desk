@@ -487,7 +487,7 @@ test('main/preload source closes raw path, full-profile, sender and navigation b
   assert.match(main, /installMainWindowSecurity\(mainWindow/);
   assert.match(main, /profile-path-input-forbidden/);
   const localReads = fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'local-reads.js'), 'utf8');
-  assert.match(main, /registerCommandIpc\(\{ ipcMain, deps: commandDeps\(\) \}\)/);
+  assert.match(main, /registerCommandIpc\(\{ ipcMain, deps: mainContext\(\) \}\)/);
   assert.match(main, /const refreshProfiles = \(\) => profileSnapshot\.profiles\(\);/);
   assert.match(localReads, /sessions:list'[\s\S]*?refreshProfiles\(\)[\s\S]*?input\.profileId/);
   assert.doesNotMatch(localReads, /require\('electron'\)/);
