@@ -21,6 +21,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const coreJson = require('./core/json-file');
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_ROWS = 5000;
@@ -68,9 +69,7 @@ function readText(filePath, limit = MAX_FILE_BYTES) {
 }
 
 function readJson(filePath, limit = MAX_FILE_BYTES) {
-  const text = readText(filePath, limit);
-  if (text === null) return null;
-  try { return JSON.parse(text); } catch (_error) { return null; }
+  return coreJson.readJson(filePath, { maxBytes: limit });
 }
 
 function jsonLines(text) {

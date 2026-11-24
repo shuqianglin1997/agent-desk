@@ -7,6 +7,7 @@
  */
 
 const fs = require('node:fs');
+const coreJson = require('./core/json-file');
 const os = require('node:os');
 const path = require('node:path');
 const { classifyCodexSessionMeta } = require('./mesh/domain/session-identity');
@@ -662,11 +663,7 @@ function walkFiles(root, predicate) {
 }
 
 function readJson(filePath) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch (_error) {
-    return null;
-  }
+  return coreJson.readJson(filePath);
 }
 
 // The first line of a Codex rollout (session_meta) can be far longer than one

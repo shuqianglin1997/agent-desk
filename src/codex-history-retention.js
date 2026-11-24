@@ -9,6 +9,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const paths = require('./core/paths');
+const { writeFileAtomic } = require('./core/json-file');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
@@ -206,13 +207,8 @@ function preserveImage(item, root, apply, cache) {
         const st = fs.lstatSync(file);
         if (!st.isFile() || st.isSymbolicLink() || sha(fs.readFileSync(file)) !== digest) throw new Error('history-image-conflict');
       } else {
-        const temp = file + `.tmp-${process.pid}-${crypto.randomBytes(6).toString('hex')}`;
-        try {
-          const fd = fs.openSync(temp, 'wx', 0o600);
-          try { fs.writeFileSync(fd, bytes); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
-          fs.renameSync(temp, file);
-          created = true;
-        } finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
+        writeFileAtomic(file, bytes, { mode: 0o600 });
+        created = true;
       }
     }
   }
@@ -499,12 +495,9 @@ function withMaintenanceLock(root, action) {
 }
 
 function writeStatus(root, status) {
-  const file = path.join(root,STATUS_FILE), temp = file + `.${process.pid}.tmp`;
+  const file = path.join(root,STATUS_FILE);
   if (fs.existsSync(file) && (!fs.lstatSync(file).isFile() || fs.lstatSync(file).isSymbolicLink())) throw new Error('history-status-unsafe');
-  try {
-    fs.writeFileSync(temp,JSON.stringify(status)+'\n',{flag:'wx',mode:0o600});
-    fs.renameSync(temp,file);
-  } finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
+  writeFileAtomic(file, JSON.stringify(status)+'\n', { mode: 0o600 });
 }
 
 // The worker CLI. Returns { code, output, error } instead of writing, so a test

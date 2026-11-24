@@ -5,49 +5,23 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { readJsonFile, writeJsonAtomic } = require('./core/json-file');
 
 function readJsonStore(filePath, validate = () => true) {
-  if (!fs.existsSync(filePath)) return null;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    if (!validate(parsed)) return null;
-    return { filePath, parsed };
-  } catch (_error) {
-    return null;
-  }
+  const result = readJsonFile(filePath, { validate });
+  return result.ok ? { filePath, parsed: result.value } : null;
 }
 
+// User settings and Mesh key envelopes can contain private local metadata:
+// the file is owner-only from its first byte, flushed, the previous version
+// copied to the backup, then renamed into place (src/core/json-file.js).
 function writeJsonStore(storeFile, payload, options = {}) {
-  const backupFile = options.backupFile || `${storeFile}.bak`;
-  const tempFile = `${storeFile}.${process.pid}.${Date.now()}.tmp`;
-  fs.mkdirSync(path.dirname(storeFile), { recursive: true });
-  // User settings and Mesh key envelopes can contain private local metadata.
-  // Create the temporary file owner-only from the first byte instead of
-  // tightening permissions only after the atomic rename.
-  const descriptor = fs.openSync(tempFile, 'wx', options.mode || 0o600);
-  try {
-    fs.writeFileSync(descriptor, JSON.stringify(payload, null, 2), 'utf8');
-    fs.fsyncSync(descriptor);
-  } finally {
-    fs.closeSync(descriptor);
-  }
-
-  if (!options.skipBackup && fs.existsSync(storeFile)) {
-    try {
-      fs.copyFileSync(storeFile, backupFile);
-    } catch (_error) {
-      // Best effort: the fully-written temp file still protects this write.
-    }
-  }
-
-  try {
-    fs.renameSync(tempFile, storeFile);
-  } catch (_error) {
-    // Windows commonly rejects rename-over-existing. The source is already
-    // complete and fsynced, while backup recovery covers an interrupted copy.
-    fs.copyFileSync(tempFile, storeFile);
-    try { fs.unlinkSync(tempFile); } catch (_unlinkError) { /* best effort */ }
-  }
+  writeJsonAtomic(storeFile, payload, {
+    mode: options.mode || 0o600,
+    backupFile: options.skipBackup ? null : (options.backupFile || `${storeFile}.bak`),
+    createDirectory: true,
+    copyIfRenameFails: true
+  });
 }
 
 function snapshotFile(sourceFile, targetFile) {

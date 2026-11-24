@@ -18,6 +18,8 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const coreJson = require('./core/json-file');
+const { writeFileAtomic } = coreJson;
 const paths = require('./core/paths');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
@@ -101,21 +103,10 @@ function readOptional(filePath) {
 }
 
 function writePrivateFile(filePath, content) {
-  const directory = path.dirname(filePath);
-  ensurePrivateDirectory(directory);
-  const temporary = path.join(directory, `.${path.basename(filePath)}.${crypto.randomBytes(6).toString('hex')}.tmp`);
-  let descriptor;
+  ensurePrivateDirectory(path.dirname(filePath));
   try {
-    descriptor = fs.openSync(temporary, 'wx', 0o600);
-    fs.writeFileSync(descriptor, content);
-    fs.fsyncSync(descriptor);
-    fs.closeSync(descriptor);
-    descriptor = undefined;
-    fs.renameSync(temporary, filePath);
-    if (process.platform !== 'win32') fs.chmodSync(filePath, 0o600);
+    writeFileAtomic(filePath, content, { mode: 0o600, chmod: true });
   } catch (error) {
-    if (descriptor !== undefined) try { fs.closeSync(descriptor); } catch (_error) { /* closed */ }
-    try { fs.rmSync(temporary, { force: true }); } catch (_error) { /* gone */ }
     if (error instanceof CredentialError) throw error;
     throw new CredentialError('config-write-failed');
   }
@@ -706,13 +697,7 @@ function readOptionalQuiet(filePath) {
 }
 
 function readJson(filePath, maxBytes = 512 * 1024) {
-  try {
-    const stat = fs.statSync(filePath);
-    if (!stat.isFile() || stat.size > maxBytes) return null;
-    return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
-  } catch (_error) {
-    return null;
-  }
+  return coreJson.readJson(filePath, { maxBytes, stripBom: true });
 }
 
 function fileExists(filePath) {

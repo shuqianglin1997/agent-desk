@@ -11,13 +11,10 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { readJson } = require('./core/json-file');
 
 function readJsonSafe(filePath) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch (_error) {
-    return null;
-  }
+  return readJson(filePath);
 }
 
 function messageText(message) {

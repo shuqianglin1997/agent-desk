@@ -18,15 +18,12 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { readJson } = require('./core/json-file');
 const paths = require('./core/paths');
 const crypto = require('node:crypto');
 
 function readJsonSafe(filePath) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch (_error) {
-    return null;
-  }
+  return readJson(filePath);
 }
 
 function fingerprintOf(accountId) {

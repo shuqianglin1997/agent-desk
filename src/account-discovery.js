@@ -21,6 +21,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { readJson } = require('./core/json-file');
 const apps = require('./apps');
 const { readCodexAuthFile } = require('./codex-account-import');
 
@@ -405,13 +406,7 @@ async function discoverLocations(options = {}) {
 }
 
 function readJsonBounded(filePath, maxBytes = 512 * 1024) {
-  try {
-    const stat = fs.statSync(filePath);
-    if (!stat.isFile() || stat.size > maxBytes) return null;
-    return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^﻿/, ''));
-  } catch (_error) {
-    return null;
-  }
+  return readJson(filePath, { maxBytes, stripBom: true });
 }
 
 function decodeJwtPayload(token) {

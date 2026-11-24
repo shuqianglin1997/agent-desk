@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { writeFileAtomic } = require('../core/json-file');
 const { setTimeout: delay } = require('node:timers/promises');
 const { parse, helpText, success, failure } = require('./cli');
 const { COMMANDS, InterfaceError, execute } = require('./service');
@@ -245,9 +246,7 @@ function createCliBroker({ userData, whenReady, dispatch }) {
       response = failure(command, error);
     }
     try {
-      const temporary = path.join(directory, 'response.tmp');
-      fs.writeFileSync(temporary, JSON.stringify(response), { flag: 'wx', mode: 0o600 });
-      fs.renameSync(temporary, path.join(directory, 'response.json'));
+      writeFileAtomic(path.join(directory, 'response.json'), JSON.stringify(response), { mode: 0o600 });
     } catch (_error) { /* The caller may have timed out and cleaned the request. */ }
   }
 
