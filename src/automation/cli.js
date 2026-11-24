@@ -60,7 +60,8 @@ function failure(command, error) {
   const known = error instanceof InterfaceError;
   return { code: known ? error.exitCode : 1, text: `${JSON.stringify({ schemaVersion: 1, ok: false, command, error: {
     code: known ? error.code : 'internal-error',
-    message: known ? error.message : 'Local operation failed. Inspect the selected data with the desktop diagnostics.'
+    message: known ? error.message : 'Local operation failed. Inspect the selected data with the desktop diagnostics.',
+    ...(known && error.extra ? error.extra : {})
   } })}\n` };
 }
 

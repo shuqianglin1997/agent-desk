@@ -785,6 +785,15 @@ class ProfileRuntimeSupervisor {
     }
   }
 
+  // 退出前要关掉的那几个：AgentDesk 自己启动、现在还在运行的 Profile。只读，不改任何记录。
+  ownedActiveProfileIds() {
+    const ids = [];
+    for (const [profileId, record] of this.records) {
+      if (record.owned && record.active && this.profiles.has(profileId)) ids.push(profileId);
+    }
+    return ids;
+  }
+
   async stopAll(options = {}) {
     this.stopMonitoring();
     if (options.terminateOwned !== true) return { ok: true, results: [] };
@@ -793,7 +802,12 @@ class ProfileRuntimeSupervisor {
       if (!record.owned || !record.active) continue;
       const profile = this.profiles.get(profileId);
       if (!profile) continue;
-      results.push({ profileId, ...(await this.stopProfile(profile, options.reason || 'app-quit')) });
+      const result = { profileId, ...(await this.stopProfile(profile, options.reason || 'app-quit')) };
+      results.push(result);
+      // 每关好一个就说一声（关灯时对应的猫先睡下）；回调出错不影响收口。
+      if (result.ok && typeof options.onStopped === 'function') {
+        try { options.onStopped(profileId); } catch (_error) { /* presentation only */ }
+      }
     }
     await Promise.all([...this.historyMaintenance.values()]);
     return { ok: results.every((item) => item.ok), results };

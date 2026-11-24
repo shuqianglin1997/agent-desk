@@ -227,3 +227,20 @@ test('断开当前远控时显式切到剩余 viewing，会话全部结束才清
   context = UiContext.disconnectRemote(context, 'remote-b', []);
   assert.equal(context.activeRemoteSessionId, null);
 });
+
+test('setAgentSlot 只记住某只猫的运行位置，不改变正在看的是谁', () => {
+  let context = UiContext.create();
+  context = UiContext.setAgent(context, 'agent-a', { slotKey: 'device-1::a-desktop' });
+  const next = UiContext.setAgentSlot(context, 'agent-b', 'device-1::b-cli');
+  assert.equal(UiContext.selectedAgentId(next), 'agent-a');
+  assert.equal(UiContext.selectedSlotKey(next), 'device-1::a-desktop');
+  assert.equal(UiContext.selectedSlotKey(next, 'all', 'agent-b'), 'device-1::b-cli');
+  // 输入不被改写；空位置清掉记忆；没有猫时什么也不做。
+  assert.equal(UiContext.selectedSlotKey(context, 'all', 'agent-b'), null);
+  assert.equal(UiContext.selectedSlotKey(UiContext.setAgentSlot(next, 'agent-b', null), 'all', 'agent-b'), null);
+  assert.deepEqual(UiContext.setAgentSlot(next, '', 'x'), next);
+  // 按设备视角分别记忆。
+  const lensed = UiContext.setAgentSlot(next, 'agent-b', 'device-2::b-desktop', 'device-2');
+  assert.equal(UiContext.selectedSlotKey(lensed, 'device-2', 'agent-b'), 'device-2::b-desktop');
+  assert.equal(UiContext.selectedSlotKey(lensed, 'all', 'agent-b'), 'device-1::b-cli');
+});

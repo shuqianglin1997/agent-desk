@@ -15,27 +15,33 @@ test('窗口顶栏保留设备视角位置并使用纯文字标题', () => {
     html.indexOf('<header class="app-topbar">'),
     html.indexOf('</header>', html.indexOf('<header class="app-topbar">'))
   );
-  assert.match(topbar, /id="deviceLensSelect"[\s\S]*?id="deviceCenterBtn"[\s\S]*?id="toolCenterBtn"[\s\S]*?id="activityCenterBtn"[\s\S]*?id="settingsBtn"/);
+  // 顶栏只回答“在哪看”和“有什么要处理”：设备管理并进设备视角下拉，工具与设置在“系统”这一页里。
+  assert.match(topbar, /id="deviceLensSelect"[\s\S]*?id="deviceLensMenu"[\s\S]*?id="deviceCenterBtn"[\s\S]*?id="activityCenterBtn"[\s\S]*?id="systemBtn"[^>]*aria-controls="systemDialog"/);
+  assert.doesNotMatch(topbar, /id="systemMenu"|id="toolCenterBtn"|id="settingsBtn"/);
+  const nav = topbar.slice(topbar.indexOf('<nav class="topbar-actions"'));
+  assert.doesNotMatch(nav, /id="deviceCenterBtn"|id="windowAddMenu"/);
   assert.doesNotMatch(topbar, /globalMoreMenu|topbar\.more/);
   for (const id of ['updateBtn', 'helpBtn', 'langToggle', 'themeToggle']) {
     assert.doesNotMatch(topbar, new RegExp(`id="${id}"`));
-    assert.match(html, new RegExp(`id="settingsDialog"[\\s\\S]*?id="${id}"`));
+    assert.match(html, new RegExp(`id="systemDialog"[\\s\\S]*?id="systemSettings"[\\s\\S]*?id="${id}"`));
   }
   for (const [button, dialog] of [
     ['deviceCenterBtn', 'deviceCenterDialog'],
-    ['toolCenterBtn', 'toolCenterDialog'],
-    ['activityCenterBtn', 'activityCenterDialog'],
-    ['settingsBtn', 'settingsDialog']
+    ['systemBtn', 'systemDialog'],
+    ['activityCenterBtn', 'activityCenterDialog']
   ]) {
     assert.match(topbar, new RegExp(`id="${button}"[^>]*aria-haspopup="dialog"[^>]*aria-controls="${dialog}"[^>]*aria-expanded="false"`));
   }
-  assert.match(topbar, /<span class="topbar-brand">AgentDesk<\/span>/);
+  assert.match(topbar, /<span class="topbar-brand" aria-label="AgentDesk">Agent<i>Desk<\/i><\/span>/);
   assert.doesNotMatch(topbar, /brand-mark|agent-view-segment|viewToggle|classicViewBtn/);
   assert.match(workspaceStyles, /--lens-width: 216px;[\s\S]*?50vw - 25px/);
-  assert.match(topbar, /id="windowAddMenu"[\s\S]*?id="addProfileBtn"[\s\S]*?id="codexImportBtn"/);
-  const presenter = html.slice(html.indexOf('class="presenter-head"'), html.indexOf('class="agent-panel-body"'));
+  const presenter = html.slice(html.indexOf('class="presenter-head"'), html.indexOf('<section class="presenter">'));
   assert.match(presenter, /id="presenterCount"/);
-  assert.doesNotMatch(presenter, /id="viewToggle"|id="codexImportBtn"/);
+  // 添加账号只有一个入口：Agent 标题行的“招募”，直接打开招募弹窗，不在顶栏。
+  assert.match(presenter, /id="addProfileBtn"[^>]*aria-haspopup="dialog"[^>]*aria-controls="recruitDialog"/);
+  assert.doesNotMatch(presenter, /id="windowAddMenu"|id="codexImportBtn"/);
+  assert.doesNotMatch(presenter, /id="viewToggle"/);
+  assert.doesNotMatch(html, /class="agent-panel-body"/);
   assert.match(workspaceStyles, /\.app-topbar\s*\{\s*-webkit-app-region: drag/);
   assert.match(workspaceStyles, /\.app-topbar :is\(button, select, summary, a, \.context-menu-panel\)\s*\{\s*-webkit-app-region: no-drag/);
   assert.match(workspaceStyles, /env\(titlebar-area-width, 100%\)/);
@@ -53,7 +59,9 @@ test('卡片工作台不加载旧庭院并保留共用像素头像', () => {
   assert.doesNotMatch(html, /yardStage|yardCanvas|yard\/(?:scene\.js|yard\.css)/);
   assert.doesNotMatch(renderer, /YardScene|applyView|state\.view =/);
   assert.match(html, /yard\/sprites\.js/);
-  assert.match(renderer, /drawAccountAvatar\(avatar, primary\)/);
+  assert.match(renderer, /PixelUi\?\.setCat\(card\.querySelector\('\.account-card-avatar'\)/);
+  assert.match(read('src/pixel/ui.js'), /PixelCats[\s\S]*?Cats\.show\(canvas/);
+  assert.doesNotMatch(renderer, /function drawAccountAvatar/);
   assert.match(workspaceStyles, /@layer themes\s*\{\s*\[hidden\]\s*\{\s*display:\s*none;/);
   assert.doesNotMatch(workspaceStyles, /\.session-table tbody tr(?::|\.)[^\{]*::(?:before|after)/);
 });
@@ -67,7 +75,8 @@ test('卡片名册使用固定宽度与可信摘要，并用真实窗口验收�
 
   assert.match(workspaceStyles, /\.agent-panel \.account-roster \{[\s\S]*?grid-auto-columns:\s*180px;[\s\S]*?justify-content:\s*start;[\s\S]*?overflow-x:\s*auto;[\s\S]*?scroll-padding-inline:\s*1px;[\s\S]*?scrollbar-gutter:\s*stable;/);
   assert.match(workspaceStyles, /\.agent-panel \.account-card \{\s*display:\s*grid;[\s\S]*?grid-template-rows:/);
-  assert.match(workspaceStyles, /\.account-card-details \{[\s\S]*?align-self:\s*end;/);
+  // 卡片里已经没有的包裹层，样式也一并清掉了。
+  assert.doesNotMatch(workspaceStyles, /\.account-card-details|\.account-card-top|\.account-card-meta|\.agent-panel-body/);
   assert.match(renderer, /function revealSelectedAccountCard\(\)[\s\S]*?scrollPaddingInlineStart[\s\S]*?scrollLeft = Math\.min/);
   assert.match(quotaOverview, /function activeCardWindows\(snapshot, now\)[\s\S]*?resetsAt > now/);
   assert.match(quotaOverview, /function quotaWindowsConflict\(left, right\)[\s\S]*?leftWindows\.length !== rightWindows\.length/);
@@ -78,26 +87,38 @@ test('卡片名册使用固定宽度与可信摘要，并用真实窗口验收�
   assert.match(renderer, /visibilitychange[\s\S]*?if \(document\.hidden\) return;\s*refreshSessionsOnForeground\(\);\s*loadActivity\(\);/);
   assert.match(renderer, /window\.addEventListener\('focus', refreshSessionsOnForeground\)/);
   assert.match(renderer, /function renderAccounts\(\)[\s\S]*?renderAccountRoster\(\);\s*renderTopbarContext\(\);/);
-  assert.match(renderer, /const positions = \(group\.allMembers \|\| group\.members\)\.length;[\s\S]*?_deviceStatus === 'online'/);
-  assert.match(renderer, /account-card-last-active[\s\S]*?account-card-quota-summary[\s\S]*?quotaSummary\.replaceChildren\(quotaFact, quotaTrack\)/);
+  assert.match(renderer, /const slots = group\.allMembers \|\| group\.members;[\s\S]*?_deviceStatus === 'online'/);
+  // 状态只说一次：最近活跃和位置数进提示文字，卡片上只留五格额度。
+  assert.match(renderer, /card\.lastActive[\s\S]*?presenter\.positions[\s\S]*?selectAgentButton\.title =/);
+  assert.match(renderer, /account-card-quota-summary[\s\S]*?quotaSummary\.replaceChildren\(quotaTrack, quotaValue\)/);
+  assert.doesNotMatch(read('src/index.html'), /account-card-last-active|class="account-card-details"/);
+  const pixelStyles = read('src/pixel.css');
+  assert.match(pixelStyles, /\.agent-panel \.account-card,\s*\.agent-panel \.account-card\.selected \{[\s\S]*?width:\s*180px;/);
+  assert.match(pixelStyles, /\.agent-panel \.account-roster \{[\s\S]*?overflow-x:\s*auto;/);
   assert.match(acceptance, /Array\.from\(\{ length: 5 \}/);
   assert.match(acceptance, /Agent card \$\{index \+ 1\} must remain 180px wide/);
   assert.match(acceptance, /smallRoster\.cards\.length, 2[\s\S]*?leave visible unused space instead of stretching/);
-  assert.match(acceptance, /detailsChildrenInside[\s\S]*?detailsOrder/);
+  // 真实窗口验收按新卡片结构检查：文字与控件留在卡内、自上而下不重叠、能量格在按钮内。
+  assert.match(acceptance, /selectChildrenInside[\s\S]*?verticalOrder[\s\S]*?quotaInside/);
+  assert.doesNotMatch(acceptance, /account-card-details|account-card-last-active|sessionScopeCurrentBtn/);
 });
 
-test('对象管理进 Dialog，会话列表顶栏右侧常驻复制、打开目录和导出', () => {
+test('对象管理进 Dialog，会话列表顶栏右侧常驻复制、打开目录、导出和送出', () => {
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
 
   assert.match(html, /class="account-card-launch"[\s\S]*?class="account-card-manage"[^>]*aria-haspopup="dialog"[^>]*aria-controls="agentManageDialog"/);
-  assert.match(html, /id="agentManageDialog"[\s\S]*?id="agentGlobalActions"[\s\S]*?id="editProfileBtn"[\s\S]*?id="manageAgentRelationsBtn"[\s\S]*?id="removeProfileBtn"[\s\S]*?id="yardManageActions"[\s\S]*?id="addRuntimeLocationBtn"[\s\S]*?id="pathConfigBtn"[\s\S]*?id="diagnosticsBtn"[\s\S]*?id="refreshBtn"[\s\S]*?id="profileFolderBtn"/);
+  // 猫的档案一页四段：资料、位置、账号、送走；位置下面是那个位置自己的动作。
+  assert.match(html, /id="agentManageDialog"[\s\S]*?data-section="profile"[\s\S]*?id="editProfileBtn"[\s\S]*?data-section="locations"[\s\S]*?id="agentManageLocations"[\s\S]*?id="yardManageActions"[\s\S]*?id="pathConfigBtn"[\s\S]*?id="diagnosticsBtn"[\s\S]*?id="refreshBtn"[\s\S]*?id="profileFolderBtn"[\s\S]*?id="addRuntimeLocationBtn"[\s\S]*?data-section="accounts"[\s\S]*?id="manageAgentRelationsBtn"[\s\S]*?data-section="farewell"[\s\S]*?id="removeProfileBtn"/);
+  assert.match(renderer, /function renderAgentManageLocations\(group, profile\)[\s\S]*?selectSlot\(member\.id\)[\s\S]*?row\.after\(actions\)/);
   assert.doesNotMatch(html, /class="account-bar"/);
   assert.match(renderer, /function openAgentManageDialog\(\)[\s\S]*?renderAgentManageContext\(\)[\s\S]*?agentManageDialog\.showModal\(\)/);
   assert.match(html, /<details id="sessionDisplayMenu"[\s\S]*?id="sessionCompactBtn"[\s\S]*?id="sessionDetailBtn"/);
   const sessionPane = html.slice(html.indexOf('id="sessionPane"'), html.indexOf('id="detailPanel"'));
   assert.match(sessionPane, /session-toolbar-controls[\s\S]*?id="sessionActionDock"[\s\S]*?id="sessionSelectionBar"[^>]*hidden[\s\S]*?id="copySessionInfoBtn"[^>]*disabled[\s\S]*?id="openSessionFileBtn"[^>]*disabled[\s\S]*?id="exportSessionBtn"[^>]*disabled/);
-  assert.doesNotMatch(sessionPane, /sendSessionInfoBtn|taskPackageActionBtn/);
+  // 对会话的操作都在会话这边：发送到设备与交接任务收在“送出”里。
+  assert.match(sessionPane, /id="exportSessionBtn"[\s\S]*?id="sessionSendMenu"[\s\S]*?id="sendSessionInfoBtn"[^>]*disabled[\s\S]*?id="taskPackageActionBtn"[^>]*disabled/);
+  assert.doesNotMatch(sessionPane, /sessionScopeCurrentBtn|sessionScopeAllBtn/);
   const footer = html.slice(html.indexOf('<footer id="statusBar"'), html.indexOf('</footer>'));
   assert.match(footer, /id="statusText"/);
   assert.doesNotMatch(footer, /ledgerDone|ledgerMin|reminderToggle/);
@@ -144,7 +165,7 @@ test('设备中心是独立模态弹窗，采用设备列表加所选详情且�
   assert.match(workspaceStyles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?overflow:\s*hidden/);
   assert.match(workspaceStyles, /\.device-center-content\s*\{[\s\S]*?overflow:\s*hidden/);
   assert.match(styles, /\.device-list\s*\{[\s\S]*?overflow-y:\s*auto/);
-  assert.match(styles, /\.account-actions button\.primary:disabled\s*\{[\s\S]*?background:\s*var\(--surface-sunken\)/);
+  assert.doesNotMatch(styles, /\.account-actions/);
 });
 
 test('1.14 全局弹窗统一固定 Shell，关闭不伪装主操作，次级流程保留父层', () => {
@@ -156,7 +177,7 @@ test('1.14 全局弹窗统一固定 Shell，关闭不伪装主操作，次级流
     return html.slice(start, html.indexOf('</dialog>', start));
   };
 
-  for (const id of ['deviceCenterDialog', 'toolCenterDialog', 'activityCenterDialog', 'settingsDialog']) {
+  for (const id of ['deviceCenterDialog', 'systemDialog', 'activityCenterDialog', 'agentManageDialog']) {
     const dialog = dialogSlice(id);
     assert.match(dialog, /aria-labelledby="[^"]+"[^>]*aria-describedby="[^"]+"/);
     assert.match(dialog, /class="dialog-body utility-dialog-shell"/);
@@ -165,11 +186,14 @@ test('1.14 全局弹窗统一固定 Shell，关闭不伪装主操作，次级流
   }
 
   assert.match(dialogSlice('deviceCenterDialog'), /utility-dialog-commandbar device-center-commandbar/);
-  assert.match(dialogSlice('toolCenterDialog'), /utility-dialog-commandbar tool-center-commandbar[\s\S]*?utility-dialog-content tool-center-content[\s\S]*?utility-dialog-footer tool-center-footer/);
-  assert.match(dialogSlice('activityCenterDialog'), /utility-dialog-commandbar activity-center-commandbar/);
-  assert.doesNotMatch(dialogSlice('settingsDialog'), /utility-dialog-footer/);
+  // 系统页把工具和设置放在同一个内容区的两栏里；收件箱没有命令条，三段都在内容区。
+  assert.match(dialogSlice('systemDialog'), /utility-dialog-content system-dialog-content[\s\S]*?id="systemTools"[\s\S]*?id="checkToolsBtn"[\s\S]*?id="systemSettings"[\s\S]*?id="themeToggle"[\s\S]*?id="langToggle"[\s\S]*?id="profileQuitBehavior"[\s\S]*?id="updateBtn"[\s\S]*?id="helpBtn"[\s\S]*?utility-dialog-footer tool-center-footer/);
+  assert.doesNotMatch(dialogSlice('activityCenterDialog'), /utility-dialog-commandbar/);
+  assert.doesNotMatch(html, /id="toolCenterDialog"|id="settingsDialog"/);
 
-  assert.match(styles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?height:\s*min\([\s\S]*?100dvh[\s\S]*?overflow:\s*hidden/);
+  // 弹窗跟着内容长高，只用窗口高度封顶；不再有逼出滚动条或留白的固定高度。
+  assert.match(styles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?height:\s*auto;[\s\S]*?max-height:\s*calc\(100dvh[\s\S]*?overflow:\s*hidden/);
+  assert.doesNotMatch(styles, /--dialog-preferred-height/);
   assert.match(styles, /\.utility-dialog-content\s*\{[\s\S]*?overflow-y:\s*auto/);
   assert.match(styles, /\.utility-dialog-header,[\s\S]*?\.utility-dialog-commandbar,[\s\S]*?\.utility-dialog-footer\s*\{[\s\S]*?flex:\s*none/);
   assert.doesNotMatch(styles, /\.device-center-dialog \.dialog-body(?:\.utility-dialog-shell)?\s*\{[^}]*min-height:\s*610px/);
@@ -178,10 +202,15 @@ test('1.14 全局弹窗统一固定 Shell，关闭不伪装主操作，次级流
   assert.match(helpHandler, /openChildDialog\(els\.welcomeDialog, els\.helpBtn\)/);
   assert.doesNotMatch(helpHandler, /closeUtilityDialog/);
   const transferHandler = renderer.slice(renderer.indexOf('async function openTransferCenter'), renderer.indexOf('async function chooseFilesForTransfer'));
-  assert.match(transferHandler, /captureChildDialogReturnFocus\(returnFocus\)[\s\S]*?loadTransfers\(\)[\s\S]*?openChildDialog\(els\.transferCenterDialog, focusContext\)/);
-  assert.doesNotMatch(transferHandler, /closeUtilityDialogs/);
-  assert.match(renderer, /function openChildDialog\(dialog, trigger = document\.activeElement\)[\s\S]*?childDialogReturnFocus[\s\S]*?returnFocus\.focus/);
+  // 传输记录是收件箱里的一段：打开收件箱、读最新记录、把那一段滚到眼前。
+  assert.match(transferHandler, /openUtilityDialog\('activity'\)[\s\S]*?loadTransfers\(\)[\s\S]*?inboxRecords\?\.scrollIntoView/);
+  assert.doesNotMatch(transferHandler, /openChildDialog/);
+  assert.match(renderer, /function openChildDialog\(dialog, trigger = document\.activeElement\)[\s\S]*?childDialogReturnFocus[\s\S]*?utilityDialogFocusTarget\(returnFocus\)\.focus/);
   assert.match(renderer, /disclosureWasOpen[\s\S]*?focusContext\.disclosure\.open = true/);
+  // 触发控件所在的菜单在返回时重新展开；它已经收起且没有记录时，焦点退回菜单开关。
+  assert.match(renderer, /const disclosure = trigger\.closest\('details'\);/);
+  assert.match(renderer, /function utilityDialogFocusTarget\(button\) \{[\s\S]*?closest\('details\.context-menu'\)[\s\S]*?menu\.querySelector\('summary'\)/);
+  assert.match(renderer, /if \(!document\.querySelector\('dialog:modal'\)\) utilityDialogFocusTarget\(returnFocus\)\?\.focus/);
 });
 
 test('内嵌远控只保留紧凑设备工具条、画面和控制区，不重复产品品牌层', () => {

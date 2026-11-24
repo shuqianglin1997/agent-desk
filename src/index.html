@@ -6,31 +6,34 @@
     <title>AgentDesk</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./workspace.css" />
+    <link rel="stylesheet" href="./pixel.css" />
+    <link rel="stylesheet" href="./cats.css" />
+    <!-- 开灯与关灯：在第一帧之前把窗口盖成夜色，等颜色设定读出来再开灯 -->
+    <script src="./pixel/boot.js"></script>
   </head>
   <body>
     <div class="app-shell">
       <header class="app-topbar">
-        <span class="topbar-brand">AgentDesk</span>
+        <span class="topbar-brand" aria-label="AgentDesk">Agent<i>Desk</i></span>
         <div class="topbar-lens">
           <span id="topbarContext" class="visually-hidden" aria-live="polite"></span>
-          <label class="device-lens-control">
+          <label class="device-lens-control visually-hidden">
             <span data-i18n="devices.lens.caption">设备视角</span>
             <select id="deviceLensSelect" class="device-lens-select" data-i18n-aria="devices.lens.label" aria-label="设备视角" hidden></select>
           </label>
-        </div>
-        <nav class="topbar-actions" data-i18n-aria="aria.topbarActions" aria-label="全局操作">
-          <details id="windowAddMenu" class="context-menu topbar-add-menu">
-            <summary data-i18n="topbar.add">添加</summary>
+          <details id="deviceLensMenu" class="context-menu device-lens-menu">
+            <summary id="deviceLensButton" data-i18n-title="devices.lens.label"><i class="pxi" data-i="device" aria-hidden="true"></i><span id="deviceLensLabel" data-i18n="devices.device.local">本机</span><em id="deviceLensMeta"></em><i class="pxi" data-i="caret" aria-hidden="true"></i></summary>
             <div class="context-menu-panel">
-              <button id="addProfileBtn" type="button" data-i18n="account.addAgent">新增 Agent</button>
-              <button id="codexImportBtn" type="button" aria-haspopup="dialog" aria-controls="codexImportDialog" data-i18n="codexImport.action">导入 Codex</button>
+              <div id="deviceLensOptions" class="device-lens-options" role="listbox" data-i18n-aria="devices.lens.label"></div>
+              <button id="deviceCenterBtn" class="topbar-nav-button" type="button" data-dialog-target="devices" aria-haspopup="dialog" aria-controls="deviceCenterDialog" aria-expanded="false" data-i18n-title="topbar.devices.title"><i class="pxi" data-i="gear" aria-hidden="true"></i><span data-i18n="devices.lens.manage">管理设备…</span><b id="deviceCountBadge" class="device-count-badge" hidden>0</b></button>
             </div>
           </details>
+          <i id="deskParked" class="desk-parked" role="img" hidden></i>
+        </div>
+        <nav class="topbar-actions" data-i18n-aria="aria.topbarActions" aria-label="全局操作">
           <button id="remoteActivityBtn" class="remote-activity-btn" type="button" hidden aria-live="polite"></button>
-          <button id="deviceCenterBtn" class="topbar-nav-button" type="button" data-dialog-target="devices" aria-haspopup="dialog" aria-controls="deviceCenterDialog" aria-expanded="false" data-i18n-title="topbar.devices.title"><span class="topbar-nav-icon" aria-hidden="true">⌁</span><span data-i18n="topbar.devices">设备</span><b id="deviceCountBadge" class="device-count-badge" hidden>0</b></button>
-          <button id="toolCenterBtn" class="topbar-nav-button" type="button" data-dialog-target="tools" aria-haspopup="dialog" aria-controls="toolCenterDialog" aria-expanded="false" data-i18n-title="topbar.tools.title"><span class="topbar-nav-icon" aria-hidden="true">◇</span><span data-i18n="topbar.tools">工具</span></button>
-          <button id="activityCenterBtn" class="topbar-nav-button" type="button" data-dialog-target="activity" aria-haspopup="dialog" aria-controls="activityCenterDialog" aria-expanded="false" data-i18n-title="topbar.activity.title"><span class="topbar-nav-icon" aria-hidden="true">◎</span><span data-i18n="topbar.activity">活动</span><b id="activityCountBadge" class="activity-count-badge" hidden>0</b></button>
-          <button id="settingsBtn" class="topbar-nav-button" type="button" data-dialog-target="settings" aria-haspopup="dialog" aria-controls="settingsDialog" aria-expanded="false" data-i18n-title="topbar.settings.title"><span class="topbar-nav-icon" aria-hidden="true">⚙</span><span data-i18n="topbar.settings">设置</span></button>
+          <button id="activityCenterBtn" class="topbar-nav-button" type="button" data-dialog-target="activity" aria-haspopup="dialog" aria-controls="activityCenterDialog" aria-expanded="false" data-i18n-title="topbar.activity.title"><i class="pxi" data-i="inbox" aria-hidden="true"></i><span data-i18n="topbar.activity">收件箱</span><b id="activityCountBadge" class="activity-count-badge" hidden>0</b></button>
+          <button id="systemBtn" class="topbar-nav-button" type="button" data-dialog-target="system" aria-haspopup="dialog" aria-controls="systemDialog" aria-expanded="false" data-i18n-title="topbar.system.title"><i class="pxi" data-i="gear" aria-hidden="true"></i><span data-i18n="topbar.system">系统</span></button>
         </nav>
       </header>
 
@@ -38,29 +41,41 @@
         <section id="agentPanel" class="workspace-panel agent-panel">
           <header class="presenter-head">
             <div><h2 data-i18n="presenter.title">Agent</h2><span id="presenterCount">0 个</span></div>
-            <button id="quotaChipAll" class="quota-chip" type="button" popovertarget="quotaPopover" aria-controls="quotaPopover" aria-haspopup="dialog" aria-expanded="false" hidden><span data-i18n="quotaMap.title">额度总览</span><b>—</b></button>
+            <div class="presenter-tools">
+              <button id="quotaChipAll" class="quota-chip" type="button" popovertarget="quotaPopover" aria-controls="quotaPopover" aria-haspopup="dialog" aria-expanded="false" hidden><span data-i18n="quotaMap.title">额度总览</span><b>—</b></button>
+              <button id="addProfileBtn" class="roster-add-button" type="button" aria-haspopup="dialog" aria-controls="recruitDialog"><i class="pxi" data-i="plus" aria-hidden="true"></i><span data-i18n="roster.recruit">招募</span></button>
+            </div>
           </header>
-          <div class="agent-panel-body">
-            <section class="presenter">
-              <span id="rosterHelp" class="visually-hidden" data-i18n="roster.help"></span>
-              <span id="rosterAnnouncement" class="visually-hidden" aria-live="polite"></span>
-              <div id="accountRoster" class="account-roster" data-i18n-aria="aria.roster" aria-label="Agent 卡片"></div>
-            </section>
-
-          </div>
+          <section class="presenter">
+            <span id="rosterHelp" class="visually-hidden" data-i18n="roster.help"></span>
+            <span id="rosterAnnouncement" class="visually-hidden" aria-live="polite"></span>
+            <button id="rosterAllCard" class="account-card account-card-all" type="button" aria-pressed="false" data-i18n-title="roster.all.title">
+              <span class="account-card-pit"><span class="account-card-cat"><canvas id="rosterAllAvatar" class="account-card-avatar" width="80" height="80"></canvas></span></span>
+              <i class="account-card-ledge"></i>
+              <span class="account-card-name" data-i18n="roster.all">全部</span>
+              <span id="rosterAllMeta" class="account-card-state"></span>
+            </button>
+            <div id="accountRoster" class="account-roster" data-i18n-aria="aria.roster" aria-label="Agent 卡片"></div>
+            <i id="rosterBracket" class="roster-bracket" hidden aria-hidden="true"><i></i><i></i><i></i><i></i></i>
+            <div id="hubLinks" class="hub-links" aria-hidden="true"></div>
+          </section>
         </section>
 
         <template id="accountCardTemplate">
           <article class="account-card">
-            <button class="account-card-select" type="button" aria-pressed="false" aria-describedby="rosterHelp"></button>
-            <div class="account-card-details">
-              <div class="account-card-last-active account-card-fact"></div>
-              <button class="account-card-quota-summary" type="button" popovertarget="quotaPopover" aria-controls="quotaPopover" aria-haspopup="dialog" aria-expanded="false" data-roster-control></button>
-            </div>
+            <button class="account-card-select" type="button" aria-pressed="false" aria-describedby="rosterHelp">
+              <span class="account-card-pit"><span class="account-card-cat"><canvas class="account-card-avatar" width="80" height="80"></canvas></span><b class="account-card-badge" hidden></b></span>
+              <i class="account-card-ledge"></i>
+              <span class="account-card-name"></span>
+              <span class="account-card-state"><i class="account-card-dot"></i><span class="account-card-state-label"></span></span>
+            </button>
+            <button class="account-card-quota-summary" type="button" popovertarget="quotaPopover" aria-controls="quotaPopover" aria-haspopup="dialog" aria-expanded="false" data-roster-control></button>
             <label class="account-card-runtime" data-roster-control>
+              <i class="pxi" data-i="pin" aria-hidden="true"></i>
               <span class="visually-hidden"></span>
               <span class="account-card-runtime-single" hidden></span>
               <select></select>
+              <i class="pxi" data-i="caret" aria-hidden="true"></i>
             </label>
             <div class="account-card-actions" data-roster-control>
               <button class="account-card-launch" type="button"></button>
@@ -73,14 +88,10 @@
           <div class="session-toolbar">
             <div class="session-toolbar-main">
               <div class="session-heading">
-                <h3 data-i18n="session.title">会话</h3>
-                <span id="sessionCount">0 条</span>
+                <h3 id="sessionTitle" data-i18n="session.title">会话</h3>
+                <span id="sessionCount">0</span>
               </div>
               <div class="session-toolbar-controls">
-                <div class="session-segment" role="group" data-i18n-aria="aria.sessionScope" aria-label="会话范围">
-                  <button id="sessionScopeCurrentBtn" type="button" aria-pressed="true" data-i18n="session.scope.current">本账号</button>
-                  <button id="sessionScopeAllBtn" type="button" aria-pressed="false" data-i18n="session.scope.all">全部账号</button>
-                </div>
                 <input id="searchInput" type="search" data-i18n-aria="session.search" aria-label="搜索会话" data-i18n-placeholder="session.search" placeholder="搜索会话、账号或 ID" />
                 <details id="sessionDisplayMenu" class="session-display-menu context-menu">
                   <summary><span data-i18n="session.display">显示</span><b id="sessionDisplayLabel" data-i18n="session.view.compact">精简</b></summary>
@@ -95,9 +106,16 @@
                   <span id="sessionSelectionCount" aria-live="polite"></span>
                   <button id="clearSessionSelectionBtn" type="button" data-i18n-title="session.selection.clear" data-i18n-aria="session.selection.clear" aria-label="取消选择">×</button>
                 </div>
-                <button id="copySessionInfoBtn" class="session-copy-info primary" type="button" disabled data-i18n="session.copyInfo">复制会话信息</button>
+                <button id="copySessionInfoBtn" class="session-copy-info primary" type="button" disabled data-hub-tip="copy" data-i18n="session.copyInfo">复制会话信息</button>
                 <button id="openSessionFileBtn" type="button" disabled data-i18n="session.actions.openDirectory">打开目录</button>
                 <button id="exportSessionBtn" type="button" disabled data-i18n="session.actions.export">导出</button>
+                <details id="sessionSendMenu" class="context-menu session-send-menu">
+                  <summary><span data-i18n="session.actions.send">送出</span></summary>
+                  <div class="context-menu-panel hub-send-panel">
+                    <button id="sendSessionInfoBtn" class="hub-menu-item" type="button" disabled data-hub-tip="send"><i class="pxi" data-i="pin" aria-hidden="true"></i><span id="sendSessionInfoLabel" data-i18n="session.sendInfo">发送到设备</span><small data-i18n="hub.menu.send.hint">只送位置</small></button>
+                    <button id="taskPackageActionBtn" class="hub-menu-item" type="button" disabled data-hub-tip="package"><i class="pxi" data-i="box" aria-hidden="true"></i><span data-i18n="taskPackage.action">交接任务</span><small data-i18n="hub.menu.package.hint">送整件事：对话、改动、备注</small></button>
+                  </div>
+                </details>
               </div>
             </div>
             <div id="sessionSelectionNotice" class="session-toolbar-notice" hidden>
@@ -129,8 +147,14 @@
       </main>
 
       <footer id="statusBar" class="status-bar app-footer">
-        <div class="footer-status"><span id="statusText" role="status" data-i18n="status.ready">就绪</span></div>
+        <canvas id="statusMascot" class="status-mascot" width="20" height="18" aria-hidden="true"></canvas>
+        <div class="footer-status"><i class="status-lamp" aria-hidden="true"></i><span id="statusText" class="visually-hidden" role="status" data-i18n="status.ready">就绪</span><span id="statusTyped" class="status-typed" aria-hidden="true"></span><i id="statusNext" class="status-next" aria-hidden="true" hidden>▼</i></div>
+        <span id="hubFooter" class="hub-footer" hidden></span>
+        <div id="footerGlobal" class="footer-global"></div>
+        <button id="soundMuteBtn" class="footer-sound" type="button" aria-pressed="false" data-i18n-title="footer.sound.mute" data-i18n-aria="footer.sound.mute" title="静音" aria-label="静音"><i class="pxi" data-i="sound" aria-hidden="true"></i></button>
       </footer>
+      <div id="fxFloaters" class="fx-floaters" aria-hidden="true"></div>
+      <canvas id="fxCanvas" class="fx-canvas" aria-hidden="true"></canvas>
     </div>
 
     <div id="quotaPopover" class="quota-popover" popover="auto" role="dialog" aria-labelledby="quotaPopoverTitle">
@@ -168,38 +192,71 @@
       </form>
     </dialog>
 
-    <dialog id="agentManageDialog" class="agent-manage-dialog wide-dialog">
-      <form method="dialog" class="dialog-body">
-        <header class="utility-dialog-head agent-manage-head">
+    <dialog id="agentManageDialog" class="agent-manage-dialog wide-dialog" aria-labelledby="agentManageTitle" aria-describedby="agentManageSummary">
+      <form method="dialog" class="dialog-body utility-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header agent-manage-head">
           <div>
-            <span data-i18n="account.manageKicker">AGENT &amp; RUNTIME</span>
-            <h3 data-i18n="account.manageAgent">管理 Agent</h3>
-            <p id="agentManageSummary" data-i18n="account.manageHint">全局 Agent 与当前运行位置分开管理；所有动作都显示自己的作用范围。</p>
+            <h3 id="agentManageTitle" data-i18n="dossier.title">猫的档案</h3>
+            <p id="agentManageSummary" data-i18n="account.manageHint">这只猫的一切都在这一页，按“它是谁、它在哪、它用哪个账号、要不要送走”分四段。</p>
           </div>
-          <button value="cancel" data-i18n="dialog.close">关闭</button>
+          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
-        <div class="agent-manage-sections">
-          <section class="agent-manage-section">
-            <header><div><span data-i18n="account.globalAgent">全局 Agent</span><small data-i18n="account.globalAgentHint">名称、外观、账号关系与目录生命周期</small></div></header>
+        <div class="utility-dialog-content agent-manage-sections">
+          <section class="agent-manage-section" data-section="profile">
+            <h4><span data-i18n="dossier.profile">资料</span><em id="agentManageName"></em></h4>
             <div id="agentGlobalActions" class="agent-manage-actions">
               <button id="editProfileBtn" type="button"><span data-i18n="account.editAgent">编辑 Agent</span><small data-i18n="account.editAgentHint">名称、分组、备注与猫咪外观</small></button>
+            </div>
+          </section>
+          <section class="agent-manage-section" data-section="locations">
+            <h4><span data-i18n="dossier.locations">位置</span><em id="agentManageRuntimeLabel"></em></h4>
+            <div id="agentManageLocations" class="dossier-locations"></div>
+            <div id="yardManageActions" class="agent-manage-actions runtime-actions" role="group" data-i18n-aria="dossier.location.actions">
+              <button id="pathConfigBtn" type="button"><span data-i18n="account.path">路径</span><small data-i18n="account.pathHint">账号数据目录与会话根目录</small></button>
+              <button id="diagnosticsBtn" type="button"><span data-i18n="account.diagnostics">诊断</span><small data-i18n="account.diagnosticsHint">客户端、目录、会话与启动状态</small></button>
+              <button id="refreshBtn" type="button"><span data-i18n="account.refresh">重扫</span><small data-i18n="account.refreshHint">重新读取当前来源的会话与状态</small></button>
+              <button id="stopProfileBtn" type="button"><span data-i18n="account.stopRuntime">关闭客户端</span><small data-i18n="account.stopRuntimeHint">只关闭由 AgentDesk 启动的当前 Profile 进程</small></button>
+              <button id="cleanCrashpadBtn" type="button"><span data-i18n="account.cleanCrashpad">清理崩溃报告</span><small data-i18n="account.cleanCrashpadHint">只删除 Crashpad/pending 中的转储和 sidecar</small></button>
+              <button id="profileFolderBtn" type="button"><span data-i18n="account.folder">打开位置</span><small data-i18n="account.folderHint">在本机文件管理器中显示账号目录</small></button>
+            </div>
+            <p id="agentManageNoLocation" class="dossier-note" hidden></p>
+            <div class="agent-manage-actions">
+              <button id="addRuntimeLocationBtn" type="button"><span data-i18n="account.addRuntimeAdvanced">导入运行位置</span><small data-i18n="account.addRuntimeAdvancedHint">仅用于登记已有登录或修复位置关系</small></button>
+            </div>
+          </section>
+          <section class="agent-manage-section" data-section="accounts">
+            <h4><span data-i18n="dossier.accounts">账号</span></h4>
+            <div class="agent-manage-actions">
               <button id="manageAgentRelationsBtn" type="button" hidden><span data-i18n="account.relations">Agent 关系</span><small data-i18n="account.relationsHint">合并 Agent 或拆分登录账号</small></button>
+            </div>
+            <p id="agentManageAccountsNote" class="dossier-note" data-i18n="dossier.accounts.localNote">合并与拆分登录账号需要先有本机 Agent 目录；招募第一只猫时会自动建立。</p>
+          </section>
+          <section id="hubCallingSection" class="agent-manage-section hub-calling" data-section="calling" hidden>
+            <h4><span data-i18n="hub.dossier.title">调用</span><em id="hubCallingName"></em></h4>
+            <div class="hub-switches">
+              <label class="hub-switch" for="hubAllowCall" data-hub-tip="allow">
+                <input id="hubAllowCall" type="checkbox" role="switch">
+                <span><b data-i18n="hub.dossier.allow">允许别的 Agent 调用它</b><small data-i18n="hub.dossier.allow.hint">打开后，你的其他 Agent 可以通过 AgentDesk 让它在后台干活。AgentDesk 自己不会调用它。</small></span>
+                <em id="hubAllowCallState"></em>
+              </label>
+              <label class="hub-switch" for="hubAllowWrite">
+                <input id="hubAllowWrite" type="checkbox" role="switch">
+                <span><b data-i18n="hub.dossier.write">允许它改文件</b><small data-i18n="hub.dossier.write.hint">只在调用方明确要求时才改，而且只改你允许的文件夹里的文件。关着就只读。</small></span>
+                <em id="hubAllowWriteState"></em>
+              </label>
+            </div>
+            <div id="hubCallingNotes"></div>
+          </section>
+          <section class="agent-manage-section" data-section="farewell">
+            <h4><span data-i18n="dossier.farewell">送走</span></h4>
+            <div class="agent-manage-actions">
               <button id="removeProfileBtn" class="danger-zone-action" type="button"><span data-i18n="account.removeCatalog">从 AgentDesk 移除…</span><small data-i18n="account.removeHint">先预览运行位置、登录账号或整个 Agent 的影响</small></button>
             </div>
           </section>
-          <section class="agent-manage-section">
-            <header><div><span data-i18n="account.currentRuntime">当前运行位置</span><small id="agentManageRuntimeLabel">—</small></div></header>
-            <div id="yardManageActions" class="agent-manage-actions runtime-actions">
-              <button id="addRuntimeLocationBtn" type="button"><span data-i18n="account.addRuntimeAdvanced">导入运行位置</span><small data-i18n="account.addRuntimeAdvancedHint">仅用于登记已有登录或修复位置关系</small></button>
-              <button id="pathConfigBtn" type="button"><span data-i18n="account.path">路径</span><small data-i18n="account.pathHint">账号数据目录与会话根目录</small></button>
-              <button id="diagnosticsBtn" type="button"><span data-i18n="account.diagnostics">诊断</span><small data-i18n="account.diagnosticsHint">客户端、目录、会话与启动状态</small></button>
-              <button id="stopProfileBtn" type="button"><span data-i18n="account.stopRuntime">关闭客户端</span><small data-i18n="account.stopRuntimeHint">只关闭由 AgentDesk 启动的当前 Profile 进程</small></button>
-              <button id="cleanCrashpadBtn" type="button"><span data-i18n="account.cleanCrashpad">清理崩溃报告</span><small data-i18n="account.cleanCrashpadHint">只删除 Crashpad/pending 中的转储和 sidecar</small></button>
-              <button id="refreshBtn" type="button"><span data-i18n="account.refresh">重扫</span><small data-i18n="account.refreshHint">重新读取当前来源的会话与状态</small></button>
-              <button id="profileFolderBtn" type="button"><span data-i18n="account.folder">打开位置</span><small data-i18n="account.folderHint">在本机文件管理器中显示账号目录</small></button>
-            </div>
-          </section>
         </div>
+        <footer class="utility-dialog-footer agent-manage-footer">
+          <small id="agentManageStatus" aria-live="polite"></small>
+        </footer>
       </form>
     </dialog>
 
@@ -243,6 +300,64 @@
         <div class="dialog-actions">
           <button id="closeCodexImportBtn" value="cancel" data-i18n="dialog.close">关闭</button>
         </div>
+      </form>
+    </dialog>
+
+    <dialog id="recruitDialog" class="recruit-dialog" aria-labelledby="recruitTitle" aria-describedby="recruitSummary">
+      <form method="dialog" class="dialog-body utility-dialog-shell">
+        <header class="utility-dialog-head utility-dialog-header">
+          <div>
+            <h3 id="recruitTitle" data-i18n="recruit.title">招募</h3>
+            <p id="recruitSummary" data-i18n="recruit.summary">四种添加账号的办法，挑一种。登录、密钥和令牌都留在各自的官方客户端里，AgentDesk 自己不保存。</p>
+          </div>
+          <button type="button" id="recruitCloseBtn" class="utility-dialog-close" data-i18n="dialog.close">关闭</button>
+        </header>
+        <nav class="recruit-tabs" role="tablist" data-i18n-aria="recruit.tabs" aria-label="添加方式">
+          <button type="button" role="tab" id="recruitTabNew" data-section="new" aria-selected="true" aria-controls="recruitNew"><i class="pxi" data-i="plus" aria-hidden="true"></i><span data-i18n="recruit.tab.new">新来一只</span></button>
+          <button type="button" role="tab" id="recruitTabExisting" data-section="existing" aria-selected="false" aria-controls="recruitExisting" tabindex="-1"><i class="pxi" data-i="search" aria-hidden="true"></i><span data-i18n="recruit.tab.existing">把已有的领回来</span></button>
+          <button type="button" role="tab" id="recruitTabDrop" data-section="drop" aria-selected="false" aria-controls="recruitDrop" tabindex="-1"><i class="pxi" data-i="dl" aria-hidden="true"></i><span data-i18n="recruit.tab.drop">拖进来</span></button>
+          <button type="button" role="tab" id="recruitTabAi" data-section="ai" aria-selected="false" aria-controls="recruitAi" tabindex="-1"><i class="pxi" data-i="copy" aria-hidden="true"></i><span data-i18n="recruit.tab.ai">交给 AI</span></button>
+        </nav>
+        <div class="utility-dialog-content recruit-content">
+          <section id="recruitNew" role="tabpanel" aria-labelledby="recruitTabNew" data-section="new">
+            <div class="recruit-fields">
+              <label><span data-i18n="recruit.new.name">名字</span><input id="recruitName" type="text" maxlength="80" autocomplete="off" data-i18n-placeholder="recruit.new.namePlaceholder" placeholder="例如：工作" /></label>
+              <label><span data-i18n="recruit.new.client">客户端</span><select id="recruitClient"></select></label>
+            </div>
+            <fieldset class="recruit-methods" id="recruitMethods"><legend data-i18n="recruit.new.how">怎么登录</legend></fieldset>
+            <div class="recruit-fields" id="recruitSecretFields" hidden></div>
+            <p class="recruit-note" id="recruitNewNote" hidden><i class="pxi" data-i="key" aria-hidden="true"></i><small></small></p>
+          </section>
+          <section id="recruitExisting" role="tabpanel" aria-labelledby="recruitTabExisting" data-section="existing" hidden>
+            <div class="recruit-scanbar">
+              <p id="recruitScanStatus" role="status"></p>
+              <button type="button" id="recruitScanHomeBtn"><i class="pxi" data-i="search" aria-hidden="true"></i><span data-i18n="recruit.existing.scanHome">再找找主目录</span></button>
+              <button type="button" id="recruitPickFolderBtn"><i class="pxi" data-i="folder" aria-hidden="true"></i><span data-i18n="recruit.existing.pickFolder">指一个文件夹…</span></button>
+              <button type="button" id="recruitCancelScanBtn" hidden><i class="pxi" data-i="x" aria-hidden="true"></i><span data-i18n="recruit.existing.stop">停下</span></button>
+            </div>
+            <div class="recruit-groups" id="recruitGroups"></div>
+            <p class="recruit-note quiet"><i class="pxi" data-i="pin" aria-hidden="true"></i><small data-i18n="recruit.existing.inPlace">只登记目录，登录和会话都留在原处，不复制。</small></p>
+          </section>
+          <section id="recruitDrop" role="tabpanel" aria-labelledby="recruitTabDrop" data-section="drop" hidden>
+            <button type="button" class="recruit-drop" id="recruitDropZone"><i class="pxi" data-i="dl" aria-hidden="true"></i><b data-i18n="recruit.drop.zone">把文件夹或登录文件拖到这里</b><small data-i18n="recruit.drop.zoneHint">或者点这里选择</small></button>
+            <div class="recruit-result" id="recruitDropResult" role="status" hidden><i class="pxi" data-i="check" aria-hidden="true"></i><small></small></div>
+            <p class="recruit-note" id="recruitMoveWarning" hidden><i class="pxi" data-i="bang" aria-hidden="true"></i><small></small></p>
+            <table class="recruit-accepts">
+              <colgroup><col class="client" /><col class="folder" /><col /></colgroup>
+              <thead><tr><th data-i18n="recruit.drop.col.client">客户端</th><th data-i18n="recruit.drop.col.folder">整个目录</th><th data-i18n="recruit.drop.col.file">登录文件</th></tr></thead>
+              <tbody id="recruitAccepts"></tbody>
+            </table>
+          </section>
+          <section id="recruitAi" role="tabpanel" aria-labelledby="recruitTabAi" data-section="ai" hidden>
+            <p data-i18n="recruit.ai.lead">AgentDesk 的命令行可以让 AI 替你查找、登记和配置账号。</p>
+            <ol class="recruit-steps" id="recruitSteps"></ol>
+          </section>
+        </div>
+        <footer class="utility-dialog-footer recruit-footer">
+          <p id="recruitStatus" role="status"></p>
+          <button type="button" id="recruitSecondaryBtn" hidden></button>
+          <button type="button" id="recruitPrimaryBtn" class="primary"></button>
+        </footer>
       </form>
     </dialog>
 
@@ -320,21 +435,24 @@
         </label>
         <div class="cat-customizer">
           <div class="cc-preview">
-            <canvas id="editCatCanvas" width="112" height="112" data-i18n-aria="aria.catPreview" aria-label="猫咪外观预览"></canvas>
-            <button id="editCatRandom" type="button" class="cc-random">🎲 <span data-i18n="dialog.random">随机</span></button>
+            <canvas id="editCatCanvas" width="120" height="120" data-i18n-aria="aria.catPreview" aria-label="猫咪外观预览"></canvas>
+            <span class="cc-shelf" aria-hidden="true"></span>
+            <b id="editCatLookName" class="cc-look-name"></b>
+            <small id="editCatLookNote" class="cc-look-note"></small>
+            <button id="editCatRandom" type="button" class="cc-random"><span data-i18n="dialog.random">随机</span></button>
           </div>
           <div class="cc-groups">
             <div class="cc-group">
-              <span class="cc-title" data-i18n="dialog.cc.breed">毛色</span>
-              <div class="cc-swatches" id="editBreedSwatches"></div>
+              <span id="editBreedTitle" class="cc-title" data-i18n="dialog.cc.breed">毛色</span>
+              <div class="cc-swatches cc-looks" id="editBreedSwatches" role="radiogroup" aria-labelledby="editBreedTitle"></div>
             </div>
             <div class="cc-group">
-              <span class="cc-title" data-i18n="dialog.cc.collar">项圈</span>
-              <div class="cc-swatches" id="editCollarSwatches"></div>
+              <span id="editCollarTitle" class="cc-title" data-i18n="dialog.cc.collar">项圈</span>
+              <div class="cc-swatches cc-collars" id="editCollarSwatches" role="radiogroup" aria-labelledby="editCollarTitle"></div>
             </div>
             <div class="cc-group">
-              <span class="cc-title" data-i18n="dialog.cc.accessory">配饰</span>
-              <div class="cc-swatches" id="editAccSwatches"></div>
+              <span id="editAccTitle" class="cc-title" data-i18n="dialog.cc.accessory">配饰</span>
+              <div class="cc-swatches cc-accs" id="editAccSwatches" role="radiogroup" aria-labelledby="editAccTitle"></div>
             </div>
           </div>
         </div>
@@ -799,35 +917,40 @@
       <form method="dialog" class="dialog-body utility-dialog-shell">
         <header class="utility-dialog-head utility-dialog-header">
           <div>
-            <span data-i18n="detail.activity.kicker">ACTIVITY</span>
-            <h3 id="activityCenterTitle" data-i18n="detail.activity.title">活动与传输</h3>
-            <p id="activityCenterLead" data-i18n="detail.activity.lead">需要处理的事项和设备传输都在这里。</p>
+            <h3 id="activityCenterTitle" data-i18n="detail.activity.title">收件箱</h3>
+            <p id="activityCenterLead" data-i18n="detail.activity.lead">只放两类东西：要你处理的，和别处送来的。送出去的动作在会话那边。</p>
           </div>
           <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
-        <div class="utility-dialog-commandbar activity-center-commandbar">
-          <div class="activity-center-actions">
-            <button id="importTaskPackageBtn" type="button">⇥ <span data-i18n="taskPackage.import.action">导入任务包</span></button>
-            <button id="transferCenterBtn" type="button">⇄ <span data-i18n="transfers.center.action">传输记录</span></button>
-            <button id="taskPackageActionBtn" type="button" disabled data-i18n="taskPackage.action">交接任务</button>
-            <button id="sendSessionInfoBtn" type="button" disabled data-i18n="session.sendInfo">发送到设备</button>
-          </div>
-        </div>
         <div class="utility-dialog-content activity-center-content">
-          <section id="incomingTaskPackages" class="incoming-task-packages" aria-live="polite" hidden>
-            <header><div><span data-i18n="taskPackage.incoming.kicker">INCOMING WORK</span><b data-i18n="taskPackage.incoming.title">待接收任务</b></div><strong id="incomingTaskPackageCount">0</strong></header>
-            <div id="incomingTaskPackageList" class="incoming-task-package-list"></div>
+          <section id="inboxAttention" class="inbox-section" aria-live="polite">
+            <h4><span data-i18n="inbox.attention">要你处理</span><em id="attentionCount">0</em></h4>
+            <div id="attentionInbox" class="attention-inbox" hidden>
+              <div id="attentionItems" class="attention-items"></div>
+            </div>
+            <p id="attentionEmpty" class="detail-empty-note" data-i18n="detail.activity.empty">目前没有需要处理的事项。</p>
           </section>
-          <section id="taskPackageHistory" class="task-package-history" aria-live="polite">
-            <header><div><span data-i18n="taskPackage.history.kicker">TASK PACKAGES</span><b data-i18n="taskPackage.history.title">任务交接</b></div><strong id="taskPackageHistoryCount">0</strong></header>
-            <div id="taskPackageHistoryList" class="task-package-history-list"></div>
-            <p id="taskPackageHistoryEmpty" class="detail-empty-note" data-i18n="taskPackage.history.empty">还没有导出或接收过任务包。</p>
+          <section id="inboxIncoming" class="inbox-section" aria-live="polite">
+            <h4><span data-i18n="inbox.incoming">送来的</span><em id="incomingTaskPackageCount">0</em></h4>
+            <div id="incomingTaskPackages" class="incoming-task-packages" hidden>
+              <div id="incomingTaskPackageList" class="incoming-task-package-list"></div>
+            </div>
+            <div class="inbox-actions">
+              <button id="importTaskPackageBtn" type="button"><span data-i18n="taskPackage.import.action">导入任务包</span><small data-i18n="inbox.import.hint">别人另外发来的任务包文件，从这里选文件并输入解锁码</small></button>
+            </div>
           </section>
-          <section id="attentionInbox" class="attention-inbox" aria-live="polite" hidden>
-            <header><div><span data-i18n="attention.kicker">ATTENTION</span><b data-i18n="attention.title">需要留意</b></div><strong id="attentionCount">0</strong></header>
-            <div id="attentionItems" class="attention-items"></div>
+          <section id="inboxRecords" class="inbox-section" aria-live="polite">
+            <h4><span data-i18n="inbox.records">记录</span><button id="refreshTransfersBtn" type="button" data-i18n="transfers.refresh">刷新</button></h4>
+            <div id="taskPackageHistory" class="task-package-history">
+              <h5><span data-i18n="taskPackage.history.title">任务交接</span><em id="taskPackageHistoryCount">0</em></h5>
+              <div id="taskPackageHistoryList" class="task-package-history-list"></div>
+              <p id="taskPackageHistoryEmpty" class="detail-empty-note" data-i18n="taskPackage.history.empty">还没有导出或接收过任务包。</p>
+            </div>
+            <div id="transferRecords" class="transfer-history">
+              <h5><span data-i18n="transfers.recent">最近发送与接收</span></h5>
+              <div id="transferList" class="transfer-list"></div>
+            </div>
           </section>
-          <p id="attentionEmpty" class="detail-empty-note" data-i18n="detail.activity.empty">目前没有需要处理的事项。</p>
         </div>
       </form>
     </dialog>
@@ -948,93 +1071,95 @@
       </form>
     </dialog>
 
-    <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsDialogTitle" aria-describedby="settingsDialogLead">
+
+
+    <dialog id="systemDialog" class="wide-dialog system-dialog" aria-labelledby="systemDialogTitle" aria-describedby="systemDialogLead">
       <form method="dialog" class="dialog-body utility-dialog-shell">
         <header class="utility-dialog-head utility-dialog-header">
           <div>
-            <span data-i18n="detail.settings.kicker">SETTINGS</span>
-            <h3 id="settingsDialogTitle" data-i18n="detail.settings.title">应用设置</h3>
-            <p id="settingsDialogLead" data-i18n="detail.settings.lead">更新、帮助、语言和外观统一放在这里。</p>
+            <h3 id="systemDialogTitle" data-i18n="system.title">系统</h3>
+            <p id="systemDialogLead" data-i18n="system.lead">这台电脑上的工具，和 AgentDesk 自己的设置。都是很少动的东西。</p>
           </div>
           <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
-        <div class="utility-dialog-content settings-dialog-content">
-          <div class="settings-actions">
-            <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">检查更新</span></button>
-            <button id="helpBtn" type="button" data-i18n-title="topbar.help.title">? <span data-i18n="topbar.help">使用说明</span></button>
-            <button id="langToggle" type="button" data-i18n-title="topbar.lang.title">文</button>
-            <button id="themeToggle" type="button" data-i18n-title="topbar.theme.title">◐ <span data-i18n="topbar.theme">外观</span></button>
-          </div>
-          <label class="settings-runtime-policy" for="profileQuitBehavior">
-            <span data-i18n="settings.profileLifecycle">Profile 后台生命周期</span>
-            <select id="profileQuitBehavior">
-              <option value="close" data-i18n="settings.profileQuit.close">退出 AgentDesk 时关闭所启动的客户端</option>
-              <option value="keep" data-i18n="settings.profileQuit.keep">退出 AgentDesk 后保留客户端运行</option>
-            </select>
-            <small data-i18n="settings.profileQuit.hint">默认关闭可避免失控的后台进程继续生成崩溃报告；选择保留后，AgentDesk 退出期间无法继续监控磁盘增长。</small>
-          </label>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="transferCenterDialog" class="wide-dialog transfer-center-dialog" aria-labelledby="transferCenterTitle" aria-describedby="transferCenterLead">
-      <form method="dialog" class="dialog-body utility-dialog-shell child-dialog-shell">
-        <header class="utility-dialog-head utility-dialog-header">
-          <div>
-            <span data-i18n="transfers.center.kicker">TRANSFER CENTER</span>
-            <h3 id="transferCenterTitle" data-i18n="transfers.center.title">传输记录</h3>
-            <p id="transferCenterLead" data-i18n="transfers.center.body">查看会话信息与文件的发送、接收、等待和失败状态。</p>
-          </div>
-          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
-        </header>
-        <div class="utility-dialog-commandbar transfer-center-commandbar">
-          <strong data-i18n="transfers.recent">最近发送与接收</strong>
-          <button id="refreshTransfersBtn" type="button" data-i18n="transfers.refresh">刷新</button>
-        </div>
-        <section class="utility-dialog-content transfer-center-content transfer-history">
-          <div id="transferList" class="transfer-list"></div>
-        </section>
-      </form>
-    </dialog>
-
-    <dialog id="toolCenterDialog" class="wide-dialog tool-center-dialog" aria-labelledby="toolCenterTitle" aria-describedby="toolCenterLead">
-      <form method="dialog" class="dialog-body utility-dialog-shell">
-        <header class="utility-dialog-head utility-dialog-header tool-center-head">
-          <div class="tool-center-title">
-            <span data-i18n="tools.kicker">TOOL BAY · LOCAL</span>
-            <h3 id="toolCenterTitle" data-i18n="tools.center.title">应用与 CLI 工具维护台</h3>
-            <p id="toolCenterLead" class="tool-center-lead" data-i18n-html="tools.center.lead">检查本机桌面 App 与 CLI 工具的安装和版本；可自动项始终沿用原来的 <b>npm / Homebrew / uv / 官方更新器</b>，不会调用 sudo。</p>
-          </div>
-          <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
-        </header>
-
-        <div class="utility-dialog-commandbar tool-center-commandbar">
-          <div class="tool-center-overview">
-            <strong id="toolSummary" data-i18n="tools.summary.waiting">等待检查</strong>
-            <small id="toolCheckedAt" data-i18n="tools.notChecked">尚未检查</small>
-            <div class="tool-center-head-actions">
+        <div class="utility-dialog-content system-dialog-content">
+          <section id="systemTools" class="system-tools" aria-labelledby="systemToolsTitle">
+            <h4 id="systemToolsTitle"><span data-i18n="system.tools">工具</span><em id="toolSummary" data-i18n="tools.summary.waiting">等待检查</em></h4>
+            <div class="tool-center-overview">
+              <small id="toolCheckedAt" data-i18n="tools.notChecked">尚未检查</small>
               <button id="checkToolsBtn" type="button" data-i18n="tools.check">↻ 检查全部</button>
             </div>
-          </div>
-          <p id="toolCenterStatus" class="tool-center-status" data-state="idle" aria-live="polite" data-i18n="tools.status.ready">准备检查本机工具。</p>
-        </div>
-
-        <div class="utility-dialog-content tool-center-content">
-          <section class="tool-shelf" data-i18n-aria="aria.desktopTools" aria-label="桌面应用">
-            <header><span data-i18n="tools.section.desktop">DESKTOP APPS</span><small data-i18n="tools.section.desktopHint">桌面应用由官方更新器管理</small></header>
-            <div id="desktopToolList" class="tool-list tool-list-desktop"></div>
+            <p id="toolCenterStatus" class="tool-center-status" data-state="idle" aria-live="polite" data-i18n="tools.status.ready">准备检查本机工具。</p>
+            <section class="tool-shelf" data-i18n-aria="aria.desktopTools" aria-label="桌面应用">
+              <header><span data-i18n="tools.section.desktop">DESKTOP APPS</span><small data-i18n="tools.section.desktopHint">桌面应用由官方更新器管理</small></header>
+              <div id="desktopToolList" class="tool-list tool-list-desktop"></div>
+            </section>
+            <section class="tool-shelf" data-i18n-aria="aria.cliTools" aria-label="CLI 工具">
+              <header><span data-i18n="tools.section.cli">CLI TOOLS</span><small data-i18n="tools.section.cliHint">识别实际安装来源后更新</small></header>
+              <div id="cliToolList" class="tool-list tool-list-cli"></div>
+            </section>
+            <details class="tool-shelf">
+              <summary data-i18n="tools.supported">其他支持的工具（未安装）</summary>
+              <div id="supportedToolList" class="tool-list"></div>
+            </details>
           </section>
-
-          <section class="tool-shelf" data-i18n-aria="aria.cliTools" aria-label="CLI 工具">
-            <header><span data-i18n="tools.section.cli">CLI TOOLS</span><small data-i18n="tools.section.cliHint">识别实际安装来源后更新</small></header>
-            <div id="cliToolList" class="tool-list tool-list-cli"></div>
+          <section id="systemSettings" class="system-settings" aria-labelledby="systemSettingsTitle">
+            <h4 id="systemSettingsTitle"><span data-i18n="system.settings">设置</span></h4>
+            <div class="system-setting-line">
+              <b data-i18n="topbar.theme">外观</b>
+              <button id="themeToggle" type="button" data-i18n-title="topbar.theme.title">◐ <span data-i18n="topbar.theme">外观</span></button>
+            </div>
+            <div class="system-setting-line">
+              <b data-i18n="system.language">语言</b>
+              <button id="langToggle" type="button" data-i18n-title="topbar.lang.title">文</button>
+            </div>
+            <div class="system-setting-line settings-sound">
+              <b><label for="soundLevel" data-i18n="settings.sound">声音</label></b>
+              <select id="soundLevel">
+                <option value="all" data-i18n="settings.sound.all">全部</option>
+                <option value="key" data-i18n="settings.sound.key">只要要紧的</option>
+                <option value="off" data-i18n="settings.sound.off">静音</option>
+              </select>
+              <label class="sound-volume" for="soundVolume"><span data-i18n="settings.sound.volume">音量</span><input id="soundVolume" type="range" min="0" max="100" step="5" value="55"></label>
+              <small data-i18n="settings.sound.hint">只在你做的事有了结果、或者有事要你处理时出声；悬停、滚动和打字都不响。窗口不在前台时只响“来了东西”和“等你处理”。声音在应用里现场合成，不带音频文件，不联网。</small>
+            </div>
+            <label class="system-setting-line settings-runtime-policy" for="profileQuitBehavior">
+              <b data-i18n="settings.profileLifecycle">Profile 后台生命周期</b>
+              <select id="profileQuitBehavior">
+                <option value="close" data-i18n="settings.profileQuit.close">退出 AgentDesk 时关闭所启动的客户端</option>
+                <option value="keep" data-i18n="settings.profileQuit.keep">退出 AgentDesk 后保留客户端运行</option>
+              </select>
+              <small data-i18n="settings.profileQuit.hint">默认关闭可避免失控的后台进程继续生成崩溃报告；选择保留后，AgentDesk 退出期间无法继续监控磁盘增长。</small>
+            </label>
+            <section id="hubSystem" class="hub-system" aria-labelledby="hubSystemTitle">
+              <h4 id="hubSystemTitle"><span data-i18n="hub.system.title">后台对话</span></h4>
+              <p data-i18n="hub.system.lead">AgentDesk 只中转你自己的 Agent 发起的调用，不自己派活。</p>
+              <div class="system-setting-line hub-folders">
+                <b data-i18n="hub.system.folders">允许干活的文件夹</b>
+                <button id="hubAddFolderBtn" type="button"><i class="pxi" data-i="plus" aria-hidden="true"></i><span data-i18n="hub.system.addFolder">添加文件夹…</span></button>
+                <ul id="hubFolderList" class="hub-folder-list"></ul>
+                <small data-i18n="hub.system.foldersHint">被调用的 Agent 只能在这些文件夹里干活。一个都没有时，谁也不能被调用。</small>
+              </div>
+              <label class="system-setting-line hub-limit" for="hubMaxConcurrent">
+                <b data-i18n="hub.system.limit">同时运行的上限</b>
+                <select id="hubMaxConcurrent">
+                  <option value="1">1</option>
+                  <option value="2" selected>2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                </select>
+                <small data-i18n="hub.system.limitHint">到了上限，新的调用直接被拒绝，不会排队。同一只猫一次只跑一段；层层转叫最多两层。</small>
+              </label>
+            </section>
+            <div class="system-setting-line">
+              <b data-i18n="system.updates">更新与使用说明</b>
+              <span class="system-setting-actions">
+                <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">检查更新</span></button>
+                <button id="helpBtn" type="button" data-i18n-title="topbar.help.title">? <span data-i18n="topbar.help">使用说明</span></button>
+              </span>
+            </div>
           </section>
-          <details class="tool-shelf">
-            <summary data-i18n="tools.supported">其他支持的工具（未安装）</summary>
-            <div id="supportedToolList" class="tool-list"></div>
-          </details>
         </div>
-
         <footer class="utility-dialog-footer tool-center-footer">
           <small data-i18n="tools.securityNote">更新命令固定在主进程白名单；不会执行界面提交的路径、命令或下载地址。</small>
         </footer>
@@ -1068,7 +1193,7 @@
               <li data-step="agent"><span>2</span><b data-i18n="onboarding.progress.agent">创建 Agent</b></li>
               <li data-step="preparing"><span>3</span><b data-i18n="onboarding.progress.prepare">首次准备</b></li>
             </ol>
-            <button id="onboardingCodexImportBtn" class="onboarding-advanced" type="button" aria-haspopup="dialog" aria-controls="codexImportDialog" data-i18n="codexImport.action" hidden>导入 Codex</button>
+            <button id="onboardingCodexImportBtn" class="onboarding-advanced" type="button" aria-haspopup="dialog" aria-controls="recruitDialog" data-i18n="codexImport.action" hidden>导入 Codex</button>
 
             <section id="onboardingMigration" class="onboarding-step" aria-labelledby="onboardingMigrationTitle" hidden>
               <header>
@@ -1152,6 +1277,7 @@
     <datalist id="identityOptions"></datalist>
 
     <script src="./yard/sprites.js"></script>
+    <script src="./yard/cat-art.js"></script>
     <script src="./yard/cats.js"></script>
     <script src="./yard/energy.js"></script>
     <script src="./quota-overview.js"></script>
@@ -1167,8 +1293,17 @@
     <script src="./i18n/zh.js"></script>
     <script src="./i18n/en.js"></script>
     <script src="./i18n/ja.js"></script>
+    <script src="./pixel/icons.js"></script>
+    <script src="./pixel/fx.js"></script>
+    <script src="./pixel/chip.js"></script>
+    <script src="./pixel/sfx.js"></script>
+    <script src="./pixel/desk.js"></script>
+    <script src="./renderer/hub.js"></script>
     <script src="./renderer/tool-center.js"></script>
+    <script src="./renderer/recruit.js"></script>
     <script src="./roster-interactions.js"></script>
+    <script src="./pixel/cats.js"></script>
+    <script src="./pixel/ui.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>

@@ -40,7 +40,7 @@
 - 庭院与卡片继续共用 Agent/Slot/会话业务状态；Agent 是展示主轴，Device 是筛选轴，Slot 和 SessionReplica 是动作落点。
 - Remote Surface 仍是专用沙箱 WebContentsView，只把可见边界收进右下详情；普通 Main Renderer 不接触 SDP、媒体轨、采集 source、TURN 凭据或输入通道。
 
-表现层由 `src/workspace.css` 作为 canonical 分层系统承载，旧 `styles.css` 与 `yard/yard.css` 降入 `legacy`；像素皮肤只限于 Canvas、猫与紧凑名牌。语义 `[hidden]` 在最高层兜底，table focused/checked 边界落到真实单元格，避免 Chromium 把 `<tr>` 伪元素当成匿名列。
+表现层由 `src/workspace.css` 作为 canonical 分层系统承载，旧 `styles.css` 降入 `legacy`；像素皮肤只限于 Canvas、猫与紧凑名牌。语义 `[hidden]` 在最高层兜底，table focused/checked 边界落到真实单元格，避免 Chromium 把 `<tr>` 伪元素当成匿名列。
 
 上一轮还修复了一个由新导航顺序暴露的真实问题：纯本地用户先打开“活动”时，传输历史的只读查询会提前创建空 `mesh.db`，设备中心随后把它判为不完整存储并阻止初始化。`TransferService` 的只读 `list/read/projectBindings` 现在在数据库不存在时直接返回空结果，不再产生存储副作用，并有单元测试锁定。
 
@@ -87,7 +87,7 @@
 - `src/index.html`：固定五区结构和全部真实控件。
 - `src/workspace.css`：1.14 canonical CSS 分层、固定几何、统一组件、Presenter 边界、固定区/内容滚动分离的全局弹窗、会话动作坞与全局 Footer。
 - `src/styles.css`：低优先级 legacy 兼容样式，不再决定工作台几何。
-- `src/yard/yard.css`：低优先级庭院 legacy 皮肤，不参与页面骨架排版。
+- `src/pixel.css`、`src/pixel/`：像素皮肤、位图图标与动效；庭院场景及其皮肤已删除。
 - `src/renderer.js`：Header 弹窗入口、utilityDialog/detailMode、Remote Surface 返回与选择状态。
 - `src/onboarding-state.js`、`src/device-journey.js`：版本化首用和设备任务状态投影。
 - `src/main/profile-store-policy.js`、`src/main/ipc/{first-agent-onboarding,pairing-approvals,task-package-transfer}.js`：空 Profile 策略、双方确认与直送稳定 IPC。
@@ -135,8 +135,7 @@ git diff --check
 ## 6. 文档权威关系
 
 - `PERSONAL_AGENT_MESH_PLAN.md` 1.36 是实施权威。
-- `AGENTDESK_UI_HIERARCHY_LAYOUT_PLAN.html` 是 1.13 主窗口层级、几何与临时层蓝图；全局弹窗内部 Shell 与父子层级以 1.14 计划和真实产品代码为准。
-- `AGENTDESK_WORKSPACE_REDESIGN_REVIEW.html` 是 1.12 页面结构的历史审阅稿；若与 1.14 冲突，以计划和真实产品代码为准。
+- 1.12／1.13 阶段的 HTML 审阅稿已在 2026-11-24 删除，结论都已写入计划；需要时从 Git 历史查阅。
 - `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md` 已修订为固定三面板与右下 Remote Surface。
 - 旧 owner review、旧会话身份 review、文章插图和规划变更记录中出现的“七行/第六行”只代表当时的历史方案，不能覆盖 1.10。
 - `ADR_AGENTDESK_TASK_PACKAGE.md` 记录 TaskPackage 格式、事务、Codex 原生适配器、同 Mesh Preview 直送和当前限制；它服从 1.36 产品基线。

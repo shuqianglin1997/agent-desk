@@ -19,8 +19,6 @@
   <img src="https://img.shields.io/badge/local--first-2e7d4f" alt="Local-first" />
 </p>
 
-![AgentDesk](assets/screenshots/app.png)
-
 > **Development status:** `0.10.1-preview.1` implements attended Personal Mesh Preview paths. See the [validation ledger](docs/VALIDATION.md) for source, Electron-window, package and historical two-Mac evidence. Physical TaskPackage delivery, public NAT/TURN, disconnect recovery and the macOS/Windows permission matrix remain open. The signed Draft/redownload/publication transaction has not run with real release credentials, so there is **no public Preview matching this source**.
 
 ## What AgentDesk does
@@ -63,17 +61,18 @@ Authentication stays inside the official applications. The renderer runs with co
 
 Personal Mesh is attended only. It does not control the login screen or Windows UAC secure desktop, does not run after the application exits, and does not provide an unattended service.
 
-## Cat yard
+## Cats on the desk
 
-The optional yard view turns each Agent/account group into a pixel cat driven by local state:
+Each Agent is a pixel cat on a card:
 
-- recent session activity controls working, resting, sleeping, and attention states;
-- quota is shown as a separate energy signal and never overrides activity;
-- day, dusk, night, and weather are visual atmosphere only;
-- one Scene button opens time and weather in a native top-layer popover, while persistent path/quota attention stays in the Activity dialog;
-- clicking a cat selects its Agent; dragging only saves its yard position. Opening accounts and locating sessions use explicit controls.
+- its pose and a small lamp show activity (working, resting, sleeping, needs attention);
+- five energy pips show trusted quota, kept separate from activity;
+- a badge and the button label say what needs you (first preparation, sign-in, install);
+- the first card is **All**: pick a cat to see only its sessions, or All to see everything; **Open** on a card starts that cat without changing the list you are viewing.
 
-Use the **Yard / Cards** segment to change the presenter without changing any data or selection. See [docs/YARD.md](docs/YARD.md).
+The whole window is a desk under a lamp: wooden rails top and bottom, each cat on a small perch with its name tag hanging below, sessions as an open ledger, the main action as a red seal, dialogs as tabbed folders, and a pool of lamplight at night. All text uses the bundled Fusion Pixel font (SIL Open Font License, see `assets/fonts/`) at 12px and 24px. Motion is frame-stepped, interruptible, and disabled when the system asks for reduced motion.
+
+Cats are drawn frame by frame (one shared head for every pose, no stretching or rotation). Their actions follow real app conditions (working, waiting for a client to start, idle for days, quota running low), and each cat has three choices: a coat, a collar colour and one accessory. A few coats are named after the client a cat belongs to. Client names and colours are used only to indicate which client a cat belongs to: they are colours only, never a logo, wordmark or icon, and they do not imply any affiliation with or endorsement by those vendors. Coats whose vendors' brand guidelines do not allow this use are not included; see [PRODUCT.md](docs/PRODUCT.md) for the colours, their sources and the action table.
 
 ## Install
 
@@ -146,7 +145,8 @@ For AI assistants, start with [AI use and customization](docs/AI_INTERFACE.md) a
 - `src/mesh/probe/`, `src/mesh/main/webrtc-probe.js`: sandboxed WebRTC placement and local DataChannel acceptance probe.
 - `src/task-package/`: encrypted TaskPackage format, Git/checkpoint capture, and the versioned Codex native adapter.
 - `src/mesh/domain/task-package-transfer.js`, `src/mesh/main/transfer-service.js`: target-device-only TaskPackage envelopes, explicit receive decisions, ciphertext transfer, cleanup, and portable fallback.
-- `src/yard/`: cat state, scene, atmosphere, and the three core drag intents.
+- `src/yard/`: cat sprites, activity state, and quota energy (the yard scene itself is retired).
+- `src/pixel.css`, `src/pixel/`: pixel skin, 8×8 bitmap icons, and the motion engine.
 
 Start with the [documentation map and evidence ledger](docs/README.md), then see [docs/INTERNAL.md](docs/INTERNAL.md), [docs/PRODUCT.md](docs/PRODUCT.md), and the [full function audit](docs/FUNCTION_AUDIT.md).
 
@@ -180,9 +180,9 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 - **P2P 会合与诊断。** 临时 LAN 优先，失败后回退签名 HTTPS 信令，使用 STUN/短期 TURN；界面只显示 LAN、直连或中继等脱敏状态。
 - **路径与诊断。** 展示启动候选、真实数据目录、权限、扫描位置，以及 Windows Store/MSIX 和传统安装差异。
 - **额度总览（Beta）。** 通过本机 Codex 官方 app-server 读取额度周期；不支持的客户端明确标注，不抓 Cookie 或 token。
-- **独立全局弹窗。** 设备、工具、活动、设置从 Header 各自打开有界弹窗，不替换右下会话详情，也不改变 Device Lens、Agent/Slot 或会话选择。
+- **独立全局弹窗。** 设备、工具、收件箱、设置各自打开有界弹窗，不改变 Device Lens、Agent/Slot 或会话选择；设备管理从设备视角下拉进入，工具与设置在“系统”这一页的两栏里；弹窗跟着内容长高，不逼出滚动条。
 - **工具维护台。** 在独立工具弹窗发现桌面 App 与常用 CLI，显示版本和安装来源；用户明确点击后，符合条件的 CLI 才会沿用 npm、Homebrew、uv 或自身更新器维护。
-- **Agent 卡片工作台。** 每张卡片显示账号头像、活动、额度和运行位置，并提供打开和管理；持久待处理事项归“活动”弹窗。
+- **Agent 卡片工作台。** 每张卡片是一只像素猫，显示活动、五格额度和运行位置，并提供打开和档案（资料、位置、账号、调用、送走五段）；名册最前面的“全部”和点猫决定下面看谁的会话；持久待处理事项归“收件箱”。
 
 工具发现覆盖 Claude Code、DSH、Codex CLI、Gemini CLI、OpenCode、Cursor Agent、GitHub Copilot CLI、goose、Kimi Code 和 Qwen Code。发现模块只定位本机启动器，不附加运行参数，也不创建会话。
 
@@ -206,7 +206,7 @@ Personal Mesh 当前只做有人值守：应用退出后不在线，不控制登
 
 当前没有可供下载的 `v0.10.1-preview.1` 公开 Preview，不要把 [Releases](https://github.com/shuqianglin1997/agent-desk/releases) 中的旧版本当成本源码。首个候选只有在真实签名/公证、仓库或组织 Actions variables `APPLE_TEAM_ID` / `WIN_SIGNER_THUMBPRINT`、受保护 `preview-release` 环境、真实 Tag、Draft 与公开匿名重下载以及物理干净机检查完成后才可供他人安装；届时 Release 只应包含 DMG、portable 和 `SHA256SUMS.txt`。当前源码仍只是 Preview 候选，不是稳定版，也不会把 `0.10.0` 开发基线补发成稳定版。Windows 的 Store/MSIX 与 portable 说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
 
-**导入 Codex 账号。** 在窗口顶栏选择「添加 → 导入 Codex」，拖入 `auth.json` 或点击选择文件，即可添加账号并使用「打开账号」启动。导入文件保存在本机，后续由官方客户端刷新凭据。已经在本机使用的账号可以直接添加检测到的 `~/.codex` 或 `CODEX_HOME`，也可以手动选择自定义目录。登记原目录后可继续读取现有会话。
+**导入 Codex 账号。** 在 Agent 标题行选择「招募 → 导入 Codex」，拖入 `auth.json` 或点击选择文件，即可添加账号并使用卡片上的「打开」启动。导入文件保存在本机，后续由官方客户端刷新凭据。已经在本机使用的账号可以直接添加检测到的 `~/.codex` 或 `CODEX_HOME`，也可以手动选择自定义目录。登记原目录后可继续读取现有会话。
 
 **成品 CLI。** 其他 Agent 可以直接在可执行文件上运行 `--cli capabilities`，查询账号、登记现有目录、导入 Codex 认证文件、打开客户端和读取会话。macOS 和 Windows 用法见[接口指南](docs/AI_INTERFACE.md)。
 

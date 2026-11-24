@@ -16,6 +16,7 @@ const path = require('node:path');
 const sessions = require('./sessions');
 const cursorSessions = require('./cursor-sessions');
 const kimiWorkSessions = require('./kimi-work-sessions');
+const cliClientSessions = require('./cli-client-sessions');
 const transcripts = require('./transcripts');
 const windows = require('./windows');
 
@@ -75,6 +76,28 @@ const CLAUDE_CODE_ENV_KEYS = Object.freeze([
 ]);
 
 const DSH_ENV_KEYS = Object.freeze(['DSH_HOME']);
+const OPENCODE_ENV_KEYS = Object.freeze(['OPENCODE_CONFIG_DIR', 'OPENCODE_CONFIG', 'OPENCODE_CONFIG_CONTENT', 'OPENCODE_DB', 'XDG_DATA_HOME', 'XDG_STATE_HOME']);
+const GEMINI_ENV_KEYS = Object.freeze(['GEMINI_CLI_HOME', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_GENAI_USE_VERTEXAI', 'GOOGLE_CLOUD_PROJECT', 'GOOGLE_CLOUD_LOCATION', 'GEMINI_FORCE_FILE_STORAGE']);
+const QWEN_ENV_KEYS = Object.freeze(['QWEN_HOME', 'QWEN_RUNTIME_DIR', 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_MODEL', 'DASHSCOPE_API_KEY']);
+
+function withoutKeys(baseEnv, keys) {
+  return Object.fromEntries(Object.entries(baseEnv || {}).filter(([key]) => !keys.includes(key.toUpperCase())));
+}
+
+const CLI_WINDOWS_ENTRY = (installDir, markers) => ({
+  executableNames: [],
+  aliases: [],
+  legacyInstallDirs: [installDir],
+  packageNames: [],
+  packageFamilyNames: [],
+  packageFamilyPrefixes: [],
+  protocol: null,
+  profileMarkers: markers
+});
+
+// A Profile owns its sessionRoot. For a managed home the other per-account
+// folders sit next to it under the Profile directory.
+const isManagedHome = (profile) => profile.sessionRootMode === 'managed' || profile.profilePathMode === 'managed';
 
 function withoutClaudeCodeEnvironment(baseEnv = {}) {
   const env = { ...baseEnv };
@@ -119,6 +142,13 @@ const APPS = {
       { label: 'Claude Code', path: path.join(profile.sessionRoot, 'claude-code-sessions'), kind: 'directory' },
       { label: 'Claude 本地', path: path.join(profile.sessionRoot, 'local-agent-mode-sessions'), kind: 'directory' }
     ],
+    // Discovery: an Electron user-data directory. Only the default or a folder
+    // the user picks is registered in place; nothing is copied.
+    discovery: Object.freeze({
+      kind: 'desktop',
+      homeScan: true,
+      markerSets: [['Local State', 'claude-code-sessions/'], ['Local State', 'local-agent-mode-sessions/']]
+    }),
     scan: (profile) => sessions.scanClaude(profile),
     // 会话记录里的最后活跃时间（读 probe 传入的最新文件的 lastActivityAt），驱动干活/在岗判定
     contentActivityAt: (_profile, filePath) => sessions.claudeActivityFromFile(filePath)
@@ -161,6 +191,29 @@ const APPS = {
       { label: 'CLI 会话', path: path.join(profile.sessionRoot, 'projects'), kind: 'directory' },
       { label: 'CLI 历史', path: path.join(profile.sessionRoot, 'history.jsonl'), kind: 'file' }
     ],
+    discovery: Object.freeze({
+      kind: 'home',
+      envVar: 'CLAUDE_CONFIG_DIR',
+      defaultHome: '.claude',
+      homeScan: true,
+      markerSets: [
+        ['.claude.json'], ['projects/', 'settings.json'], ['projects/', 'history.jsonl'],
+        ['projects/', 'shell-snapshots/'], ['projects/', 'todos/'], ['projects/', 'statsig/'],
+        ['projects/', 'file-history/'], ['.credentials.json', 'settings.json']
+      ],
+      exclusive: ['.claude.json', '.credentials.json', 'shell-snapshots/', 'statsig/'],
+      // Gemini CLI / Qwen Code homes also carry settings.json.
+      excludedBy: ['oauth_creds.json', 'google_accounts.json', 'subscription_credentials.json'],
+      verify: Object.freeze({ 'projects/': 'claude-projects' })
+    }),
+    // A pasted setup-token or API key goes into this home's settings.json
+    // `env` (documented by Claude Code), which stores it in plain text.
+    credentials: Object.freeze({
+      browser: true,
+      key: Object.freeze({ kinds: Object.freeze(['oauth-token', 'api-key']), via: 'settings-file', plaintext: true }),
+      provider: Object.freeze({ fields: Object.freeze(['baseUrl']), optional: Object.freeze(['model']), via: 'settings-file', plaintext: true }),
+      importFiles: process.platform === 'darwin' ? Object.freeze([]) : Object.freeze(['.credentials.json'])
+    }),
     scan: (profile) => sessions.scanClaudeCli(profile),
     contentActivityAt: (_profile, filePath) => sessions.lastEventTimestamp(filePath),
     exportTranscript: (session) => ({
@@ -199,12 +252,34 @@ const APPS = {
       ...Object.fromEntries(Object.entries(baseEnv || {}).filter(([key]) => key.toUpperCase() !== 'DSH_HOME')),
       DSH_HOME: profile.sessionRoot
     }),
-    scanAreas: () => [],
-    diagnosticAreas: (profile) => [
-      { label: 'DSH 主目录', path: profile.sessionRoot, kind: 'directory' }
+    scanAreas: (profile) => [
+      { dir: path.join(profile.sessionRoot, 'sessions'), match: (name) => /^session(?:\.v\d+)?\.jsonl(?:\.zstd)?$/.test(name), maxDepth: 3 }
     ],
-    scan: () => [],
-    sessionScanSupported: false,
+    diagnosticAreas: (profile) => [
+      { label: 'DSH 主目录', path: profile.sessionRoot, kind: 'directory' },
+      { label: 'DSH 会话', path: path.join(profile.sessionRoot, 'sessions'), kind: 'directory' }
+    ],
+    discovery: Object.freeze({
+      kind: 'home',
+      envVar: 'DSH_HOME',
+      defaultHome: '.dsh',
+      homeScan: true,
+      markerSets: [
+        ['.credentials.yaml'], ['profiles/', 'cordis.patch.yml'], ['profiles/', '.anonymous-user-id'],
+        ['settings.yaml', 'profiles/'], ['settings.yaml.imported']
+      ],
+      exclusive: ['.credentials.yaml', 'cordis.patch.yml', '.anonymous-user-id', 'settings.yaml.imported']
+    }),
+    // DSH has no key command; its documented credential file is the write path.
+    credentials: Object.freeze({
+      browser: true,
+      key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'credentials-file', plaintext: true }),
+      provider: Object.freeze({ fields: Object.freeze(['baseUrl']), via: 'credentials-file', plaintext: true }),
+      importFiles: Object.freeze(['.credentials.yaml'])
+    }),
+    // One row per root session: a header line plus durable events per session folder.
+    scan: (profile) => cliClientSessions.scanDsh(profile),
+    sessionKeyOf: (filePath) => path.dirname(filePath),
   },
   codex: {
     id: 'codex',
@@ -253,6 +328,23 @@ const APPS = {
       { label: 'Codex 会话', path: path.join(profile.sessionRoot, 'sessions'), kind: 'directory' },
       { label: 'Codex 归档', path: path.join(profile.sessionRoot, 'archived_sessions'), kind: 'directory' }
     ],
+    discovery: Object.freeze({
+      kind: 'home',
+      envVar: 'CODEX_HOME',
+      defaultHome: '.codex',
+      homeScan: true,
+      markerSets: [['auth.json'], ['config.toml', 'sessions/'], ['.codex-global-state.json'], ['archived_sessions/']],
+      exclusive: ['auth.json', '.codex-global-state.json', 'archived_sessions/'],
+      // auth.json is a common name; only a Codex-shaped file counts.
+      verify: Object.freeze({ 'auth.json': 'codex-auth' }),
+      sessionsShape: 'dated'
+    }),
+    credentials: Object.freeze({
+      browser: true,
+      key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'official-stdin', plaintext: false }),
+      provider: Object.freeze({ fields: Object.freeze(['id', 'baseUrl', 'model']), via: 'config-file', plaintext: true }),
+      importFiles: Object.freeze(['auth.json'])
+    }),
     scan: (profile) => sessions.scanCodex(profile),
     activityRecord: (filePath, stat) => {
       const { first, identity } = sessions.codexRecordIdentity(filePath, stat);
@@ -304,6 +396,28 @@ const APPS = {
       { label: 'Kimi 会话', path: path.join(profile.sessionRoot, 'sessions'), kind: 'directory' },
       { label: 'Kimi 工作区', path: path.join(profile.sessionRoot, 'workspaces.json'), kind: 'file' }
     ],
+    discovery: Object.freeze({
+      kind: 'home',
+      envVar: 'KIMI_CODE_HOME',
+      defaultHome: '.kimi-code',
+      homeScan: true,
+      markerSets: [
+        ['credentials/kimi-code.json'], ['credentials/', 'config.toml'], ['config.toml', 'user-history/'],
+        ['config.toml', 'sessions/'], ['session_index.jsonl', 'projects.json'], ['session_index.jsonl', 'workspaces.json']
+      ],
+      exclusive: ['credentials/', 'user-history/', 'projects.json', 'workspaces.json'],
+      sessionsShape: 'state-dirs',
+      // The legacy ~/.kimi home is reported, never migrated or registered.
+      legacyHomes: ['.kimi']
+    }),
+    // `kimi provider catalog add` takes the key from KIMI_REGISTRY_API_KEY
+    // (never argv here); custom endpoints go into config.toml.
+    credentials: Object.freeze({
+      browser: true,
+      key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'official-env', catalogProvider: true, plaintext: true }),
+      provider: Object.freeze({ fields: Object.freeze(['id', 'baseUrl', 'model']), via: 'config-file', plaintext: true }),
+      importFiles: Object.freeze(['credentials/kimi-code.json'])
+    }),
     scan: (profile) => sessions.scanKimi(profile),
     contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
     // 一个会话目录含 state.json + agents/*/wire.jsonl，活跃计数按会话目录去重
@@ -356,6 +470,12 @@ const APPS = {
       { label: 'Kimi Work 索引', path: kimiWorkSessions.kimiWorkDbPath(profile), kind: 'file' },
       { label: 'Kimi Work 记录', path: path.join(profile.sessionRoot, 'runtime', 'kimi-code', 'home', 'sessions'), kind: 'directory' }
     ],
+    discovery: Object.freeze({
+      kind: 'desktop',
+      defaultOnly: true,
+      homeScan: false,
+      markerSets: [['daimon-share/daimon/']]
+    }),
     scan: (profile) => kimiWorkSessions.scanKimiWork(profile),
     // 正文与 Kimi Code 同构，活跃判定直接复用
     contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
@@ -369,6 +489,160 @@ const APPS = {
     exportTranscript: (session) => ({
       markdown: transcripts.kimiTranscriptMarkdown(session.filePath, { title: session.title }),
       suggestedName: transcripts.suggestedTranscriptName(session.title)
+    })
+  },
+  // OpenCode: sessionRoot is its data folder (…/opencode, holding opencode.db).
+  // XDG_DATA_HOME points at the folder above it; a managed account also gets
+  // its own config and state folders, and every launch passes --standalone so
+  // accounts do not share the background service on a fixed port.
+  opencode: {
+    id: 'opencode',
+    label: 'OpenCode',
+    tagColor: '#4f6b3a',
+    appName: 'OpenCode',
+    noLaunch: true,
+    cliDiscoveryId: 'opencode',
+    maintenanceToolId: 'cli:opencode',
+    cliClearEnvKeys: OPENCODE_ENV_KEYS,
+    cliArgsForProfile: () => ['--standalone'],
+    profileIsolation: Object.freeze({ mode: 'external-only' }),
+    windows: CLI_WINDOWS_ENTRY('opencode', ['opencode.db', 'storage']),
+    defaultSessionRoot: (profilePath, isDefault) => (
+      isDefault ? path.join(os.homedir(), '.local', 'share', 'opencode') : path.join(profilePath, 'opencode-data', 'opencode')
+    ),
+    launchEnv: (profile, baseEnv) => {
+      const env = withoutKeys(baseEnv, OPENCODE_ENV_KEYS);
+      if (path.basename(profile.sessionRoot || '') === 'opencode') env.XDG_DATA_HOME = path.dirname(profile.sessionRoot);
+      if (isManagedHome(profile) && profile.profilePath) {
+        env.OPENCODE_CONFIG_DIR = path.join(profile.profilePath, 'opencode-config');
+        env.XDG_STATE_HOME = path.join(profile.profilePath, 'opencode-state');
+      }
+      return env;
+    },
+    scanAreas: (profile) => [
+      { dir: profile.sessionRoot, match: (name) => /^opencode(?:-[\w.-]+)?\.db(?:-wal)?$/.test(name), maxDepth: 1 }
+    ],
+    diagnosticAreas: (profile) => [
+      { label: 'OpenCode 数据库', path: path.join(profile.sessionRoot, 'opencode.db'), kind: 'file' },
+      { label: 'OpenCode 旧会话', path: path.join(profile.sessionRoot, 'storage', 'session'), kind: 'directory' }
+    ],
+    scan: (profile) => cliClientSessions.scanOpenCode(profile),
+    exportTranscript: (session) => ({
+      markdown: transcripts.openCodeTranscriptMarkdown(session),
+      suggestedName: transcripts.suggestedTranscriptName(session.title)
+    }),
+    discovery: Object.freeze({
+      kind: 'home',
+      envVar: 'XDG_DATA_HOME',
+      envSubdir: 'opencode',
+      defaultHome: path.join('.local', 'share', 'opencode'),
+      homeScan: true,
+      markerSets: [['opencode.db'], ['storage/session/'], ['auth.json', 'storage/']],
+      exclusive: ['opencode.db', 'storage/session/']
+    }),
+    // Keys reach OpenCode through `opencode auth import` on standard input
+    // (`auth login --method key` needs a terminal); it stores them in opencode.db.
+    credentials: Object.freeze({
+      browser: true,
+      key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'official-stdin', catalogProvider: true, catalogDefault: 'anthropic', plaintext: true }),
+      importFiles: Object.freeze(['auth.json'])
+    })
+  },
+  // Gemini CLI: sessionRoot is the .gemini folder; GEMINI_CLI_HOME is the folder
+  // above it. Managed accounts keep pasted keys in their own folder instead of
+  // the shared system keychain (GEMINI_FORCE_FILE_STORAGE).
+  'gemini-cli': {
+    id: 'gemini-cli',
+    label: 'Gemini CLI',
+    tagColor: '#3c6fd6',
+    appName: 'Gemini',
+    noLaunch: true,
+    cliDiscoveryId: 'gemini',
+    maintenanceToolId: 'cli:gemini',
+    cliClearEnvKeys: GEMINI_ENV_KEYS,
+    profileIsolation: Object.freeze({ mode: 'external-only' }),
+    windows: CLI_WINDOWS_ENTRY('gemini', ['settings.json', 'tmp']),
+    defaultSessionRoot: (profilePath, isDefault) => (
+      isDefault ? path.join(os.homedir(), '.gemini') : path.join(profilePath, 'gemini-home', '.gemini')
+    ),
+    launchEnv: (profile, baseEnv) => {
+      const env = withoutKeys(baseEnv, GEMINI_ENV_KEYS);
+      const home = path.basename(profile.sessionRoot || '') === '.gemini' ? path.dirname(profile.sessionRoot) : profile.sessionRoot;
+      if (home && path.resolve(home) !== path.resolve(os.homedir())) env.GEMINI_CLI_HOME = home;
+      if (isManagedHome(profile)) env.GEMINI_FORCE_FILE_STORAGE = 'true';
+      return env;
+    },
+    scanAreas: (profile) => [
+      { dir: path.join(profile.sessionRoot, 'tmp'), match: (name) => /^session-.*\.jsonl?$/.test(name), maxDepth: 3 }
+    ],
+    diagnosticAreas: (profile) => [
+      { label: 'Gemini 会话', path: path.join(profile.sessionRoot, 'tmp'), kind: 'directory' },
+      { label: 'Gemini 设置', path: path.join(profile.sessionRoot, 'settings.json'), kind: 'file' }
+    ],
+    scan: (profile) => cliClientSessions.scanGemini(profile),
+    exportTranscript: (session) => ({
+      markdown: transcripts.geminiTranscriptMarkdown(session.filePath),
+      suggestedName: transcripts.suggestedTranscriptName(session.title)
+    }),
+    discovery: Object.freeze({
+      kind: 'home',
+      envVar: 'GEMINI_CLI_HOME',
+      envSubdir: '.gemini',
+      defaultHome: '.gemini',
+      homeScan: true,
+      markerSets: [['google_accounts.json'], ['projects.json', 'tmp/'], ['settings.json', 'tmp/'], ['oauth_creds.json', 'settings.json'], ['installation_id', 'settings.json']],
+      exclusive: ['google_accounts.json', 'projects.json', 'history/']
+    }),
+    credentials: Object.freeze({
+      browser: true,
+      key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'config-file', plaintext: true }),
+      importFiles: Object.freeze(['oauth_creds.json'])
+    })
+  },
+  // Qwen Code: QWEN_HOME is the state folder itself (no .qwen under it).
+  'qwen-code': {
+    id: 'qwen-code',
+    label: 'Qwen Code',
+    tagColor: '#6a4fd0',
+    appName: 'Qwen',
+    noLaunch: true,
+    cliDiscoveryId: 'qwen-code',
+    maintenanceToolId: 'cli:qwen-code',
+    cliClearEnvKeys: QWEN_ENV_KEYS,
+    profileIsolation: Object.freeze({ mode: 'external-only' }),
+    windows: CLI_WINDOWS_ENTRY('qwen', ['settings.json', 'projects']),
+    defaultSessionRoot: (profilePath, isDefault) => (
+      isDefault ? path.join(os.homedir(), '.qwen') : path.join(profilePath, 'qwen-home')
+    ),
+    launchEnv: (profile, baseEnv) => {
+      const env = withoutKeys(baseEnv, QWEN_ENV_KEYS);
+      if (profile.sessionRoot && path.resolve(profile.sessionRoot) !== path.resolve(os.homedir(), '.qwen')) env.QWEN_HOME = profile.sessionRoot;
+      return env;
+    },
+    scanAreas: (profile) => [
+      { dir: path.join(profile.sessionRoot, 'projects'), match: (name) => name.endsWith('.jsonl'), maxDepth: 4 }
+    ],
+    diagnosticAreas: (profile) => [
+      { label: 'Qwen 会话', path: path.join(profile.sessionRoot, 'projects'), kind: 'directory' },
+      { label: 'Qwen 设置', path: path.join(profile.sessionRoot, 'settings.json'), kind: 'file' }
+    ],
+    scan: (profile) => cliClientSessions.scanQwen(profile),
+    exportTranscript: (session) => ({
+      markdown: transcripts.qwenTranscriptMarkdown(session.filePath),
+      suggestedName: transcripts.suggestedTranscriptName(session.title)
+    }),
+    discovery: Object.freeze({
+      kind: 'home',
+      envVar: 'QWEN_HOME',
+      defaultHome: '.qwen',
+      homeScan: true,
+      markerSets: [['subscription_credentials.json'], ['oauth_creds.json', 'settings.json'], ['settings.json', 'projects/']],
+      exclusive: ['subscription_credentials.json'],
+      verify: Object.freeze({ 'projects/': 'qwen-projects' })
+    }),
+    credentials: Object.freeze({
+      browser: true,
+      provider: Object.freeze({ fields: Object.freeze(['baseUrl', 'model']), via: 'config-file', plaintext: true })
     })
   },
   cursor: {
@@ -400,6 +674,11 @@ const APPS = {
     diagnosticAreas: (profile) => [
       { label: 'Cursor 会话库', path: path.join(profile.sessionRoot, 'User', 'globalStorage', 'state.vscdb'), kind: 'file' }
     ],
+    discovery: Object.freeze({
+      kind: 'desktop',
+      homeScan: true,
+      markerSets: [['User/globalStorage/state.vscdb']]
+    }),
     scan: (profile) => cursorSessions.scanCursor(profile),
     // 排行榜今日计数走 SQLite 聚合（会话是 db 行不是文件，按文件数会失真）
     sessionCounts: (profile, now) => cursorSessions.sessionCounts(profile, now),
@@ -433,8 +712,28 @@ function listApps() {
       ? 'native'
       : (typeof APPS[id].exportTranscript === 'function' ? 'transcript' : 'unsupported'),
     canLaunch: APPS[id].noLaunch !== true || Boolean(APPS[id].cliDiscoveryId),
-    supportsManagedProfiles: APPS[id].profileIsolation?.mode === 'chromium-user-data-dir'
+    supportsManagedProfiles: APPS[id].profileIsolation?.mode === 'chromium-user-data-dir',
+    signIn: signInMethods(APPS[id]),
+    discoveryKind: APPS[id].discovery?.kind || null,
+    defaultOnly: APPS[id].profileIsolation?.mode === 'official-default-only'
   }));
+}
+
+// Which ways of signing in a new account the recruit dialog may offer.
+function signInMethods(app_) {
+  const credentials = app_.credentials;
+  return {
+    browser: app_.profileIsolation?.mode !== 'official-default-only',
+    key: Boolean(credentials?.key),
+    keyKinds: [...(credentials?.key?.kinds || [])],
+    keyNeedsCatalogProvider: credentials?.key?.catalogProvider === true,
+    keyCatalogDefault: credentials?.key?.catalogDefault || (credentials?.key?.catalogProvider ? 'kimi-for-coding' : null),
+    provider: Boolean(credentials?.provider),
+    providerFields: [...(credentials?.provider?.fields || [])],
+    providerOptionalFields: [...(credentials?.provider?.optional || [])],
+    storesInPlaintext: Boolean(credentials?.key?.plaintext || credentials?.provider?.plaintext),
+    importFiles: [...(credentials?.importFiles || [])]
+  };
 }
 
 function macLauncherCandidates(appId, options = {}) {

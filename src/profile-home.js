@@ -70,6 +70,17 @@ function prepareManagedProfileHome(profile, options = {}) {
     // untouched and let DSH initialize an empty managed home itself.
     return { seeded: false, reason: 'configuration-required' };
   }
+  if (profile.appId === 'codex') {
+    // Keep this account's sign-in in its own home, never the shared keyring.
+    const configPath = pathImpl.join(profile.sessionRoot, 'config.toml');
+    try {
+      fsImpl.writeFileSync(configPath, 'cli_auth_credentials_store = "file"\n', { flag: 'wx', mode: 0o600 });
+      return { seeded: true, appId: 'codex', path: profile.sessionRoot, files: ['config.toml'] };
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      return { seeded: false, reason: 'config-exists' };
+    }
+  }
   return { seeded: false, reason: 'no-seed-needed' };
 }
 

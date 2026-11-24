@@ -111,6 +111,17 @@
     return next;
   }
 
+  // 只记住某只猫在某个设备视角下的运行位置，不改变正在看的是谁。
+  function setAgentSlot(context, agentId, slotKey, lensId = context?.selectedDeviceLensId) {
+    const next = clone(context);
+    const memoryKey = slotMemoryKey(lensId || next.selectedDeviceLensId, agentId);
+    if (!memoryKey) return next;
+    const slot = cleanId(slotKey);
+    if (slot) next.selectedSlotKeyByAgentAndLens[memoryKey] = slot;
+    else delete next.selectedSlotKeyByAgentAndLens[memoryKey];
+    return next;
+  }
+
   function setAgentScope(context, scope) {
     const next = clone(context);
     next.agentScope = scope === 'all' ? 'all' : 'current';
@@ -365,6 +376,7 @@
     setDeviceLens,
     setAgent,
     setSlot,
+    setAgentSlot,
     setAgentScope,
     focusConversation,
     checkConversation,

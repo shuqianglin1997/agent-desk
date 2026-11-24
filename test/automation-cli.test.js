@@ -73,7 +73,8 @@ test('CLI discovers its complete contract without loading Electron or creating f
 test('registered capabilities are distinct from launch/discovery/login claims', () => {
   const list = invoke(['apps']).result.data.apps;
   assert.deepEqual(list.map((app) => app.id), apps.appIds());
-  assert.equal(list.find((app) => app.id === 'dsh-cli').canScanSessions, false);
+  assert.equal(list.find((app) => app.id === 'dsh-cli').canScanSessions, true);
+  assert.equal(list.find((app) => app.id === 'dsh-cli').canExportTranscript, false);
   assert.equal(list.find((app) => app.id === 'claude-cli').canLaunch, true);
   assert.equal(list.find((app) => app.id === 'claude-cli').supportsManagedProfiles, false);
   assert.equal(list.find((app) => app.id === 'claude-cli').desktopPreparation.supportedOnThisPlatform, false);
@@ -162,7 +163,16 @@ test('local session list reuses root classification, filters, pagination and sha
 
 test('unsupported/missing sessions and ambiguous IDs do not pretend success', (t) => {
   const f = fixture(t, 'dsh-cli');
-  assert.equal(invoke(['sessions', 'list', ...f.args]).code, 5);
+  // DSH sessions are listed, but there is no transcript reader for them yet.
+  const dshSession = path.join(f.profile.sessionRoot, 'sessions', '--work--', 'session-abc');
+  fs.mkdirSync(dshSession, { recursive: true });
+  fs.writeFileSync(path.join(dshSession, 'session.v3.jsonl'), JSON.stringify({ type: 'session', version: 3, id: 'session-abc', createdAt: 1700000000000, isSeeded: false, delegationDepth: 0, cwd: '/work' }) + '\n');
+  const listed = invoke(['sessions', 'list', ...f.args]);
+  assert.equal(listed.code, 0);
+  assert.deepEqual(listed.result.data.sessions.map((session) => session.id), ['session-abc']);
+  const read = invoke(['sessions', 'read', ...f.args, '--session', 'session-abc']);
+  assert.equal(read.code, 5);
+  assert.equal(read.result.error.code, 'transcript-unsupported');
   fs.writeFileSync(f.file, JSON.stringify({ version: 2, profiles: [{ ...f.profile, appId: 'codex', sessionRoot: path.join(f.root, 'absent') }] }));
   assert.equal(invoke(['sessions', 'list', ...f.args]).code, 4);
   fs.writeFileSync(f.file, JSON.stringify({ version: 2, profiles: [{ ...f.profile, appId: 'claude' }] }));

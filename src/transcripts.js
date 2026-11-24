@@ -233,6 +233,148 @@ function claudeCliTranscriptMarkdown(jsonlPath, opts = {}) {
   return `${headLines.join('\n')}\n${body}\n`;
 }
 
+// ---------- OpenCode、Gemini CLI、Qwen Code ----------
+// Shared helpers: a string, a part or a list of parts; JSONL read with a cap.
+function partsText(value) {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.map(partsText).filter(Boolean).join('\n');
+  if (value && typeof value === 'object') {
+    if (value.thought === true) return '';
+    if (typeof value.text === 'string') return value.text;
+    if (Array.isArray(value.parts)) return partsText(value.parts);
+  }
+  return '';
+}
+
+function readJsonLines(filePath, limit = 64 * 1024 * 1024) {
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile() || stat.size > limit) throw new Error('transcript-unavailable');
+  const records = [];
+  for (const line of fs.readFileSync(filePath, 'utf8').split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    try { records.push(JSON.parse(line)); } catch (_error) { /* half-written line */ }
+  }
+  return records;
+}
+
+function parseJsonText(value) {
+  if (value && typeof value === 'object') return value;
+  try { return JSON.parse(String(value)); } catch (_error) { return null; }
+}
+
+// OpenCode 2.x: session_message rows (user text) and session_part rows
+// (assistant text and tool calls). 1.x: message/part tables. Older still:
+// storage/message/<session>/*.json with storage/part/<message>/*.json.
+function openCodeTurnsFromDatabase(file, sessionId) {
+  const { DatabaseSync } = require('node:sqlite');
+  const db = new DatabaseSync(file, { readOnly: true });
+  try {
+    const tables = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((row) => row.name));
+    const turns = [];
+    if (tables.has('session_message')) {
+      const parts = new Map();
+      if (tables.has('session_part')) {
+        for (const row of db.prepare('SELECT message_id, type, data FROM session_part WHERE session_id = ? ORDER BY message_id, ordinal').all(sessionId)) {
+          if (!parts.has(row.message_id)) parts.set(row.message_id, []);
+          parts.get(row.message_id).push({ type: row.type, data: parseJsonText(row.data) || {} });
+        }
+      }
+      for (const row of db.prepare('SELECT id, type, data FROM session_message WHERE session_id = ? ORDER BY seq').all(sessionId)) {
+        const data = parseJsonText(row.data) || {};
+        if (row.type === 'user' && typeof data.text === 'string' && data.text.trim()) {
+          turns.push({ kind: 'user', text: data.text.trim() });
+        } else if (row.type === 'assistant') {
+          const content = parts.get(row.id) || (Array.isArray(data.content) ? data.content.map((item) => ({ type: item.type, data: item })) : []);
+          for (const part of content) {
+            if (part.type === 'text' && typeof part.data.text === 'string' && part.data.text.trim()) turns.push({ kind: 'assistant', text: part.data.text.trim() });
+            else if (part.type === 'tool') turns.push({ kind: 'tool', text: String(part.data.name || part.data.tool || 'tool') });
+          }
+        }
+      }
+      return turns;
+    }
+    if (tables.has('message') && tables.has('part')) {
+      const messages = db.prepare('SELECT id, data FROM message WHERE session_id = ? ORDER BY id').all(sessionId);
+      for (const message of messages) {
+        const info = parseJsonText(message.data) || {};
+        const role = info.role === 'user' ? 'user' : 'assistant';
+        for (const row of db.prepare('SELECT data FROM part WHERE message_id = ? ORDER BY id').all(message.id)) {
+          const part = parseJsonText(row.data) || {};
+          if (part.type === 'text' && typeof part.text === 'string' && part.text.trim() && !part.synthetic) turns.push({ kind: role, text: part.text.trim() });
+          else if (part.type === 'tool' && role === 'assistant') turns.push({ kind: 'tool', text: String(part.tool || 'tool') });
+        }
+      }
+    }
+    return turns;
+  } finally {
+    db.close();
+  }
+}
+
+function openCodeTurnsFromStorage(sessionFile, sessionId) {
+  const storage = path.dirname(path.dirname(path.dirname(sessionFile)));
+  const messageDir = path.join(storage, 'message', sessionId);
+  const messages = (() => { try { return fs.readdirSync(messageDir).filter((name) => name.endsWith('.json')); } catch (_error) { return []; } })()
+    .map((name) => readJsonSafe(path.join(messageDir, name)))
+    .filter((info) => info && typeof info.id === 'string')
+    .sort((left, right) => Number(left.time?.created || 0) - Number(right.time?.created || 0));
+  const turns = [];
+  for (const info of messages) {
+    const partDir = path.join(storage, 'part', info.id);
+    const parts = (() => { try { return fs.readdirSync(partDir).filter((name) => name.endsWith('.json')).sort(); } catch (_error) { return []; } })()
+      .map((name) => readJsonSafe(path.join(partDir, name))).filter(Boolean);
+    for (const part of parts) {
+      if (part.type === 'text' && typeof part.text === 'string' && part.text.trim() && !part.synthetic) turns.push({ kind: info.role === 'user' ? 'user' : 'assistant', text: part.text.trim() });
+      else if (part.type === 'tool' && info.role !== 'user') turns.push({ kind: 'tool', text: String(part.tool || 'tool') });
+    }
+  }
+  return turns;
+}
+
+function openCodeTranscriptMarkdown(session) {
+  const filePath = String(session?.filePath || '');
+  const sessionId = String(session?.address || session?.id || '');
+  if (!filePath || !sessionId) throw new Error('transcript-unavailable');
+  const turns = filePath.endsWith('.json') ? openCodeTurnsFromStorage(filePath, sessionId) : openCodeTurnsFromDatabase(filePath, sessionId);
+  return renderTurns(turns, 'OpenCode').join('\n\n');
+}
+
+// Gemini CLI: JSONL (first line metadata) or an older whole-file JSON.
+function geminiTranscriptMarkdown(filePath) {
+  let messages;
+  if (filePath.endsWith('.json')) {
+    const json = readJsonSafe(filePath);
+    if (!json) throw new Error('transcript-unavailable');
+    messages = Array.isArray(json.messages) ? json.messages : [];
+  } else {
+    messages = readJsonLines(filePath).slice(1).filter((record) => record && record.type);
+  }
+  const turns = [];
+  for (const message of messages) {
+    const text = partsText(message.content).trim();
+    if (!text) continue;
+    if (message.type === 'user') turns.push({ kind: 'user', text });
+    else if (message.type === 'gemini') turns.push({ kind: 'assistant', text });
+  }
+  return renderTurns(turns, 'Gemini').join('\n\n');
+}
+
+// Qwen Code: user prompts (not sidechain, no subtype) and assistant text parts.
+function qwenTranscriptMarkdown(filePath) {
+  const turns = [];
+  for (const record of readJsonLines(filePath)) {
+    if (!record || record.isSidechain) continue;
+    if (record.type === 'user' && record.subtype === undefined) {
+      const text = (typeof record.systemPayload?.displayText === 'string' ? record.systemPayload.displayText : partsText(record.message?.parts || record.message?.content)).trim();
+      if (text) turns.push({ kind: 'user', text });
+    } else if (record.type === 'assistant') {
+      const text = partsText(record.message?.parts || record.message?.content).trim();
+      if (text) turns.push({ kind: 'assistant', text });
+    }
+  }
+  return renderTurns(turns, 'Qwen').join('\n\n');
+}
+
 // 文件名建议：去掉路径分隔与 Windows 非法字符，限长，避免空名。
 function suggestedTranscriptName(title) {
   const cleaned = String(title || '')
@@ -245,4 +387,7 @@ function suggestedTranscriptName(title) {
   return `${cleaned || 'kimi-session'}.md`;
 }
 
-module.exports = { codexTranscriptMarkdown, kimiTranscriptMarkdown, claudeCliTranscriptMarkdown, suggestedTranscriptName };
+module.exports = {
+  codexTranscriptMarkdown, kimiTranscriptMarkdown, claudeCliTranscriptMarkdown,
+  openCodeTranscriptMarkdown, geminiTranscriptMarkdown, qwenTranscriptMarkdown, suggestedTranscriptName
+};

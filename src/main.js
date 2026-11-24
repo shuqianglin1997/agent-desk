@@ -1,5 +1,6 @@
 const { registerLocalReadIpc } = require('./main/ipc/local-reads');
 const { windowChromeOptions, windowsControls } = require('./main/window-chrome');
+const { createWindowLamp } = require('./main/window-lamp');
 const { resolveLocalSessions, sessionDirectories } = require('./main/session-actions');
 const { prepareSessionExport } = require('./session-export');
 const {
@@ -38,6 +39,7 @@ const updater = require('./updater');
 const toolMaintenance = require('./tool-maintenance');
 const {
   cliCandidates,
+  discoverCli,
   discoverCliInventory,
   resolveExecutableCandidates
 } = require('./cli-discovery');
@@ -59,12 +61,19 @@ const {
   stageCodexAuthHome
 } = require('./codex-account-import');
 const { packagedCliArguments, createCliBroker, runPackagedCli } = require('./automation/packaged-cli');
-const { discoverLocalProfileLocations } = require('./automation/local-locations');
+const { discoverLocalProfileLocations, profileSignInStatus } = require('./automation/local-locations');
 const { InterfaceError } = require('./automation/service');
 const { prepareManagedProfileHome } = require('./profile-home');
 const { terminalLauncherScript } = require('./terminal-launcher');
 const { QuotaService } = require('./quota-service');
-const { normalizeCat } = require('./yard/cats');
+const { deriveEnergy } = require('./yard/energy');
+const IdentityGroups = require('./identity-groups');
+const { HubStore } = require('./hub/store');
+const { HubRunner } = require('./hub/runner');
+const { HubError, normalizeAccess } = require('./hub/roster');
+const { adapterFor, unsupportedReason } = require('./hub/adapters');
+const { createAgentHub } = require('./main/agent-hub');
+const { normalizeCat, defaultCatForClient } = require('./yard/cats');
 const { mt } = require('./i18n/main-i18n');
 const { MeshService } = require('./mesh/main/mesh-service');
 const { ProvisioningService } = require('./mesh/main/provisioning-service');
@@ -98,6 +107,10 @@ const {
   installMainWindowSecurity
 } = require('./main/ipc/security-policy');
 const { PathSelectionRegistry } = require('./main/ipc/path-selections');
+const { registerRecruitIpc } = require('./main/ipc/recruit');
+const { createLocationRegistrar } = require('./main/profile-registration');
+const { createRecruitItems } = require('./main/recruit-items');
+const accountCredentials = require('./account-credentials');
 const {
   derivedNetworkEnrollment,
   shouldDeferSecureMeshStartup
@@ -197,8 +210,18 @@ let pairingEndpointExpiresAt = null;
 let profileRuntimeSupervisor = null;
 let profileQuitInProgress = false;
 let profileQuitApproved = false;
+// 调度中枢: Main supervises background runs and winds them down on quit.
+let agentHub = null;
+let hubQuitInProgress = false;
+let hubQuitDone = false;
+// 开灯与关灯：退出和关窗先让窗口关一下灯，等不到回话按硬上限继续（src/main/window-lamp.js）。
+let appQuitting = false;
+const windowLamp = createWindowLamp({ getWindow: () => mainWindow });
 const quotaService = new QuotaService();
 const pathSelectionRegistry = new PathSelectionRegistry();
+// Discovery can list many homes at once; it gets its own bounded registry so
+// it cannot evict an in-flight path picker selection.
+const recruitSelectionRegistry = new PathSelectionRegistry({ maxEntries: 256, ttlMs: 15 * 60_000 });
 const invitationInspectionRegistry = new InvitationInspectionRegistry();
 const pairingApprovalRegistry = new PairingApprovalRegistry({
   onChange: (claims) => {
@@ -217,6 +240,9 @@ const PROFILE_COPY_EXCLUDES = new Set([
 ]);
 
 const cliLaunchArgs = packagedCliArguments(process.argv, process.defaultApp === true);
+// A `--cli` process that took the instance lock itself: the desktop is not
+// running, so nothing could supervise a background run started from here.
+const cliOnlyInstance = cliLaunchArgs !== null;
 const cliUserData = app.getPath('userData');
 const cliBroker = createCliBroker({ userData: cliUserData, whenReady: () => app.whenReady(), dispatch: runCliProfileAction });
 
@@ -234,7 +260,8 @@ function createWindow() {
     title: APP_NAME,
     ...windowChromeOptions(process.platform, process.platform === 'win32' ? loadSettings().theme : null, nativeTheme.shouldUseDarkColors),
     ...(process.platform === 'win32' ? { icon: path.join(__dirname, '..', 'assets', 'icon.ico') } : {}),
-    backgroundColor: '#efe6cd',
+    // 灯还没开时的夜色（与 pixel.css 的 --lamp-night 一致）：窗口在页面画出来之前也不会先闪一下亮的。
+    backgroundColor: '#140e11',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -247,6 +274,7 @@ function createWindow() {
     allowedUrl: MAIN_DOCUMENT_URL,
     csp: MAIN_DOCUMENT_CSP
   });
+  windowLamp.attach(mainWindow, { platform: process.platform, isQuitting: () => appQuitting, quit: () => app.quit() });
 
   mainWindow.once('ready-to-show', () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -289,7 +317,7 @@ function syncWindowControlTheme(preferences) {
 
 if (cliLaunchArgs !== null) {
   void runPackagedCli(cliLaunchArgs, {
-    app, userData: cliUserData, broker: cliBroker, version: app.getVersion(), discover: discoverLocalProfileLocations
+    app, userData: cliUserData, broker: cliBroker, version: app.getVersion(), discover: discoverLocalProfileLocations, status: profileSignInStatus
   }).then((exitCode) => app.exit(exitCode), () => app.exit(1));
 } else if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -322,19 +350,36 @@ if (cliLaunchArgs !== null) {
   });
 
   app.on('before-quit', (event) => {
+    // Background runs end with AgentDesk, whatever the client setting says:
+    // nothing would supervise or record them after Main exits.
+    if (!hubQuitDone && agentHub?.activeCount()) {
+      event.preventDefault();
+      if (hubQuitInProgress) return;
+      hubQuitInProgress = true;
+      void agentHub.stopAll('app-quit').catch(() => {}).finally(() => {
+        hubQuitInProgress = false;
+        hubQuitDone = true;
+        app.quit();
+      });
+      return;
+    }
     const quitBehavior = loadSettings().profileQuitBehavior;
     if (!profileQuitApproved && quitBehavior !== 'keep') {
       event.preventDefault();
       if (profileQuitInProgress) return;
       profileQuitInProgress = true;
+      // 关客户端期间灯降一档，页脚写着在关哪几个；每关好一个，对应的猫先睡下。
+      windowLamp.closingClients(getProfileRuntimeSupervisor(), loadProfiles());
       void getProfileRuntimeSupervisor().stopAll({
         terminateOwned: true,
-        reason: 'app-quit'
+        reason: 'app-quit',
+        onStopped: (profileId) => windowLamp.send({ step: 'closed', profileId: String(profileId) })
       }).then((result) => {
         if (!result.ok) {
           profileQuitInProgress = false;
           getProfileRuntimeSupervisor().start(loadProfiles());
           showMainWindow();
+          windowLamp.relight();
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('profiles:quitBlocked', {
               reasonCode: 'profile-process-still-running'
@@ -348,6 +393,7 @@ if (cliLaunchArgs !== null) {
         profileQuitInProgress = false;
         getProfileRuntimeSupervisor().start(loadProfiles());
         showMainWindow();
+        windowLamp.relight();
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('profiles:quitBlocked', {
             reasonCode: 'profile-process-stop-failed'
@@ -356,6 +402,9 @@ if (cliLaunchArgs !== null) {
       });
       return;
     }
+    // 关灯：猫睡下、账本合上、灯分三档暗下去，然后再真正退出；窗口不回话也只等到硬上限。
+    if (windowLamp.holdQuit(event, () => app.quit())) return;
+    appQuitting = true;
     profileRuntimeSupervisor?.stopMonitoring();
     clearTimeout(pairingEndpointTimer);
     invitationInspectionRegistry.clear();
@@ -383,6 +432,7 @@ function registerIpc() {
     getWindow: () => mainWindow,
     allowedUrl: MAIN_DOCUMENT_URL
   });
+  windowLamp.register(ipcMain);
   ipcMain.handle('apps:list', () => {
     return apps.listApps().map((entry) => {
       const descriptor = provisioningAdapterDescriptor(entry.id, 'desktop');
@@ -1381,6 +1431,92 @@ function registerIpc() {
     return result.canceled ? null : importCodexAuth(result.filePaths[0]);
   }));
 
+  registerRecruitIpc(ipcMain, {
+    selections: recruitSelectionRegistry,
+    loadProfiles,
+    registerLocations,
+    pickDirectory: async () => {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: t('main.picker.recruitFolder'),
+        defaultPath: os.homedir(),
+        properties: ['openDirectory', 'showHiddenFiles']
+      });
+      return result.canceled ? null : result.filePaths[0] || null;
+    },
+    onRegistered: () => quotaService.invalidate()
+  });
+
+  // 调度中枢: switches, allowed folders and the limit change only here, from
+  // the desktop window. Folders come from Main's own picker, never a path
+  // sent by the Renderer.
+  ipcMain.handle('hub:state', () => hubPublicState());
+  ipcMain.handle('hub:setAccess', (_event, input = {}) => setHubAccess(input));
+  ipcMain.handle('hub:addFolder', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: t('main.picker.hubFolder'),
+      defaultPath: os.homedir(),
+      properties: ['openDirectory', 'createDirectory']
+    });
+    const picked = result.canceled ? null : result.filePaths[0] || null;
+    if (!picked) return { ok: false, reasonCode: 'cancelled' };
+    let real;
+    try { real = fs.realpathSync.native(picked); } catch (_error) { return { ok: false, reasonCode: 'folder-invalid' }; }
+    const added = getAgentHub().store.addFolder(real);
+    notifyHubChanged();
+    return added.ok ? { ok: true, existing: added.existing === true, state: hubPublicState() } : { ok: false, reasonCode: added.reasonCode };
+  });
+  ipcMain.handle('hub:removeFolder', (_event, input = {}) => {
+    const removed = getAgentHub().store.removeFolder(boundedText(input.id, 64));
+    notifyHubChanged();
+    return { ok: removed, state: hubPublicState() };
+  });
+  ipcMain.handle('hub:setMaxConcurrent', (_event, input = {}) => {
+    getAgentHub().store.setMaxConcurrent(Number(input.value));
+    notifyHubChanged();
+    return { ok: true, state: hubPublicState() };
+  });
+  ipcMain.handle('hub:stopRun', async (_event, input = {}) => {
+    try {
+      const run = await getAgentHub().stop(boundedText(input.id, 64));
+      return { ok: true, run: { ...run, cwd: undefined } };
+    } catch (error) {
+      return { ok: false, reasonCode: error instanceof HubError ? error.code : 'hub-stop-failed' };
+    }
+  });
+
+  ipcMain.handle('recruit:createAccount', (_event, input = {}) => accountResult(async () => {
+    const signIn = ['key', 'provider'].includes(input?.signIn) ? input.signIn : 'browser';
+    if (signIn === 'browser') return { ...createLocalAccount(input), created: true, signIn };
+    return { ...(await createAccountWithSecret({ ...input, method: signIn })), signIn };
+  }, 'account-create-failed'));
+  ipcMain.handle('credentials:apply', (_event, input = {}) => accountResult(
+    () => applyProfileSecret(boundedText(input?.profileId, 128), input), 'credential-apply-failed'
+  ));
+  ipcMain.handle('credentials:status', (_event, input = {}) => accountResult(
+    () => profileCredentialStatus(boundedText(input?.profileId, 128), input?.official === true), 'credential-status-failed'
+  ));
+  // The preload supplies a disk-backed path from a native drop (file or
+  // folder). Main inspects it and hands back a one-time selection ID; the
+  // Renderer confirms a copy before anything is written.
+  ipcMain.handle('recruit:inspectItem', (_event, itemPath) => accountResult(
+    () => inspectRecruitItem(itemPath), 'credential-import-failed'
+  ));
+  ipcMain.handle('recruit:pickItem', () => accountResult(async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: t('main.picker.recruitItem'),
+      defaultPath: os.homedir(),
+      properties: process.platform === 'darwin' ? ['openFile', 'openDirectory', 'showHiddenFiles'] : ['openFile', 'showHiddenFiles']
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    return inspectRecruitItem(result.filePaths[0]);
+  }, 'credential-import-failed'));
+  ipcMain.handle('recruit:importItem', (_event, input = {}) => accountResult(async () => {
+    const selectionId = boundedText(input?.selectionId, 128);
+    const { path: itemPath, meta } = recruitSelectionRegistry.resolveEntry(selectionId, 'recruit-item');
+    recruitSelectionRegistry.consume([selectionId]);
+    return executeRecruitItem(itemPath, meta?.action);
+  }, 'credential-import-failed'));
+
   // The preload supplies a disk-backed path from a native File drop.
   ipcMain.handle('profiles:importDroppedCodexAuth', (_event, filePath) => (
     codexImportResult(() => importCodexAuth(filePath))
@@ -1584,6 +1720,143 @@ async function codexImportResult(operation) {
   }
 }
 
+// Fixed reason codes for every import, sign-in and creation failure. Error
+// text never includes a path, key or file content.
+const ACCOUNT_REASON_CODES = new Set([
+  'codex-auth-filename', 'codex-auth-format', 'codex-auth-size', 'codex-auth-unreadable', 'codex-home-invalid',
+  'path-selection-expired', 'credential-file-unreadable', 'credential-file-format', 'credential-file-size',
+  'credential-import-unsupported', 'credential-import-unsupported-platform', 'credential-file-unrecognized',
+  'secret-invalid', 'provider-id-invalid', 'provider-url-invalid', 'provider-model-invalid',
+  'credential-method-unsupported', 'official-client-missing', 'official-command-failed', 'official-command-timeout',
+  'config-unreadable', 'config-too-large', 'config-format-unsupported', 'config-write-failed',
+  'credentials-format-unsupported', 'home-invalid', 'unknown-client', 'client-default-only', 'profile-not-found',
+  'client-directory-invalid', 'location-unrecognized', 'location-ambiguous', 'location-changed', 'location-invalid'
+]);
+
+function accountReasonCode(error, fallback) {
+  const code = error?.code || error?.message;
+  return ACCOUNT_REASON_CODES.has(code) ? code : fallback;
+}
+
+async function accountResult(operation, fallback) {
+  try {
+    const result = await operation();
+    return result ? { ok: true, ...result } : { ok: false, canceled: true };
+  } catch (error) {
+    return { ok: false, reasonCode: accountReasonCode(error, fallback) };
+  }
+}
+
+const recruitItems = createRecruitItems({
+  loadProfiles: () => loadProfiles(),
+  registerLocations: (inputs) => registerLocations(inputs),
+  planExistingLocation: (input, profiles) => locationRegistrar.planExistingLocation(input, profiles),
+  registerCodexHome: (directory) => registerCodexHome(directory),
+  createStoredProfile: (input, options) => createStoredProfile(input, options),
+  discoverCodexHomes: () => discoverCodexHomes(),
+  importOpenCodeExport: (profile, filePath) => accountCredentials.importOpenCodeExport(profile, filePath, credentialContext()),
+  discardProfile: (profileId) => discardCreatedProfile(profileId)
+});
+const importCredentialFile = (appId, filePath) => recruitItems.importCredentialFile(appId, filePath);
+const planRecruitItem = (itemPath) => recruitItems.planItem(itemPath);
+const executeRecruitItem = (itemPath, expectedAction) => recruitItems.executeItem(itemPath, expectedAction);
+
+function publicRecruitItem(planned) {
+  const selection = planned.action === 'existing' ? null : recruitSelectionRegistry.issue({
+    kind: 'recruit-item',
+    path: planned.itemPath,
+    meta: { action: planned.action }
+  });
+  return {
+    selectionId: selection?.selectionId || null,
+    kind: planned.kind,
+    appId: planned.appId,
+    fileName: planned.fileName,
+    action: planned.action,
+    profileId: planned.profileId || null
+  };
+}
+
+async function inspectRecruitItem(itemPath) {
+  const planned = await planRecruitItem(itemPath);
+  return publicRecruitItem({ ...planned, itemPath });
+}
+
+// A new isolated environment for one client (the "new account" path).
+function createLocalAccount(input = {}) {
+  const appId = boundedText(input.appId, 80);
+  if (!apps.isKnownApp(appId)) throw new InterfaceError('unknown-client', 'Choose a client ID from apps.', 2);
+  if (apps.getApp(appId).profileIsolation?.mode === 'official-default-only') {
+    throw new InterfaceError('client-default-only', 'This client launches from its official desktop directory only.', 5);
+  }
+  const name = boundedText(input.name, 80) || uniqueProfileName(loadProfiles(), appId);
+  const profile = createStoredProfile({ appId, name });
+  return { profileId: profile.id, profilePath: profile.profilePath, sessionRoot: profile.sessionRoot };
+}
+
+// Remove a Profile that this flow created moments ago, with the managed
+// folders AgentDesk made for it. Registered (custom) homes are never deleted.
+function discardCreatedProfile(profileId) {
+  const profile = loadProfiles().find((item) => item.id === profileId);
+  if (!profile) return;
+  removeStoredProfileRegistration(profileId);
+  if (profile.profilePathMode === 'managed' && isManagedProfilePath(profile.profilePath)) {
+    try { fs.rmSync(profile.profilePath, { recursive: true, force: true }); } catch (_error) { /* best effort */ }
+    // The per-client folder above it was made for this Profile too; rmdir only
+    // succeeds while it is empty.
+    const parent = path.dirname(profile.profilePath);
+    if (isManagedProfilePath(parent)) try { fs.rmdirSync(parent); } catch (_error) { /* not empty */ }
+  }
+}
+
+function credentialRequest(input = {}) {
+  const provider = input.provider && typeof input.provider === 'object' ? input.provider : {};
+  return {
+    method: input.method === 'provider' ? 'provider' : 'key',
+    secret: typeof input.secret === 'string' ? input.secret.slice(0, 4200) : '',
+    provider: {
+      id: boundedText(provider.id, 40),
+      baseUrl: boundedText(provider.baseUrl, 600),
+      model: boundedText(provider.model, 160)
+    },
+    catalogProviderId: boundedText(input.catalogProviderId, 40),
+    model: boundedText(input.model, 160)
+  };
+}
+
+const credentialContext = (official = false) => ({
+  env: process.env,
+  official,
+  findLauncher: (toolId) => {
+    try { return discoverCli(toolId); } catch (_error) { return null; }
+  }
+});
+
+async function applyProfileSecret(profileId, input) {
+  const profile = loadProfiles().find((item) => item.id === profileId);
+  if (!profile) throw new Error('profile-not-found');
+  const applied = await accountCredentials.applySecret(profile, credentialRequest(input), credentialContext());
+  const status = await accountCredentials.credentialStatus(profile, credentialContext());
+  return { profileId, method: applied.method, via: applied.via, plaintextWarning: applied.plaintextWarning, status };
+}
+
+async function profileCredentialStatus(profileId, official) {
+  const profile = loadProfiles().find((item) => item.id === profileId);
+  if (!profile) throw new Error('profile-not-found');
+  return { profileId, appId: profile.appId, ...(await accountCredentials.credentialStatus(profile, credentialContext(official === true))) };
+}
+
+// New account signed in with a pasted key: create, hand over, roll back on failure.
+async function createAccountWithSecret(input) {
+  const created = createLocalAccount(input);
+  try {
+    return { ...(await applyProfileSecret(created.profileId, input)), created: true };
+  } catch (error) {
+    discardCreatedProfile(created.profileId);
+    throw error;
+  }
+}
+
 function registerCodexHome(directory, name) {
   let home;
   try { home = inspectCodexHome(directory); } catch (_error) { /* Report a fixed error code. */ }
@@ -1610,16 +1883,21 @@ function importCodexAuth(filePath) {
   return { profileId: profile.id };
 }
 
-function createStoredProfile(input = {}, options = {}) {
-  const profiles = loadProfiles();
+function uniqueProfileName(profiles, appId) {
+  const label = apps.getApp(appId).label;
+  const names = new Set(profiles.filter((profile) => profile.appId === appId).map((profile) => profile.name));
+  let name = label;
+  for (let index = 2; names.has(name); index += 1) name = `${label} ${index}`;
+  return name;
+}
+
+// Build a normalized Profile without saving it. Batch registration builds
+// several against one loaded store and saves once.
+function buildStoredProfile(profiles, input = {}, options = {}) {
   const appId = apps.isKnownApp(input.appId) ? input.appId : apps.DEFAULT_APP;
-  const { codexAuth, codexHome, externalLocation } = options;
+  const { codexAuth, codexHome, externalLocation, credentialImport } = options;
   let name = String(input.name || '').trim();
-  if (!name && (codexAuth || codexHome)) {
-    const names = new Set(profiles.filter((profile) => profile.appId === 'codex').map((profile) => profile.name));
-    name = 'Codex';
-    for (let index = 2; names.has(name); index += 1) name = `Codex ${index}`;
-  }
+  if (!name && (codexAuth || codexHome || externalLocation || credentialImport)) name = uniqueProfileName(profiles, appId);
   name ||= `${apps.getApp(appId).label} 账号`;
   const id = crypto.randomUUID();
   const isDefaultCodexHome = Boolean(codexHome && codexHomeKey(codexHome) === codexHomeKey(path.join(os.homedir(), '.codex')));
@@ -1627,7 +1905,7 @@ function createStoredProfile(input = {}, options = {}) {
   const profilePath = externalLocation?.profilePath
     || (isDefault ? defaultProfilePath(appId) : makeIsolatedProfilePath(appId, name, id));
   const existingRoot = codexHome || externalLocation?.sessionRoot;
-  const profile = normalizeProfile({
+  return normalizeProfile({
     id,
     appId,
     name,
@@ -1636,15 +1914,24 @@ function createStoredProfile(input = {}, options = {}) {
     profilePathMode: isDefault ? 'auto' : (externalLocation?.profilePath ? 'custom' : 'managed'),
     sessionRootMode: existingRoot ? 'custom' : 'managed',
     isProtected: isDefault,
+    // 新招募的猫默认穿它那个客户端的毛色（有的话）；已有的猫不经过这里，外观不变。
+    cat: defaultCatForClient(appId, id),
     ...(codexAuth ? { codexAuthImported: true } : {}),
+    ...(credentialImport ? { credentialImported: credentialImport } : {}),
     createdAt: new Date().toISOString(),
     lastLaunchedAt: null,
     group: input.group,
     note: input.note
   });
+}
 
-  const cleanupAuth = codexAuth ? stageCodexAuthHome(profile, codexAuth) : null;
-  if (!existingRoot && !codexAuth) prepareManagedProfileHome(profile);
+function createStoredProfile(input = {}, options = {}) {
+  const profiles = loadProfiles();
+  const profile = buildStoredProfile(profiles, input, options);
+  const { codexAuth, codexHome, externalLocation, stage } = options;
+  const existingRoot = codexHome || externalLocation?.sessionRoot;
+  const cleanupAuth = codexAuth ? stageCodexAuthHome(profile, codexAuth) : (stage ? stage(profile) : null);
+  if (!existingRoot && !codexAuth && !stage) prepareManagedProfileHome(profile);
   try {
     profiles.push(profile);
     saveProfiles(profiles);
@@ -1663,6 +1950,14 @@ function requireCliDirectory(value) {
   return resolved;
 }
 
+const locationRegistrar = createLocationRegistrar({
+  loadProfiles: () => loadProfiles(),
+  saveProfiles: (profiles) => saveProfiles(profiles),
+  buildProfile: (profiles, input, options) => buildStoredProfile(profiles, input, options),
+  defaultProfilePath: (appId) => defaultProfilePath(appId)
+});
+const registerLocations = (inputs) => locationRegistrar.registerLocations(inputs);
+
 function registerExistingProfileFromCli(input) {
   const appId = input.app;
   if (!apps.isKnownApp(appId)) throw new InterfaceError('unknown-client', 'Choose a client ID from apps.', 2);
@@ -1672,30 +1967,209 @@ function registerExistingProfileFromCli(input) {
     if (!inspectCodexHome(sessionRoot)) throw new InterfaceError('codex-home-invalid', 'The directory has no recognized Codex state.', 2);
     return registerCodexHome(sessionRoot, name);
   }
-
-  const client = apps.getApp(appId);
-  const officialPath = defaultProfilePath(appId);
-  const homeKey = codexHomeKey(sessionRoot);
-  const officialHomeKey = codexHomeKey(client.defaultSessionRoot(officialPath, true));
-  const profilePath = client.cliDiscoveryId ? sessionRoot
-    : input['profile-path'] ? requireCliDirectory(input['profile-path'])
-      : (homeKey === officialHomeKey ? canonicalDirectory(officialPath) : null);
-  const profileKey = codexHomeKey(profilePath);
-  const isDefault = !client.cliDiscoveryId && Boolean(profileKey)
-    && profileKey === codexHomeKey(officialPath) && homeKey === officialHomeKey;
-  if (client.profileIsolation?.mode === 'official-default-only' && !isDefault) {
-    throw new InterfaceError('client-default-only', 'This client launches from its official desktop directory only.', 5);
-  }
-  const existing = loadProfiles().find((profile) => (
-    profile.appId === appId && codexHomeKey(profile.sessionRoot) === homeKey
-    && (client.cliDiscoveryId || !profileKey || codexHomeKey(profile.profilePath) === profileKey)
-  ));
-  if (existing) return { profileId: existing.id, existing: true };
-  const profile = createStoredProfile({ appId, name }, { externalLocation: { profilePath, sessionRoot, isDefault } });
-  return { profileId: profile.id };
+  locationRegistrar.planExistingLocation({ appId, sessionRoot, profilePath: input['profile-path'], name }, loadProfiles());
+  const [result] = registerLocations([{ appId, sessionRoot, profilePath: input['profile-path'], name }]);
+  if (!result.ok) throw new InterfaceError(result.reasonCode, 'The location could not be registered.', 2);
+  return { profileId: result.profileId, ...(result.existing ? { existing: true } : {}) };
 }
 
-async function runCliProfileAction(command, input) {
+// ── 调度中枢 ────────────────────────────────────────
+const HUB_COMMANDS = new Set(['agents list', 'run', 'runs list', 'runs status', 'runs output', 'runs stop']);
+const HUB_DESKTOP_COMMANDS = new Set(['agents list', 'run', 'runs stop']);
+// Fixed, non-sensitive messages; exit 2 invalid call, 3 not found, 5 unsupported, 1 try later.
+const HUB_ERRORS = {
+  'agent-required': [2, 'Name the account with --agent.'],
+  'title-required': [2, 'Give the run a short --title.'],
+  'prompt-required': [2, 'The prompt on standard input is empty.'],
+  'prompt-too-large': [2, 'The prompt is larger than 64 KiB. Put long material in a file inside the working folder and refer to it.'],
+  'access-invalid': [2, 'Use --access read or --access write.'],
+  'depth-limit': [2, 'Calls nest at most two levels. This Agent was itself called by another.'],
+  'agent-ambiguous': [2, 'More than one allowed account has that name. Use one of the IDs.'],
+  'write-not-allowed': [2, 'This account is not allowed to edit files. Ask the person to switch it on in AgentDesk, or use --access read.'],
+  'cwd-invalid': [2, 'Use an absolute working directory without control characters.'],
+  'cwd-not-allowed': [2, 'The working directory is not inside a folder allowed in AgentDesk. Ask the person to allow it on the System page.'],
+  'cwd-missing': [3, 'The working directory does not exist.'],
+  'agent-not-found': [3, 'No allowed account has that name or ID. Use agents list; the person switches accounts on in AgentDesk.'],
+  'run-not-found': [3, 'No run has that ID.'],
+  'client-unsupported': [5, 'This client cannot run in the background. Desktop-only clients need the same account\'s command-line client.'],
+  'home-missing': [4, 'The account\'s folder is missing. Check the account in AgentDesk.'],
+  'not-signed-in': [1, 'The account is not signed in. The person signs it in from AgentDesk.'],
+  'client-missing': [1, 'The account\'s command-line client is not installed or was not found.'],
+  'quota-exhausted': [1, 'The account is almost out of quota, so it does not take new runs.'],
+  'agent-busy': [1, 'This account is already running a background conversation. One run per account.'],
+  'run-limit': [1, 'The limit of background runs set in AgentDesk is reached. Nothing was queued; try again later.'],
+  'desktop-not-running': [1, 'Open AgentDesk first. Background runs are supervised by the running desktop.']
+};
+
+function hubInterfaceError(error) {
+  if (!(error instanceof HubError)) return error;
+  const [exitCode, message] = HUB_ERRORS[error.code] || [1, 'The background run could not be started.'];
+  const extra = error.code === 'agent-ambiguous' && Array.isArray(error.details)
+    ? { candidates: error.details }
+    : (error.code === 'client-unsupported' && error.details?.reason ? { reason: error.details.reason } : null);
+  return new InterfaceError(error.code, message, exitCode, extra);
+}
+
+function hubStoreFile() {
+  return path.join(app.getPath('userData'), 'agent-hub.json');
+}
+
+function hubCatNames(profiles) {
+  let names = new Map();
+  try { names = getMeshService().localAgentNames(); } catch (_error) { names = new Map(); }
+  const groups = IdentityGroups.groupProfilesByIdentity(profiles.map((profile) => ({
+    ...profile, identityFingerprint: identityFingerprint(profile)
+  })));
+  for (const group of groups) {
+    for (const member of group.members) {
+      if (!names.has(String(member.id))) names.set(String(member.id), group.primary.name);
+    }
+  }
+  return names;
+}
+
+function hubEnergy(snapshot) {
+  try { return deriveEnergy(snapshot); } catch (_error) { return 'unknown'; }
+}
+
+function hubLocateSession(profile, sessionId) {
+  const app_ = apps.getApp(profile.appId);
+  if (app_.sessionScanSupported === false) return null;
+  const match = app_.scan(profile).find((session) => String(session.address || session.id || '') === sessionId);
+  return match?.filePath || null;
+}
+
+// Run state is pushed at each transition (starting, running, session found,
+// ended); the Renderer never polls for it.
+function notifyHubChanged(record = null) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const run = record && agentHub ? agentHub.publicRun(record) : null;
+  mainWindow.webContents.send('hub:changed', run ? { run: { ...run, cwd: undefined } } : {});
+}
+
+function getAgentHub() {
+  if (agentHub) return agentHub;
+  const store = new HubStore({ file: hubStoreFile() });
+  const runner = new HubRunner({ store, locateSession: hubLocateSession, onChange: notifyHubChanged });
+  agentHub = createAgentHub({
+    store,
+    runner,
+    loadProfiles,
+    catNames: hubCatNames,
+    findLauncher: (toolId) => { try { return discoverCli(toolId); } catch (_error) { return null; } },
+    homeExists: (profile) => {
+      try { return fs.statSync(profile.sessionRoot).isDirectory(); } catch (_error) { return false; }
+    },
+    // Files-only check; "no" only when it is certain (a keychain-held or
+    // unconfirmed sign-in stays unknown and does not block a run).
+    signInState: async (profile) => {
+      const status = await accountCredentials.credentialStatus(profile, credentialContext());
+      return status.signedIn === false && status.note ? null : status.signedIn;
+    },
+    energyPeek: (profile) => hubEnergy(quotaService.peek(profile)),
+    energyCheck: async (profile) => hubEnergy(await quotaService.get(profile)),
+    baseEnv: () => process.env,
+    launchEnv: (profile, env) => apps.getApp(profile.appId).launchEnv(profile, env),
+    // Which folder each account's client would carry in that variable.
+    callerHomeFor: (profile, key) => {
+      const discovery = apps.getApp(profile.appId).discovery;
+      if (!profile.sessionRoot || discovery?.envVar !== key) return null;
+      return discovery.envSubdir && path.basename(profile.sessionRoot) === discovery.envSubdir
+        ? path.dirname(profile.sessionRoot)
+        : profile.sessionRoot;
+    }
+  });
+  agentHub.store = store;
+  return agentHub;
+}
+
+async function runHubCommand(command, input, extra = {}) {
+  if (cliOnlyInstance && HUB_DESKTOP_COMMANDS.has(command)) throw hubInterfaceError(new HubError('desktop-not-running'));
+  const hub = getAgentHub();
+  try {
+    if (command === 'agents list') return await hub.agentsList();
+    if (command === 'run') {
+      return await hub.startRun({
+        agent: input.agent,
+        title: input.title,
+        cwd: input.cwd,
+        from: input.from,
+        access: input.access,
+        prompt: extra.prompt,
+        depth: extra.context?.depth,
+        parentRunId: extra.context?.parentRunId,
+        callerHomes: extra.context?.homes
+      });
+    }
+    if (command === 'runs list') return hub.list(input.limit);
+    if (command === 'runs status') return hub.status(input.run);
+    if (command === 'runs output') return hub.output(input.run);
+    if (command === 'runs stop') return await hub.stop(input.run);
+  } catch (error) {
+    throw hubInterfaceError(error);
+  }
+  throw new InterfaceError('unknown-command', 'Unknown command. Use capabilities.', 2);
+}
+
+// Which clients can be called at all, for the dossier and the System page.
+// `via` names the command-line client a call actually runs.
+function hubClientSupport() {
+  return Object.fromEntries(apps.appIds().map((appId) => [appId, adapterFor(appId)
+    ? { callable: true, reason: null, via: adapterFor(appId).label }
+    : { callable: false, reason: unsupportedReason(appId), via: null }]));
+}
+
+// Every local account with the name a caller uses for it (the same names the
+// CLI roster shows) and its two switches. No paths, no sign-in details.
+function hubAccounts() {
+  const profiles = loadProfiles();
+  const names = hubCatNames(profiles);
+  return profiles.map((profile) => {
+    const access = normalizeAccess(profile.hub);
+    return {
+      id: String(profile.id),
+      name: String(names.get(String(profile.id)) || profile.name || profile.id).slice(0, 120),
+      callable: access.callable,
+      writable: access.writable
+    };
+  });
+}
+
+function hubPublicState() {
+  const hub = getAgentHub();
+  const home = os.homedir();
+  return {
+    accounts: hubAccounts(),
+    folders: hub.store.folders().map((folder) => ({
+      id: folder.id,
+      name: path.basename(folder.path) || folder.path,
+      displayPath: folder.path.startsWith(`${home}${path.sep}`) ? `~${folder.path.slice(home.length)}` : folder.path
+    })),
+    maxConcurrent: hub.store.maxConcurrent(),
+    running: hub.activeCount(),
+    clients: hubClientSupport(),
+    runs: hub.list(50).runs.map((run) => ({ ...run, cwd: undefined }))
+  };
+}
+
+// The two dossier switches. Only the desktop window changes them; the CLI has
+// no command for it, so an Agent cannot grant itself or another access.
+function setHubAccess(input = {}) {
+  const profileId = boundedText(input.profileId, 128);
+  const profile = loadProfiles().find((item) => item.id === profileId);
+  if (!profile) return { ok: false, reasonCode: 'profile-not-found' };
+  const callable = input.callable === true;
+  if (callable && !adapterFor(profile.appId)) return { ok: false, reasonCode: 'client-unsupported', reason: unsupportedReason(profile.appId) };
+  const next = updateStoredProfile(profileId, (current) => ({
+    ...current,
+    hub: normalizeAccess({ callable, writable: input.writable === true })
+  }));
+  notifyHubChanged();
+  return { ok: true, profileId, hub: normalizeAccess(next?.hub) };
+}
+
+async function runCliProfileAction(command, input, extra = {}) {
+  if (HUB_COMMANDS.has(command)) return runHubCommand(command, input, extra);
   if (command === 'profiles launch') {
     const result = await launchStoredProfile(input.profile);
     if (!result.ok) throw new InterfaceError(result.reasonCode || 'profile-launch-failed', 'The client could not be opened. Check the selected profile and launcher.');
@@ -1704,10 +2178,50 @@ async function runCliProfileAction(command, input) {
   let result;
   if (command === 'profiles register') result = registerExistingProfileFromCli(input);
   else if (command === 'profiles import-auth') {
-    if (input.app !== 'codex') throw new InterfaceError('credential-import-unsupported', 'Check apps for supported credential-file formats.', 5);
-    const imported = await codexImportResult(() => importCodexAuth(input.file));
-    if (!imported.ok) throw new InterfaceError(imported.reasonCode, 'Codex credential-file import failed.');
-    result = { profileId: imported.profileId, existing: imported.existing === true };
+    if (!apps.isKnownApp(input.app)) throw new InterfaceError('unknown-client', 'Choose a client ID from apps.', 2);
+    const imported = await accountResult(() => importCredentialFile(input.app, input.file), 'credential-import-failed');
+    if (!imported.ok) {
+      const unsupported = ['credential-import-unsupported', 'credential-import-unsupported-platform'].includes(imported.reasonCode);
+      throw new InterfaceError(imported.reasonCode, 'Credential-file import failed. Check apps for supported file formats.', unsupported ? 5 : 1);
+    }
+    result = {
+      profileId: imported.profileId,
+      existing: imported.existing === true,
+      inPlace: imported.inPlace === true,
+      copied: imported.copied === true,
+      warnings: [
+        ...(imported.copied ? ['The sign-in now exists in two places. Refresh tokens are often single use, so the original place may sign out.'] : []),
+        ...(imported.warnings || [])
+      ]
+    };
+  } else if (command === 'profiles create') {
+    result = createLocalAccount({ appId: input.app, name: input.name });
+  } else if (command === 'profiles set-key') {
+    if (typeof extra.secret !== 'string' || !extra.secret) {
+      throw new InterfaceError('secret-stdin-required', 'Pipe the key or token on standard input; it is never accepted as an argument.', 2);
+    }
+    const applied = await accountResult(() => applyProfileSecret(input.profile, {
+      method: input.method === 'provider' ? 'provider' : 'key',
+      secret: extra.secret,
+      provider: { id: input['provider-id'], baseUrl: input['base-url'], model: input.model },
+      catalogProviderId: input['catalog-provider'],
+      model: input.model
+    }), 'credential-apply-failed');
+    if (!applied.ok) {
+      const invalid = ['secret-invalid', 'provider-id-invalid', 'provider-url-invalid', 'provider-model-invalid'].includes(applied.reasonCode);
+      const unsupported = applied.reasonCode === 'credential-method-unsupported';
+      throw new InterfaceError(applied.reasonCode, applied.reasonCode === 'profile-not-found'
+        ? 'No Profile matches that ID.' : 'The key or token was not applied. Nothing secret is included in this error.',
+      applied.reasonCode === 'profile-not-found' ? 3 : invalid ? 2 : unsupported ? 5 : 1);
+    }
+    result = {
+      profileId: applied.profileId,
+      method: applied.method,
+      via: applied.via,
+      storedInPlaintext: applied.plaintextWarning === true,
+      status: applied.status,
+      existing: true
+    };
   } else {
     throw new InterfaceError('unknown-command', 'Unknown profile action. Use capabilities.', 2);
   }
@@ -1859,6 +2373,9 @@ function getProvisioningService() {
           lastLaunchedAt: null,
           group: agent.group,
           note: agent.note,
+          cat: agent.catAppearance && typeof agent.catAppearance === 'object'
+            ? { ...agent.catAppearance }
+            : defaultCatForClient(descriptor.appId, id),
           provisioningJobId: job.jobId
         });
       },
@@ -2853,6 +3370,7 @@ function saveProfiles(profiles, options = {}) {
     { ...options, backupFile: profilesBackupFile() }
   );
   profileRuntimeSupervisor?.updateProfiles(profiles);
+  void agentHub?.profilesChanged(profiles).catch(() => {});
 }
 
 function updateStoredProfile(id, mutator) {

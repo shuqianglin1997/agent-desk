@@ -32,7 +32,7 @@ test('ordinary Agent creation prepares only the newly created Agent on this devi
       ensureAgentReady: async input => { requests.push(input); return { state: 'waiting-login' }; }
     } }
   });
-  vm.runInContext(fn('confirmAgentCreation'), context);
+  vm.runInContext(fn('confirmAgentCreation') + '\n' + fn('createAgentAndPrepare'), context);
   await context.confirmAgentCreation();
   assert.equal(requests[0].displayName, 'Company');
   assert.equal(refreshes[0].deviceLensId, 'local');

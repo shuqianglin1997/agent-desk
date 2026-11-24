@@ -109,6 +109,12 @@ class QuotaService {
     this.cache.delete(String(profileId));
   }
 
+  // The last cached snapshot, without starting a request (调度中枢 roster).
+  peek(profile) {
+    const cached = this.cache.get(String(profile.id));
+    return cached?.key === profileCacheKey(profile) ? cached.value : null;
+  }
+
   async get(profile, options = {}) {
     const id = String(profile.id);
     const key = profileCacheKey(profile);

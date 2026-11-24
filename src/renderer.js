@@ -15,6 +15,8 @@ const state = {
   quotas: {},
   quotaError: null,
   quotaAnchor: null,
+  // 档案或额度浮层打开期间被操作的那只猫；平时为空，等于正在看的那只。
+  actionAgentId: null,
   profileQuitBehavior: 'close',
   welcomed: false,
   onboardingProgress: { completedVersion: 0, completedAt: null },
@@ -52,6 +54,22 @@ const state = {
     transfers: [],
     transferLoading: false,
     transferMessage: ''
+  },
+  // 调度中枢：Main 推过来的后台对话（公开字段）。pending 是信封还在路上的那几段，落地后才进账本。
+  hub: {
+    runs: new Map(),
+    pending: new Map(),
+    fresh: new Set(),
+    overrides: new Map(),
+    lastStartByCaller: new Map(),
+    sent: [],
+    ticker: null,
+    // 档案里的两个开关与系统页的文件夹、上限：只在桌面窗口里改，数据来自 Main 的 hub:state
+    accounts: [],
+    clients: {},
+    folders: [],
+    maxConcurrent: 2,
+    saving: false
   },
   taskPackages: {
     history: [],
@@ -92,8 +110,23 @@ function currentAgentId() {
   return window.UiContext.selectedAgentId(state.ui);
 }
 
+// 卡片上的动作作用于哪只猫：档案或额度打开时可以不是正在看的那只，
+// 这样在别的猫身上做事不会带动下面的会话列表。
+function actionAgentId() {
+  const id = state.actionAgentId;
+  if (id && id !== currentAgentId() && identityGroups().some((group) => group.key === id)) return id;
+  return currentAgentId();
+}
+
+function setActionAgent(agentId) {
+  const next = agentId && agentId !== currentAgentId() ? agentId : null;
+  if (state.actionAgentId === next) return;
+  state.actionAgentId = next;
+  renderAccountHeader();
+}
+
 function currentSlotKey() {
-  return window.UiContext.selectedSlotKey(state.ui);
+  return window.UiContext.selectedSlotKey(state.ui, currentDeviceLensId(), actionAgentId());
 }
 
 function activeOutgoingRemoteSessions() {
@@ -104,8 +137,8 @@ function activeOutgoingRemoteSessions() {
 }
 
 function currentProfileId() {
-  const group = identityGroups().find((item) => item.key === currentAgentId());
-  return selectedGroupProfile(group)?.id || null;
+  const group = identityGroups().find((item) => item.key === actionAgentId());
+  return cardActionProfile(group)?.id || null;
 }
 
 function updateUi(next) {
@@ -126,7 +159,10 @@ async function loadApps() {
           taskPackageMode: ['native', 'transcript'].includes(a.taskPackageMode) ? a.taskPackageMode : 'unsupported',
           canLaunch: a.canLaunch !== false,
           canProvision: a.canProvision === true,
-          provisioningClientForm: a.provisioningClientForm || null
+          provisioningClientForm: a.provisioningClientForm || null,
+          signIn: a.signIn && typeof a.signIn === 'object' ? a.signIn : null,
+          discoveryKind: a.discoveryKind || null,
+          defaultOnly: a.defaultOnly === true
         }
       ]));
     }
@@ -154,6 +190,9 @@ function appLabel(appId) {
 }
 const els = {
   accountRoster: document.querySelector('#accountRoster'),
+  rosterAllCard: document.querySelector('#rosterAllCard'),
+  rosterAllMeta: document.querySelector('#rosterAllMeta'),
+  sessionTitle: document.querySelector('#sessionTitle'),
   accountCardTemplate: document.querySelector('#accountCardTemplate'),
   presenterCount: document.querySelector('#presenterCount'),
   quotaChipAll: document.querySelector('#quotaChipAll'),
@@ -161,17 +200,20 @@ const els = {
   remoteActivityBtn: document.querySelector('#remoteActivityBtn'),
   langToggle: document.querySelector('#langToggle'),
   agentManageDialog: document.querySelector('#agentManageDialog'),
+  agentManageName: document.querySelector('#agentManageName'),
+  agentManageLocations: document.querySelector('#agentManageLocations'),
+  agentManageNoLocation: document.querySelector('#agentManageNoLocation'),
+  agentManageAccountsNote: document.querySelector('#agentManageAccountsNote'),
+  agentManageStatus: document.querySelector('#agentManageStatus'),
   agentManageSummary: document.querySelector('#agentManageSummary'),
   agentManageRuntimeLabel: document.querySelector('#agentManageRuntimeLabel'),
   yardManageActions: document.querySelector('#yardManageActions'),
   addRuntimeLocationBtn: document.querySelector('#addRuntimeLocationBtn'),
-  toolCenterBtn: document.querySelector('#toolCenterBtn'),
+  systemBtn: document.querySelector('#systemBtn'),
   activityCenterBtn: document.querySelector('#activityCenterBtn'),
   activityCountBadge: document.querySelector('#activityCountBadge'),
-  settingsBtn: document.querySelector('#settingsBtn'),
   deviceCenterBtn: document.querySelector('#deviceCenterBtn'),
   deviceLensSelect: document.querySelector('#deviceLensSelect'),
-  windowAddMenu: document.querySelector('#windowAddMenu'),
   deviceCountBadge: document.querySelector('#deviceCountBadge'),
   mainGrid: document.querySelector('#mainGrid'),
   detailPanel: document.querySelector('#detailPanel'),
@@ -259,11 +301,10 @@ const els = {
   chooseFilesBtn: document.querySelector('#chooseFilesBtn'),
   confirmSessionSendBtn: document.querySelector('#confirmSessionSendBtn'),
   sessionSendStatus: document.querySelector('#sessionSendStatus'),
-  transferCenterBtn: document.querySelector('#transferCenterBtn'),
   importTaskPackageBtn: document.querySelector('#importTaskPackageBtn'),
-  transferCenterDialog: document.querySelector('#transferCenterDialog'),
+  inboxRecords: document.querySelector('#inboxRecords'),
   activityCenterDialog: document.querySelector('#activityCenterDialog'),
-  settingsDialog: document.querySelector('#settingsDialog'),
+  systemDialog: document.querySelector('#systemDialog'),
   refreshTransfersBtn: document.querySelector('#refreshTransfersBtn'),
   transferList: document.querySelector('#transferList'),
   taskPackageHistory: document.querySelector('#taskPackageHistory'),
@@ -273,7 +314,6 @@ const els = {
   incomingTaskPackages: document.querySelector('#incomingTaskPackages'),
   incomingTaskPackageCount: document.querySelector('#incomingTaskPackageCount'),
   incomingTaskPackageList: document.querySelector('#incomingTaskPackageList'),
-  toolCenterDialog: document.querySelector('#toolCenterDialog'),
   toolCenterStatus: document.querySelector('#toolCenterStatus'),
   toolSummary: document.querySelector('#toolSummary'),
   toolCheckedAt: document.querySelector('#toolCheckedAt'),
@@ -313,8 +353,6 @@ const els = {
   quotaMessage: document.querySelector('#quotaMessage'),
   sessionCount: document.querySelector('#sessionCount'),
   searchInput: document.querySelector('#searchInput'),
-  sessionScopeCurrentBtn: document.querySelector('#sessionScopeCurrentBtn'),
-  sessionScopeAllBtn: document.querySelector('#sessionScopeAllBtn'),
   sessionCompactBtn: document.querySelector('#sessionCompactBtn'),
   sessionDetailBtn: document.querySelector('#sessionDetailBtn'),
   sessionDisplayMenu: document.querySelector('#sessionDisplayMenu'),
@@ -327,6 +365,20 @@ const els = {
   sessionTable: document.querySelector('#sessionTable'),
   sessionHead: document.querySelector('#sessionHead'),
   sessionRows: document.querySelector('#sessionRows'),
+  hubLinks: document.querySelector('#hubLinks'),
+  hubFooter: document.querySelector('#hubFooter'),
+  hubCallingSection: document.querySelector('#hubCallingSection'),
+  hubCallingName: document.querySelector('#hubCallingName'),
+  hubAllowCall: document.querySelector('#hubAllowCall'),
+  hubAllowWrite: document.querySelector('#hubAllowWrite'),
+  hubAllowCallState: document.querySelector('#hubAllowCallState'),
+  hubAllowWriteState: document.querySelector('#hubAllowWriteState'),
+  hubCallingNotes: document.querySelector('#hubCallingNotes'),
+  hubAddFolderBtn: document.querySelector('#hubAddFolderBtn'),
+  hubFolderList: document.querySelector('#hubFolderList'),
+  hubMaxConcurrent: document.querySelector('#hubMaxConcurrent'),
+  sendSessionInfoLabel: document.querySelector('#sendSessionInfoLabel'),
+  deskParked: document.querySelector('#deskParked'),
   copySessionInfoBtn: document.querySelector('#copySessionInfoBtn'),
   sendSessionInfoBtn: document.querySelector('#sendSessionInfoBtn'),
   statusBar: document.querySelector('#statusBar'),
@@ -386,6 +438,7 @@ const els = {
   commitTaskPackageBtn: document.querySelector('#commitTaskPackageBtn'),
   profileDialog: document.querySelector('#profileDialog'),
   codexImportBtn: document.querySelector('#codexImportBtn'),
+  recruitDialog: document.querySelector('#recruitDialog'),
   codexImportDialog: document.querySelector('#codexImportDialog'),
   codexAuthDrop: document.querySelector('#codexAuthDrop'),
   codexHomeList: document.querySelector('#codexHomeList'),
@@ -421,6 +474,8 @@ const els = {
   editNote: document.querySelector('#editNote'),
   confirmEditBtn: document.querySelector('#confirmEditBtn'),
   editCatCanvas: document.querySelector('#editCatCanvas'),
+  editCatLookName: document.querySelector('#editCatLookName'),
+  editCatLookNote: document.querySelector('#editCatLookNote'),
   editCatRandom: document.querySelector('#editCatRandom'),
   editBreedSwatches: document.querySelector('#editBreedSwatches'),
   editCollarSwatches: document.querySelector('#editCollarSwatches'),
@@ -516,21 +571,39 @@ const toolCenter = window.createToolCenter({
 });
 state.tools = toolCenter.state;
 const { refreshToolInventory, renderToolCenter, handleToolProgress } = toolCenter;
+// 招募：一个弹窗四段（新来一只、把已有的领回来、拖进来、交给 AI）。
+const recruitDialog = window.createRecruitDialog({
+  document,
+  manager: window.manager,
+  tr,
+  platform: window.manager.windowPlatform,
+  getApps: () => Object.entries(state.appMeta).map(([id, meta]) => ({ id, ...meta })),
+  isMeshReady: () => state.mesh.overview?.initialized === true,
+  createWithMesh: ({ displayName, appId }) => createAgentAndPrepare({ displayName, requestedAppId: appId }),
+  afterAccountChange: (profileId) => afterRecruitedAccount(profileId)
+});
+
+// 启动阶段同时广播出去：开灯编排（pixel/boot.js）据此在页脚如实说正在等什么。
+function setStartupStage(stage, step = null) {
+  state.startupStage = stage;
+  document.dispatchEvent(new CustomEvent('agentdesk:startup', { detail: { stage, step } }));
+}
 
 window.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.dataset.windowPlatform = window.manager.windowPlatform || 'browser';
-  state.startupStage = 'settings-loading';
+  setStartupStage('settings-loading');
   await loadUserSettings();
   initTheme();
   mountWorkspaceSurfaces();
   bindEvents();
   await loadApps();
+  setStartupStage('settings-loading', 'devices');
   await loadDeviceOverview({ silent: true, skipWorkspaceRefresh: true });
-  state.startupStage = 'profiles-loading';
+  setStartupStage('profiles-loading');
   await loadProfiles(null, { presentFirstUseBeforeSessions: true });
-  state.startupStage = 'task-package-history-loading';
+  setStartupStage('task-package-history-loading');
   await loadTaskPackageHistory();
-  state.startupStage = 'ready';
+  setStartupStage('ready');
   loadActivity();
   loadQuotas();
   // 卡片中的活动和最近活跃在可见时定时刷新。
@@ -610,6 +683,7 @@ function applyUserSettings(value = {}) {
   state.sessionView = value.sessionView === 'detail' ? 'detail' : 'compact';
   state.profileQuitBehavior = value.profileQuitBehavior === 'keep' ? 'keep' : 'close';
   if (els.profileQuitBehavior) els.profileQuitBehavior.value = state.profileQuitBehavior;
+  window.PixelUi?.setSound?.(value);
   state.welcomed = value.welcomed === true;
   state.onboardingProgress = window.OnboardingState
     ? window.OnboardingState.normalizeProgress(value.onboarding)
@@ -675,6 +749,7 @@ function persistUiSelectionMemory(extra = {}) {
 function initTheme() {
   const theme = state.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = theme;
+  updateThemeToggle();
 }
 
 function onboardingNeedsPresentation() {
@@ -731,8 +806,12 @@ function openFirstUseDialog(options = {}) {
   return true;
 }
 
+// 全新安装从空台面上的“招募第一只猫”开始，不再一启动就弹窗。
+// 台面上已经有东西时仍在启动时出现：旧安装要确认无损迁移，中途退出的首次使用要回到原来的步骤。
 function maybeShowWelcome() {
   if (!onboardingNeedsPresentation()) return;
+  const emptyDesk = !state.profiles.length && !(state.mesh.overview?.agents || []).length;
+  if (emptyDesk) return;
   openFirstUseDialog();
 }
 
@@ -1134,42 +1213,99 @@ function recordFirstUseCompletion(patch) {
   persistSettings(patch);
 }
 
-function closeAgentManageDialog() {
-  if (els.agentManageDialog?.open) els.agentManageDialog.close();
-}
-
+// 猫的档案：一页五段（资料、位置、账号、调用、送走）。位置段列出这只猫在当前设备视角下的每个运行位置，
+// 展开哪个，下面那排动作就作用于哪个；子流程叠在档案上面，做完回到这一页。
 function renderAgentManageContext() {
+  const group = identityGroups().find((item) => item.key === actionAgentId()) || null;
+  if (els.agentManageDialog?.open && !group) {
+    // 这只猫已经不在了（被送走或并入别的猫）。
+    els.agentManageDialog.close();
+    return;
+  }
   const profile = selectedProfile();
   const localProfile = Boolean(profile && profile._remote !== true);
-  const agent = catalogAgentById(currentAgentId());
-  const group = identityGroups().find((item) => item.key === currentAgentId()) || null;
+  const agent = catalogAgentById(actionAgentId());
   const agentName = agent?.displayName || group?.primary?.name || profile?.name || tr('account.noneAgent');
-  if (els.agentManageSummary) {
-    els.agentManageSummary.textContent = `${agentName} · ${tr('account.manageHint')}`;
-  }
-  if (els.agentManageRuntimeLabel) {
-    const group = identityGroups().find((item) => item.key === currentAgentId()) || null;
-    els.agentManageRuntimeLabel.textContent = profile
-      ? [profile._meshDeviceName, profile.name, appLabel(profile.appId)].filter(Boolean).join(' · ')
-      : (group ? deploymentStateLabel(group.readiness?.state) : tr('devices.slot.choose'));
+  if (els.agentManageName) els.agentManageName.textContent = agentName;
+  if (els.agentManageSummary) els.agentManageSummary.textContent = tr('account.manageHint');
+  renderAgentManageLocations(group, profile);
+  renderHubCalling(group, profile);
+  if (els.agentManageAccountsNote) {
+    els.agentManageAccountsNote.hidden = state.mesh.overview?.initialized === true;
   }
   if (els.stopProfileBtn) els.stopProfileBtn.disabled = !localProfile;
   if (els.cleanCrashpadBtn) els.cleanCrashpadBtn.disabled = !localProfile;
 }
 
+function agentManageLocationLabel(member) {
+  const device = member._remote ? member._meshDeviceName : tr('devices.device.local');
+  return [device, appLabel(member.appId), member.name].filter(Boolean).join(' · ');
+}
+
+function renderAgentManageLocations(group, profile) {
+  const list = els.agentManageLocations;
+  const actions = els.yardManageActions;
+  if (!list || !actions) return;
+  const members = group?.members || [];
+  if (els.agentManageRuntimeLabel) {
+    // 有位置时下面的行已经写明了，段标题旁只在还没有位置时说明状态。
+    els.agentManageRuntimeLabel.textContent = members.length
+      ? ''
+      : (group ? deploymentStateLabel(group.readiness?.state) : tr('devices.slot.choose'));
+  }
+  // 先把共用的那排动作挪回段尾，再重建位置行，避免它跟着旧行一起被移除。
+  list.after(actions);
+  list.replaceChildren();
+  for (const member of members) {
+    const expanded = Boolean(profile && member.id === profile.id);
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'dossier-location';
+    row.dataset.profileId = member.id;
+    row.setAttribute('aria-expanded', String(expanded));
+    row.setAttribute('aria-controls', 'yardManageActions');
+    const label = document.createElement('span');
+    label.textContent = agentManageLocationLabel(member);
+    const hint = document.createElement('small');
+    hint.textContent = member._remote
+      ? tr(member._deviceStatus === 'online' ? 'dossier.location.remoteOnline' : 'dossier.location.remoteOffline')
+      : tr('dossier.location.local');
+    const toggle = document.createElement('b');
+    toggle.textContent = tr(expanded ? 'dossier.location.expanded' : 'dossier.location.expand');
+    row.append(label, hint, toggle);
+    row.addEventListener('click', () => {
+      if (member.id !== currentProfileId()) selectSlot(member.id);
+      renderAgentManageContext();
+      els.agentManageLocations.querySelector('[aria-expanded="true"]')?.focus({ preventScroll: true });
+    });
+    list.append(row);
+    if (expanded) row.after(actions);
+  }
+  actions.hidden = !profile;
+  if (els.agentManageNoLocation) {
+    els.agentManageNoLocation.hidden = members.length > 0;
+    els.agentManageNoLocation.textContent = group
+      ? tr('dossier.location.none', { state: deploymentStateLabel(group.readiness?.state) })
+      : '';
+  }
+}
+
 function openAgentManageDialog() {
   if (!els.agentManageDialog) return;
+  if (els.agentManageStatus) els.agentManageStatus.textContent = '';
   renderAgentManageContext();
   if (!els.agentManageDialog.open) els.agentManageDialog.showModal();
 }
 
+// 从卡片打开档案：作用于这只猫，不选中它，所以正在看的会话列表不变。
+function openAgentDossier(agentId) {
+  if (!identityGroups().some((group) => group.key === agentId)) return;
+  els.quotaPopover?.hidePopover();
+  setActionAgent(agentId);
+  openAgentManageDialog();
+}
+
 function bindEvents() {
-  els.windowAddMenu.addEventListener('click', (event) => {
-    if (!event.target.closest('.context-menu-panel button')) return;
-    const summary = els.windowAddMenu.querySelector('summary');
-    els.windowAddMenu.open = false;
-    summary.focus({ preventScroll: true });
-  }, { capture: true });
   els.remoteActivityBtn?.addEventListener('click', () => {
     const sessions = activeOutgoingRemoteSessions();
     if (!sessions.length) return;
@@ -1179,8 +1315,7 @@ function bindEvents() {
   });
   els.addProfileBtn.addEventListener('click', () => {
     if (onboardingNeedsPresentation() && openFirstUseDialog({ force: true })) return;
-    if (state.mesh.overview?.initialized) openAgentCreationDialog();
-    else openProfileCreationDialog();
+    recruitDialog.open('new');
   });
   bindCodexImportEvents();
   window.manager.onProfileRegistrationsChanged?.(() => {
@@ -1192,7 +1327,7 @@ function bindEvents() {
     })().catch(() => setStatus(tr('codexImport.refreshError')));
   });
   els.addRuntimeLocationBtn?.addEventListener('click', () => {
-    openProfileCreationDialog({ agentId: currentAgentId() });
+    openProfileCreationDialog({ agentId: actionAgentId() });
   });
   els.confirmAddAgentBtn?.addEventListener('click', () => void confirmAgentCreation());
   els.onboardingAgentName?.addEventListener('input', () => {
@@ -1244,8 +1379,7 @@ function bindEvents() {
   });
   els.onboardingAdvancedBtn?.addEventListener('click', () => {
     if (state.firstUse.busy) return;
-    els.welcomeDialog?.close();
-    openProfileCreationDialog();
+    recruitDialog.open('existing');
   });
   els.welcomeDialogCloseBtn?.addEventListener('click', () => {
     if (state.firstUse.busy) return;
@@ -1269,7 +1403,6 @@ function bindEvents() {
   });
 
   els.editProfileBtn.addEventListener('click', () => {
-    closeAgentManageDialog();
     openAgentOrProfileEditor();
   });
   els.confirmEditBtn.addEventListener('click', (event) => {
@@ -1278,22 +1411,25 @@ function bindEvents() {
   });
 
   els.editCatRandom.addEventListener('click', () => {
-    const breeds = window.YardCats.BREED_KEYS;
-    const collars = window.YardCats.COLLAR_COLORS;
-    const accs = window.YardCats.ACCESSORIES;
+    const cats = window.YardCats;
     const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-    catDraft = { breed: pick(breeds), collar: pick(collars), accessory: pick(accs) };
+    const look = pick(cats.LOOK_KEYS);
+    catDraft = { look, collar: pick(catCollarChoices(look)), accessory: pick(cats.ACCESSORY_KEYS) };
     syncCatSwatches();
     renderCatPreview();
   });
 
   els.manageAgentRelationsBtn?.addEventListener('click', () => {
-    closeAgentManageDialog();
     openAgentRelationsDialog();
   });
   els.removeProfileBtn.addEventListener('click', () => {
-    closeAgentManageDialog();
     void openAgentOrProfileRemoval();
+  });
+  els.agentManageDialog?.addEventListener('close', () => {
+    // 档案关上以后，被操作的猫回到正在看的那只。关闭事件晚到、档案已经为另一只猫重新打开时不动它。
+    if (els.agentManageDialog.open) return;
+    setActionAgent(null);
+    renderAccounts();
   });
   els.removeCatalogDialog?.querySelectorAll('input[name="catalogRemoveScope"]').forEach((radio) => {
     radio.addEventListener('change', () => renderCatalogRemovalImpact());
@@ -1352,6 +1488,7 @@ function bindEvents() {
     state.theme = next;
     document.documentElement.dataset.theme = next;
     persistSettings({ theme: next });
+    updateThemeToggle();
   });
 
   els.profileQuitBehavior?.addEventListener('change', () => {
@@ -1382,9 +1519,6 @@ function bindEvents() {
     await Promise.all([loadTransfers(), loadTaskPackageHistory()]);
   });
 
-  els.settingsBtn?.addEventListener('click', () => {
-    openUtilityDialog('settings');
-  });
 
   els.deviceCenterBtn?.addEventListener('click', async () => {
     openUtilityDialog('devices');
@@ -1412,7 +1546,7 @@ function bindEvents() {
       if (!dialog.open && state.utilityDialog === kind) state.utilityDialog = null;
       if (wasCurrent) {
         requestAnimationFrame(() => {
-          if (!document.querySelector('dialog:modal')) button?.focus({ preventScroll: true });
+          if (!document.querySelector('dialog:modal')) utilityDialogFocusTarget(button)?.focus({ preventScroll: true });
         });
       }
     });
@@ -1588,9 +1722,9 @@ function bindEvents() {
     renderTopbarContext();
   });
 
-  // 「工具」入口：统一维护桌面 App 与终端工具。
-  els.toolCenterBtn?.addEventListener('click', async () => {
-    openUtilityDialog('tools');
+  // 「系统」入口：这台电脑上的工具和 AgentDesk 自己的设置在同一页。
+  els.systemBtn?.addEventListener('click', async () => {
+    openUtilityDialog('system');
     renderToolCenter();
     await refreshToolInventory(false);
   });
@@ -1667,9 +1801,30 @@ function bindEvents() {
     });
   }
 
+  if (window.manager.hubState) void loadHub();
+  if (window.manager.onHubChanged) window.manager.onHubChanged((payload) => applyHubChange(payload?.run));
+  window.AgentHubUi?.installTips?.(document, tr);
+  els.hubAllowCall?.addEventListener('change', () => {
+    const callable = els.hubAllowCall.checked;
+    void saveHubAccess({ callable, writable: callable && els.hubAllowWrite.checked });
+  });
+  els.hubAllowWrite?.addEventListener('change', () => {
+    void saveHubAccess({ callable: els.hubAllowCall.checked, writable: els.hubAllowCall.checked && els.hubAllowWrite.checked });
+  });
+  els.hubAddFolderBtn?.addEventListener('click', () => void addHubFolder());
+  els.hubFolderList?.addEventListener('click', (event) => {
+    const button = event.target.closest?.('button[data-folder-id]');
+    if (button) void removeHubFolder(button.dataset.folderId);
+  });
+  els.hubMaxConcurrent?.addEventListener('change', () => void setHubLimit(Number(els.hubMaxConcurrent.value)));
+  els.accountRoster?.addEventListener('scroll', () => renderHubLinks(), { passive: true });
+  window.addEventListener('resize', () => renderHubLinks());
+
   if (window.manager.onTransfersChanged) {
     window.manager.onTransfersChanged((transfers) => {
+      const previousTransfers = state.mesh.transfers;
       state.mesh.transfers = Array.isArray(transfers) ? transfers : [];
+      deskTransfersChanged(previousTransfers, state.mesh.transfers);
       const latest = state.mesh.transfers.find((item) => item.direction === 'incoming' && item.state === 'received');
       if (latest) {
         const messageKey = latest.type === 'task-package'
@@ -1734,7 +1889,6 @@ function bindEvents() {
   els.pathConfigBtn.addEventListener('click', () => {
     const profile = selectedProfile();
     if (!profile) return;
-    closeAgentManageDialog();
     els.profilePathInput.value = profile.profilePath || '';
     els.sessionRootInput.value = profile.sessionRoot || '';
     els.executablePathInput.value = profile.executablePath || '';
@@ -1788,7 +1942,6 @@ function bindEvents() {
   });
 
   els.diagnosticsBtn.addEventListener('click', async () => {
-    closeAgentManageDialog();
     await showDiagnostics();
   });
 
@@ -1800,7 +1953,6 @@ function bindEvents() {
     setStatus(result.ok
       ? tr('status.profileStopped', { name: profile.name })
       : tr('status.profileStopFailed', { code: result.reasonCode || 'profile-stop-failed' }));
-    closeAgentManageDialog();
     await loadActivity();
   });
 
@@ -1812,7 +1964,6 @@ function bindEvents() {
     setStatus(result.ok
       ? tr('status.crashpadCleaned', { n: result.removedFiles || 0 })
       : tr('status.crashpadCleanFailed', { code: result.reasonCode || 'crashpad-clean-failed' }));
-    closeAgentManageDialog();
   });
 
   els.copyDiagnosticsBtn.addEventListener('click', async () => {
@@ -1824,13 +1975,11 @@ function bindEvents() {
   els.profileFolderBtn.addEventListener('click', async () => {
     const profile = selectedProfile();
     if (!profile) return;
-    closeAgentManageDialog();
     const result = await window.manager.openPath(profile.profilePath);
     setStatus(result.message || result.reason || (result.ok ? tr('status.openAcctDirOk') : tr('status.openAcctDirFail')));
   });
 
   els.refreshBtn.addEventListener('click', async () => {
-    closeAgentManageDialog();
     const profile = selectedProfile();
     if (profile?._remote === true && window.manager.refreshMeshInventory) {
       await refreshRemoteInventoryForDevice(profile._meshDeviceId);
@@ -1850,6 +1999,8 @@ function bindEvents() {
     if (event.newState !== 'closed') return;
     state.quotaAnchor?.setAttribute('aria-expanded', 'false');
     state.quotaAnchor = null;
+    // 额度浮层收起后，被操作的猫回到正在看的那只；档案开着时由档案负责。
+    if (!els.agentManageDialog?.open) setActionAgent(null);
   });
   els.accountRoster.addEventListener('scroll', positionQuotaPopover, { passive: true });
   window.addEventListener('resize', positionQuotaPopover);
@@ -1888,12 +2039,8 @@ function bindEvents() {
   });
 
 
-  els.sessionScopeCurrentBtn?.addEventListener('click', () => {
-    void setSessionScope('current');
-  });
-
-  els.sessionScopeAllBtn?.addEventListener('click', () => {
-    void setSessionScope('all');
+  els.rosterAllCard?.addEventListener('click', () => {
+    void pickRosterAll();
   });
 
   els.sessionCompactBtn?.addEventListener('click', () => {
@@ -1922,6 +2069,7 @@ function bindEvents() {
       sessions.length === 1 ? 'status.sessionInfoCopied' : 'status.sessionInfosCopied',
       { n: sessions.length }
     ));
+    window.PixelUi?.copied(sessions.map((session) => sessionKey(session)), tr('fx.copied', { n: sessions.length }));
   });
 
   els.sendSessionInfoBtn?.addEventListener('click', async () => {
@@ -1955,9 +2103,6 @@ function bindEvents() {
     renderFileSendStatus();
   });
 
-  els.transferCenterBtn?.addEventListener('click', async () => {
-    await openTransferCenter(els.transferCenterBtn);
-  });
 
   els.importTaskPackageBtn?.addEventListener('click', () => {
     openTaskPackageImportDialog(els.importTaskPackageBtn);
@@ -2036,6 +2181,7 @@ function bindEvents() {
     if (state.taskPackages.importBusy) event.preventDefault();
   });
 
+  els.sessionSendDialog?.addEventListener('close', () => deskSendFlights());
   els.sessionSendDialog?.addEventListener('close', () => {
     if (state.ui.transferDraft?.kind === 'session-pointer') {
       state.ui = window.UiContext.clearTransferDraft(state.ui);
@@ -2140,7 +2286,6 @@ function fillBindingAssignmentSelect(select, appId, preferredBindingId = null) {
 }
 
 function openAgentCreationDialog() {
-  closeAgentManageDialog();
   if (!state.mesh.overview?.initialized || !els.agentCreateDialog) return;
   els.newAgentName.value = '';
   els.newAgentGroup.value = '';
@@ -2168,14 +2313,31 @@ async function confirmAgentCreation() {
   if (!state.appMeta[requestedAppId]?.canProvision) return;
   els.confirmAddAgentBtn.disabled = true;
   try {
-    const result = await window.manager.createAgent({
+    const message = await createAgentAndPrepare({
       displayName,
+      requestedAppId,
       group: els.newAgentGroup.value,
       note: els.newAgentNote.value,
+      onCreated: () => els.agentCreateDialog.close()
+    });
+    setStatus(message);
+  } finally {
+    if (els.agentCreateDialog.open) els.confirmAddAgentBtn.disabled = false;
+  }
+}
+
+// 新建全局 Agent 并在本机首次准备（打开官方客户端登录）。返回给用户看的一句话。
+async function createAgentAndPrepare({ displayName, requestedAppId, group = '', note = '', onCreated = null }) {
+  if (!state.appMeta[requestedAppId]?.canProvision) return tr('catalog.error.generic', { code: 'client-form-unsupported' });
+  try {
+    const result = await window.manager.createAgent({
+      displayName,
+      group,
+      note,
       baseRevision: currentCatalogRevision()
     });
     if (!result?.ok) throw new Error(result?.reasonCode || 'agent-create-failed');
-    els.agentCreateDialog.close();
+    onCreated?.();
     // The dialog explicitly prepares on this device, including when opened from a remote Lens.
     const agentId = result.agent.agentId;
     const deviceId = result.overview.localDeviceId;
@@ -2185,16 +2347,36 @@ async function confirmAgentCreation() {
       agentId, deviceId, requestedAppId, requestedClientForm: 'desktop'
     });
     if (preparation?.overview) await refreshCatalogWorkspace(preparation.overview, { agentId });
-    setStatus(provisioningResultMessage(preparation, result.agent.displayName));
+    return provisioningResultMessage(preparation, result.agent.displayName);
   } catch (error) {
-    setStatus(tr('catalog.error.generic', { code: error?.message || 'agent-create-failed' }));
-  } finally {
-    if (els.agentCreateDialog.open) els.confirmAddAgentBtn.disabled = false;
+    return tr('catalog.error.generic', { code: error?.message || 'agent-create-failed' });
+  }
+}
+
+// 招募里登记、导入或新建成功之后：首次使用中途进来的就记下完成并收起首次使用，
+// 刷新设备视角和账号列表，选中这个账号。
+async function afterRecruitedAccount(profileId) {
+  try {
+    if (els.welcomeDialog?.open && state.firstUse.mode === 'onboarding') {
+      const patch = window.OnboardingState.localImportCompletionPatch(state.firstUse.model);
+      if (patch) recordFirstUseCompletion(patch);
+      els.welcomeDialog.close();
+    }
+    if (state.mesh.overview?.initialized) {
+      await loadDeviceOverview({ silent: true, skipWorkspaceRefresh: true });
+      const localDeviceId = state.mesh.overview?.localDeviceId;
+      if (localDeviceId && !['all', localDeviceId].includes(currentDeviceLensId())) {
+        state.ui = window.UiContext.setDeviceLens(state.ui, localDeviceId);
+        renderDeviceLens(state.mesh.overview);
+      }
+    }
+    await loadProfiles(profileId || null);
+  } catch (_error) {
+    setStatus(tr('codexImport.refreshError'));
   }
 }
 
 function openProfileCreationDialog(options = {}) {
-  closeAgentManageDialog();
   const meshMode = state.mesh.overview?.initialized === true;
   els.profileDialogTitle.textContent = tr(meshMode ? 'dialog.addProfile.slotTitle' : 'dialog.addProfile.title');
   els.newProfileMeshAssignment.hidden = !meshMode;
@@ -2219,8 +2401,10 @@ function openProfileCreationDialog(options = {}) {
 
 function bindCodexImportEvents() {
   if (!els.codexImportDialog) return;
-  els.codexImportBtn.addEventListener('click', () => void openCodexImportDialog());
-  els.onboardingCodexImportBtn.addEventListener('click', () => void openCodexImportDialog());
+  els.codexImportBtn?.addEventListener('click', () => void openCodexImportDialog());
+  els.onboardingCodexImportBtn?.addEventListener('click', () => {
+    if (!state.firstUse.busy) recruitDialog.open('drop');
+  });
   els.codexAuthDrop.addEventListener('click', () => void runCodexImport(window.manager.pickCodexAuth));
   els.pickCodexHomeBtn.addEventListener('click', () => void runCodexImport(window.manager.pickCodexHome));
   els.codexImportDialog.addEventListener('cancel', (event) => {
@@ -2416,10 +2600,9 @@ async function confirmProfileCreation() {
 }
 
 function openAgentOrProfileEditor() {
-  closeAgentManageDialog();
   const meshMode = state.mesh.overview?.initialized === true;
   if (meshMode) {
-    const agent = catalogAgentById(currentAgentId());
+    const agent = catalogAgentById(actionAgentId());
     if (!agent) return;
     const profile = selectedProfile();
     const group = identityGroups().find((item) => item.key === agent.agentId);
@@ -2433,9 +2616,9 @@ function openAgentOrProfileEditor() {
     els.editIdentity.value = '';
     els.editNote.value = agent.note || '';
     openCatCustomizer({
-      id: agent.agentId,
+      id: group?.primary?.id || agent.agentId,
       appId: profile?.appId || group?.primary?.appId || 'unknown',
-      cat: agent.catAppearance,
+      cat: agent.catAppearance || group?.primary?.cat || null,
       isProtected: false
     });
   } else {
@@ -2469,7 +2652,7 @@ async function confirmAgentOrProfileEdit() {
       displayName: name,
       group: els.editGroup.value,
       note: els.editNote.value,
-      catAppearance: { ...catDraft },
+      catAppearance: storedCatDraft(),
       baseRevision: currentCatalogRevision()
     });
     if (!result?.ok) {
@@ -2492,7 +2675,7 @@ async function confirmAgentOrProfileEdit() {
     group: els.editGroup.value,
     identityKey: els.editIdentity.value,
     note: els.editNote.value,
-    cat: { ...catDraft }
+    cat: storedCatDraft()
   });
   els.editDialog.close();
   await loadProfiles(profile.id);
@@ -2529,7 +2712,6 @@ async function refreshCatalogWorkspace(overview, options = {}) {
 }
 
 async function openAgentOrProfileRemoval() {
-  closeAgentManageDialog();
   const profile = selectedProfile();
   if (!state.mesh.overview?.initialized) {
     if (!profile) return;
@@ -2544,7 +2726,7 @@ async function openAgentOrProfileRemoval() {
     return;
   }
 
-  const agent = catalogAgentById(currentAgentId());
+  const agent = catalogAgentById(actionAgentId());
   if (!agent) return;
   const slot = catalogSlotByKey(profile?._meshSlotKey || currentSlotKey());
   state.mesh.removingAgentId = agent.agentId;
@@ -2677,8 +2859,7 @@ async function confirmCatalogRemoval() {
 }
 
 function openAgentRelationsDialog() {
-  closeAgentManageDialog();
-  const agent = catalogAgentById(currentAgentId());
+  const agent = catalogAgentById(actionAgentId());
   if (!agent || !state.mesh.overview?.initialized) return;
   state.mesh.relationAgentId = agent.agentId;
   const bindings = state.mesh.overview.accountBindings.filter((binding) => binding.agentId === agent.agentId);
@@ -3055,12 +3236,10 @@ async function loadProfiles(preferredId = null, options = {}) {
 
 async function loadSessions() {
   if (!currentAgentId() && state.ui.agentScope === 'current') {
-    state.sessions = [];
-    state.mesh.sessionSource = 'none';
-    state.mesh.sessionErrorCode = null;
-    validateSessionContext();
-    applySessionFilter();
-    return;
+    // 没有选中的猫就是看全部：名册上高亮“全部”，不留一张要解释的空表。
+    state.ui = window.UiContext.setAgentScope(state.ui, 'all');
+    renderSessionControls();
+    renderAccounts();
   }
 
   if (state.mesh.overview?.initialized && window.manager.listMeshSessions) {
@@ -3248,7 +3427,7 @@ function sessionOwnerProfile(session) {
     ));
     if (profile) return profile;
   }
-  return selectedProfile();
+  return selectedGroupProfile(identityGroups().find((group) => group.key === currentAgentId()) || null);
 }
 
 async function setSessionScope(scope) {
@@ -3279,12 +3458,6 @@ function setSessionView(view) {
 function renderSessionControls() {
   const all = state.ui.agentScope === 'all';
   const detail = state.sessionView === 'detail';
-  els.sessionScopeCurrentBtn?.setAttribute('aria-pressed', String(!all));
-  els.sessionScopeAllBtn?.setAttribute('aria-pressed', String(all));
-  if (els.sessionScopeCurrentBtn) {
-    els.sessionScopeCurrentBtn.disabled = !currentAgentId();
-    els.sessionScopeCurrentBtn.title = currentAgentId() ? '' : tr('session.scope.noAgent');
-  }
   els.sessionCompactBtn?.setAttribute('aria-pressed', String(!detail));
   els.sessionDetailBtn?.setAttribute('aria-pressed', String(detail));
   if (els.sessionDisplayLabel) {
@@ -3293,6 +3466,17 @@ function renderSessionControls() {
   if (els.sessionTable) {
     els.sessionTable.dataset.scope = state.ui.agentScope;
     els.sessionTable.dataset.mode = state.sessionView;
+  }
+  if (els.sessionTitle) {
+    const agent = all ? null : identityGroups().find((item) => item.key === currentAgentId());
+    const lens = currentDeviceLensId() === 'all' ? '' : ` · ${selectedDeviceLensLabel()}`;
+    els.sessionTitle.textContent = (agent ? tr('session.titleAgent', { name: agent.primary.name }) : tr('session.titleAll')) + lens;
+    els.sessionTitle.title = els.sessionTitle.textContent;
+    els.sessionTitle.removeAttribute('data-i18n');
+  }
+  if (els.rosterAllCard) {
+    els.rosterAllCard.classList.toggle('selected', all);
+    els.rosterAllCard.setAttribute('aria-pressed', String(all));
   }
 }
 
@@ -3481,7 +3665,7 @@ function renderQuotaSummary() {
   renderQuotaOverview();
   const profile = selectedProfile();
   const { quotaAnchor: anchor } = state;
-  els.quotaSummary.hidden = !profile || !anchor || anchor !== selectedCardControl('.account-card-quota-summary') || anchor.disabled;
+  els.quotaSummary.hidden = !profile || !anchor || anchor !== accountCardControl(actionAgentId(), '.account-card-quota-summary') || anchor.disabled;
   if (els.quotaSummary.hidden) {
     if (anchor && anchor !== els.quotaChipAll) els.quotaPopover.hidePopover();
     return;
@@ -3635,7 +3819,7 @@ function renderQuotaOverviewButton(groups, rows) {
 function applySessionFilter() {
   const query = state.query;
   const filtered = query
-    ? state.sessions.filter((session) => {
+    ? withHubRuns(state.sessions).filter((session) => {
         return [
           session.title,
           session.id,
@@ -3648,10 +3832,13 @@ function applySessionFilter() {
           session._accountName,
           session._profileName,
           session._appLabel,
-          session._deviceName
+          session._deviceName,
+          session._hubRun?.title,
+          session._hubRun?.from,
+          session._hubRun?.target?.name
         ].filter(Boolean).some((value) => String(value).toLowerCase().includes(query));
       })
-    : [...state.sessions];
+    : [...withHubRuns(state.sessions)];
   state.filteredSessions = window.SessionTable
     ? window.SessionTable.sort(filtered, state.sessionSort, dateLocale())
     : filtered;
@@ -3661,92 +3848,193 @@ function applySessionFilter() {
 }
 
 // ── 猫咪档案卡（编辑对话框换装） ─────────────────────
-let catDraft = { breed: 'orange', collar: '#c94f2e', accessory: 'none' };
+// 只有三项：毛色（分三组）、项圈颜色、一件配饰。左边的预览按批准的动作逐帧在动。
+let catDraft = { look: 'orange', collar: '#c94f2e', accessory: 'none' };
+let catBase = null;
 let editingProfile = null;
 let catSwatchesBuilt = false;
 
+// 没有自己外观的猫，显示规则和卡片一样：橘猫配默认的红项圈。
+function catAppearanceOf(cat, seed) {
+  if (!cat || typeof cat !== 'object') return { look: 'orange', accessory: 'none', collar: '#c94f2e' };
+  return window.YardCats.resolveCat(cat, seed);
+}
+
 function openCatCustomizer(profile) {
-  if (!window.YardCats || !window.YardSprites) return;
+  if (!window.YardCats || !window.PixelCats) return;
   editingProfile = profile;
-  catDraft = window.YardCats.normalizeCat(profile.cat, profile.id);
+  catBase = profile.cat && typeof profile.cat === 'object' ? profile.cat : null;
+  catDraft = catAppearanceOf(profile.cat, profile.id);
   if (!catSwatchesBuilt) { buildCatSwatches(); catSwatchesBuilt = true; }
   syncCatSwatches();
   renderCatPreview();
 }
 
-function buildCatSwatches() {
-  const breeds = window.YardSprites.BREEDS;
-  window.YardCats.BREED_KEYS.forEach((key) => {
-    els.editBreedSwatches.append(makeSwatch({
-      dot: breeds[key].f, label: tr('cat.breed.' + key),
-      pressed: () => catDraft.breed === key,
-      pick: () => { catDraft = { ...catDraft, breed: key }; }
-    }));
-  });
-  window.YardCats.COLLAR_COLORS.forEach((color) => {
-    els.editCollarSwatches.append(makeSwatch({
-      dot: color, label: tr('cat.collar.' + color),
-      pressed: () => catDraft.collar === color,
-      pick: () => { catDraft = { ...catDraft, collar: color }; }
-    }));
-  });
-  window.YardCats.ACCESSORIES.forEach((id) => {
-    els.editAccSwatches.append(makeSwatch({
-      label: tr('cat.acc.' + id),
-      pressed: () => catDraft.accessory === id,
-      pick: () => { catDraft = { ...catDraft, accessory: id }; }
-    }));
+function storedCatDraft() {
+  return { coat: null, wear: null, ...window.YardCats.storeCat(catDraft, catBase) };
+}
+
+function catLookName(look) {
+  return tr('cat.breed.' + look);
+}
+
+// 这种毛色能配的项圈：它自带的项圈色排第一，其后是通用的几种。
+function catCollarChoices(look) {
+  const own = window.CatArt?.LOOKS?.[look]?.collar || null;
+  const choices = window.YardCats.COLLAR_CHOICES.slice();
+  return own && !choices.includes(own) ? [own, ...choices] : choices;
+}
+
+function catTile(label, draw) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'cc-tile';
+  button.setAttribute('role', 'radio');
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  // 坐着的那一帧在 18 行里放得下每一顶帽子，小样不用多留头顶的空
+  const canvas = document.createElement('canvas');
+  canvas.width = 40;
+  canvas.height = 36;
+  button.append(canvas);
+  button._draw = () => draw(canvas);
+  return button;
+}
+
+// 单选组：方向键在组里移动并选中，Tab 只停在选中的那一个。
+function bindCatRadioKeys(group) {
+  group.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    const items = [...group.querySelectorAll('[role="radio"]')];
+    const index = items.indexOf(document.activeElement);
+    if (index < 0) return;
+    event.preventDefault();
+    const step = ['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 1;
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + step + items.length) % items.length;
+    items[next].click();
+    items[next].focus();
   });
 }
 
-function makeSwatch({ dot, label, pressed, pick }) {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'cc-swatch';
-  btn._pressed = pressed;
-  if (dot) {
-    const swatchDot = document.createElement('span');
-    swatchDot.className = 'cc-dot';
-    swatchDot.style.background = dot;
-    btn.append(swatchDot);
+function buildCatSwatches() {
+  const cats = window.YardCats;
+  els.editBreedSwatches.replaceChildren();
+  for (const groupId of cats.LOOK_GROUPS) {
+    const looks = cats.LOOK_KEYS.filter((look) => cats.lookGroup(look) === groupId);
+    if (!looks.length) continue;
+    const title = document.createElement('span');
+    title.className = 'cc-subtitle';
+    title.dataset.catGroup = groupId;
+    title.textContent = tr('cat.group.' + groupId);
+    const block = document.createElement('div');
+    block.className = 'cc-look-group';
+    const row = document.createElement('div');
+    row.className = 'cc-swatches';
+    for (const look of looks) {
+      const tile = catTile(catLookName(look), (canvas) => window.PixelCats.drawStill(canvas, {
+        look, accessory: window.CatArt.LOOKS[look].accessory || 'none', action: 'onduty', frame: 5, scale: 2, headroom: 0
+      }));
+      tile.dataset.look = look;
+      tile._pressed = () => catDraft.look === look;
+      tile.addEventListener('click', () => pickCatLook(look));
+      row.append(tile);
+    }
+    block.append(title, row);
+    els.editBreedSwatches.append(block);
   }
-  const text = document.createElement('span');
-  text.textContent = label;
-  btn.append(text);
-  btn.addEventListener('click', () => {
-    pick();
-    syncCatSwatches();
-    renderCatPreview();
-  });
-  return btn;
+  for (const id of cats.ACCESSORY_KEYS) {
+    const tile = catTile(tr('cat.acc.' + id), (canvas) => window.PixelCats.drawStill(canvas, {
+      look: catDraft.look, accessory: id, collar: catDraft.collar, action: 'onduty', frame: 5, scale: 2, headroom: 0
+    }));
+    tile.dataset.accessory = id;
+    tile._pressed = () => catDraft.accessory === id;
+    tile.addEventListener('click', () => { catDraft = { ...catDraft, accessory: id }; syncCatSwatches(); renderCatPreview(); });
+    els.editAccSwatches.append(tile);
+  }
+  [els.editBreedSwatches, els.editCollarSwatches, els.editAccSwatches].forEach(bindCatRadioKeys);
+}
+
+function pickCatLook(look) {
+  const data = window.CatArt.LOOKS[look] || {};
+  const previousOwn = window.CatArt.LOOKS[catDraft.look]?.collar || null;
+  let collar = catDraft.collar;
+  if (data.collar) collar = data.collar;
+  else if (collar === previousOwn && !window.YardCats.COLLAR_CHOICES.includes(collar)) {
+    collar = window.YardCats.defaultCatFor(editingProfile?.id || '').collar;
+  }
+  const accessory = catDraft.accessory === 'none' && data.accessory ? data.accessory : catDraft.accessory;
+  catDraft = { look, collar, accessory };
+  syncCatSwatches();
+  renderCatPreview();
+}
+
+function renderCatCollars() {
+  const choices = catCollarChoices(catDraft.look);
+  const own = window.CatArt?.LOOKS?.[catDraft.look]?.collar || null;
+  const signature = choices.join('|');
+  if (els.editCollarSwatches.dataset.choices !== signature) {
+    els.editCollarSwatches.dataset.choices = signature;
+    els.editCollarSwatches.replaceChildren(...choices.map((color) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'cc-collar';
+      button.setAttribute('role', 'radio');
+      const known = color === own ? tr('cat.collar.own') : tr('cat.collar.' + color);
+      button.setAttribute('aria-label', known);
+      button.title = known;
+      const dot = document.createElement('i');
+      dot.style.background = color;
+      button.append(dot);
+      button._pressed = () => catDraft.collar === color;
+      button.addEventListener('click', () => { catDraft = { ...catDraft, collar: color }; syncCatSwatches(); renderCatPreview(); });
+      return button;
+    }));
+  }
 }
 
 function syncCatSwatches() {
-  els.editDialog.querySelectorAll('.cc-swatch').forEach((btn) => {
-    btn.setAttribute('aria-pressed', String(Boolean(btn._pressed && btn._pressed())));
+  if (!window.YardCats) return;
+  renderCatCollars();
+  els.editDialog.querySelectorAll('.cc-tile, .cc-collar').forEach((button) => {
+    const pressed = Boolean(button._pressed && button._pressed());
+    button.setAttribute('aria-checked', String(pressed));
+    button.tabIndex = pressed ? 0 : -1;
   });
+  // 配饰的小样戴在当前这只猫身上；毛色的小样画一次就够
+  els.editAccSwatches.querySelectorAll('.cc-tile').forEach((button) => button._draw && button._draw());
+  els.editBreedSwatches.querySelectorAll('.cc-tile').forEach((button) => {
+    if (!button._drawn) { button._draw(); button._drawn = true; }
+  });
+  if (els.editCatLookName) els.editCatLookName.textContent = catLookName(catDraft.look);
+  if (els.editCatLookNote) {
+    const key = 'cat.note.' + catDraft.look;
+    const note = tr(key);
+    els.editCatLookNote.textContent = note === key ? '' : note;
+  }
 }
 
 function renderCatPreview() {
-  const canvas = els.editCatCanvas;
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  // 草地投影
-  ctx.fillStyle = 'rgba(90, 130, 70, 0.28)';
-  ctx.fillRect(24, 98, 64, 6);
-  ctx.fillRect(30, 104, 52, 3);
-  const S = window.YardSprites;
-  const pal = S.BREEDS[catDraft.breed] || S.BREEDS.orange;
-  const protectedSlot = Boolean(editingProfile && editingProfile.isProtected);
-  S.drawCat(ctx, S.SIT, pal, {
-    dx: 8, dy: 14, scale: 6, seed: 5,
-    collar: catDraft.collar,
-    bell: protectedSlot,
-    tag: protectedSlot ? null : (editingProfile ? editingProfile.appId : 'claude'),
-    accessory: catDraft.accessory === 'none' ? null : catDraft.accessory
-  });
+  if (!window.PixelCats) return;
+  window.PixelCats.show(els.editCatCanvas, { ...catDraft, action: 'onduty', scale: 6, seed: 'editor' });
 }
+
+// 换语言时，编辑器里的组名和小样说明跟着换
+window.addEventListener('i18n:changed', () => {
+  if (!catSwatchesBuilt) return;
+  els.editBreedSwatches.querySelectorAll('[data-cat-group]').forEach((title) => { title.textContent = tr('cat.group.' + title.dataset.catGroup); });
+  els.editBreedSwatches.querySelectorAll('.cc-tile[data-look]').forEach((tile) => {
+    const label = catLookName(tile.dataset.look);
+    tile.setAttribute('aria-label', label);
+    tile.title = label;
+  });
+  els.editAccSwatches.querySelectorAll('.cc-tile[data-accessory]').forEach((tile) => {
+    const label = tr('cat.acc.' + tile.dataset.accessory);
+    tile.setAttribute('aria-label', label);
+    tile.title = label;
+  });
+  els.editCollarSwatches.dataset.choices = '';
+  syncCatSwatches();
+});
 
 // ── Personal Agent Mesh / 设备中心 ──────────────────
 let remoteSurfaceLayoutFrame = null;
@@ -3759,6 +4047,7 @@ const childDialogFocusBound = new WeakSet();
 
 function captureChildDialogReturnFocus(trigger = document.activeElement) {
   if (!(trigger instanceof HTMLElement)) return null;
+  // 触发控件在菜单或折叠区里时，返回时把它重新展开，焦点才能回到触发控件本身。
   const disclosure = trigger.closest('details');
   return {
     element: trigger,
@@ -3788,7 +4077,7 @@ function openChildDialog(dialog, trigger = document.activeElement) {
         if (focusContext.disclosureWasOpen && focusContext.disclosure && !focusContext.disclosure.open) {
           focusContext.disclosure.open = true;
         }
-        returnFocus.focus({ preventScroll: true });
+        utilityDialogFocusTarget(returnFocus).focus({ preventScroll: true });
       });
     });
   }
@@ -3798,9 +4087,8 @@ function openChildDialog(dialog, trigger = document.activeElement) {
 function utilityDialogEntries() {
   return [
     ['devices', els.deviceCenterBtn, els.deviceCenterDialog],
-    ['tools', els.toolCenterBtn, els.toolCenterDialog],
-    ['activity', els.activityCenterBtn, els.activityCenterDialog],
-    ['settings', els.settingsBtn, els.settingsDialog]
+    ['system', els.systemBtn, els.systemDialog],
+    ['activity', els.activityCenterBtn, els.activityCenterDialog]
   ];
 }
 
@@ -3826,9 +4114,15 @@ function closeUtilityDialog(dialog, { restoreFocus = true } = {}) {
   if (dialog.open) dialog.close();
   if (returnFocus && restoreFocus) {
     requestAnimationFrame(() => {
-      if (!document.querySelector('dialog:modal')) returnFocus.focus({ preventScroll: true });
+      if (!document.querySelector('dialog:modal')) utilityDialogFocusTarget(returnFocus)?.focus({ preventScroll: true });
     });
   }
+}
+
+// 入口收在菜单里时（系统、设备视角），菜单关着就把焦点还给菜单的开关。
+function utilityDialogFocusTarget(button) {
+  const menu = button?.closest('details.context-menu');
+  return menu && !menu.open ? menu.querySelector('summary') : button;
 }
 
 function openUtilityDialog(kind) {
@@ -4584,10 +4878,33 @@ function renderMeshPreview(preview) {
   ]);
 }
 
+function renderDeviceLensMenu(overview) {
+  if (!window.PixelUi) return;
+  const initialized = overview?.initialized === true;
+  const devices = initialized ? (overview.devices || []) : [];
+  const online = devices.filter((device) => device.isLocal || device.status === 'online').length;
+  const onlineLabel = initialized ? tr('devices.lens.online', { online, total: devices.length }) : '';
+  window.PixelUi.renderLens({
+    initialized,
+    current: currentDeviceLensId(),
+    allLabel: tr('devices.lens.all'),
+    localLabel: tr('devices.device.local'),
+    onlineLabel,
+    devices: devices.map((device) => ({
+      id: device.deviceId,
+      name: device.isLocal ? tr('devices.lens.localNamed', { name: device.name }) : device.name,
+      online: device.isLocal || device.status === 'online',
+      meta: tr(`devices.status.${device.isLocal ? 'online' : (device.status || 'offline')}`)
+    }))
+  });
+  window.PixelUi.setGlobal(initialized ? tr('footer.devices', { online, total: devices.length }) : tr('footer.localOnly'));
+}
+
 function renderDeviceLens(overview) {
   if (!els.deviceLensSelect) return;
   const initialized = overview?.initialized === true;
   els.deviceLensSelect.hidden = !initialized;
+  renderDeviceLensMenu(overview);
   if (!initialized) return;
   const current = currentDeviceLensId();
   els.deviceLensSelect.replaceChildren();
@@ -5592,8 +5909,17 @@ function dateLocale() {
 // 顶栏语言按钮显示当前语言缩写（中 / EN / 日）
 function updateLangToggle() {
   if (!els.langToggle || !window.I18N) return;
-  const map = { zh: '中', en: 'EN', ja: '日' };
+  const map = { zh: '中文', en: 'English', ja: '日本語' };
   els.langToggle.textContent = map[window.I18N.getLang()] || '文';
+  updateThemeToggle();
+}
+
+// 外观按钮上写的是现在的样子，点一下换成另一个。
+function updateThemeToggle() {
+  const label = els.themeToggle?.querySelector('span');
+  if (!label) return;
+  label.removeAttribute('data-i18n');
+  label.textContent = tr(document.documentElement.dataset.theme === 'dark' ? 'system.theme.dark' : 'system.theme.light');
 }
 
 // 语言切换后重刷所有「运行时用 tr 生成」的文案（静态 data-i18n 由 I18N.apply 处理）
@@ -5606,6 +5932,8 @@ function rerenderLocalizedText() {
   renderAttentionInbox();
   renderToolCenter();
   renderDeviceCenter();
+  renderHubSystem();
+  if (els.recruitDialog?.open) recruitDialog.render();
   if (els.welcomeDialog?.open) {
     if (state.firstUse.mode === 'onboarding') renderFirstUse();
     else prepareWelcomeGuide();
@@ -5693,17 +6021,62 @@ function ensureRosterInteractions() {
   });
 }
 
+// 空台面：一只趴着的猫、一句说明和唯一的主按钮。已经在台面上时不重画，免得打断待机动作。
+function renderRosterEmptyState() {
+  const titleText = tr('roster.empty.title');
+  const current = els.accountRoster.querySelector('.account-roster-empty b');
+  if (current?.textContent === titleText) return;
+  const empty = document.createElement('div');
+  empty.className = 'account-roster-empty';
+  const seat = document.createElement('span');
+  seat.className = 'account-roster-empty-seat';
+  seat.setAttribute('aria-hidden', 'true');
+  const pit = document.createElement('span');
+  pit.className = 'account-card-pit';
+  const cat = document.createElement('span');
+  cat.className = 'account-card-cat fx-idle';
+  const canvas = document.createElement('canvas');
+  canvas.className = 'account-card-avatar';
+  canvas.width = 80;
+  canvas.height = 80;
+  cat.append(canvas);
+  pit.append(cat);
+  const ledge = document.createElement('i');
+  ledge.className = 'account-card-ledge';
+  seat.append(pit, ledge);
+  const body = document.createElement('div');
+  const title = document.createElement('b');
+  title.textContent = titleText;
+  const lead = document.createElement('p');
+  lead.textContent = tr('roster.empty.lead');
+  const recruit = document.createElement('button');
+  recruit.type = 'button';
+  recruit.className = 'primary';
+  const icon = document.createElement('i');
+  icon.className = 'pxi';
+  icon.dataset.i = 'plus';
+  icon.setAttribute('aria-hidden', 'true');
+  const label = document.createElement('span');
+  label.textContent = tr('roster.recruitFirst');
+  recruit.append(icon, label);
+  recruit.addEventListener('click', () => els.addProfileBtn.click());
+  body.append(title, lead, recruit);
+  empty.append(seat, body);
+  els.accountRoster.replaceChildren(empty);
+  window.PixelUi?.setCat(canvas, { look: 'orange', accessory: 'none', collar: '#2f9e8f', action: 'rest', seed: 'empty-desk' });
+  // 页脚还停在默认的“就绪”时，换成一句能照着做的话。
+  if (els.statusText?.dataset.i18n === 'status.ready') setStatus(tr('roster.empty.status'));
+}
+
 function renderAccountRoster() {
   if (!els.accountRoster || rosterController?.isInteracting()) return;
   ensureRosterInteractions();
   const scrollLeft = els.accountRoster.scrollLeft;
   const groups = orderedAgentGroups();
-  if (els.presenterCount) els.presenterCount.textContent = tr('presenter.count', { n: groups.length });
+  if (els.presenterCount) els.presenterCount.textContent = `×${groups.length}`;
+  renderRosterAllCard(groups.length);
   if (!groups.length) {
-    const empty = document.createElement('p');
-    empty.className = 'account-roster-empty';
-    empty.textContent = tr('presenter.empty');
-    els.accountRoster.replaceChildren(empty);
+    renderRosterEmptyState();
     return;
   }
 
@@ -5722,6 +6095,7 @@ function renderAccountRoster() {
     if (current !== card) els.accountRoster.insertBefore(card, current || null);
   }
   els.accountRoster.scrollLeft = scrollLeft;
+  renderHubLinks();
   if (lastRevealedAgent !== currentAgentId()) {
     lastRevealedAgent = currentAgentId();
     revealSelectedAccountCard();
@@ -5776,29 +6150,49 @@ function selectedCardControl(selector) {
   return els.accountRoster.querySelector(`.account-card.selected ${selector}`);
 }
 
-function activateAccountCard(agentId) {
-  if (agentId !== currentAgentId()) void selectAgent(agentId);
-  return agentId === currentAgentId();
+// 一张卡片上动作的落点：正在看的那只用明确选定的运行位置，
+// 其他的用这个设备视角下记住的位置，没有记录时用卡片上显示的首选位置。
+function cardActionProfile(group) {
+  if (!group) return null;
+  return group.key === currentAgentId() ? selectedGroupProfile(group) : preferredGroupSlot(group);
+}
+
+function accountCardControl(agentId, selector) {
+  const card = [...els.accountRoster.children].find((item) => item.dataset.agentId === agentId);
+  return card?.querySelector(selector) || null;
 }
 
 function createAccountCard(agentId) {
   const card = els.accountCardTemplate.content.firstElementChild.cloneNode(true);
   card.dataset.agentId = agentId;
   card.addEventListener('click', (event) => {
-    if (!event.target.closest('[data-roster-control]')) activateAccountCard(agentId);
+    if (!event.target.closest('[data-roster-control]')) void pickRosterAgent(agentId);
   });
-  card.querySelector('.account-card-launch').addEventListener('click', () => {
-    if (activateAccountCard(agentId)) void openCurrentAgent();
+  card.querySelector('.account-card-launch').addEventListener('click', async () => {
+    // 打开不选中这只猫：正在看的列表、范围和其他猫的选择都保持原样。
+    window.PixelUi?.launchStart(agentId);
+    let result = null;
+    try {
+      result = await openAgent(agentId);
+    } finally {
+      const outcome = launchOutcome(result);
+      window.PixelUi?.launchEnd(agentId, outcome, tr(outcome === 'ok' ? 'fx.started' : 'fx.waiting'));
+    }
   });
   card.querySelector('.account-card-manage').addEventListener('click', () => {
-    if (activateAccountCard(agentId)) openAgentManageDialog();
+    openAgentDossier(agentId);
   });
   card.querySelector('select').addEventListener('change', (event) => {
     changeAccountCardRuntime(agentId, event.target.value);
   });
   card.querySelector('.account-card-quota-summary').addEventListener('click', (event) => {
     event.preventDefault();
-    if (activateAccountCard(agentId)) toggleQuotaPopover(event.currentTarget);
+    const anchor = event.currentTarget;
+    if (state.quotaAnchor !== anchor) {
+      els.quotaPopover.hidePopover();
+      setActionAgent(agentId);
+    }
+    toggleQuotaPopover(anchor);
   });
   return card;
 }
@@ -5807,27 +6201,80 @@ function changeAccountCardRuntime(agentId, value) {
   const group = identityGroups().find((item) => item.key === agentId);
   if (!group || !value) return;
   if (value.startsWith('prepare:')) {
-    if (group.members.length || !activateAccountCard(agentId)) return;
+    if (group.members.length) return;
     const [, appId, clientForm = 'desktop'] = value.split(':');
     const action = currentAgentActionContext(group, null);
     rememberProvisioningChoice(group, action.deviceId, appId, clientForm);
     renderAccountHeader();
     return;
   }
-  if (!group.members.some((member) => member.id === value)) return;
-  if (agentId !== currentAgentId()) void selectProfile(value);
-  else if (value !== currentProfileId()) selectSlot(value);
+  const member = group.members.find((item) => item.id === value);
+  if (!member) return;
+  // 换运行位置只记在这只猫身上，不选中它，正在看的列表不变。
+  updateUi(window.UiContext.setAgentSlot(state.ui, group.key, member._meshSlotKey || member.id));
+  persistUiSelectionMemory();
+  renderAccounts();
+  renderAccountHeader();
+}
+
+const READINESS_BADGE = {
+  absent: 'plus', planning: 'dots', preparing: 'dots', verifying: 'dots',
+  'waiting-install': 'dl', 'waiting-login': 'key', error: 'bang',
+  unsupported: 'ban', offline: 'cloud', retired: 'ban'
+};
+
+// 打开的结果归成三种：起来了、要用户接着做、没成。
+function launchOutcome(result) {
+  if (!result || result.ok === false) return 'fail';
+  if (result.state && result.state !== 'ready') return 'wait';
+  return 'ok';
+}
+
+// 选谁看谁：点一只猫只看它的会话；“全部”看所有猫的。底层仍是 agentScope。
+async function pickRosterAgent(agentId) {
+  if (state.ui.agentScope !== 'current') {
+    state.ui = window.UiContext.setAgentScope(state.ui, 'current');
+    persistSettings({ sessionScope: 'current' });
+    renderSessionControls();
+    if (agentId === currentAgentId()) {
+      renderAccounts();
+      await loadSessions();
+      return;
+    }
+  }
+  if (agentId !== currentAgentId()) await selectAgent(agentId);
+}
+
+async function pickRosterAll() {
+  if (state.ui.agentScope === 'all') return;
+  const pending = setSessionScope('all');
+  renderAccounts();
+  await pending;
+}
+
+function renderRosterAllCard(agentCount) {
+  if (!els.rosterAllCard) return;
+  const all = state.ui.agentScope === 'all';
+  els.rosterAllCard.hidden = agentCount === 0;
+  els.rosterAllCard.classList.toggle('selected', all);
+  els.rosterAllCard.setAttribute('aria-pressed', String(all));
+  if (els.rosterAllMeta) {
+    els.rosterAllMeta.textContent = all
+      ? tr('roster.allMeta', { agents: agentCount, n: state.sessions.length })
+      : tr('roster.allAgents', { agents: agentCount });
+  }
 }
 
 function updateAccountCard(card, group, now) {
   const primary = group.primary;
-  const selected = group.key === currentAgentId();
-  const profile = selected ? selectedGroupProfile(group) : preferredGroupSlot(group);
+  const current = group.key === currentAgentId();
+  const selected = current && state.ui.agentScope !== 'all';
+  const profile = cardActionProfile(group);
   const action = currentAgentActionContext(group, profile);
   const selectAgentButton = card.querySelector('.account-card-select');
   card.classList.toggle('selected', selected);
+  card.classList.toggle('current', current);
   selectAgentButton.setAttribute('aria-pressed', String(selected));
-  selectAgentButton.title = accountCardTooltip(action);
 
   const activityEvidence = window.IdentityGroups?.cardActivityEvidence
     ? window.IdentityGroups.cardActivityEvidence(group.members, state.activity)
@@ -5837,106 +6284,96 @@ function updateAccountCard(card, group, now) {
   // A local working signal proves that the Agent is working. A local rest/idle
   // signal cannot describe remote Presence while remote activity is not part
   // of inventory, so mixed groups otherwise remain explicitly unknown.
-  const activityState = window.IdentityGroups?.resolveCardActivityState
+  let activityState = window.IdentityGroups?.resolveCardActivityState
     ? window.IdentityGroups.resolveCardActivityState(activityEvidence, derivedActivityState)
     : (activityEvidence.remoteUnknown && derivedActivityState !== 'working' ? null : derivedActivityState);
+  // 后台对话是 AgentDesk 亲手中转的，在跑就是在干活；刚结束的那一会儿按结局显示。
+  const hubCard = hubCardState(group);
+  if (hubCard.state) activityState = hubCard.state;
   const meshMode = state.mesh.overview?.initialized === true;
   const deploymentState = group.readiness?.state || 'absent';
-  const stateLabel = meshMode
-    ? deploymentStateLabel(deploymentState)
-    : (activityState ? tr('state.' + activityState) : tr('card.activityUnknown'));
+  const notReady = meshMode && deploymentState !== 'ready';
+  // 状态只说一次：这一行说它在干嘛；要用户做的事交给徽章和按钮。
+  const stateLabel = activityState
+    ? tr('state.' + activityState)
+    : (notReady ? deploymentStateLabel(deploymentState) : tr('card.activityUnknown'));
 
-  const top = document.createElement('span');
-  top.className = 'account-card-top';
-  const avatar = document.createElement('canvas');
-  avatar.className = 'account-card-avatar';
-  avatar.width = 52;
-  avatar.height = 48;
-  drawAccountAvatar(avatar, primary);
-  const meta = document.createElement('span');
-  meta.className = 'account-card-meta';
-  const name = document.createElement('span');
-  name.className = 'account-card-name';
-  name.textContent = primary.name;
-  const activeNow = window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))?.activeNow || 0;
-  if (activeNow > 0) {
-    const busy = document.createElement('span');
-    busy.className = 'account-card-busy';
-    busy.textContent = ` ⌨${activeNow}`;
-    busy.title = tr('card.busy', { n: activeNow });
-    name.append(busy);
-  }
-  const gp = document.createElement('span');
-  gp.className = 'account-card-group';
-  if (meshMode) {
-    // “运行位置”以 Slot 为口径；同一设备上的 Desktop/CLI 是两个明确动作落点。
-    const positions = (group.allMembers || group.members).length;
-    const online = (group.allMembers || group.members).filter((member) => member._deviceStatus === 'online').length;
-    gp.textContent = tr('presenter.locations', { n: positions });
-    gp.title = tr('presenter.positions', { positions, online });
-  } else {
-    gp.textContent = primary.group ? tr('card.group', { g: primary.group }) : appLabel(primary.appId);
-  }
-
-  const st = document.createElement('span');
-  st.className = 'account-card-state';
-  st.dataset.activity = meshMode ? deploymentState : (activityState || 'unknown');
-  const dot = document.createElement('span');
-  dot.className = 'account-card-dot';
-  dot.style.background = meshMode
-    ? (DEPLOYMENT_STATE_DOT[deploymentState] || '#9a9a9a')
-    : (CARD_STATE_DOT[activityState] || '#9a9a9a');
-  st.append(dot, document.createTextNode(`${stateLabel} · `), gp);
-  meta.append(name, st);
-  top.append(avatar, meta);
-
-  const lastActive = card.querySelector('.account-card-last-active');
-  const lastActiveLabel = document.createElement('span');
-  lastActiveLabel.className = 'account-card-fact-label';
-  lastActiveLabel.textContent = tr(activityEvidence.remoteUnknown && merged ? 'card.lastActiveLocal' : 'card.lastActive');
   const activityAt = merged?.contentActiveAt || merged?.latestMtime || null;
   const activityDate = activityAt ? new Date(activityAt) : null;
   const hasActivityTime = Boolean(activityDate && !Number.isNaN(activityDate.getTime()));
-  const lastActiveValue = document.createElement(hasActivityTime ? 'time' : 'span');
-  lastActiveValue.className = 'account-card-fact-value';
-  lastActiveValue.textContent = compactDate(hasActivityTime ? activityAt : null);
-  lastActiveValue.title = hasActivityTime ? fullDate(activityAt) : tr('common.unrecorded');
-  if (hasActivityTime) lastActiveValue.dateTime = activityDate.toISOString();
-  lastActive.replaceChildren(lastActiveLabel, lastActiveValue);
+  const lastActiveLine = `${tr(activityEvidence.remoteUnknown && merged ? 'card.lastActiveLocal' : 'card.lastActive')} ${
+    hasActivityTime ? fullDate(activityAt) : tr('common.unrecorded')}`;
+  const slots = group.allMembers || group.members;
+  const positionsLine = meshMode
+    ? tr('presenter.positions', {
+        positions: slots.length,
+        online: slots.filter((member) => member._deviceStatus === 'online').length
+      })
+    : (primary.group ? tr('card.group', { g: primary.group }) : '');
+  selectAgentButton.title = [accountCardTooltip(action), lastActiveLine, positionsLine].filter(Boolean).join('\n');
+
+  const name = card.querySelector('.account-card-name');
+  name.textContent = primary.name;
+  const activeNow = window.IdentityGroups.mergeActivity(group.members.map((member) => state.activity[member.id]))?.activeNow || 0;
+  if (activeNow > 1) {
+    const busy = document.createElement('span');
+    busy.className = 'account-card-busy';
+    busy.textContent = `×${activeNow}`;
+    busy.title = tr('card.busy', { n: activeNow });
+    name.append(busy);
+  }
+
+  const st = card.querySelector('.account-card-state');
+  st.dataset.activity = activityState || 'unknown';
+  card.querySelector('.account-card-state-label').textContent = stateLabel;
+  card.dataset.readiness = meshMode ? deploymentState : 'local';
+
+  const badgeIcon = notReady
+    ? (READINESS_BADGE[deploymentState] || 'bang')
+    : (activityState === 'confused' ? 'q' : '');
+  const badge = card.querySelector('.account-card-badge');
+  badge.hidden = !badgeIcon;
+  badge.dataset.i = badgeIcon;
+  badge.title = notReady ? deploymentStateLabel(deploymentState) : (badgeIcon ? stateLabel : '');
 
   const quotaSummary = card.querySelector('.account-card-quota-summary');
-  const quotaFact = document.createElement('span');
-  quotaFact.className = 'account-card-fact';
-  const quotaLabel = document.createElement('span');
-  quotaLabel.className = 'account-card-fact-label';
-  quotaLabel.textContent = tr('card.quota');
-  const quotaValue = document.createElement('strong');
-  quotaValue.className = 'account-card-fact-value';
+  let quotaTrack = quotaSummary.querySelector('.account-card-quota');
+  let quotaValue = quotaSummary.querySelector('.account-card-fact-value');
+  if (!quotaTrack || !quotaValue) {
+    quotaTrack = document.createElement('span');
+    quotaTrack.className = 'account-card-quota';
+    for (let index = 0; index < 5; index += 1) {
+      const pip = document.createElement('i');
+      pip.style.setProperty('--i', String(index));
+      quotaTrack.append(pip);
+    }
+    quotaValue = document.createElement('strong');
+    quotaValue.className = 'account-card-fact-value';
+    quotaSummary.replaceChildren(quotaTrack, quotaValue);
+  }
+  const setPips = (count) => {
+    [...quotaTrack.children].forEach((pip, index) => pip.classList.toggle('on', index < count));
+  };
 
   // 只展示本地 Slot 的新鲜实时快照；旧采样、已过重置点和远端缓存都不进入卡片额度。
-  const quotaTrack = document.createElement('span');
-  quotaTrack.className = 'account-card-quota';
-  const quotaFill = document.createElement('i');
-  quotaTrack.append(quotaFill);
   const trustedQuota = trustedLocalAccountCardQuota(group, now);
   delete quotaSummary.dataset.source;
   if (trustedQuota.status === 'ok') {
     const { member, snapshot, tightest } = trustedQuota;
     const source = accountCardQuotaSource(member);
     const percent = Math.max(0, Math.min(100, Math.round(tightest.remainingPercent)));
-    const shortValue = `${tightest.label} · ${tr('quota.remainingShort', { pct: percent })}`;
     const fullValue = tr('quota.overview.value', { label: tightest.label, pct: percent });
     const title = tr('card.quotaSource', {
       source,
       value: fullValue,
       time: fullDate(snapshot.observedAt)
     });
-    quotaValue.textContent = shortValue;
+    quotaValue.textContent = `${percent}%`;
     quotaValue.title = title;
     quotaSummary.dataset.source = source;
     quotaTrack.dataset.trusted = 'true';
     quotaTrack.dataset.level = window.YardEnergy?.energyForRemaining?.(percent) || 'unknown';
-    quotaFill.style.width = `${percent}%`;
+    setPips(percent > 0 ? Math.max(1, Math.round(percent / 20)) : 0);
     quotaTrack.title = title;
   } else {
     const conflict = trustedQuota.status === 'conflict';
@@ -5948,39 +6385,29 @@ function updateAccountCard(card, group, now) {
     quotaTrack.dataset.trusted = 'false';
     quotaTrack.dataset.reason = trustedQuota.reason || 'unknown';
     quotaTrack.dataset.level = 'unknown';
-    quotaFill.style.width = '0%';
+    setPips(0);
     quotaTrack.title = quotaValue.title;
   }
-  quotaFact.append(quotaLabel, quotaValue);
-  quotaSummary.replaceChildren(quotaFact, quotaTrack);
+  // 猫：外观来自它存的样子；演哪个动作由活动和这条能量格一起决定（规则在 yard/cats.js 的 actionFor）。
+  const look = window.YardCats ? catAppearanceOf(primary.cat, primary.id) : null;
+  window.PixelUi?.setCat(card.querySelector('.account-card-avatar'), {
+    ...(look || {}),
+    ...(hubCard.accessory ? { accessory: hubCard.accessory } : {}),
+    seed: group.key,
+    state: activityState || null,
+    energy: quotaTrack.dataset.trusted === 'true' ? quotaTrack.dataset.level : null
+  });
+
   quotaSummary.disabled = !profile;
   quotaSummary.title = tr('quota.self.title');
-  quotaSummary.setAttribute('aria-label', `${primary.name} · ${quotaLabel.textContent} · ${quotaValue.textContent}`);
+  quotaSummary.setAttribute('aria-label', `${primary.name} · ${tr('card.quota')} · ${quotaValue.textContent}`);
 
-  selectAgentButton.replaceChildren(top);
   renderAccountCardRuntime(card.querySelector('.account-card-runtime'), action);
   renderAccountCardLaunch(card.querySelector('.account-card-launch'), action);
   const manage = card.querySelector('.account-card-manage');
   manage.textContent = tr('account.manageShort');
   manage.title = tr('account.manageAgent');
   manage.setAttribute('aria-label', `${primary.name} · ${manage.title}`);
-}
-
-function drawAccountAvatar(canvas, profile) {
-  const S = window.YardSprites;
-  if (!S) return;
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  try {
-    const pal = S.BREEDS[profile.cat && profile.cat.breed] || S.BREEDS.orange;
-    S.drawCat(ctx, S.SIT, pal, {
-      dx: 11, dy: 9, scale: 2, seed: 0,
-      collar: profile.cat && profile.cat.collar,
-      bell: profile.isProtected,
-      tag: profile.isProtected ? null : profile.appId,
-      flip: false
-    });
-  } catch (_error) { /* best effort：头像画不出不影响卡片 */ }
 }
 
 function renderTopbarContext() {
@@ -6069,6 +6496,11 @@ function setProfileContext(profileId) {
   if (!group) return false;
   const member = group.members.find((item) => item.id === profileId) || preferredSlot(group.members);
   if (!member) return false;
+  if (state.actionAgentId && group.key === state.actionAgentId && group.key !== currentAgentId()) {
+    // 正在别的猫的档案里做事：只更新它的运行位置，正在看的那只不变。
+    state.ui = window.UiContext.setAgentSlot(state.ui, group.key, member._meshSlotKey || member.id);
+    return true;
+  }
   state.ui = window.UiContext.setAgent(state.ui, group.key, {
     slotKey: member._meshSlotKey || member.id
   });
@@ -6194,8 +6626,8 @@ async function selectAgent(agentId) {
 function selectSlot(profileId) {
   const group = groupOfProfile(profileId);
   const member = group?.members.find((item) => item.id === profileId);
-  if (!group || !member || group.key !== currentAgentId()) return;
-  updateUi(window.UiContext.setSlot(state.ui, member._meshSlotKey || member.id));
+  if (!group || !member || group.key !== actionAgentId()) return;
+  updateUi(window.UiContext.setAgentSlot(state.ui, group.key, member._meshSlotKey || member.id));
   persistUiSelectionMemory();
   renderAccounts();
   renderAccountHeader();
@@ -6252,7 +6684,7 @@ function selectedProvisioningApp(group, deviceId, profile = null) {
 }
 
 function currentAgentActionContext(group = null, profile = selectedProfile()) {
-  const selectedGroup = group || identityGroups().find((item) => item.key === currentAgentId()) || null;
+  const selectedGroup = group || identityGroups().find((item) => item.key === actionAgentId()) || null;
   const overview = state.mesh.overview;
   if (!overview?.initialized || !selectedGroup) {
     return { group: selectedGroup, profile, meshMode: false };
@@ -6332,9 +6764,14 @@ function provisioningResultMessage(result = {}, name = null) {
   return tr('status.provisioning.failed', { code: result.reasonCode || result.reason || 'provisioning-failed' });
 }
 
-async function openCurrentAgent() {
-  const profile = selectedProfile();
-  const group = identityGroups().find((item) => item.key === currentAgentId()) || null;
+// 打开落在这只猫卡片上显示的那个运行位置。它不是正在看的那只时，
+// 刷新账号数据但不把选择带过去，所以下面的会话列表不会跟着变。
+async function openAgent(agentId) {
+  const group = identityGroups().find((item) => item.key === agentId) || null;
+  if (!group) return { ok: false, reasonCode: 'agent-required' };
+  const profile = cardActionProfile(group);
+  const viewing = agentId === currentAgentId();
+  const reselect = (profileId) => (viewing ? profileId : null);
   const meshMode = state.mesh.overview?.initialized === true;
   if (!meshMode) {
     if (!profile) return { ok: false, reasonCode: 'profile-required' };
@@ -6343,7 +6780,7 @@ async function openCurrentAgent() {
       setStatus(result.reason || tr('status.openFail'));
       return result;
     }
-    await loadProfiles(profile.id);
+    await loadProfiles(reselect(profile.id));
     setStatus(result.warning || tr('status.opened', { name: profile.name }));
     return result;
   }
@@ -6353,7 +6790,7 @@ async function openCurrentAgent() {
   if (!action.requested?.appId) {
     const result = { ok: false, reasonCode: 'provisioning-client-required' };
     setStatus(provisioningResultMessage(result, action.agent.displayName));
-    selectedCardControl('.account-card-runtime select')?.focus();
+    accountCardControl(agentId, '.account-card-runtime select')?.focus();
     return result;
   }
   if (action.isRemote) {
@@ -6398,7 +6835,7 @@ async function openCurrentAgent() {
       setStatus(result.reason || tr('status.openFail'));
       return result;
     }
-    await loadProfiles(profile.id);
+    await loadProfiles(reselect(profile.id));
     setStatus(result.warning || tr('status.opened', { name: action.agent.displayName }));
     return result;
   }
@@ -6417,7 +6854,7 @@ async function openCurrentAgent() {
     });
     if (result?.overview) state.mesh.overview = result.overview;
     if (result?.state === 'ready') {
-      await loadProfiles(result.slot?.profileId || profile?.id || null);
+      await loadProfiles(reselect(result.slot?.profileId || profile?.id || null));
     } else {
       await loadDeviceOverview({ silent: true });
     }
@@ -6510,7 +6947,7 @@ function renderAccountHeader() {
   const profile = selectedProfile();
   const remote = profile?._remote === true;
   const meshMode = state.mesh.overview?.initialized === true;
-  const selectedAgent = catalogAgentById(currentAgentId());
+  const selectedAgent = catalogAgentById(actionAgentId());
   const localLens = !meshMode
     || currentDeviceLensId() === 'all'
     || currentDeviceLensId() === state.mesh.overview.localDeviceId;
@@ -6518,9 +6955,8 @@ function renderAccountHeader() {
     !meshMode || !(state.mesh.overview?.agents || []).length
   );
 
-  els.addProfileBtn.textContent = tr(firstUseAction
-    ? 'account.createFirstAgent'
-    : 'account.addAgent');
+  const recruitLabel = els.addProfileBtn.querySelector(':scope > span');
+  if (recruitLabel) recruitLabel.textContent = tr('roster.recruit');
   const editProfileLabel = els.editProfileBtn.querySelector(':scope > span');
   const removeProfileLabel = els.removeProfileBtn.querySelector(':scope > span');
   if (editProfileLabel) editProfileLabel.textContent = tr(meshMode ? 'account.editAgent' : 'account.edit');
@@ -6573,6 +7009,7 @@ function renderAccountCardLaunch(button, action) {
       ))
     : Boolean(profile && profileCanLaunch && !remote);
   button.textContent = meshMode ? provisioningButtonLabel(action) : tr('account.open');
+  button.dataset.kind = profile && (!meshMode || action.readiness?.state === 'ready') ? 'open' : 'step';
   button.disabled = !canOpen;
   if (action.isRemote && !remoteSupported) button.title = tr('deployment.action.remoteUnsupported');
   else if (action.isRemote && !remotePermitted) button.title = tr('deployment.action.remotePermission');
@@ -6699,11 +7136,16 @@ function renderSessionActionToolbar() {
     && ['native', 'transcript'].includes(state.appMeta[resolved[0].appId]?.taskPackageMode);
   els.taskPackageActionBtn.disabled = !handoff;
   els.taskPackageActionBtn.title = tr(handoff ? 'taskPackage.action.hint' : 'taskPackage.action.unsupported');
+  // 说明纸条在按钮不可用时最后写一行真正的原因（按钮的 title 有时只是通用说明）
+  setHubReason(els.copySessionInfoBtn, count === 0 ? 'hub.tip.reason.select' : (unresolved ? 'session.replica.requiredAction' : null));
+  setHubReason(els.taskPackageActionBtn, handoff ? null : (count === 0 ? 'hub.tip.reason.select'
+    : (count > 1 ? 'hub.tip.reason.single'
+      : (!isLocalActionSession(resolved[0]) ? 'hub.tip.reason.localOnly' : 'taskPackage.action.unsupported'))));
   if (els.sendSessionInfoBtn) {
     const remotes = (state.mesh.overview?.devices || []).filter((device) => !device.isLocal);
     const paused = crossDeviceActionsPaused();
     els.sendSessionInfoBtn.disabled = count === 0 || unresolved > 0 || remotes.length === 0 || paused;
-    els.sendSessionInfoBtn.textContent = count > 1
+    (els.sendSessionInfoLabel || els.sendSessionInfoBtn).textContent = count > 1
       ? tr('session.sendInfoCount', { n: count })
       : tr('session.sendInfo');
     els.sendSessionInfoBtn.title = paused
@@ -6711,7 +7153,17 @@ function renderSessionActionToolbar() {
       : (unresolved
           ? tr('session.replica.requiredAction')
           : tr('session.sendInfoHint'));
+    setHubReason(els.sendSessionInfoBtn, paused ? 'status.crossDevicePaused'
+      : (count === 0 ? 'hub.tip.reason.select'
+        : (unresolved ? 'session.replica.requiredAction'
+          : (remotes.length === 0 ? 'hub.tip.reason.noDevice' : null))));
   }
+}
+
+function setHubReason(button, key) {
+  if (!button) return;
+  if (key) button.dataset.hubReason = tr(key);
+  else delete button.dataset.hubReason;
 }
 
 async function openSessionDirectoryOption(option) {
@@ -6785,8 +7237,11 @@ async function exportSelectedSessions() {
   try {
     const result = await window.manager.exportSessions(refs);
     setStatus(result?.message || result?.reason || tr(result?.ok ? 'status.exportOk' : 'status.exportFail'));
+    if (result?.ok && !result.cancelled) window.PixelUi?.mascot?.('cheer');
+    else if (result && !result.ok) window.PixelUi?.mascot?.('no');
   } catch (_error) {
     setStatus(tr('status.exportFail'));
+    window.PixelUi?.mascot?.('no');
   } finally {
     sessionFileActionBusy = false;
     renderSessionActionToolbar();
@@ -7783,10 +8238,13 @@ function populateTransferTargets(select, devices, preselectedDeviceId) {
   return preferred || null;
 }
 
-async function openTransferCenter(returnFocus = document.activeElement) {
-  const focusContext = captureChildDialogReturnFocus(returnFocus);
-  await loadTransfers();
-  openChildDialog(els.transferCenterDialog, focusContext);
+// 传输记录在收件箱的“记录”一段：打开收件箱、读一次最新记录，再把那一段滚到眼前。
+async function openTransferCenter() {
+  openUtilityDialog('activity');
+  renderAttentionInbox();
+  await Promise.all([loadTransfers(), loadTaskPackageHistory()]);
+  els.inboxRecords?.scrollIntoView({ block: 'start' });
+  els.inboxRecords?.querySelector('button')?.focus({ preventScroll: true });
 }
 
 async function chooseFilesForTransfer() {
@@ -7857,6 +8315,17 @@ async function sendSelectedSessionsToDevice() {
     });
   }
   renderSessionSendStatus();
+  if (result?.ok && result.transfer?.transferId) {
+    // 信封等送出的弹窗合上以后，从这几行飞到顶栏的设备那里（见 deskSendFlights）
+    state.hub.sent.push({
+      transferId: result.transfer.transferId,
+      keys: actionSessions().map((session) => sessionKey(session)),
+      state: result.transfer.state,
+      flown: false,
+      delivered: false
+    });
+    state.hub.sent = state.hub.sent.slice(-8);
+  }
   await loadTransfers();
 }
 
@@ -8019,7 +8488,7 @@ function renderTransferList() {
     const canAccept = transfer.type === 'file' && transfer.direction === 'incoming' && transfer.acceptRequired;
     const canOpen = transfer.type === 'file' && transfer.direction === 'incoming' && transfer.canOpen;
     const taskActions = transfer.type === 'task-package'
-      ? createTaskPackageTransferActions(transfer, { returnFocus: els.transferCenterDialog })
+      ? createTaskPackageTransferActions(transfer, { returnFocus: els.activityCenterDialog })
       : null;
     if (canRetry || canCancel || canAccept || canOpen || taskActions?.childElementCount) {
       const actions = document.createElement('div');
@@ -8177,9 +8646,14 @@ function renderSessions() {
   renderSessionHead();
   els.sessionRows.replaceChildren();
   const accountCount = sessionAccountCount(state.filteredSessions);
-  els.sessionCount.textContent = state.ui.agentScope === 'all'
+  els.sessionCount.title = state.ui.agentScope === 'all'
     ? tr('session.countAll', { n: state.filteredSessions.length, accounts: accountCount })
     : tr('session.count', { n: state.filteredSessions.length });
+  if (window.PixelFx) window.PixelFx.roll(els.sessionCount, state.filteredSessions.length);
+  else els.sessionCount.textContent = String(state.filteredSessions.length);
+  if (els.rosterAllMeta && state.ui.agentScope === 'all') {
+    els.rosterAllMeta.textContent = tr('roster.allMeta', { agents: identityGroups().length, n: state.sessions.length });
+  }
 
   if (!state.filteredSessions.length) {
     const row = document.createElement('tr');
@@ -8188,13 +8662,21 @@ function renderSessions() {
     cell.colSpan = sessionColumns().length + 1;
     cell.textContent = state.sessions.length
       ? tr('session.empty.filtered')
-      : tr(state.ui.agentScope === 'all' ? 'session.empty.noneAll' : 'session.empty.none');
+      : tr(!orderedAgentGroups().length
+        ? 'session.empty.noAgents'
+        : state.ui.agentScope === 'all' ? 'session.empty.noneAll' : 'session.empty.none');
     row.append(cell);
     els.sessionRows.append(row);
     return;
   }
 
   for (const session of state.filteredSessions) {
+    if (session._hubRun) {
+      const row = renderHubRow(session);
+      if (sessionKey(session) === restoreKey) rowControl = row.querySelector(restoreSelector);
+      els.sessionRows.append(row);
+      continue;
+    }
     const key = sessionKey(session);
     const row = document.createElement('tr');
     row.dataset.sessionKey = key;
@@ -8619,4 +9101,580 @@ function setStatus(message, tone = 'neutral') {
   els.statusText.parentElement.dataset.tone = tone;
   els.statusText.removeAttribute('data-i18n');
   els.statusText.textContent = message;
+  // 档案开着时主窗口的页脚被遮住，同一句话也写在档案页脚。
+  if (els.agentManageStatus && els.agentManageDialog?.open) els.agentManageStatus.textContent = message;
 }
+
+// ── 调度中枢：后台对话在台面上的样子 ─────────────────────
+// 只演 AgentDesk 知道的事：调用经过它中转，开始、在跑、结束都是确切的，由 Main 在每次变化时推过来，这里不轮询。
+// 发起方只有在 AgentDesk 知道是哪只猫时（它中转的上一段对话，或发起的进程就在那个账号的目录里）才从那只猫飞出；
+// 否则信封从桌子边缘进来，自报的名字只当标签显示。动效规矩在 pixel/desk.js：后台不演、减少动态效果时不演、可打断。
+const HUB_AFTERGLOW_MS = 15000;
+const HUB_ACTIVE = new Set(['starting', 'running']);
+
+async function loadHub() {
+  let result = null;
+  try { result = await window.manager.hubState(); } catch (_error) { result = null; }
+  if (!result || !Array.isArray(result.runs)) return;
+  state.hub.runs = new Map(result.runs.map((run) => [run.id, run]));
+  applyHubSettings(result);
+  hubRefresh();
+}
+
+// ── 调度中枢：档案里的两个开关、系统页的文件夹与上限 ─────────
+// 这些只在桌面窗口里由人来改；命令行没有对应的命令，所以一个 Agent 不能给自己或别人开门。
+// 文件夹只能从 Main 打开的系统选择框里来，这里只送编号。
+function applyHubSettings(result) {
+  if (!result || typeof result !== 'object') return;
+  // 开关正在保存时不拿中途读到的旧值盖掉人刚点的样子；保存的结果会补上
+  if (Array.isArray(result.accounts) && !state.hub.saving) state.hub.accounts = result.accounts;
+  if (result.clients && typeof result.clients === 'object') state.hub.clients = result.clients;
+  if (Array.isArray(result.folders)) state.hub.folders = result.folders;
+  if (Number.isInteger(result.maxConcurrent)) state.hub.maxConcurrent = result.maxConcurrent;
+  renderHubSystem();
+  if (els.agentManageDialog?.open) renderAgentManageContext();
+}
+
+function hubNameKey(value) {
+  return String(value || '').normalize('NFKC').trim().toLocaleLowerCase();
+}
+
+const HUB_UNSUPPORTED_NOTES = {
+  'desktop-only': 'hub.dossier.desktopOnly',
+  'prompt-argument-only': 'hub.dossier.promptArgOnly',
+  'no-read-only-mode': 'hub.dossier.noReadOnly'
+};
+
+// 档案的“调用”一段跟着展开的那个位置走；只对本机位置有意义（调用只在这台电脑上）。
+function renderHubCalling(group, profile) {
+  const section = els.hubCallingSection;
+  if (!section) return;
+  const profileId = profile && profile._remote !== true ? String(profile._meshProfileId || profile.id) : '';
+  const account = profileId ? state.hub.accounts.find((item) => item.id === profileId) || null : null;
+  section.hidden = !group || !account;
+  if (section.hidden) {
+    delete section.dataset.profileId;
+    return;
+  }
+  section.dataset.profileId = profileId;
+  const support = state.hub.clients[profile.appId] || { callable: false, reason: null, via: null };
+  const supported = support.callable === true;
+  const callable = supported && account.callable === true;
+  const writable = callable && account.writable === true;
+  els.hubCallingName.textContent = tr('hub.dossier.name', { name: account.name });
+  els.hubAllowCall.checked = callable;
+  els.hubAllowCall.disabled = !supported;
+  els.hubAllowWrite.checked = writable;
+  els.hubAllowWrite.disabled = !callable;
+  els.hubAllowCallState.textContent = tr(callable ? 'hub.dossier.on' : 'hub.dossier.off');
+  els.hubAllowWriteState.textContent = tr(writable ? 'hub.dossier.on' : 'hub.dossier.off');
+  const notes = [];
+  if (!supported) {
+    notes.push(tr(HUB_UNSUPPORTED_NOTES[support.reason] || 'hub.dossier.notVerified', { client: appLabel(profile.appId) }));
+  } else {
+    notes.push(tr('hub.dossier.via', { where: `${tr('hub.dossier.here')} · ${support.via || appLabel(profile.appId)}` }));
+    if (callable) {
+      // 同名的可被调用的位置不止一个时，调用方只能用编号
+      const key = hubNameKey(account.name);
+      const same = state.hub.accounts.filter((item) => item.callable && hubNameKey(item.name) === key);
+      if (same.length > 1) {
+        const cats = new Set(same.map((item) => hubGroupKey(item.id) || item.id));
+        notes.push(cats.size > 1
+          ? tr('hub.dossier.duplicate', { n: cats.size, id: profileId })
+          : tr('hub.dossier.duplicateSelf', { n: same.length, id: profileId }));
+      }
+      if (!state.hub.folders.length) notes.push(tr('hub.dossier.noFolder'));
+    }
+  }
+  els.hubCallingNotes.replaceChildren(...notes.map((text) => {
+    const note = document.createElement('p');
+    note.className = 'dossier-note';
+    note.textContent = text;
+    return note;
+  }));
+}
+
+// 开关先按人点的样子显示，Main 存好后以它返回的为准；没存上就退回原样并说一声。
+async function saveHubAccess(next) {
+  const profileId = els.hubCallingSection?.dataset.profileId;
+  if (!profileId || !window.manager.hubSetAccess) return;
+  const before = state.hub.accounts.find((item) => item.id === profileId);
+  if (!before || state.hub.saving) {
+    renderAgentManageContext();
+    return;
+  }
+  const patch = (value) => {
+    state.hub.accounts = state.hub.accounts.map((item) => (item.id === profileId ? { ...item, ...value } : item));
+  };
+  state.hub.saving = true;
+  patch({ callable: next.callable === true, writable: next.callable === true && next.writable === true });
+  renderAgentManageContext();
+  let result = null;
+  try { result = await window.manager.hubSetAccess({ profileId, callable: next.callable === true, writable: next.writable === true }); } catch (_error) { result = null; }
+  state.hub.saving = false;
+  if (result?.ok) {
+    patch({ callable: result.hub?.callable === true, writable: result.hub?.writable === true });
+  } else {
+    patch({ callable: before.callable, writable: before.writable });
+    setStatus(tr('hub.dossier.saveFailed'), 'error');
+  }
+  renderAgentManageContext();
+}
+
+function renderHubSystem() {
+  const list = els.hubFolderList;
+  if (!list) return;
+  const items = state.hub.folders.map((folder) => {
+    const item = document.createElement('li');
+    const name = document.createElement('b');
+    name.textContent = folder.name;
+    const where = document.createElement('code');
+    where.textContent = folder.displayPath;
+    where.title = folder.displayPath;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.dataset.folderId = folder.id;
+    remove.textContent = tr('hub.system.remove');
+    remove.setAttribute('aria-label', `${tr('hub.system.remove')} ${folder.name}`);
+    item.append(name, where, remove);
+    return item;
+  });
+  if (!items.length) {
+    const empty = document.createElement('li');
+    empty.className = 'hub-folder-empty';
+    empty.textContent = tr('hub.system.noFolders');
+    items.push(empty);
+  }
+  list.replaceChildren(...items);
+  if (els.hubMaxConcurrent) els.hubMaxConcurrent.value = String(state.hub.maxConcurrent);
+}
+
+async function addHubFolder() {
+  if (!window.manager.hubAddFolder) return;
+  let result = null;
+  try { result = await window.manager.hubAddFolder(); } catch (_error) { result = null; }
+  if (result?.ok) {
+    applyHubSettings(result.state);
+    return;
+  }
+  if (result?.reasonCode === 'cancelled') return;
+  setStatus(tr(result?.reasonCode === 'folder-limit' ? 'hub.system.folderLimit'
+    : (result?.reasonCode === 'folder-invalid' ? 'hub.system.folderInvalid' : 'hub.system.saveFailed')), 'error');
+}
+
+async function removeHubFolder(id) {
+  if (!id || !window.manager.hubRemoveFolder) return;
+  let result = null;
+  try { result = await window.manager.hubRemoveFolder(id); } catch (_error) { result = null; }
+  if (result?.state) applyHubSettings(result.state);
+  if (!result?.ok) setStatus(tr('hub.system.saveFailed'), 'error');
+}
+
+async function setHubLimit(value) {
+  if (!window.manager.hubSetMaxConcurrent) return;
+  let result = null;
+  try { result = await window.manager.hubSetMaxConcurrent(value); } catch (_error) { result = null; }
+  if (result?.state) applyHubSettings(result.state);
+  else {
+    renderHubSystem();
+    setStatus(tr('hub.system.saveFailed'), 'error');
+  }
+}
+
+function hubRefresh() {
+  applySessionFilter();
+  renderAccountRoster();
+  renderHubFooter();
+  ensureHubTicker();
+}
+
+function applyHubChange(run) {
+  if (!run || typeof run.id !== 'string') {
+    void loadHub();
+    return;
+  }
+  if (state.hub.pending.has(run.id)) {
+    // 信封还在路上：落地时用最新的这一份
+    state.hub.pending.set(run.id, run);
+    return;
+  }
+  const previous = state.hub.runs.get(run.id) || null;
+  if (!previous && HUB_ACTIVE.has(run.state)) {
+    hubStart(run);
+    return;
+  }
+  state.hub.runs.set(run.id, run);
+  if (previous && previous.state !== run.state) hubEnd(run, previous.state);
+  hubRefresh();
+}
+
+function hubGroupKey(profileId) {
+  if (!profileId) return null;
+  const group = identityGroups().find((item) => item.members.some((member) => (
+    !member._remote && String(member._meshProfileId || member.id) === String(profileId)
+  )));
+  return group?.key || null;
+}
+
+function hubNameOf(profileId) {
+  const key = hubGroupKey(profileId);
+  return identityGroups().find((group) => group.key === key)?.primary?.name || null;
+}
+
+function hubCardOf(groupKey) {
+  return groupKey ? [...(els.accountRoster?.children || [])].find((card) => card.dataset.agentId === groupKey) || null : null;
+}
+
+// 猫胸口的位置；卡片被滚出名册可见区时，停在名册靠它那一侧的边上
+function hubCatPoint(groupKey) {
+  const canvas = hubCardOf(groupKey)?.querySelector('.account-card-avatar');
+  const point = window.PixelDesk?.center(canvas, 10);
+  if (!point || !els.accountRoster) return point || null;
+  const box = els.accountRoster.getBoundingClientRect();
+  return { x: Math.max(box.left + 16, Math.min(box.right - 16, point.x)), y: point.y };
+}
+
+// 台面外面：Agent 区的左上角
+function hubEdgePoint(near) {
+  const panel = els.accountRoster?.closest('.agent-panel') || els.accountRoster;
+  const box = panel?.getBoundingClientRect();
+  if (!box) return null;
+  return { x: box.left - 12, y: Math.max(box.top + 8, (near?.y || box.top + 60) - 40) };
+}
+
+function hubCue(kind) {
+  try { window.PixelUi?.hubSound?.(kind); } catch (_error) { /* sound is optional */ }
+}
+
+function hubCatAct(groupKey, action) {
+  if (!groupKey || !window.PixelDesk?.foreground() || window.PixelDesk.reduced()) return;
+  window.PixelUi?.catAct(groupKey, action);
+}
+
+function hubOverride(groupKey, catState, ms) {
+  if (!groupKey) return;
+  state.hub.overrides.set(groupKey, { state: catState, until: Date.now() + ms });
+  setTimeout(() => renderAccountRoster(), ms + 60);
+}
+
+// 卡片上这只猫此刻因为后台对话该是什么样：被叫在跑的在干活；同时叫着两只以上的那只戴上领结
+function hubCardState(group) {
+  const ids = new Set((group?.members || []).filter((member) => !member._remote).map((member) => String(member._meshProfileId || member.id)));
+  let working = false;
+  let calling = 0;
+  for (const run of state.hub.runs.values()) {
+    if (!HUB_ACTIVE.has(run.state)) continue;
+    if (ids.has(String(run.target.id))) working = true;
+    if (run.caller && ids.has(String(run.caller.id))) calling += 1;
+  }
+  const override = state.hub.overrides.get(group?.key);
+  const after = override && override.until > Date.now() ? override.state : null;
+  return { state: working ? 'working' : after, accessory: calling >= 2 ? 'bow' : null };
+}
+
+function hubStart(run) {
+  const callee = hubGroupKey(run.target.id);
+  const caller = run.caller ? hubGroupKey(run.caller.id) : null;
+  hubCue(caller ? 'start' : 'outside');
+  state.hub.pending.set(run.id, run);
+  renderHubFooter();
+  const to = hubCatPoint(callee);
+  const from = caller ? hubCatPoint(caller) : hubEdgePoint(to);
+  // 同一只同时叫几只：信封错开 150 毫秒
+  const last = state.hub.lastStartByCaller.get(caller || 'outside') || 0;
+  const delayMs = Math.max(0, last + 150 - Date.now());
+  state.hub.lastStartByCaller.set(caller || 'outside', Date.now() + delayMs);
+  const land = (played) => {
+    const latest = state.hub.pending.get(run.id) || run;
+    state.hub.pending.delete(run.id);
+    state.hub.runs.set(latest.id, latest);
+    state.hub.fresh.add(latest.id);
+    if (played) window.PixelDesk.ring(to, 'brand');
+    const from = caller ? hubNameOf(run.caller.id) : null;
+    setStatus(from
+      ? tr('hub.say.started', { from, to: latest.target.name })
+      : tr('hub.say.startedOutside', { label: latest.from ? tr('hub.from.label', { label: latest.from }) : tr('hub.from.unknown'), to: latest.target.name }));
+    hubRefresh();
+    if (!HUB_ACTIVE.has(latest.state)) hubEnd(latest, 'running');
+  };
+  if (!window.PixelDesk || caller === callee) land(false);
+  else window.PixelDesk.fly({ from, to, arc: caller ? 16 : 10, delayMs, onLand: land });
+}
+
+function hubEnd(run, before) {
+  if (!HUB_ACTIVE.has(before) || HUB_ACTIVE.has(run.state)) return;
+  const callee = hubGroupKey(run.target.id);
+  const caller = run.caller ? hubGroupKey(run.caller.id) : null;
+  const back = (kind, onArrive) => {
+    if (!window.PixelDesk || caller === callee) return;
+    const from = hubCatPoint(callee);
+    const to = caller ? hubCatPoint(caller) : hubEdgePoint(from);
+    window.PixelDesk.fly({ from, to, arc: 16, kind, delayMs: 200, onLand: (played) => { if (played) onArrive?.(to); } });
+  };
+  if (run.state === 'completed') {
+    hubCue('done');
+    hubOverride(callee, 'onduty', HUB_AFTERGLOW_MS);
+    hubCatAct(callee, 'cheer');
+    back('mail', (point) => {
+      window.PixelDesk.ring(point, 'ok');
+      if (caller) hubCatAct(caller, 'hop');
+    });
+    setStatus(tr('hub.say.done', { to: run.target.name }));
+  } else if (run.state === 'failed') {
+    hubOverride(callee, 'onduty', HUB_AFTERGLOW_MS);
+    hubCatAct(callee, 'no');
+    back('bad', () => {
+      if (caller) {
+        hubOverride(caller, 'confused', 2500);
+        renderAccountRoster();
+      }
+    });
+    // 红字的状态行本身会带出“出错”的声音（pixel/ui.js 认这个标记），这里不再另响
+    const reason = run.reasonCode ? tr(`hub.reason.${run.reasonCode}`) : '';
+    setStatus(tr('hub.say.failed', { to: run.target.name, reason: reason.startsWith('hub.reason.') ? '' : reason }), 'error');
+  } else if (run.state === 'stopped') {
+    hubOverride(callee, 'rest', HUB_AFTERGLOW_MS);
+    hubCatAct(callee, 'settle');
+    setStatus(tr('hub.say.stopped', { to: run.target.name }));
+  }
+}
+
+async function hubStop(runId) {
+  if (!window.manager.hubStopRun) return;
+  const result = await window.manager.hubStopRun(runId);
+  if (!result?.ok) setStatus(tr('hub.stopFailed'), 'error');
+}
+
+// 一段后台对话在账本里只占一行：被叫账号自己的那条会话找到以后，就用那一行
+function withHubRuns(sessions) {
+  if (!state.hub.runs.size) return sessions;
+  const byKey = new Map();
+  for (const run of state.hub.runs.values()) {
+    if (run.session?.id) byKey.set(`${run.target.id}::${run.session.id}`, run);
+  }
+  const used = new Set();
+  const out = sessions.map((session) => {
+    if (session._remote) return session;
+    const run = byKey.get(`${session._meshProfileId || session._profileId}::${session.address || session.id}`);
+    if (!run) return session;
+    used.add(run.id);
+    return { ...session, _hubRun: run };
+  });
+  const lens = currentDeviceLensId();
+  const localLens = !state.mesh.overview?.initialized || lens === 'all' || lens === state.mesh.overview?.localDeviceId;
+  if (!localLens) return out;
+  for (const run of state.hub.runs.values()) {
+    if (used.has(run.id)) continue;
+    if (state.ui.agentScope !== 'all' && hubGroupKey(run.target.id) !== currentAgentId()) continue;
+    out.push({
+      id: run.id,
+      address: run.id,
+      title: run.title,
+      _hubRun: run,
+      _hubOnly: true,
+      _profileId: run.target.id,
+      _accountName: run.target.name,
+      appId: run.target.app,
+      createdAt: run.startedAt || run.createdAt,
+      updatedAt: HUB_ACTIVE.has(run.state) ? new Date().toISOString() : (run.endedAt || run.createdAt)
+    });
+  }
+  return out;
+}
+
+function hubRowContext() {
+  return {
+    t: tr,
+    nameOf: (profileId) => hubNameOf(profileId),
+    appLabel: (appId) => appLabel(appId),
+    compactDate,
+    fullDate,
+    onStop: (runId) => void hubStop(runId)
+  };
+}
+
+function renderHubRow(session) {
+  const run = session._hubRun;
+  const row = document.createElement('tr');
+  row.className = 'hub-run-row';
+  row.dataset.runId = run.id;
+  row.dataset.runState = run.state;
+  if (state.hub.fresh.has(run.id)) {
+    state.hub.fresh.delete(run.id);
+    if (!window.PixelDesk?.reduced()) row.classList.add('fx-in');
+  }
+  const selectCell = document.createElement('td');
+  selectCell.className = 'select-cell';
+  row.append(selectCell);
+  if (!session._hubOnly) {
+    const key = sessionKey(session);
+    row.dataset.sessionKey = key;
+    const checked = state.ui.checkedConversationIds.has(key);
+    row.classList.toggle('selected', checked);
+    row.classList.toggle('session-active', key === state.ui.focusedConversationId);
+    row.setAttribute('aria-selected', String(checked || key === state.ui.focusedConversationId));
+    const checkbox = document.createElement('input');
+    checkbox.className = 'session-select-box';
+    checkbox.type = 'checkbox';
+    checkbox.checked = checked;
+    checkbox.setAttribute('aria-label', tr('session.selectOne', { title: run.title }));
+    checkbox.addEventListener('click', (event) => event.stopPropagation());
+    checkbox.addEventListener('change', () => setSessionChecked(session, checkbox.checked));
+    selectCell.append(checkbox);
+    row.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey) setSessionChecked(session, !state.ui.checkedConversationIds.has(key));
+      else {
+        focusSession(session);
+        renderSessions();
+      }
+    });
+  }
+  const context = hubRowContext();
+  for (const column of sessionColumns()) row.append(window.AgentHubUi.cellFor(run, column, context));
+  return row;
+}
+
+function renderHubLinks() {
+  if (!els.hubLinks || !window.AgentHubUi) return;
+  const links = [];
+  for (const run of state.hub.runs.values()) {
+    if (!HUB_ACTIVE.has(run.state) || !run.caller) continue;
+    const from = hubGroupKey(run.caller.id);
+    const to = hubGroupKey(run.target.id);
+    if (from && to && from !== to) links.push({ from, to });
+  }
+  window.AgentHubUi.renderLinks(els.hubLinks, els.accountRoster, links);
+}
+
+function renderHubFooter() {
+  if (!els.hubFooter) return;
+  let active = state.hub.pending.size;
+  for (const run of state.hub.runs.values()) if (HUB_ACTIVE.has(run.state)) active += 1;
+  els.hubFooter.hidden = active === 0;
+  if (!active) {
+    els.hubFooter.replaceChildren();
+    return;
+  }
+  els.hubFooter.replaceChildren(window.AgentHubUi.lamp('running', tr), document.createTextNode(tr('hub.footer.running', { n: active })));
+}
+
+// 用时每秒走一格；没有在跑的就不留计时器。只读本地的钟，不向 Main 要数据。
+function ensureHubTicker() {
+  const any = [...state.hub.runs.values()].some((run) => run.state === 'running');
+  if (!any) {
+    clearInterval(state.hub.ticker);
+    state.hub.ticker = null;
+    return;
+  }
+  if (state.hub.ticker) return;
+  state.hub.ticker = setInterval(() => {
+    for (const cell of document.querySelectorAll('#sessionRows td[data-hub-elapsed]')) {
+      const run = state.hub.runs.get(cell.dataset.hubElapsed);
+      if (run) window.AgentHubUi.timeCell(run, hubRowContext(), cell);
+    }
+  }, 1000);
+}
+
+// ── 交接：发送到另一台电脑、收到别处送来的 ──────────────
+// 发出去、对方确认收到都有回执，是确切的；对方不在线时信封停在顶栏，写着“等对方上线”。
+const DESK_PENDING = new Set(['queued', 'sending', 'awaiting-ack']);
+
+function deskTickRows(keys) {
+  const floaters = document.getElementById('fxFloaters');
+  if (!floaters) return;
+  const wanted = new Set(keys || []);
+  for (const row of document.querySelectorAll('#sessionRows tr[data-session-key]')) {
+    if (!wanted.has(row.dataset.sessionKey)) continue;
+    const box = row.getBoundingClientRect();
+    if (box.bottom < 0 || box.top > window.innerHeight) continue;
+    const tick = document.createElement('i');
+    tick.className = 'desk-tick';
+    tick.textContent = tr('transfers.delivered');
+    // 停在标题那一栏的末尾，不压住时间和来源
+    const project = row.querySelector('td.col-project')?.getBoundingClientRect();
+    tick.style.left = `${Math.round((project ? project.left : box.right) - 112)}px`;
+    tick.style.top = `${Math.round(box.top + box.height / 2 - 8)}px`;
+    floaters.append(tick);
+    setTimeout(() => tick.remove(), 2600);
+  }
+}
+
+function deskLensPoint() {
+  return window.PixelDesk?.center(document.getElementById('deviceLensButton'));
+}
+
+function deskFlyOut(entry) {
+  const from = deskLensPoint();
+  const out = from ? { x: window.innerWidth + 24, y: from.y } : null;
+  window.PixelDesk?.fly({ from, to: out, arc: 0, onLand: () => deskTickRows(entry.keys) });
+  if (!window.PixelDesk) deskTickRows(entry.keys);
+}
+
+function deskSendFlights() {
+  for (const entry of state.hub.sent) {
+    if (entry.flown) continue;
+    entry.flown = true;
+    const first = document.querySelector(`#sessionRows tr[data-session-key="${CSS.escape(entry.keys[0] || '')}"] .title-cell-main`);
+    const from = window.PixelDesk?.center(first);
+    window.PixelDesk?.fly({
+      from, to: deskLensPoint(), arc: 10,
+      onLand: () => {
+        if (entry.state === 'completed') {
+          entry.delivered = true;
+          deskFlyOut(entry);
+        }
+        renderDeskParked();
+      }
+    });
+  }
+  renderDeskParked();
+}
+
+function deskTransfersChanged(previous, current) {
+  const before = new Map((previous || []).map((item) => [item.transferId, item.state]));
+  for (const entry of state.hub.sent) {
+    const now = (current || []).find((item) => item.transferId === entry.transferId);
+    if (!now) continue;
+    entry.state = now.state;
+    if (now.state === 'completed' && before.get(entry.transferId) !== 'completed' && entry.flown && !entry.delivered) {
+      entry.delivered = true;
+      deskFlyOut(entry);
+    }
+  }
+  renderDeskParked();
+  deskReceived(previous, current);
+}
+
+function renderDeskParked() {
+  if (!els.deskParked) return;
+  const waiting = (state.mesh.transfers || []).some((item) => (
+    item.direction === 'outgoing' && item.type === 'session-pointer' && DESK_PENDING.has(item.state)
+  ));
+  els.deskParked.hidden = !waiting;
+  els.deskParked.title = waiting ? tr('transfers.parked') : '';
+  els.deskParked.setAttribute('aria-label', waiting ? tr('transfers.parked') : '');
+}
+
+// 收到：信封从窗口右上角飞进“收件箱”，按钮跳一下；数字由收件箱自己的计数更新
+function deskReceived(previous, current) {
+  const seen = new Set((previous || []).map((item) => item.transferId));
+  const fresh = (current || []).some((item) => {
+    if (item.direction !== 'incoming' || seen.has(item.transferId)) return false;
+    const created = Date.parse(item.createdAt);
+    return Number.isFinite(created) && Date.now() - created < 120000 && !['failed', 'cancelled', 'expired'].includes(item.state);
+  });
+  if (!fresh || !previous) return;
+  const inbox = document.getElementById('activityCenterBtn');
+  const to = window.PixelDesk?.center(inbox);
+  const from = to ? { x: window.innerWidth + 16, y: -16 } : null;
+  window.PixelDesk?.fly({
+    from, to, arc: 12,
+    onLand: (played) => {
+      if (played) {
+        window.PixelDesk.ring(to, 'brand');
+        window.PixelFx?.once(inbox, 'fx-bump', 160);
+      }
+    }
+  });
+}
+

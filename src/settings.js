@@ -20,6 +20,8 @@ const SESSION_VIEWS = new Set(['compact', 'detail']);
 const YARD_TIMES = new Set(['auto', 'day', 'dusk', 'night']);
 const YARD_WEATHER = new Set(['auto', 'clear', 'cloudy', 'rain', 'snow']);
 const PROFILE_QUIT_BEHAVIORS = new Set(['close', 'keep']);
+// 声音三档：全部 / 只要要紧的 / 静音；默认只要要紧的。音量 0–100，默认 55（与所有者试听时的默认值相同）。
+const SOUND_LEVELS = new Set(['all', 'key', 'off']);
 
 const DEFAULT_SETTINGS = Object.freeze({
   theme: null,
@@ -33,6 +35,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   selectedSlotKeyByAgentAndLens: Object.freeze({}),
   remindersOn: true,
   profileQuitBehavior: 'close',
+  soundLevel: 'key',
+  soundVolume: 55,
   atmosTime: 'auto',
   atmosWeather: 'auto',
   welcomed: false,
@@ -89,6 +93,11 @@ function normalizeAgentOrder(value) {
     .map(id => boundedId(id)).filter(Boolean))];
 }
 
+function normalizeSoundVolume(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_SETTINGS.soundVolume;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function normalizeLedger(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.date !== 'string') {
     return null;
@@ -137,6 +146,8 @@ function normalizeSettings(value) {
     profileQuitBehavior: PROFILE_QUIT_BEHAVIORS.has(input.profileQuitBehavior)
       ? input.profileQuitBehavior
       : DEFAULT_SETTINGS.profileQuitBehavior,
+    soundLevel: SOUND_LEVELS.has(input.soundLevel) ? input.soundLevel : DEFAULT_SETTINGS.soundLevel,
+    soundVolume: normalizeSoundVolume(input.soundVolume),
     atmosTime: YARD_TIMES.has(input.atmosTime) ? input.atmosTime : DEFAULT_SETTINGS.atmosTime,
     atmosWeather: YARD_WEATHER.has(input.atmosWeather)
       ? input.atmosWeather

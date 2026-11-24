@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T06:02:16.169409Z",
-  "baseCommit": "760dace0aa318100981399f4de47e06b05a0f302",
+  "recordedAt": "2026-11-24T15:01:38.239Z",
+  "baseCommit": "07628ce2389f218a00534ce8639c0bd2aa465ddc",
   "uncommitted": true,
-  "sourceSha256": "d1debc204ac28e655c053c6f1205f394bd5c7c8bda1b1fb12c233e18f51763db",
+  "sourceSha256": "2b361eaee5a4c2945d299f22fa930eee27bc20bff58ab36bb553e661c77f28c8",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
-    "node": "v24.22.1",
+    "node": "v22.23.5",
     "os": "25.6.0"
   },
   "integration": {
@@ -17,6 +17,46 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-concurrency=4",
+      "result": "passed",
+      "tests": 754,
+      "pass": 753,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after 调度中枢 batches 1-6 (motion, dossier switches, System folders and limit, tooltips; stub executables only; no real client, no visible window)",
+      "recordedAt": "2026-11-24T15:01:38.239Z",
+      "sourceSha256": "2b361eaee5a4c2945d299f22fa930eee27bc20bff58ab36bb553e661c77f28c8"
+    },
+    {
+      "command": "node --test test/hub-settings-ui.test.js test/hub-ui.test.js test/agent-hub.test.js test/agent-hub-cli.test.js test/ui.test.js test/ui-redesign.test.js test/task-package-ui.test.js test/mesh-ui.test.js",
+      "result": "passed",
+      "scope": "Dossier calling section (local location only, write needs call, per-reason notes), Main accounts/clients state, no CLI command to change switches/folders/limit, System folders only via Main picker, send-menu items, tip keys in zh/en/ja, disabled reasons, Escape, existing session-pane contracts",
+      "recordedAt": "2026-11-24T15:01:38.239Z",
+      "sourceSha256": "2b361eaee5a4c2945d299f22fa930eee27bc20bff58ab36bb553e661c77f28c8"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 143,
+      "scope": "All repository JavaScript syntax checks",
+      "recordedAt": "2026-11-24T15:01:38.239Z",
+      "sourceSha256": "2b361eaee5a4c2945d299f22fa930eee27bc20bff58ab36bb553e661c77f28c8"
+    },
+    {
+      "command": "hidden-window end-to-end hub run (real Main, real renderer, real --cli run processes, stub clients; window never shown), zh light and en dark",
+      "result": "passed",
+      "scope": "Seven hub scenes: caller-known start, running, fan-out with bow on caller, completion and return, failure from outside the desk, stop by person; plus copy/send/park/deliver transfer scenes",
+      "recordedAt": "2026-11-24T15:01:38.239Z",
+      "sourceSha256": "2b361eaee5a4c2945d299f22fa930eee27bc20bff58ab36bb553e661c77f28c8"
+    },
+    {
+      "command": "hidden-window check of the approved hub settings UI (real Main and renderer, temporary userData, folder picker answered by the harness), zh light and en dark",
+      "result": "passed",
+      "scope": "Dossier variants (callable with duplicate name, desktop-only, no read-only mode, supported but off), switches persisted to profiles.json, write turns off with call, add folder through Main dialog, limit persisted to agent-hub.json, remove to none then no-folder note, tips on four entries including disabled reasons, Escape closes only the tip. Keyboard-focus tip not verifiable in a never-focused window.",
+      "recordedAt": "2026-11-24T15:01:38.239Z",
+      "sourceSha256": "2b361eaee5a4c2945d299f22fa930eee27bc20bff58ab36bb553e661c77f28c8"
+    },
     {
       "command": "node --test --test-concurrency=2",
       "result": "passed",
@@ -341,27 +381,610 @@
       "recordedAt": "2026-11-24T06:02:16.169409Z",
       "sourceSha256": "d1debc204ac28e655c053c6f1205f394bd5c7c8bda1b1fb12c233e18f51763db",
       "scope": "Canonical documentation links, implementation authority, release boundaries and validation source digest."
+    },
+    {
+      "command": "node --test --test-concurrency=2 --test-reporter=spec",
+      "result": "passed",
+      "tests": 620,
+      "pass": 619,
+      "fail": 0,
+      "skipped": 1,
+      "recordedAt": "2026-11-24T08:12:44Z",
+      "sourceSha256": "942102bccd5eeb93b16de22e01c5ccce2caa41e88ee39695ae5b1e264db0543e",
+      "scope": "Complete background Node suite on this machine under Node v22.23.5: 88 test files, including the new test/pixel-icons.test.js and the UI contract tests rewritten for the approved structure. The preceding 868-test entry was recorded in a different environment (Node v24.22.1); that count was not reproduced here and no test file was removed in this change. No GUI windows."
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 123,
+      "recordedAt": "2026-11-24T08:12:44Z",
+      "sourceSha256": "942102bccd5eeb93b16de22e01c5ccce2caa41e88ee39695ae5b1e264db0543e",
+      "scope": "Repository JavaScript syntax checks, now including src/pixel/icons.js, src/pixel/fx.js and src/pixel/ui.js."
+    },
+    {
+      "command": "Hidden-window renderer checks (real Electron main process, disposable userData, show/focus suppressed, mock keychain)",
+      "result": "passed",
+      "recordedAt": "2026-11-24T08:12:44Z",
+      "sourceSha256": "942102bccd5eeb93b16de22e01c5ccce2caa41e88ee39695ae5b1e264db0543e",
+      "scope": "Fixture data only: normal, long-name and empty rosters in light and dark themes at 1040x840. Read back 58/222/38 geometry, device view button at x=387 216x34, 180px cards, 36px rows, no horizontal overflow; roster All/cat selection driving agentScope and the session title; focus return to the System menu, device view button and Send menu after closing dialogs; quota popover; recruit menu and Escape; motion hooks called directly; opening a different cat leaves scope, Agent, list and focused session unchanged. The profile launch and provisioning IPC channels were stubbed so no client was started; the clipboard was not written. No renderer console errors. This is not the scripts/ui-acceptance.js real-window run and does not cover Mesh-initialized, remote-device, real-data or Windows behaviour."
+    },
+    {
+      "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration, output release/local-pixel-20261124)",
+      "result": "passed",
+      "recordedAt": "2026-11-24T08:20:26Z",
+      "sourceSha256": "942102bccd5eeb93b16de22e01c5ccce2caa41e88ee39695ae5b1e264db0543e",
+      "scope": "Local arm64 application only, built from the uncommitted working tree; cached Electron 43.3.0; no notarization or release."
+    },
+    {
+      "command": "node scripts/verify-electron-package-integrity.js --artifact release/local-pixel-20261124/mac-arm64/AgentDesk.app; codesign --verify --deep --strict; asar extract and diff -r against src",
+      "result": "passed",
+      "regularFiles": 138,
+      "recordedAt": "2026-11-24T08:20:26Z",
+      "sourceSha256": "942102bccd5eeb93b16de22e01c5ccce2caa41e88ee39695ae5b1e264db0543e",
+      "scope": "Five Electron fuses, ASAR file/block digests and the embedded header; ad-hoc signature integrity (not Developer ID or notarization); all 133 packaged src files byte-identical to the working tree."
+    },
+    {
+      "command": "node scripts/install-local-macos.js --source release/local-pixel-20261124/mac-arm64/AgentDesk.app --preserve-clients",
+      "result": "passed",
+      "recordedAt": "2026-11-24T08:20:26Z",
+      "sourceSha256": "942102bccd5eeb93b16de22e01c5ccce2caa41e88ee39695ae5b1e264db0543e",
+      "scope": "Owner-requested install and relaunch on this Mac. Read back afterwards: installed ASAR digest equals the verified build, signature verifies, the process runs from /Applications/AgentDesk.app, no staging or rollback bundle left behind, profiles.json and settings.json byte-identical to before. This Mac has no registered Agent and first use is not completed, so the app opens on the first-use dialog over the empty desk; that state was reproduced on disposable data in a hidden window (light and dark) with no renderer errors. The real window itself was not inspected (no accessibility access) and no task path was exercised."
+    },
+    {
+      "command": "node --test --test-concurrency=2 --test-reporter=spec",
+      "result": "passed",
+      "tests": 615,
+      "pass": 614,
+      "fail": 0,
+      "skipped": 1,
+      "recordedAt": "2026-11-24T09:39:34Z",
+      "sourceSha256": "25284d25536ad99299d86ee7af4841b2d801156cc63c2bb50b1d32e85f9e2e80",
+      "scope": "Complete background Node suite under Node v22.23.5. The count moved from 620 to 615 because the tests of the deleted yard scene and atmosphere modules were removed and one UiContext test added. No GUI windows."
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 120,
+      "recordedAt": "2026-11-24T09:39:34Z",
+      "sourceSha256": "25284d25536ad99299d86ee7af4841b2d801156cc63c2bb50b1d32e85f9e2e80",
+      "scope": "Repository JavaScript syntax checks after removing three deleted yard modules from the list."
+    },
+    {
+      "command": "node scripts/ui-acceptance.js through a non-showing Electron entry (BrowserWindow show/focus as no-ops, mock keychain)",
+      "result": "passed",
+      "taskPaths": 24,
+      "recordedAt": "2026-11-24T09:39:34Z",
+      "sourceSha256": "25284d25536ad99299d86ee7af4841b2d801156cc63c2bb50b1d32e85f9e2e80",
+      "scope": "The repository acceptance script, unchanged at run time, against the real main process and a disposable userData directory; only the app entry was swapped so that no window appeared and the OS keychain was not touched. Covers fresh first use from the empty desk, interrupted first-use recovery, roster pointer/keyboard sorting, fixed shell geometry, selection lifecycle, TaskPackage export/receive dialogs, the four-section dossier including a dossier on a cat that is not being viewed, system and inbox pages, small viewport, device page panes, device journey, remote surface and catalog flows. It is not a visible-window run: focus and visibility dependent behaviour, the real keychain and real pointer hit-testing on screen are not proven by it."
+    },
+    {
+      "command": "Property-by-property computed-style comparison before and after pruning unmatched CSS rules",
+      "result": "passed",
+      "recordedAt": "2026-11-24T09:39:34Z",
+      "sourceSha256": "25284d25536ad99299d86ee7af4841b2d801156cc63c2bb50b1d32e85f9e2e80",
+      "scope": "223 rules whose selectors name classes or ids that no longer exist anywhere in the HTML or scripts were removed (193 from styles.css, 30 from workspace.css). 2,125 element snapshots (all elements with dialogs closed, then every dialog open) were compared for every computed property; the only difference was one animation frame of a cat sprite. Light theme, fixture data."
+    },
+    {
+      "command": "Hidden-window renderer checks on fixture data",
+      "result": "passed",
+      "recordedAt": "2026-11-24T09:39:34Z",
+      "sourceSha256": "25284d25536ad99299d86ee7af4841b2d801156cc63c2bb50b1d32e85f9e2e80",
+      "scope": "All 24 dialogs opened in turn: no text under 11px, no clipped or escaping text, and only the task handoff dialog scrolls (its content exceeds the window). Raw translation keys scanned in Chinese, English and Japanese after removing 145 unused strings per language: none shown. Bundled pixel font reported as loaded with geometry unchanged (58/222/38, card 180, row 36)."
+    },
+    {
+      "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration, output release/local-pixel-20261124b); verify-electron-package-integrity; codesign --verify --deep --strict; asar extract and diff -r against src",
+      "result": "passed",
+      "regularFiles": 141,
+      "recordedAt": "2026-11-24T09:40:12Z",
+      "sourceSha256": "25284d25536ad99299d86ee7af4841b2d801156cc63c2bb50b1d32e85f9e2e80",
+      "scope": "Local arm64 build of the second-batch working tree: five fuses, ASAR digests and embedded header, ad-hoc signature integrity, all 129 packaged src files byte-identical to the working tree, bundled fonts and licences present in the package. Built only; not installed or launched. Not Developer ID or notarized."
+    },
+    {
+      "command": "node --test --test-concurrency=2 --test-reporter=spec",
+      "result": "passed",
+      "tests": 616,
+      "pass": 615,
+      "fail": 0,
+      "skipped": 1,
+      "recordedAt": "2026-11-24T09:59:53Z",
+      "sourceSha256": "c65d2b0444d856a31d580425da032ea7418d35947e8c298fcdbb50fbd1d2def7",
+      "scope": "Complete background Node suite under Node v22.23.5, including a new test that computes contrast from both colour tables. No GUI windows."
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 120,
+      "recordedAt": "2026-11-24T09:59:53Z",
+      "sourceSha256": "c65d2b0444d856a31d580425da032ea7418d35947e8c298fcdbb50fbd1d2def7",
+      "scope": "Repository JavaScript syntax checks."
+    },
+    {
+      "command": "node scripts/ui-acceptance.js through a non-showing Electron entry (BrowserWindow show/focus as no-ops, mock keychain)",
+      "result": "passed",
+      "taskPaths": 24,
+      "recordedAt": "2026-11-24T09:59:53Z",
+      "sourceSha256": "c65d2b0444d856a31d580425da032ea7418d35947e8c298fcdbb50fbd1d2def7",
+      "scope": "Same script and method as the second batch, now on the new skin. Not a visible-window run: focus and visibility dependent behaviour, the real keychain and on-screen hit-testing are not proven by it."
+    },
+    {
+      "command": "Hidden-window renderer checks on fixture data",
+      "result": "passed",
+      "recordedAt": "2026-11-24T09:59:53Z",
+      "sourceSha256": "c65d2b0444d856a31d580425da032ea7418d35947e8c298fcdbb50fbd1d2def7",
+      "scope": "Normal and night themes: fixed geometry unchanged (58/222/38, card width 180, row 36, no horizontal overflow); all 24 dialogs opened in turn with no text under 11px, none clipped or escaping, and only the task handoff dialog scrolling; empty desk and a never-used install (no first-use dialog by itself); the copy seal appears on each copied row and is removed afterwards; the appearance label follows the theme at start-up. Chinese only for this pass; English and Japanese were not re-rendered on the new skin."
+    },
+    {
+      "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration, output release/local-desk-20261124); verify-electron-package-integrity; codesign --verify --deep --strict; asar extract and diff -r against src",
+      "result": "passed",
+      "regularFiles": 141,
+      "recordedAt": "2026-11-24T10:03:47Z",
+      "sourceSha256": "c65d2b0444d856a31d580425da032ea7418d35947e8c298fcdbb50fbd1d2def7",
+      "scope": "Local arm64 build: five fuses, ASAR digests and embedded header, ad-hoc signature integrity, all 129 packaged src files byte-identical to the working tree, bundled fonts present. Not Developer ID or notarized."
+    },
+    {
+      "command": "node scripts/install-local-macos.js --source release/local-desk-20261124/mac-arm64/AgentDesk.app --preserve-clients",
+      "result": "passed",
+      "recordedAt": "2026-11-24T10:03:47Z",
+      "sourceSha256": "c65d2b0444d856a31d580425da032ea7418d35947e8c298fcdbb50fbd1d2def7",
+      "scope": "Owner-requested install and relaunch on this Mac. Read back: installed ASAR equals the verified build, signature verifies, process runs from /Applications/AgentDesk.app, profiles.json and settings.json byte-identical to before. The visible window was not inspected."
+    },
+    {
+      "command": "node --test --test-concurrency=2 --test-reporter=spec",
+      "result": "passed",
+      "tests": 617,
+      "pass": 616,
+      "fail": 0,
+      "skipped": 1,
+      "recordedAt": "2026-11-24T10:28:42Z",
+      "sourceSha256": "fc8cf52223319e0569c419d381ef8f10268473dc8976d1b1506c713432c11d41",
+      "scope": "Complete background Node suite under Node v22.23.5, including tightened contrast floors computed from both colour tables and a new readability test. No GUI windows."
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 120,
+      "recordedAt": "2026-11-24T10:28:42Z",
+      "sourceSha256": "fc8cf52223319e0569c419d381ef8f10268473dc8976d1b1506c713432c11d41",
+      "scope": "Repository JavaScript syntax checks."
+    },
+    {
+      "command": "node scripts/ui-acceptance.js through a non-showing Electron entry (BrowserWindow show/focus as no-ops, mock keychain)",
+      "result": "passed",
+      "taskPaths": 24,
+      "recordedAt": "2026-11-24T10:28:42Z",
+      "sourceSha256": "fc8cf52223319e0569c419d381ef8f10268473dc8976d1b1506c713432c11d41",
+      "scope": "Same script and method as before, on the adjusted skin. Not a visible-window run."
+    },
+    {
+      "command": "Hidden-window renderer checks on fixture data",
+      "result": "passed",
+      "recordedAt": "2026-11-24T10:28:42Z",
+      "sourceSha256": "fc8cf52223319e0569c419d381ef8f10268473dc8976d1b1506c713432c11d41",
+      "scope": "The reported screen (English first-use dialog, second step, two existing accounts) reproduced before and after. A scan of every text element in the main window and all 24 dialogs: enabled text under 7:1 fell from 248 to 39 in the normal theme and from 160 to 2 in the night theme; what remains is text on the seal and on wood (6.0 and 6.1:1 by design), 24px titles, and one blinking footer marker. All 24 dialogs opened in Chinese, English and Japanese and in the night theme with no clipped, escaping or sub-11px text. Contrast is computed from background colours only; text over patterned backgrounds is approximated."
+    },
+    {
+      "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration, output release/local-desk-20261124b); verify-electron-package-integrity; codesign --verify --deep --strict; asar extract and diff -r against src",
+      "result": "passed",
+      "regularFiles": 141,
+      "recordedAt": "2026-11-24T10:29:02Z",
+      "sourceSha256": "fc8cf52223319e0569c419d381ef8f10268473dc8976d1b1506c713432c11d41",
+      "scope": "Local arm64 build: five fuses, ASAR digests and embedded header, ad-hoc signature integrity, all 129 packaged src files byte-identical to the working tree. Not Developer ID or notarized. Not installed: the installed app is still the earlier desk-skin build."
+    },
+    {
+      "command": "node scripts/install-local-macos.js --source release/local-desk-20261124b/mac-arm64/AgentDesk.app --preserve-clients",
+      "result": "passed",
+      "recordedAt": "2026-11-24T10:58:32Z",
+      "sourceSha256": "fc8cf52223319e0569c419d381ef8f10268473dc8976d1b1506c713432c11d41",
+      "scope": "Owner-requested install and relaunch on this Mac. Read back: installed ASAR equals the verified build, signature verifies, process runs from /Applications/AgentDesk.app, profiles.json and settings.json byte-identical to before. The visible window was not inspected."
+    },
+    {
+      "command": "node --test --test-concurrency=2 --test-reporter=spec",
+      "result": "passed",
+      "tests": 618,
+      "pass": 617,
+      "fail": 0,
+      "skipped": 1,
+      "recordedAt": "2026-11-24T11:05:16Z",
+      "sourceSha256": "675bf7998f24bc6c4030770a20d20927877ef665d76c14fdb8594177941bdd48",
+      "scope": "Complete background Node suite under Node v22.23.5, including a new test of the dissolve strips. No GUI windows."
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 120,
+      "recordedAt": "2026-11-24T11:05:16Z",
+      "sourceSha256": "675bf7998f24bc6c4030770a20d20927877ef665d76c14fdb8594177941bdd48",
+      "scope": "Repository JavaScript syntax checks."
+    },
+    {
+      "command": "node scripts/ui-acceptance.js through a non-showing Electron entry (BrowserWindow show/focus as no-ops, mock keychain)",
+      "result": "passed",
+      "taskPaths": 24,
+      "recordedAt": "2026-11-24T11:05:16Z",
+      "sourceSha256": "675bf7998f24bc6c4030770a20d20927877ef665d76c14fdb8594177941bdd48",
+      "scope": "Same script and method as before. Not a visible-window run."
+    },
+    {
+      "command": "Hidden-window renderer checks on fixture data",
+      "result": "passed",
+      "recordedAt": "2026-11-24T11:05:16Z",
+      "sourceSha256": "675bf7998f24bc6c4030770a20d20927877ef665d76c14fdb8594177941bdd48",
+      "scope": "Six cats in a roster that fits four, normal and night themes: at the start only the right side dissolves, in the middle both sides, at the end only the left; a card selected from the far side stops 72px clear of the edge. Checked by state read-back and by looking at the captured edges."
+    },
+    {
+      "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration, output release/local-desk-20261124c); verify-electron-package-integrity; codesign --verify --deep --strict; asar extract and diff -r against src",
+      "result": "passed",
+      "regularFiles": 141,
+      "recordedAt": "2026-11-24T11:05:31Z",
+      "sourceSha256": "675bf7998f24bc6c4030770a20d20927877ef665d76c14fdb8594177941bdd48",
+      "scope": "Local arm64 build: five fuses, ASAR digests and embedded header, ad-hoc signature integrity, all 129 packaged src files byte-identical to the working tree. Not Developer ID or notarized. Not installed: the installed app is still the readability-pass build."
+    },
+    {
+      "command": "node scripts/install-local-macos.js --source release/local-desk-20261124c/mac-arm64/AgentDesk.app --preserve-clients",
+      "result": "passed",
+      "recordedAt": "2026-11-24T11:08:51Z",
+      "sourceSha256": "675bf7998f24bc6c4030770a20d20927877ef665d76c14fdb8594177941bdd48",
+      "scope": "Owner-requested install and relaunch on this Mac. Read back: installed ASAR equals the verified build, signature verifies, process runs from /Applications/AgentDesk.app, profiles.json and settings.json byte-identical to before. The visible window was not inspected."
+    },
+    {
+      "command": "node --test --test-concurrency=2 --test-reporter=spec",
+      "result": "passed",
+      "tests": 619,
+      "pass": 618,
+      "fail": 0,
+      "skipped": 1,
+      "recordedAt": "2026-11-24T11:19:06Z",
+      "sourceSha256": "570ad1e321e3400a118a750a410fc9c536f13034307a052839409f0a89df48c9",
+      "scope": "Complete background Node suite under Node v22.23.5, including a new test of the two type roles. No GUI windows."
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 120,
+      "recordedAt": "2026-11-24T11:19:06Z",
+      "sourceSha256": "570ad1e321e3400a118a750a410fc9c536f13034307a052839409f0a89df48c9",
+      "scope": "Repository JavaScript syntax checks."
+    },
+    {
+      "command": "node scripts/ui-acceptance.js through a non-showing Electron entry (BrowserWindow show/focus as no-ops, mock keychain)",
+      "result": "passed",
+      "taskPaths": 24,
+      "recordedAt": "2026-11-24T11:19:06Z",
+      "sourceSha256": "570ad1e321e3400a118a750a410fc9c536f13034307a052839409f0a89df48c9",
+      "scope": "Same script and method as before. Not a visible-window run."
+    },
+    {
+      "command": "Hidden-window renderer checks on fixture data",
+      "result": "passed",
+      "recordedAt": "2026-11-24T11:19:06Z",
+      "sourceSha256": "570ad1e321e3400a118a750a410fc9c536f13034307a052839409f0a89df48c9",
+      "scope": "English inbox, first-use dialog (English and Chinese) and the empty desk rendered and looked at. A scan of the English main window and all 24 dialogs for sentence-length text still in the pixel font found only headings, field labels and one button. All 24 dialogs opened in Chinese, English, Japanese and the night theme with no clipped, escaping or sub-11px text."
+    },
+    {
+      "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration, output release/local-desk-20261124d); verify-electron-package-integrity; codesign --verify --deep --strict; asar extract and diff -r against src",
+      "result": "passed",
+      "regularFiles": 141,
+      "recordedAt": "2026-11-24T11:19:34Z",
+      "sourceSha256": "570ad1e321e3400a118a750a410fc9c536f13034307a052839409f0a89df48c9",
+      "scope": "Local arm64 build: five fuses, ASAR digests and embedded header, ad-hoc signature integrity, all 129 packaged src files byte-identical to the working tree. Not Developer ID or notarized. Not installed: the installed app is still the edge-dissolve build."
+    },
+    {
+      "command": "node scripts/install-local-macos.js --source release/local-desk-20261124d/mac-arm64/AgentDesk.app --preserve-clients",
+      "result": "passed",
+      "recordedAt": "2026-11-24T11:21:32Z",
+      "sourceSha256": "570ad1e321e3400a118a750a410fc9c536f13034307a052839409f0a89df48c9",
+      "scope": "Owner-requested install and relaunch on this Mac. Read back: installed ASAR equals the verified build, signature verifies, process runs from /Applications/AgentDesk.app, profiles.json and settings.json byte-identical to before. The visible window was not inspected."
+    },
+    {
+      "command": "node --test --test-concurrency=4",
+      "result": "passed",
+      "tests": 639,
+      "pass": 638,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Complete background Node suite under Node v22.23.5 after the add-account backend (two new test files). No GUI windows.",
+      "recordedAt": "2026-11-24T12:19:45Z",
+      "sourceSha256": "58cd1c453e1aedad0d691558b2cc89c2b15f751abac29e8491262b78de86b52e"
+    },
+    {
+      "command": "node --test test/account-discovery.test.js test/account-credentials.test.js test/packaged-cli.test.js test/codex-account-import.test.js test/main-ipc-security.test.js test/automation-cli.test.js test/profile-home.test.js",
+      "result": "passed",
+      "tests": 58,
+      "pass": 58,
+      "fail": 0,
+      "scope": "Fixture homes for all seven clients across default/environment/home-scan/folder layers; Codex vs Kimi Code disambiguation; depth, skipped folders, symlink loop, directory limit, time limit and cancellation; idempotent one-save batch registration and per-location failures; selection IDs only and re-check before registering; packaged CLI discover; official commands replaced by POSIX shell stubs (argv, environment and stdin recorded); merge-preserving 0600 writes for Codex .env/config.toml, Claude settings.json, Kimi config.toml and DSH .credentials.yaml; Kimi revoked-token and DSH open-permission status; credential-file import staging; a sentinel key set through the packaged CLI appears in no AgentDesk-owned file, request folder or output.",
+      "recordedAt": "2026-11-24T12:19:45Z",
+      "sourceSha256": "58cd1c453e1aedad0d691558b2cc89c2b15f751abac29e8491262b78de86b52e"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 127,
+      "scope": "All repository JavaScript syntax checks including the new modules",
+      "recordedAt": "2026-11-24T12:19:45Z",
+      "sourceSha256": "58cd1c453e1aedad0d691558b2cc89c2b15f751abac29e8491262b78de86b52e"
+    },
+    {
+      "command": "Hidden-window main-process check of recruit IPC (real src/main.js, disposable userData, show/focus no-ops, launch stubbed)",
+      "result": "passed",
+      "scope": "recruit:discover returned only selection IDs and display fields; a forged selection ID was refused; recruit:createAccount with a pasted DSH key wrote it only into that account's .credentials.yaml and status reported api-key; an invalid key returned secret-invalid and the just-created Profile and its managed folders were removed. No client was launched and no real account was used.",
+      "recordedAt": "2026-11-24T12:19:45Z",
+      "sourceSha256": "58cd1c453e1aedad0d691558b2cc89c2b15f751abac29e8491262b78de86b52e"
+    },
+    {
+      "command": "node --test --test-concurrency=4",
+      "result": "passed",
+      "tests": 675,
+      "pass": 674,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Complete background Node suite under Node v22.23.5, including test/recruit-ui.test.js, test/recruit-items.test.js and test/cli-clients.test.js. No GUI windows.",
+      "recordedAt": "2026-11-24T12:47:14Z",
+      "sourceSha256": "a0eafa3d860d1a9db8303e27a6a6c6214b06b94f05bba9f3ff18db41eee3602d"
+    },
+    {
+      "command": "node --test test/recruit-ui.test.js test/recruit-items.test.js test/cli-clients.test.js test/account-discovery.test.js test/account-credentials.test.js",
+      "result": "passed",
+      "tests": 37,
+      "pass": 37,
+      "fail": 0,
+      "scope": "One entry and four-section dialog contract; preload passes only fixed fields and selection IDs; every droppable sign-in file (Codex, DSH, Kimi Code, Claude CLI on Linux, OpenCode legacy, Gemini) copied only as a confirmed copy, default-home files registered in place, every client folder registered in place, refusals with fixed reasons, re-check before acting; OpenCode SQLite (v2/v1/legacy JSON), Gemini JSONL/JSON and Qwen JSONL scanners hide subagent/child records; discovery separates Qwen from Claude Code projects/; OpenCode key through a stub `opencode --standalone auth import` on stdin; Gemini and Qwen merge-preserving .env/settings writes.",
+      "recordedAt": "2026-11-24T12:47:14Z",
+      "sourceSha256": "2640bc0cc3ffbab6549e6477468b103c01ee52878171b94c1a6303b59b18fba6"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 131,
+      "scope": "All repository JavaScript syntax checks including the new modules",
+      "recordedAt": "2026-11-24T12:47:14Z",
+      "sourceSha256": "a0eafa3d860d1a9db8303e27a6a6c6214b06b94f05bba9f3ff18db41eee3602d"
+    },
+    {
+      "command": "node scripts/ui-acceptance.js through a non-showing Electron entry (BrowserWindow show/focus no-ops, mock keychain)",
+      "result": "passed",
+      "paths": 24,
+      "scope": "Project acceptance task paths after the Recruit entry replaced the add menu. Not a visible-window run.",
+      "recordedAt": "2026-11-24T12:47:14Z",
+      "sourceSha256": "2640bc0cc3ffbab6549e6477468b103c01ee52878171b94c1a6303b59b18fba6"
+    },
+    {
+      "command": "Hidden-window Recruit dialog checks (real src/main.js, disposable userData, HOME pointed at a fixture home, launch stubbed)",
+      "result": "passed",
+      "scope": "Chinese and English, normal and night: four sections render without horizontal overflow; reading text uses the system face and labels the pixel font; default-place discovery and the bounded home scan list fixture accounts with email/plan labels and home-relative paths; registering two selected homes added exactly two Profiles; a pasted DSH key created and signed in an account and the field was empty afterwards; the ten clients show only the sign-in methods each supports. No client was launched; drag-and-drop itself (an OS event) and the native file picker were not exercised.",
+      "recordedAt": "2026-11-24T12:47:14Z",
+      "sourceSha256": "2640bc0cc3ffbab6549e6477468b103c01ee52878171b94c1a6303b59b18fba6"
+    },
+    {
+      "command": "node --test --test-concurrency=2 --test-reporter=spec",
+      "result": "passed",
+      "tests": 675,
+      "pass": 674,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Complete background Node suite under Node v22.23.5, run in a byte copy of the working tree at this digest (another session was saving files during runs in the live tree; two live-tree runs gave the same counts but the digest moved during each). Includes the new test/sfx.test.js. No GUI windows.",
+      "recordedAt": "2026-11-24T12:52:46Z",
+      "sourceSha256": "e49a84d88b2a9f63064b5176b6ccdce880ef97d1574af2869624238bae3bf461"
+    },
+    {
+      "command": "node --test test/sfx.test.js test/pixel-icons.test.js test/settings.test.js test/ui.test.js test/ui-redesign.test.js",
+      "result": "passed",
+      "tests": 67,
+      "pass": 67,
+      "fail": 0,
+      "scope": "Sound tables (legal register values for all 22 tables and five cat voices, peak below 0.9 and no clipping at full volume, no DC, clean tail, identical re-render at 44.1 and 48 kHz, 16-bit PCM fingerprint of the approved set), event map against the audition map and tiers, status-sentence table in zh/en/ja, no AudioContext before a gesture, level off silent with no context, key/all levels, focus rule, one voice and chrome yielding, stamp at most three, text every other character and at least 90 ms apart, per-cat voice, start-up chime, unavailable audio, volume gain and idle suspend, settings normalization, markup/CSP/script order wiring, and the existing pixel/settings/UI contracts.",
+      "recordedAt": "2026-11-24T12:52:46Z",
+      "sourceSha256": "e49a84d88b2a9f63064b5176b6ccdce880ef97d1574af2869624238bae3bf461"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 132,
+      "scope": "All repository JavaScript syntax checks including src/pixel/chip.js and src/pixel/sfx.js, in the same byte copy.",
+      "recordedAt": "2026-11-24T12:52:46Z",
+      "sourceSha256": "e49a84d88b2a9f63064b5176b6ccdce880ef97d1574af2869624238bae3bf461"
+    },
+    {
+      "command": "Hidden-window sound hook check (real src/main.js, disposable userData, show/focus no-ops, launch stubbed, AudioContext replaced in the page by a silent recorder before the first gesture, focus simulated, trusted input via webContents.sendInputEvent)",
+      "result": "passed",
+      "steps": 34,
+      "pass": 34,
+      "scope": "Read back PixelSfx.history() after each scripted step: no AudioContext before the first real click and exactly one after; start-up chime at level all; select, mew, zap, all, check/uncheck, drag pick-up/drop, launch and ready, System page open/close, lampOff/lampOn, language and menu ticks, export-failure status sentence -> error, quota first exhausted -> tired (once), inbox count up -> wait, remove a cat through its dossier -> bye, copy of five sessions -> three stamps; silent for a session-row click, a background rewrite of the same failure sentence and a repeated arrival; window unfocused: select blocked, arrive played; footer mute silences everything and unmute previews; level change persisted to settings.json. Copy was exercised by calling the post-copy hook directly (clipboard untouched). Ran on the live tree shortly before the snapshot; chip.js, sfx.js and ui.js were byte-identical to this digest, other files may have differed. One earlier attempt hung on the native confirm() of the non-Mesh removal path and was terminated; later attempts answered confirm() in the page.",
+      "recordedAt": "2026-11-24T12:52:46Z",
+      "sourceSha256": "e49a84d88b2a9f63064b5176b6ccdce880ef97d1574af2869624238bae3bf461"
+    },
+    {
+      "command": "Hidden-window render of the System page sound row and the footer mute button",
+      "result": "passed",
+      "scope": "Chinese, English and Japanese in normal and night themes: label in the pixel font, hint in the system text face, no horizontal overflow in the System page content or the footer; muted state shows the crossed speaker and the localized label. Visual judgement on the owner display not done.",
+      "recordedAt": "2026-11-24T12:52:46Z",
+      "sourceSha256": "e49a84d88b2a9f63064b5176b6ccdce880ef97d1574af2869624238bae3bf461"
+    },
+    {
+      "command": "node scripts/check-docs.js",
+      "result": "passed",
+      "scope": "Documentation check on the byte copy at this digest with the current docs copied in (docs are outside the digest): 13 current-state documents, authority 1.36, package 0.10.1-preview.1. In the live tree the same check reports only that the source digest has moved since, because another session kept saving files.",
+      "recordedAt": "2026-11-24T12:52:46Z",
+      "sourceSha256": "e49a84d88b2a9f63064b5176b6ccdce880ef97d1574af2869624238bae3bf461"
+    },
+    {
+      "command": "node --test --test-concurrency=4",
+      "result": "passed",
+      "tests": 680,
+      "pass": 679,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Complete background Node suite under Node v22.23.5 with test/cli-client-transcripts.test.js; same source digest before and after the run. No GUI windows.",
+      "recordedAt": "2026-11-24T12:59:13Z",
+      "sourceSha256": "881c68d20a1ac6ffb8cbd63819c4d097b5135ceee3f02d72b3a03b2e77a980c1"
+    },
+    {
+      "command": "node --test test/cli-client-transcripts.test.js test/cli-clients.test.js test/automation-cli.test.js test/recruit-items.test.js",
+      "result": "passed",
+      "scope": "OpenCode transcript from session_message/session_part (reasoning hidden), Gemini and Qwen transcripts (thoughts, sidechains and tool output hidden); DSH highest generation, multi-frame zstd with checksums, torn last frame ignored, child sessions hidden; CLI sessions list for DSH succeeds and sessions read returns transcript-unsupported; OpenCode export recognised by content, imported through a stub `opencode --standalone auth import <file>` with XDG_DATA_HOME of the new home, and rolled back on failure.",
+      "recordedAt": "2026-11-24T12:59:13Z",
+      "sourceSha256": "881c68d20a1ac6ffb8cbd63819c4d097b5135ceee3f02d72b3a03b2e77a980c1"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 132,
+      "scope": "All repository JavaScript syntax checks",
+      "recordedAt": "2026-11-24T12:59:13Z",
+      "sourceSha256": "881c68d20a1ac6ffb8cbd63819c4d097b5135ceee3f02d72b3a03b2e77a980c1"
+    },
+    {
+      "command": "node --test (full suite, byte copy at this digest)",
+      "result": "one failure outside this change",
+      "tests": 716,
+      "pass": 714,
+      "fail": 1,
+      "skipped": 1,
+      "scope": "Complete background Node suite under Node v22.23.5. The failure is test/pixel-cats.test.js (coat colours of the cat engine that the sound session is still writing); every other test passed, including test/lamp-motion.test.js. No GUI windows.",
+      "recordedAt": "2026-11-24T13:22:42Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1"
+    },
+    {
+      "command": "node --test test/lamp-motion.test.js",
+      "result": "passed",
+      "tests": 14,
+      "pass": 14,
+      "fail": 0,
+      "scope": "Frame paths on the 2px grid with shrinking steps; six to eight frames per move, one rebound, squash on landing; stagger within 40-60ms and half a second (rows shrink to 28ms); CSS row and folder keyframes equal path(); shelf geometry model at 1/2/5/8/12 cards and three scroll positions; boot.js run in a minimal fake page: dark cover before the first frame, reduced motion creates no animations and answers lamp-off at once, three discrete lamp levels, stepped ledger clip, any key or pointer finishes the start-up, lamp-off answers Main in under 500ms, input during lamp-off answers at once, closing keeps one level down and relight brings it back; Main window-lamp: ack, hard limit 700/400ms, skipped when hidden/minimised/destroyed, before-quit held once and re-armed by relight, macOS close short lamp-off, other platforms route close to quit, reopen detection; supervisor ownedActiveProfileIds and onStopped; wiring in main/preload/index/renderer/ui/i18n.",
+      "recordedAt": "2026-11-24T13:22:42Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 136,
+      "scope": "All repository JavaScript syntax checks, including src/pixel/boot.js and src/main/window-lamp.js",
+      "recordedAt": "2026-11-24T13:22:42Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1"
+    },
+    {
+      "command": "scripts/ui-acceptance.js through a non-showing entry (byte copy at this digest)",
+      "result": "passed",
+      "paths": 23,
+      "scope": "The repository acceptance script unchanged except two additions: every roster geometry snapshot (7+ cards, scrolled to the right end, two cards) now asserts zero gaps and one height across the shelf pieces from the All card to the last visible card, and dialog geometry is measured after the 144ms folder animation settles. Real main process, temporary userData, window never shown or focused.",
+      "recordedAt": "2026-11-24T13:22:42Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1"
+    },
+    {
+      "command": "hidden-window renderer checks (real main process, temporary userData, window never shown)",
+      "result": "passed",
+      "scope": "Final DOM after the full start-up equals the final DOM with reduced motion (no choreography) and the pre-change baseline in light, dark and English; shelf gaps 0 at scroll 0, middle, end and an odd offset; frame captures of the start-up timeline (lamp 60/140/220, shelf 160, tags from 300, cats from 420, ledger 700, rows, footer); loading state with profiles delayed 2.6s and sessions 1.5s (seats, silhouettes, dotted ledger, footer says reading accounts then reading sessions); empty desk; join and leave with the shelf unbroken; folder dialog computed styles (40->12->2->0px, 80ms exit in the top layer); quitting with two named clients, one closed, blocked with relight and the existing message, lamp-off in 413ms; macOS-style close and reopen through activate gives the short lamp-on; light/dark x zh/en for start, loading, ready, quitting and blocked. After the last timing change (one-frame landing squash, stagger by visible roster capacity) the start-up timeline (lamp 80ms apart, tags 60ms apart over 492ms, cats 42ms apart over 498ms), motion-versus-reduced-motion final DOM (dark theme) and lamp-off (412ms) were rerun on the final code.",
+      "recordedAt": "2026-11-24T13:22:42Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1"
+    },
+    {
+      "command": "node --test --test-reporter=spec (full suite)",
+      "result": "passed",
+      "tests": 716,
+      "pass": 715,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Complete background Node suite under Node v22.23.5 after the pixel-cat change, including test/pixel-cats.test.js (22) and test/lamp-motion.test.js; the skipped test is Windows-only. No GUI windows.",
+      "recordedAt": "2026-11-24T13:26:09Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 136,
+      "scope": "All repository JavaScript syntax checks, including src/yard/cat-art.js and src/pixel/cats.js",
+      "recordedAt": "2026-11-24T13:26:09Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1"
+    },
+    {
+      "command": "scripts/ui-acceptance.js through a non-showing entry (script unchanged)",
+      "result": "passed",
+      "paths": 24,
+      "scope": "Repository acceptance script, unchanged; the app-root argument replaced by an entry that no-ops BrowserWindow show/focus/showInactive/moveTop and enables mock Keychain. Not a visible-window run.",
+      "recordedAt": "2026-11-24T13:26:09Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1"
+    },
+    {
+      "command": "hidden-window renderer checks for the pixel cats (real main process, temporary userData, window never shown)",
+      "result": "passed",
+      "scope": "Light/dark x Chinese/English: canvas bottom on the shelf (0px), ten looping states drawn on cards, activity + trusted-quota precedence through renderAccounts, hop/pet mid-frame, bamboo hat whole at the cheer peak and inside the roster, footer mascot cheer, All-card group, editor (24 coats in 3 groups, collars, 12 accessories in one row, 780px dialog without scrolling, radio keys), save/restore of the compatible stored shape, empty desk in light-en and dark-zh; no console errors.",
+      "recordedAt": "2026-11-24T13:26:09Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1"
+    },
+    {
+      "command": "Combined check of four parallel sessions (add-account, chip-sfx, lamp-motion, pixel-cats): node --test --test-concurrency=2; package.json scripts.check; node scripts/ui-acceptance.js through a non-showing entry",
+      "result": "passed",
+      "tests": 716,
+      "pass": 715,
+      "fail": 0,
+      "skipped": 1,
+      "taskPaths": 24,
+      "recordedAt": "2026-11-24T13:35:30Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1",
+      "scope": "Run once on the combined working tree after all four sessions had stopped. Hidden-window smoke in both themes: no console errors, six cards on one unbroken shelf (zero gap between adjacent shelf pieces), new cats, single recruit entry, footer mute. No real account, no visible window, no audio heard."
+    },
+    {
+      "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration, output release/local-merge-20261124); verify-electron-package-integrity; codesign --verify --deep --strict; asar extract and diff -r against src",
+      "result": "passed",
+      "regularFiles": 156,
+      "recordedAt": "2026-11-24T13:35:30Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1",
+      "scope": "Local arm64 build of the combined tree: 156 ASAR files verified, 144 packaged src files byte-identical to the working tree. Not Developer ID or notarized. Not installed."
+    },
+    {
+      "command": "node scripts/install-local-macos.js --source release/local-merge-20261124/mac-arm64/AgentDesk.app --preserve-clients",
+      "result": "passed",
+      "recordedAt": "2026-11-24T13:36:42Z",
+      "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1",
+      "scope": "Owner-requested install and relaunch of the combined build on this Mac. Read back: installed ASAR equals the verified build, signature verifies, process runs from /Applications/AgentDesk.app, profiles.json and settings.json byte-identical to before. The visible window was not inspected and no sound was heard."
+    },
+    {
+      "command": "node --test --test-concurrency=4",
+      "result": "passed",
+      "tests": 738,
+      "pass": 737,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after 调度中枢 batches 1-2 (CLI relay, Main supervision, stub executables only; no real client, no window)",
+      "recordedAt": "2026-11-24T14:13:06.274Z",
+      "sourceSha256": "6c9bf5f8e8a738b61687deaa7a292aa84b106cd00071d0e9250cd867a2e61228"
+    },
+    {
+      "command": "node --test test/agent-hub.test.js test/agent-hub-cli.test.js test/packaged-cli.test.js test/automation-cli.test.js test/quota-service.test.js test/release-security.test.js",
+      "result": "passed",
+      "tests": 50,
+      "pass": 50,
+      "fail": 0,
+      "scope": "Hub adapters (fixed argv, official sources), parsers, record read-back, roster/name resolution, allowed-folder realpath containment, depth, one run per account, global limit, quota refusal, stop, stop-all on quit, restart interrupted records, account removal, prompt only on stdin and in memory, no prompt/answer in userData (sentinel scan), RunAsNode surface unchanged",
+      "recordedAt": "2026-11-24T14:13:06.274Z",
+      "sourceSha256": "6c9bf5f8e8a738b61687deaa7a292aa84b106cd00071d0e9250cd867a2e61228"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "checks": 141,
+      "scope": "All repository JavaScript syntax checks including src/hub/* and src/main/agent-hub.js",
+      "recordedAt": "2026-11-24T14:13:06.274Z",
+      "sourceSha256": "6c9bf5f8e8a738b61687deaa7a292aa84b106cd00071d0e9250cd867a2e61228"
+    },
+    {
+      "command": "hidden-window snapshot of the real renderer (temporary userData, fixture accounts, window never shown, no client launched) used to build the 调度中枢 prototype",
+      "result": "passed",
+      "scope": "Prototype only (https://claude.ai/artifact/F5AXuirVQn15E2Jj1QbUcA); the app UI is unchanged in this step",
+      "recordedAt": "2026-11-24T14:13:06.274Z",
+      "sourceSha256": "6c9bf5f8e8a738b61687deaa7a292aa84b106cd00071d0e9250cd867a2e61228"
     }
   ],
   "artifact": {
-    "path": "release/local-quota-fix-20261008/mac-arm64/AgentDesk.app",
+    "path": "release/local-merge-20261124/mac-arm64/AgentDesk.app",
     "version": "0.10.1-preview.1",
-    "asarSha256": "c66a7b1ab76f86abbc9ed35e5050374cfde26f372b8005de469d51917013c73e",
-    "asarHeaderSha256": "e32f5bbb7c1dc8de38b2b48c704446a52be4d8460a2be5609a7d51532185d576",
-    "sourceSha256": "299e2296f5fa98d6cc620d101d4984132840520edd719de6e76b97cab0350a77",
-    "sourceFilesMatched": 122,
-    "regularFilesVerified": 127,
-    "matchesCurrentSource": false,
+    "asarSha256": "e6ab32d12b31471900014ea4b3822e83b23439987a7970f16568ace87a5a6bcf",
+    "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1",
+    "sourceFilesMatched": 144,
+    "regularFilesVerified": 156,
+    "matchesCurrentSource": true,
     "installed": true,
-    "launched": true,
-    "installationVerification": {
-      "target": "/Applications/AgentDesk.app",
-      "asarMatches": true,
-      "canonicalProcessObserved": true,
-      "existingClientProcessesPreserved": true,
-      "existingClientProcessCount": 124,
-      "scope": "Owner-requested local reinstall via existing preserve-clients installer; canonical process, exact ASAR and existing official clients verified; focused quota GUI check passed"
-    }
+    "launched": true
   },
   "partialChecks": [
     {
@@ -375,9 +998,27 @@
     "Packaged three-start first-use smoke",
     "Windows runtime",
     "Physical peers/public NAT/TURN",
-    "Developer ID/notarization/public release/push"
+    "Developer ID/notarization/public release/push",
+    "Mesh-initialized and remote-device states of the restructured header, roster and Send menu",
+    "Visible-window run of scripts/ui-acceptance.js (it was run only through a non-showing entry)",
+    "Windows rendering of the pixel frames, the pixel font, the hard-edged lamplight and content-sized dialogs",
+    "Visible-window reading comfort on the owner display (only hidden-window renders and computed contrast)",
+    "Real-account sign-in for each add-account path (ADD_ACCOUNT_PLAN section 7): official codex/claude/kimi binaries were replaced by stubs; DSH reading the written file was not observed",
+    "Packaged CLI set-key through a running desktop instance (secret carried by the single-instance message) on a built bundle; Windows stdin piping to the GUI executable",
+    "A real drag-and-drop and the native file picker in the Recruit dialog (only the inspect/import logic and the controller were exercised)",
+    "OpenCode, Gemini CLI and Qwen Code against real installs and accounts: launch in a terminal, --standalone on the installed OpenCode version, Gemini oauth_creds.json import, Qwen .env leakage from ~/.qwen",
+    "Listening to the sounds in the real app (only the owner can judge them; automation verified register values, PCM properties and which sound names were requested)",
+    "Audible output through a real audio device (the hidden-window check replaced AudioContext with a silent recorder)",
+    "Visible-window, real-focus behaviour of the sound focus rule (focus was simulated in the hidden window)",
+    "Sound on Windows",
+    "remote.watch sound (not wired: the main window receives no notice when another device starts viewing or controlling this computer)",
+    "DSH session titles against real DSH logs (event row shape for session/title read from its documentation, not from a live log); OpenCode export import with the real CLI",
+    "Visible-window judgment of whether the lamp on / lamp off motion feels smooth (owner only)",
+    "Quit with real clients launched by AgentDesk: closing footer, per-client sleep and the blocked path were driven by the same messages in a hidden window, not by real client processes",
+    "Windows: closing the window now enters the quit flow first (window stays while clients close); not run on Windows",
+    "macOS red-button close and Dock reopen in a visible window (only a hidden close plus activate was exercised)"
   ],
-  "scope": "2026-11-23 source and Git consolidation on official main; complete background Node regression and syntax/document checks only. Existing package, installation, GUI and physical-platform records retain their original source digests and dates.",
+  "scope": "2026-11-24 lamp on / lamp off motion and the continuous shelf (uncommitted working tree, base 07628ce, shared with the add-account and sound sessions): one shelf from the All card to the last cat; start-up as the lamp coming on (dark first paint, three lamp levels, shelf, tags, cats on data arrival, ledger, rows, footer line); loading state with blank tags, dithered silhouettes, dotted empty ledger and a truthful footer after two seconds; cats joining and leaving, user-caused rows, folder dialogs; shut-down as the lamp going off tied to the real quit flow with a hard Main time limit; reduced motion and input skip. Checks ran on a byte copy of the working tree at this digest; the live tree had the same digest before and after. Not built or installed.",
   "previousArtifactChecks": [
     {
       "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration)",
@@ -458,25 +1099,18 @@
     "scope": "Actual /Applications AgentDesk ad-hoc local compatibility build installed through install-local-macos.js --preserve-clients. All 6 enabled roots completed automatic workers using the installed module hash. Existing official native clients remained running. No full GUI/public release/Windows claim; rollout bytes and offsets unchanged."
   },
   "localDesktopInstallation": {
-    "recordedAt": "2026-11-24T05:12:01.577Z",
-    "sourceSha256": "0a9d93247cfc3e00615ed9bd28157981f9335fb54c4d85de3ce725724a64b38e",
+    "recordedAt": "2026-11-24T13:36:42Z",
+    "sourceSha256": "2f1c6894af8ffc692241e648f30b6781c327833aee258b0df99f4eadde7343c1",
     "path": "/Applications/AgentDesk.app",
     "version": "0.10.1-preview.1",
-    "asarSha256": "ede9c71db6f35a594b0acbe08ba1645cbcc7888e2fafb0a16dadb5f4413b4fea",
-    "asarHeaderSha256": "7174d7a0976cf0f2256d930d07c170f7849d90f641069be171da0a5996a45da4",
+    "asarSha256": "e6ab32d12b31471900014ea4b3822e83b23439987a7970f16568ace87a5a6bcf",
     "matchesCurrentSource": true,
     "installed": true,
     "launched": true,
-    "priorBundleAndDataBackupVerified": true,
-    "profileRecords": 7,
-    "directoryPairs": 7,
-    "baselineSessionsVerified": 342,
-    "postInstallSessions": 342,
-    "settingsIdentical": true,
-    "catalogPreserved": true,
-    "nativeClientProcessesPreserved": 2,
-    "visibleWindowSize": "1040x840",
-    "scope": "Owner-requested Apple Silicon Mac reinstall with a private backup of the previous app, account register, device catalog database and seven local conversation roots. Packaged code and process readback covered this Mac."
+    "canonicalProcessObserved": true,
+    "profilesAndSettingsUnchanged": true,
+    "rollbackSource": "release/local-desk-20261124d/mac-arm64/AgentDesk.app (the build installed before this one)",
+    "scope": "Owner-requested reinstall of the combined tree (add-account, chip sound, lamp motion and continuous shelf, new pixel cats) through the preserve-clients installer. Visible window not inspected."
   },
   "previousLocalDesktopInstallation": {
     "recordedAt": "2026-11-24T04:42:12.396Z",
@@ -525,5 +1159,103 @@
     },
     "scope": "Owner-requested macOS local install, read-only account and indexed session comparison, and native accessibility readback.",
     "matchesCurrentSource": false
+  },
+  "previousConsolidation": {
+    "recordedAt": "2026-11-24T06:02:16.169409Z",
+    "baseCommit": "760dace0aa318100981399f4de47e06b05a0f302",
+    "sourceSha256": "d1debc204ac28e655c053c6f1205f394bd5c7c8bda1b1fb12c233e18f51763db",
+    "environment": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "node": "v24.22.1",
+      "os": "25.6.0"
+    },
+    "scope": "2026-11-23 source and Git consolidation on official main; complete background Node regression and syntax/document checks only. Existing package, installation, GUI and physical-platform records retain their original source digests and dates."
+  },
+  "previousRecordedLocalDesktopInstallation": {
+    "recordedAt": "2026-11-24T05:12:01.577Z",
+    "sourceSha256": "0a9d93247cfc3e00615ed9bd28157981f9335fb54c4d85de3ce725724a64b38e",
+    "path": "/Applications/AgentDesk.app",
+    "version": "0.10.1-preview.1",
+    "asarSha256": "ede9c71db6f35a594b0acbe08ba1645cbcc7888e2fafb0a16dadb5f4413b4fea",
+    "asarHeaderSha256": "7174d7a0976cf0f2256d930d07c170f7849d90f641069be171da0a5996a45da4",
+    "matchesCurrentSource": true,
+    "installed": true,
+    "launched": true,
+    "priorBundleAndDataBackupVerified": true,
+    "profileRecords": 7,
+    "directoryPairs": 7,
+    "baselineSessionsVerified": 342,
+    "postInstallSessions": 342,
+    "settingsIdentical": true,
+    "catalogPreserved": true,
+    "nativeClientProcessesPreserved": 2,
+    "visibleWindowSize": "1040x840",
+    "scope": "Owner-requested Apple Silicon Mac reinstall with a private backup of the previous app, account register, device catalog database and seven local conversation roots. Packaged code and process readback covered this Mac."
+  },
+  "previousPixelPreinstallDesktopInstallation": {
+    "recordedAt": "2026-11-24T08:12:44Z",
+    "path": "/Applications/AgentDesk.app",
+    "version": "0.10.1-preview.1",
+    "sourceCommit": "07628ce2389f218a00534ce8639c0bd2aa465ddc",
+    "asarSha256": "4e09cdf145c2c74722a0b1ee3e68b8d56d377cf640a38b4ee3a80226f9257273",
+    "installed": true,
+    "launched": true,
+    "matchesCurrentSource": false,
+    "scope": "Owner-requested local reinstall on 2026-11-23 of an arm64 build made from commit 07628ce before the interface restructure; at that time the ad-hoc signature verified, packaged src matched the checkout and the package integrity verifier passed 134 files. The ASAR digest was read back from the installed bundle on 2026-11-24. The current working tree has not been built or installed."
+  },
+  "previousPixelFirstBatch": {
+    "recordedAt": "2026-11-24T08:20:26Z",
+    "sourceSha256": "942102bccd5eeb93b16de22e01c5ccce2caa41e88ee39695ae5b1e264db0543e",
+    "scope": "2026-11-23/24 interface restructure and pixel skin on top of 07628ce (uncommitted working tree): background Node regression, syntax and documentation checks, hidden-window renderer checks on disposable fixture data, then an owner-requested local arm64 build, package verification and install on this Mac. No real-window acceptance run, no inspection of the visible window, no real client launch and no physical-platform validation."
+  },
+  "previousPixelSecondBatch": {
+    "recordedAt": "2026-11-24T09:40:12Z",
+    "sourceSha256": "25284d25536ad99299d86ee7af4841b2d801156cc63c2bb50b1d32e85f9e2e80",
+    "scope": "2026-11-24 second batch on top of 07628ce (uncommitted working tree): four object pages, action context separated from the viewed Agent, first use from the empty desk, content-sized dialogs, bundled pixel font and the deletion list. Background Node regression, syntax and documentation checks, the real-window acceptance script run through a non-showing entry, and hidden-window renderer checks on fixture data."
+  },
+  "previousDeskSkin": {
+    "recordedAt": "2026-11-24T10:03:47Z",
+    "sourceSha256": "c65d2b0444d856a31d580425da032ea7418d35947e8c298fcdbb50fbd1d2def7",
+    "scope": "2026-11-24 \"desk under a lamp\" skin on top of the second batch (uncommitted working tree, base 07628ce): warm normal and night palettes, pixel font for all text, perch-and-tag cards, ledger sessions, seal button, folder dialogs and the copy seal. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks on fixture data."
+  },
+  "previousReadabilityPass": {
+    "recordedAt": "2026-11-24T10:58:32Z",
+    "sourceSha256": "fc8cf52223319e0569c419d381ef8f10268473dc8976d1b1506c713432c11d41",
+    "scope": "2026-11-24 readability pass on the desk skin after the owner reported that text was hard to read (uncommitted working tree, base 07628ce): deeper secondary, seal and wood colours, text-safe state colours, tighter word spacing, 20px line height and a capped line length for sentences. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks."
+  },
+  "previousEdgeDissolve": {
+    "recordedAt": "2026-11-24T11:08:51Z",
+    "sourceSha256": "675bf7998f24bc6c4030770a20d20927877ef665d76c14fdb8594177941bdd48",
+    "scope": "2026-11-24 roster edge dissolve on top of the readability pass (uncommitted working tree, base 07628ce): where the roster still has cards out of view, the last 64px dissolve into the desk through an ordered dither instead of being clipped. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks."
+  },
+  "previousTypeRoles": {
+    "recordedAt": "2026-11-24T11:21:32Z",
+    "sourceSha256": "570ad1e321e3400a118a750a410fc9c536f13034307a052839409f0a89df48c9",
+    "scope": "2026-11-24 two type roles after the owner reported that text was still not clear (uncommitted working tree, base 07628ce): sentences, hints, empty-state text and input content use the system text face at 13px; titles, buttons, labels, names, numbers, the table and the footer stay in the pixel font. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks."
+  },
+  "previousAddAccountBackend": {
+    "recordedAt": "2026-11-24T12:19:45Z",
+    "sourceSha256": "58cd1c453e1aedad0d691558b2cc89c2b15f751abac29e8491262b78de86b52e",
+    "scope": "2026-11-24 add-account batches 1 and 3 backend on top of the type-roles pass (uncommitted working tree, base 07628ce): per-client discovery descriptors in the registry, default/environment/bounded home/folder discovery with limits and cancellation, one-save idempotent batch registration through Main-issued selection IDs, packaged CLI profiles discover/create/set-key/status/import-auth, keys handed to each account's own client (stdin, one documented variable to that child, or its documented file) and credential-file import for DSH, Kimi Code and Claude CLI. The recruit dialog UI is a published prototype awaiting the owner; the app UI is unchanged. Not installed: /Applications/AgentDesk.app still holds the previous build."
+  },
+  "previousAddAccountRecruitDialog": {
+    "recordedAt": "2026-11-24T12:47:14Z",
+    "sourceSha256": "a0eafa3d860d1a9db8303e27a6a6c6214b06b94f05bba9f3ff18db41eee3602d",
+    "scope": "2026-11-24 add-account batches 2 and 4 on top of batches 1 and 3 (uncommitted working tree, base 07628ce, shared with a concurrent sound-effects session): the owner-approved Recruit dialog in the app (one entry, four sections, inspect-then-confirm for copied sign-in files, first-use entries rerouted, three languages), and OpenCode, Gemini CLI and Qwen Code as registered clients (session scanners, terminal launch with per-account homes, discovery, sign-in status, keys or API accounts, importers). Not built or installed: /Applications/AgentDesk.app still holds the earlier build. The final full Node run and syntax checks were repeated after the concurrent session's latest edits, with the same source digest before and after the run."
+  },
+  "previousAddAccountBatches24": {
+    "recordedAt": "2026-11-24T12:52:46Z",
+    "sourceSha256": "e49a84d88b2a9f63064b5176b6ccdce880ef97d1574af2869624238bae3bf461",
+    "scope": "2026-11-24 chip sound set on top of the add-account backend (uncommitted working tree, base 07628ce): the owner-approved engine and 22 register tables (src/pixel/chip.js, byte-identical to the audition copy), the player (src/pixel/sfx.js: three levels with key as default, volume, focus rule, one voice at a time, stamp and text throttles, per-cat voice, AudioContext created on the first real gesture), hooks in src/pixel/ui.js, the level and volume in the System page, a one-click mute in the footer, and settings persistence. The add-account work of another session is in the same tree and in this digest. Another session kept saving files during every full run, so the final checks ran in a byte copy of the working tree taken at this digest (it matched the live tree when taken); the live tree has moved since. Sound quality itself was not judged; only the owner can listen."
+  },
+  "previousAddAccountFollowups": {
+    "recordedAt": "2026-11-24T12:59:13Z",
+    "sourceSha256": "881c68d20a1ac6ffb8cbd63819c4d097b5135ceee3f02d72b3a03b2e77a980c1",
+    "scope": "2026-11-24 add-account follow-ups on top of batches 1 to 4 (uncommitted working tree, base 07628ce, shared with concurrent sessions): the owner kept the plain-text Claude CLI token in settings.json; OpenCode auth export files are imported through `opencode --standalone auth import` in a new home with rollback; transcript export for OpenCode, Gemini CLI and Qwen Code; a DSH session scanner (latest log generation per session, zstd decoded frame by frame, child sessions hidden). Not built or installed."
+  },
+  "previousHubBatches12": {
+    "recordedAt": "2026-11-24T14:13:06.274Z",
+    "sourceSha256": "6c9bf5f8e8a738b61687deaa7a292aa84b106cd00071d0e9250cd867a2e61228"
   }
 }

@@ -11,10 +11,13 @@ const { CLI_DEFINITIONS, discoverCli } = require('../cli-discovery');
 const { provisioningAdapterDescriptor } = require('../mesh/main/provisioning-adapters');
 
 class InterfaceError extends Error {
-  constructor(code, message, exitCode = 1) {
+  // `extra` carries explicit, non-sensitive fields such as the candidates of
+  // an ambiguous name; it is never an exception's own text.
+  constructor(code, message, exitCode = 1, extra = null) {
     super(message);
     this.code = code;
     this.exitCode = exitCode;
+    this.extra = extra && typeof extra === 'object' ? extra : null;
   }
 }
 
@@ -286,4 +289,4 @@ function execute(command, options = {}) {
   };
 }
 
-module.exports = { COMMANDS, InterfaceError, execute };
+module.exports = { COMMANDS, InterfaceError, execute, readProfiles, getProfile };

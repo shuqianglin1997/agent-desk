@@ -86,3 +86,15 @@ test('实时查询失败时优先返回 stale 本地缓存；无缓存才报 err
   assert.equal(unavailable.status, 'error');
   assert.doesNotMatch(unavailable.reason, /network detail/);
 });
+
+test('peek returns the cached snapshot without starting a request', async () => {
+  let calls = 0;
+  const service = new QuotaService({ fetchQuota: async (profile) => { calls += 1; return { profileId: profile.id, status: 'ok' }; } });
+  const profile = { id: 'p1', appId: 'codex', sessionRoot: '/tmp/codex-home' };
+  assert.equal(service.peek(profile), null);
+  assert.equal(calls, 0);
+  await service.get(profile);
+  assert.deepEqual(service.peek(profile), { profileId: 'p1', status: 'ok' });
+  assert.equal(service.peek({ ...profile, sessionRoot: '/tmp/other' }), null);
+  assert.equal(calls, 1);
+});

@@ -18,7 +18,9 @@ function bodyOf(name, nextName) {
 test('添加设备使用固定 Header、滚动 Content、固定 Footer 的子任务 Dialog', () => {
   assert.match(html, /id="deviceJourneyDialog"[\s\S]*?utility-dialog-header[\s\S]*?device-journey-content[\s\S]*?device-journey-footer/);
   assert.match(html, /id="deviceJourneyCloseBtn"[^>]*type="button"/);
-  assert.match(css, /\.device-journey-dialog \.dialog-body\.utility-dialog-shell[\s\S]*?--dialog-preferred-height:\s*640px/);
+  // 弹窗跟着内容长高，不再写死期望高度。
+  assert.doesNotMatch(css, /--dialog-preferred-height/);
+  assert.match(css, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?height:\s*auto;[\s\S]*?max-height:\s*calc\(100dvh/);
   assert.match(css, /\.device-journey-content\s*\{[\s\S]*?display:\s*grid/);
 });
 

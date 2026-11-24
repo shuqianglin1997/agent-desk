@@ -107,6 +107,32 @@ function knownProfilePath(displayPath) {
   return null;
 }
 
+// Only fixed fields cross to Main. The secret is passed through once and is
+// not kept here.
+function credentialPayload(input, base) {
+  const provider = input?.provider && typeof input.provider === 'object' ? input.provider : {};
+  return {
+    ...base,
+    secret: typeof input?.secret === 'string' ? input.secret.slice(0, 4200) : '',
+    provider: {
+      id: String(provider.id || '').slice(0, 40),
+      baseUrl: String(provider.baseUrl || '').slice(0, 600),
+      model: String(provider.model || '').slice(0, 160)
+    },
+    catalogProviderId: String(input?.catalogProviderId || '').slice(0, 40),
+    model: String(input?.model || '').slice(0, 160)
+  };
+}
+
+// A dropped folder or sign-in file. Only a native File has a disk path; Main
+// inspects it and answers with a one-time selection ID.
+function inspectRecruitItem(file) {
+  let selectedPath = '';
+  try { selectedPath = webUtils.getPathForFile(file); } catch (_error) { /* Only accept native files. */ }
+  if (!selectedPath) return Promise.resolve({ ok: false, reasonCode: 'credential-file-unreadable' });
+  return ipcRenderer.invoke('recruit:inspectItem', selectedPath);
+}
+
 function importDroppedCodexAuth(file) {
   let selectedPath = '';
   try { selectedPath = webUtils.getPathForFile(file); } catch (_error) { /* Only accept native files. */ }
@@ -267,6 +293,28 @@ contextBridge.exposeInMainWorld('manager', {
     note: input.note
   }),
   discoverCodexHomes: () => ipcRenderer.invoke('profiles:discoverCodexHomes'),
+  recruitDiscover: (input = {}) => ipcRenderer.invoke('recruit:discover', { deep: input?.deep === true }),
+  recruitDiscoverFolder: () => ipcRenderer.invoke('recruit:discoverFolder'),
+  recruitCancelDiscover: () => ipcRenderer.invoke('recruit:cancelDiscover'),
+  recruitCreateAccount: (input = {}) => ipcRenderer.invoke('recruit:createAccount', credentialPayload(input, {
+    appId: String(input?.appId || '').slice(0, 80),
+    name: String(input?.name || '').slice(0, 80),
+    signIn: ['key', 'provider'].includes(input?.signIn) ? input.signIn : 'browser'
+  })),
+  applyProfileCredential: (input = {}) => ipcRenderer.invoke('credentials:apply', credentialPayload(input, {
+    profileId: String(input?.profileId || '').slice(0, 128),
+    method: input?.method === 'provider' ? 'provider' : 'key'
+  })),
+  getProfileCredentialStatus: (profileId, options = {}) => ipcRenderer.invoke('credentials:status', {
+    profileId: String(profileId || '').slice(0, 128),
+    official: options?.official === true
+  }),
+  inspectRecruitItem,
+  pickRecruitItem: () => ipcRenderer.invoke('recruit:pickItem'),
+  importRecruitItem: (selectionId) => ipcRenderer.invoke('recruit:importItem', { selectionId: String(selectionId || '').slice(0, 128) }),
+  recruitRegister: (selectionIds = []) => ipcRenderer.invoke('recruit:register', {
+    selectionIds: Array.isArray(selectionIds) ? selectionIds.slice(0, 64).map((value) => String(value || '').slice(0, 128)) : []
+  }),
   registerCodexHome: (selectionId) => ipcRenderer.invoke('profiles:registerCodexHome', { selectionId }),
   pickCodexHome: () => ipcRenderer.invoke('profiles:pickCodexHome'),
   pickCodexAuth: () => ipcRenderer.invoke('profiles:pickCodexAuth'),
@@ -282,6 +330,22 @@ contextBridge.exposeInMainWorld('manager', {
     return () => ipcRenderer.removeListener('profiles:registrationsChanged', listener);
   },
   stopProfile: (id) => ipcRenderer.invoke('profiles:stop', id),
+  // 调度中枢: the person's own switches, folders and limit, and the run ledger.
+  hubState: () => ipcRenderer.invoke('hub:state'),
+  hubSetAccess: (input = {}) => ipcRenderer.invoke('hub:setAccess', {
+    profileId: String(input?.profileId || '').slice(0, 128),
+    callable: input?.callable === true,
+    writable: input?.writable === true
+  }),
+  hubAddFolder: () => ipcRenderer.invoke('hub:addFolder'),
+  hubRemoveFolder: (id) => ipcRenderer.invoke('hub:removeFolder', { id: String(id || '').slice(0, 64) }),
+  hubSetMaxConcurrent: (value) => ipcRenderer.invoke('hub:setMaxConcurrent', { value: Number(value) }),
+  hubStopRun: (id) => ipcRenderer.invoke('hub:stopRun', { id: String(id || '').slice(0, 64) }),
+  onHubChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload && typeof payload === 'object' ? payload : {});
+    ipcRenderer.on('hub:changed', listener);
+    return () => ipcRenderer.removeListener('hub:changed', listener);
+  },
   cleanProfileCrashpad: (id) => ipcRenderer.invoke('profiles:cleanCrashpad', id),
   onProfileRuntimeIncident: (callback) => {
     const listener = (_event, payload) => callback(payload);
@@ -293,6 +357,14 @@ contextBridge.exposeInMainWorld('manager', {
     ipcRenderer.on('profiles:quitBlocked', listener);
     return () => ipcRenderer.removeListener('profiles:quitBlocked', listener);
   },
+  // 开灯与关灯：主进程只告诉窗口现在是哪一步，窗口演完回一声；主进程等不到也会按时继续。
+  onWindowLamp: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('window:lamp', listener);
+    return () => ipcRenderer.removeListener('window:lamp', listener);
+  },
+  windowLampDone: (token) => ipcRenderer.invoke('window:lampDone', { token: Number(token) || 0 }),
+  windowShowing: () => ipcRenderer.invoke('window:showing'),
   listSessions: (profile) => ipcRenderer.invoke('sessions:list', { profileId: profile?.id }),
   revealSession: (input) => ipcRenderer.invoke('sessions:reveal', {
     profileId: input?.profileId,

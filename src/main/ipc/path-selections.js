@@ -1,13 +1,13 @@
 const crypto = require('node:crypto');
 
-const ALLOWED_KINDS = new Set(['profile-directory', 'profile-executable', 'codex-home']);
+const ALLOWED_KINDS = new Set(['profile-directory', 'profile-executable', 'codex-home', 'client-location', 'recruit-item']);
 
 class PathSelectionRegistry {
   constructor(options = {}) {
     this.now = options.now || (() => Date.now());
     this.randomUUID = options.randomUUID || crypto.randomUUID;
     this.ttlMs = Math.max(30_000, Math.min(Number(options.ttlMs) || 5 * 60_000, 30 * 60_000));
-    this.maxEntries = Math.max(4, Math.min(Number(options.maxEntries) || 32, 128));
+    this.maxEntries = Math.max(4, Math.min(Number(options.maxEntries) || 32, 512));
     this.entries = new Map();
   }
 
@@ -22,10 +22,14 @@ class PathSelectionRegistry {
       this.entries.delete(oldest);
     }
     const selectionId = this.randomUUID();
+    // Optional metadata is Main's own description of the location (client ID,
+    // roots). It is never accepted from the Renderer.
+    const meta = input.meta && typeof input.meta === 'object' ? Object.freeze({ ...input.meta }) : null;
     this.entries.set(selectionId, {
       selectionId,
       kind,
       path: selectedPath,
+      meta,
       expiresAt: this.now() + this.ttlMs
     });
     return { selectionId, displayPath: selectedPath };
@@ -38,6 +42,11 @@ class PathSelectionRegistry {
     if (!entry) throw new Error('path-selection-expired');
     if (entry.kind !== expectedKind) throw new Error('path-selection-purpose-mismatch');
     return entry.path;
+  }
+
+  resolveEntry(selectionId, expectedKind) {
+    const selectedPath = this.resolve(selectionId, expectedKind);
+    return { path: selectedPath, meta: this.entries.get(String(selectionId || '').trim()).meta };
   }
 
   consume(selectionIds = []) {

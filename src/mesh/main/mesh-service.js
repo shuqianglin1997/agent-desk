@@ -93,6 +93,27 @@ class MeshService {
     this.activeInvites = new Map();
   }
 
+  // Cat names for this device's Profiles, read without keys and without any
+  // write (调度中枢 roster). Only linked local slots of a live Agent count.
+  localAgentNames() {
+    const names = new Map();
+    if (!fs.existsSync(this.databasePath)) return names;
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) return names;
+      const agents = new Map((snapshot.agents || []).map((agent) => [agent?.agentId, agent?.displayName]));
+      for (const slot of snapshot.slots || []) {
+        if (slot?.deviceId !== snapshot.mesh.localDeviceId || slot.assignmentState !== 'linked' || !slot.agentId) continue;
+        const name = agents.get(slot.agentId);
+        if (typeof name === 'string' && name.trim()) names.set(String(slot.profileId), name.trim());
+      }
+      return names;
+    } finally {
+      store.close();
+    }
+  }
+
   getOverview(options = {}) {
     if (!fs.existsSync(this.databasePath)) return this.uninitializedOverview();
     const store = new MeshStore(this.databasePath);

@@ -2,12 +2,13 @@
  * AgentDesk — 猫状态机与外观（庭院视图）。
  *
  * UMD：浏览器里挂到 window.YardCats，Node 里可 require 直接单测。
- * 纯函数，无 DOM / fs 依赖：输入账号信号，输出猫的状态与外观。
+ * 纯函数，无 DOM / fs 依赖：输入账号信号，输出猫的状态、外观和它该演的动作。
+ * 毛色与配饰的清单来自 yard/cat-art.js（浏览器里要先于本文件加载）。
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.YardCats = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./cat-art'));
+  else root.YardCats = factory(root.CatArt || null);
+})(typeof self !== 'undefined' ? self : this, function (art) {
   const SECOND = 1000;
   const MINUTE = 60e3;
   const DAY = 24 * 60 * MINUTE;
@@ -85,7 +86,7 @@
     return h >>> 0;
   }
 
-  // 同一个账号 id 永远得到同一套默认外观
+  // 同一个账号 id 永远得到同一套默认外观。已有的猫靠它显示，所以这里的清单和算法不能改。
   function defaultCatFor(seedText) {
     const h = hashText(String(seedText || ''));
     return {
@@ -95,21 +96,134 @@
     };
   }
 
-  // profiles.json 里的 cat 字段兜底：缺失/非法值回落到确定性默认
+  /*
+   * 第二版：28 种毛色、12 种配饰。存下来的形状仍是旧版认得的那一份——
+   *   breed     永远是旧版八种之一；新毛色另写在 coat，
+   *   accessory 永远是旧版五种之一；新配饰另写在 wear，
+   * coat / wear 只在 breed / accessory 仍等于它们的“旧版近似”时才算数。
+   * 旧版设备（只认八种毛色、五种配饰）看到的是最接近的那只旧猫；它的归一化会原样保留 coat / wear，
+   * 改名之类的编辑不会把新毛色冲掉。旧版上有人真的换了毛色或配饰，近似对不上了，新版就听它的。
+   */
+  const LOOKS = art ? art.LOOKS : {};
+  const LOOK_KEYS = Object.keys(LOOKS).length ? Object.keys(LOOKS) : BREED_KEYS.slice();
+  const ACCESSORY_KEYS = art ? Object.keys(art.ACCESSORIES) : ['none', 'scarf', 'bow', 'glasses', 'straw'];
+  const LOOK_GROUP_IDS = { 家猫: 'home', 有来历的: 'storied', 跟着客户端: 'client' };
+  const LOOK_GROUPS = ['home', 'storied', 'client'];
+  const lookGroup = (look) => LOOK_GROUP_IDS[(LOOKS[look] || {}).group] || 'home';
+  const LEGACY_BREED = {
+    orange: 'orange', calico: 'calico', cow: 'cow', black: 'black', white: 'white', tabby: 'tabby', blue: 'blue', siamese: 'siamese',
+    cream: 'orange', silver: 'tabby', tuxedo: 'black', tortie: 'calico',
+    maneki: 'white', qinghua: 'white', ink: 'cow', koi: 'calico', tiger: 'orange', panda: 'cow', handheld: 'tabby',
+    codex: 'white', cursor: 'black', qwen: 'blue', copilot: 'black', opencode: 'blue'
+  };
+  const LEGACY_ACCESSORY = {
+    none: 'none', scarf: 'scarf', glasses: 'glasses', bow: 'bow', straw: 'hat',
+    tie: 'scarf', bell: 'none', shades: 'glasses', beret: 'hat', bamboo: 'hat', phones: 'none', flower: 'bow'
+  };
+  const FROM_LEGACY_ACCESSORY = { none: 'none', scarf: 'scarf', glasses: 'glasses', bow: 'bow', hat: 'straw' };
+  // 客户端 → 它那一组毛色。只取颜色，不画任何标志；没有对应毛色的客户端（品牌规定不许这样用颜色的 Claude、
+  // DeepSeek、Kimi、Gemini，以及别的）仍用旧的确定性默认。
+  const CLIENT_LOOKS = { codex: 'codex', cursor: 'cursor', 'qwen-code': 'qwen', opencode: 'opencode' };
+  // 编辑器里能选的项圈：旧的六种加一种墨色；毛色自带的项圈色另外排在最前面。
+  const COLLAR_CHOICES = COLLAR_COLORS.concat('#2b2018');
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const isNewLook = (key) => LOOK_KEYS.includes(key) && !BREED_KEYS.includes(key) && Boolean(LEGACY_BREED[key]);
+  const isNewWear = (key) => ACCESSORY_KEYS.includes(key) && Boolean(LEGACY_ACCESSORY[key])
+    && FROM_LEGACY_ACCESSORY[LEGACY_ACCESSORY[key]] !== key;
+
+  // profiles.json / 目录里的 cat 字段兜底：缺失/非法值回落到确定性默认；新 id 直接写进 breed / accessory 时拆回兼容形状
   function normalizeCat(cat, seedText) {
     const fallback = defaultCatFor(seedText);
-    const input = cat && typeof cat === 'object' ? cat : {};
+    const input = cat && typeof cat === 'object' && !Array.isArray(cat) ? cat : {};
+    // Preserve future appearance fields so an older normalizer does not
+    // silently delete them during a routine profile read/write.
+    const output = { ...input };
+    delete output.coat;
+    delete output.wear;
+
+    let breed = input.breed;
+    let coat = input.coat;
+    if (BREED_KEYS.includes(breed)) coat = isNewLook(coat) && LEGACY_BREED[coat] === breed ? coat : null;
+    else if (isNewLook(breed)) { coat = breed; breed = LEGACY_BREED[coat]; }
+    else if (isNewLook(coat)) breed = LEGACY_BREED[coat];
+    else { breed = fallback.breed; coat = null; }
+
+    let accessory = input.accessory;
+    let wear = input.wear;
+    if (ACCESSORIES.includes(accessory)) wear = isNewWear(wear) && LEGACY_ACCESSORY[wear] === accessory ? wear : null;
+    else if (ACCESSORY_KEYS.includes(accessory) && LEGACY_ACCESSORY[accessory]) {
+      wear = isNewWear(accessory) ? accessory : null;
+      accessory = LEGACY_ACCESSORY[accessory];
+    } else if (isNewWear(wear)) accessory = LEGACY_ACCESSORY[wear];
+    else { accessory = fallback.accessory; wear = null; }
+
+    output.breed = breed;
+    output.collar = typeof input.collar === 'string' && HEX.test(input.collar) ? input.collar : fallback.collar;
+    output.accessory = accessory;
+    if (coat) output.coat = coat;
+    if (wear) output.wear = wear;
+    return output;
+  }
+
+  // 存下来的样子 → 画的时候用的三项：毛色、配饰、项圈色
+  function resolveCat(cat, seedText) {
+    const stored = normalizeCat(cat, seedText);
     return {
-      // Preserve future appearance fields so an older normalizer does not
-      // silently delete them during a routine profile read/write.
-      ...input,
-      breed: BREED_KEYS.includes(input.breed) ? input.breed : fallback.breed,
-      collar: typeof input.collar === 'string' && /^#[0-9a-f]{6}$/i.test(input.collar)
-        ? input.collar
-        : fallback.collar,
-      accessory: ACCESSORIES.includes(input.accessory) ? input.accessory : fallback.accessory
+      look: stored.coat || stored.breed,
+      accessory: stored.wear || FROM_LEGACY_ACCESSORY[stored.accessory] || 'none',
+      collar: stored.collar
     };
   }
 
-  return { deriveState, STATE_META, defaultCatFor, normalizeCat, BREED_KEYS, COLLAR_COLORS, ACCESSORIES };
+  // 编辑器里的三项 → 存下来的样子。base 是原来存的那份，未知的将来字段原样带着。
+  function storeCat(choice, base) {
+    const input = choice && typeof choice === 'object' ? choice : {};
+    const look = LOOK_KEYS.includes(input.look) && LEGACY_BREED[input.look] ? input.look : 'orange';
+    const wear = ACCESSORY_KEYS.includes(input.accessory) && LEGACY_ACCESSORY[input.accessory] ? input.accessory : 'none';
+    const output = { ...(base && typeof base === 'object' && !Array.isArray(base) ? base : {}) };
+    delete output.coat;
+    delete output.wear;
+    output.breed = LEGACY_BREED[look];
+    if (output.breed !== look) output.coat = look;
+    output.accessory = LEGACY_ACCESSORY[wear];
+    if (FROM_LEGACY_ACCESSORY[output.accessory] !== wear) output.wear = wear;
+    output.collar = typeof input.collar === 'string' && HEX.test(input.collar)
+      ? input.collar
+      : ((LOOKS[look] && LOOKS[look].collar) || COLLAR_COLORS[0]);
+    return output;
+  }
+
+  // 新招募的猫：客户端有自己那一组毛色就用它（连同那种毛色自带的项圈和配饰）；没有就用确定性默认。
+  function defaultCatForClient(appId, seedText) {
+    const look = CLIENT_LOOKS[appId];
+    if (!look || !LOOKS[look]) return defaultCatFor(seedText);
+    const data = LOOKS[look];
+    return storeCat({ look, accessory: data.accessory || 'none', collar: data.collar || defaultCatFor(seedText).collar });
+  }
+
+  /*
+   * 卡片已经在说两件事：状态行说它在干嘛（活动），能量格说还剩多少力气（只认可信的本机额度，黄格是累了，红格是快没电）。
+   * 一只猫一次只能演一件事，先后是：
+   *   1. 迷糊、干活、赶来——眼下正在发生、或要你处理的事，状态行和猫说的是同一件；
+   *   2. 能量格变红（快没电）→ 摊成饼；变黄（有点累）→ 累了；
+   *   3. 平静的作息：在岗、玩耍、揣手、打盹、冬眠；活动未知时坐着待命。
+   * 额度未知或不可信时不影响猫。
+   */
+  const STATE_ACTIONS = ['onduty', 'working', 'arriving', 'play', 'rest', 'nap', 'hibernate', 'confused', 'tired', 'spent'];
+  const ONE_SHOT_ACTIONS = ['hop', 'pet', 'zap', 'cheer', 'no', 'arrive', 'leave', 'settle', 'wake'];
+  const URGENT_ACTIVITY = ['confused', 'working', 'arriving'];
+  const CALM_ACTIVITY = ['onduty', 'play', 'rest', 'nap', 'hibernate'];
+  function actionFor(activity, energy) {
+    if (URGENT_ACTIVITY.includes(activity)) return activity;
+    if (energy === 'exhausted') return 'spent';
+    if (energy === 'tired') return 'tired';
+    if (CALM_ACTIVITY.includes(activity)) return activity;
+    return 'onduty';
+  }
+
+  return {
+    deriveState, STATE_META, defaultCatFor, normalizeCat, BREED_KEYS, COLLAR_COLORS, ACCESSORIES,
+    LOOK_KEYS, ACCESSORY_KEYS, LOOK_GROUPS, lookGroup, LEGACY_BREED, LEGACY_ACCESSORY, CLIENT_LOOKS, COLLAR_CHOICES,
+    resolveCat, storeCat, defaultCatForClient, actionFor, STATE_ACTIONS, ONE_SHOT_ACTIONS
+  };
 });

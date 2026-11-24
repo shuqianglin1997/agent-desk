@@ -57,7 +57,10 @@ test('额度随数据刷新，按账号组归拢，展开状态和浮层同步',
   assert.match(renderer, /els\.quotaOverview\.hidden = state\.quotaAnchor !== els\.quotaChipAll \|\| groups\.length < 2/);
   assert.match(renderer, /buildTrustedQuotaOverview\(groups, state\.quotas/);
   assert.match(renderer, /renderQuotaOverviewButton\(groups, rows\)/);
-  assert.match(renderer, /els\.quotaSummary\.hidden = .*anchor !== selectedCardControl\('\.account-card-quota-summary'\)/);
+  // 额度浮层跟着被点的那张卡片，不要求它是正在看的那只猫。
+  assert.match(renderer, /els\.quotaSummary\.hidden = .*anchor !== accountCardControl\(actionAgentId\(\), '\.account-card-quota-summary'\)/);
+  assert.match(renderer, /account-card-quota-summary'\)\.addEventListener\('click',[\s\S]*?setActionAgent\(agentId\);[\s\S]*?toggleQuotaPopover\(anchor\)/);
+  assert.match(renderer, /quotaPopover\.addEventListener\('beforetoggle',[\s\S]*?setActionAgent\(null\)/);
   assert.match(html, /class="presenter-head"[\s\S]*?id="quotaChipAll"/);
   assert.match(html, /class="account-card-quota-summary"[^>]*popovertarget="quotaPopover"[^>]*aria-controls="quotaPopover"/);
   assert.match(html, /id="quotaChipAll"[^>]*popovertarget="quotaPopover"[^>]*aria-controls="quotaPopover"/);
@@ -67,7 +70,10 @@ test('额度随数据刷新，按账号组归拢，展开状态和浮层同步',
   // Agent 管理已升级为原生模态 Dialog；Renderer 只打开确定对象，关闭和 Esc 交给原生 Dialog 语义。
   assert.match(html, /class="account-card-manage"[^>]*aria-haspopup="dialog"[^>]*aria-controls="agentManageDialog"/);
   assert.match(renderer, /function openAgentManageDialog\(\)[\s\S]*?agentManageDialog\.showModal\(\)/);
-  assert.match(renderer, /function closeAgentManageDialog\(\)[\s\S]*?agentManageDialog\.close\(\)/);
+  // 子流程叠在档案上面，不再先把档案关掉；档案关上时被操作的猫回到正在看的那只。
+  assert.doesNotMatch(renderer, /closeAgentManageDialog/);
+  assert.match(renderer, /agentManageDialog\?\.addEventListener\('close', \(\) => \{[\s\S]*?if \(els\.agentManageDialog\.open\) return;\s*setActionAgent\(null\)/);
+  assert.match(renderer, /function openAgentDossier\(agentId\) \{[\s\S]*?setActionAgent\(agentId\);[\s\S]*?openAgentManageDialog\(\)/);
   // 无官方额度接口的账号折叠为尾部一行，不逐行刷灰
   assert.match(renderer, /quota-overview-rest/);
   assert.match(styles, /\.quota-overview-rest\s*\{/);

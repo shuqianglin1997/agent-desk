@@ -3,17 +3,18 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-test('更新按钮归入独立设置弹窗，Header 只保留四个直接入口', () => {
+test('更新按钮归入系统页的设置一栏，Header 只保留收件箱和系统两个入口', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const toolbarStart = html.indexOf('<nav class="topbar-actions"');
   const toolbarEnd = html.indexOf('</nav>', toolbarStart);
-  const settingsStart = html.indexOf('id="settingsDialog"');
+  const settingsStart = html.indexOf('id="systemDialog"');
   const settingsEnd = html.indexOf('</dialog>', settingsStart);
   const updateButton = html.indexOf('id="updateBtn"');
 
   assert.notEqual(toolbarStart, -1);
   assert.notEqual(toolbarEnd, -1);
-  assert.match(html.slice(toolbarStart, toolbarEnd), /id="deviceCenterBtn"[\s\S]*?id="toolCenterBtn"[\s\S]*?id="activityCenterBtn"[\s\S]*?id="settingsBtn"/);
+  assert.match(html.slice(toolbarStart, toolbarEnd), /id="activityCenterBtn"[\s\S]*?id="systemBtn"/);
+  assert.doesNotMatch(html.slice(toolbarStart, toolbarEnd), /id="deviceCenterBtn"|id="addProfileBtn"|id="toolCenterBtn"|id="settingsBtn"/);
   assert.doesNotMatch(html.slice(toolbarStart, toolbarEnd), /id="updateBtn"|globalMoreMenu/);
   assert.ok(updateButton > settingsStart && updateButton < settingsEnd);
 });
@@ -21,7 +22,6 @@ test('更新按钮归入独立设置弹窗，Header 只保留四个直接入口'
 test('1.13 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下会话/右下详情三个面板', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
-  const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
   // 旧侧栏和七行信息轨移除；主区只保留三个固定面板。
   assert.doesNotMatch(html, /class="sidebar"/);
   assert.match(html, /<header class="app-topbar">[\s\S]*?<main id="mainGrid" class="workspace-board"[\s\S]*?id="agentPanel" class="workspace-panel agent-panel"[\s\S]*?id="sessionPane" class="workspace-panel session-pane"[\s\S]*?id="detailPanel" class="workspace-panel detail-panel"[\s\S]*?<footer id="statusBar"/);
@@ -35,18 +35,13 @@ test('1.13 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下�
   assert.match(styles, /\.session-table\[data-mode="compact"\]\s*\{\s*min-width:\s*0/);
   // 账号名册是唯一的 Agent 呈现面。
   assert.match(styles, /\.agent-panel \.account-roster \{[\s\S]*?display:\s*grid/);
-  assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.workspace-board \{\s*display: contents/);
-  assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] \.status-bar \{[^}]*grid-row:\s*3/);
-});
-
-test('庭院会话表保持真表格（选择列 + 标题/活跃/项目/来源，「新建」进详情），表格为唯一滚动区', () => {
-  const yardStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'yard.css'), 'utf8');
-  // 不再藏表头、不再把 tbody/行改成卡片网格、不再逐列 nth-child 隐藏
-  assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] thead \{\s*display:\s*none/);
-  assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] tbody \{\s*display:\s*grid/);
-  assert.doesNotMatch(yardStyles, /body\[data-view="yard"\] tbody td:nth-child/);
-  // 表格是唯一滚动区（去掉 380px 硬顶，改由弹性行约束）
-  assert.match(yardStyles, /body\[data-view="yard"\] \.table-wrap \{[^}]*max-height:\s*none/);
+  // 庭院场景已经退出窗口，它的场景代码、调色板、氛围和皮肤不再随应用提供；猫的素材、状态和额度判断保留。
+  for (const gone of ['scene.js', 'palettes.js', 'atmosphere.js', 'yard.css']) {
+    assert.equal(fs.existsSync(path.join(__dirname, '..', 'src', 'yard', gone)), false, `${gone} 应已删除`);
+  }
+  for (const kept of ['sprites.js', 'cats.js', 'energy.js', 'interactions.js']) {
+    assert.equal(fs.existsSync(path.join(__dirname, '..', 'src', 'yard', kept)), true, `${kept} 仍在使用`);
+  }
 });
 
 test('会话浏览支持只用于明确定位动作的轻量选择，复制主操作突出且不恢复交接编排', () => {
@@ -54,7 +49,11 @@ test('会话浏览支持只用于明确定位动作的轻量选择，复制主�
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
 
-  assert.match(html, /id="sessionScopeCurrentBtn"[\s\S]*?id="sessionScopeAllBtn"/);
+  // 选谁看谁：范围开关并进名册，“全部”卡片和点猫共同驱动同一个 agentScope。
+  assert.doesNotMatch(html, /id="sessionScopeCurrentBtn"|id="sessionScopeAllBtn"/);
+  assert.match(html, /id="rosterAllCard"[\s\S]*?id="accountRoster"/);
+  assert.match(renderer, /async function pickRosterAgent\(agentId\)[\s\S]*?UiContext\.setAgentScope\(state\.ui, 'current'\)[\s\S]*?selectAgent\(agentId\)/);
+  assert.match(renderer, /async function pickRosterAll\(\)[\s\S]*?setSessionScope\('all'\)/);
   // 全 Agent 扫描仍给每条会话保留真实槽位和账号组，供浏览与定位操作使用。
   assert.match(renderer, /state\.ui\.agentScope === 'all'[\s\S]*?identityGroups\(\)/);
   assert.match(renderer, /_profileId:\s*member\.id/);
@@ -125,14 +124,6 @@ test('右下区域承载隔离远控，额度用浮层，会话操作归列表�
   assert.match(styles, /\.detail-surface\[hidden\]\s*\{\s*display:\s*none !important/);
 });
 
-test('工作亭的猫、电脑和拖拽回位共用同一个座位锚点', () => {
-  const scene = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'scene.js'), 'utf8');
-  assert.match(scene, /seatAnchor: seat \? \{ x: targetX, y: targetY \} : null/);
-  assert.match(scene, /drawDesk\(entry\.seatAnchor\.x, true\)/);
-  assert.match(scene, /const returnPoint = candidate\.entry\.seatAnchor \|\| candidate\.entry\.home/);
-  assert.doesNotMatch(scene, /drawDesk\(entry\.home\.x/);
-});
-
 test('会话编排边界已从 UI、preload、主进程和依赖中完整移除', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
@@ -154,7 +145,7 @@ test('Agent 管理是单一对象入口，全局 Agent 与当前运行位置在 
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
   assert.match(html, /class="account-card-manage"[^>]*aria-controls="agentManageDialog"/);
-  assert.match(html, /id="agentManageDialog"[\s\S]*?id="agentGlobalActions"[\s\S]*?id="yardManageActions"/);
+  assert.match(html, /id="agentManageDialog"[\s\S]*?id="agentGlobalActions"[\s\S]*?id="agentManageLocations"[\s\S]*?id="yardManageActions"/);
   assert.doesNotMatch(html, /class="account-bar"/);
   assert.match(styles, /\.agent-panel \.account-card-actions\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) max-content/);
 });
@@ -162,12 +153,12 @@ test('Agent 管理是单一对象入口，全局 Agent 与当前运行位置在 
 test('Agent CRUD 与运行位置操作按对象分区', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
-  // 全局新增归窗口顶栏，Agent 与运行位置管理归各自对象。
-  assert.match(html, /id="windowAddMenu"[\s\S]*?id="addProfileBtn"[\s\S]*?<main/);
-  assert.match(html, /id="agentGlobalActions"[\s\S]*?id="editProfileBtn"[\s\S]*?id="manageAgentRelationsBtn"[\s\S]*?id="removeProfileBtn"[\s\S]*?<\/div>/);
-  assert.match(html, /id="yardManageActions"[\s\S]*?id="addRuntimeLocationBtn"[\s\S]*?id="pathConfigBtn"[\s\S]*?id="diagnosticsBtn"[\s\S]*?id="refreshBtn"[\s\S]*?id="profileFolderBtn"[\s\S]*?<\/div>/);
+  // 新增归 Agent 标题行的“招募”，Agent 与运行位置管理归各自对象。
+  assert.match(html, /class="presenter-head"[\s\S]*?id="addProfileBtn"[\s\S]*?id="accountRoster"/);
+  assert.match(html, /id="agentGlobalActions"[\s\S]*?id="editProfileBtn"[\s\S]*?<\/div>/);
+  assert.match(html, /id="yardManageActions"[\s\S]*?id="pathConfigBtn"[\s\S]*?id="diagnosticsBtn"[\s\S]*?id="refreshBtn"[\s\S]*?id="profileFolderBtn"[\s\S]*?<\/div>[\s\S]*?id="addRuntimeLocationBtn"[\s\S]*?id="manageAgentRelationsBtn"[\s\S]*?id="removeProfileBtn"/);
   assert.match(html, /id="agentCreateDialog"[\s\S]*?id="newAgentName"[\s\S]*?id="newAgentGroup"[\s\S]*?id="newAgentNote"[\s\S]*?id="confirmAddAgentBtn"/);
-  assert.match(renderer, /if \(state\.mesh\.overview\?\.initialized\) openAgentCreationDialog\(\);[\s\S]*?else openProfileCreationDialog\(\);/);
+  assert.match(renderer, /addProfileBtn\.addEventListener\('click'[\s\S]*?recruitDialog\.open\('new'\)/);
   // 统一后不再按视图搬家：applyView 不再 insertBefore / sidebarActions.append 这几个按钮
   assert.doesNotMatch(renderer, /accountActions\.insertBefore\(els\.addProfileBtn/);
   assert.doesNotMatch(renderer, /sidebarActions\.append/);
@@ -185,7 +176,7 @@ test('已退休的控制台设置和 renderer 事件状态不再保留', () => {
   assert.doesNotMatch(settings, /agentConsoleOn/);
 });
 
-test('不可 launch 的 CLI 槽位禁用打开按钮，账号卡片展示会话数和运行位置', () => {
+test('不可 launch 的 CLI 槽位禁用打开按钮，账号卡片展示并行会话数，位置数进提示', () => {
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   assert.match(renderer, /canLaunch: a\.canLaunch !== false/);
@@ -193,7 +184,7 @@ test('不可 launch 的 CLI 槽位禁用打开按钮，账号卡片展示会话�
   assert.match(renderer, /const canOpen = meshMode[\s\S]*?profile && profileCanLaunch[\s\S]*?button\.disabled = !canOpen/);
   assert.match(renderer, /activeNow/);
   assert.match(renderer, /account-card-busy/);
-  assert.match(renderer, /presenter\.locations/);
+  assert.match(renderer, /presenter\.positions/);
   assert.match(html, /id="editIdentity"[^>]*list="identityOptions"/);
   assert.match(html, /<datalist id="identityOptions">/);
 });
@@ -233,9 +224,12 @@ test('每张卡的运行位置独立，同一 Agent 内切换保留会话上下�
   assert.match(html, /id="accountCardTemplate"[\s\S]*?class="account-card-runtime"[\s\S]*?<select><\/select>[\s\S]*?class="account-card-actions"/);
   assert.match(renderer, /function renderAccountCardRuntime\(label, action\)[\s\S]*?if \(group\.members\.length\)[\s\S]*?devices\.slot\.choose[\s\S]*?deployment\.client\.unprepared/);
   assert.match(renderer, /function preferredGroupSlot\(group\)[\s\S]*?selectedSlotKey\(state\.ui, currentDeviceLensId\(\), group\.key\)/);
-  assert.match(renderer, /function changeAccountCardRuntime\(agentId, value\)[\s\S]*?group\.members\.some[\s\S]*?if \(agentId !== currentAgentId\(\)\) void selectProfile\(value\);\s*else if \(value !== currentProfileId\(\)\) selectSlot\(value\)/);
+  // 在卡片上换运行位置只记在这只猫身上，不选中它，所以正在看的列表不变。
+  const changeRuntime = renderer.slice(renderer.indexOf('function changeAccountCardRuntime('), renderer.indexOf('const READINESS_BADGE'));
+  assert.match(changeRuntime, /group\.members\.find[\s\S]*?UiContext\.setAgentSlot\(state\.ui, group\.key, member\._meshSlotKey \|\| member\.id\)/);
+  assert.doesNotMatch(changeRuntime, /selectProfile|selectAgent|loadSessions/);
   const selectSlot = renderer.slice(renderer.indexOf('function selectSlot('), renderer.indexOf('function populateGroupDatalist('));
-  assert.match(selectSlot, /UiContext\.setSlot\(state\.ui/);
+  assert.match(selectSlot, /UiContext\.setAgentSlot\(state\.ui/);
   assert.doesNotMatch(selectSlot, /loadSessions|state\.query\s*=|clearConversationActions/);
 });
 
@@ -243,12 +237,12 @@ test('工具入口打开独立模态弹窗 + 新增账号落盘链完整', () =>
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
-  assert.match(html, /class="topbar-actions"[\s\S]*?id="toolCenterBtn"[\s\S]*?id="activityCenterBtn"[\s\S]*?id="settingsBtn"/);
-  assert.match(html, /id="toolCenterBtn"[^>]*aria-controls="toolCenterDialog"/);
+  assert.match(html, /class="topbar-actions"[\s\S]*?id="activityCenterBtn"[\s\S]*?id="systemBtn"/);
+  assert.match(html, /id="systemBtn"[^>]*aria-controls="systemDialog"/);
   assert.doesNotMatch(html, /id="detailSurfaceTools"/);
-  assert.match(renderer, /toolCenterBtn\?\.addEventListener\('click'[\s\S]{0,220}?openUtilityDialog\('tools'\)/);
+  assert.match(renderer, /systemBtn\?\.addEventListener\('click'[\s\S]{0,220}?openUtilityDialog\('system'\)[\s\S]{0,120}?refreshToolInventory\(false\)/);
   assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?dialog\.showModal\(\)/);
-  assert.doesNotMatch(renderer, /detailSurfaceTools|toolCenterDialog\.show\(\)/);
+  assert.doesNotMatch(renderer, /detailSurfaceTools|toolCenterDialog|settingsDialog/);
   // 新增账号：表单 → addProfile → profiles:add → saveProfiles 落盘
   assert.match(renderer, /window\.manager\.addProfile\(\{[\s\S]{0,120}?name,/);
   assert.match(main, /ipcMain\.handle\('profiles:add'[\s\S]*?profiles\.push\(profile\);\s*\n\s*saveProfiles\(profiles\);/);
@@ -262,10 +256,8 @@ test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项�
   const main = read('src/main.js');
   const maintenance = read('src/tool-maintenance.js');
   const styles = read('src/styles.css');
-  const yardStyles = read('src/yard/yard.css');
 
-  assert.match(html, /id="toolCenterBtn"[\s\S]*?data-i18n="topbar\.tools"/);
-  assert.match(html, /id="toolCenterDialog"[^>]*tool-center-dialog/);
+  assert.match(html, /id="systemDialog"[\s\S]*?id="systemTools"[\s\S]*?data-i18n="system\.tools"/);
   assert.match(html, /id="checkToolsBtn"/);
   assert.match(html, /id="desktopToolList"[\s\S]*?id="cliToolList"/);
   assert.doesNotMatch(html, /custom-agent|addCustomAgent|customAgent/);
@@ -288,14 +280,9 @@ test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项�
   assert.match(maintenance, /function isTrustedLatestRequest\(/);
   assert.match(maintenance, /if \(url\.protocol !== 'https:'\) return false/);
 
-  assert.match(styles, /\.tool-center-dialog[\s\S]*?\.tool-card-actions/);
-  assert.match(yardStyles, /工具维护台：庭院里是一块有状态灯的木工台/);
-});
-
-test('庭院猫位置越界兜底：旧拖拽位置落在被裁的前景草坪带(y≥124)时作废、回默认布局（Kimi 消失回归）', () => {
-  const scene = fs.readFileSync(path.join(__dirname, '..', 'src', 'yard', 'scene.js'), 'utf8');
-  // 统一重设计裁掉 y≥132 的前景草坪带后，旧的 saved 位置若落在那里会把猫画到可见区外
-  assert.match(scene, /if \(saved && saved\.y >= 124\) saved = null/);
+  // 工具一行一个的样式在像素皮肤里；旧的工具弹窗规则已随弹窗一起删掉。
+  assert.doesNotMatch(styles, /\.tool-center-dialog/);
+  assert.match(read('src/pixel.css'), /\.system-tools \.tool-card \{[\s\S]*?\.system-tools \.tool-card-actions \{/);
 });
 
 test('i18n 独立模块：三语加载顺序 + 顶栏接线 + 语言持久化 + 词表核心 key 对齐', () => {
@@ -314,7 +301,7 @@ test('i18n 独立模块：三语加载顺序 + 顶栏接线 + 语言持久化 + 
   // 三语词表都注册 meta.label，且核心 key 三语对齐
   for (const loc of [read('src/i18n/zh.js'), read('src/i18n/en.js'), read('src/i18n/ja.js')]) {
     assert.match(loc, /meta: \{ label:/);
-    for (const key of ['topbar.tools', 'account.open', 'session.title', 'status.ready', 'tools.check', 'tools.manager.unknown', 'tools.source.catalog']) {
+    for (const key of ['system.tools', 'account.open', 'session.title', 'status.ready', 'tools.check', 'tools.manager.unknown', 'tools.source.catalog']) {
       assert.ok(loc.includes("'" + key + "'"), key + ' missing in a locale');
     }
   }

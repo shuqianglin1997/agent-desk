@@ -12,11 +12,15 @@ function dialogSlice(html, id) {
   return html.slice(start, html.indexOf('</dialog>', start));
 }
 
-test('任务交接从活动弹窗执行，复用当前唯一选中的会话', () => {
+test('任务交接从会话工具栏的“送出”发出，收到的在收件箱，复用当前唯一选中的会话', () => {
   const html = read('src/index.html');
   const renderer = read('src/renderer.js');
   const activity = dialogSlice(html, 'activityCenterDialog');
-  assert.match(activity, /id="importTaskPackageBtn"[\s\S]*?id="taskPackageActionBtn"[^>]*disabled[\s\S]*?id="incomingTaskPackages"[\s\S]*?id="taskPackageHistory"/);
+  // 收件箱自上而下三段：要你处理、送来的（含导入任务包）、记录（任务交接与传输记录）。
+  assert.match(activity, /id="inboxAttention"[\s\S]*?id="attentionItems"[\s\S]*?id="inboxIncoming"[\s\S]*?id="incomingTaskPackages"[\s\S]*?id="importTaskPackageBtn"[\s\S]*?id="inboxRecords"[\s\S]*?id="taskPackageHistory"[\s\S]*?id="transferList"/);
+  assert.doesNotMatch(html, /id="transferCenterDialog"|id="transferCenterBtn"/);
+  assert.doesNotMatch(activity, /id="taskPackageActionBtn"/);
+  assert.match(html, /id="sessionSendMenu"[\s\S]*?id="taskPackageActionBtn"[^>]*disabled/);
   assert.match(renderer, /function openTaskPackageExportDialog[\s\S]*?resolvedActionSessions\(\)[\s\S]*?sessions\.length !== 1/);
   assert.doesNotMatch(html, /handoffBulkBar|copySelectedHandoffBtn|handoffPlan/);
 });

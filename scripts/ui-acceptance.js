@@ -364,7 +364,7 @@ async function layoutSnapshot(client) {
       documentOverflow: document.documentElement.scrollWidth - innerWidth,
       bodyOverflow: document.body.scrollWidth - innerWidth,
       lens,
-      lensControl: rect('.device-lens-control'),
+      lensControl: rect('#deviceLensButton'),
       topbarOverlap: [brand, lens, actions].some((left, index, targets) =>
         targets.slice(index + 1).some((right) => overlaps(left, right))),
       brand: {
@@ -376,6 +376,21 @@ async function layoutSnapshot(client) {
       compactTableOverflow: tableWrap && sessionTable?.dataset.mode === 'compact'
         ? Math.max(0, tableWrap.scrollWidth - tableWrap.clientWidth)
         : null,
+      // 出问题时说明是谁撑出去的，免得只看到一个数字。
+      compactTableDebug: tableWrap ? (() => {
+        const frame = tableWrap.getBoundingClientRect();
+        const limit = frame.left + tableWrap.clientWidth + 0.5;
+        return {
+          client: tableWrap.clientWidth,
+          scroll: tableWrap.scrollWidth,
+          table: Math.round(sessionTable?.getBoundingClientRect().width || 0),
+          rows: document.querySelectorAll('#sessionRows tr').length,
+          beyond: [...tableWrap.querySelectorAll('*')]
+            .filter((node) => { const box = node.getBoundingClientRect(); return box.width > 0 && box.right > limit; })
+            .slice(0, 5)
+            .map((node) => node.tagName + '.' + (node.id || String(node.className).slice(0, 28)) + '@' + Math.round(node.getBoundingClientRect().right - frame.left))
+        };
+      })() : null,
       compactTableWidthOverflow: tableWrap && sessionTable?.dataset.mode === 'compact'
         ? Math.max(0, sessionTable.getBoundingClientRect().width - tableWrap.getBoundingClientRect().width)
         : null,
@@ -395,19 +410,20 @@ function assertFixedShell(layout) {
   assert.ok(Math.abs(layout.header.height - 58) <= 1, `Header must be 58px, got ${layout.header.height}px`);
   assert.ok(Math.abs(layout.status.height - 38) <= 1, `Footer must be 38px, got ${layout.status.height}px`);
   assert.ok(Math.abs(layout.agent.height - 222) <= 1, `Agent panel must be 222px, got ${layout.agent.height}px`);
-  assert.ok(Math.abs(layout.agent.x - layout.sessions.x) <= 1, 'Agent and session panels must align');
+  // 会话面板的边画在盒子外侧，所以盒子本身比 Agent 区缩进一条边的宽度（不超过 2px），看上去是对齐的。
+  assert.ok(Math.abs(layout.agent.x - layout.sessions.x) <= 2, 'Agent and session panels must align');
   assert.ok(layout.sessions.y >= layout.agent.bottom + 8, 'sessions must stay below the Agent panel');
   if (layout.detail.width) {
     assert.ok(Math.abs(layout.detail.width - 316) <= 1, `Detail panel must be 316px, got ${layout.detail.width}px`);
     assert.ok(layout.sessions.right <= layout.detail.x - 8, 'the active side surface must fit next to the list');
     assert.ok(Math.abs(layout.detail.y - layout.sessions.y) <= 1, 'lower panels must align');
   } else {
-    assert.ok(Math.abs(layout.sessions.width - layout.agent.width) <= 1, 'sessions must fill the lower board');
+    assert.ok(Math.abs(layout.sessions.width - layout.agent.width) <= 4, 'sessions must fill the lower board');
   }
   assert.ok(layout.status.y >= layout.main.bottom - 1, 'Footer must remain below the board');
   assert.ok(layout.documentOverflow <= 1 && layout.bodyOverflow <= 1, 'the fixed shell must not overflow horizontally');
   if (layout.compactTableOverflow !== null) {
-    assert.ok(layout.compactTableOverflow <= 1, `Compact table must not scroll horizontally, overflow ${layout.compactTableOverflow}px`);
+    assert.ok(layout.compactTableOverflow <= 1, `Compact table must not scroll horizontally, overflow ${layout.compactTableOverflow}px ${JSON.stringify(layout.compactTableDebug)}`);
     assert.ok(layout.compactTableWidthOverflow <= 1, `Compact table must fit its panel, overflow ${layout.compactTableWidthOverflow}px`);
   }
   assert.ok(layout.brand.rect?.width > 45 && layout.brand.rect?.height > 15, 'the text-only AgentDesk title must remain visible');
@@ -442,16 +458,13 @@ async function accountRosterSnapshot(client) {
       .filter((card) => !card.hidden)
       .map((card) => {
       const cardRect = rectOf(card);
-      const top = rectOf(card.querySelector('.account-card-top'));
+      const select = rectOf(card.querySelector('.account-card-select'));
       const avatar = rectOf(card.querySelector('.account-card-avatar'));
-      const meta = rectOf(card.querySelector('.account-card-meta'));
+      // 猫会跳、会从台面下蹦上来；判断上下顺序用它固定的站位，不用动画中的猫。
+      const pit = rectOf(card.querySelector('.account-card-pit'));
       const name = rectOf(card.querySelector('.account-card-name'));
-      const group = rectOf(card.querySelector('.account-card-group'));
       const state = rectOf(card.querySelector('.account-card-state'));
-      const details = rectOf(card.querySelector('.account-card-details'));
-      const lastActive = rectOf(card.querySelector('.account-card-last-active'));
       const quotaSummary = rectOf(card.querySelector('.account-card-quota-summary'));
-      const quotaFact = rectOf(card.querySelector('.account-card-quota-summary .account-card-fact'));
       const quota = rectOf(card.querySelector('.account-card-quota'));
       const runtime = rectOf(card.querySelector('.account-card-runtime'));
       const actions = rectOf(card.querySelector('.account-card-actions'));
@@ -463,37 +476,44 @@ async function accountRosterSnapshot(client) {
         display: style.display,
         computedHeight: style.height,
         whiteSpace: style.whiteSpace,
-        top,
+        select,
         avatar,
-        meta,
         name,
-        group,
         state,
         stateActivity: card.querySelector('.account-card-state')?.dataset.activity || '',
-        details,
-        lastActive,
         quotaSummary,
         quota,
         quotaTrusted: card.querySelector('.account-card-quota')?.dataset.trusted || '',
-        childrenInside: [top, state, details, runtime, actions].every((item) => contains(cardRect, item)),
-        topChildrenInside: [avatar, meta, name, group].every((item) => contains(top, item)),
-        detailsChildrenInside: [lastActive, quotaSummary, quota].every((item) => contains(details, item)),
-        verticalOrder: contains(top, state) && top.bottom <= details.y + 1
-          && details.bottom <= runtime.y + 1 && runtime.bottom <= actions.y + 1,
-        detailsOrder: lastActive.bottom <= quotaSummary.y + 1
-          && contains(quotaSummary, quotaFact) && contains(quotaSummary, quota) && quotaFact.bottom <= quota.y + 1,
-        metaOrder: name.bottom <= group.y + 1,
-        lastActiveText: card.querySelector('.account-card-last-active')?.textContent.trim() || '',
-        quotaText: card.querySelector('.account-card-quota-summary')?.textContent.trim() || ''
+        // 猫允许跳出卡片上沿，所以只检查文字与控件留在卡片内。
+        childrenInside: [name, state, quotaSummary, runtime, actions].every((item) => contains(cardRect, item)),
+        selectChildrenInside: [name, state].every((item) => contains(select, item)),
+        verticalOrder: pit.bottom <= name.y + 1 && name.bottom <= state.y + 1
+          && state.bottom <= quotaSummary.y + 1 && quotaSummary.bottom <= runtime.y + 1
+          && runtime.bottom <= actions.y + 1,
+        quotaInside: contains(quotaSummary, quota),
+        selectTitle: card.querySelector('.account-card-select')?.title || '',
+        quotaLabel: card.querySelector('.account-card-quota-summary')?.getAttribute('aria-label')
+          || card.querySelector('.account-card-quota-summary')?.title
+          || card.querySelector('.account-card-quota-summary')?.textContent.trim() || ''
       };
     });
     const selected = cards.find((card) => card.selected) || null;
     const rosterStyle = getComputedStyle(rosterNode);
+    // 搁板：从“全部”到名册里看得见的最后一张，相邻两截木板之间没有缝，且在同一高度（名册里的按名册边缘裁剪）。
+    const allLedge = rectOf(document.querySelector('#rosterAllCard:not([hidden]) .account-card-ledge'));
+    const shelf = (allLedge ? [allLedge] : []).concat([...rosterNode.querySelectorAll('.account-card')]
+      .filter((card) => !card.hidden)
+      .map((card) => rectOf(card.querySelector('.account-card-ledge')))
+      .map((rect) => ({ x: Math.max(rect.x, roster.x), right: Math.min(rect.right, roster.right), y: rect.y }))
+      .filter((rect) => rect.right > rect.x));
     return {
       roster,
       presenter,
+      shelfGaps: shelf.slice(1).map((rect, index) => Math.round(rect.x - shelf[index].right)),
+      shelfTops: [...new Set(shelf.map((rect) => Math.round(rect.y)))],
       overflowX: rosterStyle.overflowX,
       scrollbarGutter: rosterStyle.scrollbarGutter,
+      scrollbarWidth: rosterStyle.scrollbarWidth,
       clientWidth: rosterNode.clientWidth,
       scrollWidth: rosterNode.scrollWidth,
       scrollLeft: rosterNode.scrollLeft,
@@ -510,14 +530,21 @@ function assertAccountRosterGeometry(snapshot, options = {}) {
   const requireOverflow = options.requireOverflow !== false;
   assert.ok(snapshot.cards.length >= minimumCards, `geometry fixture must render at least ${minimumCards} Agent cards, got ${snapshot.cards.length}`);
   assert.equal(snapshot.overflowX, 'auto', 'the Agent roster must own one explicit horizontal scroller');
-  assert.match(snapshot.scrollbarGutter, /stable/, 'the roster must reserve a stable scrollbar gutter');
+  // 名册不显示滚动条（滚轮、拖动和键盘都能横向浏览），所以不会因为滚动条出现而跳动；显示滚动条时才要求预留位置。
+  assert.ok(
+    snapshot.scrollbarWidth === 'none' || /stable/.test(snapshot.scrollbarGutter),
+    'the roster must either hide its scrollbar or reserve a stable gutter'
+  );
   if (requireOverflow) {
     assert.ok(snapshot.scrollWidth > snapshot.clientWidth + 100, '7+ Agent cards must overflow into the roster scroller');
   } else {
     assert.ok(snapshot.scrollWidth <= snapshot.clientWidth + 1, 'a small Agent set must not create horizontal overflow');
   }
-  assert.ok(Math.abs(snapshot.roster.right - snapshot.presenter.right) <= 1, 'the card roster must fill the presenter width');
+  // 名册向右多伸出一段，让最后一张卡片的边和跳起来的猫不被裁掉。
+  assert.ok(Math.abs(snapshot.roster.right - snapshot.presenter.right) <= 12, 'the card roster must fill the presenter width');
   assert.equal(snapshot.selectedVisible, true, 'the selected Agent card must be fully visible inside the roster scrollport');
+  assert.ok(snapshot.shelfGaps.length >= 1 && snapshot.shelfGaps.every((gap) => gap === 0), `the cats must sit on one unbroken shelf: ${JSON.stringify(snapshot.shelfGaps)}`);
+  assert.equal(snapshot.shelfTops.length, 1, `every shelf piece must sit at the same height: ${JSON.stringify(snapshot.shelfTops)}`);
   for (const [index, card] of snapshot.cards.entries()) {
     assert.ok(card.rect.width >= 179 && card.rect.width <= 181, `Agent card ${index + 1} must remain 180px wide, got ${card.rect.width}px`);
     assert.equal(card.display, 'grid', `Agent card ${index + 1} must use a card grid`);
@@ -526,13 +553,11 @@ function assertAccountRosterGeometry(snapshot, options = {}) {
     assert.ok(card.rect.height >= 90, `Agent card ${index + 1} is flattened to ${card.rect.height}px`);
     assert.ok(card.rect.height <= snapshot.roster.height + 1, `Agent card ${index + 1} escapes the roster vertically`);
     assert.equal(card.childrenInside, true, `Agent card ${index + 1} has content outside its border box`);
-    assert.equal(card.topChildrenInside, true, `Agent card ${index + 1} has overlapping avatar/name metadata`);
-    assert.equal(card.detailsChildrenInside, true, `Agent card ${index + 1} has facts outside its details band`);
+    assert.equal(card.selectChildrenInside, true, `Agent card ${index + 1} has name/state outside its select button`);
     assert.equal(card.verticalOrder, true, `Agent card ${index + 1} rows overlap vertically`);
-    assert.equal(card.detailsOrder, true, `Agent card ${index + 1} detail rows overlap vertically`);
-    assert.equal(card.metaOrder, true, `Agent card ${index + 1} name overlaps its group/position summary`);
-    assert.ok(card.lastActiveText.length > 0, `Agent card ${index + 1} must expose a recent-activity fact`);
-    assert.ok(card.quotaText.length > 0, `Agent card ${index + 1} must expose a quota fact`);
+    assert.equal(card.quotaInside, true, `Agent card ${index + 1} energy pips escape their button`);
+    assert.ok(card.selectTitle.length > 0, `Agent card ${index + 1} must expose recent activity and positions in its tooltip`);
+    assert.ok(card.quotaLabel.length > 0, `Agent card ${index + 1} must expose a quota fact`);
     assert.match(card.stateActivity, /^(working|onduty|arriving|confused|play|rest|nap|hibernate|unknown|ready|absent|planning|preparing|verifying|waiting-install|waiting-login|error|unsupported|offline|retired)$/);
     assert.match(card.quotaTrusted, /^(true|false)$/);
     if (index > 0) {
@@ -541,7 +566,17 @@ function assertAccountRosterGeometry(snapshot, options = {}) {
   }
 }
 
+// 档案夹弹窗打开时有 144ms 的三档抽出动画，位移会算进 getBoundingClientRect；量弹窗几何之前先等它落定。
+async function settleDialogMotion(client) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const settled = await client.evaluate(`[...document.querySelectorAll('dialog')].every((dialog) => dialog.getAnimations().every((animation) => animation.playState !== 'running'))`);
+    if (settled) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 async function dialogSnapshot(client, selector) {
+  await settleDialogMotion(client);
   return client.evaluate(`(() => {
     const dialog = document.querySelector(${JSON.stringify(selector)});
     const rect = dialog.getBoundingClientRect();
@@ -559,6 +594,7 @@ async function dialogSnapshot(client, selector) {
 }
 
 async function utilityDialogShellSnapshot(client, selector) {
+  await settleDialogMotion(client);
   return client.evaluate(`(() => {
     const dialog = document.querySelector(${JSON.stringify(selector)});
     const shell = dialog.querySelector('.utility-dialog-shell');
@@ -589,7 +625,9 @@ async function utilityDialogShellSnapshot(client, selector) {
       contentOverflowY: contentStyle?.overflowY || '',
       contentScrollTop: content?.scrollTop || 0,
       contentClientHeight: content?.clientHeight || 0,
-      contentScrollHeight: content?.scrollHeight || 0
+      contentScrollHeight: content?.scrollHeight || 0,
+      // 弹窗跟着内容长高：加进长内容以后、滚动之前量到的位置，才是“滚动时不许动”的基准。
+      settled: dialog.__acceptanceSettledRects || null
     };
   })()`);
 }
@@ -597,15 +635,18 @@ async function utilityDialogShellSnapshot(client, selector) {
 function assertRectStable(before, after, key) {
   if (!before[key] && !after[key]) return;
   assert.ok(before[key] && after[key], `${key} must remain mounted while content scrolls`);
+  // 内容变长时弹窗会先长到窗口允许的高度；固定区是否稳定，要拿长高以后、滚动之前的位置来比。
+  const base = after.settled?.[key] || before[key];
   for (const field of ['x', 'y', 'right', 'bottom', 'width', 'height']) {
     assert.ok(
-      Math.abs(before[key][field] - after[key][field]) <= 0.5,
-      `${key}.${field} moved while content scrolled: ${before[key][field]} -> ${after[key][field]}`
+      Math.abs(base[field] - after[key][field]) <= 0.5,
+      `${key}.${field} moved while content scrolled: ${base[field]} -> ${after[key][field]}`
     );
   }
 }
 
 async function forceUtilityContentScroll(client, selector) {
+  await settleDialogMotion(client);
   await client.evaluate(`(() => {
     const content = document.querySelector(${JSON.stringify(selector)})?.querySelector('.utility-dialog-content');
     if (!content) throw new Error('utility content not found');
@@ -613,6 +654,20 @@ async function forceUtilityContentScroll(client, selector) {
     fixture.dataset.acceptanceScrollFixture = 'true';
     fixture.style.cssText = 'height:1200px;min-height:1200px;pointer-events:none;visibility:hidden;';
     content.append(fixture);
+    const dialog = document.querySelector(${JSON.stringify(selector)});
+    const shell = dialog.querySelector('.utility-dialog-shell');
+    const rectOf = (node) => {
+      if (!node) return null;
+      const rect = node.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    const header = shell?.querySelector('.utility-dialog-header');
+    dialog.__acceptanceSettledRects = {
+      header: rectOf(header),
+      commandbar: rectOf(shell?.querySelector('.utility-dialog-commandbar')),
+      footer: rectOf(shell?.querySelector('.utility-dialog-footer')),
+      close: rectOf(header?.querySelector('.utility-dialog-close'))
+    };
     content.scrollTop = content.scrollHeight;
   })()`);
 }
@@ -621,6 +676,7 @@ async function clearUtilityContentScrollFixture(client, selector) {
   await client.evaluate(`(() => {
     const dialog = document.querySelector(${JSON.stringify(selector)});
     dialog?.querySelector('[data-acceptance-scroll-fixture]')?.remove();
+    if (dialog) delete dialog.__acceptanceSettledRects;
     const content = dialog?.querySelector('.utility-dialog-content');
     if (content) content.scrollTop = 0;
   })()`);
@@ -761,7 +817,11 @@ async function runAcceptance(client, artifactDir) {
 
   await run('TaskPackage export and receive keep fixed transaction controls around one scrolling content owner', async () => {
     await client.evaluate(`document.querySelectorAll('#sessionRows tr:not(.empty-row)')[0].click()`);
-    await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
+    assert.equal(
+      await client.evaluate(`Boolean(document.querySelector('#sessionSendMenu #taskPackageActionBtn') && document.querySelector('#sessionSendMenu #sendSessionInfoBtn'))`),
+      true,
+      'send-to-device and task handoff must live in the session toolbar send menu'
+    );
     await waitFor(client, `!document.querySelector('#taskPackageActionBtn').disabled`, 'TaskPackage action for a local Codex session');
     await client.evaluate(`document.querySelector('#taskPackageActionBtn').click()`);
     await waitFor(
@@ -796,8 +856,10 @@ async function runAcceptance(client, artifactDir) {
     await capture(client, artifactDir, '02-task-package-export');
     await client.evaluate(`document.querySelector('#taskPackageCloseBtn').click()`);
     await waitFor(client, `!document.querySelector('#taskPackageDialog').open`, 'TaskPackage export close');
-    await waitFor(client, `document.activeElement?.id === 'taskPackageActionBtn'`, 'TaskPackage export focus return');
+    // 菜单在选择后已经收起，焦点回到“送出”这个开关。
+    await waitFor(client, `document.activeElement === document.querySelector('#sessionSendMenu > summary')`, 'TaskPackage export focus return');
 
+    await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
     await waitFor(client, `state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'activity parent for TaskPackage receive');
     await client.evaluate(`document.querySelector('#importTaskPackageBtn').click()`);
     await waitFor(
@@ -854,29 +916,55 @@ async function runAcceptance(client, artifactDir) {
     const agentDialog = await dialogSnapshot(client, '#agentManageDialog');
     assertDialogFits(agentDialog, { noScroll: true });
     assert.equal(agentDialog.modal, true);
+    // 猫的档案一页四段：资料、位置、账号、送走；位置逐个列出，展开的那个下面是它自己的六个动作。
     const sections = await client.evaluate(`({
-      globalActions: document.querySelectorAll('#agentGlobalActions > button').length,
-      runtimeActions: document.querySelectorAll('#yardManageActions > button').length,
+      sections: [...document.querySelectorAll('#agentManageDialog .agent-manage-section')].map((node) => node.dataset.section),
+      name: document.querySelector('#agentManageName').textContent.trim(),
+      locations: [...document.querySelectorAll('#agentManageLocations .dossier-location')].map((node) => node.getAttribute('aria-expanded')),
+      actionsUnderExpanded: document.querySelector('#agentManageLocations .dossier-location[aria-expanded="true"]')?.nextElementSibling?.id || '',
       runtimeActionIds: [...document.querySelectorAll('#yardManageActions > button')].map((button) => button.id),
-      summary: document.querySelector('#agentManageSummary').textContent.trim(),
-      runtime: document.querySelector('#agentManageRuntimeLabel').textContent.trim()
+      otherActions: ['editProfileBtn', 'addRuntimeLocationBtn', 'manageAgentRelationsBtn', 'removeProfileBtn']
+        .every((id) => Boolean(document.querySelector('#agentManageDialog #' + id))),
+      summary: document.querySelector('#agentManageSummary').textContent.trim()
     })`);
-    assert.deepEqual({ globalActions: sections.globalActions, runtimeActions: sections.runtimeActions }, { globalActions: 3, runtimeActions: 7 });
+    assert.deepEqual(sections.sections, ['profile', 'locations', 'accounts', 'farewell']);
+    assert.ok(sections.name.length > 0 && sections.summary.length > 0);
+    assert.ok(sections.locations.length >= 1, 'the dossier must list this cat\'s runtime locations');
+    assert.equal(sections.locations.filter((value) => value === 'true').length, 1, 'exactly one location is expanded');
+    assert.equal(sections.actionsUnderExpanded, 'yardManageActions', 'location actions sit under the expanded location');
     assert.deepEqual(sections.runtimeActionIds, [
-      'addRuntimeLocationBtn',
       'pathConfigBtn',
       'diagnosticsBtn',
+      'refreshBtn',
       'stopProfileBtn',
       'cleanCrashpadBtn',
-      'refreshBtn',
       'profileFolderBtn'
     ]);
-    assert.ok(sections.summary.length > 0 && sections.runtime.length > 0);
+    assert.equal(sections.otherActions, true);
+    // 子流程叠在档案上面：路径弹窗打开时档案还在，关掉以后回到档案。
+    await client.evaluate(`document.querySelector('#pathConfigBtn').click()`);
+    await waitFor(client, `document.querySelector('#pathDialog').open && document.querySelector('#agentManageDialog').open`, 'path flow stacked over the dossier');
+    await client.evaluate(`document.querySelector('#pathDialog').close()`);
+    await waitFor(client, `!document.querySelector('#pathDialog').open && document.querySelector('#agentManageDialog').open`, 'back on the dossier');
     await capture(client, artifactDir, '04-agent-manage-dialog');
     await client.evaluate(`document.querySelector('#agentManageDialog').close()`);
 
+
     await waitFor(client, `document.querySelectorAll('#accountRoster .account-card').length >= 7`, '7+ Agent roster fixture');
     assertAccountRosterGeometry(await accountRosterSnapshot(client));
+
+    // 在别的猫身上打开档案，不改变正在看的列表。
+    const viewedBefore = await client.evaluate(`({ agent: currentAgentId(), scope: state.ui.agentScope, title: document.querySelector('#sessionTitle').textContent })`);
+    await client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].find((card) => card.dataset.agentId !== currentAgentId()).querySelector('.account-card-manage').click()`);
+    await waitFor(client, `document.querySelector('#agentManageDialog').open && actionAgentId() !== currentAgentId()`, 'dossier for a cat that is not being viewed');
+    assert.deepEqual(
+      await client.evaluate(`({ agent: currentAgentId(), scope: state.ui.agentScope, title: document.querySelector('#sessionTitle').textContent })`),
+      viewedBefore,
+      'opening another cat\'s dossier must not change the viewed list'
+    );
+    await client.evaluate(`document.querySelector('#agentManageDialog').close()`);
+    await waitFor(client, `actionAgentId() === currentAgentId()`, 'action context returns to the viewed cat');
+
 
     await client.evaluate(`(() => {
       const cards = document.querySelectorAll('#accountRoster .account-card');
@@ -940,7 +1028,6 @@ async function runAcceptance(client, artifactDir) {
       await client.evaluate(`(() => {
         window.I18N.setLang(${JSON.stringify(lang)});
         updateLangToggle();
-        applyView();
         rerenderLocalizedText();
       })()`);
       const layout = await layoutSnapshot(client);
@@ -979,10 +1066,9 @@ async function runAcceptance(client, artifactDir) {
     })()`);
     assert.equal(await client.evaluate(`document.querySelector('#globalMoreMenu')`), null);
 
-    for (const [button, kind, dialog] of [
-      ['#toolCenterBtn', 'tools', '#toolCenterDialog'],
-      ['#activityCenterBtn', 'activity', '#activityCenterDialog'],
-      ['#settingsBtn', 'settings', '#settingsDialog']
+    for (const [button, kind, dialog, focusTarget] of [
+      ['#systemBtn', 'system', '#systemDialog', '#systemBtn'],
+      ['#activityCenterBtn', 'activity', '#activityCenterDialog', '#activityCenterBtn']
     ]) {
       await client.evaluate(`document.querySelector(${JSON.stringify(button)}).click()`);
       await waitFor(client, `state.utilityDialog === ${JSON.stringify(kind)} && document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal`);
@@ -1024,7 +1110,7 @@ async function runAcceptance(client, artifactDir) {
       // and skips the form-method=dialog interaction we need to certify.
       await client.evaluate(`document.querySelector(${JSON.stringify(dialog)})?.querySelector('.utility-dialog-close')?.click()`);
       await waitFor(client, `state.utilityDialog === null && !document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal close`);
-      await waitFor(client, `document.activeElement === document.querySelector(${JSON.stringify(button)})`, `${kind} trigger focus return`);
+      await waitFor(client, `document.activeElement === document.querySelector(${JSON.stringify(focusTarget)})`, `${kind} trigger focus return`);
     }
 
     await client.evaluate(`document.querySelector('.account-card.selected .account-card-quota-summary').click()`);
@@ -1052,11 +1138,16 @@ async function runAcceptance(client, artifactDir) {
       && document.activeElement === document.querySelector('.account-card.selected .account-card-quota-summary')`, 'Escape closes quota and restores trigger focus');
   });
 
-  await run('settings/help and activity/history keep a real parent-child modal stack with layered Escape', async () => {
-    await client.evaluate(`document.querySelector('#settingsBtn').click()`);
-    await waitFor(client, `state.utilityDialog === 'settings' && document.querySelector('#settingsDialog').open`, 'settings parent');
+  await run('system/help keep a real parent-child modal stack with layered Escape, and inbox records live inside the inbox page', async () => {
+    await client.evaluate(`document.querySelector('#systemBtn').click()`);
+    await waitFor(client, `state.utilityDialog === 'system' && document.querySelector('#systemDialog').open`, 'system parent');
+    assert.deepEqual(await client.evaluate(`({
+      tools: Boolean(document.querySelector('#systemDialog #systemTools #checkToolsBtn')),
+      settings: Boolean(document.querySelector('#systemDialog #systemSettings #themeToggle')),
+      oldDialogs: Boolean(document.querySelector('#toolCenterDialog, #settingsDialog'))
+    })`), { tools: true, settings: true, oldDialogs: false });
     await client.evaluate(`(() => {
-      const content = document.querySelector('#settingsDialog .utility-dialog-content');
+      const content = document.querySelector('#systemDialog .utility-dialog-content');
       const fixture = document.createElement('div');
       fixture.dataset.acceptanceParentScrollFixture = 'true';
       fixture.style.cssText = 'height:700px;min-height:700px;visibility:hidden;';
@@ -1064,37 +1155,37 @@ async function runAcceptance(client, artifactDir) {
       content.scrollTop = 37;
       document.querySelector('#helpBtn').click();
     })()`);
-    await waitFor(client, `document.querySelector('#settingsDialog').open && document.querySelector('#welcomeDialog').open`, 'help child over settings');
-    assert.equal(await client.evaluate(`state.utilityDialog`), 'settings');
+    await waitFor(client, `document.querySelector('#systemDialog').open && document.querySelector('#welcomeDialog').open`, 'help child over system');
+    assert.equal(await client.evaluate(`state.utilityDialog`), 'system');
     await pressEscape(client);
-    await waitFor(client, `document.querySelector('#settingsDialog').open && !document.querySelector('#welcomeDialog').open`, 'Escape closes help only');
+    await waitFor(client, `document.querySelector('#systemDialog').open && !document.querySelector('#welcomeDialog').open`, 'Escape closes help only');
     await waitFor(client, `document.activeElement?.id === 'helpBtn'`, 'help trigger focus return');
     const settingsReturn = await client.evaluate(`({
       focus: document.activeElement?.id,
-      scrollTop: document.querySelector('#settingsDialog .utility-dialog-content').scrollTop
+      scrollTop: document.querySelector('#systemDialog .utility-dialog-content').scrollTop
     })`);
     assert.equal(settingsReturn.focus, 'helpBtn');
     assert.equal(settingsReturn.scrollTop, 37);
-    await client.evaluate(`document.querySelector('#settingsDialog [data-acceptance-parent-scroll-fixture]').remove()`);
+    await client.evaluate(`document.querySelector('#systemDialog [data-acceptance-parent-scroll-fixture]').remove()`);
     await pressEscape(client);
-    await waitFor(client, `!document.querySelector('#settingsDialog').open && state.utilityDialog === null`, 'Escape closes settings root');
-    await waitFor(client, `document.activeElement?.id === 'settingsBtn'`, 'settings trigger focus');
+    await waitFor(client, `!document.querySelector('#systemDialog').open && state.utilityDialog === null`, 'Escape closes system root');
+    await waitFor(client, `document.activeElement?.id === 'systemBtn'`, 'system trigger focus');
 
     await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
     await waitFor(client, `state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'activity parent');
-    await client.evaluate(`document.querySelector('#transferCenterBtn').click()`);
-    await waitFor(client, `document.querySelector('#activityCenterDialog').open && document.querySelector('#transferCenterDialog').open`, 'history child over activity');
+    // 传输记录是收件箱里的一段，不再叠一层子弹窗。
+    assert.deepEqual(await client.evaluate(`({
+      sections: [...document.querySelectorAll('#activityCenterDialog .inbox-section')].map((node) => node.id),
+      records: Boolean(document.querySelector('#inboxRecords #transferList') && document.querySelector('#inboxRecords #taskPackageHistory')),
+      childDialog: Boolean(document.querySelector('#transferCenterDialog'))
+    })`), { sections: ['inboxAttention', 'inboxIncoming', 'inboxRecords'], records: true, childDialog: false });
     assert.equal(await client.evaluate(`state.utilityDialog`), 'activity');
-    await pressEscape(client);
-    await waitFor(client, `document.querySelector('#activityCenterDialog').open && !document.querySelector('#transferCenterDialog').open`, 'Escape closes history only');
-    await waitFor(client, `document.activeElement?.id === 'transferCenterBtn'`, 'history trigger focus return');
-    assert.equal(await client.evaluate(`document.activeElement?.id`), 'transferCenterBtn');
     await pressEscape(client);
     await waitFor(client, `!document.querySelector('#activityCenterDialog').open && state.utilityDialog === null`, 'Escape closes activity root');
     await waitFor(client, `document.activeElement?.id === 'activityCenterBtn'`, 'activity trigger focus');
   });
 
-  await run('all four utility dialogs stay bounded in a 760×560 renderer viewport', async () => {
+  await run('the three utility pages stay bounded in a 760×560 renderer viewport', async () => {
     await client.call('Emulation.setDeviceMetricsOverride', {
       width: 760,
       height: 560,
@@ -1107,14 +1198,12 @@ async function runAcceptance(client, artifactDir) {
       await client.evaluate(`(() => {
         window.I18N.setLang('en');
         updateLangToggle();
-        applyView();
         rerenderLocalizedText();
       })()`);
       for (const [kind, dialog] of [
         ['devices', '#deviceCenterDialog'],
-        ['tools', '#toolCenterDialog'],
-        ['activity', '#activityCenterDialog'],
-        ['settings', '#settingsDialog']
+        ['system', '#systemDialog'],
+        ['activity', '#activityCenterDialog']
       ]) {
         await client.evaluate(`openUtilityDialog(${JSON.stringify(kind)})`);
         const snapshot = await dialogSnapshot(client, dialog);
@@ -1199,13 +1288,15 @@ async function runAcceptance(client, artifactDir) {
       initialized: state.mesh.overview?.initialized === true,
       error: state.mesh.errorCode,
       agent: currentAgentId(),
-      currentScopeDisabled: document.querySelector('#sessionScopeCurrentBtn').disabled,
+      allCardPressed: document.querySelector('#rosterAllCard').getAttribute('aria-pressed'),
+      scope: state.ui.agentScope,
       detailKind: document.querySelector('#deviceDetailKind').textContent,
       detailStatus: document.querySelector('#deviceDetailStatus').textContent
     })`);
     assert.equal(initialized.initialized, true, `Mesh initialization failed: ${initialized.error || 'unknown error'}`);
     assert.equal(initialized.agent, null, 'Mesh initialization must not silently choose the first Agent');
-    assert.equal(initialized.currentScopeDisabled, true);
+    assert.equal(initialized.scope, 'all', 'with no Agent picked the roster must fall back to All');
+    assert.equal(initialized.allCardPressed, 'true');
     assert.equal(initialized.detailKind, '', 'unselected device detail must not retain a stale kind');
     assert.equal(initialized.detailStatus, '', 'unselected device detail must not retain a stale status');
 
@@ -1262,15 +1353,19 @@ async function runAcceptance(client, artifactDir) {
     );
     await waitFor(client, `document.activeElement?.id === 'createDeviceInviteBtn'`, 'Add Device journey focus return');
 
-    const deviceShellBefore = await utilityDialogShellSnapshot(client, '#deviceCenterDialog');
-    assert.equal(deviceShellBefore.shellOverflowY, 'hidden');
-    assert.equal(deviceShellBefore.contentOverflowY, 'hidden', 'Device Center outer content must not compete with its named panes');
+    // 先放进长内容让弹窗长到窗口允许的高度，再量固定区的位置，然后才滚动。
     await client.evaluate(`(() => {
       const list = document.querySelector('#deviceList');
       const fixture = document.createElement('div');
       fixture.dataset.acceptanceDeviceScrollFixture = 'true';
       fixture.style.cssText = 'height:1000px;min-height:1000px;visibility:hidden;';
       list.append(fixture);
+    })()`);
+    const deviceShellBefore = await utilityDialogShellSnapshot(client, '#deviceCenterDialog');
+    assert.equal(deviceShellBefore.shellOverflowY, 'hidden');
+    assert.equal(deviceShellBefore.contentOverflowY, 'hidden', 'Device Center outer content must not compete with its named panes');
+    await client.evaluate(`(() => {
+      const list = document.querySelector('#deviceList');
       list.scrollTop = list.scrollHeight;
     })()`);
     const devicePaneScroll = await client.evaluate(`(() => {
@@ -1731,11 +1826,10 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(await client.evaluate(`state.ui.transferDraft`), null);
 
     await client.evaluate(`openTransferCenter()`);
-    await waitFor(client, `document.querySelector('#transferCenterDialog').open`, 'transfer history dialog');
-    snapshot = await dialogSnapshot(client, '#transferCenterDialog');
+    await waitFor(client, `state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'transfer records in the inbox');
+    snapshot = await dialogSnapshot(client, '#activityCenterDialog');
     assertDialogFits(snapshot);
     assert.equal(await client.evaluate(`state.ui.transferDraft`), null);
-    await client.evaluate(`document.querySelector('#transferCenterDialog').close()`);
     await client.evaluate(`document.querySelector('#activityCenterDialog .utility-dialog-close').click()`);
   });
 
@@ -1888,7 +1982,19 @@ async function runFreshFirstUseInitialization(client, userData, artifactDir) {
     client,
     `typeof state !== 'undefined'
       && state.startupStage === 'ready'
-      && document.querySelector('#welcomeDialog').open
+      && state.profiles.length === 0
+      && Boolean(document.querySelector('#accountRoster .account-roster-empty button.primary'))`,
+    'fresh empty desk with its recruit button'
+  );
+  assert.equal(
+    await client.evaluate(`document.querySelector('#welcomeDialog').open`),
+    false,
+    'a fresh install must not open the first-use dialog by itself'
+  );
+  await client.evaluate(`document.querySelector('#accountRoster .account-roster-empty button.primary').click()`);
+  await waitFor(
+    client,
+    `document.querySelector('#welcomeDialog').open
       && state.firstUse.model?.phase === 'agent'
       && state.profiles.length === 0`,
     'fresh first-use Agent step'
