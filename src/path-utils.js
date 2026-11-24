@@ -76,7 +76,8 @@ function nearestExistingDirectory(itemPath, fallbackPath, options = {}) {
 function isSubpath(itemPath, parentPath, pathImpl) {
   if (!itemPath || !parentPath) return false;
   const relative = pathImpl.relative(parentPath, itemPath);
-  return relative === '' || (!relative.startsWith('..') && !pathImpl.isAbsolute(relative));
+  // "..cache" is a child; only a real ".." step leaves the parent.
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${pathImpl.sep}`) && !pathImpl.isAbsolute(relative));
 }
 
 function pathsEqual(left, right, pathImpl) {

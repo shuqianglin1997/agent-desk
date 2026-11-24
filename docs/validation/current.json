@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:45:54.044Z",
-  "baseCommit": "a192fa4aa5fc4bdb6c53a789d1c8c8f4e00199f7",
+  "recordedAt": "2026-11-24T16:47:12.961Z",
+  "baseCommit": "c89fcc3c6fe3a473f3199aee7aa3aaa31e6e9ca2",
   "uncommitted": true,
-  "sourceSha256": "7f7574c3af8aa8776dec7c94bf15f65af1f6df2d110f0de72c84c5cef3052302",
+  "sourceSha256": "7f85693c90352eb91274f6bee87345e0c05dffc250f8e6a2a9d6013c11935dbd",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 822,
+      "pass": 820,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 1 item 9 (folders named ..something are inside their parent); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:47:12.961Z",
+      "sourceSha256": "7f85693c90352eb91274f6bee87345e0c05dffc250f8e6a2a9d6013c11935dbd"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T16:47:12.961Z",
+      "sourceSha256": "7f85693c90352eb91274f6bee87345e0c05dffc250f8e6a2a9d6013c11935dbd"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

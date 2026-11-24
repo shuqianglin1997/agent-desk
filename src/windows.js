@@ -436,7 +436,7 @@ function windowsVirtualizedPathCandidates(itemPath, app_, options = {}) {
   const base = inRoaming ? ctx.roaming : ctx.local;
   const cacheArea = inRoaming ? 'Roaming' : 'Local';
   const relative = path.relative(base, expanded);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return output;
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return output;
   for (const packageDir of packageFamilyDirectories(app_, options)) {
     output.push({
       path: path.join(packageDir, 'LocalCache', cacheArea, relative),
@@ -479,7 +479,8 @@ function isPathInsideWindowsAppData(itemPath, options = {}) {
 function isSubpath(itemPath, parentPath) {
   if (!itemPath || !parentPath) return false;
   const relative = path.relative(normalizeWindowsPath(parentPath), normalizeWindowsPath(itemPath));
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  // "..cache" is a child; only a real ".." step leaves the parent.
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 function pathsEqual(left, right) {

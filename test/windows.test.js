@@ -356,3 +356,16 @@ test('profileDirName 覆盖数据目录名（Kimi Work → kimi-desktop），可
     path.join(ENV.APPDATA, 'Claude')
   );
 });
+
+test('a folder whose name starts with two dots is inside its parent, a real ".." step is not', () => {
+  const root = path.join(ENV.USERPROFILE, 'Work');
+  assert.equal(windows.isSubpath(path.join(root, '..cache', 'x'), root), true);
+  assert.equal(windows.isSubpath(path.join(root, '..'), root), false);
+  assert.equal(windows.isSubpath(path.join(root, '..', 'Other'), root), false);
+  assert.equal(windows.isSubpath(root, root), true);
+  // The MSIX redirect is offered for such a folder under Roaming too.
+  const configured = path.join(ENV.APPDATA, '..cache', 'Claude', 'work');
+  const candidates = windows.windowsVirtualizedPathCandidates(configured, CLAUDE, { ...BASE, listDirectories: () => [] });
+  assert.equal(candidates.length, 2);
+  assert.equal(candidates[1].path, path.join(ENV.LOCALAPPDATA, 'Packages', 'Claude_pzs8sxrjxfjjc', 'LocalCache', 'Roaming', '..cache', 'Claude', 'work'));
+});

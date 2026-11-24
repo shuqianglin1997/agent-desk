@@ -539,7 +539,8 @@ function requiredDirectory(value) {
 
 function isWithin(candidate, root) {
   const relative = path.relative(path.resolve(root), path.resolve(candidate));
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  // "..cache" is a child; only a real ".." step leaves the root.
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 async function hashFile(filePath) {

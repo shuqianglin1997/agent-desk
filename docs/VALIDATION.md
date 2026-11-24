@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 1 阶段第 2 批（第 3.1 节第 9 条）：名字以 `..` 开头的文件夹（如 `..cache`）原来在五处被当成“不在父文件夹里”：`path-utils.js`、`main.js` 的 `isSubpath`、`windows.js` 的 `isSubpath` 与 MSIX 重定向、任务包 Codex 适配器的 `isWithin`。现在只有真正的 `..` 一步才算出去。新增 `test/path-containment.test.js` 三项与 `test/windows.test.js` 一项，覆盖这五处（`main.js` 与适配器里的函数按原文取出来运行），修改前四项失败、修改后通过。其余几处包含判断（进程监管、调度中枢的允许文件夹、命令行的重叠检查、会话信息的相对路径）本来就是这个写法，没有改。
+
 2026-11-24 架构整理第 1 阶段第 1 批（第 3.1 节第 6 条）：`profiles.json` 存在但读不出来、备份也读不出来时，原来会把一个空清单写回去，覆盖掉原文件；现在这一次按空的显示，但不写文件，下次读得出来时账号照常回来。`test/main-ipc-security.test.js` 新增一项：写入半截的 `profiles.json`，读取后文件逐字节不变、没有发生写入，修好文件后账号回来；这项在修改前失败、修改后通过。
 
 2026-11-24 架构整理第 0 阶段收尾：阶段收尾的完整回归里，第 5 批保留的那一项真实 `lsof` 测试超时失败——本机 `lsof` 单次要八到十几秒，会超过它自己的 10 秒上限，这就是 `test/codex-history-retention.test.js` 原来时好时坏的原因；该项改为手动开启（`AGENTDESK_LSOF_INTEGRATION=1`，单独开启时通过），默认跳过，其余 16 项都用注入的检查。指标脚本只把“在 readFileSync 里读 src 路径、或把 src/… 路径交给读取函数”的测试算作读源码（结果仍是 15 个文件）；指标记在 [architecture-metrics.json](validation/architecture-metrics.json)，第 8 节表格与第 9.1 节第 0 阶段记录已更新（[ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md)）。界面模块试验只在临时目录里做：原生 ES 模块在与应用相同的 `file://`、内容安全策略和沙箱条件下可以加载，结论与代价写在第 9.1 节。

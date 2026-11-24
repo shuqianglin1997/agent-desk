@@ -3695,7 +3695,8 @@ function isSubpath(itemPath, parentPath) {
   if (!itemPath || !parentPath) return false;
   if (process.platform === 'win32') return windows.isSubpath(itemPath, parentPath);
   const relative = path.relative(path.resolve(parentPath), path.resolve(itemPath));
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  // "..cache" is a child; only a real ".." step leaves the parent.
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 function profileIsRunning(psText, profile) {
