@@ -1,13 +1,10 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
-const path = require('node:path');
 const { crc32 } = require('node:zlib');
 const { setImmediate: yieldToMain } = require('node:timers/promises');
-const codexRollout = require('./clients/codex/rollout');
+const { MAX_RECORD_BYTES, inlineMedia } = require('./clients/media');
 
 const MAX_SESSION_EXPORT_BYTES = 128 * 1024 * 1024;
-const MAX_ATTACHMENT_BYTES = 32 * 1024 * 1024;
-const MAX_RECORD_BYTES = 64 * 1024 * 1024;
 const MEDIA_EXTENSIONS = new Map([
   ['image/png', '.png'], ['image/jpeg', '.jpg'], ['image/webp', '.webp'], ['image/gif', '.gif'],
   ['application/pdf', '.pdf'], ['text/plain', '.txt']
@@ -21,87 +18,17 @@ function safeName(value, fallback) {
   return name;
 }
 
-function readBase64(value, mime = '') {
-  if (typeof value !== 'string' || !value) return null;
-  const uri = /^data:([\w.+-]+\/[\w.+-]+);base64,/i.exec(value);
-  const encoded = uri ? value.slice(uri[0].length) : value;
-  if (!encoded) return null;
-  if (encoded.length > Math.ceil(MAX_ATTACHMENT_BYTES / 3) * 4) throw new Error('session-export-too-large');
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length % 4 === 1) return null;
-  const data = Buffer.from(encoded, 'base64');
-  if (data.length > MAX_ATTACHMENT_BYTES) throw new Error('session-export-too-large');
-  if (!data.length) return null;
-  return { data, mime: String(uri?.[1] || mime).toLowerCase() };
-}
 
-function inlineMedia(part) {
-  if (part?.type === 'input_image' || part?.type === 'image_url' || part?.type === 'image') {
-    const value = typeof part.image_url === 'string' ? part.image_url : part.image_url?.url;
-    if (typeof value === 'string' && value.startsWith('data:')) return readBase64(value);
-    if (part.source?.type === 'base64') return readBase64(part.source.data, part.source.media_type || '');
-  }
-  if (part?.type === 'input_file' && typeof part.file_data === 'string') {
-    return readBase64(part.file_data);
-  }
-  if (part?.type === 'document' && part.source?.type === 'base64') {
-    return readBase64(part.source.data, part.source.media_type || '');
-  }
-  return null;
-}
 
-function readOwnedImage(root, file) {
-  if (typeof file !== 'string' || !path.isAbsolute(file)) return null;
-  try {
-    const home = fs.realpathSync.native(root);
-    const real = fs.realpathSync.native(file);
-    const relative = path.relative(home, real);
-    if (path.isAbsolute(relative) || !['generated_images', 'visualizations'].includes(relative.split(path.sep)[0])) return null;
-    const stat = fs.statSync(real);
-    if (!stat.isFile() || stat.size === 0) return null;
-    if (stat.size > MAX_ATTACHMENT_BYTES) throw new Error('session-export-too-large');
-    return { data: fs.readFileSync(real), filename: path.basename(real) };
-  } catch (error) {
-    if (error.message === 'session-export-too-large') throw error;
-    return null;
-  }
-}
 
-function addCodexGeneratedImages(profile, session, add) {
-  const database = path.join(profile.sessionRoot, 'thread_history_1.sqlite');
-  if (!fs.existsSync(database)) return;
-  let db;
-  try {
-    const { DatabaseSync } = require('node:sqlite');
-    db = new DatabaseSync(database, { readOnly: true });
-    const query = db.prepare(`
-      SELECT CASE WHEN length(CAST(item_json AS BLOB)) <= ? THEN item_json END AS item_json
-      FROM thread_items WHERE thread_id IN (?, ?) AND item_type = 'imageGeneration'
-      ORDER BY turn_id, item_id
-    `);
-    for (const row of query.iterate(MAX_RECORD_BYTES, session.id, session.physicalRecordId || session.id)) {
-      if (row.item_json === null) throw new Error('session-export-too-large');
-      let item;
-      try { item = JSON.parse(row.item_json); } catch (_error) { continue; }
-      if (item?.status !== 'completed') continue;
-      const image = readOwnedImage(profile.sessionRoot, item.savedPath) || readBase64(item.result, 'image/png');
-      if (image) add(image, image.filename);
-    }
-  } catch (error) {
-    if (error.message === 'session-export-too-large') throw error;
-    // Older Codex versions may have no compatible image table.
-  } finally {
-    db?.close();
-  }
-}
 
-function addInlineAttachments(profile, session, add) {
-  let file = session.filePath;
+// The adapter says which record holds a session's messages and which line is a
+// message (`attachments.recordFile`, `attachments.messageOf`); clients that do
+// not declare it have no inline attachments.
+function addInlineAttachments(client, session, add) {
+  const source = client.attachments;
+  const file = source?.recordFile?.(session);
   if (!file) return;
-  const kimi = profile.appId === 'kimi' || profile.appId === 'kimi-work';
-  if (kimi) {
-    if (path.basename(file) !== 'state.json') return;
-    file = path.join(path.dirname(file), 'agents', 'main', 'wire.jsonl');
-  } else if (profile.appId !== 'codex' && profile.appId !== 'claude-cli') return;
 
   const stat = fs.statSync(file, { throwIfNoEntry: false });
   if (!stat?.isFile()) return;
@@ -109,10 +36,7 @@ function addInlineAttachments(profile, session, add) {
   for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
     let entry;
     try { entry = JSON.parse(line); } catch (_error) { continue; }
-    let message;
-    if (profile.appId === 'codex') message = codexRollout.responseMessageOf(entry);
-    else if (profile.appId === 'claude-cli' && ['user', 'assistant'].includes(entry?.type)) message = entry.message;
-    else if (kimi && entry?.type === 'context.append_message') message = entry.message;
+    const message = source.messageOf(entry);
     if (!['user', 'assistant'].includes(message?.role) || !Array.isArray(message.content)) continue;
     for (const part of message.content) {
       const media = inlineMedia(part);
@@ -121,7 +45,7 @@ function addInlineAttachments(profile, session, add) {
   }
 }
 
-function collectAttachments(profile, session, prefix, budget) {
+function collectAttachments(client, profile, session, prefix, budget) {
   const entries = [];
   const hashes = new Set();
   function add(media, name) {
@@ -133,8 +57,9 @@ function collectAttachments(profile, session, prefix, budget) {
     const label = safeName(name, `attachment${extension}`);
     entries.push({ name: `${prefix}/${entries.length + 1}-${label}`, data: media.data, label });
   }
-  addInlineAttachments(profile, session, add);
-  if (profile.appId === 'codex') addCodexGeneratedImages(profile, session, add);
+  addInlineAttachments(client, session, add);
+  // Files the client produced beside the record (Codex generated images).
+  client.attachments?.generated?.(profile, session, add);
   return entries;
 }
 
@@ -152,7 +77,7 @@ async function prepareSessionExport(records, options = {}) {
     const result = client.exportTranscript(session);
     const title = String(session.title || session.id).replace(/[\r\n]/g, ' ').trim();
     if (!firstName) firstName = safeName(result.suggestedName, 'session.md').replace(/\.md$/i, '');
-    const files = collectAttachments(profile, session, `attachments/${sections.length + 1}`, budget);
+    const files = collectAttachments(client, profile, session, `attachments/${sections.length + 1}`, budget);
     let section = result.markdown.trim();
     if (!/^#\s/.test(section)) section = `# ${title}\n\n${section}`;
     if (files.length) {

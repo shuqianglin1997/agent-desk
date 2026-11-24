@@ -5,6 +5,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const records = require('./records');
 const { sortByRecency, emptyReplyState, readTailEvents, readChunkLines, safeStat, parseDate, cleanTitle, text } = require('../scan');
 
 // Claude Code CLI（用户自己终端里跑的 claude）：<root>/projects/<路径slug>/<uuid>.jsonl，
@@ -64,13 +65,13 @@ function claudeCliRecord(filePath) {
     }
     parsedAny = true;
     // 子 agent 会话是独立文件但事件带 isSidechain 标记，不进列表
-    if (event.isSidechain === true) return null;
+    if (records.isSidechain(event)) return null;
     if (event.type === 'summary' && !summaryTitle) summaryTitle = cleanTitle(event.summary);
     if (!firstTimestamp && event.timestamp) firstTimestamp = parseDate(event.timestamp);
     if (!cwd && event.cwd) cwd = text(event.cwd);
-    if (event.type === 'user' && !firstUserText && !event.isMeta) {
-      const content = messageTextOf(event.message?.content).trim();
-      if (content && !content.startsWith('<')) firstUserText = content.slice(0, 80);
+    if (!firstUserText) {
+      const typed = records.typedPromptText(event);
+      if (typed) firstUserText = typed.slice(0, 80);
     }
     // 头部信息集齐即可停（标题事件在尾部另读）
     if (cwd && firstTimestamp && (firstUserText || summaryTitle)) break;
@@ -123,7 +124,7 @@ function claudeCliRecord(filePath) {
 // Claude 命令行：assistant 事件的 stop_reason 是 end_turn 就是回完了；tool_use 是还在干；
 // 只装着 tool_result 的 user 事件是工具的输出，不是人说的话。
 function claudeCliReplyStep(state, event) {
-  if (!event || typeof event !== 'object' || event.isSidechain === true) return;
+  if (!event || typeof event !== 'object' || records.isSidechain(event)) return;
   if (event.type === 'assistant') {
     state.lastRole = 'assistant';
     const at = parseDate(event.timestamp);
@@ -162,15 +163,5 @@ function claudeCliIsSidechain(filePath) {
   return value;
 }
 
-function messageTextOf(content) {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
-      .map((part) => part.text)
-      .join('\n');
-  }
-  return '';
-}
 
-module.exports = { scanClaudeCli, claudeCliRecord, claudeCliReplyStep, claudeCliTailState, claudeCliIsSidechain, messageTextOf };
+module.exports = { scanClaudeCli, claudeCliRecord, claudeCliReplyStep, claudeCliTailState, claudeCliIsSidechain };

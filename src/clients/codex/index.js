@@ -8,7 +8,10 @@ const os = require('node:os');
 const path = require('node:path');
 const sessions = require('./sessions');
 const { parseDate } = require('../scan');
-const transcripts = require('../../transcripts');
+const transcript = require('./transcript');
+const { suggestedTranscriptName } = require('../transcript');
+const codexRollout = require('./rollout');
+const { addGeneratedImages } = require('./attachments');
 const { matchJsonl, CHROMIUM_PROFILE_ISOLATION } = require('../shared');
 
 module.exports = {
@@ -94,7 +97,13 @@ module.exports = {
   activityPreference: (profile) => sessions.createCodexActivityPreference(profile),
   isArchivedRecordFile: (profile, filePath) => path.relative(profile.sessionRoot, filePath).split(path.sep)[0] === 'archived_sessions',
   exportTranscript: (session) => ({
-    markdown: transcripts.codexTranscriptMarkdown(session.filePath),
-    suggestedName: transcripts.suggestedTranscriptName(session.title)
+    markdown: transcript.codexTranscriptMarkdown(session.filePath),
+    suggestedName: suggestedTranscriptName(session.title)
+  }),
+  // Attachments for export: parts of the rollout's messages, and generated images.
+  attachments: Object.freeze({
+    recordFile: (session) => session.filePath || null,
+    messageOf: codexRollout.responseMessageOf,
+    generated: addGeneratedImages
   })
 };

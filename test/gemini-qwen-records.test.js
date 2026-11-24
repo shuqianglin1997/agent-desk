@@ -9,7 +9,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const transcripts = require('../src/transcripts');
+const transcripts = {
+  ...require('../src/clients/gemini-cli/transcript'),
+  ...require('../src/clients/qwen-code/transcript')
+};
 const hub = require('../src/hub/adapters');
 const { scanGemini } = require('../src/clients/gemini-cli/sessions');
 const { scanQwen } = require('../src/clients/qwen-code/sessions');

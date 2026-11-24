@@ -7,7 +7,8 @@
 const os = require('node:os');
 const path = require('node:path');
 const cliClientSessions = require('./sessions');
-const transcripts = require('../../transcripts');
+const transcript = require('./transcript');
+const { suggestedTranscriptName } = require('../transcript');
 const { withoutKeys, CLI_WINDOWS_ENTRY } = require('../shared');
 
 const QWEN_ENV_KEYS = Object.freeze(['QWEN_HOME', 'QWEN_RUNTIME_DIR', 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_MODEL', 'DASHSCOPE_API_KEY']);
@@ -41,8 +42,8 @@ module.exports = {
   ],
   scan: (profile) => cliClientSessions.scanQwen(profile),
   exportTranscript: (session) => ({
-    markdown: transcripts.qwenTranscriptMarkdown(session.filePath),
-    suggestedName: transcripts.suggestedTranscriptName(session.title)
+    markdown: transcript.qwenTranscriptMarkdown(session.filePath),
+    suggestedName: suggestedTranscriptName(session.title)
   }),
   discovery: Object.freeze({
     kind: 'home',

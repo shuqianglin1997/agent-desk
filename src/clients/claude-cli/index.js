@@ -8,7 +8,9 @@ const os = require('node:os');
 const path = require('node:path');
 const sessions = require('./sessions');
 const { lastEventTimestamp } = require('../scan');
-const transcripts = require('../../transcripts');
+const transcript = require('./transcript');
+const records = require('./records');
+const { suggestedTranscriptName } = require('../transcript');
 const { CLAUDE_CODE_ENV_KEYS, withoutClaudeCodeEnvironment } = require('./environment');
 
 module.exports = {
@@ -81,7 +83,12 @@ module.exports = {
   // Subagent sessions are separate files whose events carry isSidechain.
   isInternalRecordFile: (filePath) => sessions.claudeCliIsSidechain(filePath),
   exportTranscript: (session) => ({
-    markdown: transcripts.claudeCliTranscriptMarkdown(session.filePath, { title: session.title }),
-    suggestedName: transcripts.suggestedTranscriptName(session.title)
+    markdown: transcript.claudeCliTranscriptMarkdown(session.filePath, { title: session.title }),
+    suggestedName: suggestedTranscriptName(session.title)
+  }),
+  // Attachments for export: parts of the session's user and assistant messages.
+  attachments: Object.freeze({
+    recordFile: (session) => session.filePath || null,
+    messageOf: records.messageOf
   })
 };

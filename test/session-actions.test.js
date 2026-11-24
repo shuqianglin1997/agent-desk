@@ -49,7 +49,8 @@ function transcriptRecord(root, id, title, content = []) {
   return {
     profile: { appId: 'codex', sessionRoot: root },
     session: { id, title, filePath },
-    client: { exportTranscript: () => ({ markdown: `## 用户\n\n正文 ${id}`, suggestedName: `${title}.md` }) }
+    // The app passes the registry adapter as the client; only its transcript is stubbed here.
+    client: { ...require('../src/apps').getApp('codex'), exportTranscript: () => ({ markdown: `## 用户\n\n正文 ${id}`, suggestedName: `${title}.md` }) }
   };
 }
 

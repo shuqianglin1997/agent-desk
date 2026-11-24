@@ -8,7 +8,10 @@ const path = require('node:path');
 // Kimi Work keeps Kimi Code's session files.
 const sessions = require('../kimi/sessions');
 const kimiWorkSessions = require('./sessions');
-const transcripts = require('../../transcripts');
+// Kimi Work keeps Kimi Code's transcript and wire formats.
+const transcript = require('../kimi/transcript');
+const wire = require('../kimi/wire');
+const { suggestedTranscriptName } = require('../transcript');
 const { OFFICIAL_DEFAULT_ONLY } = require('../shared');
 
 module.exports = {
@@ -66,7 +69,12 @@ module.exports = {
   // filePath 是 kernel state.json（缺失时是 db，解析层会给出明确报错）；
   // 标题用索引层的 generated 标题，比 state.json 的首条消息干净
   exportTranscript: (session) => ({
-    markdown: transcripts.kimiTranscriptMarkdown(session.filePath, { title: session.title }),
-    suggestedName: transcripts.suggestedTranscriptName(session.title)
+    markdown: transcript.kimiTranscriptMarkdown(session.filePath, { title: session.title }),
+    suggestedName: suggestedTranscriptName(session.title)
+  }),
+  // Attachments for export: parts of the messages in the session's wire file.
+  attachments: Object.freeze({
+    recordFile: (session) => (session.filePath && path.basename(session.filePath) === 'state.json' ? wire.wirePathOf(session.filePath) : null),
+    messageOf: wire.messageOf
   })
 };

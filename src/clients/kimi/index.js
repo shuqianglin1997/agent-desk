@@ -7,7 +7,9 @@
 const os = require('node:os');
 const path = require('node:path');
 const sessions = require('./sessions');
-const transcripts = require('../../transcripts');
+const transcript = require('./transcript');
+const wire = require('./wire');
+const { suggestedTranscriptName } = require('../transcript');
 const { CHROMIUM_PROFILE_ISOLATION } = require('../shared');
 
 module.exports = {
@@ -80,7 +82,12 @@ module.exports = {
   ),
   // 会话可导出为 Markdown（session.filePath 即 state.json）
   exportTranscript: (session) => ({
-    markdown: transcripts.kimiTranscriptMarkdown(session.filePath),
-    suggestedName: transcripts.suggestedTranscriptName(session.title)
+    markdown: transcript.kimiTranscriptMarkdown(session.filePath),
+    suggestedName: suggestedTranscriptName(session.title)
+  }),
+  // Attachments for export: parts of the messages in the session's wire file.
+  attachments: Object.freeze({
+    recordFile: (session) => (session.filePath && path.basename(session.filePath) === 'state.json' ? wire.wirePathOf(session.filePath) : null),
+    messageOf: wire.messageOf
   })
 };

@@ -7,7 +7,8 @@
 const os = require('node:os');
 const path = require('node:path');
 const cliClientSessions = require('./sessions');
-const transcripts = require('../../transcripts');
+const transcript = require('./transcript');
+const { suggestedTranscriptName } = require('../transcript');
 const { withoutKeys, CLI_WINDOWS_ENTRY, isManagedHome } = require('../shared');
 
 const OPENCODE_ENV_KEYS = Object.freeze(['OPENCODE_CONFIG_DIR', 'OPENCODE_CONFIG', 'OPENCODE_CONFIG_CONTENT', 'OPENCODE_DB', 'XDG_DATA_HOME', 'XDG_STATE_HOME']);
@@ -49,8 +50,8 @@ module.exports = {
   ],
   scan: (profile) => cliClientSessions.scanOpenCode(profile),
   exportTranscript: (session) => ({
-    markdown: transcripts.openCodeTranscriptMarkdown(session),
-    suggestedName: transcripts.suggestedTranscriptName(session.title)
+    markdown: transcript.openCodeTranscriptMarkdown(session),
+    suggestedName: suggestedTranscriptName(session.title)
   }),
   discovery: Object.freeze({
     kind: 'home',

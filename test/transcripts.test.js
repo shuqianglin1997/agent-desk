@@ -5,7 +5,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { kimiTranscriptMarkdown, claudeCliTranscriptMarkdown, suggestedTranscriptName } = require('../src/transcripts');
+const { kimiTranscriptMarkdown } = require('../src/clients/kimi/transcript');
+const { claudeCliTranscriptMarkdown } = require('../src/clients/claude-cli/transcript');
+const { suggestedTranscriptName } = require('../src/clients/transcript');
 
 function makeSession(state, wireEvents) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-transcript-'));

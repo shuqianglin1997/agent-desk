@@ -17,6 +17,7 @@ const fs = require('node:fs');
 const codexRollout = require('../clients/codex/rollout');
 const geminiRecords = require('../clients/gemini-cli/records');
 const qwenRecords = require('../clients/qwen-code/records');
+const claudeRecords = require('../clients/claude-cli/records');
 
 const MAX_ANSWER_CHARS = 200_000;
 const MAX_LINE_BYTES = 8 * 1024 * 1024;
@@ -210,16 +211,7 @@ const claudeCli = Object.freeze({
     return { push: parser.push, end() { parser.end(); return result; } };
   },
   lastAnswerFromRecord(filePath) {
-    let answer = null;
-    for (const line of readRecordLines(filePath)) {
-      let event;
-      try { event = JSON.parse(line); } catch (_error) { continue; }
-      if (event?.isSidechain === true || event?.type !== 'assistant') continue;
-      const text = (Array.isArray(event.message?.content) ? event.message.content : [])
-        .filter((part) => part?.type === 'text' && typeof part.text === 'string')
-        .map((part) => part.text).join('\n');
-      if (text.trim()) answer = text;
-    }
+    const answer = claudeRecords.lastAnswerText(parsedLines(readRecordLines(filePath)));
     return answer === null ? null : bounded(answer);
   }
 });

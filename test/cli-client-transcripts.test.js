@@ -5,7 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const apps = require('../src/apps');
-const transcripts = require('../src/transcripts');
+const transcripts = {
+  ...require('../src/clients/gemini-cli/transcript'),
+  ...require('../src/clients/qwen-code/transcript')
+};
 const { scanDsh } = require('../src/clients/dsh-cli/sessions');
 const { scanOpenCode } = require('../src/clients/opencode/sessions');
 const credentials = require('../src/account-credentials');

@@ -7,7 +7,8 @@
 const os = require('node:os');
 const path = require('node:path');
 const cliClientSessions = require('./sessions');
-const transcripts = require('../../transcripts');
+const transcript = require('./transcript');
+const { suggestedTranscriptName } = require('../transcript');
 const { withoutKeys, CLI_WINDOWS_ENTRY, isManagedHome } = require('../shared');
 
 const GEMINI_ENV_KEYS = Object.freeze(['GEMINI_CLI_HOME', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_GENAI_USE_VERTEXAI', 'GOOGLE_CLOUD_PROJECT', 'GOOGLE_CLOUD_LOCATION', 'GEMINI_FORCE_FILE_STORAGE']);
@@ -45,8 +46,8 @@ module.exports = {
   ],
   scan: (profile) => cliClientSessions.scanGemini(profile),
   exportTranscript: (session) => ({
-    markdown: transcripts.geminiTranscriptMarkdown(session.filePath),
-    suggestedName: transcripts.suggestedTranscriptName(session.title)
+    markdown: transcript.geminiTranscriptMarkdown(session.filePath),
+    suggestedName: suggestedTranscriptName(session.title)
   }),
   discovery: Object.freeze({
     kind: 'home',
