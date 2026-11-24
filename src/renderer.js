@@ -556,6 +556,7 @@ let lastDiagnostics = null;
 let updateBusy = false;
 let updateButtonTimer = null;
 let quotaRequest = null;
+let quotaForcedAfter = null;
 let quotaHasLoaded = false;
 let quotaRequestedAt = 0;
 let foregroundSessionRefreshAt = 0;
@@ -3547,7 +3548,15 @@ function renderSessionControls() {
 // ── 账号额度（Beta）────────────────────────────────────
 async function loadQuotas(force = false) {
   if (!window.manager.listQuotas) return null;
-  if (quotaRequest) return quotaRequest;
+  if (quotaRequest) {
+    if (force !== true) return quotaRequest;
+    // "Refresh now" while a request is running: ask again with force once it ends.
+    quotaForcedAfter ||= quotaRequest.then(() => {
+      quotaForcedAfter = null;
+      return loadQuotas(true);
+    });
+    return quotaForcedAfter;
+  }
 
   quotaRequestedAt = Date.now();
   state.quotaError = null;

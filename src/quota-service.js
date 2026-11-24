@@ -128,9 +128,14 @@ class QuotaService {
     }
 
     const running = this.inFlight.get(id);
-    if (running?.key === key) return running.promise;
+    const forced = options.force === true;
+    // An ordinary request joins whatever is running. A forced one ("refresh
+    // now") joins only another forced one; otherwise it waits for the running
+    // request and then fetches again, so the answer is never older than the click.
+    if (running?.key === key && (!forced || running.forced)) return running.promise;
+    const after = running?.key === key ? running.promise.catch(() => {}) : Promise.resolve();
 
-    const promise = Promise.resolve()
+    const promise = after
       .then(() => this.fetchQuota(profile, { ...this.fetchOptions, ...options }))
       .then((value) => {
         this.cache.set(id, { key, at: this.now(), value });
@@ -140,7 +145,7 @@ class QuotaService {
         const current = this.inFlight.get(id);
         if (current?.promise === promise) this.inFlight.delete(id);
       });
-    this.inFlight.set(id, { key, promise });
+    this.inFlight.set(id, { key, promise, forced });
     return promise;
   }
 
