@@ -210,11 +210,25 @@ function countLines(text) {
   return text.endsWith('\n') ? count : count + 1;
 }
 
+// Client ids: each adapter folder src/clients/<id>/index.js declares `  id: '<id>',`
+// (an older layout declared them inside src/apps.js).
 function clientIds(root) {
+  const ids = new Set();
+  const dir = path.join(root, 'src/clients');
+  if (fs.existsSync(dir)) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const file = path.join(dir, entry.name, 'index.js');
+      if (!entry.isDirectory() || !fs.existsSync(file)) continue;
+      for (const m of fs.readFileSync(file, 'utf8').matchAll(/^ {2}id: '([a-z0-9-]+)',$/gm)) ids.add(m[1]);
+    }
+  }
   const file = path.join(root, 'src/apps.js');
-  if (!fs.existsSync(file)) return [];
-  return [...fs.readFileSync(file, 'utf8').matchAll(/^ {4}id: '([a-z0-9-]+)',$/gm)].map((m) => m[1]);
+  if (fs.existsSync(file)) for (const m of fs.readFileSync(file, 'utf8').matchAll(/^ {4}id: '([a-z0-9-]+)',$/gm)) ids.add(m[1]);
+  return [...ids].sort();
 }
+
+// The registry and the adapters are where client knowledge belongs.
+const insideAdapters = (file) => file === 'src/apps.js' || file.startsWith('src/clients/');
 
 // Main-process modules: everything reachable through relative requires from
 // the two Node entry points.
@@ -415,11 +429,11 @@ function collect(root = ROOT) {
       const moduleWrapper = /^<(?:anonymous|arrow)>$/.test(fn.name) && fn.lines >= fileLines * 0.8;
       functionsAll.push({ file, name: fn.name, line: fn.line, lines: fn.lines, moduleWrapper });
     }
-    if (comparisonRe && file !== 'src/apps.js') {
+    if (comparisonRe && !insideAdapters(file)) {
       const count = (withStrings.match(comparisonRe) || []).length;
       if (count) { clientComparisons.total += count; clientComparisons.files[file] = count; }
     }
-    if (tableKeyRe && file !== 'src/apps.js') {
+    if (tableKeyRe && !insideAdapters(file)) {
       const keys = new Set([...withStrings.matchAll(tableKeyRe)].map((m) => m[2]));
       if (keys.size >= 3) perClientTables.push({ file, clientKeys: keys.size });
     }

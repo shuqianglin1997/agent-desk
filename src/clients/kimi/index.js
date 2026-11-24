@@ -1,0 +1,86 @@
+'use strict';
+
+// Kimi Code.
+// Everything AgentDesk knows about this client is declared in this folder;
+// src/apps.js only collects the adapters (docs/ARCHITECTURE_PLAN.md §5.3).
+
+const os = require('node:os');
+const path = require('node:path');
+const sessions = require('../../sessions');
+const transcripts = require('../../transcripts');
+const { CHROMIUM_PROFILE_ISOLATION } = require('../shared');
+
+module.exports = {
+  id: 'kimi',
+  label: 'Kimi Code',
+  tagColor: '#2f6bff',
+  appName: 'Kimi', // /Applications/Kimi.app（桌面客户端）；会话数据来自 Kimi Code CLI / VS Code 插件
+  mac: {
+    launchers: [{ bundleName: 'Kimi', executableName: 'Kimi' }]
+  },
+  profileIsolation: CHROMIUM_PROFILE_ISOLATION,
+  windows: {
+    executableNames: ['Kimi.exe'],
+    aliases: ['Kimi.exe'],
+    legacyInstallDirs: ['Kimi', 'kimi-desktop'],
+    packageNames: ['Kimi'],
+    packageFamilyNames: [],
+    packageFamilyPrefixes: ['Kimi_', 'Moonshot.Kimi_'],
+    protocol: 'kimi://',
+    profileMarkers: ['Local State', 'Cache']
+  },
+  // Kimi Code 的数据目录按 KIMI_CODE_HOME 解析，缺省 ~/.kimi-code（官方文档口径）。
+  // 默认槽位直接读本机现成会话；独立槽位放在 profilePath/kimi-code-home。
+  defaultSessionRoot: (profilePath, isDefault) => (
+    isDefault ? path.join(os.homedir(), '.kimi-code') : path.join(profilePath, 'kimi-code-home')
+  ),
+  launchEnv: (profile, baseEnv) => ({ ...baseEnv, KIMI_CODE_HOME: profile.sessionRoot }),
+  // state.json 每轮更新 updatedAt；wire.jsonl 生成时逐事件追加（毫秒 time）
+  scanAreas: (profile) => [
+    {
+      dir: path.join(profile.sessionRoot, 'sessions'),
+      match: (name) => name === 'state.json' || name === 'wire.jsonl'
+    }
+  ],
+  diagnosticAreas: (profile) => [
+    { label: 'Kimi 索引', path: path.join(profile.sessionRoot, 'session_index.jsonl'), kind: 'file' },
+    { label: 'Kimi 会话', path: path.join(profile.sessionRoot, 'sessions'), kind: 'directory' },
+    { label: 'Kimi 工作区', path: path.join(profile.sessionRoot, 'workspaces.json'), kind: 'file' }
+  ],
+  discovery: Object.freeze({
+    kind: 'home',
+    envVar: 'KIMI_CODE_HOME',
+    defaultHome: '.kimi-code',
+    homeScan: true,
+    markerSets: [
+      ['credentials/kimi-code.json'], ['credentials/', 'config.toml'], ['config.toml', 'user-history/'],
+      ['config.toml', 'sessions/'], ['session_index.jsonl', 'projects.json'], ['session_index.jsonl', 'workspaces.json']
+    ],
+    exclusive: ['credentials/', 'user-history/', 'projects.json', 'workspaces.json'],
+    sessionsShape: 'state-dirs',
+    // The legacy ~/.kimi home is reported, never migrated or registered.
+    legacyHomes: ['.kimi']
+  }),
+  // `kimi provider catalog add` takes the key from KIMI_REGISTRY_API_KEY
+  // (never argv here); custom endpoints go into config.toml.
+  credentials: Object.freeze({
+    browser: true,
+    key: Object.freeze({ kinds: Object.freeze(['api-key']), via: 'official-env', catalogProvider: true, plaintext: true }),
+    provider: Object.freeze({ fields: Object.freeze(['id', 'baseUrl', 'model']), via: 'config-file', plaintext: true }),
+    importFiles: Object.freeze(['credentials/kimi-code.json'])
+  }),
+  scan: (profile, report) => sessions.scanKimi(profile, report),
+  contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
+  sessionAddressOf: (key) => path.basename(key),
+  // 一个会话目录含 state.json + agents/*/wire.jsonl，活跃计数按会话目录去重
+  sessionKeyOf: (filePath) => (
+    filePath.endsWith('state.json')
+      ? path.dirname(filePath)
+      : path.dirname(path.dirname(path.dirname(filePath)))
+  ),
+  // 会话可导出为 Markdown（session.filePath 即 state.json）
+  exportTranscript: (session) => ({
+    markdown: transcripts.kimiTranscriptMarkdown(session.filePath),
+    suggestedName: transcripts.suggestedTranscriptName(session.title)
+  })
+};

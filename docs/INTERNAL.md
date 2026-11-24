@@ -119,7 +119,8 @@ src/
       security-policy.js        主窗口 sender/frame/document 与导航策略
       task-package-transfer.js  直送 IPC 的稳定 ID/枚举 schema
 
-  apps.js                 客户端目录、默认路径、扫描器与导出能力
+  apps.js                 客户端目录：按固定顺序收集各适配器，并提供与具体客户端无关的启动计划、默认路径和给界面的精简元数据
+  clients/<id>/           每个客户端一个适配器目录（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor），集中它的名称、可执行文件、数据目录、扫描区域、发现特征与密钥交接方式；clients/shared.js 放几个适配器共用、不点名任何客户端的小工具
   sessions.js             Claude / Claude CLI / Codex / Kimi 会话扫描
   agent-workspace.js      全局员工库在工作环境上的就绪投影
   mesh/domain/

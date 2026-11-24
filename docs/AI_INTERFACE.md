@@ -242,7 +242,7 @@ node src/automation/cli.js sessions locate --user-data "/absolute/AgentDesk" --p
 
 | 需求 | 最小改动位置 | 复用与验证 |
 |---|---|---|
-| 新客户端/历史格式 | [apps.js](../src/apps.js) + 独立 scanner | 分开声明扫描/启动/隔离/导出；根、归档、内部子记录、坏文件、空库 fixture；不在 renderer 散落客户端分支 |
+| 新客户端/历史格式 | 新建 `src/clients/<id>/` 适配器目录并在 [apps.js](../src/apps.js) 登记 + 独立 scanner | 分开声明扫描/启动/隔离/导出；根、归档、内部子记录、坏文件、空库 fixture；不在 renderer 散落客户端分支 |
 | 发现 CLI | [cli-discovery.js](../src/cli-discovery.js)；需工具中心维护才改 [tool-maintenance.js](../src/tool-maintenance.js) | 固定 ID、启动器来源、解释器、空格路径、Windows 环境大小写；发现不执行命令/联网 |
 | AI 只读查询 | [service.js](../src/automation/service.js)、[cli.js](../src/automation/cli.js) | 复用领域函数/命令定义、输出白名单、稳定错误码、不泄漏异常原文、不引入 Electron/密钥/写入副作用 |
 | AI 写操作 | 目前没有公开写接口；先确认目标和授权，再设计 Main 单一写入者内的具体语义服务 | preview/明确 apply、状态复核、冲突/幂等、备份/回滚、敏感字段保护、原有路径/身份授权；不加离线第二写入者或 generic invoke |

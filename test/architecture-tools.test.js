@@ -113,6 +113,20 @@ test('metrics count the §8 rows on a small tree', (t) => {
   assert.equal(metrics.rendererScripts, 1);
 });
 
+test('client ids come from the adapter folders, and comparisons inside them do not count', (t) => {
+  const root = tree(t, {
+    'package.json': '{}',
+    'src/apps.js': "const ADAPTERS = [require('./clients/codex'), require('./clients/kimi-work')];\nif (id === 'codex') x();\n",
+    'src/clients/codex/index.js': "module.exports = {\n  id: 'codex',\n};\nif (profile.appId === 'codex') y();\n",
+    'src/clients/codex/quota.js': "if (appId === 'codex') z();\n",
+    'src/clients/kimi-work/index.js': "module.exports = {\n  id: 'kimi-work',\n};\n",
+    'src/main.js': "if (appId === 'kimi-work') a();\nif (appId === 'kimi') b();\n",
+    'src/renderer.js': ''
+  });
+  const metrics = collect(root);
+  assert.deepEqual(metrics.clientNameComparisonsOutsideApps, { total: 1, files: { 'src/main.js': 1 } });
+});
+
 test('metrics run on this repository and name the files each count comes from', () => {
   const metrics = collect();
   assert.ok(metrics.mainJsLines > 0 && metrics.rendererJsLines > 0);

@@ -31,7 +31,7 @@ const TABLE = [
     'src/mesh/peer/e2e-runner.js', 'src/mesh/probe/probe.js', 'src/mesh/probe/runner.js']],
   ['commands', ['src/automation/service.js', 'src/automation/packaged-cli.js', 'src/automation/local-locations.js',
     'src/main/session-actions.js', 'src/main/recruit-items.js', 'src/main/profile-registration.js']],
-  ['clients', ['src/apps.js', 'src/sessions.js', 'src/cursor-sessions.js', 'src/kimi-work-sessions.js', 'src/cli-client-sessions.js',
+  ['clients', ['src/apps.js', 'src/clients/', 'src/sessions.js', 'src/cursor-sessions.js', 'src/kimi-work-sessions.js', 'src/cli-client-sessions.js',
     'src/transcripts.js', 'src/session-export.js', 'src/codex-quota.js', 'src/identity.js', 'src/account-discovery.js',
     'src/account-credentials.js', 'src/credential-import.js', 'src/codex-account-import.js', 'src/codex-runtime-home.js',
     'src/cli-discovery.js', 'src/tool-maintenance.js', 'src/hub/adapters.js', 'src/task-package/codex-adapter.js',
