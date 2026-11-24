@@ -6,6 +6,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { rendererSource } = require('./helpers/renderer-source');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -47,7 +48,7 @@ test('run state is pushed by Main at each transition, never polled by the Render
   const main = require('./helpers/main-handler-source').mainHandlerSource();
   assert.match(main, /function notifyHubChanged\(record = null\)[\s\S]*(?:main\.)?mainWindow\.webContents\.send\('hub:changed', run \? \{ run: \{ \.\.\.run, cwd: undefined \} \} : \{\}\)/);
   assert.match(read('src/preload.js'), /onHubChanged: \(callback\) => \{\s*const listener = \(_event, payload\) => callback\(payload && typeof payload === 'object' \? payload : \{\}\);/);
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   assert.match(renderer, /window\.manager\.onHubChanged\(\(payload\) => applyHubChange\(payload\?\.run\)\)/);
   // The only interval is the local clock for the elapsed time; it never asks Main for data.
   const ticker = renderer.slice(renderer.indexOf('function ensureHubTicker()'), renderer.indexOf('// ── 交接：发送到另一台电脑'));
@@ -56,7 +57,7 @@ test('run state is pushed by Main at each transition, never polled by the Render
 });
 
 test('copies show no arrival; hand-offs only move on a real send, receipt or incoming transfer', () => {
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   // Copy keeps the stamp and the slip into the footer (pixel/ui.js); nothing here animates an arrival for it.
   assert.doesNotMatch(renderer.slice(renderer.indexOf('// ── 调度中枢：后台对话在台面上的样子')), /copySessionInfo|session\.copy/);
   assert.match(renderer, /if \(result\?\.ok && result\.transfer\?\.transferId\) \{\s*\/\/ 信封等送出的弹窗合上以后/);
@@ -71,11 +72,11 @@ test('sounds reuse existing ones through ui.js; failure sounds through the statu
   assert.equal(sfx.EVENTS['hub.arrive'].sound, 'arrive');
   assert.equal(sfx.EVENTS['hub.done'].sound, 'ready');
   assert.match(read('src/pixel/ui.js'), /function hubSound\(kind\) \{\s*cue\(kind === 'outside' \? 'hub\.arrive' : kind === 'done' \? 'hub\.done' : 'hub\.start'\);/);
-  assert.match(read('src/renderer.js'), /setStatus\(tr\('hub\.say\.failed'[\s\S]{0,160}\), 'error'\);/);
+  assert.match(rendererSource(), /setStatus\(tr\('hub\.say\.failed'[\s\S]{0,160}\), 'error'\);/);
 });
 
 test('one background chat is one ledger record, and its strings exist in all three languages', () => {
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   assert.match(renderer, /: \[\.\.\.withHubRuns\(state\.sessions\)\];/);
   assert.match(renderer, /if \(session\._hubRun\) \{\s*const row = renderHubRow\(session\);/);
   const keys = ['hub.kind', 'hub.pair', 'hub.from.label', 'hub.from.unknown', 'hub.from.declared', 'hub.stop', 'hub.stop.title', 'hub.stopFailed',

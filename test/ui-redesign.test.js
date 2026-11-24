@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const { rendererSource } = require('./helpers/renderer-source');
 
 function read(relativePath) {
   return fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
@@ -53,7 +54,7 @@ test('窗口顶栏保留设备视角位置并使用纯文字标题', () => {
 test('卡片工作台不加载旧庭院并保留共用像素头像', () => {
   const legacyStyles = read('src/styles.css');
   const workspaceStyles = read('src/workspace.css');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
 
   assert.match(legacyStyles, /^@layer legacy, reset, tokens, shell, components, features, themes;/);
   const html = read('src/index.html');
@@ -69,7 +70,7 @@ test('卡片工作台不加载旧庭院并保留共用像素头像', () => {
 
 test('卡片名册使用固定宽度与可信摘要，并用真实窗口验收覆盖少量卡和 7+ Agent', () => {
   const workspaceStyles = read('src/workspace.css');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const quotaOverview = read('src/quota-overview.js');
   const identityGroups = read('src/identity-groups.js');
   const acceptance = read('scripts/ui-acceptance.js');
@@ -106,7 +107,7 @@ test('卡片名册使用固定宽度与可信摘要，并用真实窗口验收�
 
 test('对象管理进 Dialog，会话列表顶栏右侧常驻复制、打开目录、导出和送出', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
 
   assert.match(html, /class="account-card-launch"[\s\S]*?class="account-card-manage"[^>]*aria-haspopup="dialog"[^>]*aria-controls="agentManageDialog"/);
   // 猫的档案一页四段：资料、位置、账号、送走；位置下面是那个位置自己的动作。
@@ -146,7 +147,7 @@ test('普通会话占满下半区，来源与多目录按需打开选择弹窗',
 
 test('设备中心是独立模态弹窗，采用设备列表加所选详情且不改写底层工作台', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const styles = read('src/styles.css');
   const workspaceStyles = read('src/workspace.css');
 
@@ -171,7 +172,7 @@ test('设备中心是独立模态弹窗，采用设备列表加所选详情且�
 
 test('1.14 全局弹窗统一固定 Shell，关闭不伪装主操作，次级流程保留父层', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const styles = read('src/workspace.css');
   const dialogSlice = (id) => {
     const start = html.indexOf(`id="${id}"`);

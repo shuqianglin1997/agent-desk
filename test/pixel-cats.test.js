@@ -9,6 +9,7 @@ const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 const art = require('../src/yard/cat-art');
 const cats = require('../src/yard/cats');
 const player = require('../src/pixel/cats');
+const { rendererSource } = require('./helpers/renderer-source');
 
 // 所有者批准的图鉴原件（逐字节相同的一份），和旧版本的 yard/cats.js（模拟只认八种毛色的旧设备）
 function loadSource(file) {
@@ -422,7 +423,7 @@ test('接线：脚本顺序、画布尺寸、旧的拉伸旋转都已拿掉', ()
   const ui = read('src/pixel/ui.js');
   assert.doesNotMatch(ui, /Fx\.act\(|drawSpec\(|setInterval\(tick/);
   assert.match(ui, /root\.PixelUi = \{[\s\S]*catAct, catRelease, mascot/);
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   assert.match(renderer, /energy: quotaTrack\.dataset\.trusted === 'true' \? quotaTrack\.dataset\.level : null/);
   assert.doesNotMatch(renderer, /YardSprites\.drawCat|S\.drawCat/);
 });

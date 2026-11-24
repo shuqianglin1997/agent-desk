@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { rendererSource } = require('./helpers/renderer-source');
 
 const root = path.join(__dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
@@ -23,7 +24,7 @@ test('one Recruit entry opens one dialog with four sections and one primary butt
   assert.match(dialog, /<footer class="utility-dialog-footer recruit-footer">[\s\S]*?id="recruitPrimaryBtn" class="primary"/);
   // First use opens the matching sections of the same dialog.
   assert.match(html, /id="onboardingCodexImportBtn"[^>]*aria-controls="recruitDialog"/);
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   assert.match(renderer, /onboardingCodexImportBtn\?\.addEventListener\('click'[\s\S]*?recruitDialog\.open\('drop'\)/);
   assert.match(renderer, /onboardingAdvancedBtn\?\.addEventListener\('click'[\s\S]*?recruitDialog\.open\('existing'\)/);
   assert.match(renderer, /if \(els\.recruitDialog\?\.open\) recruitDialog\.render\(\);/);

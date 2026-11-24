@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const renderer = fs.readFileSync(path.join(__dirname, '../src/renderer.js'), 'utf8');
+const { rendererSource } = require('./helpers/renderer-source');
+const renderer = rendererSource();
 function fn(name) { return renderer.match(new RegExp('^(?:async )?function ' + name + '\\([^\\n]*\\) \\{\\n.*?^\\}', 'ms'))[0]; }
 
 test('repeated activity polls never write a guessed completion or companion ledger', async () => {

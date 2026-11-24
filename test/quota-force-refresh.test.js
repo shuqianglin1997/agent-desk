@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { QuotaService } = require('../src/quota-service');
+const { rendererSource } = require('./helpers/renderer-source');
 
 function deferred() {
   let resolve;
@@ -40,7 +41,7 @@ test('QuotaService: a forced request during an ordinary one fetches again after 
 });
 
 test('renderer loadQuotas(true) during a running request asks Main again with force', async () => {
-  const renderer = fs.readFileSync(path.join(__dirname, '../src/renderer.js'), 'utf8');
+  const renderer = rendererSource();
   const fn = (name) => renderer.match(new RegExp(`^(?:async )?function ${name}\\([^\\n]*\\) \\{\\n.*?^\\}`, 'ms'))[0];
   const requests = [];
   const pending = [];

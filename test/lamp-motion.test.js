@@ -12,6 +12,7 @@ const vm = require('node:vm');
 const Lamp = require('../src/pixel/boot.js');
 const { createWindowLamp, LIMITS } = require('../src/main/window-lamp.js');
 const { ProfileRuntimeSupervisor } = require('../src/profile-runtime.js');
+const { rendererSource } = require('./helpers/renderer-source');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -471,7 +472,7 @@ test('接线：窗口底色是夜色，关客户端前降灯、被拦下亮灯�
   const html = read('src/index.html');
   const head = html.slice(0, html.indexOf('</head>'));
   assert.ok(head.indexOf('./pixel.css') < head.indexOf('./pixel/boot.js'), 'boot.js 在样式之后、正文之前');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   for (const stage of ['settings-loading', 'profiles-loading', 'task-package-history-loading', 'ready']) {
     assert.match(renderer, new RegExp(`setStartupStage\\('${stage}'`));
   }

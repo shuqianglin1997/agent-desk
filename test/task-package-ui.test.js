@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { rendererSource } = require('./helpers/renderer-source');
 
 function read(relativePath) {
   return fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
@@ -15,7 +16,7 @@ function dialogSlice(html, id) {
 
 test('任务交接从会话工具栏的“送出”发出，收到的在收件箱，复用当前唯一选中的会话', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const activity = dialogSlice(html, 'activityCenterDialog');
   // 收件箱自上而下三段：要你处理、送来的（含导入任务包）、记录（任务交接与传输记录）。
   assert.match(activity, /id="inboxAttention"[\s\S]*?id="attentionItems"[\s\S]*?id="inboxIncoming"[\s\S]*?id="incomingTaskPackages"[\s\S]*?id="importTaskPackageBtn"[\s\S]*?id="inboxRecords"[\s\S]*?id="taskPackageHistory"[\s\S]*?id="transferList"/);
@@ -28,7 +29,7 @@ test('任务交接从会话工具栏的“送出”发出，收到的在收件�
 
 test('同 Mesh 直送复用同一导出与导入弹窗，并在活动中逐次接受', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const exportDialog = dialogSlice(html, 'taskPackageDialog');
   const importDialog = dialogSlice(html, 'taskPackageImportDialog');
   assert.match(exportDialog, /id="taskPackageDeliveryPortable"[\s\S]*?id="taskPackageDeliveryDirect"[\s\S]*?id="taskPackageDirectTarget"/);
@@ -40,7 +41,7 @@ test('同 Mesh 直送复用同一导出与导入弹窗，并在活动中逐次�
 });
 
 test('直送失败的便携回退由 Main 选择路径并只向 UI 返回一次密钥', () => {
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const preload = read('src/preload.js');
   const main = mainHandlerSource();
   assert.match(preload, /saveTaskPackageFallback:[\s\S]*?taskPackages:savePortableFallback/);
@@ -69,7 +70,7 @@ test('任务包导出与导入弹窗固定头尾，仅内容区滚动且关闭�
 });
 
 test('接收方在选择目标 Agent 前能看到人工检查点、项目状态与附件数量', () => {
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   assert.match(renderer, /renderTaskPackageImportPreview[\s\S]*?taskPackage\.objective[\s\S]*?taskPackage\.completed[\s\S]*?taskPackage\.next/);
   assert.match(renderer, /taskPackage\.blockers[\s\S]*?taskPackage\.acceptance[\s\S]*?preview\.project/);
   assert.match(renderer, /entry\.kind === 'attachment'[\s\S]*?preview\.attachmentCount/);

@@ -215,7 +215,7 @@ const SHAPE_SOURCE = `
   }`;
 
 async function runProbe(window) {
-  const ready = await waitFor(window, `document.documentElement.dataset.boot === 'done' && typeof state !== 'undefined'`, 40_000);
+  const ready = await waitFor(window, `document.documentElement.dataset.boot === 'done' && typeof AgentDeskInspect !== 'undefined'`, 40_000);
   record.startupReadyAt = Date.now() - startedAt;
   // Let the first activity and catalog refreshes that follow "ready" land.
   await new Promise((resolve) => setTimeout(resolve, 2500));
@@ -256,7 +256,7 @@ async function runProbe(window) {
   await evaluate(window, `(async () => {
     const m = window.manager;
     await m.listActivity();
-    for (const profile of state.profiles) { try { await m.listSessions(profile); } catch (_error) { /* counted by the shapes */ } }
+    for (const profile of AgentDeskInspect.state.profiles) { try { await m.listSessions(profile); } catch (_error) { /* counted by the shapes */ } }
   })()`);
   record.syncOnRefreshSteady = {
     total: record.syncOnRefresh.total - before.total,
@@ -264,7 +264,7 @@ async function runProbe(window) {
       .map(([key, count]) => [key, count - (before.byCaller[key] || 0)])
       .filter(([, count]) => count > 0))
   };
-  const profileCount = await evaluate(window, 'state.profiles.length');
+  const profileCount = await evaluate(window, 'AgentDeskInspect.state.profiles.length');
   // Optional extra renderer expression for a phase check (hidden-check --eval).
   const extra = process.env.AGENTDESK_HIDDEN_EVAL ? await evaluate(window, process.env.AGENTDESK_HIDDEN_EVAL) : undefined;
   // Whether each scan host is using its worker thread now (false: the in-process fallback).

@@ -4,9 +4,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { rendererSource: readRendererSource } = require('./helpers/renderer-source');
 
 const mainSource = mainHandlerSource();
-const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+const rendererSource = readRendererSource();
 
 function sourceBetween(startMarker, endMarker) {
   const start = mainSource.indexOf(startMarker);

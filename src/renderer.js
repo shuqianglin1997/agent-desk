@@ -9772,3 +9772,54 @@ function deskReceived(previous, current) {
   });
 }
 
+
+// What the acceptance run, the hidden-window check and the snapshot tool may
+// read or call in this window (docs/ARCHITECTURE_PLAN.md phase 6). They reach
+// the renderer only through this object, so its code can move into modules
+// without them noticing. Each entry is looked up when it is called.
+// replace(name, fn) swaps one listed function for the rest of the run and
+// returns the previous one; only continueFirstPreparation can be swapped
+// (the acceptance run holds the official-client launch at waiting-login).
+const INSPECT_REPLACEABLE = new Set(['continueFirstPreparation']);
+window.AgentDeskInspect = Object.freeze({
+  get state() { return state; },
+  actionAgentId: (...args) => actionAgentId(...args),
+  applySessionFilter: (...args) => applySessionFilter(...args),
+  collectAttentionItems: (...args) => collectAttentionItems(...args),
+  currentAgentId: (...args) => currentAgentId(...args),
+  currentCatalogRevision: (...args) => currentCatalogRevision(...args),
+  currentSlotKey: (...args) => currentSlotKey(...args),
+  enrichMeshSession: (...args) => enrichMeshSession(...args),
+  focusSession: (...args) => focusSession(...args),
+  loadDeviceOverview: (...args) => loadDeviceOverview(...args),
+  openAgentOrProfileEditor: (...args) => openAgentOrProfileEditor(...args),
+  openAgentOrProfileRemoval: (...args) => openAgentOrProfileRemoval(...args),
+  openAgentRelationsDialog: (...args) => openAgentRelationsDialog(...args),
+  openFileSendDialog: (...args) => openFileSendDialog(...args),
+  openProfileCreationDialog: (...args) => openProfileCreationDialog(...args),
+  openSlotAssignmentDialog: (...args) => openSlotAssignmentDialog(...args),
+  openTransferCenter: (...args) => openTransferCenter(...args),
+  openUtilityDialog: (...args) => openUtilityDialog(...args),
+  renderAccountHeader: (...args) => renderAccountHeader(...args),
+  renderAccounts: (...args) => renderAccounts(...args),
+  renderDeviceLens: (...args) => renderDeviceLens(...args),
+  renderFirstUse: (...args) => renderFirstUse(...args),
+  renderIncomingTaskPackages: (...args) => renderIncomingTaskPackages(...args),
+  renderMeshAgentList: (...args) => renderMeshAgentList(...args),
+  renderRemoteActivity: (...args) => renderRemoteActivity(...args),
+  renderSelectedDeviceDetail: (...args) => renderSelectedDeviceDetail(...args),
+  renderSessions: (...args) => renderSessions(...args),
+  renderTopbarContext: (...args) => renderTopbarContext(...args),
+  rerenderLocalizedText: (...args) => rerenderLocalizedText(...args),
+  selectAgent: (...args) => selectAgent(...args),
+  sessionAtReplica: (...args) => sessionAtReplica(...args),
+  updateLangToggle: (...args) => updateLangToggle(...args),
+  validateSessionContext: (...args) => validateSessionContext(...args),
+  validateUiContext: (...args) => validateUiContext(...args),
+  replace(name, fn) {
+    if (!INSPECT_REPLACEABLE.has(name) || typeof fn !== 'function') throw new TypeError('inspect-not-replaceable');
+    const previous = continueFirstPreparation;
+    continueFirstPreparation = fn;
+    return previous;
+  }
+});

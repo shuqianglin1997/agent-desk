@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { rendererSource } = require('./helpers/renderer-source');
 
 test('更新按钮归入系统页的设置一栏，Header 只保留收件箱和系统两个入口', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
@@ -48,7 +49,7 @@ test('1.13 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下�
 
 test('会话浏览支持只用于明确定位动作的轻量选择，复制主操作突出且不恢复交接编排', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const renderer = rendererSource();
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
 
   // 选谁看谁：范围开关并进名册，“全部”卡片和点猫共同驱动同一个 agentScope。
@@ -80,7 +81,7 @@ test('会话浏览支持只用于明确定位动作的轻量选择，复制主�
 
 test('会话复制保留唯一入口和路径加坐标契约', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const renderer = rendererSource();
   const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
 
   assert.match(html, /id="sessionActionDock"[\s\S]*?id="copySessionInfoBtn"[\s\S]*?id="openSessionFileBtn"[\s\S]*?id="exportSessionBtn"/);
@@ -94,7 +95,7 @@ test('会话复制保留唯一入口和路径加坐标契约', () => {
 
 test('会话详细列表提供完整属性列，精简/详细切换且每个表头可点击排序', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const renderer = rendererSource();
   const settings = fs.readFileSync(path.join(__dirname, '..', 'src', 'settings.js'), 'utf8');
 
   assert.match(html, /id="sessionCompactBtn"[\s\S]*?id="sessionDetailBtn"/);
@@ -154,7 +155,7 @@ test('Agent 管理是单一对象入口，全局 Agent 与当前运行位置在 
 
 test('Agent CRUD 与运行位置操作按对象分区', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const renderer = rendererSource();
   // 新增归 Agent 标题行的“招募”，Agent 与运行位置管理归各自对象。
   assert.match(html, /class="presenter-head"[\s\S]*?id="addProfileBtn"[\s\S]*?id="accountRoster"/);
   assert.match(html, /id="agentGlobalActions"[\s\S]*?id="editProfileBtn"[\s\S]*?<\/div>/);
@@ -169,7 +170,7 @@ test('Agent CRUD 与运行位置操作按对象分区', () => {
 
 test('已退休的控制台设置和 renderer 事件状态不再保留', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const renderer = rendererSource();
   const settings = fs.readFileSync(path.join(__dirname, '..', 'src', 'settings.js'), 'utf8');
   assert.doesNotMatch(html, /id="runtimeDock"/);
   assert.doesNotMatch(html, /id="consoleToggle"/);
@@ -179,7 +180,7 @@ test('已退休的控制台设置和 renderer 事件状态不再保留', () => {
 });
 
 test('不可 launch 的 CLI 槽位禁用打开按钮，账号卡片展示并行会话数，位置数进提示', () => {
-  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const renderer = rendererSource();
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   assert.match(renderer, /canLaunch: a\.canLaunch !== false/);
   assert.match(renderer, /const profileCanLaunch = profile \? state\.appMeta\[profile\.appId\]\?\.canLaunch !== false : false/);
@@ -193,7 +194,7 @@ test('不可 launch 的 CLI 槽位禁用打开按钮，账号卡片展示并行�
 });
 
 test('同账号识别双通道：手动 identityKey 与自动登录指纹都构成分组', () => {
-  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const renderer = rendererSource();
   const main = mainHandlerSource();
   const groups = fs.readFileSync(path.join(__dirname, '..', 'src', 'identity-groups.js'), 'utf8');
   // 双通道归组逻辑收敛在 identity-groups.js（并查集），renderer 只消费组
@@ -206,7 +207,7 @@ test('同账号识别双通道：手动 identityKey 与自动登录指纹都构�
 });
 
 test('账号为轴：每个 Agent 一张卡片，会话合流并记录归属槽位', () => {
-  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const renderer = rendererSource();
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   // 分组模块在 renderer 前加载
   const groupsIndex = html.indexOf('./identity-groups.js');
@@ -223,7 +224,7 @@ test('账号为轴：每个 Agent 一张卡片，会话合流并记录归属槽�
 
 test('每张卡的运行位置独立，同一 Agent 内切换保留会话上下文', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const renderer = rendererSource();
   assert.match(html, /id="accountCardTemplate"[\s\S]*?class="account-card-runtime"[\s\S]*?<select><\/select>[\s\S]*?class="account-card-actions"/);
   assert.match(renderer, /function renderAccountCardRuntime\(label, action\)[\s\S]*?if \(group\.members\.length\)[\s\S]*?devices\.slot\.choose[\s\S]*?deployment\.client\.unprepared/);
   assert.match(renderer, /function preferredGroupSlot\(group\)[\s\S]*?selectedSlotKey\(state\.ui, currentDeviceLensId\(\), group\.key\)/);
@@ -238,7 +239,7 @@ test('每张卡的运行位置独立，同一 Agent 内切换保留会话上下�
 
 test('工具入口打开独立模态弹窗 + 新增账号落盘链完整', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+  const renderer = rendererSource();
   const main = mainHandlerSource();
   assert.match(html, /class="topbar-actions"[\s\S]*?id="activityCenterBtn"[\s\S]*?id="systemBtn"/);
   assert.match(html, /id="systemBtn"[^>]*aria-controls="systemDialog"/);
@@ -254,7 +255,7 @@ test('工具入口打开独立模态弹窗 + 新增账号落盘链完整', () =>
 test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项更新且 renderer 不提交命令', () => {
   const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js') + '\n' + read('src/renderer/tool-center.js');
+  const renderer = rendererSource() + '\n' + read('src/renderer/tool-center.js');
   const preload = read('src/preload.js');
   const main = mainHandlerSource();
   const maintenance = read('src/tool-maintenance.js');
@@ -290,7 +291,7 @@ test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项�
 
 test('i18n 独立模块：三语加载顺序 + 顶栏接线 + 语言持久化 + 词表核心 key 对齐', () => {
   const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
-  const html = read('src/index.html'); const renderer = read('src/renderer.js'); const settings = read('src/settings.js');
+  const html = read('src/index.html'); const renderer = rendererSource(); const settings = read('src/settings.js');
   // 独立模块，renderer 前按核心模块→zh→en→ja 顺序加载（加语言=加一行）
   assert.match(html, /i18n\/i18n\.js"[\s\S]*?i18n\/zh\.js"[\s\S]*?i18n\/en\.js"[\s\S]*?i18n\/ja\.js"[\s\S]*?renderer\.js"/);
   // 顶栏语言切换按钮 + 静态文案挂 data-i18n

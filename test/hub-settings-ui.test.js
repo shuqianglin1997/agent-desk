@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { rendererSource } = require('./helpers/renderer-source');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -26,7 +27,7 @@ test('the dossier has a calling section before farewell, with the two approved s
 });
 
 test('the dossier switches act only on the expanded local location and only through hub:setAccess', () => {
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   assert.match(renderer, /renderAgentManageLocations\(group, profile\);\s*renderHubCalling\(group, profile\);/);
   const calling = renderer.slice(renderer.indexOf('function renderHubCalling('), renderer.indexOf('async function saveHubAccess('));
   // 远端位置不显示：调用只在这台电脑上
@@ -70,7 +71,7 @@ test('the System page holds allowed folders and the limit; folders come only fro
   assert.match(settings, /id="hubAddFolderBtn" type="button"[\s\S]*?id="hubFolderList" class="hub-folder-list"[\s\S]*?data-i18n="hub\.system\.foldersHint"/);
   const select = settings.slice(settings.indexOf('<select id="hubMaxConcurrent">'), settings.indexOf('</select>', settings.indexOf('<select id="hubMaxConcurrent">')));
   assert.deepEqual([...select.matchAll(/<option value="(\d)"/g)].map((match) => match[1]), ['1', '2', '3', '4']);
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   assert.match(renderer, /try \{ result = await window\.manager\.hubAddFolder\(\); \}/);
   assert.match(renderer, /window\.manager\.hubRemoveFolder\(id\)/);
   assert.doesNotMatch(renderer, /hubAddFolder\([^)]/);
@@ -86,7 +87,7 @@ test('the two send items carry an icon and a one-line hint; four actions and the
   assert.match(html, /<button id="taskPackageActionBtn" class="hub-menu-item" type="button" disabled data-hub-tip="package"><i class="pxi" data-i="box" aria-hidden="true"><\/i><span data-i18n="taskPackage\.action">[^<]+<\/span><small data-i18n="hub\.menu\.package\.hint">/);
   assert.match(html, /id="copySessionInfoBtn"[^>]*data-hub-tip="copy"/);
   // 计数写在标签里，不把图标和小字冲掉
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   assert.match(renderer, /\(els\.sendSessionInfoLabel \|\| els\.sendSessionInfoBtn\)\.textContent = count > 1/);
   assert.doesNotMatch(renderer, /els\.sendSessionInfoBtn\.textContent =/);
   assert.match(renderer, /window\.AgentHubUi\?\.installTips\?\.\(document, tr\);/);
@@ -122,7 +123,7 @@ test('the tip appears on hover even over disabled buttons, on keyboard focus, an
   assert.match(tips, /className: 'hub-tip-reason'/);
   // 原因由界面明确标出，不拿按钮的通用说明冒充原因
   assert.match(tips, /const reason = disabled\(target\) \? \(target\.dataset\.hubReason \|\| ''\)\.trim\(\) : '';/);
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   for (const button of ['copySessionInfoBtn', 'taskPackageActionBtn', 'sendSessionInfoBtn']) {
     assert.match(renderer, new RegExp(`setHubReason\\(els\\.${button}, `), button);
   }

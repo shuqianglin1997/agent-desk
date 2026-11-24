@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 6 阶段第 1 批：界面要拆成模块之前，先把外面能碰到界面的地方列成明确的出口。验收脚本、隐藏窗口检查与截图脚本只经 `window.AgentDeskInspect`（`src/renderer.js` 末尾，34 个函数、`state` 与只允许替换 `continueFirstPreparation` 的 `replace`）读写界面；读界面源码的 24 个测试改经 `test/helpers/renderer-source.js`。新增 `scripts/ui-snapshots.js`：隐藏窗口、减少动态效果、两套主题 × 三种语言，每套 11 个状态（含空台面）共 66 张，`--compare` 逐像素比较；在 `1760696` 截的基准连截两次 0 处不同。新增 `test/ui-contracts.test.js` 把设备网计划的七条界面契约逐条对到守住它的测试，验收多一条“重画、筛选、对齐不改任何选择，浮层在 Top Layer”（25 条路径通过）。指标脚本把经这两个读源码帮助函数的测试也算作读源码，第 5 阶段收尾的数字不变。
+
 2026-11-24 架构整理第 5 阶段补一批：设备网模式的会话清单（`MeshService.getUnifiedSessions`）记住算过的会话键，并在输入不变时复用整份结果；缓存键是清单读到的存储内容摘要、本机会话行的内容摘要、关联钥匙的指纹与版本、此刻每份库存是否过期。新测试 `test/mesh-unified-sessions-memo.test.js` 5 项：每种写入之后缓存结果与新建服务逐字段相同，第 17.2 节的规范投影不变。`node scripts/mesh-bench.js` 量得远端 5000 条时没变 11 毫秒、本机有变 26 毫秒（原来每次约 54 毫秒）；启动后第一次与远端库存落库仍超过 50 毫秒，记在 `docs/ARCHITECTURE_PLAN.md` 9.1。没有用真实设备网验证。
 
 2026-11-24 架构整理第 5 阶段收尾：在 `docs/ARCHITECTURE_PLAN.md` 第 9.1 节记下第 5 阶段，第 8 节“现在”一栏重新量过（`arch-metrics --write`、`arch-bench`、`hidden-check`，以及打包后的测试包 `hidden-check --packaged`）。`main.js` 5226 → 680 行，只剩启动；登记在 `main.js` 里的接口 0，118 个窗口接口与 23 条命令行命令都在命令表里，接口清单由脚本生成并由 `check:docs` 核对；调度中枢收尾的查找在工作线程上，刷新时主线程最长挡 2.5 毫秒。留一处待定：设备网模式的会话清单，远端 5000 条时约 54 毫秒。隐藏窗口验收 24 条路径通过，读接口形状与基准相同。

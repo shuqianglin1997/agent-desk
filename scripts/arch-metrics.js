@@ -400,8 +400,11 @@ function testMetrics(root) {
     });
     const direct = readArgs.some((arg) => srcLiteral.test(arg));
     const viaHelper = readArgs.length > 0 && /['"`]src\/[^'"`]*\.(?:js|css|html)['"`]/.test(code.replace(/require\(\s*['"][^'"]+['"]\s*\)/g, ''));
-    const reads = direct || viaHelper;
-    if (!reads) continue;
+    // The shared source readers in test/helpers (main.js with the commands
+    // and modules moved out of it; renderer.js with its view modules).
+    const viaSourceHelper = /\b(?:mainHandlerSource|rendererSource)\(/.test(code);
+    const reads = direct || viaHelper || viaSourceHelper;
+    if (!reads || file.startsWith('test/helpers/')) continue;
     readsSource++;
     const requiresSrc = /require\(\s*(?:['"](?:\.\.\/)+src\/|path\.(?:join|resolve)\([^)]*['"]src['"])/.test(code);
     if (!requiresSrc) { textOnly++; textOnlyFiles.push(file); if (/\bvm\.(?:runInContext|createContext|Script)\b/.test(code)) runsExtracts.push(file); }

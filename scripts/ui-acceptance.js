@@ -335,7 +335,7 @@ async function waitFor(client, expression, label, timeoutMs = 15_000) {
     if (await client.evaluate(`Boolean(${expression})`)) return;
     await new Promise((resolve) => setTimeout(resolve, 80));
   }
-  const debug = await client.evaluate(`({ active: document.activeElement?.id, hidden: document.hidden, dialogs: [...document.querySelectorAll('dialog[open]')].map(d => d.id), utility: typeof state === 'undefined' ? null : state.utilityDialog, startup: typeof state === 'undefined' ? null : state.startupStage, firstUse: typeof state === 'undefined' ? null : state.firstUse.model?.phase, status: document.querySelector('#statusText')?.textContent })`);
+  const debug = await client.evaluate(`({ active: document.activeElement?.id, hidden: document.hidden, dialogs: [...document.querySelectorAll('dialog[open]')].map(d => d.id), utility: typeof AgentDeskInspect === 'undefined' ? null : AgentDeskInspect.state.utilityDialog, startup: typeof AgentDeskInspect === 'undefined' ? null : AgentDeskInspect.state.startupStage, firstUse: typeof AgentDeskInspect === 'undefined' ? null : AgentDeskInspect.state.firstUse.model?.phase, status: document.querySelector('#statusText')?.textContent })`);
   throw new Error(`Timed out waiting for ${label}: ${JSON.stringify(debug)}`);
 }
 
@@ -742,10 +742,10 @@ async function runAcceptance(client, artifactDir) {
   await client.call('Log.enable');
   await waitFor(
     client,
-    `typeof state !== 'undefined'
-      && state.startupStage === 'ready'
-      && state.profiles.length === 8
-      && state.sessions.length >= 3
+    `typeof AgentDeskInspect !== 'undefined'
+      && AgentDeskInspect.state.startupStage === 'ready'
+      && AgentDeskInspect.state.profiles.length === 8
+      && AgentDeskInspect.state.sessions.length >= 3
       && document.querySelectorAll('#sessionRows tr:not(.empty-row)').length >= 3
       && !document.querySelector('#welcomeDialog').open`,
     'the seeded local workspace'
@@ -754,11 +754,11 @@ async function runAcceptance(client, artifactDir) {
   await run('1040×840 Header / three-panel board / Footer shell', async () => {
     assertFixedShell(await layoutSnapshot(client));
     const initial = await client.evaluate(`({
-      profiles: state.profiles.length,
-      focused: state.ui.focusedConversationId,
-      checked: state.ui.checkedConversationIds.size,
-      workspace: state.ui.workspaceMode,
-      mesh: state.mesh.overview?.initialized === true
+      profiles: AgentDeskInspect.state.profiles.length,
+      focused: AgentDeskInspect.state.ui.focusedConversationId,
+      checked: AgentDeskInspect.state.ui.checkedConversationIds.size,
+      workspace: AgentDeskInspect.state.ui.workspaceMode,
+      mesh: AgentDeskInspect.state.mesh.overview?.initialized === true
     })`);
     assert.equal(initial.profiles, 8);
     assert.equal(initial.focused, null, 'initial render must not auto-focus a session');
@@ -782,12 +782,63 @@ async function runAcceptance(client, artifactDir) {
   });
   await capture(client, artifactDir, '01-local-zh-light');
 
+  await run('render, filter and reconcile change no selection; popovers open in the Top Layer', async () => {
+    // Mesh plan 11.11 rule 10 and 11.12: drawing again, filtering and the
+    // validity checks never pick, move or drop a user selection.
+    const selections = `JSON.stringify((() => {
+      const ui = AgentDeskInspect.state.ui;
+      return {
+        workspaceMode: ui.workspaceMode,
+        selectedDeviceLensId: ui.selectedDeviceLensId,
+        agentScope: ui.agentScope,
+        selectedAgentIdByDeviceLens: ui.selectedAgentIdByDeviceLens,
+        selectedSlotKeyByAgentAndLens: ui.selectedSlotKeyByAgentAndLens,
+        focusedConversationId: ui.focusedConversationId,
+        checkedConversationIds: [...ui.checkedConversationIds].sort(),
+        selectedReplicaKeyByConversation: ui.selectedReplicaKeyByConversation,
+        selectedDeviceDetailId: ui.selectedDeviceDetailId,
+        activeRemoteSessionId: ui.activeRemoteSessionId,
+        transferDraft: ui.transferDraft
+      };
+    })())`;
+    const redraw = `(() => {
+      AgentDeskInspect.validateUiContext();
+      AgentDeskInspect.validateSessionContext();
+      AgentDeskInspect.renderDeviceLens();
+      AgentDeskInspect.renderAccounts();
+      AgentDeskInspect.renderAccountHeader();
+      AgentDeskInspect.applySessionFilter();
+      AgentDeskInspect.renderSessions();
+      AgentDeskInspect.renderTopbarContext();
+    })()`;
+    const empty = await client.evaluate(selections);
+    await client.evaluate(redraw);
+    assert.equal(await client.evaluate(selections), empty, 'drawing again selects nothing');
+    assert.equal(JSON.parse(empty).focusedConversationId, null);
+    await client.evaluate(`document.querySelectorAll('#sessionRows tr:not(.empty-row)')[1].click()`);
+    await client.evaluate(`document.querySelectorAll('#sessionRows .session-select-box')[2].click()`);
+    const chosen = await client.evaluate(selections);
+    assert.ok(JSON.parse(chosen).focusedConversationId && JSON.parse(chosen).checkedConversationIds.length === 1);
+    await client.evaluate(redraw);
+    assert.equal(await client.evaluate(selections), chosen, 'drawing again keeps the focused and checked sessions');
+
+    // The tag picker and the quota popover are browser popovers, so they open
+    // in the Top Layer, above every panel's clipping.
+    await client.evaluate(`document.querySelector('#sessionRows tr.focused .session-tag-btn, #sessionRows tr .session-tag-btn').click()`);
+    await waitFor(client, `document.querySelector('#sessionTagPicker').matches(':popover-open')`, 'tag picker in the Top Layer');
+    await pressEscape(client);
+    await waitFor(client, `!document.querySelector('#sessionTagPicker').matches(':popover-open')`, 'tag picker closed');
+    assert.equal(await client.evaluate(selections), chosen, 'the tag picker leaves the selection as it was');
+    await client.evaluate(`document.querySelector('#clearSessionSelectionBtn').click()`);
+    await waitFor(client, `AgentDeskInspect.state.ui.checkedConversationIds.size === 0`, 'checks cleared');
+  });
+
   await run('focus, explicit check, hidden selection, and clear lifecycle', async () => {
     await client.evaluate(`document.querySelectorAll('#sessionRows tr:not(.empty-row)')[0].click()`);
-    const focused = await client.evaluate(`state.ui.focusedConversationId`);
+    const focused = await client.evaluate(`AgentDeskInspect.state.ui.focusedConversationId`);
     assert.ok(focused);
     let action = await client.evaluate(`({
-      checked: state.ui.checkedConversationIds.size,
+      checked: AgentDeskInspect.state.ui.checkedConversationIds.size,
       barHidden: document.querySelector('#sessionSelectionBar').hidden,
       copyDisabled: document.querySelector('#copySessionInfoBtn').disabled,
       openDisabled: document.querySelector('#openSessionFileBtn').disabled
@@ -796,9 +847,9 @@ async function runAcceptance(client, artifactDir) {
 
     await client.evaluate(`document.querySelectorAll('#sessionRows .session-select-box')[1].click()`);
     action = await client.evaluate(`({
-      focused: state.ui.focusedConversationId,
-      checked: state.ui.checkedConversationIds.size,
-      actionIds: window.UiContext.actionConversationIds(state.ui).length,
+      focused: AgentDeskInspect.state.ui.focusedConversationId,
+      checked: AgentDeskInspect.state.ui.checkedConversationIds.size,
+      actionIds: window.UiContext.actionConversationIds(AgentDeskInspect.state.ui).length,
       openDisabled: document.querySelector('#openSessionFileBtn').disabled
     })`);
     assert.equal(action.focused, focused, 'checking another row must not steal focus');
@@ -812,8 +863,8 @@ async function runAcceptance(client, artifactDir) {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     })()`);
     action = await client.evaluate(`({
-      filtered: state.filteredSessions.length,
-      checked: state.ui.checkedConversationIds.size,
+      filtered: AgentDeskInspect.state.filteredSessions.length,
+      checked: AgentDeskInspect.state.ui.checkedConversationIds.size,
       barHidden: document.querySelector('#sessionSelectionBar').hidden,
       issue: document.querySelector('#sessionSelectionIssue').textContent.trim()
     })`);
@@ -824,8 +875,8 @@ async function runAcceptance(client, artifactDir) {
 
     await client.evaluate(`document.querySelector('#clearSessionSelectionBtn').click()`);
     action = await client.evaluate(`({
-      focused: state.ui.focusedConversationId,
-      checked: state.ui.checkedConversationIds.size,
+      focused: AgentDeskInspect.state.ui.focusedConversationId,
+      checked: AgentDeskInspect.state.ui.checkedConversationIds.size,
       barHidden: document.querySelector('#sessionSelectionBar').hidden,
       buttonsDisabled: [...document.querySelectorAll('#sessionActionDock > button')].every(button => button.disabled)
     })`);
@@ -882,14 +933,14 @@ async function runAcceptance(client, artifactDir) {
     await waitFor(client, `document.activeElement === document.querySelector('#sessionSendMenu > summary')`, 'TaskPackage export focus return');
 
     await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
-    await waitFor(client, `state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'activity parent for TaskPackage receive');
+    await waitFor(client, `AgentDeskInspect.state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'activity parent for TaskPackage receive');
     await client.evaluate(`document.querySelector('#importTaskPackageBtn').click()`);
     await waitFor(
       client,
       `document.querySelector('#activityCenterDialog').open && document.querySelector('#taskPackageImportDialog').open`,
       'TaskPackage receive child'
     );
-    assert.equal(await client.evaluate(`state.utilityDialog`), 'activity');
+    assert.equal(await client.evaluate(`AgentDeskInspect.state.utilityDialog`), 'activity');
     snapshot = await dialogSnapshot(client, '#taskPackageImportDialog');
     assertDialogFits(snapshot);
     controls = await client.evaluate(`({
@@ -915,7 +966,7 @@ async function runAcceptance(client, artifactDir) {
     );
     await waitFor(client, `document.activeElement?.id === 'importTaskPackageBtn'`, 'TaskPackage receive focus return');
     await client.evaluate(`document.querySelector('#activityCenterDialog .utility-dialog-close').click()`);
-    await waitFor(client, `state.utilityDialog === null && !document.querySelector('#activityCenterDialog').open`, 'activity closes after TaskPackage receive');
+    await waitFor(client, `AgentDeskInspect.state.utilityDialog === null && !document.querySelector('#activityCenterDialog').open`, 'activity closes after TaskPackage receive');
   });
 
   await run('card workspace ignores the legacy yard setting and keeps Agent management in its object dialog', async () => {
@@ -979,16 +1030,16 @@ async function runAcceptance(client, artifactDir) {
     assertAccountRosterGeometry(await accountRosterSnapshot(client));
 
     // 在别的猫身上打开档案，不改变正在看的列表。
-    const viewedBefore = await client.evaluate(`({ agent: currentAgentId(), scope: state.ui.agentScope, title: document.querySelector('#sessionTitle').textContent })`);
-    await client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].find((card) => card.dataset.agentId !== currentAgentId()).querySelector('.account-card-manage').click()`);
-    await waitFor(client, `document.querySelector('#agentManageDialog').open && actionAgentId() !== currentAgentId()`, 'dossier for a cat that is not being viewed');
+    const viewedBefore = await client.evaluate(`({ agent: AgentDeskInspect.currentAgentId(), scope: AgentDeskInspect.state.ui.agentScope, title: document.querySelector('#sessionTitle').textContent })`);
+    await client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].find((card) => card.dataset.agentId !== AgentDeskInspect.currentAgentId()).querySelector('.account-card-manage').click()`);
+    await waitFor(client, `document.querySelector('#agentManageDialog').open && AgentDeskInspect.actionAgentId() !== AgentDeskInspect.currentAgentId()`, 'dossier for a cat that is not being viewed');
     assert.deepEqual(
-      await client.evaluate(`({ agent: currentAgentId(), scope: state.ui.agentScope, title: document.querySelector('#sessionTitle').textContent })`),
+      await client.evaluate(`({ agent: AgentDeskInspect.currentAgentId(), scope: AgentDeskInspect.state.ui.agentScope, title: document.querySelector('#sessionTitle').textContent })`),
       viewedBefore,
       'opening another cat\'s dossier must not change the viewed list'
     );
     await client.evaluate(`document.querySelector('#agentManageDialog').close()`);
-    await waitFor(client, `actionAgentId() === currentAgentId()`, 'action context returns to the viewed cat');
+    await waitFor(client, `AgentDeskInspect.actionAgentId() === AgentDeskInspect.currentAgentId()`, 'action context returns to the viewed cat');
 
 
     await client.evaluate(`(() => {
@@ -1052,8 +1103,8 @@ async function runAcceptance(client, artifactDir) {
     for (const lang of ['zh', 'en', 'ja']) {
       await client.evaluate(`(() => {
         window.I18N.setLang(${JSON.stringify(lang)});
-        updateLangToggle();
-        rerenderLocalizedText();
+        AgentDeskInspect.updateLangToggle();
+        AgentDeskInspect.rerenderLocalizedText();
       })()`);
       const layout = await layoutSnapshot(client);
       assertFixedShell(layout);
@@ -1064,7 +1115,7 @@ async function runAcceptance(client, artifactDir) {
   await capture(client, artifactDir, '05-local-ja-dark');
 
   await run('pure-local add dialog fits without changing data', async () => {
-    await client.evaluate(`openProfileCreationDialog()`);
+    await client.evaluate(`AgentDeskInspect.openProfileCreationDialog()`);
     const snapshot = await dialogSnapshot(client, '#profileDialog');
     assertDialogFits(snapshot);
     assert.equal(snapshot.activeId, 'newProfileName');
@@ -1079,13 +1130,13 @@ async function runAcceptance(client, artifactDir) {
       };
       return {
         geometry: { agent: pick('#agentPanel'), sessions: pick('#sessionPane'), detail: pick('#detailPanel') },
-        workspace: state.ui.workspaceMode,
-        detailMode: state.detailMode,
-        lens: state.ui.selectedDeviceLensId,
-        scope: state.ui.agentScope,
-        agent: currentAgentId(),
-        slot: currentSlotKey(),
-        focused: state.ui.focusedConversationId,
+        workspace: AgentDeskInspect.state.ui.workspaceMode,
+        detailMode: AgentDeskInspect.state.detailMode,
+        lens: AgentDeskInspect.state.ui.selectedDeviceLensId,
+        scope: AgentDeskInspect.state.ui.agentScope,
+        agent: AgentDeskInspect.currentAgentId(),
+        slot: AgentDeskInspect.currentSlotKey(),
+        focused: AgentDeskInspect.state.ui.focusedConversationId,
         checked: [...state.ui.checkedConversationIds]
       };
     })()`);
@@ -1096,7 +1147,7 @@ async function runAcceptance(client, artifactDir) {
       ['#activityCenterBtn', 'activity', '#activityCenterDialog', '#activityCenterBtn']
     ]) {
       await client.evaluate(`document.querySelector(${JSON.stringify(button)}).click()`);
-      await waitFor(client, `state.utilityDialog === ${JSON.stringify(kind)} && document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal`);
+      await waitFor(client, `AgentDeskInspect.state.utilityDialog === ${JSON.stringify(kind)} && document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal`);
       const snapshot = await dialogSnapshot(client, dialog);
       assertDialogFits(snapshot);
       assert.equal(snapshot.modal, true, `${kind} must be a modal dialog`);
@@ -1107,13 +1158,13 @@ async function runAcceptance(client, artifactDir) {
         };
         return {
           geometry: { agent: pick('#agentPanel'), sessions: pick('#sessionPane'), detail: pick('#detailPanel') },
-          workspace: state.ui.workspaceMode,
-          detailMode: state.detailMode,
-          lens: state.ui.selectedDeviceLensId,
-          scope: state.ui.agentScope,
-          agent: currentAgentId(),
-          slot: currentSlotKey(),
-          focused: state.ui.focusedConversationId,
+          workspace: AgentDeskInspect.state.ui.workspaceMode,
+          detailMode: AgentDeskInspect.state.detailMode,
+          lens: AgentDeskInspect.state.ui.selectedDeviceLensId,
+          scope: AgentDeskInspect.state.ui.agentScope,
+          agent: AgentDeskInspect.currentAgentId(),
+          slot: AgentDeskInspect.currentSlotKey(),
+          focused: AgentDeskInspect.state.ui.focusedConversationId,
           checked: [...state.ui.checkedConversationIds]
         };
       })()`);
@@ -1134,7 +1185,7 @@ async function runAcceptance(client, artifactDir) {
       // directly has proven flaky under Electron's remote debugging transport
       // and skips the form-method=dialog interaction we need to certify.
       await client.evaluate(`document.querySelector(${JSON.stringify(dialog)})?.querySelector('.utility-dialog-close')?.click()`);
-      await waitFor(client, `state.utilityDialog === null && !document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal close`);
+      await waitFor(client, `AgentDeskInspect.state.utilityDialog === null && !document.querySelector(${JSON.stringify(dialog)}).open`, `${kind} modal close`);
       await waitFor(client, `document.activeElement === document.querySelector(${JSON.stringify(focusTarget)})`, `${kind} trigger focus return`);
     }
 
@@ -1165,7 +1216,7 @@ async function runAcceptance(client, artifactDir) {
 
   await run('system/help keep a real parent-child modal stack with layered Escape, and inbox records live inside the inbox page', async () => {
     await client.evaluate(`document.querySelector('#systemBtn').click()`);
-    await waitFor(client, `state.utilityDialog === 'system' && document.querySelector('#systemDialog').open`, 'system parent');
+    await waitFor(client, `AgentDeskInspect.state.utilityDialog === 'system' && document.querySelector('#systemDialog').open`, 'system parent');
     assert.deepEqual(await client.evaluate(`({
       tools: Boolean(document.querySelector('#systemDialog #systemTools #checkToolsBtn')),
       settings: Boolean(document.querySelector('#systemDialog #systemSettings #themeToggle')),
@@ -1181,7 +1232,7 @@ async function runAcceptance(client, artifactDir) {
       document.querySelector('#helpBtn').click();
     })()`);
     await waitFor(client, `document.querySelector('#systemDialog').open && document.querySelector('#welcomeDialog').open`, 'help child over system');
-    assert.equal(await client.evaluate(`state.utilityDialog`), 'system');
+    assert.equal(await client.evaluate(`AgentDeskInspect.state.utilityDialog`), 'system');
     await pressEscape(client);
     await waitFor(client, `document.querySelector('#systemDialog').open && !document.querySelector('#welcomeDialog').open`, 'Escape closes help only');
     await waitFor(client, `document.activeElement?.id === 'helpBtn'`, 'help trigger focus return');
@@ -1193,20 +1244,20 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(settingsReturn.scrollTop, 37);
     await client.evaluate(`document.querySelector('#systemDialog [data-acceptance-parent-scroll-fixture]').remove()`);
     await pressEscape(client);
-    await waitFor(client, `!document.querySelector('#systemDialog').open && state.utilityDialog === null`, 'Escape closes system root');
+    await waitFor(client, `!document.querySelector('#systemDialog').open && AgentDeskInspect.state.utilityDialog === null`, 'Escape closes system root');
     await waitFor(client, `document.activeElement?.id === 'systemBtn'`, 'system trigger focus');
 
     await client.evaluate(`document.querySelector('#activityCenterBtn').click()`);
-    await waitFor(client, `state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'activity parent');
+    await waitFor(client, `AgentDeskInspect.state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'activity parent');
     // 传输记录是收件箱里的一段，不再叠一层子弹窗。
     assert.deepEqual(await client.evaluate(`({
       sections: [...document.querySelectorAll('#activityCenterDialog .inbox-section')].map((node) => node.id),
       records: Boolean(document.querySelector('#inboxRecords #transferList') && document.querySelector('#inboxRecords #taskPackageHistory')),
       childDialog: Boolean(document.querySelector('#transferCenterDialog'))
     })`), { sections: ['inboxAttention', 'inboxIncoming', 'inboxRecords'], records: true, childDialog: false });
-    assert.equal(await client.evaluate(`state.utilityDialog`), 'activity');
+    assert.equal(await client.evaluate(`AgentDeskInspect.state.utilityDialog`), 'activity');
     await pressEscape(client);
-    await waitFor(client, `!document.querySelector('#activityCenterDialog').open && state.utilityDialog === null`, 'Escape closes activity root');
+    await waitFor(client, `!document.querySelector('#activityCenterDialog').open && AgentDeskInspect.state.utilityDialog === null`, 'Escape closes activity root');
     await waitFor(client, `document.activeElement?.id === 'activityCenterBtn'`, 'activity trigger focus');
   });
 
@@ -1222,15 +1273,15 @@ async function runAcceptance(client, artifactDir) {
     try {
       await client.evaluate(`(() => {
         window.I18N.setLang('en');
-        updateLangToggle();
-        rerenderLocalizedText();
+        AgentDeskInspect.updateLangToggle();
+        AgentDeskInspect.rerenderLocalizedText();
       })()`);
       for (const [kind, dialog] of [
         ['devices', '#deviceCenterDialog'],
         ['system', '#systemDialog'],
         ['activity', '#activityCenterDialog']
       ]) {
-        await client.evaluate(`openUtilityDialog(${JSON.stringify(kind)})`);
+        await client.evaluate(`AgentDeskInspect.openUtilityDialog(${JSON.stringify(kind)})`);
         const snapshot = await dialogSnapshot(client, dialog);
         assert.deepEqual(snapshot.viewport, { width: 760, height: 560 });
         assertDialogFits(snapshot);
@@ -1238,7 +1289,7 @@ async function runAcceptance(client, artifactDir) {
         assert.equal(shell.shellOverflowY, 'hidden');
         assert.ok(shell.content && shell.content.height > 0, `${kind} content must retain usable height`);
         await client.evaluate(`document.querySelector(${JSON.stringify(dialog)}).close()`);
-        await waitFor(client, `state.utilityDialog === null`, `${kind} small viewport close`);
+        await waitFor(client, `AgentDeskInspect.state.utilityDialog === null`, `${kind} small viewport close`);
       }
     } finally {
       await client.evaluate(`document.querySelectorAll('dialog[open]').forEach((dialog) => dialog.close())`);
@@ -1249,37 +1300,37 @@ async function runAcceptance(client, artifactDir) {
 
   await run('modal Device Center preserves the underlying workspace during isolated Mesh initialization', async () => {
     const baseline = await client.evaluate(`({
-      workspace: state.ui.workspaceMode,
-      detailMode: state.detailMode,
-      lens: state.ui.selectedDeviceLensId,
-      scope: state.ui.agentScope,
-      agent: currentAgentId(),
-      slot: currentSlotKey(),
-      focused: state.ui.focusedConversationId,
+      workspace: AgentDeskInspect.state.ui.workspaceMode,
+      detailMode: AgentDeskInspect.state.detailMode,
+      lens: AgentDeskInspect.state.ui.selectedDeviceLensId,
+      scope: AgentDeskInspect.state.ui.agentScope,
+      agent: AgentDeskInspect.currentAgentId(),
+      slot: AgentDeskInspect.currentSlotKey(),
+      focused: AgentDeskInspect.state.ui.focusedConversationId,
       checked: [...state.ui.checkedConversationIds]
     })`);
     await client.evaluate(`(() => {
       window.I18N.setLang('zh');
-      rerenderLocalizedText();
+      AgentDeskInspect.rerenderLocalizedText();
       if (document.documentElement.dataset.theme === 'dark') document.querySelector('#themeToggle').click();
       document.querySelector('#deviceCenterBtn').click();
     })()`);
     await waitFor(
       client,
-      `state.utilityDialog === 'devices' && document.querySelector('#deviceCenterDialog').open && state.mesh.loading === false`,
+      `AgentDeskInspect.state.utilityDialog === 'devices' && document.querySelector('#deviceCenterDialog').open && AgentDeskInspect.state.mesh.loading === false`,
       'Device Center inventory'
     );
     let snapshot = await dialogSnapshot(client, '#deviceCenterDialog');
     assertDialogFits(snapshot);
     assert.equal(snapshot.modal, true, 'Device Center must use showModal()');
     const underlying = await client.evaluate(`({
-      workspace: state.ui.workspaceMode,
-      detailMode: state.detailMode,
-      lens: state.ui.selectedDeviceLensId,
-      scope: state.ui.agentScope,
-      agent: currentAgentId(),
-      slot: currentSlotKey(),
-      focused: state.ui.focusedConversationId,
+      workspace: AgentDeskInspect.state.ui.workspaceMode,
+      detailMode: AgentDeskInspect.state.detailMode,
+      lens: AgentDeskInspect.state.ui.selectedDeviceLensId,
+      scope: AgentDeskInspect.state.ui.agentScope,
+      agent: AgentDeskInspect.currentAgentId(),
+      slot: AgentDeskInspect.currentSlotKey(),
+      focused: AgentDeskInspect.state.ui.focusedConversationId,
       checked: [...state.ui.checkedConversationIds]
     })`);
     assert.deepEqual(underlying, baseline, 'opening Device Center must not change the underlying workspace');
@@ -1291,10 +1342,10 @@ async function runAcceptance(client, artifactDir) {
         buttonDisabled: button.disabled,
         buttonHidden: button.hidden,
         emptyStateHidden: emptyState.hidden,
-        loading: state.mesh.loading,
-        initialized: state.mesh.overview?.initialized === true,
-        storageIncomplete: state.mesh.overview?.storageIncomplete === true,
-        keyState: state.mesh.overview?.keyState || null,
+        loading: AgentDeskInspect.state.mesh.loading,
+        initialized: AgentDeskInspect.state.mesh.overview?.initialized === true,
+        storageIncomplete: AgentDeskInspect.state.mesh.overview?.storageIncomplete === true,
+        keyState: AgentDeskInspect.state.mesh.overview?.keyState || null,
         initializeApi: typeof window.manager.initializeMesh
       };
     })()`);
@@ -1305,16 +1356,16 @@ async function runAcceptance(client, artifactDir) {
     await client.evaluate(`document.querySelector('#initializeMeshBtn').click()`);
     await waitFor(
       client,
-      `state.mesh.overview?.initialized === true || Boolean(state.mesh.errorCode)`,
+      `AgentDeskInspect.state.mesh.overview?.initialized === true || Boolean(AgentDeskInspect.state.mesh.errorCode)`,
       'temporary Mesh initialization',
       20_000
     );
     const initialized = await client.evaluate(`({
-      initialized: state.mesh.overview?.initialized === true,
-      error: state.mesh.errorCode,
-      agent: currentAgentId(),
+      initialized: AgentDeskInspect.state.mesh.overview?.initialized === true,
+      error: AgentDeskInspect.state.mesh.errorCode,
+      agent: AgentDeskInspect.currentAgentId(),
       allCardPressed: document.querySelector('#rosterAllCard').getAttribute('aria-pressed'),
-      scope: state.ui.agentScope,
+      scope: AgentDeskInspect.state.ui.agentScope,
       detailKind: document.querySelector('#deviceDetailKind').textContent,
       detailStatus: document.querySelector('#deviceDetailStatus').textContent
     })`);
@@ -1327,8 +1378,8 @@ async function runAcceptance(client, artifactDir) {
 
     await client.evaluate(`document.querySelector('.device-list-item').click()`);
     const independence = await client.evaluate(`({
-      detail: state.ui.selectedDeviceDetailId,
-      lens: state.ui.selectedDeviceLensId,
+      detail: AgentDeskInspect.state.ui.selectedDeviceDetailId,
+      lens: AgentDeskInspect.state.ui.selectedDeviceLensId,
       detailName: document.querySelector('#deviceDetailName').textContent,
       actionCount: document.querySelector('#deviceDetailActions').children.length
     })`);
@@ -1409,7 +1460,7 @@ async function runAcceptance(client, artifactDir) {
       document.querySelector('#networkSettingsBtn').click();
     })()`);
     await waitFor(client, `document.querySelector('#deviceCenterDialog').open && document.querySelector('#meshNetworkDialog').open`, 'network child over Device Center');
-    assert.equal(await client.evaluate(`state.utilityDialog`), 'devices');
+    assert.equal(await client.evaluate(`AgentDeskInspect.state.utilityDialog`), 'devices');
     await pressEscape(client);
     await waitFor(client, `document.querySelector('#deviceCenterDialog').open && !document.querySelector('#meshNetworkDialog').open`, 'Escape closes network child only');
     await waitFor(client, `document.activeElement?.id === 'networkSettingsBtn'`, 'network trigger focus return');
@@ -1422,21 +1473,21 @@ async function runAcceptance(client, artifactDir) {
 
   await run('device task navigation applies an atomic Lens/Agent/scope transition', async () => {
     await client.evaluate(`(() => {
-      state.query = 'work';
+      AgentDeskInspect.state.query = 'work';
       document.querySelector('#searchInput').value = 'work';
       document.querySelector('#deviceDetailActions > button').click();
     })()`);
-    await waitFor(client, `state.ui.workspaceMode === 'sessions'
+    await waitFor(client, `AgentDeskInspect.state.ui.workspaceMode === 'sessions'
       && document.querySelector('#mainGrid').dataset.workspace === 'sessions'
       && !document.querySelector('#deviceCenterDialog').open
-      && state.ui.selectedDeviceLensId !== 'all'
-      && state.ui.agentScope === 'all'`, 'device all-session navigation');
+      && AgentDeskInspect.state.ui.selectedDeviceLensId !== 'all'
+      && AgentDeskInspect.state.ui.agentScope === 'all'`, 'device all-session navigation');
     let result = await client.evaluate(`({
-      query: state.query,
-      focused: state.ui.focusedConversationId,
-      checked: state.ui.checkedConversationIds.size,
-      lens: state.ui.selectedDeviceLensId,
-      scope: state.ui.agentScope
+      query: AgentDeskInspect.state.query,
+      focused: AgentDeskInspect.state.ui.focusedConversationId,
+      checked: AgentDeskInspect.state.ui.checkedConversationIds.size,
+      lens: AgentDeskInspect.state.ui.selectedDeviceLensId,
+      scope: AgentDeskInspect.state.ui.agentScope
     })`);
     assert.equal(result.query, 'work');
     assert.equal(result.focused, null);
@@ -1444,10 +1495,10 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(result.scope, 'all');
 
     await client.evaluate(`document.querySelector('#deviceCenterBtn').click()`);
-    await waitFor(client, `state.utilityDialog === 'devices' && document.querySelector('#deviceCenterDialog').open`, 'Device Center re-entry');
+    await waitFor(client, `AgentDeskInspect.state.utilityDialog === 'devices' && document.querySelector('#deviceCenterDialog').open`, 'Device Center re-entry');
     const expectedAgent = await client.evaluate(`(() => {
-      const overview = state.mesh.overview;
-      const deviceId = state.ui.selectedDeviceDetailId;
+      const overview = AgentDeskInspect.state.mesh.overview;
+      const deviceId = AgentDeskInspect.state.ui.selectedDeviceDetailId;
       const deviceAgents = overview.agents.filter((agent) => overview.slots.some((slot) => (
         slot.agentId === agent.agentId
         && slot.accountBindingId
@@ -1465,17 +1516,17 @@ async function runAcceptance(client, artifactDir) {
       document.querySelectorAll('.mesh-agent-card:not(.is-unassigned)')[index].click();
       return target.agentId;
     })()`);
-    await waitFor(client, `state.ui.workspaceMode === 'sessions'
+    await waitFor(client, `AgentDeskInspect.state.ui.workspaceMode === 'sessions'
       && document.querySelector('#mainGrid').dataset.workspace === 'sessions'
       && !document.querySelector('#deviceCenterDialog').open
-      && state.ui.agentScope === 'current'
-      && Boolean(currentAgentId())`, 'device Agent navigation');
+      && AgentDeskInspect.state.ui.agentScope === 'current'
+      && Boolean(AgentDeskInspect.currentAgentId())`, 'device Agent navigation');
     result = await client.evaluate(`({
-      query: state.query,
-      lens: state.ui.selectedDeviceLensId,
-      agent: currentAgentId(),
-      slot: currentSlotKey(),
-      scope: state.ui.agentScope
+      query: AgentDeskInspect.state.query,
+      lens: AgentDeskInspect.state.ui.selectedDeviceLensId,
+      agent: AgentDeskInspect.currentAgentId(),
+      slot: AgentDeskInspect.currentSlotKey(),
+      scope: AgentDeskInspect.state.ui.agentScope
     })`);
     assert.equal(result.query, 'work');
     assert.ok(result.agent && result.slot);
@@ -1496,8 +1547,8 @@ async function runAcceptance(client, artifactDir) {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     })()`);
     const before = await client.evaluate(`({
-      query: state.query,
-      focused: state.ui.focusedConversationId,
+      query: AgentDeskInspect.state.query,
+      focused: AgentDeskInspect.state.ui.focusedConversationId,
       checked: [...state.ui.checkedConversationIds],
       options: [...document.querySelector('.account-card.selected .account-card-runtime select').options].map((item) => item.value),
       current: document.querySelector('.account-card.selected .account-card-runtime select').value
@@ -1510,8 +1561,8 @@ async function runAcceptance(client, artifactDir) {
       select.dispatchEvent(new Event('change', { bubbles: true }));
     })()`);
     const after = await client.evaluate(`({
-      query: state.query,
-      focused: state.ui.focusedConversationId,
+      query: AgentDeskInspect.state.query,
+      focused: AgentDeskInspect.state.ui.focusedConversationId,
       checked: [...state.ui.checkedConversationIds],
       current: document.querySelector('.account-card.selected .account-card-runtime select').value
     })`);
@@ -1529,7 +1580,7 @@ async function runAcceptance(client, artifactDir) {
 
   await run('direct TaskPackage UI follows authenticated feature/capability state and explicit receive stages', async () => {
     await client.evaluate(`(() => {
-      state.mesh.overview.devices.push({
+      AgentDeskInspect.state.mesh.overview.devices.push({
         deviceId: 'acceptance-direct-device',
         name: 'Trusted Remote Mac',
         isLocal: false,
@@ -1537,7 +1588,7 @@ async function runAcceptance(client, artifactDir) {
         capabilities: ['task.package.receive'],
         permissions: ['task.package.receive']
       });
-      state.mesh.overview.connections.push({
+      AgentDeskInspect.state.mesh.overview.connections.push({
         deviceId: 'acceptance-direct-device',
         authenticated: true,
         protocolFeatures: ['task.package.transfer.v1']
@@ -1576,11 +1627,11 @@ async function runAcceptance(client, artifactDir) {
 
     await waitFor(
       client,
-      `document.querySelector('#activityCenterDialog').open && state.mesh.transferLoading === false`,
+      `document.querySelector('#activityCenterDialog').open && AgentDeskInspect.state.mesh.transferLoading === false`,
       'activity transfer refresh before receive projection'
     );
     await client.evaluate(`(() => {
-      state.mesh.transfers.push({
+      AgentDeskInspect.state.mesh.transfers.push({
         transferId: 'acceptance-incoming-task-package',
         type: 'task-package',
         direction: 'incoming',
@@ -1600,7 +1651,7 @@ async function runAcceptance(client, artifactDir) {
           attachmentCount: 2
         }
       });
-      renderIncomingTaskPackages();
+      AgentDeskInspect.renderIncomingTaskPackages();
     })()`);
     await waitFor(
       client,
@@ -1616,12 +1667,12 @@ async function runAcceptance(client, artifactDir) {
     assert.deepEqual(actions, { count: 2, primary: 1, title: 'Continue renderer acceptance' });
 
     await client.evaluate(`(() => {
-      const transfer = state.mesh.transfers.find((item) => item.transferId === 'acceptance-incoming-task-package');
+      const transfer = AgentDeskInspect.state.mesh.transfers.find((item) => item.transferId === 'acceptance-incoming-task-package');
       transfer.state = 'completed';
       transfer.acceptRequired = false;
       transfer.canImport = true;
       transfer.bytesTransferred = transfer.bytesTotal;
-      renderIncomingTaskPackages();
+      AgentDeskInspect.renderIncomingTaskPackages();
     })()`);
     actions = await client.evaluate(`({
       count: document.querySelectorAll('#incomingTaskPackageList .incoming-task-package-actions button').length,
@@ -1630,16 +1681,16 @@ async function runAcceptance(client, artifactDir) {
     assert.deepEqual(actions, { count: 1, primary: 1 }, 'verified package must offer import instead of another accept');
     await client.evaluate(`(() => {
       document.querySelector('#activityCenterDialog .utility-dialog-close').click();
-      state.mesh.transfers = state.mesh.transfers.filter((item) => item.transferId !== 'acceptance-incoming-task-package');
-      state.mesh.overview.devices = state.mesh.overview.devices.filter((item) => item.deviceId !== 'acceptance-direct-device');
-      state.mesh.overview.connections = state.mesh.overview.connections.filter((item) => item.deviceId !== 'acceptance-direct-device');
-      renderIncomingTaskPackages();
+      AgentDeskInspect.state.mesh.transfers = AgentDeskInspect.state.mesh.transfers.filter((item) => item.transferId !== 'acceptance-incoming-task-package');
+      AgentDeskInspect.state.mesh.overview.devices = AgentDeskInspect.state.mesh.overview.devices.filter((item) => item.deviceId !== 'acceptance-direct-device');
+      AgentDeskInspect.state.mesh.overview.connections = AgentDeskInspect.state.mesh.overview.connections.filter((item) => item.deviceId !== 'acceptance-direct-device');
+      AgentDeskInspect.renderIncomingTaskPackages();
     })()`);
     await waitFor(client, `!document.querySelector('#activityCenterDialog').open`, 'incoming TaskPackage activity close');
   });
 
   await run('Agent, binding, Slot, merge/split, and removal dialogs are explicit', async () => {
-    await client.evaluate(`openAgentOrProfileEditor()`);
+    await client.evaluate(`AgentDeskInspect.openAgentOrProfileEditor()`);
     let snapshot = await dialogSnapshot(client, '#editDialog');
     assertDialogFits(snapshot);
     assert.equal(snapshot.activeId, 'editName');
@@ -1651,7 +1702,7 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(values.identityHidden, true, 'global Agent editing must not expose local identity linkage');
     await client.evaluate(`document.querySelector('#editDialog').close()`);
 
-    await client.evaluate(`openProfileCreationDialog()`);
+    await client.evaluate(`AgentDeskInspect.openProfileCreationDialog()`);
     snapshot = await dialogSnapshot(client, '#profileDialog');
     assertDialogFits(snapshot);
     values = await client.evaluate(`({
@@ -1673,7 +1724,7 @@ async function runAcceptance(client, artifactDir) {
     assert.deepEqual(values, { agent: '', placeholderDisabled: true, confirmDisabled: true });
     await client.evaluate(`document.querySelector('#profileDialog').close()`);
 
-    await client.evaluate(`openAgentRelationsDialog()`);
+    await client.evaluate(`AgentDeskInspect.openAgentRelationsDialog()`);
     snapshot = await dialogSnapshot(client, '#agentRelationsDialog');
     assertDialogFits(snapshot);
     values = await client.evaluate(`({
@@ -1685,7 +1736,7 @@ async function runAcceptance(client, artifactDir) {
     assert.deepEqual(values, { merge: '', mergeDisabled: true, split: '', splitDisabled: true });
     await client.evaluate(`document.querySelector('#agentRelationsDialog').close()`);
 
-    await client.evaluate(`openAgentOrProfileRemoval()`);
+    await client.evaluate(`AgentDeskInspect.openAgentOrProfileRemoval()`);
     snapshot = await dialogSnapshot(client, '#removeCatalogDialog');
     assertDialogFits(snapshot);
     values = await client.evaluate(`({
@@ -1700,7 +1751,7 @@ async function runAcceptance(client, artifactDir) {
 
   await run('multi-replica actions require one explicit source', async () => {
     const injected = await client.evaluate(`(() => {
-      const overview = state.mesh.overview;
+      const overview = AgentDeskInspect.state.mesh.overview;
       const agent = overview.agents[0];
       const localSlot = overview.slots.find((item) => item.agentId === agent.agentId && item.deviceId === overview.localDeviceId);
       const binding = overview.accountBindings.find((item) => item.accountBindingId === localSlot.accountBindingId);
@@ -1767,23 +1818,23 @@ async function runAcceptance(client, artifactDir) {
           stale: true
         }
       ];
-      let row = sessionAtReplica({ ...common, id: common.adapterConversationKey, address: common.adapterConversationKey }, replicas[0], overview);
-      row = enrichMeshSession({ ...row, conversationId: common.conversationId, replicas }, overview);
-      state.ui = window.UiContext.setDeviceLens(state.ui, 'all', { validAgentIds: overview.agents.map((item) => item.agentId) });
-      state.ui = window.UiContext.setAgent(state.ui, agent.agentId, { slotKey: overview.localDeviceId + ':' + localSlot.profileId });
-      state.ui = window.UiContext.setAgentScope(state.ui, 'current');
-      state.ui = window.UiContext.clearConversationActions(state.ui);
-      state.sessions = [row];
-      state.query = '';
+      let row = AgentDeskInspect.sessionAtReplica({ ...common, id: common.adapterConversationKey, address: common.adapterConversationKey }, replicas[0], overview);
+      row = AgentDeskInspect.enrichMeshSession({ ...row, conversationId: common.conversationId, replicas }, overview);
+      AgentDeskInspect.state.ui = window.UiContext.setDeviceLens(AgentDeskInspect.state.ui, 'all', { validAgentIds: overview.agents.map((item) => item.agentId) });
+      AgentDeskInspect.state.ui = window.UiContext.setAgent(AgentDeskInspect.state.ui, agent.agentId, { slotKey: overview.localDeviceId + ':' + localSlot.profileId });
+      AgentDeskInspect.state.ui = window.UiContext.setAgentScope(AgentDeskInspect.state.ui, 'current');
+      AgentDeskInspect.state.ui = window.UiContext.clearConversationActions(AgentDeskInspect.state.ui);
+      AgentDeskInspect.state.sessions = [row];
+      AgentDeskInspect.state.query = '';
       document.querySelector('#searchInput').value = '';
-      validateUiContext();
-      validateSessionContext();
-      applySessionFilter();
-      focusSession(row);
-      renderDeviceLens(overview);
-      renderAccounts();
-      renderAccountHeader();
-      renderSessions();
+      AgentDeskInspect.validateUiContext();
+      AgentDeskInspect.validateSessionContext();
+      AgentDeskInspect.applySessionFilter();
+      AgentDeskInspect.focusSession(row);
+      AgentDeskInspect.renderDeviceLens(overview);
+      AgentDeskInspect.renderAccounts();
+      AgentDeskInspect.renderAccountHeader();
+      AgentDeskInspect.renderSessions();
       return { remoteId, conversationId: common.conversationId };
     })()`);
     await client.evaluate(`document.querySelector('#chooseSessionReplicaBtn').click()`);
@@ -1803,7 +1854,7 @@ async function runAcceptance(client, artifactDir) {
 
     await client.evaluate(`document.querySelectorAll('#sessionReplicaOptions input')[1].click()`);
     result = await client.evaluate(`({
-      selected: state.ui.selectedReplicaKeyByConversation['mesh::${injected.conversationId}'],
+      selected: AgentDeskInspect.state.ui.selectedReplicaKeyByConversation['mesh::${injected.conversationId}'],
       copyDisabled: document.querySelector('#copySessionInfoBtn').disabled,
       sendDisabled: document.querySelector('#sendSessionInfoBtn').disabled,
       openDisabled: document.querySelector('#openSessionFileBtn').disabled,
@@ -1832,35 +1883,35 @@ async function runAcceptance(client, artifactDir) {
     await waitFor(client, `document.querySelector('#sessionSendDialog').open`, 'SessionPointer dialog');
     let snapshot = await dialogSnapshot(client, '#sessionSendDialog');
     assertDialogFits(snapshot);
-    let draft = await client.evaluate(`state.ui.transferDraft`);
+    let draft = await client.evaluate(`AgentDeskInspect.state.ui.transferDraft`);
     assert.equal(draft.kind, 'session-pointer');
     assert.equal(draft.selections.length, 1);
     await client.evaluate(`document.querySelector('#sessionSendDialog').close()`);
-    await waitFor(client, `state.ui.transferDraft === null`, 'SessionPointer draft cleanup');
-    assert.equal(await client.evaluate(`state.ui.transferDraft`), null);
+    await waitFor(client, `AgentDeskInspect.state.ui.transferDraft === null`, 'SessionPointer draft cleanup');
+    assert.equal(await client.evaluate(`AgentDeskInspect.state.ui.transferDraft`), null);
 
-    await client.evaluate(`openFileSendDialog('acceptance-remote-device')`);
+    await client.evaluate(`AgentDeskInspect.openFileSendDialog('acceptance-remote-device')`);
     await waitFor(client, `document.querySelector('#fileSendDialog').open`, 'file dialog');
     snapshot = await dialogSnapshot(client, '#fileSendDialog');
     assertDialogFits(snapshot);
-    draft = await client.evaluate(`state.ui.transferDraft`);
+    draft = await client.evaluate(`AgentDeskInspect.state.ui.transferDraft`);
     assert.equal(draft.kind, 'files');
     assert.deepEqual(draft.selections, []);
     await client.evaluate(`document.querySelector('#fileSendDialog').close()`);
-    await waitFor(client, `state.ui.transferDraft === null`, 'file draft cleanup');
-    assert.equal(await client.evaluate(`state.ui.transferDraft`), null);
+    await waitFor(client, `AgentDeskInspect.state.ui.transferDraft === null`, 'file draft cleanup');
+    assert.equal(await client.evaluate(`AgentDeskInspect.state.ui.transferDraft`), null);
 
-    await client.evaluate(`openTransferCenter()`);
-    await waitFor(client, `state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'transfer records in the inbox');
+    await client.evaluate(`AgentDeskInspect.openTransferCenter()`);
+    await waitFor(client, `AgentDeskInspect.state.utilityDialog === 'activity' && document.querySelector('#activityCenterDialog').open`, 'transfer records in the inbox');
     snapshot = await dialogSnapshot(client, '#activityCenterDialog');
     assertDialogFits(snapshot);
-    assert.equal(await client.evaluate(`state.ui.transferDraft`), null);
+    assert.equal(await client.evaluate(`AgentDeskInspect.state.ui.transferDraft`), null);
     await client.evaluate(`document.querySelector('#activityCenterDialog .utility-dialog-close').click()`);
   });
 
   await run('background remote viewing is textual, reopenable, and clears on disconnect', async () => {
     await client.evaluate(`(() => {
-      state.mesh.remoteSessions = [{
+      AgentDeskInspect.state.mesh.remoteSessions = [{
         sessionId: 'acceptance-remote-session',
         deviceId: 'acceptance-remote-device',
         deviceName: 'Offline Windows Fixture',
@@ -1869,15 +1920,15 @@ async function runAcceptance(client, artifactDir) {
         mode: 'view',
         controlState: 'idle'
       }];
-      state.ui = window.UiContext.returnFromRemote(state.ui, 'acceptance-remote-session');
-      renderRemoteActivity();
-      renderTopbarContext();
+      AgentDeskInspect.state.ui = window.UiContext.returnFromRemote(AgentDeskInspect.state.ui, 'acceptance-remote-session');
+      AgentDeskInspect.renderRemoteActivity();
+      AgentDeskInspect.renderTopbarContext();
     })()`);
     let indicator = await client.evaluate(`({
       hidden: document.querySelector('#remoteActivityBtn').hidden,
       text: document.querySelector('#remoteActivityBtn').textContent.trim(),
       label: document.querySelector('#remoteActivityBtn').getAttribute('aria-label'),
-      workspace: state.ui.workspaceMode
+      workspace: AgentDeskInspect.state.ui.workspaceMode
     })`);
     assert.equal(indicator.hidden, false);
     assert.match(indicator.text, /1/);
@@ -1885,30 +1936,30 @@ async function runAcceptance(client, artifactDir) {
     assert.equal(indicator.workspace, 'sessions');
 
     await client.evaluate(`(() => {
-      state.mesh.remoteSessions = [];
-      state.ui = window.UiContext.disconnectRemote(state.ui, 'acceptance-remote-session', []);
-      renderRemoteActivity();
-      renderTopbarContext();
+      AgentDeskInspect.state.mesh.remoteSessions = [];
+      AgentDeskInspect.state.ui = window.UiContext.disconnectRemote(AgentDeskInspect.state.ui, 'acceptance-remote-session', []);
+      AgentDeskInspect.renderRemoteActivity();
+      AgentDeskInspect.renderTopbarContext();
     })()`);
     indicator = await client.evaluate(`({
       hidden: document.querySelector('#remoteActivityBtn').hidden,
-      active: state.ui.activeRemoteSessionId
+      active: AgentDeskInspect.state.ui.activeRemoteSessionId
     })`);
     assert.deepEqual(indicator, { hidden: true, active: null });
   });
 
   await run('revoked device detail clears every stale field', async () => {
     const result = await client.evaluate(`(() => {
-      const overview = state.mesh.overview;
-      state.ui = window.UiContext.selectDeviceDetail(state.ui, 'acceptance-remote-device');
-      renderSelectedDeviceDetail(overview);
-      renderMeshAgentList(overview);
+      const overview = AgentDeskInspect.state.mesh.overview;
+      AgentDeskInspect.state.ui = window.UiContext.selectDeviceDetail(AgentDeskInspect.state.ui, 'acceptance-remote-device');
+      AgentDeskInspect.renderSelectedDeviceDetail(overview);
+      AgentDeskInspect.renderMeshAgentList(overview);
       overview.devices = overview.devices.filter((item) => item.deviceId !== 'acceptance-remote-device');
-      validateUiContext();
-      renderSelectedDeviceDetail(overview);
-      renderMeshAgentList(overview);
+      AgentDeskInspect.validateUiContext();
+      AgentDeskInspect.renderSelectedDeviceDetail(overview);
+      AgentDeskInspect.renderMeshAgentList(overview);
       return {
-        detail: state.ui.selectedDeviceDetailId,
+        detail: AgentDeskInspect.state.ui.selectedDeviceDetailId,
         kind: document.querySelector('#deviceDetailKind').textContent,
         status: document.querySelector('#deviceDetailStatus').textContent,
         stats: document.querySelector('#deviceDetailStats').children.length,
@@ -1939,15 +1990,15 @@ async function runAcceptance(client, artifactDir) {
   await run('remove an unassigned local registration without deleting its Agent or files', async () => {
     await client.evaluate(`(() => {
       window.registrationRemovalFixture = null;
-      loadDeviceOverview({ silent: true }).then(async () => {
-        const overview = state.mesh.overview;
+      AgentDeskInspect.loadDeviceOverview({ silent: true }).then(async () => {
+        const overview = AgentDeskInspect.state.mesh.overview;
         const slot = overview.slots.find(item => item.profileId === 'acceptance-work-cli' && item.deviceId === overview.localDeviceId);
-        const result = await window.manager.removeLocalAgentSlot({ deviceId: slot.deviceId, profileId: slot.profileId, baseRevision: currentCatalogRevision() });
+        const result = await window.manager.removeLocalAgentSlot({ deviceId: slot.deviceId, profileId: slot.profileId, baseRevision: AgentDeskInspect.currentCatalogRevision() });
         if (!result.ok) throw new Error(result.reasonCode);
-        state.mesh.overview = result.overview;
+        AgentDeskInspect.state.mesh.overview = result.overview;
         const pending = result.overview.slots.find(item => item.profileId === slot.profileId && item.deviceId === slot.deviceId);
-        window.registrationRemovalFixture = { agentId: slot.agentId, profile: state.profiles.find(item => item.id === slot.profileId) };
-        openSlotAssignmentDialog(pending);
+        window.registrationRemovalFixture = { agentId: slot.agentId, profile: AgentDeskInspect.state.profiles.find(item => item.id === slot.profileId) };
+        AgentDeskInspect.openSlotAssignmentDialog(pending);
       });
     })()`);
     await waitFor(client, `window.registrationRemovalFixture && document.querySelector('#slotAssignmentDialog').open`, 'unassigned local registration');
@@ -1965,12 +2016,12 @@ async function runAcceptance(client, artifactDir) {
     await client.call('Page.handleJavaScriptDialog', { accept: true });
     await click;
     await waitFor(client, `!document.querySelector('#slotAssignmentDialog').open
-      && !state.profiles.some(item => item.id === 'acceptance-work-cli')
-      && !state.mesh.overview.slots.some(item => item.profileId === 'acceptance-work-cli')`, 'registration removed from profile and overview');
+      && !AgentDeskInspect.state.profiles.some(item => item.id === 'acceptance-work-cli')
+      && !AgentDeskInspect.state.mesh.overview.slots.some(item => item.profileId === 'acceptance-work-cli')`, 'registration removed from profile and overview');
     assert.equal(fs.readFileSync(sentinel, 'utf8'), 'session files stay');
-    assert.equal(await client.evaluate(`state.mesh.overview.agents.some(item => item.agentId === ${JSON.stringify(fixture.agentId)})`), true);
-    assert.equal(await client.evaluate(`state.profiles.some(item => item.id === 'acceptance-work-desktop')`), true);
-    assert.equal(await client.evaluate(`collectAttentionItems().some(item => item.slotKey?.includes('acceptance-work-cli'))`), false);
+    assert.equal(await client.evaluate(`AgentDeskInspect.state.mesh.overview.agents.some(item => item.agentId === ${JSON.stringify(fixture.agentId)})`), true);
+    assert.equal(await client.evaluate(`AgentDeskInspect.state.profiles.some(item => item.id === 'acceptance-work-desktop')`), true);
+    assert.equal(await client.evaluate(`AgentDeskInspect.collectAttentionItems().some(item => item.slotKey?.includes('acceptance-work-cli'))`), false);
   });
 
   const exceptions = client.events.filter((event) => event.method === 'Runtime.exceptionThrown');
@@ -2005,9 +2056,9 @@ async function runFreshFirstUseInitialization(client, userData, artifactDir) {
   await client.call('Log.enable');
   await waitFor(
     client,
-    `typeof state !== 'undefined'
-      && state.startupStage === 'ready'
-      && state.profiles.length === 0
+    `typeof AgentDeskInspect !== 'undefined'
+      && AgentDeskInspect.state.startupStage === 'ready'
+      && AgentDeskInspect.state.profiles.length === 0
       && Boolean(document.querySelector('#accountRoster .account-roster-empty button.primary'))`,
     'fresh empty desk with its recruit button'
   );
@@ -2020,8 +2071,8 @@ async function runFreshFirstUseInitialization(client, userData, artifactDir) {
   await waitFor(
     client,
     `document.querySelector('#welcomeDialog').open
-      && state.firstUse.model?.phase === 'agent'
-      && state.profiles.length === 0`,
+      && AgentDeskInspect.state.firstUse.model?.phase === 'agent'
+      && AgentDeskInspect.state.profiles.length === 0`,
     'fresh first-use Agent step'
   );
   assert.deepEqual(await readOnboardingProgress(userData), {
@@ -2030,12 +2081,12 @@ async function runFreshFirstUseInitialization(client, userData, artifactDir) {
   });
 
   const initial = await client.evaluate(`({
-    mode: state.firstUse.mode,
-    phase: state.firstUse.model.phase,
-    version: state.firstUse.model.version,
-    initialized: state.mesh.overview?.initialized === true,
+    mode: AgentDeskInspect.state.firstUse.mode,
+    phase: AgentDeskInspect.state.firstUse.model.phase,
+    version: AgentDeskInspect.state.firstUse.model.version,
+    initialized: AgentDeskInspect.state.mesh.overview?.initialized === true,
     primaryDisabled: document.querySelector('#onboardingPrimaryBtn').disabled,
-    draft: state.firstUse.model.draft,
+    draft: AgentDeskInspect.state.firstUse.model.draft,
     action: document.querySelector('#onboardingPrimaryBtn').dataset.action,
     controls: ['onboardingPrimaryBtn', 'onboardingSecondaryBtn', 'onboardingBackBtn', 'onboardingAdvancedBtn'].map(id => Boolean(document.getElementById(id))),
     completeHidden: document.querySelector('#onboardingComplete').hidden,
@@ -2063,36 +2114,35 @@ async function runFreshFirstUseInitialization(client, userData, artifactDir) {
     // The first-Agent catalog/device transaction remains real. Only the next
     // official-client launch boundary is held at waiting-login so this UI
     // acceptance cannot open or modify a third-party application.
-    window.__acceptanceContinueFirstPreparation = continueFirstPreparation;
-    continueFirstPreparation = async () => {
-      state.firstUse.busy = false;
-      state.firstUse.model = window.OnboardingState.transition(state.firstUse.model, {
+    window.__acceptanceContinueFirstPreparation = AgentDeskInspect.replace('continueFirstPreparation', async () => {
+      AgentDeskInspect.state.firstUse.busy = false;
+      AgentDeskInspect.state.firstUse.model = window.OnboardingState.transition(AgentDeskInspect.state.firstUse.model, {
         type: 'preparation-result',
         result: { ok: false, state: 'waiting-login', reasonCode: 'official-login-required' }
       });
-      renderFirstUse();
-    };
+      AgentDeskInspect.renderFirstUse();
+    });
   })()`);
   await waitFor(client, `!document.querySelector('#onboardingPrimaryBtn').disabled`, 'valid first Agent draft');
   await client.evaluate(`document.querySelector('#onboardingPrimaryBtn').click()`);
   await waitFor(
     client,
-    `state.mesh.overview?.initialized === true
-      && state.firstUse.model?.phase === 'preparing'
-      && state.firstUse.model?.preparation?.state === 'waiting-login'`,
+    `AgentDeskInspect.state.mesh.overview?.initialized === true
+      && AgentDeskInspect.state.firstUse.model?.phase === 'preparing'
+      && AgentDeskInspect.state.firstUse.model?.preparation?.state === 'waiting-login'`,
     'offline first Agent initialization',
     20_000
   );
 
   const result = await client.evaluate(`({
-    agentNames: (state.mesh.overview?.agents || []).map((agent) => agent.displayName),
-    deviceCount: state.mesh.overview?.devices?.length || 0,
-    connectionCount: state.mesh.overview?.connections?.length || 0,
-    reachabilityActive: state.mesh.overview?.reachability?.active === true,
-    reachabilityEnabled: state.mesh.overview?.reachability?.userEnabled === true,
-    networkEnrollmentEnabled: state.mesh.overview?.reachability?.networkEnrollmentEnabled === true,
-    endpointCount: state.mesh.overview?.reachability?.endpointCount || 0,
-    phase: state.firstUse.model.phase,
+    agentNames: (AgentDeskInspect.state.mesh.overview?.agents || []).map((agent) => agent.displayName),
+    deviceCount: AgentDeskInspect.state.mesh.overview?.devices?.length || 0,
+    connectionCount: AgentDeskInspect.state.mesh.overview?.connections?.length || 0,
+    reachabilityActive: AgentDeskInspect.state.mesh.overview?.reachability?.active === true,
+    reachabilityEnabled: AgentDeskInspect.state.mesh.overview?.reachability?.userEnabled === true,
+    networkEnrollmentEnabled: AgentDeskInspect.state.mesh.overview?.reachability?.networkEnrollmentEnabled === true,
+    endpointCount: AgentDeskInspect.state.mesh.overview?.reachability?.endpointCount || 0,
+    phase: AgentDeskInspect.state.firstUse.model.phase,
     primaryAction: document.querySelector('#onboardingPrimaryBtn').dataset.action,
     laterVisible: !document.querySelector('#onboardingSecondaryBtn').hidden
   })`);
@@ -2122,19 +2172,19 @@ async function runFreshFirstUseRecovery(client, userData, artifactDir) {
   await client.call('Log.enable');
   await waitFor(
     client,
-    `typeof state !== 'undefined'
-      && state.startupStage === 'ready'
+    `typeof AgentDeskInspect !== 'undefined'
+      && AgentDeskInspect.state.startupStage === 'ready'
       && document.querySelector('#welcomeDialog').open
-      && state.firstUse.model?.phase === 'existing'
-      && state.mesh.overview?.initialized === true`,
+      && AgentDeskInspect.state.firstUse.model?.phase === 'existing'
+      && AgentDeskInspect.state.mesh.overview?.initialized === true`,
     'interrupted first-use recovery'
   );
   const recovered = await client.evaluate(`({
-    phase: state.firstUse.model.phase,
-    agents: state.firstUse.model.agents.map((agent) => agent.displayName),
-    completion: state.onboardingProgress.completedVersion,
-    connectionCount: state.mesh.overview?.connections?.length || 0,
-    networkEnrollmentEnabled: state.mesh.overview?.reachability?.networkEnrollmentEnabled === true,
+    phase: AgentDeskInspect.state.firstUse.model.phase,
+    agents: AgentDeskInspect.state.firstUse.model.agents.map((agent) => agent.displayName),
+    completion: AgentDeskInspect.state.onboardingProgress.completedVersion,
+    connectionCount: AgentDeskInspect.state.mesh.overview?.connections?.length || 0,
+    networkEnrollmentEnabled: AgentDeskInspect.state.mesh.overview?.reachability?.networkEnrollmentEnabled === true,
     primaryAction: document.querySelector('#onboardingPrimaryBtn').dataset.action
   })`);
   assert.equal(recovered.phase, 'existing');
@@ -2147,8 +2197,8 @@ async function runFreshFirstUseRecovery(client, userData, artifactDir) {
   await client.evaluate(`document.querySelector('#onboardingPrimaryBtn').click()`);
   await waitFor(
     client,
-    `state.firstUse.model?.phase === 'complete'
-      && state.firstUse.model?.completeShown === true
+    `AgentDeskInspect.state.firstUse.model?.phase === 'complete'
+      && AgentDeskInspect.state.firstUse.model?.completeShown === true
       && !document.querySelector('#onboardingPrimaryBtn').disabled`,
     'rendered first-use completion'
   );
@@ -2160,7 +2210,7 @@ async function runFreshFirstUseRecovery(client, userData, artifactDir) {
   await client.evaluate(`document.querySelector('#onboardingPrimaryBtn').click()`);
   await waitFor(
     client,
-    `!document.querySelector('#welcomeDialog').open && state.onboardingProgress.completedVersion === 1`,
+    `!document.querySelector('#welcomeDialog').open && AgentDeskInspect.state.onboardingProgress.completedVersion === 1`,
     'persisted first-use completion'
   );
   const progress = await waitForOnboardingProgress(userData, 1);
@@ -2243,8 +2293,8 @@ async function closeElectronApp(instance) {
 }
 
 async function runRosterAcceptance(client, userData) {
-  await waitFor(client, `typeof state !== 'undefined' && state.profiles.length === 8
-    && state.sessions.length >= 3 && !document.querySelector('#welcomeDialog').open`, 'roster workspace');
+  await waitFor(client, `typeof AgentDeskInspect !== 'undefined' && AgentDeskInspect.state.profiles.length === 8
+    && AgentDeskInspect.state.sessions.length >= 3 && !document.querySelector('#welcomeDialog').open`, 'roster workspace');
   await client.call('Emulation.setFocusEmulationEnabled', { enabled: true });
   try { return await runFocusedRosterAcceptance(client, userData); }
   finally { await client.call('Emulation.setFocusEmulationEnabled', { enabled: false }); }
@@ -2317,7 +2367,7 @@ async function runFocusedRosterAcceptance(client, userData) {
     await new Promise(resolve => setTimeout(resolve, 50));
   } while (Date.now() < deadline);
   assert.deepEqual(saved.agentOrder, reordered, 'order must be written to disk');
-  await client.evaluate(`selectAgent(${JSON.stringify(selected)})`);
+  await client.evaluate(`AgentDeskInspect.selectAgent(${JSON.stringify(selected)})`);
   process.stdout.write('✓ real pointer/keyboard roster sorting, wheel and refresh scroll preservation\n');
   return reordered;
 }
@@ -2353,9 +2403,9 @@ async function main() {
     checks.push('roster pointer keyboard and wheel');
     await closeElectronApp(instance);
     instance = await launchElectronApp(rosterData, output);
-    await waitFor(instance.client, `typeof state !== 'undefined' && state.profiles.length === 8
+    await waitFor(instance.client, `typeof AgentDeskInspect !== 'undefined' && AgentDeskInspect.state.profiles.length === 8
       && !document.querySelector('#welcomeDialog').open`, 'roster restart');
-    assert.deepEqual(await instance.client.evaluate('state.agentOrder'), expectedOrder);
+    assert.deepEqual(await instance.client.evaluate('AgentDeskInspect.state.agentOrder'), expectedOrder);
     assert.deepEqual(await instance.client.evaluate(`[...document.querySelectorAll('#accountRoster .account-card')].map(card => card.dataset.agentId)`), expectedOrder);
     checks.push('roster order survives application restart');
     await closeElectronApp(instance);
@@ -2386,7 +2436,30 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`\nUI acceptance failed: ${error.stack || error.message}\n`);
-  process.exitCode = 1;
-});
+// scripts/ui-snapshots.js reuses the launcher, the seed and the DevTools
+// client; run directly, this file is the acceptance run.
+function finishHidden() {
+  const summary = hiddenHome ? hiddenSummary() : null;
+  if (hiddenHome) fs.rmSync(hiddenHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  hiddenHome = null;
+  hiddenRecords.length = 0;
+  return summary;
+}
+
+module.exports = {
+  HIDDEN,
+  seedUserData,
+  launchElectronApp,
+  closeElectronApp,
+  waitFor,
+  settleDialogMotion,
+  pressEscape,
+  finishHidden
+};
+
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`\nUI acceptance failed: ${error.stack || error.message}\n`);
+    process.exitCode = 1;
+  });
+}

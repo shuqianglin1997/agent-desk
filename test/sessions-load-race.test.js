@@ -5,8 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { rendererSource } = require('./helpers/renderer-source');
 
-const renderer = fs.readFileSync(path.join(__dirname, '../src/renderer.js'), 'utf8');
+const renderer = rendererSource();
 const fn = (name) => renderer.match(new RegExp(`^(?:async )?function ${name}\\([^\\n]*\\) \\{\\n.*?^\\}`, 'ms'))[0];
 
 function deferred() {

@@ -2,10 +2,11 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { rendererSource } = require('./helpers/renderer-source');
 
 const ROOT = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'src/index.html'), 'utf8');
-const renderer = fs.readFileSync(path.join(ROOT, 'src/renderer.js'), 'utf8');
+const renderer = rendererSource();
 const css = fs.readFileSync(path.join(ROOT, 'src/workspace.css'), 'utf8');
 
 function bodyOf(name, nextName) {

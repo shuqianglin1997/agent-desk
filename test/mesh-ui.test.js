@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { rendererSource } = require('./helpers/renderer-source');
 
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
@@ -10,7 +11,7 @@ test('设备入口并入设备视角下拉，设备中心使用独立模态弹�
   const html = read('src/index.html');
   const styles = read('src/styles.css');
   const workspaceStyles = read('src/workspace.css');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const navStart = html.indexOf('<nav class="topbar-actions"');
   const navEnd = html.indexOf('</nav>', navStart);
   const nav = html.slice(navStart, navEnd);
@@ -115,7 +116,7 @@ test('首次准备只暴露员工、设备、客户端枚举和确认状态，�
 
 test('工作环境始终投影完整员工库，并用同一主按钮确保就绪后打开', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const projection = read('src/agent-workspace.js');
   assert.match(html, /<script src="\.\/agent-workspace\.js"><\/script>[\s\S]*?<script src="\.\/renderer\.js"><\/script>/);
   assert.match(renderer, /function identityGroupsForLens[\s\S]*?AgentWorkspace\.projectMeshAgentGroups/);
@@ -156,7 +157,7 @@ test('全局员工目录通过独立 catalog 通道同步，先于来源设备 i
 test('远端已就绪与首次准备共用主按钮，只走窄语义 IPC', () => {
   const html = read('src/index.html');
   const preload = read('src/preload.js');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const main = mainHandlerSource();
   const capabilities = read('src/mesh/domain/capabilities.js');
   assert.match(capabilities, /'agent\.prepare': \{ defaultPaired: false, dangerous: true \}/);
@@ -172,7 +173,7 @@ test('远端已就绪与首次准备共用主按钮，只走窄语义 IPC', () =
 
 test('公网会合设置与诊断使用固定 IPC，界面不接收 TURN 长期凭据或连接原文', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const preload = read('src/preload.js');
   const main = mainHandlerSource();
   assert.match(html, /id="networkSettingsBtn"[\s\S]*?id="meshNetworkDialog"/);
@@ -198,7 +199,7 @@ test('局域网配对端口只在用户创建邀请后临时开启，取消邀�
 
 test('设备中心明确保留账号删到零与不补默认账号的空状态', () => {
   const zh = read('src/i18n/zh.js');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   assert.match(zh, /当前没有 Agent。账号槽位可以删到零，不会自动补回默认平台账号/);
   assert.match(renderer, /if \(!deviceAgents\.length && !unassignedSlots\.length\)[\s\S]*?devices\.agents\.empty/);
   assert.match(renderer, /unassignedSlots[\s\S]*?catalog\.unassigned\.title[\s\S]*?openSlotAssignmentDialog\(slot\)/);
@@ -207,7 +208,7 @@ test('设备中心明确保留账号删到零与不补默认账号的空状态',
 
 test('Agent 管理明确区分新 Agent、新账号绑定、新运行位置和三种移除范围', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   for (const mode of ['new-agent', 'existing-agent', 'existing-binding']) {
     assert.match(html, new RegExp(`value="${mode}"`));
   }
@@ -245,7 +246,7 @@ test('Agent 管理明确区分新 Agent、新账号绑定、新运行位置和�
 
 test('远控返回保留后台查看提示，断开才移除；错误按真实原因分类', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const main = mainHandlerSource();
   const service = read('src/mesh/main/remote-control-service.js');
   assert.match(html, /id="remoteActivityBtn"[^>]*aria-live="polite"/);
@@ -269,7 +270,7 @@ test('远控返回保留后台查看提示，断开才移除；错误按真实�
 
 test('会话发送从会话工具栏的“送出”发起，只提交稳定 ID，项目根由 Main 选择', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const preload = read('src/preload.js');
   const main = mainHandlerSource();
   const activity = html.slice(html.indexOf('id="activityCenterDialog"'));
@@ -298,7 +299,7 @@ test('会话发送从会话工具栏的“送出”发起，只提交稳定 ID�
 
 test('文件传输路径只来自 Main 系统选择器，Renderer 只提交设备和传输 ID', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const preload = read('src/preload.js');
   const main = mainHandlerSource();
   const sessionDialog = html.slice(

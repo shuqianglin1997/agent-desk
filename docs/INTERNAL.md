@@ -218,9 +218,11 @@ native/
 services/signaling/       可自托管最小信令与 TURN REST 凭据服务
 
 scripts/
-  ui-acceptance.js        临时 userData 下的真实 1040 × 840 Electron 任务验收；`--hidden` 经 hidden-electron-entry 不显示窗口运行同一套路径
+  ui-acceptance.js        临时 userData 下的真实 1040 × 840 Electron 任务验收；`--hidden` 经 hidden-electron-entry 不显示窗口运行同一套路径。这些脚本在界面里只经 `window.AgentDeskInspect`（src/renderer.js 末尾列出的出口）读写
   hidden-electron-entry.js 不显示、不聚焦窗口的 Electron 入口：模拟钥匙串，启动客户端、对话框、显示文件、剪贴板与联网都由记录用的替身回答
   hidden-check.js         用上面的入口跑一遍真实界面：17 个读接口返回值的形状对照基准，并数启动时的完整扫描次数
+  ui-snapshots.js         同一入口下按两套主题、三种语言、减少动态效果截主窗口各状态，`--compare` 与基准逐像素比较
+  mesh-bench.js           设备网模式会话清单的计时（进程内配对的合成数据）
   arch-metrics.js         架构整理第 8 节的各项指标（无依赖的估算，列出每个数字的来源）
   check-layers.js         五层依赖表与越层报告（core 与 clients 层越层或用 electron、未登记的文件会失败，其余只报告）
   arch-fixtures.js        只在系统临时目录里造 10 个账号 × 500 条会话的合成数据

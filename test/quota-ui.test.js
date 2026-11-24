@@ -3,9 +3,10 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const { rendererSource } = require('./helpers/renderer-source');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-const renderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+const renderer = rendererSource();
 const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
 const workspaceStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
 

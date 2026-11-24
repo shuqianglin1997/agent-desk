@@ -12,6 +12,7 @@ const path = require('node:path');
 const Chip = require('../src/pixel/chip.js');
 const Sfx = require('../src/pixel/sfx.js');
 const { normalizeSettings, DEFAULT_SETTINGS } = require('../src/settings.js');
+const { rendererSource } = require('./helpers/renderer-source');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -505,7 +506,7 @@ test('界面接线：系统页的档位与音量、页脚一键静音、三种�
     : /\.(wav|mp3|ogg|m4a|aac|flac|webm)$/i.test(entry.name) ? [entry.name] : []));
   assert.deepEqual(audio(path.join(root, 'src')), []);
   // 稳定设置经由 renderer 读入后交给呈现层。
-  assert.match(read('src/renderer.js'), /window\.PixelUi\?\.setSound\?\.\(value\);/);
+  assert.match(rendererSource(), /window\.PixelUi\?\.setSound\?\.\(value\);/);
   const css = read('src/pixel.css');
   assert.match(css, /\.system-setting-line\.settings-sound/);
   assert.match(css, /\.footer-sound \{/);
@@ -518,7 +519,7 @@ test('除“有人在看”外，每个事件都接到了界面上；声音只�
   const unwired = Object.keys(Sfx.EVENTS).filter((event) => !ui.includes(`'${event}'`) && !viaStatus.has(event));
   // 被查看、被控制的提示在独立沙箱的远控宿主窗口里，主窗口收不到“有设备开始看这台电脑”的通知。
   assert.deepEqual(unwired, ['remote.watch']);
-  assert.doesNotMatch(ui + read('src/pixel/fx.js') + read('src/renderer.js'), /new Audio\b|AudioContext/);
+  assert.doesNotMatch(ui + read('src/pixel/fx.js') + rendererSource(), /new Audio\b|AudioContext/);
   // 悬停、滚动、打字不接声音：ui.js 里不出现针对它们的声音钩子。
   assert.doesNotMatch(ui, /addEventListener\('(?:mouseover|mouseenter|pointerover|pointermove|wheel|scroll|input)',[^\n]*cue\(/);
 });

@@ -14,6 +14,7 @@ const {
 const { createEnvelope } = require('../src/mesh/protocol/envelope');
 const { encodeInventoryChunks } = require('../src/mesh/protocol/inventory');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { rendererSource } = require('./helpers/renderer-source');
 
 const ROOT = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -365,7 +366,7 @@ test('扫描中发生的多次目录广播最多合并为一个后继快照且�
 test('远程重扫通过固定 remoteInventory:refresh IPC/Preload 暴露，不提供通用通道', () => {
   const main = mainHandlerSource();
   const preload = read('src/preload.js');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   assert.match(main, /ipcMain\.handle\('remoteInventory:refresh'/);
   assert.match(main, /getPeerManager\(\)\.refreshInventory\(/);
   assert.match(
@@ -380,7 +381,7 @@ test('远程重扫通过固定 remoteInventory:refresh IPC/Preload 暴露，不�
 });
 
 test('远端 Lens 与设备会话入口先显示缓存再按需刷新，本机和全部设备不扇出连接', () => {
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const helper = sourceFunction(renderer, 'refreshRemoteInventoryForDevice', 'viewDeviceSessions');
   const viewDevice = sourceFunction(renderer, 'viewDeviceSessions', 'viewDeviceAgentSessions');
   const viewAgent = sourceFunction(renderer, 'viewDeviceAgentSessions', 'renderSelectedDeviceActions');
@@ -403,7 +404,7 @@ test('远端 Lens 与设备会话入口先显示缓存再按需刷新，本机�
 });
 
 test('inventory-synced 撞上 Mesh 忙碌状态时会合并并在释放后补载', () => {
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const eventBlock = renderer.slice(
     renderer.indexOf('if (window.manager.onDeviceConnectionState)'),
     renderer.indexOf('if (window.manager.onDeviceNetworkState)')

@@ -3,13 +3,14 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { rendererSource } = require('./helpers/renderer-source');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('Profile 生命周期、Crashpad 保护和安全清理保持稳定的 Main/Preload/UI 契约', () => {
   const html = read('src/index.html');
-  const renderer = read('src/renderer.js');
+  const renderer = rendererSource();
   const preload = read('src/preload.js');
   const main = mainHandlerSource();
   const settings = read('src/settings.js');

@@ -9,11 +9,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 const apps = require('../src/apps');
 const catalog = require('../src/mesh/domain/agent-catalog');
+const { rendererSource } = require('./helpers/renderer-source');
 // Main passes the adapters' client facts, as the app does.
 const providerNamespace = (appId) => catalog.providerNamespace(appId, apps.clientFacts);
 const clientForm = (appId) => catalog.clientForm(appId, apps.clientFacts);
 
-const renderer = fs.readFileSync(path.join(__dirname, '../src/renderer.js'), 'utf8');
+const renderer = rendererSource();
 const fn = (name) => renderer.match(new RegExp(`^function ${name}\\([^\\n]*\\) \\{\\n.*?^\\}`, 'ms'))[0];
 
 function rendererContext(bindings) {

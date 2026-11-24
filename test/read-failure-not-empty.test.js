@@ -6,8 +6,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
+const { rendererSource } = require('./helpers/renderer-source');
 
-const renderer = fs.readFileSync(path.join(__dirname, '../src/renderer.js'), 'utf8');
+const renderer = rendererSource();
 const fn = (name) => renderer.match(new RegExp(`^(?:async )?function ${name}\\([^\\n]*\\) \\{\\n.*?^\\}`, 'ms'))[0];
 
 test('a failed activity poll keeps the cats as they were instead of making every cat idle', async () => {
