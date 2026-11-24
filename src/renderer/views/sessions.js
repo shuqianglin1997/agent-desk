@@ -4,7 +4,7 @@
 
 function setSessionView(view) {
   const next = view === 'detail' ? 'detail' : 'compact';
-  if (els.sessionDisplayMenu) els.sessionDisplayMenu.open = false;
+  closeContextMenu(els.sessionDisplayMenu);
   if (next === state.sessionView) {
     renderSessionControls();
     return;

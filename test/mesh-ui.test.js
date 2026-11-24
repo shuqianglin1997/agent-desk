@@ -24,7 +24,7 @@ test('设备入口并入设备视角下拉，设备中心使用独立模态弹�
   assert.doesNotMatch(html, /id="detailSurfaceDevices"/);
   assert.doesNotMatch(renderer, /detailSurfaceDevices|deviceCenterDialog\.show\(\)/);
   assert.match(renderer, /\['devices', els\.deviceCenterBtn, els\.deviceCenterDialog\]/);
-  assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?dialog\.showModal\(\)/);
+  assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?openDialog\(dialog\)/);
   assert.doesNotMatch(workspaceStyles, /--dialog-preferred-height/);
   assert.match(workspaceStyles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?height:\s*auto;[\s\S]*?max-height:\s*calc\(100dvh/);
   assert.match(workspaceStyles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*hidden/);

@@ -245,7 +245,7 @@ test('工具入口打开独立模态弹窗 + 新增账号落盘链完整', () =>
   assert.match(html, /id="systemBtn"[^>]*aria-controls="systemDialog"/);
   assert.doesNotMatch(html, /id="detailSurfaceTools"/);
   assert.match(renderer, /systemBtn\?\.addEventListener\('click'[\s\S]{0,220}?openUtilityDialog\('system'\)[\s\S]{0,120}?refreshToolInventory\(false\)/);
-  assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?dialog\.showModal\(\)/);
+  assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?openDialog\(dialog\)/);
   assert.doesNotMatch(renderer, /detailSurfaceTools|toolCenterDialog|settingsDialog/);
   // 新增账号：表单 → addProfile → profiles:add → saveProfiles 落盘
   assert.match(renderer, /window\.manager\.addProfile\(\{[\s\S]{0,120}?name,/);

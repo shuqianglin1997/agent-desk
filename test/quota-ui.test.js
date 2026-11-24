@@ -70,7 +70,7 @@ test('额度随数据刷新，按账号组归拢，展开状态和浮层同步',
   assert.match(renderer, /value\.textContent = tr\('quotaMap\.minimum', \{ pct \}\)/);
   // Agent 管理已升级为原生模态 Dialog；Renderer 只打开确定对象，关闭和 Esc 交给原生 Dialog 语义。
   assert.match(html, /class="account-card-manage"[^>]*aria-haspopup="dialog"[^>]*aria-controls="agentManageDialog"/);
-  assert.match(renderer, /function openAgentManageDialog\(\)[\s\S]*?agentManageDialog\.showModal\(\)/);
+  assert.match(renderer, /function openAgentManageDialog\(\)[\s\S]*?openDialog\(els\.agentManageDialog\)/);
   // 子流程叠在档案上面，不再先把档案关掉；档案关上时被操作的猫回到正在看的那只。
   assert.doesNotMatch(renderer, /closeAgentManageDialog/);
   assert.match(renderer, /agentManageDialog\?\.addEventListener\('close', \(\) => \{[\s\S]*?if \(els\.agentManageDialog\.open\) return;\s*setActionAgent\(null\)/);

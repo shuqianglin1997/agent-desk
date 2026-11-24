@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T21:31:06.903Z",
-  "baseCommit": "61d9e4c7af00fc8c39497964149eb75b97ca7ba1",
+  "recordedAt": "2026-11-24T21:35:29.943Z",
+  "baseCommit": "026a7ceb5275ca1d26d9b33e535e13fd66ad1623",
   "uncommitted": true,
-  "sourceSha256": "fd6cf9d5a5e35bf785255700a624d34cf0c0d90c380c5be7b4dce8827613f4f1",
+  "sourceSha256": "4c9a7ed0d8eb3b87026b26dfce956cf85996dc42f7af99a5da32d9af63ba86c2",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 939,
+      "pass": 937,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 6 batch 7 (dialogs, menus and popovers); digest identical before and after the run",
+      "recordedAt": "2026-11-24T21:35:29.943Z",
+      "sourceSha256": "4c9a7ed0d8eb3b87026b26dfce956cf85996dc42f7af99a5da32d9af63ba86c2"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T21:35:29.943Z",
+      "sourceSha256": "4c9a7ed0d8eb3b87026b26dfce956cf85996dc42f7af99a5da32d9af63ba86c2"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

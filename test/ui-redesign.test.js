@@ -114,7 +114,7 @@ test('对象管理进 Dialog，会话列表顶栏右侧常驻复制、打开目�
   assert.match(html, /id="agentManageDialog"[\s\S]*?data-section="profile"[\s\S]*?id="editProfileBtn"[\s\S]*?data-section="locations"[\s\S]*?id="agentManageLocations"[\s\S]*?id="yardManageActions"[\s\S]*?id="pathConfigBtn"[\s\S]*?id="diagnosticsBtn"[\s\S]*?id="refreshBtn"[\s\S]*?id="profileFolderBtn"[\s\S]*?id="addRuntimeLocationBtn"[\s\S]*?data-section="accounts"[\s\S]*?id="manageAgentRelationsBtn"[\s\S]*?data-section="farewell"[\s\S]*?id="removeProfileBtn"/);
   assert.match(renderer, /function renderAgentManageLocations\(group, profile\)[\s\S]*?selectSlot\(member\.id\)[\s\S]*?row\.after\(actions\)/);
   assert.doesNotMatch(html, /class="account-bar"/);
-  assert.match(renderer, /function openAgentManageDialog\(\)[\s\S]*?renderAgentManageContext\(\)[\s\S]*?agentManageDialog\.showModal\(\)/);
+  assert.match(renderer, /function openAgentManageDialog\(\)[\s\S]*?renderAgentManageContext\(\)[\s\S]*?openDialog\(els\.agentManageDialog\)/);
   assert.match(html, /<details id="sessionDisplayMenu"[\s\S]*?id="sessionCompactBtn"[\s\S]*?id="sessionDetailBtn"/);
   const sessionPane = html.slice(html.indexOf('id="sessionPane"'), html.indexOf('id="detailPanel"'));
   assert.match(sessionPane, /session-toolbar-controls[\s\S]*?id="sessionActionDock"[\s\S]*?id="sessionSelectionBar"[^>]*hidden[\s\S]*?id="copySessionInfoBtn"[^>]*disabled[\s\S]*?id="openSessionFileBtn"[^>]*disabled[\s\S]*?id="exportSessionBtn"[^>]*disabled/);
@@ -151,7 +151,7 @@ test('设备中心是独立模态弹窗，采用设备列表加所选详情且�
   const styles = read('src/styles.css');
   const workspaceStyles = read('src/workspace.css');
 
-  assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?state\.utilityDialog = kind[\s\S]*?dialog\.showModal\(\)/);
+  assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?state\.utilityDialog = kind[\s\S]*?openDialog\(dialog\)/);
   assert.match(renderer, /\['devices', els\.deviceCenterBtn, els\.deviceCenterDialog\]/);
   assert.doesNotMatch(html, /id="detailSurfaceDevices"|data-detail-surface="devices"/);
   assert.doesNotMatch(renderer, /detailSurfaceDevices|deviceCenterDialog\.show\(\)/);

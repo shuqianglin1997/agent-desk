@@ -7,6 +7,8 @@
   else root.createRecruitDialog = factory;
 })(typeof self !== 'undefined' ? self : this, function (deps) {
   const { document, manager, tr, getApps, isMeshReady, createWithMesh, afterAccountChange, platform } = deps;
+  // The renderer's one way to show a modal dialog (src/renderer/views/dialogs.js).
+  const openDialog = deps.openDialog || ((dialog) => dialog.showModal());
   const $ = (selector) => document.querySelector(selector);
   const els = {
     dialog: $('#recruitDialog'),
@@ -644,7 +646,7 @@
     showMoveWarning(false);
     render();
     selectSection(section);
-    els.dialog.showModal();
+    openDialog(els.dialog);
     const focusTarget = state.section === 'new' ? els.name : els.tabs.find((tab) => tab.dataset.section === state.section);
     focusTarget?.focus();
   }

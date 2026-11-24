@@ -614,7 +614,8 @@ const recruitDialog = window.createRecruitDialog({
   getApps: () => Object.entries(state.appMeta).map(([id, meta]) => ({ id, ...meta })),
   isMeshReady: () => state.mesh.overview?.initialized === true,
   createWithMesh: ({ displayName, appId }) => createAgentAndPrepare({ displayName, requestedAppId: appId }),
-  afterAccountChange: (profileId) => afterRecruitedAccount(profileId)
+  afterAccountChange: (profileId) => afterRecruitedAccount(profileId),
+  openDialog: (dialog) => openDialog(dialog)
 });
 
 // 会话的记号：新回复、在跑、颜色标签与搜索框左边那排筛选（docs/SESSION_MARKS_PLAN.md）。
@@ -829,7 +830,7 @@ function openFirstUseDialog(options = {}) {
   state.firstUse.model = model;
   state.firstUse.busy = false;
   renderFirstUse();
-  if (!els.welcomeDialog.open) els.welcomeDialog.showModal();
+  if (!els.welcomeDialog.open) openDialog(els.welcomeDialog);
   focusFirstUseControl();
   return true;
 }
@@ -1322,7 +1323,7 @@ function openAgentManageDialog() {
   if (!els.agentManageDialog) return;
   if (els.agentManageStatus) els.agentManageStatus.textContent = '';
   renderAgentManageContext();
-  if (!els.agentManageDialog.open) els.agentManageDialog.showModal();
+  if (!els.agentManageDialog.open) openDialog(els.agentManageDialog);
 }
 
 // 从卡片打开档案：作用于这只猫，不选中它，所以正在看的会话列表不变。
@@ -1918,7 +1919,7 @@ function bindEvents() {
     els.profilePathInput.value = profile.profilePath || '';
     els.sessionRootInput.value = profile.sessionRoot || '';
     els.executablePathInput.value = profile.executablePath || '';
-    els.pathDialog.showModal();
+    openDialog(els.pathDialog);
     els.profilePathInput.focus();
   });
 
@@ -2031,24 +2032,7 @@ function bindEvents() {
   els.accountRoster.addEventListener('scroll', positionQuotaPopover, { passive: true });
   window.addEventListener('resize', positionQuotaPopover);
 
-  // 所有轻量菜单遵循同一规则：点菜单外、选择菜单项或按 Esc 后关闭。
-  document.addEventListener('pointerdown', (event) => {
-    for (const menu of document.querySelectorAll('details.context-menu[open]')) {
-      if (!menu.contains(event.target)) menu.open = false;
-    }
-  });
-  document.addEventListener('click', (event) => {
-    const button = event.target.closest('.context-menu-panel button');
-    const menu = button?.closest('details.context-menu');
-    if (menu) menu.open = false;
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
-    for (const menu of document.querySelectorAll('details.context-menu[open]')) {
-      if (menu.contains(document.activeElement)) menu.querySelector('summary')?.focus({ preventScroll: true });
-      menu.open = false;
-    }
-  });
+  bindContextMenuRules();
 
   els.quotaRefreshBtn.addEventListener('click', async () => {
     if (!selectedProfile()) return;
@@ -2091,7 +2075,7 @@ function bindEvents() {
   for (const button of document.querySelectorAll('[data-session-order]')) {
     button.addEventListener('click', () => {
       const next = button.dataset.sessionOrder;
-      if (els.sessionDisplayMenu) els.sessionDisplayMenu.open = false;
+      closeContextMenu(els.sessionDisplayMenu);
       sessionMarks.setOrder(next);
       if (next === state.sessionOrder) return;
       state.sessionOrder = sessionMarks.currentOrder();
@@ -2101,7 +2085,7 @@ function bindEvents() {
   }
 
   els.markAllSeenBtn?.addEventListener('click', async () => {
-    if (els.sessionDisplayMenu) els.sessionDisplayMenu.open = false;
+    closeContextMenu(els.sessionDisplayMenu);
     const n = await sessionMarks.markSeen(state.sessions.filter((session) => sessionMarks.isFresh(session)));
     setStatus(tr('marks.status.allSeen', { n }));
   });
@@ -2365,7 +2349,7 @@ function openAgentCreationDialog() {
     els.newAgentApp.append(option);
   }
   els.confirmAddAgentBtn.disabled = !els.newAgentApp.value;
-  els.agentCreateDialog.showModal();
+  openDialog(els.agentCreateDialog);
   els.newAgentName.focus();
 }
 
@@ -2462,7 +2446,7 @@ function openProfileCreationDialog(options = {}) {
     els.newProfileAgent.value = options.agentId;
     syncProfileAssignmentControls();
   }
-  els.profileDialog.showModal();
+  openDialog(els.profileDialog);
   (meshMode && !options.agentId ? els.newProfileMode : els.newProfileName).focus();
 }
 
@@ -2578,7 +2562,7 @@ function openAgentOrProfileEditor() {
     populateIdentityDatalist();
     openCatCustomizer(profile);
   }
-  els.editDialog.showModal();
+  openDialog(els.editDialog);
   els.editName.focus();
 }
 
@@ -2685,7 +2669,7 @@ async function openAgentOrProfileRemoval() {
   else if (agentRadio) agentRadio.checked = true;
   els.removeLocalRegistration.checked = false;
   renderCatalogRemovalImpact();
-  els.removeCatalogDialog.showModal();
+  openDialog(els.removeCatalogDialog);
 }
 
 function catalogRemovalContext() {
@@ -2830,7 +2814,7 @@ function openAgentRelationsDialog() {
   syncSplitAgentName();
   els.agentRelationsStatus.dataset.state = 'idle';
   els.agentRelationsStatus.textContent = tr('catalog.remove.safety');
-  els.agentRelationsDialog.showModal();
+  openDialog(els.agentRelationsDialog);
 }
 
 function syncSplitAgentName() {
@@ -2941,7 +2925,7 @@ function openSlotAssignmentDialog(slot) {
   document.querySelector('#removeUnassignedSlotBtn').hidden = slot.deviceId !== overview.localDeviceId
     || !state.profiles.some(profile => profile.id === slot.profileId);
   syncSlotAssignmentControls();
-  els.slotAssignmentDialog.showModal();
+  openDialog(els.slotAssignmentDialog);
   els.slotAssignmentMode.focus();
 }
 
@@ -3932,99 +3916,6 @@ window.addEventListener('i18n:changed', () => {
 
 let deviceJourneyPollTimer = null;
 let deviceJourneyPollPromise = null;
-const childDialogReturnFocus = new WeakMap();
-const childDialogFocusBound = new WeakSet();
-
-function captureChildDialogReturnFocus(trigger = document.activeElement) {
-  if (!(trigger instanceof HTMLElement)) return null;
-  // 触发控件在菜单或折叠区里时，返回时把它重新展开，焦点才能回到触发控件本身。
-  const disclosure = trigger.closest('details');
-  return {
-    element: trigger,
-    disclosure,
-    disclosureWasOpen: disclosure?.open === true
-  };
-}
-
-function openChildDialog(dialog, trigger = document.activeElement) {
-  if (!dialog || dialog.open) return;
-  const focusContext = trigger?.element instanceof HTMLElement
-    ? trigger
-    : captureChildDialogReturnFocus(trigger);
-  if (focusContext) childDialogReturnFocus.set(dialog, focusContext);
-  if (!childDialogFocusBound.has(dialog)) {
-    childDialogFocusBound.add(dialog);
-    dialog.addEventListener('close', () => {
-      const focusContext = childDialogReturnFocus.get(dialog);
-      childDialogReturnFocus.delete(dialog);
-      requestAnimationFrame(() => {
-        const returnFocus = focusContext?.element;
-        if (!(returnFocus instanceof HTMLElement) || !returnFocus.isConnected || returnFocus.matches(':disabled')) return;
-        const ownerDialog = returnFocus.closest('dialog');
-        if (ownerDialog && !ownerDialog.open) return;
-        const topDialog = document.querySelector('dialog:modal');
-        if (topDialog && !topDialog.contains(returnFocus)) return;
-        if (focusContext.disclosureWasOpen && focusContext.disclosure && !focusContext.disclosure.open) {
-          focusContext.disclosure.open = true;
-        }
-        utilityDialogFocusTarget(returnFocus).focus({ preventScroll: true });
-      });
-    });
-  }
-  dialog.showModal();
-}
-
-function utilityDialogEntries() {
-  return [
-    ['devices', els.deviceCenterBtn, els.deviceCenterDialog],
-    ['system', els.systemBtn, els.systemDialog],
-    ['activity', els.activityCenterBtn, els.activityCenterDialog]
-  ];
-}
-
-function closeUtilityDialogs(exceptDialog = null) {
-  for (const [kind, button, dialog] of utilityDialogEntries()) {
-    if (!dialog || dialog === exceptDialog) continue;
-    if (dialog.open) dialog.close();
-    button?.setAttribute('aria-expanded', 'false');
-    if (state.utilityDialog === kind) state.utilityDialog = null;
-  }
-}
-
-function closeUtilityDialog(dialog, { restoreFocus = true } = {}) {
-  if (!dialog) return;
-  const entry = utilityDialogEntries().find(([, , candidate]) => candidate === dialog);
-  let returnFocus = null;
-  if (entry) {
-    const [kind, button] = entry;
-    returnFocus = button;
-    button?.setAttribute('aria-expanded', 'false');
-    if (state.utilityDialog === kind) state.utilityDialog = null;
-  }
-  if (dialog.open) dialog.close();
-  if (returnFocus && restoreFocus) {
-    requestAnimationFrame(() => {
-      if (!document.querySelector('dialog:modal')) utilityDialogFocusTarget(returnFocus)?.focus({ preventScroll: true });
-    });
-  }
-}
-
-// 入口收在菜单里时（系统、设备视角），菜单关着就把焦点还给菜单的开关。
-function utilityDialogFocusTarget(button) {
-  const menu = button?.closest('details.context-menu');
-  return menu && !menu.open ? menu.querySelector('summary') : button;
-}
-
-function openUtilityDialog(kind) {
-  const entry = utilityDialogEntries().find(([name]) => name === kind);
-  if (!entry) return;
-  const [, button, dialog] = entry;
-  if (!dialog) return;
-  closeUtilityDialogs(dialog);
-  state.utilityDialog = kind;
-  button?.setAttribute('aria-expanded', 'true');
-  if (!dialog.open) dialog.showModal();
-}
 
 function requestDeviceOverviewReload() {
   pendingDeviceOverviewReload = true;
@@ -7565,7 +7456,7 @@ async function showDiagnostics() {
   if (!profile) return;
   lastDiagnostics = await window.manager.getDiagnostics(profile);
   renderDiagnostics(lastDiagnostics);
-  els.diagnosticsDialog.showModal();
+  openDialog(els.diagnosticsDialog);
 }
 
 function renderDiagnostics(diagnostics) {
