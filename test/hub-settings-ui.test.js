@@ -53,8 +53,9 @@ test('Main exposes caller names and switches per account, nothing else, and refu
   assert.match(main, /function hubPublicState\(\) \{[\s\S]*?accounts: hubAccounts\(\),/);
   assert.match(main, /\? \{ callable: true, reason: null, via: adapterFor\(appId\)\.label \}/);
   assert.match(main, /if \(callable && !adapterFor\(profile\.appId\)\) return \{ ok: false, reasonCode: 'client-unsupported'/);
-  const adapters = read('src/hub/adapters.js');
-  for (const label of ['Codex CLI', 'Claude Code', 'Gemini CLI', 'Qwen Code']) assert.ok(adapters.includes(`label: '${label}'`), label);
+  // The callable clients and the labels Main shows for them (each declared in src/clients/<id>/hub.js).
+  const { ADAPTERS } = require('../src/hub/adapters');
+  assert.deepEqual(Object.values(ADAPTERS).map((adapter) => adapter.label).sort(), ['Claude Code', 'Codex CLI', 'Gemini CLI', 'Qwen Code']);
   // 命令行没有改开关、文件夹或上限的命令：一个 Agent 不能给自己或别人开门
   const { PACKAGED_COMMANDS } = require('../src/automation/packaged-cli.js');
   const commands = [...(PACKAGED_COMMANDS instanceof Map ? PACKAGED_COMMANDS.keys() : Object.keys(PACKAGED_COMMANDS || {}))].join(' | ');

@@ -42,6 +42,8 @@ module.exports = {
   ],
   // How a pasted key or token reaches this client (./credentials.js).
   credentialHandoff: require('./credentials'),
+  // How the hub runs this client in the background (./hub.js).
+  hub: require('./hub'),
   scan: (profile) => cliClientSessions.scanQwen(profile),
   exportTranscript: (session) => ({
     markdown: transcript.qwenTranscriptMarkdown(session.filePath),

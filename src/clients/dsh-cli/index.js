@@ -71,6 +71,10 @@ module.exports = {
   credentialHandoff: require('./credentials'),
   // Which dropped sign-in files belong to this client and how they are copied (./import.js).
   credentialImport: require('./import'),
+  // DSH headless documents no read-only permission preset (default is
+  // workspace-write) and no event schema for its --json output (checked
+  // 2026-11-24).
+  hubUnsupported: 'no-read-only-mode',
   scan: (profile) => cliClientSessions.scanDsh(profile),
   sessionKeyOf: (filePath) => path.dirname(filePath),
 };

@@ -75,6 +75,10 @@ module.exports = {
   credentialHandoff: require('./credentials'),
   // Which dropped sign-in files belong to this client and how they are copied (./import.js).
   credentialImport: require('./import'),
+  // Kimi Code takes the -p prompt only as an argument (no documented stdin), and
+  // -p always runs with automatic permission, so there is no read-only run
+  // (checked against official docs 2026-11-24).
+  hubUnsupported: 'prompt-argument-only',
   scan: (profile, report) => sessions.scanKimi(profile, report),
   contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
   sessionAddressOf: (key) => path.basename(key),

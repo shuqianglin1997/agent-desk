@@ -52,6 +52,10 @@ module.exports = {
   credentialHandoff: require('./credentials'),
   // Which dropped sign-in files belong to this client and how they are copied (./import.js).
   credentialImport: require('./import'),
+  // OpenCode `run` cannot be made read-only through its arguments: the plan
+  // agent still allows shell commands, and permissions come from config files
+  // (checked 2026-11-24).
+  hubUnsupported: 'no-read-only-mode',
   scan: (profile) => cliClientSessions.scanOpenCode(profile),
   exportTranscript: (session) => ({
     markdown: transcript.openCodeTranscriptMarkdown(session),

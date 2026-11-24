@@ -84,6 +84,8 @@ module.exports = {
   credentialHandoff: require('./credentials'),
   // Which dropped sign-in files belong to this client and how they are copied (./import.js).
   credentialImport: require('./import'),
+  // How the hub runs this client in the background (./hub.js).
+  hub: require('./hub'),
   scan: (profile, report) => sessions.scanCodex(profile, report),
   activityRecord: (filePath, stat) => {
     const { first, identity } = sessions.codexRecordIdentity(filePath, stat);

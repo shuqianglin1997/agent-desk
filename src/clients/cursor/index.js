@@ -42,6 +42,8 @@ module.exports = {
     homeScan: true,
     markerSets: [['User/globalStorage/state.vscdb']]
   }),
+  // A desktop app: it can only open a window, so the hub cannot call it.
+  hubUnsupported: 'desktop-only',
   scan: (profile) => cursorSessions.scanCursor(profile),
   // 排行榜今日计数走 SQLite 聚合（会话是 db 行不是文件，按文件数会失真）
   sessionCounts: (profile, now) => cursorSessions.sessionCounts(profile, now),

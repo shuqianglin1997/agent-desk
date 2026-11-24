@@ -80,7 +80,7 @@ src/
   main/ipc/recruit.js     招募 IPC：发现结果只发一次性选择编号，登记前在 Main 重新核对
   main/recruit-items.js   拖进来或选中的文件夹、登录文件：先判定会做什么（原地登记/复制/已在台面上），执行前再核对一次
   renderer/recruit.js     招募弹窗四段的界面控制，只调固定 manager 方法
-  hub/adapters.js         调度中枢：每个可被调用客户端的固定无界面运行参数、只读/可写写法、结束判断、回答与会话记录来源（带官方出处）
+  hub/adapters.js         调度中枢：从注册表汇总能被调用的客户端（适配器的 hub，即 clients/<id>/hub.js：固定无界面运行参数、只读/可写写法、结束判断、回答与会话记录来源，带官方出处）和不能被调用的原因（hubUnsupported）；共用的输出解析与有界读取在 clients/hub-io.js
   hub/roster.js           允许被调用的名册、名字到确切 Profile 的解析（重名返回候选）、工作目录必须在允许的文件夹里、层数
   hub/store.js            agent-hub.json：允许的文件夹、上限和后台对话记录（不存提示词和回答）
   hub/runner.js           Main 监管的子进程：标准输入送提示词、解析输出、停止与退出收口

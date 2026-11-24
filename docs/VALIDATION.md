@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 3 阶段第 10 批：调度中枢的各家写法归到各家目录。`src/hub/adapters.js` 里四家能被调用的客户端（Codex、Claude 命令行、Gemini CLI、Qwen Code）各自的固定参数、结束判断、回答来源逐字搬进 `src/clients/<id>/hub.js`，适配器以 `hub` 声明；不能被调用的六家把原因写进自己的适配器（`hubUnsupported`，原注释一并搬过去）；几家共用的输出解析、有界读取和“从标准输入读提示词”的固定 `-p` 文本放进 `src/clients/hub-io.js`。`hub/adapters.js` 只从注册表汇总出原来的 `ADAPTERS`、`UNSUPPORTED` 并保留原有导出，名册和后台运行的相关测试全部通过。
+
 2026-11-24 架构整理第 3 阶段第 9 批：拖进来的登录文件按客户端分开。`src/credential-import.js` 里五家的导入（认哪个文件、怎么检查、怎么复制进新目录）逐字搬进 `src/clients/<id>/import.js`，适配器以 `credentialImport` 声明，并写明自己认的文件名；共用的有界读取放进 `src/clients/import-files.js`。“这个文件归哪家”原来写着 `appId === 'opencode'` 的跳过和 `auth.json` 的特判，现在是通用规则：各家报自己认的文件名，同名（`auth.json`）时内容检查通过的那家优先，否则归没有内容检查的那家（Codex），没有人认的 `.json` 再按内容识别（OpenCode 的导出文件）。招募里 Codex 的单独分支变成 Codex 适配器自己的 `plan`（依赖照旧由外部注入），复制那一步的三处判断改为看计划和载荷：计划带来建档方式（Codex）、载荷是导出清单就交给客户端自己导入（OpenCode）、导入器说明要提醒什么（Kimi 的最小配置）。原有导出与相关测试不变，全部通过。
 
 2026-11-24 架构整理第 3 阶段第 8 批：密钥交接按客户端分开。`src/account-credentials.js` 里七家各自怎么交接粘贴的密钥（写哪个文件、跑哪条官方命令、怎么判断已登录）逐字搬进 `src/clients/<id>/credentials.js`，适配器以 `credentialHandoff` 声明；几家共用的私有原子写入、TOML/.env/YAML/JSON 合并编辑、运行一条固定官方命令（密钥只走标准输入）放进 `src/clients/credential-files.js`。`account-credentials.js` 只留规则与校验（密钥字符集、供应商标识、地址与模型校验）和对外接口，原有导出全部保留。两处按客户端名字的判断改为适配器声明：Codex 保留的内置供应商标识写进 Codex 的 `provider.reservedIds`；“导入 OpenCode 导出文件”改问适配器有没有 `importExport`。共用模块在运行时才取注册表，避免循环加载。密钥、登录、命令行与安全相关测试全部通过；另用脚本核对了新文件里取用的名字都已引入。

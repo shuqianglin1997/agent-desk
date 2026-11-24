@@ -45,6 +45,8 @@ module.exports = {
     homeScan: true,
     markerSets: [['Local State', 'claude-code-sessions/'], ['Local State', 'local-agent-mode-sessions/']]
   }),
+  // A desktop app: it can only open a window, so the hub cannot call it.
+  hubUnsupported: 'desktop-only',
   scan: (profile, report) => sessions.scanClaude(profile, report),
   // 会话记录里的最后活跃时间（读 probe 传入的最新文件的 lastActivityAt），驱动干活/在岗判定
   contentActivityAt: (_profile, filePath) => sessions.claudeActivityFromFile(filePath)

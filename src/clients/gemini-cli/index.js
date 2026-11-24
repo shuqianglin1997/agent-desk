@@ -48,6 +48,8 @@ module.exports = {
   credentialHandoff: require('./credentials'),
   // Which dropped sign-in files belong to this client and how they are copied (./import.js).
   credentialImport: require('./import'),
+  // How the hub runs this client in the background (./hub.js).
+  hub: require('./hub'),
   scan: (profile) => cliClientSessions.scanGemini(profile),
   exportTranscript: (session) => ({
     markdown: transcript.geminiTranscriptMarkdown(session.filePath),

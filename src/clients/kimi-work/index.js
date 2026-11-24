@@ -58,6 +58,8 @@ module.exports = {
     homeScan: false,
     markerSets: [['daimon-share/daimon/']]
   }),
+  // A desktop app: it can only open a window, so the hub cannot call it.
+  hubUnsupported: 'desktop-only',
   scan: (profile) => kimiWorkSessions.scanKimiWork(profile),
   // 正文与 Kimi Code 同构，活跃判定直接复用
   contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
