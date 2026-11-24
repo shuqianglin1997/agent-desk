@@ -558,7 +558,7 @@ function assertAccountRosterGeometry(snapshot, options = {}) {
     assert.equal(card.quotaInside, true, `Agent card ${index + 1} energy pips escape their button`);
     assert.ok(card.selectTitle.length > 0, `Agent card ${index + 1} must expose recent activity and positions in its tooltip`);
     assert.ok(card.quotaLabel.length > 0, `Agent card ${index + 1} must expose a quota fact`);
-    assert.match(card.stateActivity, /^(working|onduty|arriving|confused|play|rest|nap|hibernate|unknown|ready|absent|planning|preparing|verifying|waiting-install|waiting-login|error|unsupported|offline|retired)$/);
+    assert.match(card.stateActivity, /^(working|busy|frantic|onduty|arriving|confused|play|rest|nap|hibernate|unknown|ready|absent|planning|preparing|verifying|waiting-install|waiting-login|error|unsupported|offline|retired)$/);
     assert.match(card.quotaTrusted, /^(true|false)$/);
     if (index > 0) {
       assert.ok(snapshot.cards[index - 1].rect.right <= card.rect.x + 0.5, `Agent cards ${index} and ${index + 1} overlap`);

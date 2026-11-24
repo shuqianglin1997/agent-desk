@@ -173,7 +173,9 @@ src/
   cursor-sessions.js      Cursor SQLite 会话扫描
   kimi-work-sessions.js   Kimi Work 会话索引
   transcripts.js          支持来源的 Markdown 导出
-  session-table.js        过滤与排序纯函数
+  session-table.js        过滤与排序纯函数；markKeyOf 给出标签、看过与在跑共用的会话键
+  session-marks.js        会话标签、“看过”时间与首次启用起点（userData/session-marks.json，Main 唯一写入者），新回复的判断 freshReplyAt
+  renderer/session-marks.js  列表上的记号、筛选条、排序分组、标签选择器与就地改名
   session-location.js     路径 + 坐标的最小剪贴板格式
 
   cli-discovery.js        只读 CLI 启动器发现
@@ -247,7 +249,7 @@ Profile 的启动隔离由 `apps.js` 声明，不从显示名推断。每个桌�
 
 ### Settings
 
-`settings.json` 保存主题、语言、声音档位（`soundLevel`：all / key / off，默认 key）与音量（`soundVolume`：0–100，默认 55）、视图、会话范围/列视图、Device Lens / Agent / Slot 选择记忆、庭院时间和天气、猫位置（旧提醒与账本字段只读迁移）、版本化 `onboarding.completedVersion/completedAt`、`meshNetworkEnrollmentEnabled`、HTTPS 信令地址和 STUN 地址。首次 Agent 事务显式把联网 enrollment 保持为 false；只有添加设备或网络动作才开启。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。
+`settings.json` 保存主题、语言、声音档位（`soundLevel`：all / key / off，默认 key）与音量（`soundVolume`：0–100，默认 55）、视图、会话范围/列视图、会话排序（`sessionOrder`：recent / fresh / tag，默认 recent；标签与新回复筛选不保存）、Device Lens / Agent / Slot 选择记忆、庭院时间和天气、猫位置（旧提醒与账本字段只读迁移）、版本化 `onboarding.completedVersion/completedAt`、`meshNetworkEnrollmentEnabled`、HTTPS 信令地址和 STUN 地址。首次 Agent 事务显式把联网 enrollment 保持为 false；只有添加设备或网络动作才开启。TURN 长期 secret、短期 credential、设备私钥和 Mesh 关联密钥不进入设置。写入使用临时文件替换并保留备份。
 
 ### Session
 
@@ -268,6 +270,17 @@ Profile 的启动隔离由 `apps.js` 声明，不从显示名推断。每个桌�
 ```
 
 Renderer 会附加所属 profile 和账号组信息，但不会修改原始会话文件。
+
+Claude 命令行与 Codex 的记录另有 `lastRole`（user / assistant / null）、`lastReplyAt`（最后一条助手消息的时间）与 `replyDone`（true / false / null），从扫描器已经在读的文件末尾 64KB 取：Claude 命令行看 assistant 事件的 `stop_reason`（`end_turn` 等为回完，`tool_use` 为还在干，只装 `tool_result` 的 user 事件是工具输出），Codex 看 `event_msg` 的 `task_complete`（推理、工具调用与输出、`turn_aborted` 都不算回完）。其他客户端不给这三项。
+
+### 会话记号
+
+- `src/session-marks.js` 的 `SessionMarksStore` 只存在 `userData/session-marks.json`：`baselineAt`（首次启用的起点，早于它的回复不标）、五个名字、每条会话 `{ tag, seen, at }`。上限 5000 条，超出先清最久没动过的“看过”，人亲手打的标签最后才清。原子替换写入，不写任何客户端的文件，不进 Mesh。
+- 会话键是 `SessionTable.markKeyOf`：本机扫到的会话用“运行位置::会话地址”（与不开设备网时的 `keyOf` 相同），只在别的设备上的会话用 `mesh::逻辑会话`。这样开没开设备网、密钥延后时退回本机扫描，键都不变，主进程也能算出同一个键。
+- 新回复在主进程判断：`activity:all` 带上 `freshContext()`，`probeActivities` 对首次启用之后动过或正在写的文件读末尾（按文件版本缓存），给每个运行位置返回 `freshReplies` 与 `freshKeys`（键与回复时间）。同一份数据根被几个运行位置共用时只扫一次，键按各自的运行位置给出。
+- 在跑：`writingNow` 是非归档的逻辑会话里，最近 90 秒（`YardCats.WORKING_WINDOW`）有新内容、且不知道已经回完的条数；追加型 `.jsonl` 看文件长度变化而不是 mtime。`writingKeys` 最多 32 个。数据库型客户端没有给出时为 null，合并时不当 0。
+- 四个 IPC：`sessionMarks:get`、`sessionMarks:setTag`（会话键数组与 0–5，0 去掉）、`sessionMarks:markSeen`（会话键与回复时间，看过时间只往后走）、`sessionMarks:rename`（1–5 与最长 12 个字的名字）。Main 逐项校验长度、字符与数量，失败只返回固定原因码。
+- 列表筛选在 `applySessionFilter` 里与搜索同一处生效，只决定 `filteredSessions`，不碰 `focusedConversationId` 与 `checkedConversationIds`；被筛掉的勾选项沿用搜索的“已选会话被隐藏”提示。
 
 Mesh 会话聚合返回结构化失败时，Renderer 不再把当前会话设为空数组。全部/本机 Lens 改用相同的本地扫描器，但只扫描当前 catalog 关系中真实存在于本机 `profiles.json` 的 Profile；远端伪 Profile 不进入本地 IPC。该结果标记为 local fallback，SessionPointer、文件传输与 TaskPackage 直送不取用其临时位置信息；本地只读操作继续可用。
 
@@ -417,6 +430,7 @@ remoteControl:open / remoteControl:list / remoteControl:setSurface
 remoteControl:return / remoteControl:disconnect / remoteControl:stopAll
 window:lampDone / window:showing            （Main → Renderer 的单向通知是 window:lamp）
 hub:state / hub:setAccess / hub:addFolder / hub:removeFolder / hub:setMaxConcurrent / hub:stopRun   （Main → Renderer 的单向通知是 hub:changed）
+sessionMarks:get / sessionMarks:setTag / sessionMarks:markSeen / sessionMarks:rename
 ```
 
 目录、设备与传输 IPC 只接受固定动作、稳定 ID、受限枚举和有界元数据。合并、拆分与删除由 Main 重新读取 catalog revision；文件来源、保存目录和项目根都由 Main 的系统选择器产生。TaskPackage 的导入草稿只向 Renderer 暴露随机 token、文件名和大小，目标 Profile 在提交时重新查表，真实路径和解密明文不返回 Renderer。Renderer 不能取得 Root/设备私钥、Mesh 关联键、SDP、ICE 地址、TURN credential、任意路径、网络报文或通用远端命令。
@@ -464,7 +478,7 @@ TaskPackage 同时支持便携文件和同 Mesh Preview 直送。两条通道发
 
 ## 9. Agent 卡片
 
-卡片显示同一 Agent 的运行位置、活动和可信额度。卡片额度按钮与名册的额度总览共用原生浮层，按当前入口显示本号周期和刷新，或显示跨账号快照。额度浮层独立于会话网格。猫由 `src/yard/cat-art.js` 的批准素材逐帧画出：`pixel/cats.js` 的 `createPlayer()` 为每块画布记下外观、循环状态与正在播的一次性动作，按动作自己的帧率算出当前帧，帧号变了才重画；浏览器层只用一个按“下一次换帧”定时的计时器，`IntersectionObserver` 判断画布是否看得见，`visibilitychange` 时停，`prefers-reduced-motion` 时只画第一帧。卡片把活动状态和能量格的 `data-level`（只在 `data-trusted="true"` 时）交给 `PixelUi.setCat()`，由 `YardCats.actionFor()` 选动作；`PixelUi.catAct()` / `catRelease()` / `pose()` 是开灯与关灯和其他界面用的一次性动作入口。旧庭院场景及其设置入口已退出窗口。账号、会话、头像配置及旧版回退所需的偏好继续由各自的既有文件管理。
+卡片显示同一 Agent 的运行位置、活动和可信额度。卡片额度按钮与名册的额度总览共用原生浮层，按当前入口显示本号周期和刷新，或显示跨账号快照。额度浮层独立于会话网格。猫由 `src/yard/cat-art.js` 的批准素材逐帧画出：`pixel/cats.js` 的 `createPlayer()` 为每块画布记下外观、循环状态与正在播的一次性动作，按动作自己的帧率算出当前帧，帧号变了才重画；浏览器层只用一个按“下一次换帧”定时的计时器，`IntersectionObserver` 判断画布是否看得见，`visibilitychange` 时停，`prefers-reduced-motion` 时只画第一帧。卡片把活动状态和能量格的 `data-level`（只在 `data-trusted="true"` 时）交给 `PixelUi.setCat()`，由 `YardCats.actionFor()` 选动作；同时在跑的条数（本机 `writingNow` 与调度中枢正在跑的段数取大）经 `YardCats.busyAction()` 变成干活、忙或抓狂，条数也作为 `papers` 交给放映机画纸摞，抓狂帧的 `nudge` 由放映机在画的时候以半格为单位加上；名牌状态那一行写“N 条在跑”，新回复的条数接在同一行后面，信封按钮在猫的左上方；`PixelUi.catAct()` / `catRelease()` / `pose()` 是开灯与关灯和其他界面用的一次性动作入口。旧庭院场景及其设置入口已退出窗口。账号、会话、头像配置及旧版回退所需的偏好继续由各自的既有文件管理。
 
 ## 10. 测试与构建
 
