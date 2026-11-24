@@ -8,7 +8,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const apps = require('./apps');
-const { createCodexActivityPreference } = require('./sessions');
+const { createCodexActivityPreference, replyStateOf, claudeCliIsSidechain } = require('./sessions');
+const { freshReplyAt } = require('./session-marks');
+const { WORKING_WINDOW } = require('./yard/cats');
 const { createHash } = require('node:crypto');
 
 const WALK_LIMIT = 12000;
@@ -16,6 +18,37 @@ const SKIP_DIRS = ['Cache', 'GPUCache', 'node_modules'];
 // 「此刻进行中」窗口：会话文件在这段时间内被写过就算一路并行的活。
 // CLI 会话工作时逐事件追加记录，闲置的终端窗口不会更新文件。
 const ACTIVE_NOW_MS = 5 * 60_000;
+// 「同时在跑」窗口：与猫的「干活」同一个常量（docs/SESSION_MARKS_PLAN.md 第 3.1 节）。
+const WRITING_WINDOW_MS = WORKING_WINDOW;
+const WRITING_KEYS_LIMIT = 32;
+const FRESH_KEYS_LIMIT = 500;
+// 只有这两种客户端读末尾就能知道最后一句是谁说的；其他客户端不标“新回复”。
+const REPLY_APPS = new Set(['claude-cli', 'codex']);
+
+// 「有新内容」看追加型记录（.jsonl）的长度变没变，不看 mtime：客户端会无故 touch 文件（Codex 尤甚）。
+// 第一次见到的文件只能信 mtime；整文件重写的 .json 也只能信 mtime。
+const contentClock = new Map();
+function contentChangedAt(filePath, stat) {
+  if (!filePath.endsWith('.jsonl')) return stat.mtimeMs;
+  const cached = contentClock.get(filePath);
+  if (cached && cached.size === stat.size) return cached.changedAt;
+  if (contentClock.size >= 20000) contentClock.clear();
+  const entry = { size: stat.size, changedAt: stat.mtimeMs };
+  contentClock.set(filePath, entry);
+  return entry.changedAt;
+}
+
+// 回复状态按文件版本缓存：没变的文件 8 秒一轮也不重读。
+const replyCache = new Map();
+function cachedReplyState(appId, filePath, stat) {
+  const revision = `${stat.size}:${stat.mtimeMs}`;
+  const cached = replyCache.get(filePath);
+  if (cached && cached.revision === revision) return cached.value;
+  const value = replyStateOf(appId, filePath);
+  if (replyCache.size >= 12000) replyCache.clear();
+  replyCache.set(filePath, { revision, value });
+  return value;
+}
 
 function startOfDay(now) {
   const d = new Date(now);
@@ -23,7 +56,7 @@ function startOfDay(now) {
   return d.getTime();
 }
 
-function probeActivity(profile, now = Date.now()) {
+function probeActivity(profile, now = Date.now(), options = {}) {
   const result = {
     profileId: profile.id,
     sourceKey: activitySourceKey(profile),
@@ -35,8 +68,12 @@ function probeActivity(profile, now = Date.now()) {
     fileCount: 0,
     activeToday: 0,   // 今天被写过的会话数（mtime 落在今天）
     createdToday: 0,  // 今天新建的会话数（birthtime 落在今天）
-    activeNow: 0      // 近 5 分钟仍在写入的并行会话数（按会话去重，多终端窗口可见）
+    activeNow: 0,     // 近 5 分钟仍在写入的并行会话数（按会话去重，多终端窗口可见）
+    writingNow: 0     // 近 90 秒有新内容、还没回完的逻辑会话数（猫有多忙）；拿不到时为 null
   };
+  // 下面两项只在本模块里用，probeActivities 按运行位置换成会话键后删掉。
+  const writingAddresses = [];
+  const replies = [];
 
   const root = profile.sessionRoot;
   if (!root) return result;
@@ -61,6 +98,7 @@ function probeActivity(profile, now = Date.now()) {
   // 按适配器给的会话 key 去重；默认一文件一会话。
   const sessionKeyOf = typeof app.sessionKeyOf === 'function' ? app.sessionKeyOf : (filePath) => filePath;
   const records = new Map();
+  const changedAtByKey = new Map();
   const prefer = profile.appId === 'codex'
     ? createCodexActivityPreference(profile)
     : (candidate, current) => candidate.mtime >= current.mtime;
@@ -81,7 +119,9 @@ function probeActivity(profile, now = Date.now()) {
           filePath, mtime, archived,
           createdAt: Date.parse(record.createdAt || '') || stat.birthtimeMs
         };
-        if (!previous || prefer(candidate, previous, record.key)) records.set(record.key, candidate);
+        if (!previous || prefer(candidate, previous, record.key)) records.set(record.key, { ...candidate, stat });
+        const changedAt = contentChangedAt(filePath, stat);
+        if (changedAt > (changedAtByKey.get(record.key) || 0)) changedAtByKey.set(record.key, changedAt);
       } catch (_error) {
         // Disappearing or unreadable files cannot invalidate the other accounts.
       }
@@ -98,6 +138,34 @@ function probeActivity(profile, now = Date.now()) {
     if (record.createdAt >= todayStart && record.createdAt <= now + 1000) result.createdToday += 1;
   }
 
+  // 同时在跑与新回复。读末尾只发生在最近有新内容、或首次启用之后动过的文件上，且按文件版本缓存。
+  const addressOf = typeof app.sessionAddressOf === 'function' ? app.sessionAddressOf : null;
+  const replyApp = REPLY_APPS.has(profile.appId);
+  const baselineAt = Number(options.baselineAt) || 0;
+  for (const [key, record] of records) {
+    if (record.archived) continue;
+    const changedAt = changedAtByKey.get(key) || record.mtime;
+    const recent = changedAt >= now - WRITING_WINDOW_MS && changedAt <= now + 1000;
+    const readsReply = replyApp && (recent || (baselineAt > 0 && record.mtime > baselineAt));
+    if (!recent && !readsReply) continue;
+    if (profile.appId === 'claude-cli' && claudeCliIsSidechain(record.filePath)) continue;
+    const reply = readsReply ? cachedReplyState(profile.appId, record.filePath, record.stat) : null;
+    // 知道这一轮已经回完的，不算在跑（回完以后客户端还会补写几行收尾记录）。
+    const done = reply && reply.lastRole === 'assistant' && reply.replyDone === true;
+    const writing = recent && !done;
+    const address = addressOf ? addressOf(key) : null;
+    if (writing) {
+      result.writingNow += 1;
+      if (address && writingAddresses.length < WRITING_KEYS_LIMIT) writingAddresses.push(address);
+    }
+    if (reply && address) {
+      const at = freshReplyAt(reply, { writing, quiet: !recent, baselineAt });
+      if (at !== null) replies.push({ address, at });
+    }
+  }
+  Object.defineProperty(result, 'writingAddresses', { value: writingAddresses, enumerable: false });
+  Object.defineProperty(result, 'replies', { value: replies, enumerable: false });
+
   // SQLite 型客户端（Cursor）：会话是 db 行不是文件，按文件数失真，改用适配器的聚合计数。
   // 包 try/catch：某个适配器出错也不能连累整轮探测（否则所有账号活跃度会被清空）。
   if (typeof app.sessionCounts === 'function') {
@@ -106,6 +174,9 @@ function probeActivity(profile, now = Date.now()) {
       for (const key of ['sessionCount', 'activeNow', 'activeToday', 'createdToday']) {
         if (Number.isFinite(counts[key])) result[key] = counts[key];
       }
+      // 数据库型客户端按文件数不准；适配器没给“在跑”就是不知道，不显示 0 条。
+      result.writingNow = Number.isFinite(counts.writingNow) ? counts.writingNow : null;
+      writingAddresses.length = 0;
     } catch (_error) {
       // 退回上面按文件数算的结果
     }
@@ -167,17 +238,41 @@ function activitySourceKey(profile) {
   return createHash('sha256').update(JSON.stringify([profile.appId, root])).digest('hex');
 }
 
-function probeActivities(profiles, now = Date.now()) {
+/*
+ * marks（可选）：{ baselineAt, seenAt(key) }，来自本机的会话记号。会话键与 SessionTable.markKeyOf 同一口径：
+ * “运行位置 ID::会话地址”。同一份数据根被几个运行位置共用时只扫一次，键按各自的运行位置给出。
+ */
+function probeActivities(profiles, now = Date.now(), marks = null) {
   const bySource = new Map();
+  const baselineAt = marks && Number(marks.baselineAt) > 0 ? Number(marks.baselineAt) : 0;
+  const seenAt = marks && typeof marks.seenAt === 'function' ? marks.seenAt : () => null;
   return profiles.map((profile) => {
     const key = activitySourceKey(profile);
+    let raw;
     if (!key || !bySource.has(key)) {
-      const result = probeActivity(profile, now);
-      if (key) bySource.set(key, result);
-      return result;
+      raw = probeActivity(profile, now, { baselineAt });
+      if (key) bySource.set(key, raw);
+    } else {
+      raw = bySource.get(key);
     }
-    return { ...bySource.get(key), profileId: profile.id };
+    const id = String(profile.id);
+    const fresh = [];
+    if (baselineAt > 0) {
+      for (const reply of raw.replies || []) {
+        const sessionKey = `${id}::${reply.address}`;
+        const seen = Number(seenAt(sessionKey)) || 0;
+        if (reply.at > seen && fresh.length < FRESH_KEYS_LIMIT) fresh.push({ key: sessionKey, at: reply.at });
+      }
+    }
+    const replyApp = REPLY_APPS.has(profile.appId) && baselineAt > 0;
+    return {
+      ...raw,
+      profileId: profile.id,
+      writingKeys: (raw.writingAddresses || []).map((address) => `${id}::${address}`),
+      freshReplies: replyApp ? fresh.length : null,
+      freshKeys: fresh
+    };
   });
 }
 
-module.exports = { probeActivity, probeActivities };
+module.exports = { probeActivity, probeActivities, WRITING_WINDOW_MS };

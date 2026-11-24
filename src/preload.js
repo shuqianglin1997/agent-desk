@@ -382,6 +382,19 @@ contextBridge.exposeInMainWorld('manager', {
     expectedPath
   }),
   listActivity: () => ipcRenderer.invoke('activity:all'),
+  // 会话标签与“看过”：只交会话键、1–5 的数字和有界字符串，从不交路径。
+  getSessionMarks: () => ipcRenderer.invoke('sessionMarks:get'),
+  setSessionTag: (keys, tag) => ipcRenderer.invoke('sessionMarks:setTag', {
+    keys: Array.isArray(keys) ? keys.slice(0, 5000).map(String) : [],
+    tag: Number(tag)
+  }),
+  markSessionsSeen: (entries) => ipcRenderer.invoke('sessionMarks:markSeen', {
+    entries: Array.isArray(entries) ? entries.slice(0, 5000).map((item) => ({ key: String(item?.key || ''), at: Number(item?.at) })) : []
+  }),
+  renameSessionTag: (tag, name) => ipcRenderer.invoke('sessionMarks:rename', {
+    tag: Number(tag),
+    name: typeof name === 'string' ? name.slice(0, 200) : null
+  }),
   listQuotas: (options = {}) => ipcRenderer.invoke('quota:all', options),
   getDiagnostics: (profile) => ipcRenderer.invoke('diagnostics:get', { profileId: profile?.id }),
   pickDirectory: pickProfileDirectory,

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T15:01:38.239Z",
-  "baseCommit": "07628ce2389f218a00534ce8639c0bd2aa465ddc",
+  "recordedAt": "2026-11-24T15:22:59.824Z",
+  "baseCommit": "24fdb32bda32283d87abfecebf9a01b8fe1a2daa",
   "uncommitted": true,
-  "sourceSha256": "2b361eaee5a4c2945d299f22fa930eee27bc20bff58ab36bb553e661c77f28c8",
+  "sourceSha256": "32c4a96918fae227e90ea4ed605762375053311842e069839a9d8838c0482f2d",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,34 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 765,
+      "pass": 764,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after 猫有多忙/新回复/颜色标签 batch 1 (data: reply state in Claude CLI and Codex scans, running count and keys, new replies in the activity probe, session-marks store and four IPC channels); digest identical before and after the run",
+      "recordedAt": "2026-11-24T15:22:59.824Z",
+      "sourceSha256": "32c4a96918fae227e90ea4ed605762375053311842e069839a9d8838c0482f2d"
+    },
+    {
+      "command": "node --test test/session-marks.test.js",
+      "result": "passed",
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "scope": "Fixture Claude CLI and Codex files: end-of-turn markers, running vs finished, new replies after first use, seen filter, shared data root keyed per run location, sub-agent and archived exclusions, unsupported clients unknown; store baseline, tags, names, seen only forward, eviction order, validation, IPC shape",
+      "recordedAt": "2026-11-24T15:22:59.824Z",
+      "sourceSha256": "32c4a96918fae227e90ea4ed605762375053311842e069839a9d8838c0482f2d"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check including src/session-marks.js",
+      "recordedAt": "2026-11-24T15:22:59.824Z",
+      "sourceSha256": "32c4a96918fae227e90ea4ed605762375053311842e069839a9d8838c0482f2d"
+    },
     {
       "command": "node --test --test-concurrency=4",
       "result": "passed",

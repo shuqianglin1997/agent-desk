@@ -215,6 +215,8 @@ const APPS = {
       importFiles: process.platform === 'darwin' ? Object.freeze([]) : Object.freeze(['.credentials.json'])
     }),
     scan: (profile) => sessions.scanClaudeCli(profile),
+    // 活动探测的会话键（文件路径）→ 列表里这条会话的地址（文件名里的会话 ID）
+    sessionAddressOf: (key) => path.basename(key, '.jsonl'),
     contentActivityAt: (_profile, filePath) => sessions.lastEventTimestamp(filePath),
     exportTranscript: (session) => ({
       markdown: transcripts.claudeCliTranscriptMarkdown(session.filePath, { title: session.title }),
@@ -353,6 +355,7 @@ const APPS = {
         createdAt: sessions.parseDate(first?.timestamp)
       };
     },
+    sessionAddressOf: (key) => key,
     contentActivityAt: (_profile, filePath) => sessions.codexActivityFromFile(filePath),
     exportTranscript: (session) => ({
       markdown: transcripts.codexTranscriptMarkdown(session.filePath),
@@ -420,6 +423,7 @@ const APPS = {
     }),
     scan: (profile) => sessions.scanKimi(profile),
     contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
+    sessionAddressOf: (key) => path.basename(key),
     // 一个会话目录含 state.json + agents/*/wire.jsonl，活跃计数按会话目录去重
     sessionKeyOf: (filePath) => (
       filePath.endsWith('state.json')

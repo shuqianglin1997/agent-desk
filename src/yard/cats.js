@@ -222,7 +222,7 @@
   }
 
   return {
-    deriveState, STATE_META, defaultCatFor, normalizeCat, BREED_KEYS, COLLAR_COLORS, ACCESSORIES,
+    deriveState, WORKING_WINDOW, STATE_META, defaultCatFor, normalizeCat, BREED_KEYS, COLLAR_COLORS, ACCESSORIES,
     LOOK_KEYS, ACCESSORY_KEYS, LOOK_GROUPS, lookGroup, LEGACY_BREED, LEGACY_ACCESSORY, CLIENT_LOOKS, COLLAR_CHOICES,
     resolveCat, storeCat, defaultCatForClient, actionFor, STATE_ACTIONS, ONE_SHOT_ACTIONS
   };

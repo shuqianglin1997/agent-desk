@@ -113,3 +113,13 @@ AgentDesk 看不到人在官方客户端里读没读。它只能知道三件事�
 - 命令行（`docs/AI_INTERFACE.md`）要不要在只读的会话列表里给出标签和“新回复”两个字段。本期不做。
 - 标签要不要随 Mesh 跟到其他设备。需要新的签名目录事件，另行评审。
 - 其他客户端（Kimi、Gemini、Qwen、OpenCode）的“新回复”。要先确认读末尾就能判断角色。
+
+## 8. 实施记录
+
+### 第 1 批：数据（2026-11-24）
+
+- `src/sessions.js`：Claude 命令行与 Codex 的每条会话多了 `lastRole`、`lastReplyAt`、`replyDone`，从已经在读的文件末尾 64KB 里取，没有多读文件。对照本机真实文件定下的“回完”标志：Claude 命令行是 assistant 事件的 `stop_reason` 为 `end_turn` 等结束值（`tool_use` 表示还在干，只装着 `tool_result` 的 user 事件是工具输出、不是人说的话）；Codex 是 `event_msg` 的 `task_complete`（推理、工具调用和输出都算这一轮还没完，`turn_aborted` 是人打断了，不算回完）。拿不准时 `replyDone` 为 `null`，按“最后一句是助手且 90 秒内没有新内容”退回判断。
+- `src/activity.js`：新增 `writingNow` 与 `writingKeys`（上限 32），窗口直接用 `src/yard/cats.js` 导出的 `WORKING_WINDOW`。“有新内容”对追加型的 `.jsonl` 看文件长度变没变，不看 mtime，因为客户端会无故 touch 文件；第一次见到的文件和整文件重写的 `.json` 只能信 mtime。已经知道这一轮回完的会话不算在跑（回完后客户端还会补写几行收尾记录）。Cursor 这类数据库型客户端没有给出在跑条数时为 `null`，不当 0。子代理的 Claude 命令行文件不计。
+- “新回复”在主进程的活动探测里判断，而不是在列表里：活动探测 8 秒一轮、覆盖所有本机运行位置，所以没有加载到列表里的猫，卡片上也能给出条数。只读首次启用之后动过的文件或正在写的文件的末尾，并按文件版本缓存。判断规则在 `src/session-marks.js` 的 `freshReplyAt`，与第 4.2 节一致。
+- 会话键：`src/session-table.js` 新增 `markKeyOf`。本机扫到的会话用 `keyOf` 的本机口径“运行位置::会话地址”，只有别的设备上的会话用 `mesh::逻辑会话`。这样开没开设备网、密钥延后时退回本机扫描，同一条会话的键都不变，主进程也能算出同一个键；在没有开设备网时它与 `keyOf` 完全相同。后台对话的行没有键。
+- `src/session-marks.js` 与 `userData/session-marks.json`：每条会话一项 `{ tag, seen, at }`，`at` 是最后一次动它的时间。超过 5000 条时先清最久没动过的“看过”记号，人亲手打的标签排在后面才清。四个 IPC 只收会话键、0–5 的整数（0 去掉标签）、时间数字和最长 12 个字的名字。

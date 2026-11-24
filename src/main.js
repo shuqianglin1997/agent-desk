@@ -69,6 +69,7 @@ const { QuotaService } = require('./quota-service');
 const { deriveEnergy } = require('./yard/energy');
 const IdentityGroups = require('./identity-groups');
 const { HubStore } = require('./hub/store');
+const { SessionMarksStore } = require('./session-marks');
 const { HubRunner } = require('./hub/runner');
 const { HubError, normalizeAccess } = require('./hub/roster');
 const { adapterFor, unsupportedReason } = require('./hub/adapters');
@@ -455,6 +456,20 @@ function registerIpc() {
     if (Object.hasOwn(patch || {}, 'theme')) syncWindowControlTheme(preferences);
     return preferences;
   });
+
+  // 四个专用通道，只收会话键、1–5 的数字和有界字符串；SessionMarksStore 逐项重新校验，不开放通用读写。
+  ipcMain.handle('sessionMarks:get', () => sessionMarksResult((store) => store.snapshot()));
+  ipcMain.handle('sessionMarks:setTag', (_event, input = {}) => sessionMarksResult((store) => (
+    store.setTag(Array.isArray(input?.keys) ? input.keys : null, input?.tag)
+  )));
+  ipcMain.handle('sessionMarks:markSeen', (_event, input = {}) => sessionMarksResult((store) => (
+    store.markSeen(Array.isArray(input?.entries)
+      ? input.entries.slice(0, 5001).map((item) => ({ key: item?.key, at: item?.at }))
+      : null)
+  )));
+  ipcMain.handle('sessionMarks:rename', (_event, input = {}) => sessionMarksResult((store) => (
+    store.rename(input?.tag, typeof input?.name === 'string' || input?.name === null ? input.name : undefined)
+  )));
 
   ipcMain.handle('updates:check', async () => {
     return checkForUpdates({ force: true });
@@ -1624,7 +1639,7 @@ function registerIpc() {
   registerLocalReadIpc({
     ipcMain, loadProfiles, apps, boundedText, revealSessionFile, exportSessionTranscript,
     listSessionDirectories, openSessionDirectory,
-    probeActivities, snapshotProcesses, profileIsRunning, quotaService, getVersion: () => app.getVersion()
+    probeActivities, sessionMarksFreshContext, snapshotProcesses, profileIsRunning, quotaService, getVersion: () => app.getVersion()
   });
 
   ipcMain.handle('diagnostics:get', (_event, input = {}) => {
@@ -3554,6 +3569,25 @@ function getProfileRuntimeSupervisor() {
 
 function settingsFile() {
   return path.join(app.getPath('userData'), 'settings.json');
+}
+
+// 会话的颜色标签与“看过”的记号：只存在 AgentDesk 自己的 userData 里（docs/SESSION_MARKS_PLAN.md 第 5.3 节）。
+let sessionMarksStore = null;
+function getSessionMarks() {
+  sessionMarksStore ||= new SessionMarksStore({ file: path.join(app.getPath('userData'), 'session-marks.json') });
+  return sessionMarksStore;
+}
+
+function sessionMarksResult(run) {
+  try {
+    return run(getSessionMarks());
+  } catch (_error) {
+    return { ok: false, reasonCode: 'session-marks-unavailable' };
+  }
+}
+
+function sessionMarksFreshContext() {
+  try { return getSessionMarks().freshContext(); } catch (_error) { return null; }
 }
 
 function settingsBackupFile() {

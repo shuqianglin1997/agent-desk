@@ -21,6 +21,20 @@
     return `${profileId}::${String(identity)}`;
   }
 
+  /*
+   * 标签、“看过”和“在跑”用的会话键（docs/SESSION_MARKS_PLAN.md 第 5.3 节）。
+   * 本机扫到的这一行用 keyOf 的本机口径“运行位置::会话地址”，所以开没开设备网、密钥延后时退回本机扫描，
+   * 同一条会话的键都不变，主进程的活动探测也能算出同一个键；只在别的设备上的会话用 mesh 逻辑会话键。
+   * 后台对话的行（_hubRun）不是一条会话，没有键。
+   */
+  function markKeyOf(session) {
+    if (!session || typeof session !== 'object' || session._hubRun) return '';
+    if (session._remote === true) return session.conversationId ? `mesh::${String(session.conversationId)}` : '';
+    const profileId = String(session._profileId || '');
+    const identity = session.address || session.id || session.filePath || '';
+    return profileId && identity ? `${profileId}::${String(identity)}` : '';
+  }
+
   function fieldValue(session, key) {
     if (!session) return null;
     switch (key) {
@@ -81,6 +95,7 @@
   return {
     DATE_FIELDS,
     keyOf,
+    markKeyOf,
     fieldValue,
     defaultDirection,
     sort

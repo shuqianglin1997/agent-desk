@@ -126,7 +126,8 @@ function scanCodex(profile) {
       // moving. Prefer the newest trustworthy content timestamp while retaining
       // the index value for clients that do keep it current. File mtime remains a
       // last-resort fallback for old or malformed records without event times.
-      const contentUpdatedAt = parseDate(lastEventTimestamp(filePath));
+      const tail = codexTailState(filePath);
+      const contentUpdatedAt = parseDate(tail.lastEventAt);
       const updatedAt = latestDate(indexed?.updatedAt, contentUpdatedAt)
         || stat?.mtime?.toISOString()
         || createdAt;
@@ -148,7 +149,10 @@ function scanCodex(profile) {
         address: id,
         adapterConversationKey: id,
         physicalRecordId: identity.physicalRecordId,
-        recordKind: identity.recordKind
+        recordKind: identity.recordKind,
+        lastRole: tail.lastRole,
+        lastReplyAt: tail.lastReplyAt,
+        replyDone: tail.replyDone
       };
 
       const existing = rootsByConversation.get(id);
@@ -309,6 +313,7 @@ function claudeCliRecord(filePath) {
   let aiTitle = null;
   let customTitle = null;
   let lastTimestamp = null;
+  const reply = emptyReplyState();
   const tailLines = readChunkLines(filePath, true);
   for (const line of tailLines || []) {
     if (!line.trim()) continue;
@@ -320,6 +325,7 @@ function claudeCliRecord(filePath) {
     }
     if (event.type === 'ai-title') aiTitle = cleanTitle(event.aiTitle);
     else if (event.type === 'custom-title') customTitle = cleanTitle(event.customTitle);
+    claudeCliReplyStep(reply, event);
     if (event.timestamp) {
       const ts = parseDate(event.timestamp);
       if (ts) lastTimestamp = ts;
@@ -341,8 +347,140 @@ function claudeCliRecord(filePath) {
     status: '可用',
     model: null,
     filePath,
-    address: id
+    address: id,
+    ...reply
   };
+}
+
+/*
+ * 这一轮回完没有（docs/SESSION_MARKS_PLAN.md 第 4.2 节）。只看文件末尾 64KB 里的角色与结束标志：
+ *   lastRole    最后一句是谁说的：'user' | 'assistant' | null（末尾里看不出来）
+ *   lastReplyAt 最后一条助手消息的时间（ISO），没有就是 null
+ *   replyDone   这一轮回完没有：true | false | null（拿不准，由上层按“90 秒内没有新内容”退回判断）
+ * 看不到人在官方客户端里读没读，所以这里不说“已读”，只说回完没有。
+ */
+function emptyReplyState() {
+  return { lastRole: null, lastReplyAt: null, replyDone: null };
+}
+
+// Claude 命令行：assistant 事件的 stop_reason 是 end_turn 就是回完了；tool_use 是还在干；
+// 只装着 tool_result 的 user 事件是工具的输出，不是人说的话。
+function claudeCliReplyStep(state, event) {
+  if (!event || typeof event !== 'object' || event.isSidechain === true) return;
+  if (event.type === 'assistant') {
+    state.lastRole = 'assistant';
+    const at = parseDate(event.timestamp);
+    if (at) state.lastReplyAt = at;
+    const stop = event.message && event.message.stop_reason;
+    if (stop === 'tool_use' || stop === 'pause_turn') state.replyDone = false;
+    else if (typeof stop === 'string' && stop) state.replyDone = true;
+    else state.replyDone = null;
+    return;
+  }
+  if (event.type !== 'user' || event.isMeta === true) return;
+  const content = event.message && event.message.content;
+  if (Array.isArray(content) && content.length && content.every((part) => part && part.type === 'tool_result')) {
+    if (state.lastRole === null) state.lastRole = 'assistant';
+    state.replyDone = false;
+    return;
+  }
+  state.lastRole = 'user';
+  state.replyDone = false;
+}
+
+// Codex：response_item 里 role 为 assistant 的 message 是回复，event_msg 的 task_complete 是这一轮回完了；
+// 推理、工具调用和它们的输出都还在这一轮里；turn_aborted 是人打断了，不算回完。
+function codexReplyStep(state, event) {
+  if (!event || typeof event !== 'object') return;
+  const payload = event.payload && typeof event.payload === 'object' ? event.payload : {};
+  if (event.type === 'response_item') {
+    if (payload.type === 'message') {
+      if (payload.role === 'user') {
+        state.lastRole = 'user';
+        state.replyDone = false;
+      } else if (payload.role === 'assistant') {
+        state.lastRole = 'assistant';
+        const at = parseDate(event.timestamp);
+        if (at) state.lastReplyAt = at;
+        state.replyDone = payload.phase === 'commentary' ? false : null;
+      }
+      return;
+    }
+    state.replyDone = false;
+    return;
+  }
+  if (event.type !== 'event_msg') return;
+  if (payload.type === 'user_message') {
+    state.lastRole = 'user';
+    state.replyDone = false;
+  } else if (payload.type === 'agent_message') {
+    state.lastRole = 'assistant';
+    const at = parseDate(event.timestamp);
+    if (at) state.lastReplyAt = at;
+    if (state.replyDone !== true) state.replyDone = null;
+  } else if (payload.type === 'task_complete') {
+    if (state.lastRole === 'assistant') state.replyDone = true;
+  } else if (payload.type === 'task_started' || payload.type === 'turn_aborted') {
+    state.replyDone = false;
+  }
+}
+
+// 一次读末尾 64KB：最后一条事件的时间，加上回复状态。Codex 列表与活动探测共用这一个读法。
+function readTailEvents(filePath) {
+  const lines = readChunkLines(filePath, true);
+  if (!lines) return null;
+  const events = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try { events.push(JSON.parse(line)); } catch (_error) { /* 首行可能是半行 */ }
+  }
+  return events;
+}
+
+function eventTime(obj) {
+  const raw = obj.timestamp ?? obj.ts ?? obj.time ?? (obj.payload && obj.payload.timestamp);
+  const ts = typeof raw === 'number' ? (raw > 10_000_000_000 ? raw : raw * 1000) : Date.parse(raw);
+  return Number.isFinite(ts) && ts > 0 ? ts : null;
+}
+
+function codexTailState(filePath) {
+  const reply = emptyReplyState();
+  const events = filePath ? readTailEvents(filePath) : null;
+  let lastEventAt = null;
+  for (const event of events || []) {
+    if (!event || typeof event !== 'object') continue;
+    codexReplyStep(reply, event);
+    const ts = eventTime(event);
+    if (ts) lastEventAt = ts;
+  }
+  return { lastEventAt, ...reply };
+}
+
+function claudeCliTailState(filePath) {
+  const reply = emptyReplyState();
+  for (const event of (filePath ? readTailEvents(filePath) : null) || []) claudeCliReplyStep(reply, event);
+  return reply;
+}
+
+// 活动探测用：只有 Claude 命令行和 Codex 能从末尾判断角色；其他客户端一律 null（不标）。
+function replyStateOf(appId, filePath) {
+  if (appId === 'claude-cli') return claudeCliTailState(filePath);
+  if (appId === 'codex') {
+    const { lastRole, lastReplyAt, replyDone } = codexTailState(filePath);
+    return { lastRole, lastReplyAt, replyDone };
+  }
+  return null;
+}
+
+// 子 agent 的会话文件每条事件都带 isSidechain；看开头一小段就够，结果不会变，按路径缓存。
+const sidechainCache = new Map();
+function claudeCliIsSidechain(filePath) {
+  if (sidechainCache.has(filePath)) return sidechainCache.get(filePath);
+  const head = readChunkLines(filePath, false, 8 * 1024);
+  const value = Boolean(head && /"isSidechain"\s*:\s*true/.test(head.join('\n')));
+  if (sidechainCache.size >= 12000) sidechainCache.clear();
+  sidechainCache.set(filePath, value);
+  return value;
 }
 
 function messageTextOf(content) {
@@ -574,4 +712,4 @@ function uuidFromFilename(filePath) {
   return match?.[0] || null;
 }
 
-module.exports = { createCodexActivityPreference, codexRecordIdentity, scanSessions, scanClaude, scanCodex, scanKimi, scanClaudeCli, claudeActivityFromFile, codexActivityFromFile, kimiActivityFromFile, lastEventTimestamp, parseDate, cleanTitle, uuidFromFilename, text };
+module.exports = { replyStateOf, codexTailState, claudeCliTailState, claudeCliIsSidechain, createCodexActivityPreference, codexRecordIdentity, scanSessions, scanClaude, scanCodex, scanKimi, scanClaudeCli, claudeActivityFromFile, codexActivityFromFile, kimiActivityFromFile, lastEventTimestamp, parseDate, cleanTitle, uuidFromFilename, text };

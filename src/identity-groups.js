@@ -104,6 +104,19 @@
       sources.set(key, totals);
     });
     const sumOf = (field) => [...sources.values()].reduce((acc, item) => acc + item[field], 0);
+    // 在跑与新回复：拿不到的位置（null）不计，也不当 0；同一份数据根只算一次。
+    const knownSum = (field) => {
+      const bySource = new Map();
+      list.forEach((item, index) => {
+        const value = Number(item[field]);
+        if (item[field] === null || item[field] === undefined || !Number.isFinite(value)) return;
+        const key = item.sourceKey ? `${item.deviceId || 'local'}:${item.sourceKey}` : index;
+        bySource.set(key, Math.max(bySource.get(key) || 0, value));
+      });
+      return bySource.size ? [...bySource.values()].reduce((acc, value) => acc + value, 0) : null;
+    };
+    const writingKeys = [...new Set(list.flatMap((item) => (Array.isArray(item.writingKeys) ? item.writingKeys : [])))].slice(0, 32);
+    const freshKeys = list.flatMap((item) => (Array.isArray(item.freshKeys) ? item.freshKeys : []));
 
     // running 驱动「在岗 onduty」（App 开着但会话安静）：任一形态开着 → true；
     // 全部确定关着 → false；有探测不可用的 → null（上层退回按活跃度判断）。
@@ -122,7 +135,11 @@
       sessionCount: sumOf('sessionCount'),
       activeToday: sumOf('activeToday'),
       createdToday: sumOf('createdToday'),
-      activeNow: sumOf('activeNow')
+      activeNow: sumOf('activeNow'),
+      writingNow: knownSum('writingNow'),
+      writingKeys,
+      freshReplies: knownSum('freshReplies'),
+      freshKeys
     };
   }
 
