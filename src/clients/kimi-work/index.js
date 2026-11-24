@@ -5,7 +5,8 @@
 // src/apps.js only collects the adapters (docs/ARCHITECTURE_PLAN.md §5.3).
 
 const path = require('node:path');
-const sessions = require('../../sessions');
+// Kimi Work keeps Kimi Code's session files.
+const sessions = require('../kimi/sessions');
 const kimiWorkSessions = require('../../kimi-work-sessions');
 const transcripts = require('../../transcripts');
 const { OFFICIAL_DEFAULT_ONLY } = require('../shared');

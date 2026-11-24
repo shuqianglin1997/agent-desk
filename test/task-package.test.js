@@ -15,7 +15,7 @@ const {
   normalizeTaskPackageManifest
 } = require('../src/task-package/format');
 const { TaskPackageService, captureGitProject } = require('../src/task-package/service');
-const { scanCodex } = require('../src/sessions');
+const { scanCodex } = require('../src/clients/codex/sessions');
 
 function tempRoot(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));

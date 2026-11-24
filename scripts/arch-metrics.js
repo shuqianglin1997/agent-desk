@@ -261,7 +261,9 @@ const SYNC_NAMES = (() => {
 // Modules the renderer's refresh path runs through (activity poll, list
 // refresh, overview counts).
 const REFRESH_PATH = [
-  'src/main/ipc/local-reads.js', 'src/activity.js', 'src/sessions.js', 'src/cli-client-sessions.js',
+  'src/main/ipc/local-reads.js', 'src/activity.js', 'src/clients/scan.js', 'src/clients/claude/sessions.js',
+  'src/clients/claude-cli/sessions.js', 'src/clients/codex/sessions.js', 'src/clients/codex/rollout.js', 'src/clients/kimi/sessions.js',
+  'src/cli-client-sessions.js',
   'src/cursor-sessions.js', 'src/kimi-work-sessions.js', 'src/process.js', 'src/identity.js',
   'src/session-marks.js', 'src/apps.js', 'src/mesh/main/mesh-service.js'
 ];

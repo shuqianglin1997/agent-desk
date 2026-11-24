@@ -49,7 +49,7 @@ test('codex：扫 sessions 与 archived_sessions 下的 .jsonl', () => {
   assert.ok(result.latestMtime > 0);
 });
 
-const { scanCodex } = require('../src/sessions');
+const { scanCodex } = require('../src/clients/codex/sessions');
 const { probeActivities } = require('../src/activity');
 const { mergeActivity } = require('../src/identity-groups');
 

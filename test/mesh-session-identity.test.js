@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { scanCodex } = require('../src/sessions');
+const { scanCodex } = require('../src/clients/codex/sessions');
 const { classifyCodexSessionMeta } = require('../src/clients/codex/rollout');
 
 function mkTmp() {

@@ -8,7 +8,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { scanClaudeCli, scanSessions, lastEventTimestamp } = require('../src/sessions');
+const { scanClaudeCli } = require('../src/clients/claude-cli/sessions');
+const { lastEventTimestamp } = require('../src/clients/scan');
+// The registry's scan, the path the app uses (apps is required below).
+const scanSessions = (profile) => apps.getApp(profile.appId).scan(profile);
 
 function tmpRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-ccli-'));

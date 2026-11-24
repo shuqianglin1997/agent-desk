@@ -57,7 +57,7 @@ test('an unreadable Codex title index still lists the sessions, with fallback ti
     JSON.stringify({ timestamp: '2026-11-24T10:00:00Z', type: 'session_meta', payload: { id, cwd: '/work' } }) + '\n');
   // A directory where the index file should be: reading it fails (EISDIR).
   fs.mkdirSync(path.join(root, 'session_index.jsonl'));
-  const { scanCodex } = require('../src/sessions');
+  const { scanCodex } = require('../src/clients/codex/sessions');
   const rows = scanCodex({ sessionRoot: root });
   assert.deepEqual(rows.map((row) => row.id), [id]);
   assert.equal(rows[0].projectPath, '/work');

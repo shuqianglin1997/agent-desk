@@ -6,7 +6,7 @@
 
 const os = require('node:os');
 const path = require('node:path');
-const sessions = require('../../sessions');
+const sessions = require('./sessions');
 const transcripts = require('../../transcripts');
 const { CHROMIUM_PROFILE_ISOLATION } = require('../shared');
 

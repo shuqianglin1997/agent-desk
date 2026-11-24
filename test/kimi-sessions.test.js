@@ -8,7 +8,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { scanSessions, scanKimi, kimiActivityFromFile } = require('../src/sessions');
+const { scanKimi, kimiActivityFromFile } = require('../src/clients/kimi/sessions');
+// The registry's scan, the path the app uses (apps is required below).
+const scanSessions = (profile) => apps.getApp(profile.appId).scan(profile);
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-kimi-'));

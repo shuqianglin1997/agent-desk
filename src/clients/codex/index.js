@@ -6,7 +6,8 @@
 
 const os = require('node:os');
 const path = require('node:path');
-const sessions = require('../../sessions');
+const sessions = require('./sessions');
+const { parseDate } = require('../scan');
 const transcripts = require('../../transcripts');
 const { matchJsonl, CHROMIUM_PROFILE_ISOLATION } = require('../shared');
 
@@ -79,11 +80,19 @@ module.exports = {
     const { first, identity } = sessions.codexRecordIdentity(filePath, stat);
     return identity.recordKind === 'internal-child' ? null : {
       key: identity.adapterConversationKey,
-      createdAt: sessions.parseDate(first?.timestamp)
+      createdAt: parseDate(first?.timestamp)
     };
   },
   sessionAddressOf: (key) => key,
   contentActivityAt: (_profile, filePath) => sessions.codexActivityFromFile(filePath),
+  // Who spoke last and whether the turn is done, from the end of the rollout.
+  replyState: (filePath) => {
+    const { lastRole, lastReplyAt, replyDone } = sessions.codexTailState(filePath);
+    return { lastRole, lastReplyAt, replyDone };
+  },
+  // Among a conversation's rollouts, activity follows the user root.
+  activityPreference: (profile) => sessions.createCodexActivityPreference(profile),
+  isArchivedRecordFile: (profile, filePath) => path.relative(profile.sessionRoot, filePath).split(path.sep)[0] === 'archived_sessions',
   exportTranscript: (session) => ({
     markdown: transcripts.codexTranscriptMarkdown(session.filePath),
     suggestedName: transcripts.suggestedTranscriptName(session.title)

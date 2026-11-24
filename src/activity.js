@@ -8,7 +8,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const apps = require('./apps');
-const { createCodexActivityPreference, replyStateOf, claudeCliIsSidechain } = require('./sessions');
 const { freshReplyAt } = require('./session-marks');
 const TIME_WINDOWS = require('./core/time-windows');
 const { createHash } = require('node:crypto');
@@ -23,7 +22,6 @@ const WRITING_WINDOW_MS = TIME_WINDOWS.RUNNING_WINDOW_MS;
 const WRITING_KEYS_LIMIT = 32;
 const FRESH_KEYS_LIMIT = 500;
 // 只有这两种客户端读末尾就能知道最后一句是谁说的；其他客户端不标“新回复”。
-const REPLY_APPS = new Set(['claude-cli', 'codex']);
 
 // 「有新内容」看追加型记录（.jsonl）的长度变没变，不看 mtime：客户端会无故 touch 文件（Codex 尤甚）。
 // 第一次见到的文件只能信 mtime；整文件重写的 .json 也只能信 mtime。
@@ -40,11 +38,13 @@ function contentChangedAt(filePath, stat) {
 
 // 回复状态按文件版本缓存：没变的文件 8 秒一轮也不重读。
 const replyCache = new Map();
-function cachedReplyState(appId, filePath, stat) {
+// Only clients whose adapter can tell who spoke last (replyState) are read;
+// the others stay unknown.
+function cachedReplyState(app, filePath, stat) {
   const revision = `${stat.size}:${stat.mtimeMs}`;
   const cached = replyCache.get(filePath);
   if (cached && cached.revision === revision) return cached.value;
-  const value = replyStateOf(appId, filePath);
+  const value = typeof app.replyState === 'function' ? app.replyState(filePath) : null;
   if (replyCache.size >= 12000) replyCache.clear();
   replyCache.set(filePath, { revision, value });
   return value;
@@ -101,8 +101,8 @@ function probeActivity(profile, now = Date.now(), options = {}) {
   const sessionKeyOf = typeof app.sessionKeyOf === 'function' ? app.sessionKeyOf : (filePath) => filePath;
   const records = new Map();
   const changedAtByKey = new Map();
-  const prefer = profile.appId === 'codex'
-    ? createCodexActivityPreference(profile)
+  const prefer = typeof app.activityPreference === 'function'
+    ? app.activityPreference(profile)
     : (candidate, current) => candidate.mtime >= current.mtime;
   for (const area of app.scanAreas(profile)) {
     for (const filePath of walkFiles(area.dir, area.match, area.maxDepth, walkReport)) {
@@ -114,8 +114,7 @@ function probeActivity(profile, now = Date.now(), options = {}) {
           : { key: sessionKeyOf(filePath) };
         if (!record?.key) continue;
         const mtime = stat.mtimeMs;
-        const archived = profile.appId === 'codex'
-          && path.relative(profile.sessionRoot, filePath).split(path.sep)[0] === 'archived_sessions';
+        const archived = typeof app.isArchivedRecordFile === 'function' && app.isArchivedRecordFile(profile, filePath);
         const previous = records.get(record.key);
         const candidate = {
           filePath, mtime, archived,
@@ -143,7 +142,7 @@ function probeActivity(profile, now = Date.now(), options = {}) {
 
   // 同时在跑与新回复。读末尾只发生在最近有新内容、或首次启用之后动过的文件上，且按文件版本缓存。
   const addressOf = typeof app.sessionAddressOf === 'function' ? app.sessionAddressOf : null;
-  const replyApp = REPLY_APPS.has(profile.appId);
+  const replyApp = typeof app.replyState === 'function';
   const baselineAt = Number(options.baselineAt) || 0;
   for (const [key, record] of records) {
     if (record.archived) continue;
@@ -151,8 +150,8 @@ function probeActivity(profile, now = Date.now(), options = {}) {
     const recent = changedAt >= now - WRITING_WINDOW_MS && changedAt <= now + 1000;
     const readsReply = replyApp && (recent || (baselineAt > 0 && record.mtime > baselineAt));
     if (!recent && !readsReply) continue;
-    if (profile.appId === 'claude-cli' && claudeCliIsSidechain(record.filePath)) continue;
-    const reply = readsReply ? cachedReplyState(profile.appId, record.filePath, record.stat) : null;
+    if (typeof app.isInternalRecordFile === 'function' && app.isInternalRecordFile(record.filePath)) continue;
+    const reply = readsReply ? cachedReplyState(app, record.filePath, record.stat) : null;
     // 知道这一轮已经回完的，不算在跑（回完以后客户端还会补写几行收尾记录）。
     const done = reply && reply.lastRole === 'assistant' && reply.replyDone === true;
     const writing = recent && !done;
@@ -269,7 +268,7 @@ function probeActivities(profiles, now = Date.now(), marks = null) {
         if (reply.at > seen && fresh.length < FRESH_KEYS_LIMIT) fresh.push({ key: sessionKey, at: reply.at });
       }
     }
-    const replyApp = REPLY_APPS.has(profile.appId) && baselineAt > 0;
+    const replyApp = typeof apps.getApp(profile.appId).replyState === 'function' && baselineAt > 0;
     return {
       ...raw,
       profileId: profile.id,

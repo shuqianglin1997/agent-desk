@@ -16,7 +16,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { querySqlite, storeUnreadable } = require('./cursor-sessions');
-const { parseDate, cleanTitle } = require('./sessions');
+const { parseDate, cleanTitle } = require('./clients/scan');
 
 function kimiWorkDbPath(profile) {
   return path.join(profile.sessionRoot, 'agents', 'main', 'sessions', 'hosted-logical', 'conversations.sqlite');

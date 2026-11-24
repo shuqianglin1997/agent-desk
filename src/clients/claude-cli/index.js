@@ -6,7 +6,8 @@
 
 const os = require('node:os');
 const path = require('node:path');
-const sessions = require('../../sessions');
+const sessions = require('./sessions');
+const { lastEventTimestamp } = require('../scan');
 const transcripts = require('../../transcripts');
 const { CLAUDE_CODE_ENV_KEYS, withoutClaudeCodeEnvironment } = require('./environment');
 
@@ -74,7 +75,11 @@ module.exports = {
   scan: (profile) => sessions.scanClaudeCli(profile),
   // 活动探测的会话键（文件路径）→ 列表里这条会话的地址（文件名里的会话 ID）
   sessionAddressOf: (key) => path.basename(key, '.jsonl'),
-  contentActivityAt: (_profile, filePath) => sessions.lastEventTimestamp(filePath),
+  contentActivityAt: (_profile, filePath) => lastEventTimestamp(filePath),
+  // Who spoke last and whether the turn is done, from the end of the file.
+  replyState: (filePath) => sessions.claudeCliTailState(filePath),
+  // Subagent sessions are separate files whose events carry isSidechain.
+  isInternalRecordFile: (filePath) => sessions.claudeCliIsSidechain(filePath),
   exportTranscript: (session) => ({
     markdown: transcripts.claudeCliTranscriptMarkdown(session.filePath, { title: session.title }),
     suggestedName: transcripts.suggestedTranscriptName(session.title)

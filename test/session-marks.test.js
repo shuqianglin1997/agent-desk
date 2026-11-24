@@ -6,7 +6,11 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { SessionMarksStore, freshReplyAt, normalizeKey, normalizeName } = require('../src/session-marks');
-const { scanClaudeCli, scanCodex, replyStateOf } = require('../src/sessions');
+const { scanClaudeCli } = require('../src/clients/claude-cli/sessions');
+const { scanCodex } = require('../src/clients/codex/sessions');
+const apps = require('../src/apps');
+// Who spoke last comes from the adapter, and only adapters that can tell have it.
+const replyStateOf = (appId, filePath) => apps.getApp(appId).replyState?.(filePath) ?? null;
 const { probeActivities, WRITING_WINDOW_MS } = require('../src/activity');
 const { mergeActivity } = require('../src/identity-groups');
 const { markKeyOf, keyOf } = require('../src/session-table');

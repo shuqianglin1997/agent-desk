@@ -5,7 +5,7 @@
 // src/apps.js only collects the adapters (docs/ARCHITECTURE_PLAN.md §5.3).
 
 const path = require('node:path');
-const sessions = require('../../sessions');
+const sessions = require('./sessions');
 const { matchLocalJson, CHROMIUM_PROFILE_ISOLATION } = require('../shared');
 const { withoutClaudeCodeEnvironment } = require('../claude-cli/environment');
 

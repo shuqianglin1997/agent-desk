@@ -137,7 +137,7 @@ test('filesystem compression keeps original rollout bytes and existing session-l
   const meta={timestamp:'2026-01-01T00:00:00Z',type:'session_meta',payload:{id:'12345678-1234-1234-1234-123456789abc',cwd:root}};
   const bytes=JSON.stringify(meta)+'\n'+(JSON.stringify({timestamp:'2026-01-01T00:01:00Z',type:'event_msg',payload:{message:'regenerable verbose successful output'}})+'\n').repeat(2000);
   fs.writeFileSync(file,bytes);fs.utimesSync(file,1,1);
-  const {scanCodex}=require('../src/sessions');
+  const {scanCodex}=require('../src/clients/codex/sessions');
   const before=scanCodex({sessionRoot:root}),blocks=fs.statSync(file).blocks;
   const packed=compressArchivedRollouts(root,{budgetMs:5000,processCheck:nobodyHolds});
   assert.equal(packed.compressed,1);assert.ok(fs.statSync(file).blocks<blocks);

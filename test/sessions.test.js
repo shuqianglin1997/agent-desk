@@ -6,7 +6,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { scanSessions, claudeActivityFromFile, codexActivityFromFile, parseDate, cleanTitle, uuidFromFilename } = require('../src/sessions');
+const { claudeActivityFromFile } = require('../src/clients/claude/sessions');
+const { codexActivityFromFile } = require('../src/clients/codex/sessions');
+const { parseDate, cleanTitle, uuidFromFilename } = require('../src/clients/scan');
+const apps = require('../src/apps');
+// The registry's scan, the path the app uses.
+const scanSessions = (profile) => apps.getApp(profile.appId).scan(profile);
 
 // ── pure helpers ──────────────────────────────────────
 test('parseDate: unix seconds → ISO', () => {
