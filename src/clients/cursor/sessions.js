@@ -14,44 +14,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
-const { ok, fail, valueOr } = require('./core/result');
-
-function sqlite3Bin() {
-  if (process.platform === 'darwin' && fs.existsSync('/usr/bin/sqlite3')) return '/usr/bin/sqlite3';
-  return 'sqlite3'; // 其他平台走 PATH；不存在时 query 会优雅失败
-}
-
-// One read-only query. ok(rows) | fail('sqlite-unavailable' when the sqlite3
-// program cannot run, 'sqlite-query-failed' when it ran and the query failed:
-// locked, damaged, or a table this client version does not have).
-function querySqlite(dbPath, sql) {
-  let out;
-  try {
-    out = execFileSync(sqlite3Bin(), ['-readonly', '-json', dbPath, sql], {
-      encoding: 'utf8', timeout: 2000, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore']
-    });
-  } catch (error) {
-    return fail(error?.code === 'ENOENT' || error?.code === 'EACCES' ? 'sqlite-unavailable' : 'sqlite-query-failed');
-  }
-  try {
-    const trimmed = out.trim();
-    return ok(trimmed ? JSON.parse(trimmed) : []);
-  } catch (_error) {
-    return fail('sqlite-query-failed');
-  }
-}
-
-// Rows, or null when the query failed.
-function queryJson(dbPath, sql) {
-  return valueOr(querySqlite(dbPath, sql), null);
-}
-
-function storeUnreadable(code) {
-  const error = new Error(code);
-  error.code = code;
-  return error;
-}
+const { querySqlite, queryJson, storeUnreadable } = require('../sqlite');
 
 function stateDbPath(profile) {
   return path.join(profile.sessionRoot, 'User', 'globalStorage', 'state.vscdb');
@@ -155,5 +118,4 @@ function latestActivity(profile) {
   return Number.isFinite(m) && m > 0 ? m : null;
 }
 
-// queryJson 供其他 SQLite 型扫描器复用（kimi-work-sessions）
-module.exports = { scanCursor, sessionCounts, latestActivity, stateDbPath, querySqlite, queryJson, storeUnreadable };
+module.exports = { scanCursor, sessionCounts, latestActivity, stateDbPath };

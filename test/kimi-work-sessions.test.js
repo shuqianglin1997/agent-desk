@@ -10,7 +10,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const { scanKimiWork, kimiWorkDbPath } = require('../src/kimi-work-sessions');
+const { scanKimiWork, kimiWorkDbPath } = require('../src/clients/kimi-work/sessions');
 
 function sqlite3Bin() {
   if (process.platform === 'darwin' && fs.existsSync('/usr/bin/sqlite3')) return '/usr/bin/sqlite3';

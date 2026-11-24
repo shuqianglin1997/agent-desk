@@ -10,13 +10,13 @@
  *
  * sqlite 行的 updated_at 只记会话建立/标题生成，不反映后续轮次（实测确认），
  * 所以最后活跃优先读 kernel state.json 的 updatedAt。
- * 复用 cursor-sessions 的系统 sqlite3 只读查询，零第三方依赖。
+ * 复用 ../sqlite.js 的系统 sqlite3 只读查询，零第三方依赖。
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { querySqlite, storeUnreadable } = require('./cursor-sessions');
-const { parseDate, cleanTitle } = require('./clients/scan');
+const { querySqlite, storeUnreadable } = require('../sqlite');
+const { parseDate, cleanTitle } = require('../scan');
 
 function kimiWorkDbPath(profile) {
   return path.join(profile.sessionRoot, 'agents', 'main', 'sessions', 'hosted-logical', 'conversations.sqlite');

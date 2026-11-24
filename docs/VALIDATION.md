@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 3 阶段第 5 批：其余六家的会话扫描也进了各自目录。`src/cursor-sessions.js` 与 `src/kimi-work-sessions.js` 搬到 `src/clients/cursor/sessions.js`、`src/clients/kimi-work/sessions.js`，两家共用的系统 sqlite3 只读查询单独放进 `src/clients/sqlite.js`；`src/cli-client-sessions.js` 拆成 OpenCode、Gemini CLI、Qwen Code、DSH 四个目录里的 `sessions.js`，几家共用的有界读取放进 `src/clients/cli-scan.js`。三个旧文件删除，函数逐字搬动。搬动中发现并改正了一处自己引入的错误（`sqlite.js` 漏了 `fs`，查询会被当成“读不出”），提交前相关测试与会话扫描基准全部通过；另用脚本核对了 `src/clients/` 下每个文件用到的模块都已引入、每个从同级文件取的名字都确实导出。
+
 2026-11-24 架构整理第 3 阶段第 4 批：`src/sessions.js` 拆进各家目录后删除。Claude 桌面、Claude 命令行、Codex、Kimi 的会话扫描（连同各自的“谁最后说话、这一轮回完没有”的读法、Claude 命令行子代理文件的识别、Codex 根会话优先）逐字搬进 `src/clients/<id>/sessions.js`；几家共用、不点名客户端的有界遍历、读文件头尾、日期、标题等放进 `src/clients/scan.js`。活动探测原来写着 `appId === 'codex'`、`appId === 'claude-cli'` 和一张“哪些客户端能判断回完”的名单，现在改问适配器：`replyState`、`isInternalRecordFile`、`activityPreference`、`isArchivedRecordFile`，没有声明的就照旧不判断。只给测试用的旧分派函数 `scanSessions` 按客户端名字分派（其他客户端一律当成 Claude 桌面），删除后测试改走注册表，即应用实际走的路。会话扫描基准、活动、新回复、运行信号等相关测试不变通过。指标脚本的界面刷新路径清单换成新文件。
 
 2026-11-24 架构整理第 3 阶段第 3 批：Gemini 的 parts 文字只有一个读取者。Gemini CLI 的 `content` 与 Qwen Code（Gemini CLI 的分支）的 `message.parts` 是同一种格式，原来扫描器的标题、导出正文、调度中枢的最终回答各写了一份 `partsText`，三份不同：调度中枢那份不看对象里的 `parts`，扫描器那份用空格连接且不跳过“思考”。现在 `src/clients/gemini-cli/parts.js` 一份（标题传空格作分隔），`src/clients/gemini-cli/records.js` 与 `src/clients/qwen-code/records.js` 各读一家的会话记录（哪些是人的提问、哪些是模型的回答、最后一个回答），三处都用它们。新增 `test/gemini-qwen-records.test.js` 3 项：导出正文和列表标题改动前后一致；第三项在改动前失败——最后一个回答的文字放在 `{ parts }` 对象里时，调度中枢原来把上一个回答当成最终回答（Gemini 与 Qwen 都是），现在取到真正的最后一个回答。这是本批唯一的行为变化，只影响这种记录写法下调度中枢的回答。

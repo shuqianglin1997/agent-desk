@@ -7,7 +7,7 @@
 const path = require('node:path');
 // Kimi Work keeps Kimi Code's session files.
 const sessions = require('../kimi/sessions');
-const kimiWorkSessions = require('../../kimi-work-sessions');
+const kimiWorkSessions = require('./sessions');
 const transcripts = require('../../transcripts');
 const { OFFICIAL_DEFAULT_ONLY } = require('../shared');
 

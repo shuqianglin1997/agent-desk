@@ -6,7 +6,7 @@
 
 const os = require('node:os');
 const path = require('node:path');
-const cliClientSessions = require('../../cli-client-sessions');
+const cliClientSessions = require('./sessions');
 const transcripts = require('../../transcripts');
 const { withoutKeys, CLI_WINDOWS_ENTRY } = require('../shared');
 

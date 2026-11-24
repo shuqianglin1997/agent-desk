@@ -5,7 +5,7 @@
 // src/apps.js only collects the adapters (docs/ARCHITECTURE_PLAN.md §5.3).
 
 const path = require('node:path');
-const cursorSessions = require('../../cursor-sessions');
+const cursorSessions = require('./sessions');
 const { CHROMIUM_PROFILE_ISOLATION } = require('../shared');
 
 module.exports = {

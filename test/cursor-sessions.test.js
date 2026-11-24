@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const { scanCursor, sessionCounts } = require('../src/cursor-sessions');
+const { scanCursor, sessionCounts } = require('../src/clients/cursor/sessions');
 
 function sqlite3Bin() {
   if (process.platform === 'darwin' && fs.existsSync('/usr/bin/sqlite3')) return '/usr/bin/sqlite3';

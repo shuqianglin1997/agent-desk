@@ -11,7 +11,8 @@ const os = require('node:os');
 const path = require('node:path');
 const transcripts = require('../src/transcripts');
 const hub = require('../src/hub/adapters');
-const { scanGemini, scanQwen } = require('../src/cli-client-sessions');
+const { scanGemini } = require('../src/clients/gemini-cli/sessions');
+const { scanQwen } = require('../src/clients/qwen-code/sessions');
 
 function root(t) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-gemini-qwen-')));

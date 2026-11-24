@@ -87,7 +87,6 @@ src/
   main/agent-hub.js       中转服务：校验顺序、一账号一段、全局上限、层数、电量、拒绝理由码、发起方是哪只猫（上一段中转的对话，或发起进程所在的账号目录）
   renderer/hub.js         后台对话在账本里的一行（每一列的写法）、状态灯、搁板上的点线、三个动作与“允许被调用”的说明纸条；只造 DOM
   pixel/desk.js           桌面上飞的信封、落地的一圈小方块：12 步先快后慢、最多三处、可打断、后台和减少动态效果时不演
-  cli-client-sessions.js  OpenCode（opencode.db 只读）、Gemini CLI、Qwen Code 与 DSH（按帧解 zstd）的会话扫描
   ui-context.js           独立 UI 上下文与无副作用状态迁移
   index.html
   styles.css              低优先级 legacy 兼容样式
@@ -120,7 +119,7 @@ src/
       task-package-transfer.js  直送 IPC 的稳定 ID/枚举 schema
 
   apps.js                 客户端目录：按固定顺序收集各适配器，并提供与具体客户端无关的启动计划、默认路径和给界面的精简元数据
-  clients/<id>/           每个客户端一个适配器目录（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor），集中它的名称、可执行文件、数据目录、扫描区域、发现特征与密钥交接方式；clients/shared.js 放几个适配器共用、不点名任何客户端的小工具，clients/scan.js 放各家扫描器共用的有界遍历、读文件头尾、日期与标题；各家会话扫描在自己目录的 sessions.js（Claude 桌面、Claude 命令行、Codex、Kimi 已迁入）；活动探测通过适配器的 replyState（谁最后说话、这一轮回完没有）、isInternalRecordFile（子代理文件）、activityPreference 与 isArchivedRecordFile 取各家差异；每种记录格式只有一个读取者，例如 clients/codex/rollout.js 读 Codex 的 rollout（session_meta 分类出用户根会话与内部子分支、用户与助手消息、额度、首行可超过 64KB），扫描、导出与附件、调度中枢的最终回答、缓存额度和任务包都用它；clients/gemini-cli/parts.js 读 Gemini 的 parts 文字（Qwen Code 沿用同一格式），clients/gemini-cli/records.js 与 clients/qwen-code/records.js 读两家的会话记录，标题、导出和调度回答共用
+  clients/<id>/           每个客户端一个适配器目录（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor），集中它的名称、可执行文件、数据目录、扫描区域、发现特征与密钥交接方式；clients/shared.js 放几个适配器共用、不点名任何客户端的小工具，clients/scan.js 放各家扫描器共用的有界遍历、读文件头尾、日期与标题；各家会话扫描在自己目录的 sessions.js（十家都在：OpenCode 只读打开 opencode.db、DSH 按帧解 zstd、Cursor 与 Kimi Work 经 clients/sqlite.js 用系统 sqlite3 只读查询），命令行几家共用的有界读取在 clients/cli-scan.js；活动探测通过适配器的 replyState（谁最后说话、这一轮回完没有）、isInternalRecordFile（子代理文件）、activityPreference 与 isArchivedRecordFile 取各家差异；每种记录格式只有一个读取者，例如 clients/codex/rollout.js 读 Codex 的 rollout（session_meta 分类出用户根会话与内部子分支、用户与助手消息、额度、首行可超过 64KB），扫描、导出与附件、调度中枢的最终回答、缓存额度和任务包都用它；clients/gemini-cli/parts.js 读 Gemini 的 parts 文字（Qwen Code 沿用同一格式），clients/gemini-cli/records.js 与 clients/qwen-code/records.js 读两家的会话记录，标题、导出和调度回答共用
   agent-workspace.js      全局员工库在工作环境上的就绪投影
   mesh/domain/
     device.js             Device 归一化与本机设备约束
@@ -170,8 +169,6 @@ src/
   remote/
     console.*             独立多设备控制台
     host.*                目标端逐次同意与常驻停止条
-  cursor-sessions.js      Cursor SQLite 会话扫描
-  kimi-work-sessions.js   Kimi Work 会话索引
   transcripts.js          支持来源的 Markdown 导出
   session-table.js        过滤与排序纯函数；markKeyOf 给出标签、看过与在跑共用的会话键
   session-marks.js        会话标签、“看过”时间与首次启用起点（userData/session-marks.json，Main 唯一写入者），新回复的判断 freshReplyAt

@@ -263,8 +263,9 @@ const SYNC_NAMES = (() => {
 const REFRESH_PATH = [
   'src/main/ipc/local-reads.js', 'src/activity.js', 'src/clients/scan.js', 'src/clients/claude/sessions.js',
   'src/clients/claude-cli/sessions.js', 'src/clients/codex/sessions.js', 'src/clients/codex/rollout.js', 'src/clients/kimi/sessions.js',
-  'src/cli-client-sessions.js',
-  'src/cursor-sessions.js', 'src/kimi-work-sessions.js', 'src/process.js', 'src/identity.js',
+  'src/clients/cli-scan.js', 'src/clients/opencode/sessions.js', 'src/clients/gemini-cli/sessions.js',
+  'src/clients/qwen-code/sessions.js', 'src/clients/dsh-cli/sessions.js', 'src/clients/sqlite.js',
+  'src/clients/cursor/sessions.js', 'src/clients/kimi-work/sessions.js', 'src/process.js', 'src/identity.js',
   'src/session-marks.js', 'src/apps.js', 'src/mesh/main/mesh-service.js'
 ];
 

@@ -6,7 +6,7 @@
 
 const os = require('node:os');
 const path = require('node:path');
-const cliClientSessions = require('../../cli-client-sessions');
+const cliClientSessions = require('./sessions');
 
 const DSH_ENV_KEYS = Object.freeze(['DSH_HOME']);
 
