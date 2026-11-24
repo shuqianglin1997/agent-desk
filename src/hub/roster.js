@@ -11,6 +11,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const paths = require('../core/paths');
 const { adapterFor, unsupportedReason } = require('./adapters');
 
 const MAX_DEPTH = 2;
@@ -100,11 +101,7 @@ function realDirectory(value, fsImpl = fs) {
 }
 
 function within(child, parent, platform = process.platform) {
-  const pathApi = platform === 'win32' ? path.win32 : path.posix;
-  const a = platform === 'win32' ? child.toLowerCase() : child;
-  const b = platform === 'win32' ? parent.toLowerCase() : parent;
-  const relative = pathApi.relative(b, a);
-  return relative === '' || (relative !== '..' && !relative.startsWith(`..${pathApi.sep}`) && !pathApi.isAbsolute(relative));
+  return paths.isInside(child, parent, { platform, resolve: false });
 }
 
 // The working directory must be inside a folder the person allowed. Both are

@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const paths = require('../core/paths');
 const crypto = require('node:crypto');
 const readline = require('node:readline');
 const { Transform } = require('node:stream');
@@ -416,7 +417,7 @@ function walkJsonl(root) {
 function trustedCodexRecordPath(filePath, sessionRoot) {
   const absolute = path.resolve(String(filePath || ''));
   const real = fs.realpathSync(absolute);
-  const allowed = ['sessions', 'archived_sessions'].some((base) => isWithin(real, path.join(sessionRoot, base)));
+  const allowed = ['sessions', 'archived_sessions'].some((base) => paths.isInside(real, path.join(sessionRoot, base)));
   const stat = fs.lstatSync(real);
   if (!allowed || !stat.isFile() || stat.isSymbolicLink() || !real.endsWith('.jsonl')) {
     throw new Error('task-package-session-path-untrusted');
@@ -535,12 +536,6 @@ function requiredDirectory(value) {
   const resolved = path.resolve(String(value || ''));
   if (!path.isAbsolute(resolved) || resolved.includes('\0')) throw new Error('task-package-staging-root');
   return resolved;
-}
-
-function isWithin(candidate, root) {
-  const relative = path.relative(path.resolve(root), path.resolve(candidate));
-  // "..cache" is a child; only a real ".." step leaves the root.
-  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 async function hashFile(filePath) {

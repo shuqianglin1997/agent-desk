@@ -11,6 +11,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const nodePath = require('node:path');
+const paths = require('./core/paths');
 
 const path = nodePath.win32;
 const MSIX_REPOSITORY_PACKAGES_KEY =
@@ -436,7 +437,7 @@ function windowsVirtualizedPathCandidates(itemPath, app_, options = {}) {
   const base = inRoaming ? ctx.roaming : ctx.local;
   const cacheArea = inRoaming ? 'Roaming' : 'Local';
   const relative = path.relative(base, expanded);
-  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return output;
+  if (!relative || !paths.relativeStaysInside(relative, path)) return output;
   for (const packageDir of packageFamilyDirectories(app_, options)) {
     output.push({
       path: path.join(packageDir, 'LocalCache', cacheArea, relative),
@@ -476,17 +477,9 @@ function isPathInsideWindowsAppData(itemPath, options = {}) {
   return isSubpath(expanded, ctx.roaming) || isSubpath(expanded, ctx.local);
 }
 
-function isSubpath(itemPath, parentPath) {
-  if (!itemPath || !parentPath) return false;
-  const relative = path.relative(normalizeWindowsPath(parentPath), normalizeWindowsPath(itemPath));
-  // "..cache" is a child; only a real ".." step leaves the parent.
-  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
-}
-
-function pathsEqual(left, right) {
-  if (!left || !right) return false;
-  return normalizeWindowsPath(left).toLowerCase() === normalizeWindowsPath(right).toLowerCase();
-}
+// Windows path rules from src/core/paths.js (trim, \\?\ prefixes, case folding).
+const isSubpath = (itemPath, parentPath) => paths.isInside(itemPath, parentPath, paths.WINDOWS);
+const pathsEqual = (left, right) => paths.samePath(left, right, paths.WINDOWS);
 
 function normalizeWindowsPath(value) {
   if (!value) return '';

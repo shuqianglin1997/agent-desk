@@ -129,6 +129,8 @@ const {
   normalizePairingDecisionInput
 } = require('./main/ipc/pairing-approvals');
 const { resolveProfileStore } = require('./main/profile-store-policy');
+// This machine's path rules (src/core/paths.js), under the names used below.
+const { isInside: isSubpath, samePath: pathsEqual } = require('./core/paths').native;
 
 // 主进程当前界面语言：直接读持久化 settings 文件（无副作用；renderer 切语言时已写入）。
 function currentLang() {
@@ -3683,20 +3685,6 @@ function normalizeConfiguredPath(value) {
   if (trimmed === '~') return os.homedir();
   if (trimmed.startsWith('~/')) return path.join(os.homedir(), trimmed.slice(2));
   return path.resolve(trimmed);
-}
-
-function pathsEqual(left, right) {
-  if (!left || !right) return false;
-  if (process.platform === 'win32') return windows.pathsEqual(left, right);
-  return path.resolve(left) === path.resolve(right);
-}
-
-function isSubpath(itemPath, parentPath) {
-  if (!itemPath || !parentPath) return false;
-  if (process.platform === 'win32') return windows.isSubpath(itemPath, parentPath);
-  const relative = path.relative(path.resolve(parentPath), path.resolve(itemPath));
-  // "..cache" is a child; only a real ".." step leaves the parent.
-  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 function profileIsRunning(psText, profile) {

@@ -7,6 +7,7 @@
  * operating system.
  */
 
+const paths = require('./core/paths');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -35,7 +36,7 @@ function nearestExistingDirectory(itemPath, fallbackPath, options = {}) {
   }
 
   const fallbackIsDirectory = Boolean(fallbackPath && safeStat(fallbackPath, options)?.isDirectory());
-  const itemIsInsideFallback = fallbackIsDirectory && isSubpath(itemPath, fallbackPath, pathImpl);
+  const itemIsInsideFallback = fallbackIsDirectory && paths.isInside(itemPath, fallbackPath, { pathApi: pathImpl, resolve: false });
 
   // If the cached path belongs to an old/migrated root, prefer the current
   // session root over an unrelated existing ancestor such as C:\ or AppData.
@@ -44,7 +45,7 @@ function nearestExistingDirectory(itemPath, fallbackPath, options = {}) {
   let current = itemPath ? pathImpl.dirname(itemPath) : '';
   while (current) {
     candidates.push(current);
-    if (fallbackIsDirectory && pathsEqual(current, fallbackPath, pathImpl)) break;
+    if (fallbackIsDirectory && paths.samePath(current, fallbackPath, { pathApi: pathImpl, resolve: false })) break;
     const parent = pathImpl.dirname(current);
     if (parent === current) break;
     current = parent;
@@ -71,22 +72,6 @@ function nearestExistingDirectory(itemPath, fallbackPath, options = {}) {
     originalExists: Boolean(exact),
     originalIsFile: Boolean(exact?.isFile())
   };
-}
-
-function isSubpath(itemPath, parentPath, pathImpl) {
-  if (!itemPath || !parentPath) return false;
-  const relative = pathImpl.relative(parentPath, itemPath);
-  // "..cache" is a child; only a real ".." step leaves the parent.
-  return relative === '' || (relative !== '..' && !relative.startsWith(`..${pathImpl.sep}`) && !pathImpl.isAbsolute(relative));
-}
-
-function pathsEqual(left, right, pathImpl) {
-  if (!left || !right) return false;
-  const normalize = (value) => pathImpl.normalize(value);
-  if (pathImpl.sep === '\\') {
-    return normalize(left).toLowerCase() === normalize(right).toLowerCase();
-  }
-  return normalize(left) === normalize(right);
 }
 
 module.exports = { nearestExistingDirectory, safeStat };

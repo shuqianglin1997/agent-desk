@@ -10,16 +10,10 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const paths = require('./core/paths');
 
 function samePath(left, right, pathImpl = path) {
-  if (!left || !right) return false;
-  let a = pathImpl.resolve(String(left));
-  let b = pathImpl.resolve(String(right));
-  if (process.platform === 'win32') {
-    a = a.toLowerCase();
-    b = b.toLowerCase();
-  }
-  return a === b;
+  return paths.samePath(left, right, { pathApi: pathImpl, caseInsensitive: process.platform === 'win32' });
 }
 
 function mkdir(fsImpl, dir) {

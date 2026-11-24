@@ -4,6 +4,7 @@
 // can migrate stores, initialize Mesh/Keychain and start the desktop lifecycle.
 const fs = require('node:fs');
 const path = require('node:path');
+const paths = require('../core/paths');
 const apps = require('../apps');
 const locations = require('../session-location');
 const { needsShortRuntimeHome } = require('../codex-runtime-home');
@@ -185,13 +186,8 @@ function canonicalPath(value) {
 }
 
 function overlaps(left, right) {
-  const a = process.platform === 'win32' ? left.toLowerCase() : left;
-  const b = process.platform === 'win32' ? right.toLowerCase() : right;
-  const within = (child, parent) => {
-    const relative = path.relative(parent, child);
-    return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
-  };
-  return within(a, b) || within(b, a);
+  const options = { resolve: false };
+  return paths.isInside(left, right, options) || paths.isInside(right, left, options);
 }
 
 function integrationPlan(options, store) {

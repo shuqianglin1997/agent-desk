@@ -8,6 +8,7 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
+const paths = require('./core/paths');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
@@ -17,10 +18,7 @@ const POLICY_FILE = 'agentdesk-history-retention.json';
 const POLICY = Object.freeze({ version: 1, enabled: true, maxToolBytes: 8192, previewChars: 512, compressArchived: true });
 const STATUS_FILE = 'agentdesk-history-retention-status.json';
 const sha = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
-const inside = (root, file) => {
-  const rel = path.relative(root, file);
-  return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
-};
+const inside = (root, file) => paths.isInside(file, root, { resolve: false });
 
 function canonicalRoot(input) {
   if (typeof input !== 'string' || !path.isAbsolute(input)) throw new Error('history-root-invalid');

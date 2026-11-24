@@ -12,6 +12,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const paths = require('./core/paths');
 const { readJsonStore, writeJsonStore } = require('./json-store');
 const { runAfterProfileStop, canonicalRoot, readPolicy } = require('./codex-history-retention');
 const {
@@ -38,10 +39,6 @@ function safeAbsoluteProfilePath(value) {
   return resolved;
 }
 
-function pathInside(root, candidate) {
-  const relative = path.relative(root, candidate);
-  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
-}
 
 function resolveCrashpadPending(profilePath, fsImpl = fs) {
   const profileRoot = safeAbsoluteProfilePath(profilePath);
@@ -60,7 +57,7 @@ function resolveCrashpadPending(profilePath, fsImpl = fs) {
 
   const realProfileRoot = fsImpl.realpathSync(profileRoot);
   const realPendingPath = fsImpl.realpathSync(pendingPath);
-  if (!pathInside(realProfileRoot, realPendingPath)) throw new Error('crashpad-path-outside-profile');
+  if (!paths.isInside(realPendingPath, realProfileRoot, { resolve: false })) throw new Error('crashpad-path-outside-profile');
   return {
     exists: true,
     profileRoot,

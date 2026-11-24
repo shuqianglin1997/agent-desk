@@ -19,9 +19,10 @@ function profileIsRunning() {
   const context = vm.createContext({
     path, apps, windows: {}, process: { platform: 'darwin' },
     ...processModule,
+    pathsEqual: require('../src/core/paths').native.samePath,
     usesWindowsOfficialDefault: () => false
   });
-  vm.runInContext([fn('pathsEqual'), fn('profileIsRunning')].join('\n'), context);
+  vm.runInContext(fn('profileIsRunning'), context);
   return context.profileIsRunning;
 }
 

@@ -18,6 +18,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const paths = require('./core/paths');
 const crypto = require('node:crypto');
 
 function readJsonSafe(filePath) {
@@ -41,12 +42,7 @@ function claudeDesktopAccountId(profile) {
 
 // 路径比较需容忍尾分隔符与 Windows 大小写差异（路径可能经过用户手填/展开）
 function samePath(a, b) {
-  const normalize = (value) => {
-    let out = path.resolve(String(value || ''));
-    if (process.platform === 'win32') out = out.toLowerCase();
-    return out;
-  };
-  return normalize(a) === normalize(b);
+  return paths.samePath(a, b);
 }
 
 // Claude Code CLI：配置文件是 <数据目录>/.claude.json；历史默认布局下数据目录

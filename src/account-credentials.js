@@ -18,6 +18,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const paths = require('./core/paths');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const apps = require('./apps');
@@ -719,12 +720,7 @@ function fileExists(filePath) {
 }
 
 function samePath(left, right) {
-  const normalize = (value) => {
-    let resolved;
-    try { resolved = fs.realpathSync.native(value); } catch (_error) { resolved = path.resolve(value); }
-    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
-  };
-  return normalize(left) === normalize(right);
+  return paths.samePathReal(left, right);
 }
 
 // Copy an `opencode auth export` file into an account by running the
