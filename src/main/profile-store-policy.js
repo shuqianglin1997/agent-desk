@@ -13,6 +13,12 @@ function resolveProfileStore(options = {}) {
     ? options.exists(primaryFile)
     : true;
   const loaded = primaryExists ? candidates.map(options.read).find(Boolean) : null;
+  if (!loaded && primaryExists) {
+    // Present but unreadable (half-written, locked, damaged) and no usable
+    // backup: show nothing this time, but never replace the file with an
+    // empty list. A later read may succeed; an explicit save keeps a backup.
+    return [];
+  }
   if (!loaded) {
     // A missing store is a real empty workspace. Platform discovery must be an
     // explicit onboarding choice, otherwise deleting every Profile can be

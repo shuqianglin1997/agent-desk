@@ -242,6 +242,37 @@ test('a missing Profile store starts empty and remains empty after restart', () 
   }
 });
 
+test('a Profile store that exists but cannot be read is never overwritten with an empty list', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-unreadable-profiles-'));
+  const storeFile = path.join(directory, 'profiles.json');
+  const backupFile = `${storeFile}.bak`;
+  const writes = [];
+  const load = () => resolveProfileStore({
+    candidates: [storeFile, backupFile],
+    exists: fs.existsSync,
+    read: (filePath) => readJsonStore(filePath, (parsed) => Array.isArray(parsed?.profiles)),
+    normalize: (profiles) => profiles.map((profile) => ({ ...profile })),
+    persist: (profiles, options) => {
+      writes.push(profiles);
+      writeJsonStore(storeFile, { version: 2, profiles }, { ...options, backupFile });
+    },
+    version: 2
+  });
+  try {
+    // A half-written or momentarily unreadable primary and no usable backup.
+    const damaged = '{"version":2,"profiles":[{"id":"real-profile","appId":"codex"}';
+    fs.writeFileSync(storeFile, damaged);
+    assert.deepEqual(load(), []);
+    assert.equal(fs.readFileSync(storeFile, 'utf8'), damaged, 'the store on disk is left as it was');
+    assert.deepEqual(writes, []);
+    // Once readable again, the real Profiles come back.
+    fs.writeFileSync(storeFile, JSON.stringify({ version: 2, profiles: [{ id: 'real-profile', appId: 'codex' }] }));
+    assert.deepEqual(load(), [{ id: 'real-profile', appId: 'codex' }]);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('first-Agent onboarding accepts only stable IDs/enums and performs no network action', () => {
   assert.throws(() => normalizeFirstAgentInput({
     displayName: 'Peter',

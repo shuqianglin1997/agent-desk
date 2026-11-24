@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:42:02.214Z",
-  "baseCommit": "3b632111b33816ec8aaa6e75a723b395ce657d3e",
+  "recordedAt": "2026-11-24T16:45:54.044Z",
+  "baseCommit": "a192fa4aa5fc4bdb6c53a789d1c8c8f4e00199f7",
   "uncommitted": true,
-  "sourceSha256": "487827d9b11b656c7ac6b2058adf1d63695f9772e1a0a2f9f2ec657a672dc303",
+  "sourceSha256": "7f7574c3af8aa8776dec7c94bf15f65af1f6df2d110f0de72c84c5cef3052302",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 818,
+      "pass": 816,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full background Node suite after architecture phase 1 item 6 (unreadable profiles.json is never overwritten with an empty list); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:45:54.044Z",
+      "sourceSha256": "7f7574c3af8aa8776dec7c94bf15f65af1f6df2d110f0de72c84c5cef3052302"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-24T16:45:54.044Z",
+      "sourceSha256": "7f7574c3af8aa8776dec7c94bf15f65af1f6df2d110f0de72c84c5cef3052302"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",
