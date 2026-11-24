@@ -130,10 +130,10 @@ For AI assistants, start with [AI use and customization](docs/AI_INTERFACE.md) a
 - `src/profile-runtime.js`: exact Profile-process ownership, duplicate-launch checks, normal-exit cleanup, bounded Crashpad retention, persistent fuse state, and narrow safe cleanup.
 - `src/device-journey.js`, `src/main/ipc/pairing-approvals.js`: guided add-device state and both-side identity confirmation before certificate issuance.
 - `scripts/ui-acceptance.js`: real 1040 × 840 Electron task-path acceptance using temporary user data.
-- `src/apps.js`: supported client catalog and session scanners.
+- `src/apps.js`: supported client catalog; it collects one adapter per client from `src/clients/<id>/`, which holds that client's session scanner, record readers, transcript and other knowledge.
 - `src/cli-discovery.js`: read-only CLI launcher discovery.
 - `src/tool-maintenance.js`: fixed tool catalog, version/source detection, and safe update plans.
-- `src/mesh/domain/session-identity.js`: pure Codex physical-record and logical-conversation classification.
+- `src/clients/codex/rollout.js`: the one reader of Codex rollouts, including pure physical-record and logical-conversation classification.
 - `src/mesh/domain/agent-catalog.js`, `device.js`, `identity-link.js`: local global-Agent catalog and device invariants.
 - `src/agent-workspace.js`, `src/mesh/domain/agent-deployment.js`, `src/mesh/main/provisioning-service.js`: full-library device projection and recoverable readiness jobs.
 - `src/mesh/protocol/`: membership, pairing, exact feature negotiation, signed catalog/envelopes, device inventory, encrypted payload, and signaling authentication.

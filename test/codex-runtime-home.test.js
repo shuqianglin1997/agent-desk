@@ -9,7 +9,7 @@ const {
   socketPathBytes,
   needsShortRuntimeHome,
   ensureCodexRuntimeHome
-} = require('../src/codex-runtime-home');
+} = require('../src/clients/codex/runtime-home');
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-home-'));

@@ -10,7 +10,7 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const apps = require('../src/apps');
-const { codexHomeKey } = require('../src/codex-account-import');
+const { codexHomeKey } = require('../src/clients/codex/account-import');
 const { createLocationRegistrar } = require('../src/main/profile-registration');
 
 const main = fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8');

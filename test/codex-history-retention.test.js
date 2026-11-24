@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
-const { POLICY, POLICY_FILE, maintainHistory, compactToolItem, runAfterProfileStop, compressArchivedRollouts, LSOF_PROCESS_CHECK } = require('../src/codex-history-retention');
+const { POLICY, POLICY_FILE, maintainHistory, compactToolItem, runAfterProfileStop, compressArchivedRollouts, LSOF_PROCESS_CHECK } = require('../src/clients/codex/history-retention');
 const { ProfileRuntimeSupervisor } = require('../src/profile-runtime');
 
 // Process checks are injected: what else this machine has open (or how slow
@@ -22,7 +22,7 @@ function holding(files) {
 // Runs the worker CLI in its own process with an injected check.
 function workerCli(args, check) {
   const { spawnSync } = require('node:child_process');
-  const source = `const m=require(${JSON.stringify(require.resolve('../src/codex-history-retention'))});
+  const source = `const m=require(${JSON.stringify(require.resolve('../src/clients/codex/history-retention'))});
     const check=${check === 'nobody' ? '{holders:()=>[],heldAmong:()=>new Set(),isIdle:()=>true}' : 'undefined'};
     const r=m.runCli(JSON.parse(process.env.AGENTDESK_TEST_ARGS),{processCheck:check});
     if(r.output)process.stdout.write(r.output);if(r.error)process.stderr.write(r.error);process.exitCode=r.code;`;
@@ -149,7 +149,7 @@ test('filesystem compression keeps original rollout bytes and existing session-l
 
 test('automatic CLI rechecks opt-in in the worker, including a policy removed before launch', {skip:process.platform!=='darwin'}, t=>{
   const {root}=fixture(t);const {spawnSync}=require('node:child_process');
-  const r=spawnSync(process.execPath,[require.resolve('../src/codex-history-retention'),'--root',root,'--apply','--automatic'],{encoding:'utf8'});
+  const r=spawnSync(process.execPath,[require.resolve('../src/clients/codex/history-retention'),'--root',root,'--apply','--automatic'],{encoding:'utf8'});
   assert.equal(r.status,0);assert.deepEqual(JSON.parse(r.stdout),{skipped:'not-enabled'});
 });
 

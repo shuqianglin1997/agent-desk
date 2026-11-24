@@ -1,11 +1,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const paths = require('../core/paths');
+const paths = require('../../core/paths');
 const crypto = require('node:crypto');
 const readline = require('node:readline');
 const { Transform } = require('node:stream');
-const codexRollout = require('../clients/codex/rollout');
-const { extractTaskPackageEntry } = require('./format');
+const codexRollout = require('./rollout');
+const { extractTaskPackageEntry } = require('../../task-package/format');
 
 const CODEX_TASK_ADAPTER_ID = 'codex-rollout-jsonl';
 const CODEX_TASK_ADAPTER_VERSION = 1;

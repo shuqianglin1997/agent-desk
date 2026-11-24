@@ -11,8 +11,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const codexRollout = require('./clients/codex/rollout');
-const { normalizeCodexRateLimits, quotaUnavailable } = require('./quota');
+const codexRollout = require('./rollout');
+const { normalizeCodexRateLimits, quotaUnavailable } = require('../../quota');
 
 const RPC_TIMEOUT_MS = 30_000;
 const MAX_STDOUT_BUFFER = 1024 * 1024;

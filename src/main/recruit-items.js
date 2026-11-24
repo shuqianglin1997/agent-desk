@@ -16,7 +16,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const accountDiscovery = require('../account-discovery');
 const credentialImport = require('../credential-import');
-const { codexProfileAtHome, codexHomeKey, profileWithSameCodexAuth, readCodexAuthFile } = require('../codex-account-import');
+const { codexProfileAtHome, codexHomeKey, profileWithSameCodexAuth, readCodexAuthFile } = require('../clients/codex/account-import');
 
 class RecruitItemError extends Error {
   constructor(code) { super(code); this.code = code; }

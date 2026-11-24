@@ -14,7 +14,7 @@ const {
   queryCodexAppServer,
   readCodexQuota,
   readCachedCodexQuota
-} = require('../src/codex-quota');
+} = require('../src/clients/codex/quota');
 
 function mkTmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-quota-'));

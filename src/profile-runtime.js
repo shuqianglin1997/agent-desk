@@ -14,7 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const paths = require('./core/paths');
 const { readJsonStore, writeJsonStore } = require('./json-store');
-const { runAfterProfileStop, canonicalRoot, readPolicy } = require('./codex-history-retention');
+const { runAfterProfileStop, canonicalRoot, readPolicy } = require('./clients/codex/history-retention');
 const {
   snapshotProcessRecords,
   findProfileProcesses,

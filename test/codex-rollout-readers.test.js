@@ -10,8 +10,8 @@ const os = require('node:os');
 const path = require('node:path');
 const apps = require('../src/apps');
 const hub = require('../src/hub/adapters');
-const { readCachedCodexQuota } = require('../src/codex-quota');
-const { captureCodexTaskSession } = require('../src/task-package/codex-adapter');
+const { readCachedCodexQuota } = require('../src/clients/codex/quota');
+const { captureCodexTaskSession } = require('../src/clients/codex/task-package');
 
 function line(type, payload, timestamp = '2026-11-24T10:00:00.000Z') { return JSON.stringify({ timestamp, type, payload }); }
 const userItem = (text) => line('response_item', { type: 'message', role: 'user', content: [{ type: 'input_text', text }] });

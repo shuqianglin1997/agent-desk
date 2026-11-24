@@ -8,8 +8,8 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
-const paths = require('./core/paths');
-const { writeFileAtomic } = require('./core/json-file');
+const paths = require('../../core/paths');
+const { writeFileAtomic } = require('../../core/json-file');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');

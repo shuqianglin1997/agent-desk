@@ -6,7 +6,7 @@
  * limited to two concurrent Codex processes.
  */
 
-const { readCodexQuota, readCachedCodexQuota } = require('./codex-quota');
+const { readCodexQuota, readCachedCodexQuota } = require('./clients/codex/quota');
 const { quotaUnavailable } = require('./quota');
 
 const SUCCESS_TTL_MS = 5 * 60_000;

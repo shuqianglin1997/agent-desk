@@ -8,7 +8,7 @@ const paths = require('../core/paths');
 const { readProfileFile } = require('../core/profile-file');
 const apps = require('../apps');
 const locations = require('../session-location');
-const { needsShortRuntimeHome } = require('../codex-runtime-home');
+const { needsShortRuntimeHome } = require('../clients/codex/runtime-home');
 const { CLI_DEFINITIONS, discoverCli } = require('../cli-discovery');
 const { provisioningAdapterDescriptor } = require('../mesh/main/provisioning-adapters');
 

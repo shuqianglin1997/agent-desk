@@ -8,7 +8,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { resolveCodexCli } = require('./codex-quota');
+const { resolveCodexCli } = require('./clients/codex/quota');
 
 const CLI_DEFINITIONS = Object.freeze({
   claude: Object.freeze({

@@ -17,7 +17,7 @@ const {
   captureCodexTaskSession,
   importCodexTaskSession,
   importedConversationTitle
-} = require('./codex-adapter');
+} = require('../clients/codex/task-package');
 
 const IMPORT_DRAFT_TTL_MS = 30 * 60_000;
 const HISTORY_LIMIT = 200;

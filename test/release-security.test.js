@@ -128,18 +128,19 @@ test('RunAsNode 兼容面只限 Main 固定 CLI launcher 与历史维护 worker'
 
   // These are the only fixed entry points. The opt-in history worker runs its
   // own packaged module; it does not accept an arbitrary script or command.
+  // (The Codex ones live in the Codex adapter folder since architecture phase 3.)
   assert.deepEqual(runAsNodeSources, [
     'src/cli-discovery.js',
-    'src/codex-history-retention.js',
-    'src/codex-quota.js'
+    'src/clients/codex/history-retention.js',
+    'src/clients/codex/quota.js'
   ]);
-  for (const relativePath of ['src/cli-discovery.js', 'src/codex-quota.js']) {
+  for (const relativePath of ['src/cli-discovery.js', 'src/clients/codex/quota.js']) {
     const contents = fs.readFileSync(path.join(root, relativePath), 'utf8');
     assert.match(contents, /command: options\.nodeExecutable \|\| process\.execPath/);
     assert.match(contents, /extraEnv: \{ ELECTRON_RUN_AS_NODE: '1' \}/);
   }
 
-  const historyWorker = fs.readFileSync(path.join(root, 'src/codex-history-retention.js'), 'utf8');
+  const historyWorker = fs.readFileSync(path.join(root, 'src/clients/codex/history-retention.js'), 'utf8');
   assert.match(historyWorker, /const args = \[__filename, '--root', root, '--apply', '--automatic'\]/);
   assert.match(historyWorker, /spawn\(options\.execPath \|\| process\.execPath, args,/);
   assert.match(historyWorker, /env: \{ \.\.\.process\.env, ELECTRON_RUN_AS_NODE: '1' \}/);

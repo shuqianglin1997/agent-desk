@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 3 阶段第 7 批：Codex 独有的五个模块搬进 `src/clients/codex/`：`codex-quota.js` → `quota.js`、`codex-account-import.js` → `account-import.js`、`codex-runtime-home.js` → `runtime-home.js`、`codex-history-retention.js` → `history-retention.js`、`task-package/codex-adapter.js` → `task-package.js`，内容只改了引用路径。安全检查 `test/release-security.test.js` 按路径列出允许使用 `ELECTRON_RUN_AS_NODE` 的文件，仍然恰好三个、内容断言不变，只把两个 Codex 文件的路径换成新位置；`docs/RELEASING.md` 与 `docs/INTERNAL.md` 同步。没有新增任何调用面。
+
 2026-11-24 架构整理第 3 阶段第 6 批：导出正文与附件也归到各家目录。`src/transcripts.js` 拆成各家目录里的 `transcript.js`，共用的成段、日期、文件名建议和有界读取放进 `src/clients/transcript.js`，旧文件删除。Claude 命令行的记录有了唯一读取者 `src/clients/claude-cli/records.js`（哪句是人打的、回复的文字与工具调用、最后一个回答、附件要的原始消息），扫描标题、导出正文、导出附件、调度中枢的最终回答都用它；Kimi 的 wire 记录同样由 `src/clients/kimi/wire.js` 一处读取，Kimi Code 与 Kimi Work 共用。导出附件原来按客户端名字分四种写法，现在由适配器声明 `attachments`（哪个记录文件、哪一行是消息、Codex 另有生成的图片，移进 `src/clients/codex/attachments.js`），记录里内嵌附件的解码放进 `src/clients/media.js`。新增 `test/claude-kimi-records.test.js` 2 项，改动前后都通过；`test/session-actions.test.js` 的导出夹具原来用一个只有 `exportTranscript` 的假客户端、靠 `appId` 决定附件，现在附件由客户端给出（应用里客户端总是注册表的适配器），夹具改为 Codex 适配器只替换正文，断言不变。
 
 2026-11-24 架构整理第 3 阶段第 5 批：其余六家的会话扫描也进了各自目录。`src/cursor-sessions.js` 与 `src/kimi-work-sessions.js` 搬到 `src/clients/cursor/sessions.js`、`src/clients/kimi-work/sessions.js`，两家共用的系统 sqlite3 只读查询单独放进 `src/clients/sqlite.js`；`src/cli-client-sessions.js` 拆成 OpenCode、Gemini CLI、Qwen Code、DSH 四个目录里的 `sessions.js`，几家共用的有界读取放进 `src/clients/cli-scan.js`。三个旧文件删除，函数逐字搬动。搬动中发现并改正了一处自己引入的错误（`sqlite.js` 漏了 `fs`，查询会被当成“读不出”），提交前相关测试与会话扫描基准全部通过；另用脚本核对了 `src/clients/` 下每个文件用到的模块都已引入、每个从同级文件取的名字都确实导出。

@@ -49,7 +49,7 @@ test('samePathReal follows symbolic links of paths that exist', (t) => {
 
 test('the former copies now come from core', () => {
   const sources = ['main.js', 'windows.js', 'path-utils.js', 'profile-runtime.js', 'hub/roster.js', 'automation/service.js',
-    'codex-history-retention.js', 'identity.js', 'profile-home.js', 'account-credentials.js', 'task-package/codex-adapter.js'];
+    'clients/codex/history-retention.js', 'identity.js', 'profile-home.js', 'account-credentials.js', 'clients/codex/task-package.js'];
   for (const file of sources) {
     const text = fs.readFileSync(path.join(__dirname, '../src', file), 'utf8');
     assert.match(text, /require\('(?:\.\.?\/)+core\/paths'\)/, file);

@@ -11,7 +11,7 @@ const {
   profileWithSameCodexAuth,
   readCodexAuthFile,
   stageCodexAuthHome
-} = require('../src/codex-account-import');
+} = require('../src/clients/codex/account-import');
 const { getApp, profileLaunchPlan } = require('../src/apps');
 
 const chatgptAuth = JSON.stringify({

@@ -23,7 +23,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { readJson } = require('./core/json-file');
 const apps = require('./apps');
-const { readCodexAuthFile } = require('./codex-account-import');
+const { readCodexAuthFile } = require('./clients/codex/account-import');
 
 const DEFAULT_LIMITS = Object.freeze({
   maxDepth: 4,

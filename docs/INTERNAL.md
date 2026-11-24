@@ -104,7 +104,6 @@ src/
 
   task-package/
     format.js             流式加密容器、清单归一、逐项校验与受控解包
-    codex-adapter.js      Codex 根会话/internal-child 一致捕获与事务导入
     service.js            可信来源解析、Git 检查点、附件、导入草稿和本地历史
 
   main/
@@ -119,7 +118,7 @@ src/
       task-package-transfer.js  直送 IPC 的稳定 ID/枚举 schema
 
   apps.js                 客户端目录：按固定顺序收集各适配器，并提供与具体客户端无关的启动计划、默认路径和给界面的精简元数据
-  clients/<id>/           每个客户端一个适配器目录（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor），集中它的名称、可执行文件、数据目录、扫描区域、发现特征与密钥交接方式；clients/shared.js 放几个适配器共用、不点名任何客户端的小工具，clients/scan.js 放各家扫描器共用的有界遍历、读文件头尾、日期与标题；各家会话扫描在自己目录的 sessions.js（十家都在：OpenCode 只读打开 opencode.db、DSH 按帧解 zstd、Cursor 与 Kimi Work 经 clients/sqlite.js 用系统 sqlite3 只读查询），命令行几家共用的有界读取在 clients/cli-scan.js；导出正文在各家目录的 transcript.js，共用的成段、日期与文件名在 clients/transcript.js；导出附件由适配器的 attachments 声明（哪个记录文件、哪一行是消息、Codex 另有生成的图片），记录里内嵌附件的解码在 clients/media.js；clients/claude-cli/records.js 读 Claude 命令行的记录、clients/kimi/wire.js 读 Kimi 的 wire 记录（Kimi Work 同一格式）；活动探测通过适配器的 replyState（谁最后说话、这一轮回完没有）、isInternalRecordFile（子代理文件）、activityPreference 与 isArchivedRecordFile 取各家差异；每种记录格式只有一个读取者，例如 clients/codex/rollout.js 读 Codex 的 rollout（session_meta 分类出用户根会话与内部子分支、用户与助手消息、额度、首行可超过 64KB），扫描、导出与附件、调度中枢的最终回答、缓存额度和任务包都用它；clients/gemini-cli/parts.js 读 Gemini 的 parts 文字（Qwen Code 沿用同一格式），clients/gemini-cli/records.js 与 clients/qwen-code/records.js 读两家的会话记录，标题、导出和调度回答共用
+  clients/<id>/           每个客户端一个适配器目录（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor），集中它的名称、可执行文件、数据目录、扫描区域、发现特征与密钥交接方式；clients/shared.js 放几个适配器共用、不点名任何客户端的小工具，clients/scan.js 放各家扫描器共用的有界遍历、读文件头尾、日期与标题；各家会话扫描在自己目录的 sessions.js（十家都在：OpenCode 只读打开 opencode.db、DSH 按帧解 zstd、Cursor 与 Kimi Work 经 clients/sqlite.js 用系统 sqlite3 只读查询），命令行几家共用的有界读取在 clients/cli-scan.js；Codex 独有的模块也在它的目录里：quota.js（本机官方 RPC 额度与会话日志里的缓存额度）、account-import.js、runtime-home.js、history-retention.js、task-package.js（任务包里根会话与内部子记录的一致捕获与事务导入）；导出正文在各家目录的 transcript.js，共用的成段、日期与文件名在 clients/transcript.js；导出附件由适配器的 attachments 声明（哪个记录文件、哪一行是消息、Codex 另有生成的图片），记录里内嵌附件的解码在 clients/media.js；clients/claude-cli/records.js 读 Claude 命令行的记录、clients/kimi/wire.js 读 Kimi 的 wire 记录（Kimi Work 同一格式）；活动探测通过适配器的 replyState（谁最后说话、这一轮回完没有）、isInternalRecordFile（子代理文件）、activityPreference 与 isArchivedRecordFile 取各家差异；每种记录格式只有一个读取者，例如 clients/codex/rollout.js 读 Codex 的 rollout（session_meta 分类出用户根会话与内部子分支、用户与助手消息、额度、首行可超过 64KB），扫描、导出与附件、调度中枢的最终回答、缓存额度和任务包都用它；clients/gemini-cli/parts.js 读 Gemini 的 parts 文字（Qwen Code 沿用同一格式），clients/gemini-cli/records.js 与 clients/qwen-code/records.js 读两家的会话记录，标题、导出和调度回答共用
   agent-workspace.js      全局员工库在工作环境上的就绪投影
   mesh/domain/
     device.js             Device 归一化与本机设备约束
@@ -181,7 +180,6 @@ src/
   identity-groups.js      同一身份的跨客户端归组
   activity.js             活动聚合
   quota.js                额度展示纯函数
-  codex-quota.js          Codex 本机官方 RPC
   quota-service.js        并发、缓存和失败降级
 
   core/                   最底层的纯函数与基础件，不用 electron、不引用上层（分层检查会失败）：结果与事实类型 result.js、路径判断 paths.js、读 JSON 与原子写入（同步与异步各一）和带版本的小存储 json-file.js、profiles.json 的唯一读取 profile-file.js、“在跑 / 活跃 / 额度新鲜”时间窗 time-windows.js
@@ -369,9 +367,9 @@ macOS 标准候选由注册表给出并在存在已知 bundle id 时重新读取
 
 ### Codex 历史的显式保留策略
 
-`codex-history-retention.js` 是 `ProfileRuntimeSupervisor` 的默认关闭、按 canonical `sessionRoot` 明确启用的历史维护器。`agentdesk-history-retention.json` 为 `{"version":1,"enabled":true,"maxToolBytes":8192,"previewChars":512,"compressArchived":true}`；保留已有自定义值，禁用或删除策略即停止此根维护。既有监管循环启动后和每小时检查一次，另在受管客户端退出时收尾；同一时刻只启动一个周期 worker，同 Profile 重开等待在途维护，不新增 daemon、不终止客户端。已启用的默认/custom 根同样可参加周期维护，未启用的根不写状态文件。
+`clients/codex/history-retention.js` 是 `ProfileRuntimeSupervisor` 的默认关闭、按 canonical `sessionRoot` 明确启用的历史维护器。`agentdesk-history-retention.json` 为 `{"version":1,"enabled":true,"maxToolBytes":8192,"previewChars":512,"compressArchived":true}`；保留已有自定义值，禁用或删除策略即停止此根维护。既有监管循环启动后和每小时检查一次，另在受管客户端退出时收尾；同一时刻只启动一个周期 worker，同 Profile 重开等待在途维护，不新增 daemon、不终止客户端。已启用的默认/custom 根同样可参加周期维护，未启用的根不写状态文件。
 
-手动 `node src/codex-history-retention.js --root <绝对根>` 只预览，`--apply` 才写；`--apply --enable-policy` 只在成功后创建缺失策略，不覆盖已有值。客户端打开时，`--open-archived` 只处理至少一小时前更新的已归档完整轮次；周期维护另使用 `--open-idle`，纳入超过一天无更新、无未知/未完成轮次、原始 rollout 仍在此根且无进程持有它的未归档会话。状态更新复核与 item JSON 的 CAS 在每批十六项提交前执行。自动 worker 有 40 秒工作预算和 60 秒进程上限，超时事务由 SQLite 回滚、后续周期重试；根级 PID 锁防止双重维护，死亡 worker 锁可恢复。唯一 `agentdesk-history-retention-status.json` 原子覆盖本次起止、结果和实际 worker SHA-256，不积累运行日志。
+手动 `node src/clients/codex/history-retention.js --root <绝对根>` 只预览，`--apply` 才写；`--apply --enable-policy` 只在成功后创建缺失策略，不覆盖已有值。客户端打开时，`--open-archived` 只处理至少一小时前更新的已归档完整轮次；周期维护另使用 `--open-idle`，纳入超过一天无更新、无未知/未完成轮次、原始 rollout 仍在此根且无进程持有它的未归档会话。状态更新复核与 item JSON 的 CAS 在每批十六项提交前执行。自动 worker 有 40 秒工作预算和 60 秒进程上限，超时事务由 SQLite 回滚、后续周期重试；根级 PID 锁防止双重维护，死亡 worker 锁可恢复。唯一 `agentdesk-history-retention-status.json` 原子覆盖本次起止、结果和实际 worker SHA-256，不积累运行日志。
 
 维护只改已结束轮次（completed / interrupted / failed）中成功项的 paginated `thread_items.item_json`：生成图片先逐字节验证私有 PNG，缺失时保全到同根 `generated_images/history-media/<sha256>.png`，同哈希共享文件，再清空冗余 Base64；成功工具超长文本保留首尾和裁剪标记，嵌套序列化的 MCP 结果逐层处理文本并保留媒体/资源。用户与助手原始 JSON 哈希不变；失败、未完成、补丁、图片、资源和未知结构化数据保留，realtime items、轮次、索引与继承关系不改。完整性检查后 VACUUM 回收空闲页，自动仅在客户端关闭、空闲达 64 MiB 且预算允许时执行；在线先让空闲页复用，避免 VACUUM 把整库写入被读事务钉住的 WAL。归档原文只对无进程持有且闲置一小时的 `.jsonl` 使用 macOS 透明压缩，逐文件 SHA-256 不变并实际节省空间才原子替换；手动可加 `--compress-archives`，周期压缩最多 20 秒并服从总预算。暂存及时移除，旧的本模块私有暂存有界收口。当前其他原生 `.zst` 消费者未全部适配，继续保持 `local_thread_store_compression=false`，不通过改格式隐藏记录。原生提供等价维护 API 后退役本适配器；未知 schema/进程检查失败一律延期。
 
@@ -509,7 +507,7 @@ npm run build:mac:dir
 - 已退休的执行与自动交接编排模块不存在；focused/checked 会话只形成临时动作集合，并只调用最小定位格式。TaskPackage 只从一条聚焦本机会话显式建立不可变快照；
 - 工具发现不携带协议或会话参数；
 - package 不包含会话协议 SDK；
-- Electron 成品必须只从 `app.asar` 加载且匹配五项 fuse；`RunAsNode` 的调用面不得超出现有 `cli-discovery.js` 与 `codex-quota.js` 两个固定 launcher；
+- Electron 成品必须只从 `app.asar` 加载且匹配五项 fuse；`RunAsNode` 的调用面不得超出现有 `cli-discovery.js` 与 `clients/codex/quota.js` 两个固定 launcher（外加用户启用的 `clients/codex/history-retention.js` 维护进程）；
 - 成品首次使用 smoke 必须使用同一确切产物完成三次启动，产物类型、版本、UI、首次使用状态、零 Mesh 网络、进程与回环调试端点都有白名单；
 - Preview 发布只接受受保护的 Preview Tag、精确三资产、Draft/公开状态与摘要/实际下载字节一致；公开后失败必须回 Draft 并烧毁候选版本；
 - 工作台只渲染 Agent 卡片和会话列表。会话操作集中在会话工具栏：复制会话信息（唯一填充主按钮）、打开目录、导出，以及包含“发送到设备”和“交接任务”的“送出”菜单。

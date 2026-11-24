@@ -49,14 +49,14 @@ const {
   defaultMacApplicationActivatorPath,
   activateMacProfileApplication
 } = require('./mac-application-activator');
-const { ensureCodexRuntimeHome } = require('./codex-runtime-home');
+const { ensureCodexRuntimeHome } = require('./clients/codex/runtime-home');
 const {
   canonicalDirectory,
   codexHomeKey,
   discoverCodexHomes,
   inspectCodexHome,
   stageCodexAuthHome
-} = require('./codex-account-import');
+} = require('./clients/codex/account-import');
 const { packagedCliArguments, createCliBroker, runPackagedCli } = require('./automation/packaged-cli');
 const { discoverLocalProfileLocations, profileSignInStatus } = require('./automation/local-locations');
 const { InterfaceError } = require('./automation/service');

@@ -248,7 +248,7 @@ function mainProcessFiles(root) {
       if (target.endsWith('.js')) visit(target);
     }
   };
-  for (const entry of ['src/main.js', 'src/automation/cli.js', 'src/codex-history-retention.js']) visit(entry);
+  for (const entry of ['src/main.js', 'src/automation/cli.js', 'src/clients/codex/history-retention.js']) visit(entry);
   return [...seen].sort();
 }
 
