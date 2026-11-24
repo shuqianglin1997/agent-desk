@@ -1,25 +1,19 @@
 {
-  "recordedAt": "2026-11-24T20:20:27.882Z",
-  "sourceSha256": "85cb93ca9208debc7e8690b6c1a0b5443f11d5bf308dea1f74c4f529f50612e6",
+  "recordedAt": "2026-11-24T22:02:02.627Z",
+  "sourceSha256": "e9e4ed0842c9eff1f76778a73e3d328dec4cb1e62dbba36556a8410103b4b477",
   "schemaVersion": 1,
-  "srcFiles": 251,
-  "srcJsLines": 61543,
+  "srcFiles": 276,
+  "srcJsLines": 62526,
   "mainJsLines": 680,
-  "rendererJsLines": 9774,
+  "rendererJsLines": 161,
   "rendererScripts": 31,
   "functions": {
-    "total": 4041,
+    "total": 4097,
     "moduleWrappers": 30,
-    "rendererJs": 597,
+    "rendererJs": 11,
     "mainJs": 185,
     "over150Lines": 17,
     "longest": [
-      {
-        "file": "src/renderer.js",
-        "name": "bindEvents",
-        "line": 1333,
-        "lines": 942
-      },
       {
         "file": "src/mesh/peer/e2e-runner.js",
         "name": "<arrow>",
@@ -63,9 +57,9 @@
         "lines": 187
       },
       {
-        "file": "src/renderer.js",
+        "file": "src/renderer/views/transfers.js",
         "name": "renderTransferList",
-        "line": 8414,
+        "line": 198,
         "lines": 181
       },
       {
@@ -85,6 +79,12 @@
         "name": "attach",
         "line": 24,
         "lines": 171
+      },
+      {
+        "file": "src/renderer/views/devices.js",
+        "name": "bindDeviceEvents",
+        "line": 1104,
+        "lines": 169
       }
     ]
   },
@@ -234,10 +234,10 @@
     }
   },
   "tests": {
-    "files": 137,
-    "testCallsAtLineStart": 894,
-    "filesReadingSourceAsText": 43,
-    "textOnlyFiles": 14,
+    "files": 144,
+    "testCallsAtLineStart": 913,
+    "filesReadingSourceAsText": 52,
+    "textOnlyFiles": 15,
     "textOnlyList": [
       "test/codex-config-ownership.test.js",
       "test/device-journey-ui.test.js",
@@ -249,6 +249,7 @@
       "test/quota-ui.test.js",
       "test/recruit-ui.test.js",
       "test/release-security.test.js",
+      "test/renderer-overlays.test.js",
       "test/sessions-load-race.test.js",
       "test/sessions-refresh-on-activity.test.js",
       "test/simplification.test.js",
