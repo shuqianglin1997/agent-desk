@@ -253,7 +253,7 @@ core       纯函数与基础件：路径、标识、时间窗、结果与事实
 2. 起点：“猫有多忙、新回复、颜色标签”做完后，把 `main` 推到远端，并打标记 `pre-architecture-cleanup` 作为可退回的点，然后开始第 0 阶段。
 3. 阶段之间不等所有者逐个同意。每个阶段结束由规划会话核对检查结果后放行下一个；遇到第 7 节“不动的东西”、需要改变行为、或与基准冲突时停下来问。
 4. 界面用词（建议：全局对象只说“账号”，本机登录位置只说“位置”）：第 8 阶段先给出改动前后的词表，所有者看过再改看得见的文字。
-5. 只在开发时用的类型检查：方向同意；它需要下载安装依赖，到第 2 阶段之后先说明要装什么，所有者点头再装。
+5. 只在开发时用的类型检查：方向同意；它需要下载安装依赖，到第 2 阶段之后先说明要装什么，所有者点头再装。2026-11-24 所有者同意，装了 `typescript` 6.0.3，只查 `src/core/`，见 9.1 第 4 阶段。
 6. 安装到本机实看：仍然只在所有者说“装上”时进行。第 1、4、6 阶段结束时会提醒可以看了。
 
 ## 9.1 阶段记录
@@ -433,8 +433,10 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 - 设备网模式下的会话清单还从 `mesh.db` 同步读（`node:sqlite`），本阶段没有动；隐藏窗口检查的数据没有建设备网，不覆盖这条路。
 - 命令行 Claude 的记录里出现单独一行 JSON `null` 时，原来整个账号的扫描会抛错，现在跳过这一行。
 - 改动的测试：`test/quota-ipc.test.js` 跟着 `await loadProfiles()` 改了一处源码文字，`test/session-export-write.test.js` 的 vm 上下文换成新函数名；断言内容都没有放宽。
-- 新文件（`process-snapshots.js`、`session-index.js`、`scan-host.js`、`scan-worker.js`、`activity-files.js`、`clients/file-memo.js`）还不在 `npm run check` 的逐文件语法检查清单里：清单在 `package.json`，按约定等规划会话的消息再改；它们都被测试加载过。只在开发时用的 TypeScript 已装上，配置和 `typecheck` 脚本同样等消息。
+- 新文件（`process-snapshots.js`、`session-index.js`、`scan-host.js`、`scan-worker.js`、`activity-files.js`、`clients/file-memo.js`）收尾后随类型检查一批加进了 `npm run check` 的逐文件语法检查清单（清单在 `package.json`，规划会话放行后才改）。
 - 第 9 节第 6 条：第 4 阶段结束，可以装上实看了；仍然只在所有者说“装上”时进行。
+
+只在开发时用的类型检查（收尾后的一批）：开发依赖 `typescript` 6.0.3，精确版本，由规划会话在所有者同意后安装并提交（`6fc92f7`），它本身没有依赖；生产依赖仍为空，打包的文件清单不含它。为什么要：`src/core/` 是各层共用的底座，结果类型、路径判断、原子写入的参数形状写成 JSDoc 后由编译器核对，调用方传错形状会在 `npm run check` 里报出来，而不是在运行时。做法：根目录 `tsconfig.json` 只查 `src/core/**`（`allowJs`、`checkJs`、`noEmit`、`strict`，`catch` 里的错误按旧规则当作任意类型）；`npm run typecheck` 运行它，`npm run check` 先跑它。Node 的类型用 `node_modules` 里已有的 `@types/node` 24.13.3（electron 与 electron-builder 带进来的），没有另装任何包；它不是直接依赖，将来 electron 不再带它时类型检查会报找不到，到时再问。`src/core` 的五个文件只加了 JSDoc 注释和两处写在注释里的类型断言，代码行为不变；`time-windows.js` 在界面里挂到 `self` 上，为此在 `types/agentdesk-globals.d.ts` 里声明了这一个全局（只给检查用，不打包）。验证用的源码摘要（`scripts/validation-source.js`）也把 `tsconfig.json` 和 `types/` 算进去。
 
 没有验证的：可见窗口；打包后的应用能否从 asar 里起工作线程（起不来时自动在主进程里做，慢一些、答案一样）；设备网模式；真实账号与真实客户端；Windows。
 

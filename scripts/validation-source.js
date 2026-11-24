@@ -5,7 +5,8 @@ const { createHash } = require('node:crypto');
 
 // Evidence identifies local uncommitted source too; documentation edits do not change this digest.
 function sourceDigest(root = path.resolve(__dirname, '..')) {
-  const files = ['package.json', 'package-lock.json'];
+  // tsconfig.json and types/ configure the type check that `npm run check` runs.
+  const files = ['package.json', 'package-lock.json', 'tsconfig.json'].filter((file) => fs.existsSync(path.join(root, file)));
   function walk(relative) {
     for (const entry of fs.readdirSync(path.join(root, relative), { withFileTypes: true })) {
       const name = `${relative}/${entry.name}`;
@@ -13,7 +14,7 @@ function sourceDigest(root = path.resolve(__dirname, '..')) {
       else if (entry.isFile()) files.push(name);
     }
   }
-  for (const directory of ['src', 'test', 'scripts']) walk(directory);
+  for (const directory of ['src', 'test', 'scripts', 'types']) if (fs.existsSync(path.join(root, directory))) walk(directory);
   const hash = createHash('sha256');
   for (const file of files.sort()) {
     const bytes = fs.readFileSync(path.join(root, file));

@@ -12,6 +12,10 @@ const { readJsonFile } = require('./json-file');
 
 const PROFILE_FILE = 'profiles.json';
 
+/**
+ * @param {string} filePath
+ * @returns {import('./result').Result<{ parsed: any, version: number, profiles: any[], legacyArray: boolean }>}
+ */
 function readProfileFile(filePath) {
   const result = readJsonFile(filePath, {
     validate: (value) => Array.isArray(value) || Boolean(value && typeof value === 'object' && Array.isArray(value.profiles))

@@ -8,17 +8,44 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { ok, fail } = require('./result');
 
+/** @typedef {{ maxBytes?: number, stripBom?: boolean, validate?: (value: any) => boolean }} ReadJsonOptions */
+/**
+ * @typedef {object} AtomicWriteOptions
+ * @property {number} [mode]
+ * @property {boolean} [fsync]
+ * @property {string | null} [backupFile]
+ * @property {boolean} [createDirectory]
+ * @property {boolean} [copyIfRenameFails]
+ * @property {boolean} [chmod]
+ */
+/**
+ * @typedef {object} VersionedStoreDefinition
+ * @property {string} file
+ * @property {number} version
+ * @property {() => any} [defaults]
+ * @property {(value: any) => boolean} [validate]
+ * @property {{ from: number, up: (value: any) => any }[]} [migrations]
+ * @property {number} [mode]
+ * @property {number} [maxBytes]
+ * @property {string | null} [backupFile]
+ */
+
 // Read and parse a JSON file. Result codes: missing, not-a-file, too-large,
 // unreadable, invalid-json, invalid-shape. Options:
 //   maxBytes   reject larger files (checked with stat first)
 //   stripBom   drop a leading byte-order mark
 //   validate   (value) => boolean
+/**
+ * @param {string} filePath
+ * @param {ReadJsonOptions} [options]
+ * @returns {import('./result').Result<any>}
+ */
 function readJsonFile(filePath, options = {}) {
   try {
     if (Number.isFinite(options.maxBytes)) {
       const stat = fs.statSync(filePath);
       if (!stat.isFile()) return fail('not-a-file');
-      if (stat.size > options.maxBytes) return fail('too-large');
+      if (stat.size > /** @type {number} */ (options.maxBytes)) return fail('too-large');
     }
     let text = fs.readFileSync(filePath, 'utf8');
     if (options.stripBom) text = text.replace(/^﻿/, '');
@@ -34,6 +61,11 @@ function readJsonFile(filePath, options = {}) {
 }
 
 // The parsed value, or null when the read failed for any reason.
+/**
+ * @param {string} filePath
+ * @param {ReadJsonOptions} [options]
+ * @returns {any}
+ */
 function readJson(filePath, options = {}) {
   const result = readJsonFile(filePath, options);
   return result.ok ? result.value : null;
@@ -48,6 +80,11 @@ function readJson(filePath, options = {}) {
 //   copyIfRenameFails   fall back to copying over the target (Windows may
 //                       refuse a rename over an existing file)
 //   chmod               set mode again after the rename (not on Windows)
+/**
+ * @param {string} filePath
+ * @param {string | NodeJS.ArrayBufferView} data
+ * @param {AtomicWriteOptions} [options]
+ */
 function writeFileAtomic(filePath, data, options = {}) {
   const mode = options.mode ?? 0o600;
   const directory = path.dirname(filePath);
@@ -81,6 +118,11 @@ function writeFileAtomic(filePath, data, options = {}) {
 // The same write without blocking the main process, for large files such as
 // session exports. Options: mode (0o600), fsync (true). The parent folder must
 // exist; a failure leaves the target as it was and no temporary file.
+/**
+ * @param {string} filePath
+ * @param {string | NodeJS.ArrayBufferView} data
+ * @param {{ mode?: number, fsync?: boolean }} [options]
+ */
 async function writeFileAtomicAsync(filePath, data, options = {}) {
   const mode = options.mode ?? 0o600;
   const temporary = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`);
@@ -98,6 +140,11 @@ async function writeFileAtomicAsync(filePath, data, options = {}) {
   }
 }
 
+/**
+ * @param {string} filePath
+ * @param {unknown} value
+ * @param {AtomicWriteOptions} [options]
+ */
 function writeJsonAtomic(filePath, value, options = {}) {
   writeFileAtomic(filePath, JSON.stringify(value, null, 2), options);
 }
@@ -112,6 +159,7 @@ function writeJsonAtomic(filePath, value, options = {}) {
 // from a newer build is returned untouched with newer: true and is not
 // migrated; save() refuses to overwrite it. Migrations run in order from the
 // file's version up to `version`; each must keep every field it does not own.
+/** @param {VersionedStoreDefinition} definition */
 function createVersionedStore(definition) {
   const { file, version } = definition;
   if (!file || !Number.isInteger(version) || version < 1) throw new TypeError('versioned-store-definition');
@@ -146,6 +194,7 @@ function createVersionedStore(definition) {
     return ok({ value, version, migrated: raw.version !== version, newer: false });
   }
 
+  /** @param {any} value */
   function save(value) {
     if (newerOnDisk) throw new Error('versioned-store-newer-on-disk');
     if (!validate(value)) throw new TypeError('versioned-store-invalid');
