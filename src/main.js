@@ -42,7 +42,22 @@ async function probeActivities(profiles, now, marks) {
   return finishActivities(profiles, await scanHost.activityRaw(profiles, now, baselineAt), marks);
 }
 // A user action on chosen sessions re-reads them: a fresh scan, as before.
-const freshRowsOf = (profile) => sessionIndex.rowsSync(profile, { maxAgeMs: -1 });
+// User actions on chosen sessions (open folder, export, task packages,
+// diagnostics) read a scan made after the request, on the worker thread:
+// refreshForAction() awaits it, then actionRowsOf() reads that entry. Should
+// the entry still be missing or older than ACTION_ROWS_MS, actionRowsOf()
+// scans here, as before. The Renderer sends ids only; Main re-resolves them.
+const ACTION_ROWS_MS = 5000;
+const actionRowsOf = (profile) => sessionIndex.rowsSync(profile, { maxAgeMs: ACTION_ROWS_MS });
+async function refreshForAction(profileIds) {
+  const wanted = new Set((profileIds || []).filter((id) => typeof id === 'string' && id && id.length <= 128));
+  const profiles = loadProfiles().filter((profile) => wanted.has(String(profile.id)));
+  await sessionIndex.refresh(profiles, { maxAgeMs: 0 }).catch(() => null);
+}
+function selectionProfileIds(input) {
+  const refs = Array.isArray(input?.selections) ? input.selections : [input];
+  return refs.slice(0, 500).map((ref) => ref?.profileId);
+}
 const { identityFingerprint } = require('./identity');
 const { isDefaultWindowsAppRunning, isRunningIn, profileRunningSignal, snapshotProcesses, snapshotProcessRecords, processText } = require('./process');
 const { createProcessSnapshots } = require('./process-snapshots');
@@ -1194,8 +1209,9 @@ function registerIpc() {
     }
   });
 
-  ipcMain.handle('taskPackages:previewExport', (_event, input = {}) => {
+  ipcMain.handle('taskPackages:previewExport', async (_event, input = {}) => {
     try {
+      await refreshForAction([boundedText(input.profileId, 128)]);
       return {
         ok: true,
         preview: getTaskPackageService().previewExport({
@@ -1212,6 +1228,7 @@ function registerIpc() {
     try {
       const profileId = boundedText(input.profileId, 128);
       const sessionId = boundedText(input.sessionId, 128);
+      await refreshForAction([profileId]);
       const preview = getTaskPackageService().previewExport({ profileId, sessionId });
       if (!preview.supported) throw new Error('task-package-source-unsupported');
       const result = await dialog.showSaveDialog(mainWindow, {
@@ -1229,6 +1246,8 @@ function registerIpc() {
         if (attachmentResult.canceled) return { ok: true, cancelled: true };
         attachmentPaths = attachmentResult.filePaths;
       }
+      // The save dialog may have stayed open a while: read the session again.
+      await refreshForAction([profileId]);
       const exported = await getTaskPackageService().exportPackage({
         profileId,
         sessionId,
@@ -1248,6 +1267,7 @@ function registerIpc() {
   ipcMain.handle('taskPackages:sendToDevice', async (_event, input = {}) => {
     try {
       const request = normalizeTaskPackageSendInput(input);
+      await refreshForAction([request.profileId]);
       const preview = getTaskPackageService().previewExport({
         profileId: request.profileId,
         sessionId: request.sessionId
@@ -1262,6 +1282,7 @@ function registerIpc() {
         if (attachmentResult.canceled) return { ok: true, cancelled: true };
         attachmentPaths = attachmentResult.filePaths.slice(0, 32);
       }
+      await refreshForAction([request.profileId]);
       const transfer = await getTransferService().createTaskPackageTransfer({
         targetDeviceId: request.targetDeviceId,
         profileId: request.profileId,
@@ -1637,9 +1658,10 @@ function registerIpc() {
     profileIsRunning, quotaService, getVersion: () => app.getVersion()
   });
 
-  ipcMain.handle('diagnostics:get', (_event, input = {}) => {
+  ipcMain.handle('diagnostics:get', async (_event, input = {}) => {
     const profile = loadProfiles().find((item) => item.id === boundedText(input.profileId, 128));
     if (!profile) return null;
+    await refreshForAction([profile.id]);
     return diagnoseProfile(profile);
   });
 
@@ -2560,7 +2582,7 @@ function getTaskPackageService() {
   const userData = app.getPath('userData');
   taskPackageService = new TaskPackageService({
     profileProvider: () => loadProfiles(),
-    sessionRows: freshRowsOf,
+    sessionRows: actionRowsOf,
     meshOverviewProvider: () => {
       if (meshService) return meshService.getOverview();
       if (!fs.existsSync(path.join(userData, 'mesh.db'))) return null;
@@ -3868,7 +3890,7 @@ function diagnoseProfile(profile) {
     ...area,
     ...inspectPath(area.path, { createable: false })
   }));
-  const sessions = sessionIndex.rowsSync(profile, { maxAgeMs: -1 });
+  const sessions = actionRowsOf(profile);
   const warnings = [];
   const defaultProfile = apps.defaultProfilePathInfo(profile.appId);
   const migration = windowsMigrationInfo(profile);
@@ -5026,9 +5048,10 @@ function shouldCopyProfileItem(sourcePath) {
   return !PROFILE_COPY_EXCLUDES.has(name);
 }
 
-function listSessionDirectories(input) {
+async function listSessionDirectories(input) {
   try {
-    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp, freshRowsOf);
+    await refreshForAction(selectionProfileIds(input));
+    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp, actionRowsOf);
     return { ok: true, directories: sessionDirectories(records) };
   } catch (_error) {
     return { ok: false, reason: t('main.sessionActions.directoryUnavailable') };
@@ -5036,7 +5059,7 @@ function listSessionDirectories(input) {
 }
 
 async function openSessionDirectory(input) {
-  const result = listSessionDirectories({ profileId: input?.profileId, sessionId: input?.sessionId });
+  const result = await listSessionDirectories({ profileId: input?.profileId, sessionId: input?.sessionId });
   const directory = result.directories?.[0]?.path;
   // The UI may send the directory it offered as a check only. The actual open
   // target always comes from the current session record and never from IPC.
@@ -5054,7 +5077,8 @@ async function openSessionDirectory(input) {
 async function exportSessionTranscript(input) {
   let exported;
   try {
-    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp, freshRowsOf);
+    await refreshForAction(selectionProfileIds(input));
+    const records = resolveLocalSessions(input, loadProfiles(), apps.getApp, actionRowsOf);
     const unsupported = records.find(({ client }) => typeof client.exportTranscript !== 'function');
     if (unsupported) return { ok: false, reason: t('main.exp.notSupported', { label: unsupported.client.label }) };
     exported = await prepareSessionExport(records, { attachmentsHeading: t('main.sessionActions.attachments') });

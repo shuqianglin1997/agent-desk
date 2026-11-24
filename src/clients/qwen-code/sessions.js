@@ -6,10 +6,23 @@
 
 const path = require('node:path');
 const qwenRecords = require('./records');
+const memo = require('../file-memo');
 const { MAX_FILES, iso, cleanTitle, safeStat, listDirectory, readText, jsonLines, sortByRecency } = require('../cli-scan');
 
+// One session file, remembered while it is unchanged (src/clients/file-memo.js).
+// null: not a user session; a file that cannot be read is skipped this time.
 function scanQwenFile(filePath) {
-  const lines = jsonLines(readText(filePath));
+  try {
+    return memo.remember('qwen-code/file', filePath, readQwenFile);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function readQwenFile(filePath) {
+  const textContent = readText(filePath);
+  if (textContent === null) throw memo.unreadable(filePath);
+  const lines = jsonLines(textContent);
   let id = path.basename(filePath, '.jsonl');
   let customTitle = '';
   let firstPrompt = '';

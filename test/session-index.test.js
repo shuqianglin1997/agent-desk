@@ -32,6 +32,37 @@ test('requests share one scan, reuse it for a while, then scan again', async () 
   assert.equal(scans.length, 2);
 });
 
+test('a request for a fresh scan never gets a scan that started before it', async () => {
+  let time = 0;
+  const started = [];
+  const release = [];
+  const index = createSessionIndex({
+    now: () => time,
+    scan: () => new Promise((resolve) => { started.push(time); release.push(resolve); })
+  });
+  const tick = () => new Promise((resolve) => setImmediate(resolve));
+  const first = index.rows(profile);
+  await tick();
+  time = 100;
+  // While the first scan runs, a user action asks for rows no older than now.
+  const fresh = index.rows(profile, { maxAgeMs: 0 });
+  const alsoFresh = index.rows(profile, { maxAgeMs: 0 });
+  const recentEnough = index.rows(profile);
+  await tick();
+  assert.equal(started.length, 1, 'the fresh scan waits for the running one instead of racing it');
+  release[0](ok([{ id: 'old' }]));
+  assert.deepEqual(await first, [{ id: 'old' }]);
+  await tick();
+  assert.equal(started.length, 2, 'then exactly one more scan starts');
+  assert.ok(started[1] >= 100);
+  release[1](ok([{ id: 'old' }, { id: 'new' }]));
+  assert.deepEqual(await fresh, [{ id: 'old' }, { id: 'new' }]);
+  assert.deepEqual(await alsoFresh, [{ id: 'old' }, { id: 'new' }], 'fresh requests waiting together share that scan');
+  assert.deepEqual(await recentEnough, [{ id: 'old' }, { id: 'new' }], 'a later caller shares the queued, newer scan');
+  assert.equal(started.length, 2);
+  assert.deepEqual(index.rowsSync(profile), [{ id: 'old' }, { id: 'new' }]);
+});
+
 test('another folder for the same profile never serves the old rows', async () => {
   const { index, scans } = harness([ok([{ id: 'a' }]), ok([{ id: 'z' }])]);
   await index.rows(profile);

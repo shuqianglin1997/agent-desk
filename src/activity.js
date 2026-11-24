@@ -36,18 +36,12 @@ function contentChangedAt(filePath, stat) {
   return entry.changedAt;
 }
 
-// 回复状态按文件版本缓存：没变的文件 8 秒一轮也不重读。
-const replyCache = new Map();
-// Only clients whose adapter can tell who spoke last (replyState) are read;
-// the others stay unknown.
-function cachedReplyState(app, filePath, stat) {
-  const revision = `${stat.size}:${stat.mtimeMs}`;
-  const cached = replyCache.get(filePath);
-  if (cached && cached.revision === revision) return cached.value;
-  const value = typeof app.replyState === 'function' ? app.replyState(filePath) : null;
-  if (replyCache.size >= 12000) replyCache.clear();
-  replyCache.set(filePath, { revision, value });
-  return value;
+// Who spoke last, from the adapter (replyState). The adapters remember each
+// file's read while the file is unchanged (src/clients/file-memo.js), so an
+// unchanged file is not read again every 8 seconds, and the list scan of the
+// same file shares that read. Clients without replyState stay unknown.
+function replyStateOf(app, filePath, stat) {
+  return typeof app.replyState === 'function' ? app.replyState(filePath, stat) : null;
 }
 
 function startOfDay(now) {
@@ -151,7 +145,7 @@ function probeActivity(profile, now = Date.now(), options = {}) {
     const readsReply = replyApp && (recent || (baselineAt > 0 && record.mtime > baselineAt));
     if (!recent && !readsReply) continue;
     if (typeof app.isInternalRecordFile === 'function' && app.isInternalRecordFile(record.filePath)) continue;
-    const reply = readsReply ? cachedReplyState(app, record.filePath, record.stat) : null;
+    const reply = readsReply ? replyStateOf(app, record.filePath, record.stat) : null;
     // 知道这一轮已经回完的，不算在跑（回完以后客户端还会补写几行收尾记录）。
     const done = reply && reply.lastRole === 'assistant' && reply.replyDone === true;
     const writing = recent && !done;

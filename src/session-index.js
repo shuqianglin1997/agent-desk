@@ -101,6 +101,10 @@ function createSessionIndex(options = {}) {
   }
 
   // The entry for one profile, scanning when there is none recent enough.
+  // A scan already running is shared only when it started recently enough for
+  // this request; otherwise one more scan is queued after it (never in
+  // parallel, so entries are recorded in the order the scans started), and
+  // every request that arrives before the queued scan starts shares it.
   function refreshOne(profile, request = {}) {
     const maxAgeMs = Number.isFinite(request.maxAgeMs) ? request.maxAgeMs : reuseMs;
     const key = profileKey(profile);
@@ -108,14 +112,17 @@ function createSessionIndex(options = {}) {
     if (fresh) return Promise.resolve(fresh);
     const id = String(profile.id);
     const running = inFlight.get(id);
-    if (running && running.key === key) return running.promise;
-    const promise = Promise.resolve()
-      .then(() => scan(profile))
+    const sameDefinition = running && running.key === key;
+    if (sameDefinition && (running.startedAt === null || now() - running.startedAt <= maxAgeMs)) return running.promise;
+    const job = { key, startedAt: null, promise: null };
+    const after = sameDefinition ? running.promise.then(() => null, () => null) : Promise.resolve();
+    job.promise = after
+      .then(() => { job.startedAt = now(); return scan(profile); })
       .catch((error) => fail(codeOf(error)))
       .then((result) => record(profile, key, result))
-      .finally(() => { if (inFlight.get(id)?.promise === promise) inFlight.delete(id); });
-    inFlight.set(id, { key, promise });
-    return promise;
+      .finally(() => { if (inFlight.get(id) === job) inFlight.delete(id); });
+    inFlight.set(id, job);
+    return job.promise;
   }
 
   async function refresh(profiles, request = {}) {

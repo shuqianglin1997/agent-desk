@@ -7,7 +7,8 @@
 
 const path = require('node:path');
 const { partsText } = require('./parts');
-const { MAX_FILES, iso, cleanTitle, safeStat, listDirectory, readText, readJson, jsonLines, sortByRecency } = require('../cli-scan');
+const memo = require('../file-memo');
+const { MAX_FILES, iso, cleanTitle, listDirectory, readText, readJson, jsonLines, sortByRecency } = require('../cli-scan');
 
 // Titles join Gemini parts with a space.
 const titleText = (value) => partsText(value, ' ');
@@ -32,11 +33,21 @@ function geminiTitle(messages, summary) {
   return '';
 }
 
-function scanGeminiFile(filePath, projectPath) {
-  const stat = safeStat(filePath);
+// One session file, remembered while it is unchanged (src/clients/file-memo.js).
+// null: not a user session; a file that cannot be read is skipped this time.
+function scanGeminiFile(filePath) {
+  try {
+    return memo.remember('gemini-cli/file', filePath, readGeminiFile);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function readGeminiFile(filePath, stat) {
   if (filePath.endsWith('.json')) {
     const json = readJson(filePath);
-    if (!json || typeof json.sessionId !== 'string' || json.kind === 'subagent') return null;
+    if (!json) throw memo.unreadable(filePath);
+    if (typeof json.sessionId !== 'string' || json.kind === 'subagent') return null;
     return {
       id: json.sessionId,
       title: geminiTitle(json.messages || [], json.summary),
@@ -44,7 +55,9 @@ function scanGeminiFile(filePath, projectPath) {
       updatedAt: iso(json.lastUpdated) || stat?.mtime?.toISOString() || null
     };
   }
-  const lines = jsonLines(readText(filePath));
+  const textContent = readText(filePath);
+  if (textContent === null) throw memo.unreadable(filePath);
+  const lines = jsonLines(textContent);
   const meta = lines[0];
   if (!meta || typeof meta.sessionId !== 'string' || meta.kind === 'subagent') return null;
   let summary = meta.summary;
@@ -63,8 +76,7 @@ function scanGeminiFile(filePath, projectPath) {
     id: meta.sessionId,
     title: geminiTitle(messages, summary),
     createdAt: iso(meta.startTime),
-    updatedAt: iso(lastUpdated) || stat?.mtime?.toISOString() || null,
-    projectPath
+    updatedAt: iso(lastUpdated) || stat?.mtime?.toISOString() || null
   };
 }
 
@@ -81,7 +93,7 @@ function scanGemini(profile) {
     for (const entry of listDirectory(path.join(slugDir, 'chats'))) {
       if (!entry.isFile() || !/^session-.*\.jsonl?$/.test(entry.name) || ++files > MAX_FILES) continue;
       const filePath = path.join(slugDir, 'chats', entry.name);
-      const parsed = scanGeminiFile(filePath, projectPath);
+      const parsed = scanGeminiFile(filePath);
       if (!parsed || records.has(parsed.id)) continue;
       records.set(parsed.id, {
         id: parsed.id,
@@ -89,7 +101,7 @@ function scanGemini(profile) {
         title: parsed.title || `Gemini ${parsed.id.slice(0, 8)}`,
         createdAt: parsed.createdAt,
         updatedAt: parsed.updatedAt || parsed.createdAt,
-        projectPath: parsed.projectPath || projectPath,
+        projectPath,
         source: 'Gemini CLI',
         status: '可用',
         model: null,

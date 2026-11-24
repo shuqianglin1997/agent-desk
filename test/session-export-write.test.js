@@ -22,7 +22,9 @@ function handler(target) {
     apps: { getApp: () => null },
     loadProfiles: () => [],
     resolveLocalSessions: () => [{ client: { exportTranscript() {} } }],
-    freshRowsOf: () => [],
+    actionRowsOf: () => [],
+    refreshForAction: async () => {},
+    selectionProfileIds: () => [],
     prepareSessionExport: async () => ({ data: Buffer.from('# Session\n'), format: 'md', suggestedName: 's.md', attachmentCount: 0 }),
     dialog: { showSaveDialog: async () => ({ canceled: false, filePath: target }) },
     t: (key) => key

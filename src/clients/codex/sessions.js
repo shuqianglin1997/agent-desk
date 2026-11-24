@@ -8,22 +8,19 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const codexRollout = require('./rollout');
-const { sortByRecency, dateMillis, latestDate, emptyReplyState, readTailEvents, eventTime, lastEventTimestamp, walkFiles, safeStat, parseDate, cleanTitle, text, uuidFromFilename } = require('../scan');
+const memo = require('../file-memo');
+const { sortByRecency, dateMillis, latestDate, emptyReplyState, readTailEvents, eventTime, walkFiles, safeStat, parseDate, cleanTitle, text, uuidFromFilename } = require('../scan');
 
-// Shared bounded metadata read: list rows and activity use exactly the same identity rule.
-const codexIdentityCache = new Map();
-function codexRecordIdentity(filePath, stat = safeStat(filePath)) {
-  const revision = stat && `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
-  const cached = codexIdentityCache.get(filePath);
-  if (revision && cached?.revision === revision) return cached.value;
-  const first = codexRollout.readFirstLine(filePath);
-  const value = {
-    first,
-    identity: codexRollout.classifyCodexSessionMeta(first?.payload || {}, uuidFromFilename(filePath) || path.basename(filePath, '.jsonl'))
-  };
-  if (codexIdentityCache.size >= 12000) codexIdentityCache.clear();
-  if (revision) codexIdentityCache.set(filePath, { revision, value });
-  return value;
+// Shared bounded metadata read: list rows and activity use exactly the same
+// identity rule, remembered per file (src/clients/file-memo.js).
+function codexRecordIdentity(filePath, stat) {
+  return memo.remember('codex/identity', filePath, () => {
+    const first = codexRollout.readFirstLine(filePath);
+    return {
+      first,
+      identity: codexRollout.classifyCodexSessionMeta(first?.payload || {}, uuidFromFilename(filePath) || path.basename(filePath, '.jsonl'))
+    };
+  }, stat);
 }
 
 function scanCodex(profile, report = null) {
@@ -38,7 +35,8 @@ function scanCodex(profile, report = null) {
 
   for (const area of dirs) {
     for (const filePath of walkFiles(area.dir, (entry) => entry.isFile() && entry.name.endsWith('.jsonl'), report)) {
-      const { first, identity } = codexRecordIdentity(filePath);
+      const stat = safeStat(filePath);
+      const { first, identity } = codexRecordIdentity(filePath, stat);
       const payload = first?.payload || {};
 
       // guardian/subagent rollouts are physical execution branches of the user
@@ -56,7 +54,6 @@ function scanCodex(profile, report = null) {
       const id = identity.adapterConversationKey;
       if (!id) continue;
 
-      const stat = safeStat(filePath);
       // Codex keys session_index.jsonl by session_id, which differs from
       // payload.id for most rollouts; look it up by session_id first so
       // titles (thread_name) actually resolve.
@@ -68,7 +65,7 @@ function scanCodex(profile, report = null) {
       // moving. Prefer the newest trustworthy content timestamp while retaining
       // the index value for clients that do keep it current. File mtime remains a
       // last-resort fallback for old or malformed records without event times.
-      const tail = codexTailState(filePath);
+      const tail = codexTailState(filePath, stat);
       const contentUpdatedAt = parseDate(tail.lastEventAt);
       const updatedAt = latestDate(indexed?.updatedAt, contentUpdatedAt)
         || stat?.mtime?.toISOString()
@@ -149,7 +146,7 @@ function createCodexActivityPreference(profile) {
       records.set(record.filePath, {
         filePath: record.filePath,
         status: record.archived ? '已归档' : '可用',
-        updatedAt: latestDate(index.get(key)?.updatedAt, lastEventTimestamp(record.filePath)) || record.mtime
+        updatedAt: latestDate(index.get(key)?.updatedAt, codexTailState(record.filePath).lastEventAt) || record.mtime
       });
     }
     return records.get(record.filePath);
@@ -199,11 +196,24 @@ function codexReplyStep(state, event) {
   }
 }
 
-function codexTailState(filePath) {
+// The end of a rollout: when the last event happened and who spoke last.
+// The list, the activity probe's reply state and its content time share this
+// one remembered read.
+function codexTailState(filePath, stat) {
+  if (!filePath) return { lastEventAt: null, ...emptyReplyState() };
+  try {
+    return memo.remember('codex/tail', filePath, readCodexTail, stat);
+  } catch (_error) {
+    return { lastEventAt: null, ...emptyReplyState() };
+  }
+}
+
+function readCodexTail(filePath) {
+  const events = readTailEvents(filePath);
+  if (!events) throw memo.unreadable(filePath);
   const reply = emptyReplyState();
-  const events = filePath ? readTailEvents(filePath) : null;
   let lastEventAt = null;
-  for (const event of events || []) {
+  for (const event of events) {
     if (!event || typeof event !== 'object') continue;
     codexReplyStep(reply, event);
     const ts = eventTime(event);
@@ -212,9 +222,9 @@ function codexTailState(filePath) {
   return { lastEventAt, ...reply };
 }
 
-// Codex：读 rollout .jsonl 末行事件的 timestamp（生成时逐事件实时追加）。
-function codexActivityFromFile(filePath) {
-  return lastEventTimestamp(filePath);
+// Codex：rollout .jsonl 末尾最后一条带时间的事件（生成时逐事件实时追加）。
+function codexActivityFromFile(filePath, stat) {
+  return codexTailState(filePath, stat).lastEventAt;
 }
 
 function readCodexIndex(filePath) {

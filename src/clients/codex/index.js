@@ -152,8 +152,8 @@ module.exports = {
   sessionAddressOf: (key) => key,
   contentActivityAt: (_profile, filePath) => sessions.codexActivityFromFile(filePath),
   // Who spoke last and whether the turn is done, from the end of the rollout.
-  replyState: (filePath) => {
-    const { lastRole, lastReplyAt, replyDone } = sessions.codexTailState(filePath);
+  replyState: (filePath, stat) => {
+    const { lastRole, lastReplyAt, replyDone } = sessions.codexTailState(filePath, stat);
     return { lastRole, lastReplyAt, replyDone };
   },
   // Among a conversation's rollouts, activity follows the user root.

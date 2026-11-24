@@ -98,7 +98,7 @@ module.exports = {
   sessionAddressOf: (key) => path.basename(key, '.jsonl'),
   contentActivityAt: (_profile, filePath) => lastEventTimestamp(filePath),
   // Who spoke last and whether the turn is done, from the end of the file.
-  replyState: (filePath) => sessions.claudeCliTailState(filePath),
+  replyState: (filePath, stat) => sessions.claudeCliTailState(filePath, stat),
   // Subagent sessions are separate files whose events carry isSidechain.
   isInternalRecordFile: (filePath) => sessions.claudeCliIsSidechain(filePath),
   exportTranscript: (session) => ({
