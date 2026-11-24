@@ -51,6 +51,8 @@ module.exports = {
   // Account ID for recognising the same sign-in (./identity.js).
   accountId: (profile) => claudeIdentity.claudeDesktopAccountId(profile),
   quota: Object.freeze({ unsupportedReason: 'Claude 个人订阅暂无公开额度 API；为保护账号，AgentDesk 不读取浏览器 Cookie' }),
+  // Claude desktop keeps its sessions inside its own data folder.
+  sessionsInProfileFolder: true,
   scan: (profile, report) => sessions.scanClaude(profile, report),
   // 会话记录里的最后活跃时间（读 probe 传入的最新文件的 lastActivityAt），驱动干活/在岗判定
   contentActivityAt: (_profile, filePath) => sessions.claudeActivityFromFile(filePath)

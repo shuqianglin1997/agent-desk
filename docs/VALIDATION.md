@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 3 阶段第 12 批：主进程里按客户端名字的判断改为适配器声明。受管目录的初始化（Claude 命令行建 projects、DSH 不动、Codex 写入文件凭据存储）与官方默认目录搬进各家（`managedHome`，种子函数在 `clients/<id>/home.js`）；Codex 目录可以独立登记、命令行登记前要像 Codex 目录（`standaloneHome`）；macOS 上 Codex 的短别名（`runtimeHome`）；任务包的原生格式（`taskPackage`，界面上的“原生/只读内容/不支持”由此得出）；Codex 历史维护（`historyUpkeep`）；Kimi 两种形态同机同登录（`defaultIdentityKey`）；Claude 桌面的会话在它的数据目录里（`sessionsInProfileFolder`）。任务包导入后的标题格式对所有模式通用，从 Codex 模块移到 `task-package/format.js`。两处只比对源码文字的测试改为行为断言（`task-package-ui.test.js` 改查 `listApps()` 给出的三种模式）或恢复了它要找的注释开头（`persistence-contract.test.js`），检查的内容不变。
+
 2026-11-24 架构整理第 3 阶段第 11 批：账号身份、命令行查找和额度也由适配器回答。三家账号 ID 在哪（Claude 桌面、Claude 命令行、Codex）原来是 `identity.js` 里的一张表，现在各自放在 `src/clients/<id>/identity.js`，适配器以 `accountId` 声明，`identity.js` 只取哈希。命令行工具的查找原来写着 `id === 'codex'`，现在 Codex 适配器声明 `cliLauncher`（用它自己的查找方法，也看桌面版旁边），`tools` 命令的清单由此和工具目录拼出，顺序与原来相同（命令行基准不变）；工具目录本身列的是官方命令行工具（其中有几个不是 AgentDesk 管理的客户端），保留为工具目录。额度原来写着 Claude、Cursor、Codex 三处判断，现在适配器声明 `quota`：Codex 给出读取、缓存与失败说明（`friendlyCodexFailure` 搬进 Codex 的 `quota.js`），Claude 与 Cursor 写明为什么查不了；`test/quota-service.test.js` 注入读取函数的选项名随之从 `readCodexQuota` 改为通用的 `readQuota`，断言不变。
 
 2026-11-24 架构整理第 3 阶段第 10 批：调度中枢的各家写法归到各家目录。`src/hub/adapters.js` 里四家能被调用的客户端（Codex、Claude 命令行、Gemini CLI、Qwen Code）各自的固定参数、结束判断、回答来源逐字搬进 `src/clients/<id>/hub.js`，适配器以 `hub` 声明；不能被调用的六家把原因写进自己的适配器（`hubUnsupported`，原注释一并搬过去）；几家共用的输出解析、有界读取和“从标准输入读提示词”的固定 `-p` 文本放进 `src/clients/hub-io.js`。`hub/adapters.js` 只从注册表汇总出原来的 `ADAPTERS`、`UNSUPPORTED` 并保留原有导出，名册和后台运行的相关测试全部通过。

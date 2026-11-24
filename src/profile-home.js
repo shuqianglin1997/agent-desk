@@ -11,6 +11,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const paths = require('./core/paths');
+const apps = require('./apps');
 
 function samePath(left, right, pathImpl = path) {
   return paths.samePath(left, right, { pathApi: pathImpl, caseInsensitive: process.platform === 'win32' });
@@ -20,10 +21,15 @@ function mkdir(fsImpl, dir) {
   fsImpl.mkdirSync(dir, { recursive: true });
 }
 
+// What a client's adapter says about its managed homes (`managedHome`): the
+// official default home a seeding must never touch, and how to seed a new one.
+function managedHomeOf(appId) {
+  return apps.isKnownApp(appId) ? apps.getApp(appId).managedHome || null : null;
+}
+
 function officialDefaultHome(appId, home, pathImpl) {
-  if (appId === 'claude-cli') return pathImpl.join(home, '.claude');
-  if (appId === 'dsh-cli') return pathImpl.join(home, '.dsh');
-  return null;
+  const name = managedHomeOf(appId)?.officialDefault;
+  return name ? pathImpl.join(home, name) : null;
 }
 
 function isOfficialDefaultHome(profile, home, pathImpl) {
@@ -31,17 +37,6 @@ function isOfficialDefaultHome(profile, home, pathImpl) {
   if (!official || !profile?.sessionRoot) return false;
   if (profile.isProtected === true || profile.sessionRootMode === 'auto') return true;
   return samePath(profile.sessionRoot, official, pathImpl);
-}
-
-function seedClaudeCliHome(sessionRoot, fsImpl, pathImpl) {
-  mkdir(fsImpl, sessionRoot);
-  mkdir(fsImpl, pathImpl.join(sessionRoot, 'projects'));
-  return {
-    seeded: true,
-    appId: 'claude-cli',
-    path: sessionRoot,
-    files: []
-  };
 }
 
 function prepareManagedProfileHome(profile, options = {}) {
@@ -56,25 +51,8 @@ function prepareManagedProfileHome(profile, options = {}) {
   if (profile.profilePath) mkdir(fsImpl, profile.profilePath);
   mkdir(fsImpl, profile.sessionRoot);
 
-  if (profile.appId === 'claude-cli') {
-    return seedClaudeCliHome(profile.sessionRoot, fsImpl, pathImpl);
-  }
-  if (profile.appId === 'dsh-cli') {
-    // DSH configuration may contain inline credentials. Leave existing files
-    // untouched and let DSH initialize an empty managed home itself.
-    return { seeded: false, reason: 'configuration-required' };
-  }
-  if (profile.appId === 'codex') {
-    // Keep this account's sign-in in its own home, never the shared keyring.
-    const configPath = pathImpl.join(profile.sessionRoot, 'config.toml');
-    try {
-      fsImpl.writeFileSync(configPath, 'cli_auth_credentials_store = "file"\n', { flag: 'wx', mode: 0o600 });
-      return { seeded: true, appId: 'codex', path: profile.sessionRoot, files: ['config.toml'] };
-    } catch (error) {
-      if (error?.code !== 'EEXIST') throw error;
-      return { seeded: false, reason: 'config-exists' };
-    }
-  }
+  const seed = managedHomeOf(profile.appId)?.seed;
+  if (typeof seed === 'function') return seed(profile, fsImpl, pathImpl);
   return { seeded: false, reason: 'no-seed-needed' };
 }
 

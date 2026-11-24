@@ -8,7 +8,6 @@ const paths = require('../core/paths');
 const { readProfileFile } = require('../core/profile-file');
 const apps = require('../apps');
 const locations = require('../session-location');
-const { needsShortRuntimeHome } = require('../clients/codex/runtime-home');
 const { TOOL_IDS, discoverCli } = require('../cli-discovery');
 const { provisioningAdapterDescriptor } = require('../mesh/main/provisioning-adapters');
 
@@ -138,7 +137,7 @@ function configurationBoundary(profile) {
     // Pass an empty environment: never print process.env, secrets or auth files.
     rootEnvironment: app.launchEnv ? app.launchEnv(profile, {}) : {},
     clearsInheritedEnvironmentKeys: [...(app.cliClearEnvKeys || [])],
-    runtimeHomeMayBeShortAlias: profile.appId === 'codex' && needsShortRuntimeHome(profile.sessionRoot),
+    runtimeHomeMayBeShortAlias: app.runtimeHome?.mayAlias(profile) === true,
     note: 'Configure the canonical root using client-supported tooling. A root/launcher does not prove login, API connectivity, isolation of all credentials, or subscription quota.'
   };
 }

@@ -55,9 +55,11 @@ function createLocationRegistrar(deps) {
     const homeKey = directoryKey(sessionRoot);
     let profilePath;
     let isDefault;
-    if (appId === 'codex' && !input.profilePath) {
+    // A standalone home (Codex) has no desktop data folder; it is the default
+    // when it is the official one under the home directory.
+    if (client.standaloneHome && !input.profilePath) {
       profilePath = null;
-      isDefault = homeKey === directoryKey(path.join(home, '.codex'));
+      isDefault = homeKey === directoryKey(path.join(home, client.standaloneHome.officialName));
     } else {
       const officialHomeKey = directoryKey(client.defaultSessionRoot(officialPath, true));
       profilePath = client.cliDiscoveryId ? sessionRoot

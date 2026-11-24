@@ -49,12 +49,10 @@ const {
   defaultMacApplicationActivatorPath,
   activateMacProfileApplication
 } = require('./mac-application-activator');
-const { ensureCodexRuntimeHome } = require('./clients/codex/runtime-home');
 const {
   canonicalDirectory,
   codexHomeKey,
   discoverCodexHomes,
-  inspectCodexHome,
   stageCodexAuthHome
 } = require('./clients/codex/account-import');
 const { packagedCliArguments, createCliBroker, runPackagedCli } = require('./automation/packaged-cli');
@@ -1903,9 +1901,10 @@ function registerExistingProfileFromCli(input) {
   if (!apps.isKnownApp(appId)) throw new InterfaceError('unknown-client', 'Choose a client ID from apps.', 2);
   const sessionRoot = requireCliDirectory(input['session-root']);
   const name = boundedText(input.name, 80);
-  // A Codex home must look like one; it is then registered like any other location.
-  if (appId === 'codex' && !input['profile-path'] && !inspectCodexHome(sessionRoot)) {
-    throw new InterfaceError('codex-home-invalid', 'The directory has no recognized Codex state.', 2);
+  // A standalone home (Codex) must look like one; it is then registered like any other location.
+  const standalone = apps.getApp(appId).standaloneHome;
+  if (standalone?.looksValid && !input['profile-path'] && !standalone.looksValid(sessionRoot)) {
+    throw new InterfaceError(standalone.invalid.code, standalone.invalid.message, 2);
   }
   locationRegistrar.planExistingLocation({ appId, sessionRoot, profilePath: input['profile-path'], name }, loadProfiles());
   const [result] = registerLocations([{ appId, sessionRoot, profilePath: input['profile-path'], name }]);
@@ -3390,16 +3389,16 @@ function normalizeProfileList(profiles) {
     .map(normalizeProfile);
   // No account is mandatory. Normalization must preserve an empty store and
   // must not infer required accounts from a provider, platform, or app type.
-  // Kimi Code 与 Kimi Work 是同一桌面 App 生态的两个形态，同机必然同登录身份。
+  // Kimi Code 与 Kimi Work 是同一桌面 App 生态的两个形态，同机必然同登录身份；
+  // 这样的客户端由适配器声明 defaultIdentityKey。
   // 只给「从未有过 identityKey 字段」的旧默认槽位补关联（一次性迁移）；
   // 用户显式清空后字段为 null（存在），不再回填 —— 清空必须能生效。
-  return normalized.map((profile) => (
-    (profile.appId === 'kimi' || profile.appId === 'kimi-work')
-      && profile.isProtected
-      && profile.identityKey === undefined
-      ? { ...profile, identityKey: 'Kimi' }
-      : profile
-  ));
+  return normalized.map((profile) => {
+    const key = apps.isKnownApp(profile.appId) ? apps.getApp(profile.appId).defaultIdentityKey : null;
+    return key && profile.isProtected && profile.identityKey === undefined
+      ? { ...profile, identityKey: key }
+      : profile;
+  });
 }
 
 function normalizeProfile(profile) {
@@ -3578,7 +3577,7 @@ function inferSessionRootMode(profile, appId, resolvedProfilePath, isProtected) 
   const defaultRoot = defaultSessionRoot(appId, legacyProfile, isProtected);
   if (isProtected && (
     pathsEqual(profile.sessionRoot, defaultRoot) ||
-    (appId === 'claude' && pathsEqual(profile.sessionRoot, profile.profilePath))
+    (apps.getApp(appId).sessionsInProfileFolder === true && pathsEqual(profile.sessionRoot, profile.profilePath))
   )) return 'auto';
   if (!isProtected && (
     pathsEqual(profile.sessionRoot, profile.profilePath) ||
@@ -3708,7 +3707,7 @@ async function launchProfile(profile) {
       prepareManagedProfileHome(profile);
       ensureDir(profile.profilePath);
       ensureDir(profile.sessionRoot);
-    } else if (profile.appId === 'codex') {
+    } else if (app_.managedHome?.outsideAppData) {
       prepareManagedProfileHome(profile);
       ensureDir(profile.sessionRoot);
     }
@@ -3718,8 +3717,8 @@ async function launchProfile(profile) {
 
   const args = launchPlan.args;
   let runtimeProfile = profile;
-  if (profile.appId === 'codex' && process.platform === 'darwin') {
-    const runtimeHome = ensureCodexRuntimeHome(profile);
+  if (app_.runtimeHome && process.platform === 'darwin') {
+    const runtimeHome = app_.runtimeHome.ensure(profile);
     if (runtimeHome.aliased) runtimeProfile = { ...profile, sessionRoot: runtimeHome.sessionRoot };
   }
   const env = app_.launchEnv(runtimeProfile, { ...process.env });

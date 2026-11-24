@@ -14,7 +14,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const paths = require('./core/paths');
 const { readJsonStore, writeJsonStore } = require('./json-store');
-const { runAfterProfileStop, canonicalRoot, readPolicy } = require('./clients/codex/history-retention');
+const apps = require('./apps');
+
+// The client's opt-in history upkeep (Codex), or null.
+const historyUpkeepOf = (profile) => (apps.isKnownApp(profile?.appId) ? apps.getApp(profile.appId).historyUpkeep || null : null);
 const {
   snapshotProcessRecords,
   findProfileProcesses,
@@ -358,7 +361,7 @@ class ProfileRuntimeSupervisor {
       : () => false;
     this.limits = { ...DEFAULT_LIMITS, ...(options.limits || {}) };
     this.onIncident = typeof options.onIncident === 'function' ? options.onIncident : () => {};
-    this.maintainHistory = options.maintainHistory || runAfterProfileStop;
+    this.maintainHistory = options.maintainHistory || ((profile, opts) => historyUpkeepOf(profile).run(profile, opts));
     this.historyMaintenance = new Map();
     this.historyMaintenanceNext = new Map();
     this.profiles = new Map();
@@ -675,7 +678,7 @@ class ProfileRuntimeSupervisor {
   }
 
   async maintainStoppedHistory(profile, options = {}) {
-    if (profile.appId !== 'codex') return;
+    if (!historyUpkeepOf(profile)) return;
     if (this.historyMaintenance.has(profile.id)) return this.historyMaintenance.get(profile.id);
     this.historyMaintenanceNext.set(profile.id, this.now() + 60 * 60 * 1000);
     const task = Promise.resolve().then(() => this.maintainHistory(profile, options)).catch(() => ({ skipped: 'history-maintenance-deferred' }));
@@ -687,7 +690,7 @@ class ProfileRuntimeSupervisor {
   historyPolicySelected(profile) {
     // An explicitly enabled canonical root is also authorized for default/custom
     // clients. No Crashpad ownership exception is inherited by this adapter.
-    try { return !!readPolicy(canonicalRoot(profile.sessionRoot)); }
+    try { return historyUpkeepOf(profile)?.policySelected(profile.sessionRoot) === true; }
     catch { return false; }
   }
 
@@ -716,7 +719,7 @@ class ProfileRuntimeSupervisor {
       // Reuse the existing supervisor, including for clients kept open for days.
       // Only opted-in roots are writable; live clients permit old archived turns
       // only. One background worker at a time avoids a startup I/O burst.
-      if (profile.appId === 'codex' &&
+      if (historyUpkeepOf(profile) &&
           this.historyMaintenance.size === 0 &&
           this.now() >= (this.historyMaintenanceNext.get(profile.id) || 0) &&
           (this.isManagedProfile(profile) || record?.owned || this.historyPolicySelected(profile))) {

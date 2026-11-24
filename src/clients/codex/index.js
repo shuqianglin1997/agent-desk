@@ -15,6 +15,11 @@ const { addGeneratedImages } = require('./attachments');
 const { matchJsonl, CHROMIUM_PROFILE_ISOLATION } = require('../shared');
 const codexQuota = require('./quota');
 const codexIdentity = require('./identity');
+const { seedCodexHome } = require('./home');
+const codexRuntimeHome = require('./runtime-home');
+const codexTaskPackage = require('./task-package');
+const codexHistory = require('./history-retention');
+const { inspectCodexHome } = require('./account-import');
 
 module.exports = {
   id: 'codex',
@@ -98,6 +103,32 @@ module.exports = {
     read: (profile, options) => codexQuota.readCodexQuota(profile, options),
     readCached: (profile) => codexQuota.readCachedCodexQuota(profile),
     failureReason: (error) => codexQuota.friendlyCodexFailure(error)
+  }),
+  // A Codex home stands on its own (no desktop data folder needed); <home>/.codex
+  // is the official default. Registering one from the command line requires
+  // recognizable Codex state.
+  standaloneHome: Object.freeze({
+    officialName: '.codex',
+    looksValid: (directory) => Boolean(inspectCodexHome(directory)),
+    invalid: Object.freeze({ code: 'codex-home-invalid', message: 'The directory has no recognized Codex state.' })
+  }),
+  // A managed home is seeded with the file credential store. Its session root
+  // lies outside AppData, so it is prepared even for the Windows default slot.
+  managedHome: Object.freeze({ seed: seedCodexHome, outsideAppData: true }),
+  // On macOS a long CODEX_HOME gets a short alias for Codex's local sockets.
+  runtimeHome: Object.freeze({
+    mayAlias: (profile) => codexRuntimeHome.needsShortRuntimeHome(profile.sessionRoot),
+    ensure: (profile) => codexRuntimeHome.ensureCodexRuntimeHome(profile)
+  }),
+  // Task packages carry Codex conversations natively (root and internal records).
+  taskPackage: Object.freeze({
+    capture: codexTaskPackage.captureCodexTaskSession,
+    import: codexTaskPackage.importCodexTaskSession
+  }),
+  // Opt-in history upkeep after the client stops (./history-retention.js).
+  historyUpkeep: Object.freeze({
+    run: codexHistory.runAfterProfileStop,
+    policySelected: (sessionRoot) => Boolean(codexHistory.readPolicy(codexHistory.canonicalRoot(sessionRoot)))
   }),
   scan: (profile, report) => sessions.scanCodex(profile, report),
   activityRecord: (filePath, stat) => {

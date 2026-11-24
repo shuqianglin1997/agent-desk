@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const readline = require('node:readline');
 const { Transform } = require('node:stream');
 const codexRollout = require('./rollout');
-const { extractTaskPackageEntry } = require('../../task-package/format');
+const { extractTaskPackageEntry, importedConversationTitle } = require('../../task-package/format');
 
 const CODEX_TASK_ADAPTER_ID = 'codex-rollout-jsonl';
 const CODEX_TASK_ADAPTER_VERSION = 1;
@@ -470,13 +470,6 @@ function codexTitleEntryExists(indexPath, sessionId, title) {
   }
 }
 
-function importedConversationTitle(manifest) {
-  const source = manifest.source || {};
-  const sourceLabel = ([source.senderLabel, source.agentName].filter(Boolean).join(' / ') || 'Agent').slice(0, 180);
-  const suffix = ` · 来自「${sourceLabel}」`;
-  const original = String(manifest.session?.originalTitle || '已交接会话').trim();
-  return `${original.slice(0, Math.max(1, 240 - suffix.length))}${suffix}`;
-}
 
 function collisionSafeRecordPath(directory, originalName, physicalRecordId, reserved) {
   const original = path.join(directory, originalName);

@@ -75,6 +75,9 @@ module.exports = {
   // workspace-write) and no event schema for its --json output (checked
   // 2026-11-24).
   hubUnsupported: 'no-read-only-mode',
+  // A managed home never touches ~/.dsh. DSH configuration may contain inline
+  // credentials, so nothing is seeded: DSH initializes an empty managed home itself.
+  managedHome: Object.freeze({ officialDefault: '.dsh', seed: () => ({ seeded: false, reason: 'configuration-required' }) }),
   scan: (profile) => cliClientSessions.scanDsh(profile),
   sessionKeyOf: (filePath) => path.dirname(filePath),
 };

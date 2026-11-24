@@ -58,7 +58,7 @@ function listApps() {
     label: APPS[id].label,
     tagColor: APPS[id].tagColor,
     canExportTranscript: typeof APPS[id].exportTranscript === 'function',
-    taskPackageMode: id === 'codex'
+    taskPackageMode: APPS[id].taskPackage
       ? 'native'
       : (typeof APPS[id].exportTranscript === 'function' ? 'transcript' : 'unsupported'),
     canLaunch: APPS[id].noLaunch !== true || Boolean(APPS[id].cliDiscoveryId),

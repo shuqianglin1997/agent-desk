@@ -613,8 +613,19 @@ function normalizeIso(value, field) {
   return new Date(time).toISOString();
 }
 
+// The title an imported conversation gets: its original title, marked with who
+// handed it over and from which Agent.
+function importedConversationTitle(manifest) {
+  const source = manifest.source || {};
+  const sourceLabel = ([source.senderLabel, source.agentName].filter(Boolean).join(' / ') || 'Agent').slice(0, 180);
+  const suffix = ` · 来自「${sourceLabel}」`;
+  const original = String(manifest.session?.originalTitle || '已交接会话').trim();
+  return `${original.slice(0, Math.max(1, 240 - suffix.length))}${suffix}`;
+}
+
 module.exports = {
   TASK_PACKAGE_SCHEMA_VERSION,
+  importedConversationTitle,
   MAX_ENTRY_COUNT,
   MAX_ENTRY_BYTES,
   MAX_PACKAGE_BYTES,

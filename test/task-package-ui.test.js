@@ -77,10 +77,12 @@ test('接收方在选择目标 Agent 前能看到人工检查点、项目状态�
 test('任务包 IPC 保持窄桥接，Main 负责选择路径并重新解析 Profile 与 Session', () => {
   const preload = read('src/preload.js');
   const main = read('src/main.js');
-  const apps = read('src/apps.js');
+  const apps = require('../src/apps');
   assert.match(preload, /previewTaskPackageExport:[\s\S]*?exportTaskPackage:[\s\S]*?sendTaskPackageToDevice:[\s\S]*?acceptIncomingTaskPackage:[\s\S]*?chooseTaskPackageImport:[\s\S]*?commitTaskPackageImport:/);
   assert.doesNotMatch(preload, /taskPackages:invoke|taskPackages:openPath/);
   assert.match(main, /ipcMain\.handle\('taskPackages:export'[\s\S]*?showSaveDialog[\s\S]*?exportPackage/);
   assert.match(main, /ipcMain\.handle\('taskPackages:commitImport'[\s\S]*?showOpenDialog[\s\S]*?commitImport/);
-  assert.match(apps, /taskPackageMode:\s*id === 'codex'[\s\S]*?'native'[\s\S]*?'transcript'[\s\S]*?'unsupported'/);
+  // Native for a client that declares a task-package format, transcript when it can export one, else unsupported.
+  const modes = Object.fromEntries(apps.listApps().map((app) => [app.id, app.taskPackageMode]));
+  assert.deepEqual([modes.codex, modes['claude-cli'], modes.cursor], ['native', 'transcript', 'unsupported']);
 });

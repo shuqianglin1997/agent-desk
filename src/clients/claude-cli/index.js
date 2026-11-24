@@ -13,6 +13,7 @@ const records = require('./records');
 const { suggestedTranscriptName } = require('../transcript');
 const { CLAUDE_CODE_ENV_KEYS, withoutClaudeCodeEnvironment } = require('./environment');
 const claudeCliIdentity = require('./identity');
+const { seedClaudeCliHome } = require('./home');
 
 module.exports = {
   id: 'claude-cli',
@@ -83,6 +84,8 @@ module.exports = {
   hub: require('./hub'),
   // Account ID for recognising the same sign-in (./identity.js).
   accountId: (profile) => claudeCliIdentity.claudeCliAccountId(profile),
+  // A managed home never touches ~/.claude and starts with an empty projects/ folder.
+  managedHome: Object.freeze({ officialDefault: '.claude', seed: (profile, fsImpl, pathImpl) => seedClaudeCliHome(profile.sessionRoot, fsImpl, pathImpl) }),
   scan: (profile) => sessions.scanClaudeCli(profile),
   // 活动探测的会话键（文件路径）→ 列表里这条会话的地址（文件名里的会话 ID）
   sessionAddressOf: (key) => path.basename(key, '.jsonl'),

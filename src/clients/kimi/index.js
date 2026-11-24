@@ -79,6 +79,9 @@ module.exports = {
   // -p always runs with automatic permission, so there is no read-only run
   // (checked against official docs 2026-11-24).
   hubUnsupported: 'prompt-argument-only',
+  // Kimi Code and Kimi Work are one desktop ecosystem: on one machine they share
+  // the sign-in, so their default slots are linked by this identity key once.
+  defaultIdentityKey: 'Kimi',
   scan: (profile, report) => sessions.scanKimi(profile, report),
   contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
   sessionAddressOf: (key) => path.basename(key),

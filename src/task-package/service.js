@@ -11,13 +11,12 @@ const {
   writeEncryptedTaskPackage,
   decryptTaskPackage,
   extractTaskPackageEntry,
-  publicTaskPackageManifest
-} = require('./format');
-const {
-  captureCodexTaskSession,
-  importCodexTaskSession,
+  publicTaskPackageManifest,
   importedConversationTitle
-} = require('../clients/codex/task-package');
+} = require('./format');
+// Native session formats are the adapter's (`taskPackage`, Codex); the others
+// travel as read-only transcripts.
+const nativeOf = (appId) => (apps.isKnownApp(appId) ? apps.getApp(appId).taskPackage || null : null);
 
 const IMPORT_DRAFT_TTL_MS = 30 * 60_000;
 const HISTORY_LIMIT = 200;
@@ -61,7 +60,7 @@ class TaskPackageService {
     const { profile, session } = this.resolveLocalSession(input.profileId, input.sessionId);
     const context = this.sourceContext(profile);
     const app_ = apps.getApp(profile.appId);
-    const native = profile.appId === 'codex';
+    const native = Boolean(nativeOf(profile.appId));
     const transcript = typeof app_.exportTranscript === 'function';
     return {
       supported: native || transcript,
@@ -88,8 +87,8 @@ class TaskPackageService {
     const entries = [];
     let sessionCapture;
     try {
-      if (profile.appId === 'codex') {
-        sessionCapture = await captureCodexTaskSession({
+      if (nativeOf(profile.appId)) {
+        sessionCapture = await nativeOf(profile.appId).capture({
           profile,
           session,
           stagingRoot: path.join(workRoot, 'native')
@@ -297,7 +296,7 @@ class TaskPackageService {
         });
       }
       if (manifest.session.mode === 'native') {
-        nativeImport = await importCodexTaskSession({
+        nativeImport = await nativeOf(profile.appId).import({
           profile,
           manifest,
           archive: draft.archive,
@@ -447,7 +446,7 @@ class TaskPackageService {
       ? manifest.source.deviceId === overview.localDeviceId
       : !overview.localDeviceId;
     return this.profileProvider()
-      .filter((profile) => !native || profile.appId === 'codex')
+      .filter((profile) => !native || Boolean(nativeOf(profile.appId)))
       .filter((profile) => !(sameSourceDevice && manifest.source.profileId === profile.id))
       .map((profile) => {
         const context = this.sourceContext(profile);
@@ -457,7 +456,7 @@ class TaskPackageService {
           agentName: context.agentName,
           appId: profile.appId,
           appLabel: apps.getApp(profile.appId).label,
-          canNativeImport: native && profile.appId === 'codex'
+          canNativeImport: native && Boolean(nativeOf(profile.appId))
         };
       });
   }

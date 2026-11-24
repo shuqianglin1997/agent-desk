@@ -60,6 +60,9 @@ module.exports = {
   }),
   // A desktop app: it can only open a window, so the hub cannot call it.
   hubUnsupported: 'desktop-only',
+  // Kimi Code and Kimi Work are one desktop ecosystem: on one machine they share
+  // the sign-in, so their default slots are linked by this identity key once.
+  defaultIdentityKey: 'Kimi',
   scan: (profile) => kimiWorkSessions.scanKimiWork(profile),
   // 正文与 Kimi Code 同构，活跃判定直接复用
   contentActivityAt: (_profile, filePath) => sessions.kimiActivityFromFile(filePath),
