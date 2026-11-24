@@ -149,7 +149,7 @@ const {
   installMainWindowSecurity
 } = require('./main/ipc/security-policy');
 const { PathSelectionRegistry } = require('./main/ipc/path-selections');
-const { registerRecruitIpc } = require('./main/ipc/recruit');
+const { createRecruitHandlers } = require('./main/recruit-discovery');
 const { createLocationRegistrar } = require('./main/profile-registration');
 const { createRecruitItems } = require('./main/recruit-items');
 const accountCredentials = require('./account-credentials');
@@ -260,6 +260,31 @@ let pairingEndpoint = null;
 let pairingEndpointTimer = null;
 let meshReachabilityEnabled = false;
 let pairingEndpointExpiresAt = null;
+// The Mesh runtime state the device commands change (src/commands/devices.js),
+// each change named here so the commands never assign Main's variables.
+function markSecureMeshAccessUnlocked() {
+  const newlyUnlocked = !secureMeshAccessUnlocked;
+  secureMeshAccessUnlocked = true;
+  return newlyUnlocked;
+}
+function setMeshReachability(enabled) {
+  meshReachabilityEnabled = enabled === true;
+}
+function forgetSignalingClient() {
+  signalingClient = null;
+}
+async function stopSignalingClient(reason) {
+  await signalingClient?.stop(reason);
+  signalingClient = null;
+}
+function stopMeshJobServices(reason) {
+  provisioningService?.stop();
+  provisioningService = null;
+  agentActionService?.stop(reason);
+  agentActionService = null;
+  transferService?.stop();
+  transferService = null;
+}
 let profileRuntimeSupervisor = null;
 let profileQuitInProgress = false;
 let profileQuitApproved = false;
@@ -275,6 +300,7 @@ const pathSelectionRegistry = new PathSelectionRegistry();
 // Discovery can list many homes at once; it gets its own bounded registry so
 // it cannot evict an in-flight path picker selection.
 const recruitSelectionRegistry = new PathSelectionRegistry({ maxEntries: 256, ttlMs: 15 * 60_000 });
+let recruitHandlers = null;
 const invitationInspectionRegistry = new InvitationInspectionRegistry();
 const pairingApprovalRegistry = new PairingApprovalRegistry({
   onChange: (claims) => {
@@ -490,938 +516,46 @@ function registerIpc() {
     getWindow: () => mainWindow,
     allowedUrl: MAIN_DOCUMENT_URL
   });
-  windowLamp.register(ipcMain);
   // command deps:start — generated from src/commands/ (the services the commands use; getters for state that changes)
   const commandDeps = {
-    app, appVersion, apps, boundedText, checkForUpdates, clipboard, createStoredProfile, diagnoseProfile,
-    dialog, exportSessionTranscript, getProfileRuntimeSupervisor, identityFingerprint, installLatestUpdate,
-    launchStoredProfile, listIndexedSessions, listSessionDirectories, loadProfiles, loadSettings,
-    migrateWindowsProfilePath, normalizeConfiguredPath, openMaintenanceTool, openPathSafely,
-    openSessionDirectory, pathSelectionRegistry, pathsEqual, probeActivities, profileIsRunning,
-    provisioningAdapterDescriptor, quotaService, refreshForAction, refreshProfiles, resolveKnownProfilePath,
-    revealPath, revealSessionFile, saveProfiles, scanMaintenanceTools, sessionMarksFreshContext,
-    sessionMarksResult, snapshotProcessText, syncWindowControlTheme, t, updateMaintenanceTool, updateSettings,
-    updateStoredProfile
+    BrowserWindow, HubError, accountResult, app, appVersion, applyProfileSecret, apps, boundedTaskCheckpoint,
+    boundedText, catalogMeshCall, checkForUpdates, clipboard, closePairingEndpoint, configuredSignalingUrls,
+    createAccountWithSecret, createLocalAccount, createStoredProfile, deviceDiagnostics, diagnoseProfile,
+    dialog, electronIpcMain, ensureSignalingOnline, executeRecruitItem, exportSessionTranscript,
+    finiteRevision, forgetSignalingClient, getAgentActionService, getAgentHub, getMeshService, getPeerManager,
+    getProfileRuntimeSupervisor, getProvisioningService, getRemoteControlService, getTaskPackageService,
+    getTransferService, hubPublicState, identityFingerprint, initializeFirstAgent, inspectRecruitItem,
+    installLatestUpdate, invitationInspectionRegistry, launchStoredProfile, listIndexedSessions,
+    listSessionDirectories, loadProfiles, loadSettings, markSecureMeshAccessUnlocked, meshCall,
+    meshNetworkEnrollmentEnabled, migrateWindowsProfilePath, normalizeCat, normalizeConfiguredPath,
+    normalizeConfirmedJoinInput, normalizeInvitationInspectionInput, normalizePairingDecisionInput,
+    normalizeServiceUrls, normalizeStunUrls, normalizeTaskPackageSendInput, normalizeTaskPackageTransferInput,
+    notifyHubChanged, openMaintenanceTool, openPairingEndpoint, openPathSafely, openSessionDirectory,
+    pairingApprovalRegistry, pathSelectionRegistry, pathsEqual, probeActivities, profileCredentialStatus,
+    profileIsRunning, provisioningAdapterDescriptor, publicNetworkRuntime, publicProvisioningResult,
+    quotaService, recruitSelectionRegistry, refreshForAction, refreshProfiles,
+    removeStoredProfileRegistration, resolveKnownProfilePath, revealPath, revealSessionFile, runWebRtcProbe,
+    saveProfiles, scanMaintenanceTools, sessionIndex, sessionMarksFreshContext, sessionMarksResult,
+    setHubAccess, setMeshNetworkEnrollmentEnabled, setMeshReachability, shell, snapshotProcessText,
+    stopMeshJobServices, stopSignalingClient, syncWindowControlTheme, t, taskPackageSuggestedName,
+    updateMaintenanceTool, updateSettings, updateStoredProfile, windowLamp, withMeshRuntime,
+    get agentActionService() { return agentActionService; },
+    get deferSecureMeshStartup() { return deferSecureMeshStartup; },
+    get mainWindow() { return mainWindow; },
+    get meshReachabilityEnabled() { return meshReachabilityEnabled; },
+    get pairingEndpoint() { return pairingEndpoint; },
+    get peerManager() { return peerManager; },
+    get recruitHandlers() { return recruitHandlers; },
+    get remoteControlService() { return remoteControlService; },
+    get secureMeshAccessUnlocked() { return secureMeshAccessUnlocked; }
   };
   // command deps:end
   registerCommandIpc({ ipcMain, deps: commandDeps });
 
   // 四个专用通道，只收会话键、1–5 的数字和有界字符串；SessionMarksStore 逐项重新校验，不开放通用读写。
 
-  ipcMain.handle('devices:list', async (_event, input = {}) => {
-    // Session counts come from the index; refresh it once (shared with the list).
-    await sessionIndex.refresh(loadProfiles()).catch(() => null);
-    const requestSecureAccess = input?.requestSecureAccess === true;
-    const deferKeyAccess = deferSecureMeshStartup
-      && !secureMeshAccessUnlocked
-      && !requestSecureAccess;
-    const result = meshCall(() => getMeshService().getOverview({ deferKeyAccess }));
-    if (result.ok && result.overview?.keyState === 'available') {
-      const newlyUnlocked = !secureMeshAccessUnlocked;
-      secureMeshAccessUnlocked = true;
-      if (newlyUnlocked && deferSecureMeshStartup) getProvisioningService().resumeActiveJobs();
-    }
-    if (
-      result.ok
-      && result.overview?.keyState === 'available'
-      && result.overview?.initialized
-      && meshNetworkEnrollmentEnabled(result.overview)
-    ) void ensureSignalingOnline().catch(() => {});
-    return result;
-  });
-
-  ipcMain.handle('onboarding:initializeFirstAgent', (_event, input = {}) => {
-    try {
-      const result = initializeFirstAgent(input, {
-        isKnownApp: (appId) => apps.isKnownApp(appId),
-        listProfiles: () => loadProfiles(),
-        meshService: getMeshService(),
-        deviceName: os.hostname(),
-        setNetworkEnrollmentEnabled: setMeshNetworkEnrollmentEnabled
-      });
-      return {
-        ok: true,
-        ...result,
-        overview: withMeshRuntime(result.overview)
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        reasonCode: boundedText(error?.message || 'first-agent-initialization-failed', 160)
-      };
-    }
-  });
-
-  ipcMain.handle('devices:initialize', (_event, input = {}) => {
-    const before = getMeshService().getOverview();
-    if (!before.initialized) setMeshNetworkEnrollmentEnabled(false);
-    const result = meshCall(() => getMeshService().initialize({
-      deviceName: boundedText(input.deviceName, 80),
-      displayName: boundedText(input.displayName, 80)
-    }));
-    return result;
-  });
-
-  ipcMain.handle('devices:rename', (_event, input = {}) => {
-    return meshCall(() => getMeshService().rename({
-      deviceId: boundedText(input.deviceId, 128),
-      name: boundedText(input.name, 80)
-    }));
-  });
-
-  ipcMain.handle('agentCatalog:list', () => meshCall(() => getMeshService().getOverview()));
-
-  ipcMain.handle('agentCatalog:create', (_event, input = {}) => {
-    try {
-      const before = getMeshService().getOverview();
-      const knownIds = new Set((before.agents || []).map((agent) => agent.agentId));
-      const overview = getMeshService().createAgent({
-        displayName: boundedText(input.displayName, 80),
-        group: boundedText(input.group, 80),
-        note: boundedText(input.note, 1000),
-        baseRevision: finiteRevision(input.baseRevision)
-      });
-      const agent = overview.agents.find((item) => !knownIds.has(item.agentId));
-      if (!agent) throw new Error('agent-create-result-missing');
-      void peerManager?.broadcastCatalog();
-      return { ok: true, agent, overview: withMeshRuntime(overview) };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'agent-create-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('agentCatalog:get', (_event, input = {}) => {
-    return meshCall(() => {
-      const overview = getMeshService().getOverview();
-      const agentId = boundedText(input.agentId, 128);
-      const agent = overview.agents.find((item) => item.agentId === agentId);
-      if (!agent) throw new Error('agent-not-found');
-      return {
-        agent,
-        accountBindings: overview.accountBindings.filter((item) => item.agentId === agentId),
-        slots: overview.slots.filter((item) => item.agentId === agentId)
-      };
-    }, 'catalog');
-  });
-
-  ipcMain.handle('agentCatalog:rename', (_event, input = {}) => {
-    return catalogMeshCall(() => getMeshService().updateAgent({
-      agentId: boundedText(input.agentId, 128),
-      displayName: boundedText(input.displayName, 80),
-      group: boundedText(input.group, 80),
-      note: boundedText(input.note, 1000),
-      catAppearance: input.catAppearance && typeof input.catAppearance === 'object'
-        ? normalizeCat(input.catAppearance, boundedText(input.agentId, 128))
-        : undefined,
-      baseRevision: finiteRevision(input.baseRevision)
-    }));
-  });
-
-  ipcMain.handle('agentCatalog:merge', (_event, input = {}) => {
-    return catalogMeshCall(() => getMeshService().mergeAgents({
-      sourceAgentId: boundedText(input.sourceAgentId, 128),
-      targetAgentId: boundedText(input.targetAgentId, 128),
-      baseRevision: finiteRevision(input.baseRevision)
-    }));
-  });
-
-  ipcMain.handle('agentCatalog:split', (_event, input = {}) => {
-    return catalogMeshCall(() => getMeshService().splitAccountBinding({
-      accountBindingId: boundedText(input.accountBindingId, 128),
-      displayName: boundedText(input.displayName, 80),
-      group: boundedText(input.group, 80),
-      note: boundedText(input.note, 1000),
-      baseRevision: finiteRevision(input.baseRevision)
-    }));
-  });
-
-  ipcMain.handle('agentCatalog:delete', (_event, input = {}) => {
-    return catalogMeshCall(() => getMeshService().removeCatalogObject({
-      scope: 'agent',
-      agentId: boundedText(input.agentId, 128),
-      baseRevision: finiteRevision(input.baseRevision)
-    }));
-  });
-
-  ipcMain.handle('agentCatalog:removeBinding', (_event, input = {}) => {
-    return catalogMeshCall(() => getMeshService().removeCatalogObject({
-      scope: 'account-binding',
-      accountBindingId: boundedText(input.accountBindingId, 128),
-      baseRevision: finiteRevision(input.baseRevision)
-    }));
-  });
-
-  ipcMain.handle('agentSlots:list', () => meshCall(() => getMeshService().getOverview().slots, 'slots'));
-
-  ipcMain.handle('agentSlots:addLocal', (_event, input = {}) => {
-    let profile = null;
-    try {
-      const before = getMeshService().getOverview();
-      if (!before.initialized) throw new Error('mesh-not-initialized');
-      profile = createStoredProfile({
-        appId: boundedText(input.appId, 80),
-        name: boundedText(input.name, 80),
-        group: boundedText(input.group, 80),
-        note: boundedText(input.note, 1000)
-      });
-      const overview = getMeshService().assignSlot({
-        mode: boundedText(input.mode, 40),
-        reuseProvisional: true,
-        deviceId: before.localDeviceId,
-        profileId: profile.id,
-        agentId: boundedText(input.agentId, 128),
-        accountBindingId: boundedText(input.accountBindingId, 128),
-        displayName: boundedText(input.name, 80),
-        displayAlias: boundedText(input.name, 80),
-        group: boundedText(input.group, 80),
-        note: boundedText(input.note, 1000)
-      });
-      void peerManager?.broadcastCatalog();
-      void peerManager?.broadcastInventory();
-      return { ok: true, profile, overview: withMeshRuntime(overview) };
-    } catch (error) {
-      if (profile) {
-        removeStoredProfileRegistration(profile.id);
-        try { getMeshService().getOverview(); } catch (_cleanupError) { /* original error wins */ }
-      }
-      return { ok: false, reasonCode: boundedText(error?.message || 'slot-add-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('agentSlots:assign', (_event, input = {}) => {
-    return catalogMeshCall(() => getMeshService().assignSlot({
-      mode: boundedText(input.mode, 40),
-      deviceId: boundedText(input.deviceId, 128),
-      profileId: boundedText(input.profileId, 128),
-      agentId: boundedText(input.agentId, 128),
-      accountBindingId: boundedText(input.accountBindingId, 128),
-      displayName: boundedText(input.displayName, 80),
-      displayAlias: boundedText(input.displayAlias, 80),
-      group: boundedText(input.group, 80),
-      note: boundedText(input.note, 1000),
-      baseRevision: finiteRevision(input.baseRevision)
-    }));
-  });
-
-  ipcMain.handle('agentSlots:removeLocal', (_event, input = {}) => {
-    return catalogMeshCall(() => getMeshService().removeCatalogObject({
-      scope: 'slot',
-      deviceId: boundedText(input.deviceId, 128),
-      profileId: boundedText(input.profileId, 128),
-      baseRevision: finiteRevision(input.baseRevision)
-    }));
-  });
-
-  ipcMain.handle('agentDeployments:ensureReady', async (_event, input = {}) => {
-    try {
-      const result = await getProvisioningService().ensureReady({
-        agentId: boundedText(input.agentId, 128),
-        deviceId: boundedText(input.deviceId, 128),
-        requestedAppId: boundedText(input.requestedAppId, 80),
-        requestedClientForm: boundedText(input.requestedClientForm, 80) || 'desktop',
-        interactive: true,
-        manualConfirmation: input.manualConfirmation === true
-      });
-      return publicProvisioningResult(result);
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'provisioning-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('agentDeployments:retryPreparation', async (_event, input = {}) => {
-    try {
-      const result = await getProvisioningService().retry(
-        boundedText(input.jobId, 128),
-        { manualConfirmation: input.manualConfirmation === true }
-      );
-      return publicProvisioningResult(result);
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'provisioning-retry-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('agentDeployments:cancelPreparation', (_event, input = {}) => {
-    try {
-      return publicProvisioningResult(
-        getProvisioningService().cancel(boundedText(input.jobId, 128))
-      );
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'provisioning-cancel-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('agentActions:launchRemote', async (_event, input = {}) => {
-    try {
-      const result = await getAgentActionService().launchRemote({
-        agentId: boundedText(input.agentId, 128),
-        deviceId: boundedText(input.deviceId, 128),
-        profileId: boundedText(input.profileId, 128)
-      });
-      return {
-        ...result,
-        overview: withMeshRuntime(getMeshService().getOverview())
-      };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'remote-launch-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('agentActions:prepareRemote', async (_event, input = {}) => {
-    try {
-      const result = await getAgentActionService().prepareRemote({
-        agentId: boundedText(input.agentId, 128),
-        deviceId: boundedText(input.deviceId, 128),
-        requestedAppId: boundedText(input.requestedAppId, 80),
-        requestedClientForm: boundedText(input.requestedClientForm, 80) || 'desktop'
-      });
-      return {
-        ...result,
-        overview: withMeshRuntime(getMeshService().getOverview())
-      };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'remote-preparation-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('devices:resetMesh', async () => {
-    invitationInspectionRegistry.clear();
-    pairingApprovalRegistry.stop('mesh-reset');
-    provisioningService?.stop();
-    provisioningService = null;
-    agentActionService?.stop('mesh-reset');
-    agentActionService = null;
-    transferService?.stop();
-    transferService = null;
-    await remoteControlService?.stopAll('mesh-reset');
-    peerManager?.disconnectAll('mesh-reset');
-    await signalingClient?.stop('mesh-reset');
-    signalingClient = null;
-    meshReachabilityEnabled = false;
-    setMeshNetworkEnrollmentEnabled(false);
-    await closePairingEndpoint();
-    const result = meshCall(() => getMeshService().reset());
-    return result;
-  });
-
-  ipcMain.handle('devices:probeTransport', async () => {
-    try {
-      const result = await runWebRtcProbe({
-        BrowserWindow,
-        ipcMain: electronIpcMain,
-        probeDirectory: path.join(__dirname, 'mesh', 'probe')
-      });
-      return { ok: true, result };
-    } catch (error) {
-      return {
-        ok: false,
-        reasonCode: boundedText(error?.message || 'webrtc-probe-failed', 160)
-      };
-    }
-  });
-
-  ipcMain.handle('devices:createInvite', async () => {
-    try {
-      pairingApprovalRegistry.stop('pairing-invite-replaced');
-      setMeshNetworkEnrollmentEnabled(true);
-      try { await ensureSignalingOnline(); } catch (_error) { /* LAN invitation remains available. */ }
-      await openPairingEndpoint();
-      return { ok: true, invitation: getMeshService().createInvite() };
-    } catch (error) {
-      await closePairingEndpoint();
-      return { ok: false, reasonCode: boundedText(error?.message || 'pairing-invite-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('devices:cancelInvite', async (_event, input = {}) => {
-    const inviteId = boundedText(input.inviteId, 128);
-    getMeshService().cancelInvite({ inviteId });
-    if (inviteId) pairingApprovalRegistry.cancelInvite(inviteId);
-    else pairingApprovalRegistry.stop('pairing-invite-cancelled');
-    if (!meshReachabilityEnabled) await closePairingEndpoint();
-    return { ok: true };
-  });
-
-  ipcMain.handle('devices:inspectInvite', (_event, input = {}) => {
-    try {
-      const normalized = normalizeInvitationInspectionInput(input);
-      const preview = getMeshService().inspectInvite(normalized);
-      return {
-        ok: true,
-        preview: invitationInspectionRegistry.issue(normalized.code, preview)
-      };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'pairing-invite-preview-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('devices:listPairingClaims', () => ({
-    ok: true,
-    claims: pairingApprovalRegistry.list()
-  }));
-
-  ipcMain.handle('devices:decidePairingClaim', (_event, input = {}) => {
-    try {
-      pairingApprovalRegistry.decide(normalizePairingDecisionInput(input));
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'pairing-approval-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('devices:join', async (_event, input = {}) => {
-    try {
-      const normalized = normalizeConfirmedJoinInput(input);
-      invitationInspectionRegistry.consume(normalized);
-      setMeshNetworkEnrollmentEnabled(true);
-      await openPairingEndpoint({ ttlMs: 2 * 60_000 });
-      const joined = await getMeshService().join({
-        code: normalized.code
-      });
-      signalingClient = null;
-      try { await ensureSignalingOnline(); } catch (_error) { /* Pairing succeeded; diagnostics shows signaling state. */ }
-      getMeshService().updateLocalEndpoints(pairingEndpoint?.endpoints() || []);
-      const remote = joined.devices.find((device) => !device.isLocal);
-      let connection = null;
-      let connectionError = null;
-      if (remote) {
-        try {
-          connection = await getPeerManager().connect(remote.deviceId);
-          if (!meshReachabilityEnabled) await closePairingEndpoint();
-        } catch (error) {
-          connectionError = boundedText(error?.message || 'peer-connect-failed', 160);
-        }
-      }
-      return {
-        ok: true,
-        overview: withMeshRuntime(getMeshService().getOverview()),
-        connection,
-        connectionError
-      };
-    } catch (error) {
-      if (!meshReachabilityEnabled) await closePairingEndpoint();
-      return { ok: false, reasonCode: boundedText(error?.message || 'mesh-operation-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('devices:setReachable', async (_event, input = {}) => {
-    try {
-      if (input.enabled === true) {
-        if (!getMeshService().getOverview().initialized) throw new Error('mesh-not-initialized');
-        setMeshNetworkEnrollmentEnabled(true);
-        meshReachabilityEnabled = true;
-        await openPairingEndpoint({ ttlMs: 30 * 60_000 });
-      } else {
-        meshReachabilityEnabled = false;
-        await closePairingEndpoint();
-      }
-      return { ok: true, overview: withMeshRuntime(getMeshService().getOverview()) };
-    } catch (error) {
-      meshReachabilityEnabled = false;
-      return { ok: false, reasonCode: boundedText(error?.message || 'mesh-reachability-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('devices:connect', async (_event, input = {}) => {
-    try {
-      setMeshNetworkEnrollmentEnabled(true);
-      try { await ensureSignalingOnline(); } catch (_error) { /* LAN is still attempted first. */ }
-      const connection = await getPeerManager().connect(boundedText(input.deviceId, 128));
-      return { ok: true, connection, overview: withMeshRuntime(getMeshService().getOverview()) };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'peer-connect-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('devices:disconnect', async (_event, input = {}) => {
-    try {
-      await remoteControlService?.stopDevice(boundedText(input.deviceId, 128), 'device-disconnect');
-      await getPeerManager().disconnect(boundedText(input.deviceId, 128));
-      return { ok: true, overview: withMeshRuntime(getMeshService().getOverview()) };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'peer-disconnect-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('devices:getDiagnostics', (_event, input = {}) => {
-    try {
-      return {
-        ok: true,
-        diagnostics: deviceDiagnostics(boundedText(input.deviceId, 128))
-      };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'device-diagnostics-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('devices:getNetworkConfig', () => {
-    const current = loadSettings();
-    return {
-      ok: true,
-      config: {
-        signalingUrls: current.meshSignalingUrls || [],
-        stunUrls: current.meshStunUrls || []
-      }
-    };
-  });
-
-  ipcMain.handle('devices:updateNetworkConfig', async (_event, input = {}) => {
-    try {
-      const signalingUrls = normalizeServiceUrls(input.signalingUrls);
-      const stunUrls = normalizeStunUrls(input.stunUrls);
-      updateSettings({
-        meshSignalingUrls: signalingUrls,
-        meshStunUrls: stunUrls,
-        meshNetworkEnrollmentEnabled: true
-      });
-      await signalingClient?.stop('network-config-changed');
-      signalingClient = null;
-      try { getMeshService().updateLocalSignalUrls(configuredSignalingUrls()); } catch (_error) { /* Mesh can be local-only. */ }
-      void ensureSignalingOnline().catch(() => {});
-      return {
-        ok: true,
-        config: { signalingUrls, stunUrls },
-        network: publicNetworkRuntime()
-      };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'network-config-invalid', 160) };
-    }
-  });
-
-  ipcMain.handle('devices:updatePermissions', (_event, input = {}) => {
-    const patch = input.permissions && typeof input.permissions === 'object' && !Array.isArray(input.permissions)
-      ? Object.fromEntries(Object.entries(input.permissions).map(([key, value]) => [boundedText(key, 80), value === true]))
-      : {};
-    const result = meshCall(() => getMeshService().updatePermissions({
-      deviceId: boundedText(input.deviceId, 128),
-      permissions: patch
-    }));
-    const device = result.overview?.devices?.find((item) => item.deviceId === boundedText(input.deviceId, 128));
-    if (device) {
-      peerManager?.handlePermissionsChanged(device.deviceId, device.permissions);
-      agentActionService?.handlePermissionsChanged(device.deviceId, device.permissions);
-      remoteControlService?.handlePermissionsChanged(device.deviceId, device.permissions);
-    }
-    return result;
-  });
-
-  ipcMain.handle('devices:revoke', (_event, input = {}) => {
-    return meshCall(() => getMeshService().revoke({
-      deviceId: boundedText(input.deviceId, 128),
-      reason: boundedText(input.reason, 160),
-      remove: input.remove !== false
-    }));
-  });
-
-  ipcMain.handle('remoteControl:open', async (_event, input = {}) => {
-    try {
-      const session = await getRemoteControlService().openDevice(boundedText(input.deviceId, 128));
-      return { ok: true, session, sessions: getRemoteControlService().list() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'remote-open-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('remoteControl:list', () => {
-    try {
-      return { ok: true, sessions: getRemoteControlService().list() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'remote-list-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('remoteControl:setSurface', (event, input = {}) => {
-    try {
-      if (!mainWindow || mainWindow.isDestroyed() || event.sender.id !== mainWindow.webContents.id) {
-        throw new Error('remote-surface-source-invalid');
-      }
-      const surface = getRemoteControlService().setConsoleSurface({
-        visible: input.visible === true,
-        bounds: input.bounds
-      });
-      return { ok: true, surface };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'remote-surface-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('remoteControl:return', async (_event, input = {}) => {
-    try {
-      const result = await getRemoteControlService().returnToWorkspace(boundedText(input.sessionId, 128));
-      return { ok: true, ...result };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'remote-return-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('remoteControl:disconnect', async (_event, input = {}) => {
-    try {
-      await getRemoteControlService().disconnect(boundedText(input.sessionId, 128));
-      return { ok: true, sessions: getRemoteControlService().list() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'remote-disconnect-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('remoteControl:stopAll', async () => {
-    try {
-      await getRemoteControlService().stopAll('emergency-stop');
-      return { ok: true, sessions: [] };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'remote-stop-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('remoteInventory:listSessions', async () => {
-    // Local rows come from the index; refresh it once, then the inventory reads them.
-    await sessionIndex.refresh(loadProfiles()).catch(() => null);
-    return meshCall(() => getMeshService().getUnifiedSessions(), 'sessions');
-  });
-
-  ipcMain.handle('remoteInventory:refresh', async (_event, input = {}) => {
-    try {
-      setMeshNetworkEnrollmentEnabled(true);
-      try { await ensureSignalingOnline(); } catch (_error) { /* LAN is still attempted first. */ }
-      const connection = await getPeerManager().refreshInventory(boundedText(input.deviceId, 128));
-      return {
-        ok: true,
-        connection,
-        sessions: getMeshService().getUnifiedSessions(),
-        overview: withMeshRuntime(getMeshService().getOverview())
-      };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'inventory-refresh-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('transfers:createSessionPointer', async (_event, input = {}) => {
-    try {
-      const selections = (Array.isArray(input.selections) ? input.selections : []).slice(0, 50).map((item) => ({
-        conversationId: boundedText(item?.conversationId, 128),
-        replicaId: boundedText(item?.replicaId, 128)
-      }));
-      const transfer = await getTransferService().createSessionPointerTransfer({
-        targetDeviceId: boundedText(input.targetDeviceId, 128),
-        selections
-      });
-      return { ok: true, transfer };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'transfer-create-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('transfers:chooseFiles', async (_event, input = {}) => {
-    try {
-      const targetDeviceId = boundedText(input.targetDeviceId, 128);
-      const result = await dialog.showOpenDialog(mainWindow, {
-        title: t('main.picker.transferFiles'),
-        properties: ['openFile', 'multiSelections']
-      });
-      if (result.canceled || !result.filePaths.length) return { ok: true, cancelled: true };
-      const transfer = await getTransferService().createFileTransfer({
-        targetDeviceId,
-        filePaths: result.filePaths.slice(0, 32)
-      });
-      return { ok: true, transfer, transfers: getTransferService().list() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'file-transfer-create-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('transfers:acceptFile', async (_event, input = {}) => {
-    try {
-      const transferId = boundedText(input.transferId, 128);
-      const result = await dialog.showOpenDialog(mainWindow, {
-        title: t('main.picker.transferDestination'),
-        properties: ['openDirectory', 'createDirectory']
-      });
-      if (result.canceled || !result.filePaths[0]) return { ok: true, cancelled: true };
-      const transfer = await getTransferService().acceptFileTransfer(transferId, result.filePaths[0]);
-      return { ok: true, transfer, transfers: getTransferService().list() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'file-transfer-accept-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('transfers:openReceivedFile', (_event, input = {}) => {
-    try {
-      const filePath = getTransferService().openReceivedFileLocation(boundedText(input.transferId, 128));
-      shell.showItemInFolder(filePath);
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'file-received-location-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('transfers:list', () => {
-    try { return { ok: true, transfers: getTransferService().list() }; } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'transfer-list-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('transfers:cancel', (_event, input = {}) => {
-    try {
-      return { ok: true, transfer: getTransferService().cancel(boundedText(input.transferId, 128)) };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'transfer-cancel-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('transfers:retry', async (_event, input = {}) => {
-    try {
-      return { ok: true, transfer: await getTransferService().retry(boundedText(input.transferId, 128)) };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'transfer-retry-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:previewExport', async (_event, input = {}) => {
-    try {
-      await refreshForAction([boundedText(input.profileId, 128)]);
-      return {
-        ok: true,
-        preview: getTaskPackageService().previewExport({
-          profileId: boundedText(input.profileId, 128),
-          sessionId: boundedText(input.sessionId, 128)
-        })
-      };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-preview-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:export', async (_event, input = {}) => {
-    try {
-      const profileId = boundedText(input.profileId, 128);
-      const sessionId = boundedText(input.sessionId, 128);
-      await refreshForAction([profileId]);
-      const preview = getTaskPackageService().previewExport({ profileId, sessionId });
-      if (!preview.supported) throw new Error('task-package-source-unsupported');
-      const result = await dialog.showSaveDialog(mainWindow, {
-        title: t('main.taskPackage.exportTitle'),
-        defaultPath: path.join(app.getPath('desktop'), taskPackageSuggestedName(preview.title)),
-        filters: [{ name: 'AgentDesk Task Package', extensions: ['agentdesk-task'] }]
-      });
-      if (result.canceled || !result.filePath) return { ok: true, cancelled: true };
-      let attachmentPaths = [];
-      if (input.includeAttachments === true) {
-        const attachmentResult = await dialog.showOpenDialog(mainWindow, {
-          title: t('main.taskPackage.attachmentsTitle'),
-          properties: ['openFile', 'multiSelections']
-        });
-        if (attachmentResult.canceled) return { ok: true, cancelled: true };
-        attachmentPaths = attachmentResult.filePaths;
-      }
-      // The save dialog may have stayed open a while: read the session again.
-      await refreshForAction([profileId]);
-      const exported = await getTaskPackageService().exportPackage({
-        profileId,
-        sessionId,
-        conversationId: boundedText(input.conversationId, 128),
-        senderLabel: boundedText(input.senderLabel, 120),
-        checkpoint: boundedTaskCheckpoint(input.checkpoint),
-        includeProject: input.includeProject !== false,
-        attachmentPaths,
-        destinationPath: result.filePath
-      });
-      return { ok: true, exported, history: getTaskPackageService().listHistory() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-export-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:sendToDevice', async (_event, input = {}) => {
-    try {
-      const request = normalizeTaskPackageSendInput(input);
-      await refreshForAction([request.profileId]);
-      const preview = getTaskPackageService().previewExport({
-        profileId: request.profileId,
-        sessionId: request.sessionId
-      });
-      if (!preview.supported) throw new Error('task-package-source-unsupported');
-      let attachmentPaths = [];
-      if (request.includeAttachments) {
-        const attachmentResult = await dialog.showOpenDialog(mainWindow, {
-          title: t('main.taskPackage.attachmentsTitle'),
-          properties: ['openFile', 'multiSelections']
-        });
-        if (attachmentResult.canceled) return { ok: true, cancelled: true };
-        attachmentPaths = attachmentResult.filePaths.slice(0, 32);
-      }
-      await refreshForAction([request.profileId]);
-      const transfer = await getTransferService().createTaskPackageTransfer({
-        targetDeviceId: request.targetDeviceId,
-        profileId: request.profileId,
-        sessionId: request.sessionId,
-        conversationId: request.conversationId,
-        senderLabel: request.senderLabel,
-        checkpoint: request.checkpoint,
-        includeProject: request.includeProject,
-        attachmentPaths
-      });
-      return {
-        ok: true,
-        transfer,
-        transfers: getTransferService().list(),
-        history: getTaskPackageService().listHistory()
-      };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-direct-send-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:acceptIncoming', async (_event, input = {}) => {
-    try {
-      const { transferId } = normalizeTaskPackageTransferInput(input);
-      const transfer = await getTransferService().acceptTaskPackageTransfer(transferId);
-      return { ok: true, transfer, transfers: getTransferService().list() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-direct-accept-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:rejectIncoming', (_event, input = {}) => {
-    try {
-      const { transferId } = normalizeTaskPackageTransferInput(input);
-      const transfer = getTransferService().rejectTaskPackageTransfer(transferId);
-      return { ok: true, transfer, transfers: getTransferService().list() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-direct-reject-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:prepareIncoming', async (_event, input = {}) => {
-    try {
-      const { transferId } = normalizeTaskPackageTransferInput(input);
-      const prepared = await getTransferService().prepareTaskPackageImport(transferId);
-      return { ok: true, ...prepared, transfers: getTransferService().list() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-direct-prepare-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:savePortableFallback', async (_event, input = {}) => {
-    try {
-      const { transferId } = normalizeTaskPackageTransferInput(input);
-      const transfer = getTransferService().list().find((item) => item.transferId === transferId);
-      if (!transfer || transfer.type !== 'task-package' || transfer.direction !== 'outgoing') {
-        throw new Error('task-package-transfer-not-found');
-      }
-      if (!transfer.canSavePortable) throw new Error('task-package-portable-fallback-unavailable');
-      const result = await dialog.showSaveDialog(mainWindow, {
-        title: t('main.taskPackage.exportTitle'),
-        defaultPath: path.join(
-          app.getPath('desktop'),
-          taskPackageSuggestedName(transfer.taskPackage?.title || 'task-package')
-        ),
-        filters: [{ name: 'AgentDesk Task Package', extensions: ['agentdesk-task'] }]
-      });
-      if (result.canceled || !result.filePath) return { ok: true, cancelled: true };
-      const saved = await getTransferService().saveTaskPackageFallback(transferId, result.filePath);
-      return {
-        ok: true,
-        saved,
-        transfers: getTransferService().list(),
-        history: getTaskPackageService().listHistory()
-      };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-portable-fallback-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:chooseImport', async () => {
-    try {
-      const result = await dialog.showOpenDialog(mainWindow, {
-        title: t('main.taskPackage.importTitle'),
-        properties: ['openFile'],
-        filters: [{ name: 'AgentDesk Task Package', extensions: ['agentdesk-task'] }]
-      });
-      if (result.canceled || !result.filePaths[0]) return { ok: true, cancelled: true };
-      return { ok: true, draft: getTaskPackageService().createImportDraft(result.filePaths[0]) };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-import-choose-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:inspectImport', async (_event, input = {}) => {
-    try {
-      const inspected = await getTaskPackageService().inspectImport({
-        token: boundedText(input.token, 128),
-        unlockCode: boundedText(input.unlockCode, 100)
-      });
-      return { ok: true, inspected };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-import-inspect-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:commitImport', async (_event, input = {}) => {
-    try {
-      const destination = await dialog.showOpenDialog(mainWindow, {
-        title: t('main.taskPackage.materialsTitle'),
-        defaultPath: app.getPath('documents'),
-        properties: ['openDirectory', 'createDirectory']
-      });
-      if (destination.canceled || !destination.filePaths[0]) return { ok: true, cancelled: true };
-      const imported = await getTaskPackageService().commitImport({
-        token: boundedText(input.token, 128),
-        targetProfileId: boundedText(input.targetProfileId, 128),
-        artifactDirectory: destination.filePaths[0],
-        openAfterImport: input.openAfterImport !== false
-      });
-      return { ok: true, imported, history: getTaskPackageService().listHistory() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-import-commit-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:cancelImport', (_event, input = {}) => {
-    try {
-      getTaskPackageService().cancelImport(boundedText(input.token, 128));
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-import-cancel-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:list', () => {
-    try { return { ok: true, history: getTaskPackageService().listHistory() }; } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-history-failed', 160) };
-    }
-  });
-
-  ipcMain.handle('taskPackages:reveal', (_event, input = {}) => {
-    try {
-      const itemPath = getTaskPackageService().historyLocation(
-        boundedText(input.packageId, 128),
-        boundedText(input.direction, 40)
-      );
-      if (fs.statSync(itemPath).isDirectory()) shell.openPath(itemPath);
-      else shell.showItemInFolder(itemPath);
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'task-package-history-location', 160) };
-    }
-  });
-
-  ipcMain.handle('projects:chooseBinding', async (_event, input = {}) => {
-    try {
-      const result = await dialog.showOpenDialog(mainWindow, {
-        title: t('main.picker.projectRoot'),
-        properties: ['openDirectory', 'createDirectory']
-      });
-      if (result.canceled || !result.filePaths[0]) return { ok: true, cancelled: true };
-      const binding = getTransferService().saveProjectBinding({
-        projectId: boundedText(input.projectId, 128),
-        sourceDeviceId: boundedText(input.sourceDeviceId, 128),
-        localRoot: result.filePaths[0]
-      });
-      return { ok: true, binding, transfers: getTransferService().list() };
-    } catch (error) {
-      return { ok: false, reasonCode: boundedText(error?.message || 'project-binding-failed', 160) };
-    }
-  });
-
-  registerRecruitIpc(ipcMain, {
+  // Discovery of existing client homes, for the recruit commands.
+  recruitHandlers = createRecruitHandlers({
     selections: recruitSelectionRegistry,
     loadProfiles,
     registerLocations,
@@ -1432,80 +566,16 @@ function registerIpc() {
         properties: ['openDirectory', 'showHiddenFiles']
       });
       return result.canceled ? null : result.filePaths[0] || null;
-    },
-    onRegistered: () => quotaService.invalidate()
+    }
   });
 
   // 调度中枢: switches, allowed folders and the limit change only here, from
   // the desktop window. Folders come from Main's own picker, never a path
   // sent by the Renderer.
-  ipcMain.handle('hub:state', () => hubPublicState());
-  ipcMain.handle('hub:setAccess', (_event, input = {}) => setHubAccess(input));
-  ipcMain.handle('hub:addFolder', async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: t('main.picker.hubFolder'),
-      defaultPath: os.homedir(),
-      properties: ['openDirectory', 'createDirectory']
-    });
-    const picked = result.canceled ? null : result.filePaths[0] || null;
-    if (!picked) return { ok: false, reasonCode: 'cancelled' };
-    let real;
-    try { real = fs.realpathSync.native(picked); } catch (_error) { return { ok: false, reasonCode: 'folder-invalid' }; }
-    const added = getAgentHub().store.addFolder(real);
-    notifyHubChanged();
-    return added.ok ? { ok: true, existing: added.existing === true, state: hubPublicState() } : { ok: false, reasonCode: added.reasonCode };
-  });
-  ipcMain.handle('hub:removeFolder', (_event, input = {}) => {
-    const removed = getAgentHub().store.removeFolder(boundedText(input.id, 64));
-    notifyHubChanged();
-    return { ok: removed, state: hubPublicState() };
-  });
-  ipcMain.handle('hub:setMaxConcurrent', (_event, input = {}) => {
-    getAgentHub().store.setMaxConcurrent(Number(input.value));
-    notifyHubChanged();
-    return { ok: true, state: hubPublicState() };
-  });
-  ipcMain.handle('hub:stopRun', async (_event, input = {}) => {
-    try {
-      const run = await getAgentHub().stop(boundedText(input.id, 64));
-      return { ok: true, run: { ...run, cwd: undefined } };
-    } catch (error) {
-      return { ok: false, reasonCode: error instanceof HubError ? error.code : 'hub-stop-failed' };
-    }
-  });
 
-  ipcMain.handle('recruit:createAccount', (_event, input = {}) => accountResult(async () => {
-    const signIn = ['key', 'provider'].includes(input?.signIn) ? input.signIn : 'browser';
-    if (signIn === 'browser') return { ...createLocalAccount(input), created: true, signIn };
-    return { ...(await createAccountWithSecret({ ...input, method: signIn })), signIn };
-  }, 'account-create-failed'));
-  ipcMain.handle('credentials:apply', (_event, input = {}) => accountResult(
-    () => applyProfileSecret(boundedText(input?.profileId, 128), input), 'credential-apply-failed'
-  ));
-  ipcMain.handle('credentials:status', (_event, input = {}) => accountResult(
-    () => profileCredentialStatus(boundedText(input?.profileId, 128), input?.official === true), 'credential-status-failed'
-  ));
   // The preload supplies a disk-backed path from a native drop (file or
   // folder). Main inspects it and hands back a one-time selection ID; the
   // Renderer confirms a copy before anything is written.
-  ipcMain.handle('recruit:inspectItem', (_event, itemPath) => accountResult(
-    () => inspectRecruitItem(itemPath), 'credential-import-failed'
-  ));
-  ipcMain.handle('recruit:pickItem', () => accountResult(async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: t('main.picker.recruitItem'),
-      defaultPath: os.homedir(),
-      properties: process.platform === 'darwin' ? ['openFile', 'openDirectory', 'showHiddenFiles'] : ['openFile', 'showHiddenFiles']
-    });
-    if (result.canceled || !result.filePaths[0]) return null;
-    return inspectRecruitItem(result.filePaths[0]);
-  }, 'credential-import-failed'));
-  ipcMain.handle('recruit:importItem', (_event, input = {}) => accountResult(async () => {
-    const selectionId = boundedText(input?.selectionId, 128);
-    const { path: itemPath, meta } = recruitSelectionRegistry.resolveEntry(selectionId, 'recruit-item');
-    recruitSelectionRegistry.consume([selectionId]);
-    return executeRecruitItem(itemPath, meta?.action);
-  }, 'credential-import-failed'));
 
 }
 

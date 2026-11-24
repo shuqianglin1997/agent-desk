@@ -48,9 +48,10 @@ test('the table is valid: unique ids, channels and preload methods', () => {
   assert.ok(commands.length >= 100);
   assert.equal(new Set(commands.map((command) => command.channel)).size, commands.length);
   for (const command of commands) {
-    assert.ok(command.where === 'commands' ? typeof command.exec === 'function' : MAIN_SIDE.includes(command.where), command.id);
+    assert.equal(typeof command.exec, 'function', command.id);
+    assert.match(command.module, /^src\/commands\/[a-z-]+\.js$/);
   }
-  for (const event of events) assert.equal(event.where, 'event');
+  for (const event of events) assert.equal(event.module, 'event');
 });
 
 test('preload invokes exactly the table\'s channels, each through the methods the table names', () => {
@@ -69,23 +70,17 @@ test('preload subscribes exactly to the table\'s events, and Main sends each of 
   for (const event of events) assert.ok(mainSide.includes(`'${event.channel}'`), `${event.channel} is sent by Main`);
 });
 
-test('every channel is registered exactly once: by the command shell, or where the table says', () => {
+test('the window\'s channels are registered only by the command shell, each once', () => {
   const { commands } = commandTable();
-  const literals = new Map();
-  for (const file of MAIN_SIDE) {
-    for (const match of read(file).matchAll(/\.handle\(\s*'([^']+)'/g)) literals.set(match[1], [...(literals.get(match[1]) || []), file]);
-  }
-  for (const command of commands) {
-    if (command.where === 'commands') {
-      assert.equal(literals.has(command.channel), false, `${command.channel} is registered by the shell only`);
-    } else if (command.where === 'src/main/window-lamp.js') {
-      assert.ok(read(command.where).includes(`'${command.channel}'`), command.channel);
-    } else {
-      assert.deepEqual(literals.get(command.channel), [command.where], command.channel);
+  const known = new Set(commands.map((command) => command.channel));
+  for (const file of MAIN_SIDE.filter((name) => name !== 'src/main/ipc/command-shell.js')) {
+    for (const match of read(file).matchAll(/\.handle\(\s*'([^']+)'/g)) {
+      assert.equal(known.has(match[1]), false, `${match[1]} is registered by hand in ${file}`);
     }
   }
-  const known = new Set(commands.map((command) => command.channel));
-  for (const channel of literals.keys()) assert.ok(known.has(channel), `${channel} is in the table`);
+  const registered = [];
+  require('../src/main/ipc/command-shell').registerCommandIpc({ ipcMain: { handle: (channel) => registered.push(channel) }, deps: {} });
+  assert.deepEqual(registered.sort(), [...known].sort());
 });
 
 test('commands never import Electron, and the shell runs input, poll, then exec', async () => {

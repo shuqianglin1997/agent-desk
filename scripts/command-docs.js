@@ -22,14 +22,12 @@ function code(value) {
 
 function section(table = require('../src/commands/registry').commandTable()) {
   const lines = [START, ''];
-  const implemented = table.commands.filter((command) => command.where === 'commands').length;
-  lines.push(`窗口能向 Main 发起的命令 ${table.commands.length} 条（已在命令表里实现 ${implemented} 条，其余仍由“注册在”一栏的文件登记），Main 发给窗口的通知 ${table.events.length} 条。`);
+  lines.push(`窗口能向 Main 发起的命令 ${table.commands.length} 条，都在命令表里、经命令表的薄壳注册；Main 发给窗口的通知 ${table.events.length} 条。`);
   lines.push('');
-  lines.push('| 功能 | 命令 | 通道 | preload | 注册在 |');
+  lines.push('| 功能 | 命令 | 通道 | preload | 定义在 |');
   lines.push('|---|---|---|---|---|');
   for (const command of table.commands) {
-    const where = command.where === 'commands' ? command.module : command.where;
-    lines.push(`| ${command.feature} | ${code(command.id)} | ${code(command.channel)} | ${command.preload.map(code).join(' ')} | ${code(where)} |`);
+    lines.push(`| ${command.feature} | ${code(command.id)} | ${code(command.channel)} | ${command.preload.map(code).join(' ')} | ${code(command.module)} |`);
   }
   lines.push('');
   lines.push('| Main → 窗口的通知 | preload |');

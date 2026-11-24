@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const discovery = require('../src/account-discovery');
 const { createLocationRegistrar } = require('../src/main/profile-registration');
-const { createRecruitHandlers } = require('../src/main/ipc/recruit');
+const { createRecruitHandlers } = require('../src/main/recruit-discovery');
 const { PathSelectionRegistry } = require('../src/main/ipc/path-selections');
 const { discoverLocalProfileLocations } = require('../src/automation/local-locations');
 

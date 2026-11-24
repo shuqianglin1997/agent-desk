@@ -14,7 +14,6 @@ function mainHandlerSource() {
   const { commandTable } = require('../../src/commands/registry');
   const main = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'main.js'), 'utf8');
   const moved = commandTable().commands
-    .filter((command) => command.where === 'commands')
     .map((command) => `  ipcMain.handle('${command.channel}', ${command.exec.toString()});`);
   return `${moved.join('\n')}\n${main}`;
 }

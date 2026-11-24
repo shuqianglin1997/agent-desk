@@ -30,7 +30,7 @@ const TABLE = [
     'src/yard/sprites.js', 'src/remote/console.js', 'src/remote/host.js', 'src/mesh/peer/peer.js',
     'src/mesh/peer/e2e-runner.js', 'src/mesh/probe/probe.js', 'src/mesh/probe/runner.js']],
   ['commands', ['src/commands/', 'src/automation/service.js', 'src/automation/packaged-cli.js', 'src/automation/local-locations.js',
-    'src/main/session-actions.js', 'src/main/recruit-items.js', 'src/main/profile-registration.js']],
+    'src/main/session-actions.js', 'src/main/recruit-items.js', 'src/main/recruit-discovery.js', 'src/main/profile-registration.js']],
   ['clients', ['src/apps.js', 'src/clients/',
     'src/session-export.js', 'src/identity.js', 'src/account-discovery.js',
     'src/account-credentials.js', 'src/credential-import.js',

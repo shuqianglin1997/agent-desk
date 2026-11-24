@@ -142,12 +142,9 @@ function createWindowLamp(options = {}) {
     return windowsCreated > 1 ? 'reopen' : 'first';
   }
 
-  function register(ipcMain) {
-    ipcMain.handle(DONE_CHANNEL, (_event, input) => done(input));
-    ipcMain.handle(SHOWING_CHANNEL, () => ({ kind: showingKind() }));
-  }
-
-  return { send, play, done, closingClients, holdQuit, relight, attach, showingKind, register, visible };
+  // The window's two calls (DONE_CHANNEL, SHOWING_CHANNEL) are the commands
+  // in src/commands/window.js, which call done() and showingKind().
+  return { send, play, done, closingClients, holdQuit, relight, attach, showingKind, visible };
 }
 
 module.exports = { createWindowLamp, LIMITS, LAMP_CHANNEL, DONE_CHANNEL, SHOWING_CHANNEL };

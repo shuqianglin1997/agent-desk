@@ -75,7 +75,7 @@ test('the System page holds allowed folders and the limit; folders come only fro
   assert.match(renderer, /window\.manager\.hubRemoveFolder\(id\)/);
   assert.doesNotMatch(renderer, /hubAddFolder\([^)]/);
   assert.match(read('src/preload.js'), /hubAddFolder: \(\) => ipcRenderer\.invoke\('hub:addFolder'\),/);
-  assert.match(mainHandlerSource(), /ipcMain\.handle\('hub:addFolder', async \(\) => \{\s*const result = await dialog\.showOpenDialog\(mainWindow,/);
+  assert.match(mainHandlerSource(), /ipcMain\.handle\('hub:addFolder', async (?:\(\) =>|exec\(deps\)) \{\s*(?:const \{[^}]*\} = deps;\s*)?const result = await dialog\.showOpenDialog\(mainWindow,/);
   // 换语言时动态的那几行也换
   assert.match(renderer, /function rerenderLocalizedText\(\) \{[\s\S]*?renderHubSystem\(\);/);
 });

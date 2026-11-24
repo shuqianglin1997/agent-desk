@@ -420,9 +420,11 @@ test('主进程：macOS 关窗先短短关灯再关；其他系统关窗交给�
   quitting = true;
   win.emit('close', { preventDefault: () => { prevented += 1; } });
   assert.equal(prevented, 2, '退出进行中关窗不再拦');
-  const registered = [];
-  lamp.register({ handle: (channel) => registered.push(channel) });
-  assert.deepEqual(registered, ['window:lampDone', 'window:showing']);
+  // The window's two calls are commands over the lamp (src/commands/window.js).
+  const { COMMANDS } = require('../src/commands/window');
+  const { runCommand } = require('../src/commands/registry');
+  assert.deepEqual(COMMANDS.map((command) => command.channel), ['window:lampDone', 'window:showing']);
+  assert.deepEqual(await runCommand(COMMANDS[1], { windowLamp: lamp }, undefined), { kind: 'reopen' });
 });
 
 test('监管器：只列出自己启动且仍在运行的 Profile，每关好一个回调一次', async () => {
@@ -460,7 +462,8 @@ test('接线：窗口底色是夜色，关客户端前降灯、被拦下亮灯�
   assert.equal((beforeQuit.match(/windowLamp\.relight\(\);/g) || []).length, 2, '两条拦下退出的路都重新亮灯');
   assert.ok(beforeQuit.indexOf('windowLamp.holdQuit(event') < beforeQuit.indexOf('appQuitting = true;'));
   assert.ok(beforeQuit.indexOf('appQuitting = true;') < beforeQuit.indexOf('profileRuntimeSupervisor?.stopMonitoring();'));
-  assert.match(main, /windowLamp\.register\(ipcMain\);/);
+  // The window's lamp calls are commands; Main hands them the lamp.
+  assert.match(main, /const commandDeps = \{[\s\S]*?\bwindowLamp\b[\s\S]*?\};/);
   const preload = read('src/preload.js');
   assert.match(preload, /onWindowLamp: \(callback\) => \{/);
   assert.match(preload, /windowLampDone: \(token\) => ipcRenderer\.invoke\('window:lampDone', \{ token: Number\(token\) \|\| 0 \}\)/);

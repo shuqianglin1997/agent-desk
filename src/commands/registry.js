@@ -14,16 +14,14 @@
  *             fixed reason code; the window then gets refuse(reason) or
  *             { ok: false, reasonCode }
  *   exec      (deps, input) -> the result
- * Feature modules (src/commands/<feature>.js) hold implemented commands; the
- * ones still registered elsewhere are listed in ./legacy.js until they move.
- * Events are what Main tells the window (./events.js).
+ * Feature modules (src/commands/<feature>.js) hold the commands; events are
+ * what Main tells the window (./events.js).
  *
  * Commands never import Electron; Main passes its services in as `deps`.
  * The IPC shell is src/main/ipc/command-shell.js; docs/INTERNAL.md §7 is
  * generated from this table (scripts/command-docs.js).
  */
 
-const { LEGACY } = require('./legacy');
 const { EVENTS } = require('./events');
 
 // Feature modules with implemented commands, in the order the list shows them.
@@ -33,7 +31,15 @@ const FEATURE_MODULES = [
   ['tools', require('./tools')],
   ['session-marks', require('./session-marks')],
   ['profiles', require('./profiles')],
-  ['system', require('./system')]
+  ['system', require('./system')],
+  ['devices', require('./devices')],
+  ['agents', require('./agents')],
+  ['remote', require('./remote')],
+  ['transfers', require('./transfers')],
+  ['task-packages', require('./task-packages')],
+  ['hub', require('./hub')],
+  ['recruit', require('./recruit')],
+  ['window', require('./window')]
 ];
 
 const ID = /^[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*$/;
@@ -50,11 +56,10 @@ function featureOf(id) {
   return id.split('.')[0];
 }
 
-// where: 'commands' for an implemented command (module: its file in
-// src/commands/), or the file that still registers it.
-function normalize(command, where, module = null) {
+// module: the command's file in src/commands/ ('event' for events).
+function normalize(command, module) {
   const preload = Array.isArray(command.preload) ? command.preload : [command.preload];
-  return Object.freeze({ ...command, preload: Object.freeze([...preload]), feature: featureOf(command.id), where, module });
+  return Object.freeze({ ...command, preload: Object.freeze([...preload]), feature: featureOf(command.id), module });
 }
 
 // Throws on a malformed or duplicated entry.
@@ -77,20 +82,17 @@ function validate(commands, events) {
     }
   }
   for (const command of commands) {
-    if (command.where === 'commands' && typeof command.exec !== 'function') throw new TypeError(`command-exec-missing: ${command.id}`);
+    if (typeof command.exec !== 'function') throw new TypeError(`command-exec-missing: ${command.id}`);
   }
 }
 
 let cached = null;
 
-// { commands, events }: every invoke channel (implemented here or still
-// registered elsewhere) and every event, validated once.
+// { commands, events }: every invoke channel and every event, validated once.
 function commandTable() {
   if (cached) return cached;
-  const implemented = FEATURE_MODULES.flatMap(([name, module]) => module.COMMANDS.map((command) => normalize(command, 'commands', `src/commands/${name}.js`)));
-  const legacy = LEGACY.map(([channel, preload, where]) => normalize({ id: idOf(channel), channel, preload }, where));
+  const commands = FEATURE_MODULES.flatMap(([name, module]) => module.COMMANDS.map((command) => normalize(command, `src/commands/${name}.js`)));
   const events = EVENTS.map(([channel, preload]) => normalize({ id: idOf(channel), channel, preload }, 'event'));
-  const commands = [...implemented, ...legacy];
   validate(commands, events);
   cached = Object.freeze({ commands: Object.freeze(commands), events: Object.freeze(events) });
   return cached;

@@ -1,14 +1,16 @@
 'use strict';
 
 /*
- * Recruit (add account) IPC: discovery and batch registration of existing
- * client homes. The Renderer only receives display paths and one-time
+ * Recruit (add account): discovery and batch registration of existing
+ * client homes, called by the recruit commands (src/commands/recruit.js).
+ * One object per app holds the discovery that is running, so a new one or
+ * a cancel stops it. The Renderer only receives display paths and one-time
  * selection IDs; Main keeps the real location and re-checks it before
  * registering. No credentials are read for output, copied or moved here.
  */
 
 const os = require('node:os');
-const accountDiscovery = require('../../account-discovery');
+const accountDiscovery = require('../account-discovery');
 
 const MAX_BATCH = 64;
 
@@ -143,17 +145,4 @@ function createRecruitHandlers(deps) {
   return { discover, discoverFolder, cancel, register };
 }
 
-function registerRecruitIpc(ipcMain, deps) {
-  const handlers = createRecruitHandlers(deps);
-  ipcMain.handle('recruit:discover', (_event, input) => handlers.discover(input));
-  ipcMain.handle('recruit:discoverFolder', () => handlers.discoverFolder());
-  ipcMain.handle('recruit:cancelDiscover', () => handlers.cancel());
-  ipcMain.handle('recruit:register', (_event, input) => {
-    const result = handlers.register(input);
-    if (result.added) deps.onRegistered?.();
-    return result;
-  });
-  return handlers;
-}
-
-module.exports = { createRecruitHandlers, registerRecruitIpc, publicLocation, shortPath };
+module.exports = { createRecruitHandlers, publicLocation, shortPath };
