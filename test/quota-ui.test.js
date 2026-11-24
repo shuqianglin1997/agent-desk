@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { rendererSource } = require('./helpers/renderer-source');
+const { rendererSource, rendererFunction } = require('./helpers/renderer-source');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
 const renderer = rendererSource();
@@ -27,9 +27,9 @@ test('账号额度浮层保留手动刷新和可访问进度条', () => {
 
 test('额度慢轮询不混进 8 秒 activity IPC', () => {
   assert.match(renderer, /const QUOTA_REFRESH_INTERVAL = 5 \* 60_000/);
-  const activity = between(renderer, 'async function loadActivity()', 'const CARD_STATE_DOT');
+  const activity = rendererFunction('loadActivity') + rendererFunction('hubWritingKeys');
   assert.doesNotMatch(activity, /listQuotas|loadQuotas/);
-  const quota = between(renderer, 'async function loadQuotas', 'function selectedQuota');
+  const quota = rendererFunction('loadQuotas');
   assert.doesNotMatch(quota, /listActivity/);
 });
 
