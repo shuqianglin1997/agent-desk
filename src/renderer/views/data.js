@@ -12,7 +12,7 @@ import { loadQuotas, quotaHasLoaded } from './quota.js';
 import { renderAccountHeader, renderAccountRoster, renderAccounts } from './roster.js';
 import { applySessionFilter, renderSessionControls } from './sessions.js';
 import { persistSettings, persistUiSelectionMemory, tr } from './settings.js';
-import { ACTIVITY_SESSION_REFRESH_INTERVAL, FOREGROUND_SESSION_REFRESH_INTERVAL, HUB_ACTIVE, els, sessionMarks, state } from './shared.js';
+import { ACTIVITY_POLL_INTERVAL, FOREGROUND_SESSION_REFRESH_INTERVAL, HUB_ACTIVE, els, sessionMarks, state } from './shared.js';
 
 // 受管客户端元数据（label / 配色）由主进程注册表提供，UI 不再写死 claude/codex
 async function loadApps() {
@@ -85,7 +85,10 @@ function refreshSessionsOnActivity() {
   }
   if (!advanced) return;
   const now = Date.now();
-  if (now - activitySessionRefreshAt < ACTIVITY_SESSION_REFRESH_INTERVAL) return;
+  // Once per round: half a round apart, so a timer that fires a little early
+  // never skips a round, and a second probe in the same round (the window
+  // coming back to the front) does not reload twice.
+  if (now - activitySessionRefreshAt < ACTIVITY_POLL_INTERVAL / 2) return;
   activitySessionRefreshAt = now;
   for (const id of listedProfileIds()) listedActivityAt.set(id, Number(state.activity[id]?.latestMtime) || 0);
   void loadSessions();

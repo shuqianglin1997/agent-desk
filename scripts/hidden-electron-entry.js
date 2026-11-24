@@ -19,7 +19,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = electron;
 
 const ROOT = path.resolve(__dirname, '..');
 const startedAt = Date.now();
-const record = { stubbed: [], blockedProcesses: [], scans: [], clipboard: [], startupReadyAt: null, syncOnRefresh: { total: 0, byCaller: {} } };
+const record = { stubbed: [], blockedProcesses: [], scans: [], clipboard: [], startupReadyAt: null, syncOnRefresh: { total: 0, byCaller: {} }, workerCalls: [], mainLag: [] };
 const task = process.env.AGENTDESK_HIDDEN_TASK || '';
 const output = process.env.AGENTDESK_HIDDEN_OUTPUT || '';
 // Without a task the caller may kill this process at any time, so every stub
@@ -158,15 +158,39 @@ scanHostModule.createScanHost = (options = {}) => {
       options.onScan?.(profile, where);
     }
   });
+  // Each worker call's round trip, for hidden-check --lag.
+  for (const name of ['scan', 'activityRaw']) {
+    const call = host[name].bind(host);
+    host[name] = async (...args) => {
+      const started = performance.now();
+      try {
+        return await call(...args);
+      } finally {
+        record.workerCalls.push({ kind: name, ms: Number((performance.now() - started).toFixed(1)), epoch: Date.now() });
+      }
+    };
+  }
   scanHosts.push(host);
   return host;
 };
+
+// hidden-check --lag: how long the main thread's event loop is held, sampled
+// every 5 ms (only gaps over 4 ms are kept).
+if (process.env.AGENTDESK_HIDDEN_LAG === '1') {
+  let last = performance.now();
+  setInterval(() => {
+    const now = performance.now();
+    const held = now - last - 5;
+    if (held > 4) record.mainLag.push({ ms: Number(held.toFixed(1)), epoch: Date.now() });
+    last = now;
+  }, 5).unref();
+}
 
 if (task === 'probe') {
   app.on('browser-window-created', (_event, window) => {
     window.webContents.once('did-finish-load', () => runProbe(window).catch((error) => finish({ error: error.stack || String(error) }, 2)));
   });
-  setTimeout(() => finish({ error: 'hidden-check-timeout' }, 3), 90_000).unref();
+  setTimeout(() => finish({ error: 'hidden-check-timeout' }, 3), Number(process.env.AGENTDESK_HIDDEN_TIMEOUT_MS) || 90_000).unref();
 }
 
 function finish(result, code = 0) {
@@ -266,6 +290,18 @@ async function runProbe(window) {
   };
   const profileCount = await evaluate(window, 'AgentDeskInspect.state.profiles.length');
   // Optional extra renderer expression for a phase check (hidden-check --eval).
+  // hidden-check --write: one session file gets a new line every few seconds
+  // for a while, starting with the expression, as a session that is writing.
+  if (process.env.AGENTDESK_HIDDEN_WRITE) {
+    const [file, every, span] = process.env.AGENTDESK_HIDDEN_WRITE.split('|');
+    const started = Date.now();
+    record.writer = { startedEpoch: started, writes: 0 };
+    const timer = setInterval(() => {
+      if (Date.now() - started >= Number(span)) { clearInterval(timer); record.writer.endedEpoch = Date.now(); return; }
+      fs.appendFileSync(file, `${JSON.stringify({ timestamp: new Date().toISOString(), type: 'event_msg', payload: { type: 'agent_message', message: 'hidden-check write' } })}\n`);
+      record.writer.writes += 1;
+    }, Number(every));
+  }
   const extra = process.env.AGENTDESK_HIDDEN_EVAL ? await evaluate(window, process.env.AGENTDESK_HIDDEN_EVAL) : undefined;
   // Whether each scan host is using its worker thread now (false: the in-process fallback).
   record.scanHostsUseWorker = scanHosts.map((host) => host.usesWorker());

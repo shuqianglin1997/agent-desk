@@ -729,7 +729,7 @@ function assertDialogFits(snapshot, options = {}) {
   }
 }
 
-async function runAcceptance(client, artifactDir) {
+async function runAcceptance(client, artifactDir, userData) {
   const checks = [];
   const run = async (name, task) => {
     await task();
@@ -972,6 +972,56 @@ async function runAcceptance(client, artifactDir) {
       document.querySelector('.session-pane .table-wrap').scrollTop = 0;
     })()`);
     await waitFor(client, `AgentDeskInspect.state.ui.checkedConversationIds.size === 0`, 'checks cleared after the row checks');
+  });
+
+  await run('a session that writes reloads the list in the next probe round, keeping focus, checks and search', async () => {
+    // docs/ARCHITECTURE_PLAN.md 9.1 (phase 6 close): the list follows the
+    // 8-second activity probe round; the reload is a background update.
+    await client.evaluate(`document.querySelectorAll('#sessionRows tr[data-session-key] .title-cell-main')[0].click()`);
+    await client.evaluate(`document.querySelectorAll('#sessionRows tr[data-session-key] .session-select-box')[1].click()`);
+    await client.evaluate(`(() => {
+      const input = document.querySelector('#searchInput');
+      input.value = 'Work';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    const before = await client.evaluate(`(() => {
+      const s = AgentDeskInspect.state;
+      window.__acceptanceListBefore = s.sessions;
+      [...document.querySelectorAll('#sessionRows tr[data-session-key]')].forEach((row) => { row.__acceptanceWriteProbe = true; });
+      return { focused: s.ui.focusedConversationId, checked: [...s.ui.checkedConversationIds], query: s.query, rows: document.querySelectorAll('#sessionRows tr[data-session-key]').length, scrollTop: document.querySelector('.session-pane .table-wrap').scrollTop };
+    })()`);
+    assert.ok(before.focused && before.checked.length === 1 && before.query === 'work' && before.rows >= 2, JSON.stringify(before));
+    const rollout = path.join(userData, 'fixtures', 'work-desktop', 'sessions', '2026', '08', '12', 'rollout-11111111-1111-4111-8111-111111111111.jsonl');
+    // Let one probe round record the starting point, then write.
+    await new Promise((resolve) => setTimeout(resolve, 9_000));
+    fs.appendFileSync(rollout, `${JSON.stringify({ timestamp: new Date().toISOString(), type: 'event_msg', payload: { type: 'agent_message', message: 'acceptance write' } })}\n`);
+    await waitFor(client, `AgentDeskInspect.state.sessions !== window.__acceptanceListBefore`, 'the list reloaded after a write', 25_000);
+    const after = await client.evaluate(`(() => {
+      const s = AgentDeskInspect.state;
+      const rows = [...document.querySelectorAll('#sessionRows tr[data-session-key]')];
+      return {
+        focused: s.ui.focusedConversationId,
+        checked: [...s.ui.checkedConversationIds],
+        query: s.query,
+        input: document.querySelector('#searchInput').value,
+        rows: rows.length,
+        kept: rows.filter((row) => row.__acceptanceWriteProbe).length,
+        writtenIn: rows.filter((row) => row.classList.contains('fx-in')).length,
+        scrollTop: document.querySelector('.session-pane .table-wrap').scrollTop
+      };
+    })()`);
+    assert.deepEqual([after.focused, after.checked, after.query, after.input], [before.focused, before.checked, 'work', 'Work']);
+    assert.equal(after.rows, before.rows);
+    assert.ok(after.kept >= before.rows - 1, `unchanged rows are kept: ${after.kept} of ${after.rows}`);
+    assert.equal(after.writtenIn, 0, 'a background reload writes no row in');
+    assert.equal(after.scrollTop, before.scrollTop);
+    await client.evaluate(`(() => {
+      const input = document.querySelector('#searchInput');
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#clearSessionSelectionBtn').click();
+    })()`);
+    await waitFor(client, `AgentDeskInspect.state.ui.checkedConversationIds.size === 0 && AgentDeskInspect.state.query === ''`, 'search and checks cleared');
   });
 
   await run('TaskPackage export and receive keep fixed transaction controls around one scrolling content owner', async () => {
@@ -2499,7 +2549,7 @@ async function main() {
 
     seedUserData(userData);
     instance = await launchElectronApp(userData, output);
-    checks.push(...await runAcceptance(instance.client, artifactDir));
+    checks.push(...await runAcceptance(instance.client, artifactDir, userData));
     const seriousLogs = output.join('').split(/\r?\n/).filter((line) => (
       /\[renderer-gone\]|Uncaught (TypeError|ReferenceError|Error)|FATAL:/i.test(line)
     ));

@@ -12,6 +12,11 @@
 //     serving the refresh path.
 //
 //   node scripts/hidden-check.js [--update] [--keep] [--eval '<renderer expression>'] [--sessions N] [--packaged <binary>]
+//                                [--write <every ms>:<for ms>] [--lag]
+// --write appends a line to one session file of the first account every few
+// ms for a while, starting with --eval (a session that is writing); --lag adds
+// the worker calls' round trips and the main thread's held event loop
+// (gaps over 4 ms) to the report as measurements.
 // --eval adds the JSON value of one renderer expression to the report, for a
 // phase check of something the shapes do not show (for example cat states).
 // --sessions N seeds N sessions per account (default 20, at most 500) for a
@@ -53,9 +58,9 @@ function seed(base, sessionsPerAccount = 20) {
 
 // packagedBinary: a packaged AgentDesk whose app.asar has scripts/hidden-electron-entry.js
 // as its main (a test-only build); otherwise the development Electron runs the entry.
-function launch(base, userData, home, outputFile, evalExpression, packagedBinary = null) {
+function launch(base, userData, home, outputFile, evalExpression, packagedBinary = null, extraEnv = {}) {
   const electronPath = require('electron');
-  const env = { ...process.env, HOME: home, USERPROFILE: home, AGENTDESK_HIDDEN_TASK: 'probe', AGENTDESK_HIDDEN_OUTPUT: outputFile };
+  const env = { ...process.env, HOME: home, USERPROFILE: home, AGENTDESK_HIDDEN_TASK: 'probe', AGENTDESK_HIDDEN_OUTPUT: outputFile, ...extraEnv };
   if (evalExpression) env.AGENTDESK_HIDDEN_EVAL = evalExpression;
   else delete env.AGENTDESK_HIDDEN_EVAL;
   delete env.ELECTRON_RUN_AS_NODE;
@@ -89,7 +94,20 @@ async function main() {
     const evalIndex = args.indexOf('--eval');
     const packagedIndex = args.indexOf('--packaged');
     const packagedBinary = packagedIndex >= 0 ? path.resolve(args[packagedIndex + 1]) : null;
-    const { code, log } = await launch(base, userData, home, outputFile, evalIndex >= 0 ? args[evalIndex + 1] : '', packagedBinary);
+    const extraEnv = {};
+    if (args.includes('--lag')) extraEnv.AGENTDESK_HIDDEN_LAG = '1';
+    const writeIndex = args.indexOf('--write');
+    if (writeIndex >= 0) {
+      const [every, span] = String(args[writeIndex + 1]).split(':').map(Number);
+      const files = [];
+      const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const target = path.join(dir, entry.name); if (entry.isDirectory()) walk(target); else if (/\.jsonl$/.test(entry.name)) files.push(target); } };
+      walk(profiles[0].sessionRoot || profiles[0].profilePath);
+      files.sort();
+      assert.ok(files.length, 'no session file to write to');
+      extraEnv.AGENTDESK_HIDDEN_WRITE = `${files[0]}|${every || 2000}|${span || 30000}`;
+      extraEnv.AGENTDESK_HIDDEN_TIMEOUT_MS = String(240_000 + (span || 30000));
+    }
+    const { code, log } = await launch(base, userData, home, outputFile, evalIndex >= 0 ? args[evalIndex + 1] : '', packagedBinary, extraEnv);
     assert.ok(fs.existsSync(outputFile), `hidden run produced no result (exit ${code})\n${log.slice(-3000)}`);
     const result = JSON.parse(fs.readFileSync(outputFile, 'utf8'));
     if (result.error) throw new Error(`hidden run failed: ${result.error}\n${log.slice(-3000)}`);
@@ -128,6 +146,7 @@ async function main() {
     }
     report.shapesMatch = shapesMatch;
     if (result.extra !== undefined) report.extra = result.extra;
+    if (args.includes('--lag')) report.measurements = { workerCalls: result.workerCalls, mainLag: result.mainLag, writer: result.writer || null };
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
     if (shapesMatch === false || serious.length) process.exitCode = 1;
   } finally {

@@ -20,7 +20,7 @@ import { renderAccountHeader, renderAccountRoster, renderAccounts, rosterIsInter
 import { bindSessionActionEvents, bindSessionFileEvents } from './renderer/views/session-actions.js';
 import { applySessionFilter, bindSessionTableEvents, focusSession, renderSessions } from './renderer/views/sessions.js';
 import { bindSettingsEvents, bindSystemEvents, initTheme, loadUserSettings, rerenderLocalizedText, tr, updateLangToggle } from './renderer/views/settings.js';
-import { QUOTA_REFRESH_INTERVAL, els, sessionMarks, setStartupStage, state } from './renderer/views/shared.js';
+import { ACTIVITY_POLL_INTERVAL, QUOTA_REFRESH_INTERVAL, els, sessionMarks, setStartupStage, state } from './renderer/views/shared.js';
 import { bindTaskPackageEvents, loadTaskPackageHistory, renderIncomingTaskPackages } from './renderer/views/task-packages.js';
 import { bindTransferChangeEvents, bindTransferDialogEvents, bindTransferEvents, openFileSendDialog, openTransferCenter } from './renderer/views/transfers.js';
 import { bindUpdateEvents } from './renderer/views/updates.js';
@@ -48,7 +48,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // 8 秒一轮：干活/在岗要跟得上会话节奏，60 秒太钝会漏掉短生成；应用在后台时不扫。
   setInterval(() => {
     if (!document.hidden) loadActivity();
-  }, 8000);
+  }, ACTIVITY_POLL_INTERVAL);
   // 额度查询走独立的慢轮询和主进程缓存，绝不混入 8 秒活跃度探测。
   setInterval(() => {
     if (!document.hidden) loadQuotas();

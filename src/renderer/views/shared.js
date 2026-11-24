@@ -470,10 +470,11 @@ const els = {
 
 const QUOTA_REFRESH_INTERVAL = 5 * 60_000;
 const FOREGROUND_SESSION_REFRESH_INTERVAL = 2_000;
-// The cards follow the 8-second activity poll; the list follows it too when a
-// listed account wrote something new, but reloads at most this often (each
-// reload rescans the listed accounts).
-const ACTIVITY_SESSION_REFRESH_INTERVAL = 30_000;
+// The activity probe's round. The cards follow every round; the list reloads
+// in a round that saw a listed account write something new, at most once per
+// round (docs/ARCHITECTURE_PLAN.md 9.1: phase 1's 30-second limit ended once
+// the table updated by row).
+const ACTIVITY_POLL_INTERVAL = 8_000;
 
 // The functions handed over here are looked up when called (they live in the
 // view modules, which run after this script).
@@ -549,4 +550,4 @@ const READINESS_BADGE = {
 
 const HUB_ACTIVE = new Set(['starting', 'running']);
 
-export { setStartupStage, sessionMarks, state, QUOTA_REFRESH_INTERVAL, els, recruitDialog, ACTIVITY_SESSION_REFRESH_INTERVAL, FOREGROUND_SESSION_REFRESH_INTERVAL, HUB_ACTIVE, store, READINESS_BADGE, renderToolCenter, refreshToolInventory, handleToolProgress };
+export { setStartupStage, sessionMarks, state, QUOTA_REFRESH_INTERVAL, els, recruitDialog, ACTIVITY_POLL_INTERVAL, FOREGROUND_SESSION_REFRESH_INTERVAL, HUB_ACTIVE, store, READINESS_BADGE, renderToolCenter, refreshToolInventory, handleToolProgress };
