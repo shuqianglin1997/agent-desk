@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 3 阶段第 14 批：clients 层由检查看住，新增客户端有清单。`scripts/check-layers.js` 把 clients 层加入强制：clients 层的文件引用上层或用 electron 会让测试和命令失败（目前 0 处）。`docs/INTERNAL.md` 第 5 节写明“新增一个客户端的清单”：必填字段、按需能力，以及为排队中的两份计划预留、尚未实现的 `accountCard`（哪些非秘密配置可以写进名片、在哪些系统上可用）与 `update`（更新方式、怎么看出有更新在等）；每种记录格式的唯一读取者也写在这里。`test/client-adapters.test.js` 加 2 项：适配器只能声明清单里有的字段、预留字段尚未使用、清单里的每个字段文档都写到；每家要么能被调度中枢调用、要么写明为什么不能。
+
 2026-11-24 架构整理第 3 阶段第 13 批：适配器之外按客户端名字的判断归零（指标脚本 67 → 0）。设备网目录里“哪些客户端属于同一套登录”（`providerNamespace`）和客户端形态（`clientForm`）原来写在 Mesh 领域代码里，现在由各适配器声明；这两个值存进账号关联键并在设备间同步，所以领域函数必须由调用方传入 `clientFacts`（缺了就报错，不猜），设备网服务传注册表的 `apps.clientFacts`，本机不认识的客户端（来自别的设备）仍按原规则用自己的名字；新增一项测试逐个钉住十家的取值与改动前相同。界面里原来按名字写的几处改为读适配器经 `listApps({ uiHints: true })` 给出的数据（这些提示只给界面，命令行 `apps` 的输出不变）：目录里的登录归属、招募对话框的默认客户端、哪家要填默认模型、提示写哪个文件和措辞；新招募的猫穿哪件客户端毛色由适配器的 `catCoat` 声明。额度两处判断改为通用写法（窗口的范围名就是供应商本身时不重复显示；读取方报告是接口密钥登录时不显示订阅额度），结果与原来相同。`test/mesh-foundation.test.js` 与 `test/catalog-provider-namespace.test.js` 跟着把 `clientFacts` 传给领域函数，断言不变；`test/pixel-cats.test.js` 改为从适配器读毛色。若主进程拿不到客户端清单（`listApps` 失败），界面对 Claude 命令行与 Kimi Work 的登录归属会退回各自名字，这种情况在本机读注册表时不会发生。
 
 2026-11-24 架构整理第 3 阶段第 12 批：主进程里按客户端名字的判断改为适配器声明。受管目录的初始化（Claude 命令行建 projects、DSH 不动、Codex 写入文件凭据存储）与官方默认目录搬进各家（`managedHome`，种子函数在 `clients/<id>/home.js`）；Codex 目录可以独立登记、命令行登记前要像 Codex 目录（`standaloneHome`）；macOS 上 Codex 的短别名（`runtimeHome`）；任务包的原生格式（`taskPackage`，界面上的“原生/只读内容/不支持”由此得出）；Codex 历史维护（`historyUpkeep`）；Kimi 两种形态同机同登录（`defaultIdentityKey`）；Claude 桌面的会话在它的数据目录里（`sessionsInProfileFolder`）。任务包导入后的标题格式对所有模式通用，从 Codex 模块移到 `task-package/format.js`。两处只比对源码文字的测试改为行为断言（`task-package-ui.test.js` 改查 `listApps()` 给出的三种模式）或恢复了它要找的注释开头（`persistence-contract.test.js`），检查的内容不变。

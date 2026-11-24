@@ -6,8 +6,8 @@
 // sandboxed renderer processes are `ui`. The table below describes today's
 // files; later phases move files and tighten it.
 //
-// Mode: core-enforced (phase 2). Enforced, so the test and the CLI fail on
-// them: a `core` file requiring a higher layer, a `core` file requiring
+// Mode: core and clients enforced (phases 2 and 3). Enforced, so the test and
+// the CLI fail on them: a `core` or `clients` file requiring a higher layer or
 // electron, and a source file with no layer. Every other violation is only
 // reported; later phases add their layer to ENFORCED_LAYERS. `--strict` exits 1
 // on every violation.
@@ -19,7 +19,7 @@ const { maskSource } = require('./arch-metrics');
 const ROOT = path.resolve(__dirname, '..');
 const LAYERS = ['core', 'clients', 'services', 'commands', 'bridge', 'ui'];
 const RANK = Object.fromEntries(LAYERS.map((name, index) => [name, index]));
-const ENFORCED_LAYERS = ['core'];
+const ENFORCED_LAYERS = ['core', 'clients'];
 
 // First match wins. Patterns are path prefixes or exact files under src/.
 const TABLE = [
@@ -110,7 +110,7 @@ function check(root = ROOT) {
   ];
   return {
     schemaVersion: 1,
-    mode: 'core-enforced',
+    mode: 'core-and-clients-enforced',
     enforcedLayers: [...ENFORCED_LAYERS],
     files: files.length,
     counts,

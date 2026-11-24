@@ -205,7 +205,7 @@ scripts/
   hidden-electron-entry.js 不显示、不聚焦窗口的 Electron 入口：模拟钥匙串，启动客户端、对话框、显示文件、剪贴板与联网都由记录用的替身回答
   hidden-check.js         用上面的入口跑一遍真实界面：17 个读接口返回值的形状对照基准，并数启动时的完整扫描次数
   arch-metrics.js         架构整理第 8 节的各项指标（无依赖的估算，列出每个数字的来源）
-  check-layers.js         五层依赖表与越层报告（core 层越层、core 里用 electron、未登记的文件会失败，其余只报告）
+  check-layers.js         五层依赖表与越层报告（core 与 clients 层越层或用 electron、未登记的文件会失败，其余只报告）
   arch-fixtures.js        只在系统临时目录里造 10 个账号 × 500 条会话的合成数据
   arch-bench.js           在临时主目录里计时主进程的同步工作，结果写入 docs/validation/architecture-baseline.json
   verify-electron-package-integrity.js  流式核验成品 fuse、ASAR 每个文件及 macOS/Windows header 绑定
@@ -352,14 +352,33 @@ Codex 适配器只信任 Profile `sessionRoot` 下 `sessions` / `archived_sessio
 
 ## 5. 客户端与会话扫描
 
-`apps.js` 是唯一客户端目录。每个条目声明：
+`apps.js` 是唯一客户端目录：它按固定顺序收集 `src/clients/<id>/index.js` 的适配器。每家客户端的知识都在自己的目录里，其他代码只问适配器“会不会、结果是什么”，不写按客户端名字的判断（`scripts/arch-metrics.js` 的“适配器之外按客户端名字的判断”保持 0，`scripts/check-layers.js` 强制 clients 层不引用上层、不用 electron）。
 
-- 产品显示名、平台官方包/可执行文件身份、Profile 隔离模式与默认数据目录；
-- 默认会话根目录和诊断位置；
-- scan 函数、活动探针；
-- 是否允许启动与是否支持 Markdown 导出。
+当前十家：Claude 桌面（claude）、Claude 命令行（claude-cli）、DSH（dsh-cli）、Codex（codex）、Kimi Code（kimi）、Kimi Work（kimi-work）、OpenCode（opencode）、Gemini CLI（gemini-cli）、Qwen Code（qwen-code）、Cursor（cursor）。
 
-当前来源为 Claude Desktop、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work。新增来源时，在目录中增加条目和独立扫描器；不要把客户端分支散落到 renderer。会话适配器必须先把物理载体归一为用户逻辑会话，不能让文件数量直接决定表格行数。
+### 新增一个客户端的清单
+
+新建 `src/clients/<id>/index.js`，在 `apps.js` 的 `ADAPTERS` 里登记一行；不要在别处加分支。`test/client-adapters.test.js` 只允许下面列出的字段，新增能力先在这里写明。
+
+必填：
+
+- `id`、`label`、`tagColor`、`appName`：标识、显示名、配色、官方 App 名；
+- `providerNamespace`、`clientForm`：设备网目录里属于哪套登录、什么形态——会存进账号关联键并同步，定下以后不能改；
+- `profileIsolation`、`windows`、`defaultSessionRoot`、`launchEnv`：隔离方式、Windows 安装与目录特征、默认会话根、启动环境；
+- `scanAreas`、`diagnosticAreas`、`scan`、`discovery`：扫描与诊断位置、会话扫描器（`./sessions.js`）、招募时怎么认出已有目录。
+
+按需：
+
+- 启动与命令行：`mac`、`noLaunch`、`cliDiscoveryId`、`maintenanceToolId`、`cliClearEnvKeys`、`cliArgsForProfile`、`profileDirName`、`cliLauncher`（自己找命令行）；
+- 会话与活动：`sessionKeyOf`、`sessionAddressOf`、`activityRecord`、`contentActivityAt`、`sessionCounts`、`replyState`（能看出谁最后说话）、`isInternalRecordFile`、`activityPreference`、`isArchivedRecordFile`；
+- 导出与交接：`exportTranscript`（`./transcript.js`）、`attachments`、`taskPackage`（原生格式）；
+- 账号：`credentials`（能否粘贴密钥、接口账号，以及招募对话框的提示）、`credentialHandoff`（`./credentials.js`）、`credentialImport`（`./import.js`）、`accountId`（`./identity.js`）、`defaultIdentityKey`；
+- 目录与运行：`managedHome`、`standaloneHome`、`runtimeHome`、`historyUpkeep`、`sessionsInProfileFolder`；
+- 其他：`quota`（怎么查，或为什么查不了）、`hub` 或 `hubUnsupported`（调度中枢能不能调用、为什么）、`catCoat`、`recruitDefault`。
+
+预留、尚未实现（排队中的两份计划要用，届时只是新增字段）：`accountCard`——哪些非秘密配置字段可以写进账号名片、在哪些系统上可用（`docs/ACCOUNT_CARD_PLAN.md` 第 2、5 节）；`update`——这家客户端的更新方式，以及怎么看出有更新在等，用“确切 / 推断 / 不知道”的事实类型表达（`docs/ORDERLY_UPDATE_PLAN.md` 第 5 节）。
+
+每种记录格式只有一个读取者：Codex 的 rollout 在 `clients/codex/rollout.js`，Claude 命令行的记录在 `clients/claude-cli/records.js`，Kimi 的 wire 在 `clients/kimi/wire.js`，Gemini 的 parts 在 `clients/gemini-cli/parts.js`（Qwen Code 沿用）。扫描、导出、附件、调度中枢的回答和额度都用它们。会话适配器必须先把物理载体归一为用户逻辑会话，不能让文件数量直接决定表格行数。
 
 macOS 标准候选由注册表给出并在存在已知 bundle id 时重新读取 `Info.plist` 核对；Codex 当前优先定位 `ChatGPT.app/Contents/MacOS/ChatGPT` 与 `com.openai.codex`，旧 `Codex.app` 只作为同 bundle identity 的兼容候选。用户经系统选择器明确登记的 executablePath 继续作为手动能力处理。安装检查、工具扫描、诊断和实际启动共用这一个解析结果，不能各自维护另一张应用名表。
 
