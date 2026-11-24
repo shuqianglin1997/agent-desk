@@ -4,6 +4,7 @@ const state = {
   filteredSessions: [],
   ui: window.UiContext.create(),
   sessionView: 'compact',
+  sessionOrder: 'recent',
   sessionSort: { key: 'updatedAt', direction: 'desc' },
   query: '',
   theme: null,
@@ -356,6 +357,10 @@ const els = {
   sessionCompactBtn: document.querySelector('#sessionCompactBtn'),
   sessionDetailBtn: document.querySelector('#sessionDetailBtn'),
   sessionDisplayMenu: document.querySelector('#sessionDisplayMenu'),
+  sessionPane: document.querySelector('#sessionPane'),
+  clearSessionFiltersBtn: document.querySelector('#clearSessionFiltersBtn'),
+  markAllSeenBtn: document.querySelector('#markAllSeenBtn'),
+  tagCheckedSessionsBtn: document.querySelector('#tagCheckedSessionsBtn'),
   sessionDisplayLabel: document.querySelector('#sessionDisplayLabel'),
   sessionSelectionBar: document.querySelector('#sessionSelectionBar'),
   sessionSelectionCount: document.querySelector('#sessionSelectionCount'),
@@ -583,6 +588,17 @@ const recruitDialog = window.createRecruitDialog({
   afterAccountChange: (profileId) => afterRecruitedAccount(profileId)
 });
 
+// 会话的记号：新回复、在跑、颜色标签与搜索框左边那排筛选（docs/SESSION_MARKS_PLAN.md）。
+const sessionMarks = window.createSessionMarks({
+  document,
+  manager: window.manager,
+  tr,
+  keyOf: (session) => window.SessionTable.markKeyOf(session),
+  rerender: () => applySessionFilter(),
+  setStatus: (message, tone) => setStatus(message, tone),
+  onChange: () => { applySessionFilter(); renderAccountRoster(); }
+});
+
 // 启动阶段同时广播出去：开灯编排（pixel/boot.js）据此在页脚如实说正在等什么。
 function setStartupStage(stage, step = null) {
   state.startupStage = stage;
@@ -593,6 +609,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.dataset.windowPlatform = window.manager.windowPlatform || 'browser';
   setStartupStage('settings-loading');
   await loadUserSettings();
+  await sessionMarks.load();
+  sessionMarks.setOrder(state.sessionOrder);
   initTheme();
   mountWorkspaceSurfaces();
   bindEvents();
@@ -681,6 +699,7 @@ function applyUserSettings(value = {}) {
     agentScope: value.sessionScope === 'all' ? 'all' : 'current'
   });
   state.sessionView = value.sessionView === 'detail' ? 'detail' : 'compact';
+  state.sessionOrder = ['recent', 'fresh', 'tag'].includes(value.sessionOrder) ? value.sessionOrder : 'recent';
   state.profileQuitBehavior = value.profileQuitBehavior === 'keep' ? 'keep' : 'close';
   if (els.profileQuitBehavior) els.profileQuitBehavior.value = state.profileQuitBehavior;
   window.PixelUi?.setSound?.(value);
@@ -2054,6 +2073,49 @@ function bindEvents() {
   els.searchInput.addEventListener('input', () => {
     state.query = els.searchInput.value.trim().toLowerCase();
     applySessionFilter();
+  });
+
+  els.clearSessionFiltersBtn?.addEventListener('click', () => {
+    sessionMarks.clearFilters();
+    state.query = '';
+    els.searchInput.value = '';
+    applySessionFilter();
+  });
+
+  for (const button of document.querySelectorAll('[data-session-order]')) {
+    button.addEventListener('click', () => {
+      const next = button.dataset.sessionOrder;
+      if (els.sessionDisplayMenu) els.sessionDisplayMenu.open = false;
+      sessionMarks.setOrder(next);
+      if (next === state.sessionOrder) return;
+      state.sessionOrder = sessionMarks.currentOrder();
+      persistSettings({ sessionOrder: state.sessionOrder });
+      applySessionFilter();
+    });
+  }
+
+  els.markAllSeenBtn?.addEventListener('click', async () => {
+    if (els.sessionDisplayMenu) els.sessionDisplayMenu.open = false;
+    const n = await sessionMarks.markSeen(state.sessions.filter((session) => sessionMarks.isFresh(session)));
+    setStatus(tr('marks.status.allSeen', { n }));
+  });
+
+  els.tagCheckedSessionsBtn?.addEventListener('click', (event) => {
+    sessionMarks.openPicker(checkedMarkKeys(), event.currentTarget);
+  });
+
+  // 选中一行后按 1–5 打标签，0 去掉；打字、弹窗和别处的焦点不受影响。
+  document.addEventListener('keydown', (event) => {
+    if (!/^[0-5]$/.test(event.key) || event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
+    const target = event.target instanceof Element ? event.target : document.body;
+    if (target.matches('input:not([type="checkbox"]), textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+    if (target.closest('[popover]') || document.querySelector('dialog[open]')) return;
+    if (target !== document.body && !els.sessionPane?.contains(target)) return;
+    const focused = state.ui.focusedConversationId;
+    const session = focused && state.filteredSessions.find((item) => sessionKey(item) === focused);
+    if (!session || session._hubRun) return;
+    event.preventDefault();
+    void sessionMarks.setTag(markTargets(session), Number(event.key));
   });
 
   els.copySessionInfoBtn.addEventListener('click', async () => {
@@ -3818,7 +3880,7 @@ function renderQuotaOverviewButton(groups, rows) {
 
 function applySessionFilter() {
   const query = state.query;
-  const filtered = query
+  const searched = query
     ? withHubRuns(state.sessions).filter((session) => {
         return [
           session.title,
@@ -3839,9 +3901,13 @@ function applySessionFilter() {
         ].filter(Boolean).some((value) => String(value).toLowerCase().includes(query));
       })
     : [...withHubRuns(state.sessions)];
-  state.filteredSessions = window.SessionTable
+  // 标签与“新回复”筛选和搜索框同一处生效：只决定哪些行显示，不碰正在看的和已勾选的。
+  const filtered = sessionMarks.filter(searched);
+  const sorted = window.SessionTable
     ? window.SessionTable.sort(filtered, state.sessionSort, dateLocale())
     : filtered;
+  state.filteredSessions = sessionMarks.order(sorted);
+  sessionMarks.renderFilters(withHubRuns(state.sessions), { query: Boolean(query) });
 
   renderSessionControls();
   renderSessions();
@@ -5954,8 +6020,14 @@ async function loadActivity() {
   } finally {
     activityLoading = false;
   }
+  // 新回复与在跑：探测结果交给会话记号；这一轮新冒出来的新回复交给声音层（它决定响不响）。
+  const added = sessionMarks.updateFromActivity(Object.values(state.activity), hubWritingKeys());
+  if (added > 0) document.dispatchEvent(new CustomEvent('agentdesk:replies', { detail: { added } }));
+  const marksSignature = Object.values(state.activity)
+    .map((item) => `${(item.writingKeys || []).join(',')};${(item.freshKeys || []).map((entry) => entry.key).join(',')}`)
+    .join('|');
   const signature = Object.values(state.activity)
-    .map((item) => `${item.profileId}:${item.activeNow || 0}`)
+    .map((item) => `${item.profileId}:${item.activeNow || 0}:${item.writingNow ?? ''}`)
     .join('|');
   if (signature !== busySignature) {
     busySignature = signature;
@@ -5964,7 +6036,43 @@ async function loadActivity() {
     renderAccountRoster();
     renderTopbarContext();
   }
+  if (marksSignature !== replySignature) {
+    replySignature = marksSignature;
+    applySessionFilter();
+  }
   renderAttentionInbox();
+}
+
+let replySignature = '';
+
+// 调度中枢正在跑的那几段：AgentDesk 亲手中转的，知道是哪一条会话就给它画“在跑”。
+function hubWritingKeys() {
+  const keys = [];
+  for (const run of state.hub.runs.values()) {
+    if (!HUB_ACTIVE.has(run.state) || !run.session?.id || !run.target?.id) continue;
+    keys.push(`${run.target.id}::${run.session.id}`);
+  }
+  return keys;
+}
+
+// 标签打给谁：这一行已勾选时打给所有勾选的，否则只打这一行（与“复制会话信息”的范围一致）。
+function markTargets(session) {
+  const key = sessionKey(session);
+  if (key && state.ui.checkedConversationIds.has(key)) {
+    return withHubRuns(state.sessions)
+      .filter((item) => state.ui.checkedConversationIds.has(sessionKey(item)))
+      .map((item) => window.SessionTable.markKeyOf(item))
+      .filter(Boolean);
+  }
+  const markKey = window.SessionTable.markKeyOf(session);
+  return markKey ? [markKey] : [];
+}
+
+function checkedMarkKeys() {
+  return withHubRuns(state.sessions)
+    .filter((item) => state.ui.checkedConversationIds.has(sessionKey(item)))
+    .map((item) => window.SessionTable.markKeyOf(item))
+    .filter(Boolean);
 }
 
 // 一个卡片对应一个 Agent，活动、可信额度和运行位置均从同一账号组呈现。
@@ -6182,6 +6290,13 @@ function createAccountCard(agentId) {
   card.querySelector('.account-card-manage').addEventListener('click', () => {
     openAgentDossier(agentId);
   });
+  // 信封：看这只猫的会话，并只看有新回复的那些。
+  card.querySelector('.account-card-mail').addEventListener('click', async () => {
+    sessionMarks.clearFilters();
+    sessionMarks.showFresh();
+    await pickRosterAgent(agentId);
+    applySessionFilter();
+  });
   card.querySelector('select').addEventListener('change', (event) => {
     changeAccountCardRuntime(agentId, event.target.value);
   });
@@ -6322,6 +6437,28 @@ function updateAccountCard(card, group, now) {
     busy.title = tr('card.busy', { n: activeNow });
     name.append(busy);
   }
+
+  // 新回复：本机运行位置上回完了、还没在这里点开过的条数；没有就什么都不显示。
+  const replies = sessionMarks.freshCount(group.members
+    .filter((member) => member._remote !== true)
+    .map((member) => state.activity[member.id])
+    .filter(Boolean));
+  const repliesLine = card.querySelector('.account-card-replies');
+  repliesLine.hidden = replies === 0;
+  repliesLine.textContent = replies ? tr('card.replies', { n: replies }) : '';
+  const mail = card.querySelector('.account-card-mail');
+  const wasMail = Number(mail.dataset.count) || 0;
+  mail.hidden = replies === 0;
+  mail.dataset.count = String(replies);
+  mail.querySelector('b').textContent = String(replies);
+  mail.title = tr('card.mail.title', { n: replies });
+  mail.setAttribute('aria-label', `${primary.name} · ${mail.title}`);
+  if (replies > wasMail && wasMail >= 0 && card.isConnected && mail.dataset.seen === 'true') {
+    mail.classList.remove('fx-pop');
+    void mail.offsetWidth;
+    mail.classList.add('fx-pop');
+  }
+  mail.dataset.seen = 'true';
 
   const st = card.querySelector('.account-card-state');
   st.dataset.activity = activityState || 'unknown';
@@ -8643,13 +8780,24 @@ function renderSessions() {
   let rowControl = null;
   renderSessionControls();
   renderSessionActionToolbar();
+  fitSessionToolbar();
   renderSessionHead();
   els.sessionRows.replaceChildren();
   const accountCount = sessionAccountCount(state.filteredSessions);
   els.sessionCount.title = state.ui.agentScope === 'all'
     ? tr('session.countAll', { n: state.filteredSessions.length, accounts: accountCount })
     : tr('session.count', { n: state.filteredSessions.length });
-  if (window.PixelFx) window.PixelFx.roll(els.sessionCount, state.filteredSessions.length);
+  const filtering = Boolean(state.query) || sessionMarks.filterActive();
+  const wasFiltering = els.sessionCount.dataset.filtered === 'true';
+  els.sessionCount.dataset.filtered = String(filtering);
+  if (filtering || wasFiltering) clearInterval(els.sessionCount._fxRoll);
+  // 条数一直留出“N / N”的宽度：点筛选时它从“10”变成“2 / 10”，不能把旁边的筛选条挤动。
+  els.sessionCount.style.minWidth = `${String(withHubRuns(state.sessions).length).length * 2 + 3}ch`;
+  if (filtering) {
+    const total = withHubRuns(state.sessions).length;
+    els.sessionCount.textContent = `${state.filteredSessions.length} / ${total}`;
+    els.sessionCount.title = tr('marks.shown', { shown: state.filteredSessions.length, total });
+  } else if (window.PixelFx && !wasFiltering) window.PixelFx.roll(els.sessionCount, state.filteredSessions.length);
   else els.sessionCount.textContent = String(state.filteredSessions.length);
   if (els.rosterAllMeta && state.ui.agentScope === 'all') {
     els.rosterAllMeta.textContent = tr('roster.allMeta', { agents: identityGroups().length, n: state.sessions.length });
@@ -8703,16 +8851,39 @@ function renderSessions() {
     if (key === restoreKey) rowControl = row.querySelector(restoreSelector);
 
     row.addEventListener('click', (event) => {
+      const tagButton = event.target.closest('.session-tag-btn');
+      if (tagButton) {
+        sessionMarks.openPicker(markTargets(session), tagButton);
+        return;
+      }
       if (event.metaKey || event.ctrlKey) {
         setSessionChecked(session, !state.ui.checkedConversationIds.has(key));
       } else {
         focusSession(session);
         renderSessions();
+        // 点开这一行就算在这里看过了；从 AgentDesk 打开客户端不算。
+        void sessionMarks.markSeen([session]);
       }
+    });
+    row.addEventListener('contextmenu', (event) => {
+      const targets = markTargets(session);
+      if (!targets.length) return;
+      event.preventDefault();
+      sessionMarks.openPicker(targets, { x: event.clientX, y: event.clientY });
     });
     els.sessionRows.append(row);
   }
   rowControl?.focus({ preventScroll: true });
+}
+
+// 会话工具栏只有一行（面板标题 38–48px）。放不下时一级一级收起次要的字，直到不溢出为止；放得下就全部显示。
+function fitSessionToolbar() {
+  const main = document.querySelector('.session-toolbar-main');
+  if (!main) return;
+  for (const level of ['0', '1', '2']) {
+    main.dataset.fit = level;
+    if (main.scrollWidth <= main.clientWidth + 1) return;
+  }
 }
 
 function renderSessionCell(session, column) {
@@ -8727,6 +8898,7 @@ function renderSessionCell(session, column) {
       title.className = 'title-cell-main';
       title.textContent = session.title || '-';
       cell.append(title);
+      sessionMarks.decorateTitle(cell, session, title);
       if (state.ui.agentScope === 'all' && state.sessionView === 'compact') {
         const account = document.createElement('span');
         account.className = 'cell-subline';

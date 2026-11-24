@@ -9,9 +9,11 @@ function fn(name) { return renderer.match(new RegExp('^(?:async )?function ' + n
 test('repeated activity polls never write a guessed completion or companion ledger', async () => {
   const context = vm.createContext({
     state: { activity: {} }, renderAccountHeader() {}, renderAccountRoster() {}, renderTopbarContext() {}, renderAttentionInbox() {},
+    // 会话记号（新回复、在跑）只读探测结果，不写任何账本。
+    sessionMarks: { updateFromActivity: () => 0 }, hubWritingKeys: () => [], applySessionFilter() {}, document: { dispatchEvent() {} },
     window: { manager: { listActivity: async () => [{ profileId: 'a', activeNow: 1 }] } }
   });
-  vm.runInContext("let activityLoading = false; let busySignature = '';\n" + fn('loadActivity'), context);
+  vm.runInContext("let activityLoading = false; let busySignature = ''; let replySignature = '';\n" + fn('loadActivity'), context);
   await context.loadActivity(); await context.loadActivity();
   assert.equal(context.state.activity.a.activeNow, 1);
   assert.equal(context.state.ledger, undefined);

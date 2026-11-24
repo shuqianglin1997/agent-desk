@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T15:22:59.824Z",
-  "baseCommit": "24fdb32bda32283d87abfecebf9a01b8fe1a2daa",
+  "recordedAt": "2026-11-24T15:55:12.685Z",
+  "baseCommit": "b0ef7efe8c3ace05a094541de221a97793aa42e6",
   "uncommitted": true,
-  "sourceSha256": "32c4a96918fae227e90ea4ed605762375053311842e069839a9d8838c0482f2d",
+  "sourceSha256": "b1d916bb37af6d14e4340e5efe8bb99a4e24d93869b64874b1702afb8914c7dd",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,49 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 773,
+      "pass": 772,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after 猫有多忙/新回复/颜色标签 batch 2 (list marks, filter strip, sort orders, tag picker, card envelope, reply chime, three word lists); digest identical before and after the run",
+      "recordedAt": "2026-11-24T15:55:12.685Z",
+      "sourceSha256": "b1d916bb37af6d14e4340e5efe8bb99a4e24d93869b64874b1702afb8914c7dd"
+    },
+    {
+      "command": "node --test test/session-marks-ui.test.js test/simplification.test.js test/ui.test.js test/pixel-icons.test.js",
+      "result": "passed",
+      "scope": "Marks module behaviour (fresh, running, filters, sort groups), sort order setting, toolbar/picker/envelope markup, filtering never touches the selection, three-language keys without “unread”, tag colour contrast in both themes, reply chime wiring",
+      "recordedAt": "2026-11-24T15:55:12.685Z",
+      "sourceSha256": "b1d916bb37af6d14e4340e5efe8bb99a4e24d93869b64874b1702afb8914c7dd"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check including src/renderer/session-marks.js",
+      "recordedAt": "2026-11-24T15:55:12.685Z",
+      "sourceSha256": "b1d916bb37af6d14e4340e5efe8bb99a4e24d93869b64874b1702afb8914c7dd"
+    },
+    {
+      "command": "hidden-window renderer checks (real src/main.js, temporary userData, fixture Claude CLI and Codex accounts, window never shown, launch stubbed)",
+      "result": "passed",
+      "tests": 28,
+      "pass": 28,
+      "scope": "Running/new-reply/tag marks on rows, click-to-seen and card count, keys 1-5/0, filters keep focus and ticks like search, ticked tagging, double-click rename without a stray filter, three sort orders persisted, envelope opens new replies, mark all seen, a finished Codex turn becomes a new reply with a pop and a chime request while unfocused; toolbar geometry measured in zh/en/ja plain/ticked/filtered without overflow; screenshots light/dark",
+      "recordedAt": "2026-11-24T15:55:12.685Z",
+      "sourceSha256": "b1d916bb37af6d14e4340e5efe8bb99a4e24d93869b64874b1702afb8914c7dd"
+    },
+    {
+      "command": "scripts/ui-acceptance.js copy through a non-showing entry",
+      "result": "passed",
+      "tests": 24,
+      "pass": 24,
+      "scope": "Repository script unchanged; it stops at the dossier section list (missing the hub 'calling' section) on the committed code too. A scratch copy with only that expected list updated passes all 24 task paths against this working tree",
+      "recordedAt": "2026-11-24T15:55:12.685Z",
+      "sourceSha256": "b1d916bb37af6d14e4340e5efe8bb99a4e24d93869b64874b1702afb8914c7dd"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

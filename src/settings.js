@@ -17,6 +17,8 @@ const VIEWS = new Set(['yard', 'classic']);
 const LANGS = new Set(['zh', 'en', 'ja']);
 const SESSION_SCOPES = new Set(['current', 'all']);
 const SESSION_VIEWS = new Set(['compact', 'detail']);
+// 会话列表的三种排序（docs/SESSION_MARKS_PLAN.md 第 5.2 节）；筛选只是这一次看的方式，不记进设置。
+const SESSION_ORDERS = new Set(['recent', 'fresh', 'tag']);
 const YARD_TIMES = new Set(['auto', 'day', 'dusk', 'night']);
 const YARD_WEATHER = new Set(['auto', 'clear', 'cloudy', 'rain', 'snow']);
 const PROFILE_QUIT_BEHAVIORS = new Set(['close', 'keep']);
@@ -30,6 +32,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   lang: null, // null = 跟随系统语言（中 / 英 / 日）
   sessionScope: 'current',
   sessionView: 'compact',
+  sessionOrder: 'recent',
   selectedDeviceLensId: 'all',
   selectedAgentIdByDeviceLens: Object.freeze({}),
   selectedSlotKeyByAgentAndLens: Object.freeze({}),
@@ -137,6 +140,7 @@ function normalizeSettings(value) {
     sessionView: SESSION_VIEWS.has(input.sessionView)
       ? input.sessionView
       : DEFAULT_SETTINGS.sessionView,
+    sessionOrder: SESSION_ORDERS.has(input.sessionOrder) ? input.sessionOrder : DEFAULT_SETTINGS.sessionOrder,
     selectedDeviceLensId: boundedId(input.selectedDeviceLensId) || DEFAULT_SETTINGS.selectedDeviceLensId,
     selectedAgentIdByDeviceLens: normalizeSelectionMap(input.selectedAgentIdByDeviceLens),
     selectedSlotKeyByAgentAndLens: normalizeSelectionMap(input.selectedSlotKeyByAgentAndLens),

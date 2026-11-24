@@ -75,6 +75,7 @@
     'theme.dark': { sound: 'lampOff', when: '切到夜间主题' },
     'footer.type': { sound: 'text', when: '页脚那句话逐字出来' },
     'mesh.arrive': { sound: 'arrive', when: '别的设备送来会话信息、文件或任务包' },
+    'session.reply': { sound: 'arrive', when: '有对话回完了（只在窗口不在前台时，半分钟内最多一声）' },
     'hub.start': { sound: 'send', when: '台面上的一只猫叫另一只在后台跑一段对话，信封出发' },
     'hub.arrive': { sound: 'arrive', when: '台面外面的 Agent 叫了台面上的一只，信封从桌子边缘进来' },
     'hub.done': { sound: 'ready', when: '后台对话做完了，结果交回' },

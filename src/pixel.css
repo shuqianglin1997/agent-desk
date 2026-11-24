@@ -61,6 +61,12 @@
   --px-focus-ink: #1A5057;
   --px-warn-ink: #6E4A06;
   --px-bad-ink: #8E2426;
+  /* 会话的五种标签：每种一个颜色配一个形状。形状是图形，在纸、桌面、选中和勾选的底色上都不低于 3:1 */
+  --px-tag-1: #B5383A;
+  --px-tag-2: #9A6508;
+  --px-tag-3: #3F7F3E;
+  --px-tag-4: #2F6AA0;
+  --px-tag-5: #7B4FA6;
   --px-shade: #C3A283;
   --px-lamp: #EFDDB8;
   --px-dusk: #E6D2A8;
@@ -101,6 +107,11 @@
   --px-focus-ink: #6FD0C4;
   --px-warn-ink: #F2C14E;
   --px-bad-ink: #FFA79E;
+  --px-tag-1: #F4857C;
+  --px-tag-2: #F2C14E;
+  --px-tag-3: #9AD27A;
+  --px-tag-4: #8CC0EE;
+  --px-tag-5: #CFA6F2;
   --px-shade: #0F090C;
   --px-lamp: #3A2A26;
   --px-dusk: #17101A;
@@ -725,7 +736,7 @@ textarea {
 .session-toolbar-main { flex-wrap: nowrap; gap: 8px; }
 .session-heading { flex: 0 1 auto; min-width: 0; }
 .session-toolbar-controls { flex: 0 0 auto; gap: 4px; min-width: 0; }
-.session-toolbar-controls input[type="search"] { flex: 0 0 190px; width: 190px; min-width: 0; max-width: 190px; }
+.session-toolbar-controls input[type="search"] { flex: 1 1 auto; width: 100%; min-width: 0; max-width: 190px; }
 .session-toolbar-actions { flex: none; flex-wrap: nowrap; }
 .session-heading h3 {
   max-width: 300px;
@@ -750,8 +761,8 @@ textarea {
   font: 13px var(--font-sans); -webkit-font-smoothing: auto;
 }
 .session-toolbar input[type="search"]:focus { outline: 0; box-shadow: inset 0 -2px 0 0 var(--px-brand); }
-.session-toolbar-controls { position: relative; }
-.session-toolbar-controls::before {
+.session-search { position: relative; display: flex; flex: 0 1 150px; min-width: 86px; }
+.session-search::before {
   content: "";
   position: absolute;
   top: 50%;
@@ -2261,4 +2272,163 @@ dialog:not([open]) { translate: 0 40px; clip-path: inset(-12px -12px 40px -12px)
   .hub-link { animation: none; }
   .session-table tr.hub-run-row.fx-in { animation: none; }
   .hub-tip:popover-open { animation: none; }
+}
+
+/* ══ 会话的记号：新回复、在跑、五种颜色标签（docs/SESSION_MARKS_PLAN.md） ══
+   标签不只靠颜色：每种另有形状。动的只有两处——在跑的三个点逐格走、新回复冒出来的两帧——都在 2px 格子上、逐帧，
+   系统要求减少动态效果时都不动。 */
+.mark-shape[data-tag="1"] { color: var(--px-tag-1); }
+.mark-shape[data-tag="2"] { color: var(--px-tag-2); }
+.mark-shape[data-tag="3"] { color: var(--px-tag-3); }
+.mark-shape[data-tag="4"] { color: var(--px-tag-4); }
+.mark-shape[data-tag="5"] { color: var(--px-tag-5); }
+.mark-reply { background: var(--px-brand); }
+.mark-slot { display: inline-block; flex: none; width: 12px; height: 12px; }
+
+.session-mark-filters { display: flex; flex: none; align-items: center; gap: 2px; }
+.mark-filter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 26px;
+  min-width: 24px;
+  padding: 0 5px;
+  border: 0;
+  background: transparent;
+  color: var(--px-ink);
+  box-shadow: none;
+  font: 600 12px/1 var(--font-px); -webkit-font-smoothing: none;
+  white-space: nowrap;
+}
+.mark-filter:hover:not(:disabled) { background: var(--dither-hl); }
+.mark-filter[aria-pressed="true"],
+.mark-filter[aria-pressed="true"]:hover:not(:disabled) { background: var(--px-chk); box-shadow: inset 0 0 0 2px var(--px-ink); }
+.mark-filter-fresh b { min-width: 2ch; color: var(--px-brand-ink); font-variant-numeric: tabular-nums; text-align: left; }
+.mark-filter-sep { display: inline-block; flex: none; width: 2px; height: 16px; margin: 0 3px; background: var(--px-line); }
+.mark-rename {
+  width: 7em;
+  height: 24px;
+  padding: 0 4px;
+  border: 0;
+  background: var(--px-bg);
+  color: var(--px-ink);
+  box-shadow: inset 0 0 0 2px var(--px-ink);
+  font: 13px var(--font-sans); -webkit-font-smoothing: auto;
+}
+/* 点筛选不能让筛选条挪位置（否则双击的第二下会落到旁边的形状上）：整组控件靠右，标题那边的条数变宽只会让标题多省略一点；
+   “清除”不出现时也占着位置。 */
+.session-toolbar-main > .session-toolbar-controls { margin-left: auto; }
+.session-filter-clear[hidden] { display: inline-block !important; visibility: hidden; }
+.session-filter-clear {
+  height: 26px;
+  padding: 0 5px;
+  border: 0;
+  background: transparent;
+  color: var(--px-brand-ink);
+  box-shadow: none;
+  font: 600 12px/1 var(--font-px); -webkit-font-smoothing: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.session-heading #sessionCount { flex: none; white-space: nowrap; }
+#tagCheckedSessionsBtn { width: auto; padding: 0 5px; text-decoration: underline; text-underline-offset: 3px; }
+/* 工具栏放不下时（语言较长、又勾选了几行）：先收起“新回复”三个字，只留气泡和条数；再让打开目录、导出、送出只留图标。
+   名字、提示和读屏用的文字都还在；复制会话信息始终带字。由 renderer 的 fitSessionToolbar 量过之后一级一级加。 */
+.session-toolbar-main > .session-heading { min-width: 96px; }
+.session-toolbar-main:is([data-fit="1"], [data-fit="2"]) .mark-filter-fresh > span { display: none; }
+.session-toolbar-main[data-fit="2"] :is(#openSessionFileBtn, #exportSessionBtn, .session-send-menu > summary) { gap: 0; --type-size: 0px; }
+.session-toolbar-main > .session-toolbar-controls { flex: 0 10 auto; min-width: min-content; }
+
+.session-display-options hr { width: 100%; height: 2px; margin: 4px 0; border: 0; background: var(--px-line); }
+.session-display-heading { padding: 4px 8px 2px; color: var(--px-ink-2); font: 500 12px/1 var(--font-px); -webkit-font-smoothing: none; }
+.session-display-menu .context-menu-panel { min-width: 150px; }
+.session-display-options button[aria-pressed]::before { content: ""; flex: none; width: 8px; height: 8px; box-shadow: inset 0 0 0 2px var(--px-ink); }
+.session-display-options button[aria-pressed="true"]::before { background: var(--px-brand); box-shadow: none; }
+
+.session-table .title-line { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.session-table .title-line > .title-cell-main { flex: 0 1 auto; width: auto; min-width: 0; }
+/* 点阵字没有粗体，“不描粗”是全局的规矩；新回复的标题是唯一的例外：横向多描一格（字的一个像素），像老游戏里的粗字 */
+.session-table .title-cell.is-fresh .title-cell-main { text-shadow: 1px 0 0 currentColor !important; }
+.session-new-badge {
+  flex: none;
+  padding: 0 4px;
+  background: var(--px-brand);
+  color: var(--px-on-brand);
+  font: 700 12px/16px var(--font-px); -webkit-font-smoothing: none;
+}
+.session-run-word { flex: none; color: var(--px-ok-ink); font: 700 12px/1 var(--font-px); -webkit-font-smoothing: none; }
+.session-writing { display: inline-flex; flex: none; align-items: flex-end; gap: 2px; width: 12px; height: 12px; padding-bottom: 2px; }
+.session-writing i { width: 2px; height: 2px; background: var(--px-ok-ink); visibility: hidden; animation: mark-dot 0.9s steps(1) infinite; }
+.session-writing i:nth-child(2) { animation-delay: 0.3s; }
+.session-writing i:nth-child(3) { animation-delay: 0.6s; }
+@keyframes mark-dot { 0% { visibility: hidden; } 33% { visibility: visible; } 100% { visibility: visible; } }
+.session-tag-btn {
+  flex: none;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--px-ink);
+  box-shadow: inset 0 0 0 2px var(--px-ink-2);
+  font: 600 12px/1 var(--font-px); -webkit-font-smoothing: none;
+  visibility: hidden;
+}
+.session-tag-btn:hover:not(:disabled) { background: var(--px-float); }
+.session-table tr.session-active .session-tag-btn,
+.session-table tr:hover .session-tag-btn,
+.session-table tr:focus-within .session-tag-btn { visibility: visible; }
+.fx-pop { animation: mark-pop 0.24s steps(1) 1; }
+@keyframes mark-pop { 0% { transform: translateY(-4px); } 50% { transform: translateY(-2px); } 100% { transform: none; } }
+
+#sessionTagPicker {
+  position: fixed;
+  inset: auto;
+  top: 0;
+  left: 0;
+  right: auto;
+  margin: 0;
+  min-width: 168px;
+  padding: 4px;
+  overflow: visible;
+  border: 0;
+  background: var(--px-float);
+  color: var(--px-ink);
+  box-shadow: var(--px), 4px 4px 0 0 var(--px-shade);
+}
+#sessionTagPicker:not(:popover-open) { display: none; }
+.session-tag-picker-title { padding: 2px 8px 4px; color: var(--px-ink-2); font: 500 12px/1.2 var(--font-px); -webkit-font-smoothing: none; }
+#sessionTagPicker button[aria-checked="true"] { box-shadow: inset 2px 0 0 0 var(--px-brand); }
+#sessionTagPicker button:focus-visible { background: var(--px-hl); outline: 0; }
+#sessionTagPicker kbd { margin-left: auto; padding-left: 12px; color: var(--px-ink-2); font: 700 11px/1 var(--font-px); -webkit-font-smoothing: none; }
+
+.agent-panel .account-card { position: relative; }
+/* 卡片高度是定死的（Agent 区 222px），多一行就会把按钮挤出搁板下沿，所以“N 条新回复”接在名牌状态那一行的后半段 */
+.agent-panel .account-card-state { max-width: 100%; min-width: 0; }
+.agent-panel .account-card-state-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-card-replies { flex: none; color: var(--px-brand-ink); font: 700 11.5px/1.3 var(--font-sans); -webkit-font-smoothing: auto; white-space: nowrap; }
+.account-card-replies::before { content: "· "; color: var(--px-ink-2); font-weight: 400; }
+.agent-panel .account-card .account-card-mail {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  padding: 0 4px 0 3px;
+  border: 0;
+  background: var(--px-float);
+  color: var(--px-brand-ink);
+  box-shadow: var(--px);
+  font: 700 12px/1 var(--font-px); -webkit-font-smoothing: none;
+}
+.agent-panel .account-card .account-card-mail:hover:not(:disabled) { background: var(--px-hl); }
+.account-card-mail .pxi { width: 12px; height: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .session-writing i { animation: none; visibility: visible; }
+  .fx-pop { animation: none; }
 }

@@ -67,8 +67,9 @@
               <span class="account-card-pit"><span class="account-card-cat"><canvas class="account-card-avatar" width="80" height="80"></canvas></span><b class="account-card-badge" hidden></b></span>
               <i class="account-card-ledge"></i>
               <span class="account-card-name"></span>
-              <span class="account-card-state"><i class="account-card-dot"></i><span class="account-card-state-label"></span></span>
+              <span class="account-card-state"><i class="account-card-dot"></i><span class="account-card-state-label"></span><span class="account-card-replies" hidden></span></span>
             </button>
+            <button class="account-card-mail" type="button" hidden data-roster-control><i class="pxi" data-i="mail" aria-hidden="true"></i><b></b></button>
             <button class="account-card-quota-summary" type="button" popovertarget="quotaPopover" aria-controls="quotaPopover" aria-haspopup="dialog" aria-expanded="false" data-roster-control></button>
             <label class="account-card-runtime" data-roster-control>
               <i class="pxi" data-i="pin" aria-hidden="true"></i>
@@ -92,18 +93,30 @@
                 <span id="sessionCount">0</span>
               </div>
               <div class="session-toolbar-controls">
-                <input id="searchInput" type="search" data-i18n-aria="session.search" aria-label="搜索会话" data-i18n-placeholder="session.search" placeholder="搜索会话、账号或 ID" />
+                <div id="sessionMarkFilters" class="session-mark-filters" role="group" data-i18n-aria="marks.filters" aria-label="按标记筛选"></div>
+                <button id="clearSessionFiltersBtn" class="session-filter-clear" type="button" hidden data-i18n="marks.clear">清除</button>
+                <span class="session-search">
+                  <input id="searchInput" type="search" data-i18n-aria="session.search" aria-label="搜索会话" data-i18n-placeholder="session.search" placeholder="搜索会话、账号或 ID" />
+                </span>
                 <details id="sessionDisplayMenu" class="session-display-menu context-menu">
                   <summary><span data-i18n="session.display">显示</span><b id="sessionDisplayLabel" data-i18n="session.view.compact">精简</b></summary>
                   <div class="session-display-options context-menu-panel" role="group" data-i18n-aria="aria.sessionView" aria-label="会话列表视图">
                     <button id="sessionCompactBtn" type="button" aria-pressed="true" data-i18n="session.view.compact">精简</button>
                     <button id="sessionDetailBtn" type="button" aria-pressed="false" data-i18n="session.view.detail">详细</button>
+                    <hr>
+                    <span class="session-display-heading" data-i18n="marks.sort">排序</span>
+                    <button type="button" data-session-order="recent" aria-pressed="true" data-i18n="marks.sort.recent">最近活跃（默认）</button>
+                    <button type="button" data-session-order="fresh" aria-pressed="false" data-i18n="marks.sort.fresh">新回复在前</button>
+                    <button type="button" data-session-order="tag" aria-pressed="false" data-i18n="marks.sort.tag">按标签</button>
+                    <hr>
+                    <button id="markAllSeenBtn" type="button" data-i18n="marks.allSeen">全部标为已看</button>
                   </div>
                 </details>
               </div>
               <div id="sessionActionDock" class="session-toolbar-actions" role="group" data-i18n-aria="session.actions.label" aria-label="会话操作">
                 <div id="sessionSelectionBar" class="session-toolbar-selection" hidden>
                   <span id="sessionSelectionCount" aria-live="polite"></span>
+                  <button id="tagCheckedSessionsBtn" type="button" aria-haspopup="menu" aria-controls="sessionTagPicker" data-i18n="marks.tagChecked">标签</button>
                   <button id="clearSessionSelectionBtn" type="button" data-i18n-title="session.selection.clear" data-i18n-aria="session.selection.clear" aria-label="取消选择">×</button>
                 </div>
                 <button id="copySessionInfoBtn" class="session-copy-info primary" type="button" disabled data-hub-tip="copy" data-i18n="session.copyInfo">复制会话信息</button>
@@ -157,6 +170,7 @@
       <canvas id="fxCanvas" class="fx-canvas" aria-hidden="true"></canvas>
     </div>
 
+    <div id="sessionTagPicker" class="session-tag-picker context-menu-panel" popover="auto" role="menu" data-i18n-aria="marks.picker" aria-label="标签"></div>
     <div id="quotaPopover" class="quota-popover" popover="auto" role="dialog" aria-labelledby="quotaPopoverTitle">
       <header class="quota-popover-head">
         <h3 id="quotaPopoverTitle"></h3>
@@ -1301,6 +1315,7 @@
     <script src="./renderer/hub.js"></script>
     <script src="./renderer/tool-center.js"></script>
     <script src="./renderer/recruit.js"></script>
+    <script src="./renderer/session-marks.js"></script>
     <script src="./roster-interactions.js"></script>
     <script src="./pixel/cats.js"></script>
     <script src="./pixel/ui.js"></script>

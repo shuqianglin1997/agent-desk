@@ -531,6 +531,16 @@
       });
     }
 
+    // 新回复：有对话回完了。只在窗口不在前台时响，半分钟内最多一声；首次启用之前的回复主进程本来就不报。
+    let lastReplyAt = -Infinity;
+    document.addEventListener('agentdesk:replies', (event) => {
+      if (!(Number(event.detail?.added) > 0)) return;
+      if (typeof document.hasFocus === 'function' && document.hasFocus()) return;
+      if (clock() - lastReplyAt < 30000) return;
+      lastReplyAt = clock();
+      cue('session.reply');
+    });
+
     // 收件箱里要你处理的事变多了：等你处理。启动头几秒的第一次计数只当基准。
     const badge = $('#activityCountBadge');
     if (badge) {
