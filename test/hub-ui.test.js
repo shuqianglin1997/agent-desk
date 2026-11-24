@@ -49,7 +49,7 @@ test('run state is pushed by Main at each transition, never polled by the Render
   assert.match(main, /function notifyHubChanged\(record = null\)[\s\S]*(?:main\.)?mainWindow\.webContents\.send\('hub:changed', run \? \{ run: \{ \.\.\.run, cwd: undefined \} \} : \{\}\)/);
   assert.match(read('src/preload.js'), /onHubChanged: \(callback\) => \{\s*const listener = \(_event, payload\) => callback\(payload && typeof payload === 'object' \? payload : \{\}\);/);
   const renderer = rendererSource();
-  assert.match(renderer, /window\.manager\.onHubChanged\(\(payload\) => applyHubChange\(payload\?\.run\)\)/);
+  assert.match(renderer, /onMainEvent\('onHubChanged', \(payload\) => applyHubChange\(payload\?\.run\)\)/);
   // The only interval is the local clock for the elapsed time; it never asks Main for data.
   const ticker = renderer.slice(renderer.indexOf('function ensureHubTicker()'), renderer.indexOf('// ── 交接：发送到另一台电脑'));
   assert.doesNotMatch(ticker, /window\.manager/);

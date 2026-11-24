@@ -406,8 +406,8 @@ test('远端 Lens 与设备会话入口先显示缓存再按需刷新，本机�
 test('inventory-synced 撞上 Mesh 忙碌状态时会合并并在释放后补载', () => {
   const renderer = rendererSource();
   const eventBlock = renderer.slice(
-    renderer.indexOf('if (window.manager.onDeviceConnectionState)'),
-    renderer.indexOf('if (window.manager.onDeviceNetworkState)')
+    renderer.indexOf("if (offersMainEvent('onDeviceConnectionState'))"),
+    renderer.indexOf("if (offersMainEvent('onDeviceNetworkState'))")
   );
   const request = sourceFunction(renderer, 'requestDeviceOverviewReload', 'flushPendingDeviceOverviewReload');
   const flush = sourceFunction(renderer, 'flushPendingDeviceOverviewReload', 'loadDeviceOverview');

@@ -1335,6 +1335,8 @@ function openAgentDossier(agentId) {
 }
 
 function bindEvents() {
+  // Main's change notifications become store topics; the handlers below subscribe.
+  bindMainEvents();
   els.remoteActivityBtn?.addEventListener('click', () => {
     const sessions = activeOutgoingRemoteSessions();
     if (!sessions.length) return;
@@ -1350,7 +1352,7 @@ function bindEvents() {
   els.onboardingCodexImportBtn?.addEventListener('click', () => {
     if (!state.firstUse.busy) recruitDialog.open('drop');
   });
-  window.manager.onProfileRegistrationsChanged?.(() => {
+  if (offersMainEvent('onProfileRegistrationsChanged')) onMainEvent('onProfileRegistrationsChanged', () => {
     void (async () => {
       if (state.mesh.overview?.initialized) {
         await loadDeviceOverview({ silent: true, skipWorkspaceRefresh: true });
@@ -1497,11 +1499,11 @@ function bindEvents() {
     await handleUpdateClick();
   });
 
-  window.manager.onUpdateProgress((progress) => {
+  onMainEvent('onUpdateProgress', (progress) => {
     handleUpdateProgress(progress);
   });
 
-  window.manager.onProfileRuntimeIncident?.((incident) => {
+  if (offersMainEvent('onProfileRuntimeIncident')) onMainEvent('onProfileRuntimeIncident', (incident) => {
     if (incident?.reason === 'crashpad-burst-contained') {
       setStatus(tr('status.crashpadContained'));
     } else if (incident?.reason === 'crashpad-repeated-signature') {
@@ -1511,7 +1513,7 @@ function bindEvents() {
     }
   });
 
-  window.manager.onProfileQuitBlocked?.(() => {
+  if (offersMainEvent('onProfileQuitBlocked')) onMainEvent('onProfileQuitBlocked', () => {
     setStatus(tr('status.profileQuitBlocked'));
   });
 
@@ -1761,12 +1763,12 @@ function bindEvents() {
     await refreshToolInventory(true);
   });
 
-  if (window.manager.onToolProgress) {
-    window.manager.onToolProgress(handleToolProgress);
+  if (offersMainEvent('onToolProgress')) {
+    onMainEvent('onToolProgress', handleToolProgress);
   }
 
-  if (window.manager.onAgentDeploymentsChanged) {
-    window.manager.onAgentDeploymentsChanged((payload = {}) => {
+  if (offersMainEvent('onAgentDeploymentsChanged')) {
+    onMainEvent('onAgentDeploymentsChanged', (payload = {}) => {
       if (payload.overview?.initialized) state.mesh.overview = payload.overview;
       validateUiContext();
       renderAccounts();
@@ -1778,8 +1780,8 @@ function bindEvents() {
     });
   }
 
-  if (window.manager.onAgentActionsChanged) {
-    window.manager.onAgentActionsChanged((payload = {}) => {
+  if (offersMainEvent('onAgentActionsChanged')) {
+    onMainEvent('onAgentActionsChanged', (payload = {}) => {
       if (payload.overview?.initialized) state.mesh.overview = payload.overview;
       validateUiContext();
       renderAccounts();
@@ -1791,8 +1793,8 @@ function bindEvents() {
     });
   }
 
-  if (window.manager.onDeviceConnectionState) {
-    window.manager.onDeviceConnectionState((value) => {
+  if (offersMainEvent('onDeviceConnectionState')) {
+    onMainEvent('onDeviceConnectionState', (value) => {
       if (state.mesh.deviceJourney && window.DeviceJourney) {
         state.mesh.deviceJourney = window.DeviceJourney.transition(state.mesh.deviceJourney, {
           type: 'connection-state',
@@ -1809,8 +1811,8 @@ function bindEvents() {
     });
   }
 
-  if (window.manager.onDeviceNetworkState) {
-    window.manager.onDeviceNetworkState((network) => {
+  if (offersMainEvent('onDeviceNetworkState')) {
+    onMainEvent('onDeviceNetworkState', (network) => {
       if (!state.mesh.overview?.reachability || !network) return;
       state.mesh.overview.reachability = {
         ...state.mesh.overview.reachability,
@@ -1822,14 +1824,14 @@ function bindEvents() {
     });
   }
 
-  if (window.manager.onPairingClaimsChanged) {
-    window.manager.onPairingClaimsChanged((claims) => {
+  if (offersMainEvent('onPairingClaimsChanged')) {
+    onMainEvent('onPairingClaimsChanged', (claims) => {
       applyPairingClaims(claims, { open: true });
     });
   }
 
   if (window.manager.hubState) void loadHub();
-  if (window.manager.onHubChanged) window.manager.onHubChanged((payload) => applyHubChange(payload?.run));
+  if (offersMainEvent('onHubChanged')) onMainEvent('onHubChanged', (payload) => applyHubChange(payload?.run));
   window.AgentHubUi?.installTips?.(document, tr);
   els.hubAllowCall?.addEventListener('change', () => {
     const callable = els.hubAllowCall.checked;
@@ -1847,8 +1849,8 @@ function bindEvents() {
   els.accountRoster?.addEventListener('scroll', () => renderHubLinks(), { passive: true });
   window.addEventListener('resize', () => renderHubLinks());
 
-  if (window.manager.onTransfersChanged) {
-    window.manager.onTransfersChanged((transfers) => {
+  if (offersMainEvent('onTransfersChanged')) {
+    onMainEvent('onTransfersChanged', (transfers) => {
       const previousTransfers = state.mesh.transfers;
       state.mesh.transfers = Array.isArray(transfers) ? transfers : [];
       deskTransfersChanged(previousTransfers, state.mesh.transfers);
@@ -1868,16 +1870,16 @@ function bindEvents() {
     });
   }
 
-  if (window.manager.onTaskPackagesChanged) {
-    window.manager.onTaskPackagesChanged((history) => {
+  if (offersMainEvent('onTaskPackagesChanged')) {
+    onMainEvent('onTaskPackagesChanged', (history) => {
       state.taskPackages.history = Array.isArray(history) ? history : [];
       renderTaskPackageHistory();
       renderIncomingTaskPackages();
     });
   }
 
-  if (window.manager.onRemoteControlsChanged) {
-    window.manager.onRemoteControlsChanged((sessions) => {
+  if (offersMainEvent('onRemoteControlsChanged')) {
+    onMainEvent('onRemoteControlsChanged', (sessions) => {
       const previousActiveSessionId = state.ui.activeRemoteSessionId;
       state.mesh.remoteSessions = Array.isArray(sessions) ? sessions : [];
       const outgoingIds = state.mesh.remoteSessions
@@ -1901,8 +1903,8 @@ function bindEvents() {
     });
   }
 
-  if (window.manager.onRemoteControlReturn) {
-    window.manager.onRemoteControlReturn((value = {}) => {
+  if (offersMainEvent('onRemoteControlReturn')) {
+    onMainEvent('onRemoteControlReturn', (value = {}) => {
       const destination = state.ui.workspaceMode === 'remote'
         ? (state.detailBeforeRemote || 'sessions')
         : state.detailMode;
