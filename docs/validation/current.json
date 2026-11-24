@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:09:23.778Z",
-  "baseCommit": "5113888f606c4388f34c8b8d5ac33619fb883911",
+  "recordedAt": "2026-11-24T16:18:16.798Z",
+  "baseCommit": "67638b37fa4a2185ecadb3807349a20b10bab0d7",
   "uncommitted": true,
-  "sourceSha256": "f31dc25e41a0876fc56cea8fd32df16dfce582d26f3c66b32f3bb1e5107c4676",
+  "sourceSha256": "8d3902627049bf9fba8052374daa5548bc0b472dc9dfb712580b36bd8f5eafa2",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,34 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 784,
+      "pass": 783,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after architecture phase 0 batch 1 (metrics script and report-only layer check, test/architecture-tools.test.js 7 tests); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:18:16.798Z",
+      "sourceSha256": "8d3902627049bf9fba8052374daa5548bc0b472dc9dfb712580b36bd8f5eafa2"
+    },
+    {
+      "command": "node --test test/architecture-tools.test.js",
+      "result": "passed",
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "scope": "Tokenizer masks comments/strings/templates/regex without moving lines; function extents; CSS walker; metrics on a small tree; metrics and layer check run on this repository; layer check reports upward requires, electron below services and unmapped files without failing",
+      "recordedAt": "2026-11-24T16:18:16.798Z",
+      "sourceSha256": "8d3902627049bf9fba8052374daa5548bc0b472dc9dfb712580b36bd8f5eafa2"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check including scripts/arch-metrics.js and scripts/check-layers.js",
+      "recordedAt": "2026-11-24T16:18:16.798Z",
+      "sourceSha256": "8d3902627049bf9fba8052374daa5548bc0b472dc9dfb712580b36bd8f5eafa2"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",
