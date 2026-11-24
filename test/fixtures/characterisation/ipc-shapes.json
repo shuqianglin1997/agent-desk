@@ -1,0 +1,672 @@
+{
+  "apps:list": [
+    {
+      "canExportTranscript": "boolean",
+      "canLaunch": "boolean",
+      "canProvision": "boolean",
+      "defaultOnly": "boolean",
+      "discoveryKind": "string",
+      "id": "string",
+      "label": "string",
+      "provisioningClientForm": {
+        "anyOf": [
+          "string",
+          "null"
+        ]
+      },
+      "signIn": {
+        "anyOf": [
+          {
+            "browser": "boolean",
+            "importFiles": [
+              "empty"
+            ],
+            "key": "boolean",
+            "keyCatalogDefault": "null",
+            "keyKinds": [
+              "empty"
+            ],
+            "keyNeedsCatalogProvider": "boolean",
+            "provider": "boolean",
+            "providerFields": [
+              "empty"
+            ],
+            "providerOptionalFields": [
+              "empty"
+            ],
+            "storesInPlaintext": "boolean"
+          },
+          {
+            "browser": "boolean",
+            "importFiles": [
+              "empty"
+            ],
+            "key": "boolean",
+            "keyCatalogDefault": "null",
+            "keyKinds": [
+              "string"
+            ],
+            "keyNeedsCatalogProvider": "boolean",
+            "provider": "boolean",
+            "providerFields": [
+              "string"
+            ],
+            "providerOptionalFields": [
+              "string"
+            ],
+            "storesInPlaintext": "boolean"
+          },
+          {
+            "browser": "boolean",
+            "importFiles": [
+              "string"
+            ],
+            "key": "boolean",
+            "keyCatalogDefault": "null",
+            "keyKinds": [
+              "string"
+            ],
+            "keyNeedsCatalogProvider": "boolean",
+            "provider": "boolean",
+            "providerFields": [
+              "string"
+            ],
+            "providerOptionalFields": [
+              "empty"
+            ],
+            "storesInPlaintext": "boolean"
+          },
+          {
+            "browser": "boolean",
+            "importFiles": [
+              "string"
+            ],
+            "key": "boolean",
+            "keyCatalogDefault": "string",
+            "keyKinds": [
+              "string"
+            ],
+            "keyNeedsCatalogProvider": "boolean",
+            "provider": "boolean",
+            "providerFields": [
+              "string"
+            ],
+            "providerOptionalFields": [
+              "empty"
+            ],
+            "storesInPlaintext": "boolean"
+          },
+          {
+            "browser": "boolean",
+            "importFiles": [
+              "string"
+            ],
+            "key": "boolean",
+            "keyCatalogDefault": "string",
+            "keyKinds": [
+              "string"
+            ],
+            "keyNeedsCatalogProvider": "boolean",
+            "provider": "boolean",
+            "providerFields": [
+              "empty"
+            ],
+            "providerOptionalFields": [
+              "empty"
+            ],
+            "storesInPlaintext": "boolean"
+          },
+          {
+            "browser": "boolean",
+            "importFiles": [
+              "string"
+            ],
+            "key": "boolean",
+            "keyCatalogDefault": "null",
+            "keyKinds": [
+              "string"
+            ],
+            "keyNeedsCatalogProvider": "boolean",
+            "provider": "boolean",
+            "providerFields": [
+              "empty"
+            ],
+            "providerOptionalFields": [
+              "empty"
+            ],
+            "storesInPlaintext": "boolean"
+          },
+          {
+            "browser": "boolean",
+            "importFiles": [
+              "empty"
+            ],
+            "key": "boolean",
+            "keyCatalogDefault": "null",
+            "keyKinds": [
+              "empty"
+            ],
+            "keyNeedsCatalogProvider": "boolean",
+            "provider": "boolean",
+            "providerFields": [
+              "string"
+            ],
+            "providerOptionalFields": [
+              "empty"
+            ],
+            "storesInPlaintext": "boolean"
+          }
+        ]
+      },
+      "supportsManagedProfiles": "boolean",
+      "tagColor": "string",
+      "taskPackageMode": "string"
+    }
+  ],
+  "settings:get": {
+    "agentOrder": [
+      "empty"
+    ],
+    "atmosTime": "string",
+    "atmosWeather": "string",
+    "lang": "string",
+    "ledger": "null",
+    "meshNetworkEnrollmentEnabled": "null",
+    "meshSignalingUrls": [
+      "empty"
+    ],
+    "meshStunUrls": [
+      "empty"
+    ],
+    "onboarding": {
+      "completedAt": "string",
+      "completedVersion": "number"
+    },
+    "profileQuitBehavior": "string",
+    "remindersOn": "boolean",
+    "selectedAgentIdByDeviceLens": {},
+    "selectedDeviceLensId": "string",
+    "selectedSlotKeyByAgentAndLens": {},
+    "sessionOrder": "string",
+    "sessionScope": "string",
+    "sessionView": "string",
+    "soundLevel": "string",
+    "soundVolume": "number",
+    "theme": "string",
+    "view": "string",
+    "welcomed": "boolean",
+    "yardPositions": {}
+  },
+  "devices:list": {
+    "ok": "boolean",
+    "overview": {
+      "accountBindings": [
+        "empty"
+      ],
+      "agents": [
+        "empty"
+      ],
+      "blueprints": [
+        "empty"
+      ],
+      "connections": [
+        "empty"
+      ],
+      "deployments": [
+        "empty"
+      ],
+      "devices": [
+        "empty"
+      ],
+      "initialized": "boolean",
+      "keyState": "string",
+      "localPreview": {
+        "agentCount": "number",
+        "appVersion": "string",
+        "arch": "string",
+        "name": "string",
+        "osVersion": "string",
+        "platform": "string",
+        "sessionCount": "number",
+        "slotCount": "number"
+      },
+      "provisioningJobs": [
+        "empty"
+      ],
+      "reachability": {
+        "active": "boolean",
+        "endpointCount": "number",
+        "expiresAt": "null",
+        "ice": {
+          "stunConfigured": "boolean",
+          "stunUrlCount": "number",
+          "turnConfigured": "boolean",
+          "turnCredentialExpiresAt": "null",
+          "turnCredentialSource": "string",
+          "turnTransports": [
+            "empty"
+          ],
+          "turnUrlCount": "number"
+        },
+        "networkEnrollmentEnabled": "boolean",
+        "signaling": {
+          "configured": "boolean",
+          "lastError": "null",
+          "onlineServiceCount": "number",
+          "serviceCount": "number",
+          "services": [
+            "empty"
+          ],
+          "state": "string",
+          "turnCredentialExpiresAt": "null",
+          "turnCredentialSource": "null",
+          "turnCredentials": "string"
+        },
+        "userEnabled": "boolean"
+      },
+      "slots": [
+        "empty"
+      ],
+      "storageIncomplete": "boolean"
+    }
+  },
+  "profiles:list": [
+    {
+      "appId": "string",
+      "cat": {
+        "accessory": "string",
+        "breed": "string",
+        "collar": "string"
+      },
+      "createdAt": "string",
+      "executablePath": "null",
+      "group": "string",
+      "id": "string",
+      "identityFingerprint": "null",
+      "isProtected": "boolean",
+      "lastLaunchedAt": "null",
+      "name": "string",
+      "note": "string",
+      "profilePath": "string",
+      "profilePathMode": "string",
+      "sessionRoot": "string",
+      "sessionRootMode": "string"
+    }
+  ],
+  "agentCatalog:list": {
+    "ok": "boolean",
+    "overview": {
+      "accountBindings": [
+        "empty"
+      ],
+      "agents": [
+        "empty"
+      ],
+      "blueprints": [
+        "empty"
+      ],
+      "connections": [
+        "empty"
+      ],
+      "deployments": [
+        "empty"
+      ],
+      "devices": [
+        "empty"
+      ],
+      "initialized": "boolean",
+      "keyState": "string",
+      "localPreview": {
+        "agentCount": "number",
+        "appVersion": "string",
+        "arch": "string",
+        "name": "string",
+        "osVersion": "string",
+        "platform": "string",
+        "sessionCount": "number",
+        "slotCount": "number"
+      },
+      "provisioningJobs": [
+        "empty"
+      ],
+      "reachability": {
+        "active": "boolean",
+        "endpointCount": "number",
+        "expiresAt": "null",
+        "ice": {
+          "stunConfigured": "boolean",
+          "stunUrlCount": "number",
+          "turnConfigured": "boolean",
+          "turnCredentialExpiresAt": "null",
+          "turnCredentialSource": "string",
+          "turnTransports": [
+            "empty"
+          ],
+          "turnUrlCount": "number"
+        },
+        "networkEnrollmentEnabled": "boolean",
+        "signaling": {
+          "configured": "boolean",
+          "lastError": "null",
+          "onlineServiceCount": "number",
+          "serviceCount": "number",
+          "services": [
+            "empty"
+          ],
+          "state": "string",
+          "turnCredentialExpiresAt": "null",
+          "turnCredentialSource": "null",
+          "turnCredentials": "string"
+        },
+        "userEnabled": "boolean"
+      },
+      "slots": [
+        "empty"
+      ],
+      "storageIncomplete": "boolean"
+    }
+  },
+  "agentSlots:list": {
+    "ok": "boolean",
+    "slots": [
+      "empty"
+    ]
+  },
+  "sessions:list": [
+    {
+      "address": "string",
+      "appId": "string",
+      "createdAt": "string",
+      "filePath": "string",
+      "id": "string",
+      "lastReplyAt": "string",
+      "lastRole": "string",
+      "model": "null",
+      "projectPath": "string",
+      "replyDone": "boolean",
+      "source": "string",
+      "status": "string",
+      "title": "string",
+      "updatedAt": "string"
+    }
+  ],
+  "remoteInventory:listSessions": {
+    "ok": "boolean",
+    "sessions": [
+      "empty"
+    ]
+  },
+  "activity:all": [
+    {
+      "activeNow": "number",
+      "activeToday": "number",
+      "contentActiveAt": "number",
+      "createdToday": "number",
+      "fileCount": "number",
+      "freshKeys": [
+        "empty"
+      ],
+      "freshReplies": {
+        "anyOf": [
+          "number",
+          "null"
+        ]
+      },
+      "latestMtime": "number",
+      "profileId": "string",
+      "rootExists": "boolean",
+      "rootReadable": "boolean",
+      "running": "boolean",
+      "sessionCount": "number",
+      "sourceKey": "string",
+      "writingKeys": {
+        "anyOf": [
+          [
+            "empty"
+          ],
+          [
+            "string"
+          ]
+        ]
+      },
+      "writingNow": "number"
+    }
+  ],
+  "sessionMarks:get": {
+    "baselineAt": "number",
+    "names": [
+      "null"
+    ],
+    "ok": "boolean",
+    "seen": {},
+    "tags": {}
+  },
+  "taskPackages:list": {
+    "history": [
+      "empty"
+    ],
+    "ok": "boolean"
+  },
+  "transfers:list": {
+    "ok": "boolean",
+    "transfers": [
+      "empty"
+    ]
+  },
+  "remoteControl:list": {
+    "ok": "boolean",
+    "sessions": [
+      "empty"
+    ]
+  },
+  "devices:getNetworkConfig": {
+    "config": {
+      "signalingUrls": [
+        "empty"
+      ],
+      "stunUrls": [
+        "empty"
+      ]
+    },
+    "ok": "boolean"
+  },
+  "devices:listPairingClaims": {
+    "claims": [
+      "empty"
+    ],
+    "ok": "boolean"
+  },
+  "hub:state": {
+    "accounts": [
+      {
+        "callable": "boolean",
+        "id": "string",
+        "name": "string",
+        "writable": "boolean"
+      }
+    ],
+    "clients": {
+      "claude": {
+        "callable": "boolean",
+        "reason": "string",
+        "via": "null"
+      },
+      "claude-cli": {
+        "callable": "boolean",
+        "reason": "null",
+        "via": "string"
+      },
+      "codex": {
+        "callable": "boolean",
+        "reason": "null",
+        "via": "string"
+      },
+      "cursor": {
+        "callable": "boolean",
+        "reason": "string",
+        "via": "null"
+      },
+      "dsh-cli": {
+        "callable": "boolean",
+        "reason": "string",
+        "via": "null"
+      },
+      "gemini-cli": {
+        "callable": "boolean",
+        "reason": "null",
+        "via": "string"
+      },
+      "kimi": {
+        "callable": "boolean",
+        "reason": "string",
+        "via": "null"
+      },
+      "kimi-work": {
+        "callable": "boolean",
+        "reason": "string",
+        "via": "null"
+      },
+      "opencode": {
+        "callable": "boolean",
+        "reason": "string",
+        "via": "null"
+      },
+      "qwen-code": {
+        "callable": "boolean",
+        "reason": "null",
+        "via": "string"
+      }
+    },
+    "folders": [
+      "empty"
+    ],
+    "maxConcurrent": "number",
+    "running": "number",
+    "runs": [
+      "empty"
+    ]
+  },
+  "diagnostics:get": {
+    "appName": "string",
+    "arch": "string",
+    "defaultProfile": {
+      "candidates": [
+        {
+          "path": "string",
+          "score": "number",
+          "source": "string"
+        }
+      ],
+      "path": "string",
+      "source": "string"
+    },
+    "executable": {
+      "bundlePath": "string",
+      "candidateDetails": [
+        {
+          "bundleIdentifier": "null",
+          "bundlePath": "string",
+          "exists": "boolean",
+          "expectedBundleIdentifiers": [
+            "empty"
+          ],
+          "identityMatches": "boolean",
+          "path": "string",
+          "source": "string"
+        }
+      ],
+      "candidates": [
+        "string"
+      ],
+      "configuredPath": "null",
+      "explicitMissing": "boolean",
+      "found": "boolean",
+      "launchable": "boolean",
+      "path": "string",
+      "protocolAvailable": "boolean",
+      "protocolUsable": "boolean",
+      "source": "string"
+    },
+    "migration": {
+      "candidates": [
+        "empty"
+      ],
+      "needed": "boolean",
+      "recommendedPath": "null",
+      "source": "null"
+    },
+    "osRelease": "string",
+    "platform": "string",
+    "profileIsolation": {
+      "isolated": "boolean",
+      "reasonCode": "null",
+      "supported": "boolean"
+    },
+    "profilePath": {
+      "createable": "boolean",
+      "exists": "boolean",
+      "isDirectory": "boolean",
+      "isFile": "boolean",
+      "length": "number",
+      "path": "string",
+      "readable": "boolean",
+      "writable": "boolean"
+    },
+    "runtime": {
+      "active": "boolean",
+      "crashpad": {
+        "burstCount": "null",
+        "dumpCount": "null",
+        "errorCode": "null",
+        "exists": "null",
+        "fileCount": "null",
+        "limits": {
+          "burstLimit": "number",
+          "burstWindowMs": "number",
+          "maxBytes": "number",
+          "maxFiles": "number"
+        },
+        "newestAt": "null",
+        "pendingPath": "string",
+        "totalBytes": "null"
+      },
+      "fuseReason": "null",
+      "fusedAt": "null",
+      "lastIncident": "null",
+      "launchedAt": "null",
+      "owned": "boolean",
+      "processCount": "number",
+      "profileId": "string"
+    },
+    "sessionAreas": [
+      {
+        "createable": "boolean",
+        "exists": "boolean",
+        "isDirectory": "boolean",
+        "isFile": "boolean",
+        "kind": "string",
+        "label": "string",
+        "length": "number",
+        "path": "string",
+        "readable": "boolean",
+        "writable": "boolean"
+      }
+    ],
+    "sessionCount": "number",
+    "sessionRoot": {
+      "createable": "boolean",
+      "exists": "boolean",
+      "isDirectory": "boolean",
+      "isFile": "boolean",
+      "length": "number",
+      "path": "string",
+      "readable": "boolean",
+      "writable": "boolean"
+    },
+    "storeFile": "string",
+    "userData": "string",
+    "warnings": [
+      "empty"
+    ]
+  }
+}

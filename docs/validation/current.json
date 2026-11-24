@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-24T16:25:38.754Z",
-  "baseCommit": "488ab47ba4e088fd7d2d24e75ea4598f42bad901",
+  "recordedAt": "2026-11-24T16:30:45.628Z",
+  "baseCommit": "2741ff455b01685e052b193fc189f769ff9f9f9f",
   "uncommitted": true,
-  "sourceSha256": "13b798562746fef23f4969fa9c9e50ce679bd3ed82529d21e201d10dd2d0677b",
+  "sourceSha256": "a0ec2f43b8ed7a7f5a7d23ed22800d4080bc57e37e5c9dab0812a11e5f73c1b9",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,41 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 816,
+      "pass": 815,
+      "fail": 0,
+      "skipped": 1,
+      "scope": "Full background Node suite after architecture phase 0 batch 4 (CLI output golden, test/characterisation-cli.test.js 17 tests); digest identical before and after the run",
+      "recordedAt": "2026-11-24T16:30:45.628Z",
+      "sourceSha256": "a0ec2f43b8ed7a7f5a7d23ed22800d4080bc57e37e5c9dab0812a11e5f73c1b9"
+    },
+    {
+      "command": "node --test test/characterisation-cli.test.js (four runs)",
+      "result": "passed",
+      "tests": 17,
+      "pass": 17,
+      "fail": 0,
+      "scope": "Every read-only source-CLI command and five documented failure codes against a fixed temp userData and an empty temp HOME in a child process; golden in test/fixtures/characterisation/cli.golden.json; the installed-launcher list is reduced to ids and entry shape; skipped on Windows",
+      "recordedAt": "2026-11-24T16:30:45.628Z",
+      "sourceSha256": "a0ec2f43b8ed7a7f5a7d23ed22800d4080bc57e37e5c9dab0812a11e5f73c1b9"
+    },
+    {
+      "command": "node scripts/hidden-check.js (three runs, first with --update)",
+      "result": "passed",
+      "scope": "Real Main and renderer through scripts/hidden-electron-entry.js: no window shown or focused, mock keychain, temp userData and HOME, light synthetic data for 10 accounts; client launch, prepare, quota (codex app-server), credential status, tool open/update, update install and transport probe answered by recording stubs; native dialogs cancelled, shell reveal/open, clipboard and network stubbed. Shapes of 17 read IPC payloads match test/fixtures/characterisation/ipc-shapes.json; start-up performs 4 full session scans before it settles; no serious console errors; only quota:all was stubbed during start-up",
+      "recordedAt": "2026-11-24T16:30:45.628Z",
+      "sourceSha256": "a0ec2f43b8ed7a7f5a7d23ed22800d4080bc57e37e5c9dab0812a11e5f73c1b9"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check including scripts/hidden-electron-entry.js and scripts/hidden-check.js",
+      "recordedAt": "2026-11-24T16:30:45.628Z",
+      "sourceSha256": "a0ec2f43b8ed7a7f5a7d23ed22800d4080bc57e37e5c9dab0812a11e5f73c1b9"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",
