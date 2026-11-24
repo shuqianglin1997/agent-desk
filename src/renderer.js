@@ -1,4 +1,6 @@
-const state = {
+// All of the window's selections and data, in one store (src/ui-context.js
+// createStore): views subscribe by topic, tests reset it as a whole.
+const store = window.UiContext.createStore(() => ({
   profiles: [],
   sessions: [],
   filteredSessions: [],
@@ -92,7 +94,8 @@ const state = {
     claude: { label: 'Claude', tagColor: '#d96f33', taskPackageMode: 'unsupported' },
     codex: { label: 'Codex', tagColor: '#2f9e8f', taskPackageMode: 'native' }
   }
-};
+}));
+const state = store.state;
 
 // Remote inventory reads are deliberately on demand: selecting one remote
 // device may open one authenticated peer, while startup and the "all devices"

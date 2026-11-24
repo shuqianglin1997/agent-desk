@@ -366,7 +366,54 @@
     return next;
   }
 
+  // The renderer's store (docs/ARCHITECTURE_PLAN.md section 5.7): all of the
+  // window's selections and data in one object. initial() builds a fresh
+  // state; reset() puts a fresh one in place, in the same object, so every
+  // holder of the state sees it. subscribe(topic, listener) returns the way
+  // to unsubscribe; notify(topic, detail) calls that topic's listeners, then
+  // the '*' listeners. A listener that throws does not stop the others; the
+  // first error is raised after all of them ran.
+  function createStore(initial) {
+    if (typeof initial !== 'function') throw new TypeError('store-initial-required');
+    const state = initial();
+    const listeners = new Map();
+
+    function subscribe(topic, listener) {
+      if (typeof listener !== 'function') throw new TypeError('store-listener-required');
+      const key = String(topic);
+      if (!listeners.has(key)) listeners.set(key, new Set());
+      listeners.get(key).add(listener);
+      return () => listeners.get(key)?.delete(listener);
+    }
+
+    function notify(topic, detail) {
+      const key = String(topic);
+      const event = { topic: key, detail, state };
+      let failure = null;
+      for (const group of [listeners.get(key), key === '*' ? null : listeners.get('*')]) {
+        for (const listener of group ? [...group] : []) {
+          try {
+            listener(event);
+          } catch (error) {
+            failure ||= error;
+          }
+        }
+      }
+      if (failure) throw failure;
+    }
+
+    function reset() {
+      const next = initial();
+      for (const key of Object.keys(state)) delete state[key];
+      Object.assign(state, next);
+      notify('reset');
+    }
+
+    return { state, subscribe, notify, reset };
+  }
+
   return {
+    createStore,
     create,
     clone,
     slotMemoryKey,

@@ -244,3 +244,45 @@ test('setAgentSlot 只记住某只猫的运行位置，不改变正在看的是�
   assert.equal(UiContext.selectedSlotKey(lensed, 'device-2', 'agent-b'), 'device-2::b-desktop');
   assert.equal(UiContext.selectedSlotKey(lensed, 'all', 'agent-b'), 'device-1::b-cli');
 });
+
+// The renderer's store (docs/ARCHITECTURE_PLAN.md phase 6, section 5.7): all
+// selections and data in one object, subscribable by topic, reset as a whole.
+test('the store keeps one state object, notifies a topic then every-topic listeners, and resets in place', () => {
+  const store = UiContext.createStore(() => ({ ui: UiContext.create(), sessions: [], query: '' }));
+  const { state } = store;
+  const calls = [];
+  const offSessions = store.subscribe('sessions', (event) => calls.push(['sessions', event.topic, event.detail, event.state === state]));
+  store.subscribe('*', (event) => calls.push(['*', event.topic]));
+  store.notify('sessions', { count: 2 });
+  store.notify('profiles');
+  assert.deepEqual(calls, [['sessions', 'sessions', { count: 2 }, true], ['*', 'sessions'], ['*', 'profiles']]);
+  offSessions();
+  calls.length = 0;
+  store.notify('sessions');
+  assert.deepEqual(calls, [['*', 'sessions']], 'an unsubscribed listener is not called');
+
+  state.sessions.push({ id: 'a' });
+  state.query = 'alpha';
+  state.extra = true;
+  state.ui = UiContext.focusConversation(state.ui, 'a');
+  calls.length = 0;
+  store.reset();
+  assert.equal(store.state, state, 'reset keeps the object every holder has');
+  assert.deepEqual(Object.keys(state).sort(), ['query', 'sessions', 'ui']);
+  assert.deepEqual(state.sessions, []);
+  assert.equal(state.query, '');
+  assert.equal(state.ui.focusedConversationId, null);
+  assert.deepEqual(calls, [['*', 'reset']]);
+});
+
+test('a failing listener does not stop the others; its error is raised after them', () => {
+  const store = UiContext.createStore(() => ({}));
+  const calls = [];
+  store.subscribe('x', () => { calls.push(1); throw new Error('first'); });
+  store.subscribe('x', () => calls.push(2));
+  store.subscribe('*', () => calls.push(3));
+  assert.throws(() => store.notify('x'), /first/);
+  assert.deepEqual(calls, [1, 2, 3]);
+  assert.throws(() => UiContext.createStore({}), /store-initial-required/);
+  assert.throws(() => store.subscribe('x', null), /store-listener-required/);
+});
