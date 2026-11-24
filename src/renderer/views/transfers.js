@@ -2,6 +2,17 @@
 // transfer records (docs/ARCHITECTURE_PLAN.md phase 6, Mesh plan 10.6). Moved
 // from src/renderer.js unchanged.
 
+import { compactDate, formatBytes, sessionKey, setStatus } from './common.js';
+import { deskSendFlights, deskTransfersChanged } from './desk.js';
+import { meshErrorText } from './devices.js';
+import { openChildDialog, openUtilityDialog } from './dialogs.js';
+import { renderAttentionInbox } from './inbox.js';
+import { offersMainEvent, onMainEvent } from './main-events.js';
+import { actionSessions, crossDeviceActionsPaused, resolvedActionSessions } from './session-actions.js';
+import { tr } from './settings.js';
+import { els, state } from './shared.js';
+import { createTaskPackageTransferActions, loadTaskPackageHistory, renderIncomingTaskPackages, renderTaskPackageHistory } from './task-packages.js';
+
 async function openSessionSendDialog(preselectedDeviceId = null, returnFocus = document.activeElement) {
   if (!els.sessionSendDialog) return;
   if (crossDeviceActionsPaused()) {
@@ -442,7 +453,4 @@ function bindTransferDialogEvents() {
   });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { openSessionSendDialog, openFileSendDialog, populateTransferTargets, openTransferCenter, chooseFilesForTransfer, sendSelectedSessionsToDevice, loadTransfers, renderSessionSendStatus, renderFileSendStatus, renderTransferList, bindTransferChangeEvents, bindTransferEvents, bindTransferDialogEvents };
-Object.assign(window, { openSessionSendDialog, openFileSendDialog, populateTransferTargets, openTransferCenter, chooseFilesForTransfer, sendSelectedSessionsToDevice, loadTransfers, renderSessionSendStatus, renderFileSendStatus, renderTransferList, bindTransferChangeEvents, bindTransferEvents, bindTransferDialogEvents });

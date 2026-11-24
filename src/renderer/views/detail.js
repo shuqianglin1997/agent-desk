@@ -3,6 +3,14 @@
 // (docs/ARCHITECTURE_PLAN.md phase 6, Mesh plan 11.8). Moved from
 // src/renderer.js unchanged.
 
+import { setStatus } from './common.js';
+import { activeOutgoingRemoteSessions, renderTopbarContext } from './context.js';
+import { meshErrorText, remoteErrorText, renderDeviceCenter } from './devices.js';
+import { closeUtilityDialogs } from './dialogs.js';
+import { offersMainEvent, onMainEvent } from './main-events.js';
+import { tr } from './settings.js';
+import { els, state } from './shared.js';
+
 // ── Personal Agent Mesh / 设备中心 ──────────────────
 let remoteSurfaceLayoutFrame = null;
 
@@ -152,7 +160,4 @@ function bindRemoteEvents() {
   }
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { mountWorkspaceSurfaces, setDetailMode, setWorkspaceMode, renderRemoteActivity, scheduleRemoteSurfaceLayout, syncRemoteSurfaceLayout, bindRemoteEvents };
-Object.assign(window, { mountWorkspaceSurfaces, setDetailMode, setWorkspaceMode, renderRemoteActivity, scheduleRemoteSurfaceLayout, syncRemoteSurfaceLayout, bindRemoteEvents });

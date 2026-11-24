@@ -2,6 +2,16 @@
 // compact/detailed view, the filter, and focusing or checking a session
 // (docs/ARCHITECTURE_PLAN.md phase 6). Moved from src/renderer.js unchanged.
 
+import { compactDate, fullDate, sessionKey, setStatus, shortPath } from './common.js';
+import { currentAgentId, currentDeviceLensId, identityGroups, selectedDeviceLensLabel } from './context.js';
+import { setWorkspaceMode } from './detail.js';
+import { closeContextMenu } from './dialogs.js';
+import { renderHubRow, withHubRuns } from './hub.js';
+import { orderedAgentGroups, pickRosterAll } from './roster.js';
+import { checkedMarkKeys, markTargets, renderSessionActionToolbar } from './session-actions.js';
+import { dateLocale, persistSettings, tr } from './settings.js';
+import { els, sessionMarks, state } from './shared.js';
+
 function setSessionView(view) {
   const next = view === 'detail' ? 'detail' : 'compact';
   closeContextMenu(els.sessionDisplayMenu);
@@ -538,7 +548,4 @@ function bindSessionTableEvents() {
   });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { setSessionView, renderSessionControls, applySessionFilter, sessionColumns, setAllVisibleSessionsSelected, clearSessionActionSelection, setSessionChecked, focusSession, renderSessionHead, renderSessions, fitSessionToolbar, renderSessionCell, sessionAccountCount, bindSessionTableEvents };
-Object.assign(window, { setSessionView, renderSessionControls, applySessionFilter, sessionColumns, setAllVisibleSessionsSelected, clearSessionActionSelection, setSessionChecked, focusSession, renderSessionHead, renderSessions, fitSessionToolbar, renderSessionCell, sessionAccountCount, bindSessionTableEvents });

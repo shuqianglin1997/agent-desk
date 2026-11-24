@@ -1,6 +1,15 @@
 // AgentDesk — the location diagnostics dialog (docs/ARCHITECTURE_PLAN.md
 // phase 6). Moved from src/renderer.js unchanged.
 
+import { formatBytes, setStatus } from './common.js';
+import { selectedProfile } from './context.js';
+import { loadProfiles } from './data.js';
+import { openDialog } from './dialogs.js';
+import { tr } from './settings.js';
+import { els } from './shared.js';
+
+let lastDiagnostics = null;
+
 async function showDiagnostics() {
   const profile = selectedProfile();
   if (!profile) return;
@@ -214,7 +223,4 @@ function formatDiagnosticsText(diagnostics) {
   return lines.join('\n');
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { showDiagnostics, renderDiagnostics, diagnosticBadge, appendDiagnosticRow, formatDiagnosticsText };
-Object.assign(window, { showDiagnostics, renderDiagnostics, diagnosticBadge, appendDiagnosticRow, formatDiagnosticsText });
+export { showDiagnostics, renderDiagnostics, diagnosticBadge, appendDiagnosticRow, formatDiagnosticsText, lastDiagnostics };

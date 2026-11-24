@@ -2,6 +2,9 @@
 // sends and delivered ticks (docs/ARCHITECTURE_PLAN.md phase 6). Moved from
 // src/renderer.js unchanged.
 
+import { tr } from './settings.js';
+import { els, state } from './shared.js';
+
 // ── 交接：发送到另一台电脑、收到别处送来的 ──────────────
 // 发出去、对方确认收到都有回执，是确切的；对方不在线时信封停在顶栏，写着“等对方上线”。
 const DESK_PENDING = new Set(['queued', 'sending', 'awaiting-ack']);
@@ -105,7 +108,4 @@ function deskReceived(previous, current) {
   });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { deskTickRows, deskLensPoint, deskFlyOut, deskSendFlights, deskTransfersChanged, renderDeskParked, deskReceived };
-Object.assign(window, { deskTickRows, deskLensPoint, deskFlyOut, deskSendFlights, deskTransfersChanged, renderDeskParked, deskReceived });

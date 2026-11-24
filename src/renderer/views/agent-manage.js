@@ -2,6 +2,18 @@
 // it lists (docs/ARCHITECTURE_PLAN.md phase 6). Moved from src/renderer.js
 // unchanged.
 
+import { catalogAgentById } from './catalog-dialogs.js';
+import { setStatus } from './common.js';
+import { actionAgentId, currentProfileId, identityGroups, selectSlot, selectedProfile, setActionAgent } from './context.js';
+import { appLabel, loadActivity, loadProfiles, loadSessions } from './data.js';
+import { refreshRemoteInventoryForDevice } from './devices.js';
+import { formatDiagnosticsText, lastDiagnostics, showDiagnostics } from './diagnostics.js';
+import { openDialog } from './dialogs.js';
+import { renderHubCalling } from './hub.js';
+import { deploymentStateLabel } from './roster.js';
+import { tr } from './settings.js';
+import { els, state } from './shared.js';
+
 // 猫的档案：一页五段（资料、位置、账号、调用、送走）。位置段列出这只猫在当前设备视角下的每个运行位置，
 // 展开哪个，下面那排动作就作用于哪个；子流程叠在档案上面，做完回到这一页。
 function renderAgentManageContext() {
@@ -202,7 +214,4 @@ function bindAgentManageEvents() {
   });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { renderAgentManageContext, agentManageLocationLabel, renderAgentManageLocations, openAgentManageDialog, openAgentDossier, bindAgentManageEvents };
-Object.assign(window, { renderAgentManageContext, agentManageLocationLabel, renderAgentManageLocations, openAgentManageDialog, openAgentDossier, bindAgentManageEvents });

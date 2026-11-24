@@ -487,7 +487,8 @@ test('界面接线：系统页的档位与音量、页脚一键静音、三种�
   const order = ['./pixel/fx.js', './pixel/chip.js', './pixel/sfx.js', './pixel/ui.js', './renderer.js'];
   let cursor = -1;
   for (const file of order) {
-    const index = html.indexOf(`<script src="${file}"></script>`);
+    // renderer.js is the window's one module entry; the others are classic scripts.
+    const index = html.indexOf(file === './renderer.js' ? '<script type="module" src="./renderer.js"></script>' : `<script src="${file}"></script>`);
     assert.ok(index > cursor, `${file} 的位置不对`);
     cursor = index;
   }

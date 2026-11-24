@@ -118,7 +118,7 @@ test('工作环境始终投影完整员工库，并用同一主按钮确保就�
   const html = read('src/index.html');
   const renderer = rendererSource();
   const projection = read('src/agent-workspace.js');
-  assert.match(html, /<script src="\.\/agent-workspace\.js"><\/script>[\s\S]*?<script src="\.\/renderer\.js"><\/script>/);
+  assert.match(html, /<script src="\.\/agent-workspace\.js"><\/script>[\s\S]*?<script type="module" src="\.\/renderer\.js"><\/script>/);
   assert.match(renderer, /function identityGroupsForLens[\s\S]*?AgentWorkspace\.projectMeshAgentGroups/);
   assert.doesNotMatch(renderer, /if \(!slots\.length\) continue/);
   assert.match(projection, /return \(overview\.agents \|\| \[\]\)\.map/);

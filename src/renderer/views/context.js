@@ -3,6 +3,17 @@
 // (docs/ARCHITECTURE_PLAN.md phase 6, Mesh plan 11.11). Moved from
 // src/renderer.js unchanged.
 
+import { sessionKey, setStatus } from './common.js';
+import { loadProfiles, loadSessions } from './data.js';
+import { setWorkspaceMode } from './detail.js';
+import { loadDeviceOverview, refreshRemoteInventoryForDevice, renderDeviceCenter, renderDeviceLens, requestDeviceOverviewReload } from './devices.js';
+import { onboardingNeedsPresentation, openFirstUseDialog } from './first-use.js';
+import { renderAttentionInbox } from './inbox.js';
+import { offersMainEvent, onMainEvent } from './main-events.js';
+import { accountCardControl, cardActionProfile, deploymentStateLabel, renderAccountHeader, renderAccounts } from './roster.js';
+import { persistUiSelectionMemory, tr } from './settings.js';
+import { els, recruitDialog, state } from './shared.js';
+
 function currentDeviceLensId() {
   return state.ui.selectedDeviceLensId || 'all';
 }
@@ -541,7 +552,4 @@ function bindEntryEvents() {
   });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { currentDeviceLensId, currentAgentId, actionAgentId, setActionAgent, currentSlotKey, activeOutgoingRemoteSessions, currentProfileId, updateUi, renderTopbarContext, identityGroups, identityGroupsForLens, groupOfProfile, selectedGroupProfile, preferredGroupSlot, preferredSlot, setProfileContext, setAgentContext, validateUiContext, validateSessionContext, selectDeviceLens, selectedDeviceLensLabel, populateIdentityDatalist, selectProfile, selectAgent, selectSlot, populateGroupDatalist, provisioningChoiceKey, supportedProvisioningApps, selectedProvisioningApp, currentAgentActionContext, rememberProvisioningChoice, provisioningButtonLabel, provisioningResultMessage, openAgent, selectedProfile, bindEntryEvents };
-Object.assign(window, { currentDeviceLensId, currentAgentId, actionAgentId, setActionAgent, currentSlotKey, activeOutgoingRemoteSessions, currentProfileId, updateUi, renderTopbarContext, identityGroups, identityGroupsForLens, groupOfProfile, selectedGroupProfile, preferredGroupSlot, preferredSlot, setProfileContext, setAgentContext, validateUiContext, validateSessionContext, selectDeviceLens, selectedDeviceLensLabel, populateIdentityDatalist, selectProfile, selectAgent, selectSlot, populateGroupDatalist, provisioningChoiceKey, supportedProvisioningApps, selectedProvisioningApp, currentAgentActionContext, rememberProvisioningChoice, provisioningButtonLabel, provisioningResultMessage, openAgent, selectedProfile, bindEntryEvents });

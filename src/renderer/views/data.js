@@ -3,6 +3,17 @@
 // refreshes (docs/ARCHITECTURE_PLAN.md phase 6). Moved from src/renderer.js
 // unchanged.
 
+import { setStatus } from './common.js';
+import { currentAgentId, currentDeviceLensId, identityGroups, renderTopbarContext, selectedGroupProfile, setProfileContext, validateSessionContext, validateUiContext } from './context.js';
+import { loadDeviceOverview } from './devices.js';
+import { maybeShowWelcome } from './first-use.js';
+import { renderAttentionInbox } from './inbox.js';
+import { loadQuotas, quotaHasLoaded } from './quota.js';
+import { renderAccountHeader, renderAccountRoster, renderAccounts } from './roster.js';
+import { applySessionFilter, renderSessionControls } from './sessions.js';
+import { persistSettings, persistUiSelectionMemory, tr } from './settings.js';
+import { ACTIVITY_SESSION_REFRESH_INTERVAL, FOREGROUND_SESSION_REFRESH_INTERVAL, HUB_ACTIVE, els, sessionMarks, state } from './shared.js';
+
 // 受管客户端元数据（label / 配色）由主进程注册表提供，UI 不再写死 claude/codex
 async function loadApps() {
   try {
@@ -412,7 +423,4 @@ function hubWritingKeys() {
   return keys;
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { loadApps, appLabel, listedProfileIds, refreshSessionsOnActivity, refreshSessionsOnForeground, loadProfiles, loadSessions, loadLocalSessions, loadMeshSessions, sessionAtReplica, enrichMeshSession, sessionOwnerProfile, setSessionScope, loadActivity, hubWritingKeys };
-Object.assign(window, { loadApps, appLabel, listedProfileIds, refreshSessionsOnActivity, refreshSessionsOnForeground, loadProfiles, loadSessions, loadLocalSessions, loadMeshSessions, sessionAtReplica, enrichMeshSession, sessionOwnerProfile, setSessionScope, loadActivity, hubWritingKeys });

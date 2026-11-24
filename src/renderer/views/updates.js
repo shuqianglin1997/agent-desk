@@ -1,6 +1,12 @@
 // AgentDesk — the update button in the system page (docs/ARCHITECTURE_PLAN.md
 // phase 6). Moved from src/renderer.js unchanged.
 
+import { formatBytes, setStatus } from './common.js';
+import { renderAttentionInbox } from './inbox.js';
+import { offersMainEvent, onMainEvent } from './main-events.js';
+import { tr } from './settings.js';
+import { els, state } from './shared.js';
+
 let updateBusy = false;
 
 let updateButtonTimer = null;
@@ -133,7 +139,4 @@ function bindUpdateEvents() {
   });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { handleUpdateClick, handleUpdateProgress, finishUpdateButton, bindUpdateEvents };
-Object.assign(window, { handleUpdateClick, handleUpdateProgress, finishUpdateButton, bindUpdateEvents });

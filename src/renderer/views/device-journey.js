@@ -2,6 +2,14 @@
 // membership trust, connection, catalog and inventory steps (docs/ARCHITECTURE_PLAN.md
 // phase 6, Mesh plan 10.2). Moved from src/renderer.js unchanged.
 
+import { compactDate, setStatus } from './common.js';
+import { currentProfileId, renderTopbarContext, validateUiContext } from './context.js';
+import { loadProfiles, loadSessions } from './data.js';
+import { platformLabel, renderDeviceCenter } from './devices.js';
+import { openChildDialog } from './dialogs.js';
+import { tr } from './settings.js';
+import { els, state } from './shared.js';
+
 let deviceJourneyPollTimer = null;
 
 let deviceJourneyPollPromise = null;
@@ -501,7 +509,4 @@ function finishDeviceJourney() {
   els.deviceJourneyDialog?.close();
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { deviceJourneyErrorText, deviceJourneyModel, openDeviceJourney, applyPairingClaims, refreshPairingClaims, stopDeviceJourneyPolling, startDeviceJourneyPolling, refreshDeviceJourneyFacts, renderDeviceJourneyProgress, deviceJourneyIdentity, renderDeviceJourneyIdentity, deviceJourneyFactState, renderDeviceJourneyFacts, renderDeviceJourneyActions, renderDeviceJourney, setDeviceJourneyBusy, createDeviceJourneyInvitation, inspectDeviceJourneyInvitation, joinFromDeviceJourney, decideDeviceJourneyClaim, connectFromDeviceJourney, finishDeviceJourney };
-Object.assign(window, { deviceJourneyErrorText, deviceJourneyModel, openDeviceJourney, applyPairingClaims, refreshPairingClaims, stopDeviceJourneyPolling, startDeviceJourneyPolling, refreshDeviceJourneyFacts, renderDeviceJourneyProgress, deviceJourneyIdentity, renderDeviceJourneyIdentity, deviceJourneyFactState, renderDeviceJourneyFacts, renderDeviceJourneyActions, renderDeviceJourney, setDeviceJourneyBusy, createDeviceJourneyInvitation, inspectDeviceJourneyInvitation, joinFromDeviceJourney, decideDeviceJourneyClaim, connectFromDeviceJourney, finishDeviceJourney });

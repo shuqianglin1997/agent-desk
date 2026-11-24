@@ -2,6 +2,17 @@
 // with its overview (docs/ARCHITECTURE_PLAN.md phase 6). Moved from
 // src/renderer.js unchanged.
 
+import { setStatus } from './common.js';
+import { actionAgentId, groupOfProfile, identityGroups, selectedProfile, setActionAgent } from './context.js';
+import { setWorkspaceMode } from './detail.js';
+import { renderAttentionInbox } from './inbox.js';
+import { accountCardControl, renderAccountHeader, trustedLocalAccountCardQuota } from './roster.js';
+import { dateLocale, tr } from './settings.js';
+import { els, state } from './shared.js';
+
+let quotaHasLoaded = false;
+let quotaRequestedAt = 0;
+
 let quotaRequest = null;
 
 let quotaForcedAfter = null;
@@ -388,7 +399,4 @@ function bindQuotaRefreshEvents() {
   });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { loadQuotas, selectedQuota, quotaPlanLabel, formatQuotaReset, quotaHeadline, renderQuotaMeters, toggleQuotaPopover, openQuotaPopover, positionQuotaPopover, renderQuotaSummary, renderAccountQuota, renderQuotaOverview, renderQuotaOverviewButton, bindQuotaEvents, bindQuotaRefreshEvents };
-Object.assign(window, { loadQuotas, selectedQuota, quotaPlanLabel, formatQuotaReset, quotaHeadline, renderQuotaMeters, toggleQuotaPopover, openQuotaPopover, positionQuotaPopover, renderQuotaSummary, renderAccountQuota, renderQuotaOverview, renderQuotaOverviewButton, bindQuotaEvents, bindQuotaRefreshEvents });
+export { loadQuotas, selectedQuota, quotaPlanLabel, formatQuotaReset, quotaHeadline, renderQuotaMeters, toggleQuotaPopover, openQuotaPopover, positionQuotaPopover, renderQuotaSummary, renderAccountQuota, renderQuotaOverview, renderQuotaOverviewButton, bindQuotaEvents, bindQuotaRefreshEvents, quotaRequestedAt, quotaHasLoaded };

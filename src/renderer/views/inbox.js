@@ -1,6 +1,18 @@
 // AgentDesk — the inbox: what needs attention and the header badge
 // (docs/ARCHITECTURE_PLAN.md phase 6). Moved from src/renderer.js unchanged.
 
+import { catalogSlotByKey, catalogSlotKey, openSlotAssignmentDialog } from './catalog-dialogs.js';
+import { currentProfileId, selectProfile } from './context.js';
+import { appLabel } from './data.js';
+import { showDiagnostics } from './diagnostics.js';
+import { closeUtilityDialog } from './dialogs.js';
+import { openQuotaPopover } from './quota.js';
+import { selectedCardControl } from './roster.js';
+import { tr } from './settings.js';
+import { els, state } from './shared.js';
+import { incomingTaskPackageTransfers, pendingIncomingTaskPackageCount } from './task-packages.js';
+import { handleUpdateClick } from './updates.js';
+
 // ── 本机工具维护 ────────────────────────────────────
 // ── 统一提醒入口 ─────────────────────────────────────
 function collectAttentionItems() {
@@ -99,7 +111,4 @@ function updateActivityBadge(attentionCount = collectAttentionItems().length) {
   els.activityCountBadge.textContent = String(total);
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { collectAttentionItems, renderAttentionInbox, updateActivityBadge };
-Object.assign(window, { collectAttentionItems, renderAttentionInbox, updateActivityBadge });

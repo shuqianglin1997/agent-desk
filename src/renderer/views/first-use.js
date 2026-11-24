@@ -3,6 +3,14 @@
 // (docs/ARCHITECTURE_PLAN.md phase 6, Mesh plan 10.1). Moved from
 // src/renderer.js unchanged.
 
+import { currentCatalogRevision, refreshCatalogWorkspace } from './catalog-dialogs.js';
+import { setStatus } from './common.js';
+import { provisioningResultMessage, rememberProvisioningChoice, supportedProvisioningApps } from './context.js';
+import { appLabel, loadProfiles } from './data.js';
+import { openDialog } from './dialogs.js';
+import { persistSettings, tr } from './settings.js';
+import { els, recruitDialog, state } from './shared.js';
+
 function onboardingNeedsPresentation() {
   return Boolean(window.OnboardingState?.needsPresentation(
     state.onboardingProgress,
@@ -465,12 +473,11 @@ function recordFirstUseCompletion(patch) {
 }
 
 // The acceptance run swaps the next preparation step for one that stops at
-// waiting-login (window.AgentDeskInspect.replace); both this module and the
-// callers that reach it by name get the new one. Returns the previous one.
+// waiting-login (window.AgentDeskInspect.replace); every importer sees the
+// new one (an imported binding follows the module's). Returns the previous one.
 function replaceContinueFirstPreparation(fn) {
   const previous = continueFirstPreparation;
   continueFirstPreparation = fn;
-  window.continueFirstPreparation = fn;
   return previous;
 }
 
@@ -542,7 +549,4 @@ function bindFirstUseEvents() {
   });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { onboardingNeedsPresentation, onboardingClientValue, parseOnboardingClientValue, prepareWelcomeGuide, createFirstUseModel, openFirstUseDialog, maybeShowWelcome, firstUseErrorText, preparationStateText, preparationDetailText, renderOnboardingProgress, renderOnboardingMigration, renderOnboardingClientSelect, renderOnboardingExisting, renderFirstUseActions, renderFirstUse, focusFirstUseControl, startFirstAgentSetup, continueFirstPreparation, finishFirstUseLater, finishFirstUse, recordFirstUseCompletion, replaceContinueFirstPreparation, bindFirstUseEvents };
-Object.assign(window, { onboardingNeedsPresentation, onboardingClientValue, parseOnboardingClientValue, prepareWelcomeGuide, createFirstUseModel, openFirstUseDialog, maybeShowWelcome, firstUseErrorText, preparationStateText, preparationDetailText, renderOnboardingProgress, renderOnboardingMigration, renderOnboardingClientSelect, renderOnboardingExisting, renderFirstUseActions, renderFirstUse, focusFirstUseControl, startFirstAgentSetup, continueFirstPreparation, finishFirstUseLater, finishFirstUse, recordFirstUseCompletion, replaceContinueFirstPreparation, bindFirstUseEvents });

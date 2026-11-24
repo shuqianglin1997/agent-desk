@@ -1,6 +1,19 @@
 // AgentDesk — stable settings, theme and language (docs/ARCHITECTURE_PLAN.md
 // phase 6). Moved from src/renderer.js unchanged.
 
+import { setStatus } from './common.js';
+import { currentDeviceLensId, renderTopbarContext } from './context.js';
+import { renderDeviceCenter } from './devices.js';
+import { openChildDialog, openUtilityDialog } from './dialogs.js';
+import { prepareWelcomeGuide, renderFirstUse } from './first-use.js';
+import { renderHubSystem } from './hub.js';
+import { renderAttentionInbox } from './inbox.js';
+import { offersMainEvent, onMainEvent } from './main-events.js';
+import { renderQuotaSummary } from './quota.js';
+import { renderAccountHeader, renderAccounts } from './roster.js';
+import { renderSessions } from './sessions.js';
+import { els, handleToolProgress, recruitDialog, refreshToolInventory, renderToolCenter, state } from './shared.js';
+
 // localStorage keys an older build may still hold. The yard view, reminder,
 // scene and ledger keys belong to retired features and are no longer read.
 const LEGACY_SETTING_KEYS = {
@@ -209,7 +222,4 @@ function bindSystemEvents() {
   }
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { localSetting, legacyUserSettings, applyUserSettings, loadUserSettings, mirrorLegacySettings, persistSettings, uiSelectionSettingsPatch, persistUiSelectionMemory, initTheme, tr, dateLocale, updateLangToggle, updateThemeToggle, rerenderLocalizedText, bindSettingsEvents, bindSystemEvents };
-Object.assign(window, { localSetting, legacyUserSettings, applyUserSettings, loadUserSettings, mirrorLegacySettings, persistSettings, uiSelectionSettingsPatch, persistUiSelectionMemory, initTheme, tr, dateLocale, updateLangToggle, updateThemeToggle, rerenderLocalizedText, bindSettingsEvents, bindSystemEvents });

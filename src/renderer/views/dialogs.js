@@ -8,6 +8,12 @@
 //   popovers  quota, tag picker and hub tips are browser popovers (Top Layer);
 //             each places itself next to its anchor.
 
+import { ensureDeviceDetailForEntry, loadDeviceOverview, renderDeviceCenter } from './devices.js';
+import { renderAttentionInbox } from './inbox.js';
+import { els, state } from './shared.js';
+import { loadTaskPackageHistory } from './task-packages.js';
+import { loadTransfers } from './transfers.js';
+
 const childDialogReturnFocus = new WeakMap();
 const childDialogFocusBound = new WeakSet();
 
@@ -174,7 +180,4 @@ function bindUtilityDialogEvents() {
   }
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { bindContextMenuRules, closeContextMenu, openDialog, captureChildDialogReturnFocus, openChildDialog, utilityDialogEntries, closeUtilityDialogs, closeUtilityDialog, utilityDialogFocusTarget, openUtilityDialog, bindUtilityDialogEvents };
-Object.assign(window, { bindContextMenuRules, closeContextMenu, openDialog, captureChildDialogReturnFocus, openChildDialog, utilityDialogEntries, closeUtilityDialogs, closeUtilityDialog, utilityDialogFocusTarget, openUtilityDialog, bindUtilityDialogEvents });

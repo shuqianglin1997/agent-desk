@@ -2,6 +2,20 @@
 // the roster's ordering and scrolling, and the selected Agent's header
 // (docs/ARCHITECTURE_PLAN.md phase 6). Moved from src/renderer.js unchanged.
 
+import { openAgentDossier, renderAgentManageContext } from './agent-manage.js';
+import { catAppearanceOf } from './cat-customizer.js';
+import { catalogAgentById } from './catalog-dialogs.js';
+import { compactDate, fullDate, setStatus, shortPath } from './common.js';
+import { actionAgentId, currentAgentActionContext, currentAgentId, currentDeviceLensId, identityGroups, openAgent, populateGroupDatalist, preferredGroupSlot, provisioningButtonLabel, rememberProvisioningChoice, renderTopbarContext, selectAgent, selectedDeviceLensLabel, selectedGroupProfile, selectedProfile, setActionAgent, supportedProvisioningApps, updateUi } from './context.js';
+import { appLabel, loadSessions, setSessionScope } from './data.js';
+import { onboardingNeedsPresentation } from './first-use.js';
+import { cardRunningCount, hubCardState, renderHubLinks } from './hub.js';
+import { renderAttentionInbox } from './inbox.js';
+import { positionQuotaPopover, renderQuotaSummary, toggleQuotaPopover } from './quota.js';
+import { applySessionFilter, renderSessionControls } from './sessions.js';
+import { persistSettings, persistUiSelectionMemory, tr } from './settings.js';
+import { READINESS_BADGE, els, sessionMarks, state } from './shared.js';
+
 function deploymentStateLabel(value) {
   const stateName = String(value || 'absent');
   return tr(`deployment.state.${stateName}`);
@@ -606,7 +620,4 @@ function rosterIsInteracting() {
   return rosterController.isInteracting();
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { deploymentStateLabel, renderAccounts, orderedAgentGroups, ensureRosterInteractions, renderRosterEmptyState, renderAccountRoster, revealSelectedAccountCard, accountCardQuotaSource, trustedLocalAccountCardQuota, selectedCardControl, cardActionProfile, accountCardControl, createAccountCard, changeAccountCardRuntime, launchOutcome, pickRosterAgent, pickRosterAll, renderRosterAllCard, updateAccountCard, renderAccountCardRuntime, accountCardTooltip, renderAccountHeader, renderAccountCardLaunch, rosterIsInteracting };
-Object.assign(window, { deploymentStateLabel, renderAccounts, orderedAgentGroups, ensureRosterInteractions, renderRosterEmptyState, renderAccountRoster, revealSelectedAccountCard, accountCardQuotaSource, trustedLocalAccountCardQuota, selectedCardControl, cardActionProfile, accountCardControl, createAccountCard, changeAccountCardRuntime, launchOutcome, pickRosterAgent, pickRosterAll, renderRosterAllCard, updateAccountCard, renderAccountCardRuntime, accountCardTooltip, renderAccountHeader, renderAccountCardLaunch, rosterIsInteracting });

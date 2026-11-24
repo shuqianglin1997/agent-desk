@@ -2,6 +2,9 @@
 // sizes and the status line (docs/ARCHITECTURE_PLAN.md phase 6). Moved from
 // src/renderer.js unchanged.
 
+import { dateLocale, tr } from './settings.js';
+import { els } from './shared.js';
+
 function sessionKey(session) {
   if (window.SessionTable) return window.SessionTable.keyOf(session);
   if (!session) return '';
@@ -56,7 +59,4 @@ function setStatus(message, tone = 'neutral') {
   if (els.agentManageStatus && els.agentManageDialog?.open) els.agentManageStatus.textContent = message;
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { sessionKey, compactDate, fullDate, shortPath, formatBytes, setStatus };
-Object.assign(window, { sessionKey, compactDate, fullDate, shortPath, formatBytes, setStatus });

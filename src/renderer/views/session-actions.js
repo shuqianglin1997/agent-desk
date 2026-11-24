@@ -3,6 +3,15 @@
 // local folder and export actions (docs/ARCHITECTURE_PLAN.md phase 6). Moved
 // from src/renderer.js unchanged.
 
+import { sessionKey, setStatus, shortPath } from './common.js';
+import { appLabel, enrichMeshSession, sessionAtReplica } from './data.js';
+import { openChildDialog } from './dialogs.js';
+import { withHubRuns } from './hub.js';
+import { clearSessionActionSelection, renderSessions } from './sessions.js';
+import { tr } from './settings.js';
+import { els, state } from './shared.js';
+import { openSessionSendDialog } from './transfers.js';
+
 // 标签打给谁：这一行已勾选时打给所有勾选的，否则只打这一行（与“复制会话信息”的范围一致）。
 function markTargets(session) {
   const key = sessionKey(session);
@@ -306,7 +315,4 @@ function bindSessionFileEvents() {
   els.exportSessionBtn.addEventListener('click', () => void exportSelectedSessions());
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { markTargets, checkedMarkKeys, actionSessions, replicaResolution, resolvedSessionRow, unresolvedActionSessions, resolvedActionSessions, isLocalActionSession, sessionFileActionRefs, renderSessionActionToolbar, setHubReason, openSessionDirectoryOption, openSelectedSessionDirectories, exportSelectedSessions, crossDeviceActionsPaused, renderReplicaPicker, bindSessionActionEvents, bindSessionFileEvents };
-Object.assign(window, { markTargets, checkedMarkKeys, actionSessions, replicaResolution, resolvedSessionRow, unresolvedActionSessions, resolvedActionSessions, isLocalActionSession, sessionFileActionRefs, renderSessionActionToolbar, setHubReason, openSessionDirectoryOption, openSelectedSessionDirectories, exportSelectedSessions, crossDeviceActionsPaused, renderReplicaPicker, bindSessionActionEvents, bindSessionFileEvents });

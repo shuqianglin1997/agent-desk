@@ -72,7 +72,12 @@ src/
   main/owner.js           Main 的周期任务与资源的唯一归属：任务登记间隔、窗口隐藏时停不停；资源登记怎么停；退出时先停任务，再按登记顺序逐个开始停资源（不等慢的），包括还在回答额度的 codex app-server 子进程和扫描工作线程；运行监管每 2 秒一次的检查由它调度，窗口隐藏时照常跑
   main/ipc/command-shell.js  窗口 IPC 是命令表的薄壳：每条命令经 Main 的可信登记器注册；Main 用到的服务由 main.js 开头 scripts/main-context.js 生成的 mainContext 交给命令（也交给从 main.js 搬出去的模块）
   preload.js              窄 IPC 桥
-  renderer.js             UI 状态与交互
+  renderer.js             界面的启动（原生模块）：依次读设置、数据、各视图，登记各视图的事件，列出验收用的出口 AgentDeskInspect
+  renderer/views/         界面按视图拆成的原生模块，依赖都写成 import：shared（状态仓库、元素表、工具页/招募/会话记号）、
+                          roster、sessions（按行增量更新）、session-actions、detail、dialogs（弹窗、菜单、浮层各一种做法）、
+                          main-events（主进程通知进仓库主题）、context、data、settings、common，以及各功能页
+                          （first-use、agent-manage、catalog-dialogs、cat-customizer、quota、updates、diagnostics、
+                          devices、device-journey、inbox、task-packages、transfers、hub、desk）
   onboarding-state.js     版本化首次使用的纯状态与完成门禁
   device-journey.js       身份/信任/连接/目录/库存任务状态投影
   profile-runtime.js      Profile 进程归属、重复启动、退出收口、Crashpad 限额/熔断与窄范围清理
@@ -218,7 +223,7 @@ native/
 services/signaling/       可自托管最小信令与 TURN REST 凭据服务
 
 scripts/
-  ui-acceptance.js        临时 userData 下的真实 1040 × 840 Electron 任务验收；`--hidden` 经 hidden-electron-entry 不显示窗口运行同一套路径。这些脚本在界面里只经 `window.AgentDeskInspect`（src/renderer.js 末尾列出的出口）读写
+  ui-acceptance.js        临时 userData 下的真实 1040 × 840 Electron 任务验收；`--hidden` 经 hidden-electron-entry 不显示窗口运行同一套路径。这些脚本在界面里只经 `window.AgentDeskInspect`（src/renderer.js 末尾列出的出口）读写；界面函数不再挂在 window 上
   hidden-electron-entry.js 不显示、不聚焦窗口的 Electron 入口：模拟钥匙串，启动客户端、对话框、显示文件、剪贴板与联网都由记录用的替身回答
   hidden-check.js         用上面的入口跑一遍真实界面：17 个读接口返回值的形状对照基准，并数启动时的完整扫描次数
   ui-snapshots.js         同一入口下按两套主题、三种语言、减少动态效果截主窗口各状态，`--compare` 与基准逐像素比较

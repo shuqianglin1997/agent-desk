@@ -4,6 +4,8 @@
 // subscribe to the topics they show. The lamp events stay with
 // src/pixel/boot.js, which listens to them itself.
 
+import { store } from './shared.js';
+
 const MAIN_EVENT_METHODS = [
   'onUpdateProgress',
   'onToolProgress',
@@ -40,7 +42,4 @@ function onMainEvent(method, handler) {
   return store.subscribe(`main:${method}`, ({ detail }) => handler(detail));
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { MAIN_EVENT_METHODS, bindMainEvents, offersMainEvent, onMainEvent };
-Object.assign(window, { MAIN_EVENT_METHODS, bindMainEvents, offersMainEvent, onMainEvent });

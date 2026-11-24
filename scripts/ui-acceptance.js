@@ -1220,7 +1220,7 @@ async function runAcceptance(client, artifactDir) {
         agent: AgentDeskInspect.currentAgentId(),
         slot: AgentDeskInspect.currentSlotKey(),
         focused: AgentDeskInspect.state.ui.focusedConversationId,
-        checked: [...state.ui.checkedConversationIds]
+        checked: [...AgentDeskInspect.state.ui.checkedConversationIds]
       };
     })()`);
     assert.equal(await client.evaluate(`document.querySelector('#globalMoreMenu')`), null);
@@ -1248,7 +1248,7 @@ async function runAcceptance(client, artifactDir) {
           agent: AgentDeskInspect.currentAgentId(),
           slot: AgentDeskInspect.currentSlotKey(),
           focused: AgentDeskInspect.state.ui.focusedConversationId,
-          checked: [...state.ui.checkedConversationIds]
+          checked: [...AgentDeskInspect.state.ui.checkedConversationIds]
         };
       })()`);
       assert.deepEqual(current, baseline, `${kind} must not mutate or move the underlying workspace`);
@@ -1390,7 +1390,7 @@ async function runAcceptance(client, artifactDir) {
       agent: AgentDeskInspect.currentAgentId(),
       slot: AgentDeskInspect.currentSlotKey(),
       focused: AgentDeskInspect.state.ui.focusedConversationId,
-      checked: [...state.ui.checkedConversationIds]
+      checked: [...AgentDeskInspect.state.ui.checkedConversationIds]
     })`);
     await client.evaluate(`(() => {
       window.I18N.setLang('zh');
@@ -1414,7 +1414,7 @@ async function runAcceptance(client, artifactDir) {
       agent: AgentDeskInspect.currentAgentId(),
       slot: AgentDeskInspect.currentSlotKey(),
       focused: AgentDeskInspect.state.ui.focusedConversationId,
-      checked: [...state.ui.checkedConversationIds]
+      checked: [...AgentDeskInspect.state.ui.checkedConversationIds]
     })`);
     assert.deepEqual(underlying, baseline, 'opening Device Center must not change the underlying workspace');
 
@@ -1632,7 +1632,7 @@ async function runAcceptance(client, artifactDir) {
     const before = await client.evaluate(`({
       query: AgentDeskInspect.state.query,
       focused: AgentDeskInspect.state.ui.focusedConversationId,
-      checked: [...state.ui.checkedConversationIds],
+      checked: [...AgentDeskInspect.state.ui.checkedConversationIds],
       options: [...document.querySelector('.account-card.selected .account-card-runtime select').options].map((item) => item.value),
       current: document.querySelector('.account-card.selected .account-card-runtime select').value
     })`);
@@ -1646,7 +1646,7 @@ async function runAcceptance(client, artifactDir) {
     const after = await client.evaluate(`({
       query: AgentDeskInspect.state.query,
       focused: AgentDeskInspect.state.ui.focusedConversationId,
-      checked: [...state.ui.checkedConversationIds],
+      checked: [...AgentDeskInspect.state.ui.checkedConversationIds],
       current: document.querySelector('.account-card.selected .account-card-runtime select').value
     })`);
     assert.equal(after.query, before.query);

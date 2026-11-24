@@ -2,6 +2,16 @@
 // background runs on cards and in the ledger (docs/ARCHITECTURE_PLAN.md
 // phase 6, docs/AGENT_HUB_PLAN.md). Moved from src/renderer.js unchanged.
 
+import { renderAgentManageContext } from './agent-manage.js';
+import { compactDate, fullDate, sessionKey, setStatus } from './common.js';
+import { currentAgentId, currentDeviceLensId, identityGroups } from './context.js';
+import { appLabel } from './data.js';
+import { offersMainEvent, onMainEvent } from './main-events.js';
+import { renderAccountRoster } from './roster.js';
+import { applySessionFilter, focusSession, renderSessions, sessionColumns, setSessionChecked } from './sessions.js';
+import { tr } from './settings.js';
+import { HUB_ACTIVE, els, state } from './shared.js';
+
 // ── 调度中枢：后台对话在台面上的样子 ─────────────────────
 // 只演 AgentDesk 知道的事：调用经过它中转，开始、在跑、结束都是确切的，由 Main 在每次变化时推过来，这里不轮询。
 // 发起方只有在 AgentDesk 知道是哪只猫时（它中转的上一段对话，或发起的进程就在那个账号的目录里）才从那只猫飞出；
@@ -507,7 +517,4 @@ function bindHubEvents() {
   window.addEventListener('resize', () => renderHubLinks());
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { loadHub, applyHubSettings, hubNameKey, renderHubCalling, saveHubAccess, renderHubSystem, addHubFolder, removeHubFolder, setHubLimit, hubRefresh, applyHubChange, hubGroupKey, hubNameOf, hubCardOf, hubCatPoint, hubEdgePoint, hubCue, hubCatAct, hubOverride, cardRunningCount, hubCardState, hubStart, hubEnd, hubStop, withHubRuns, hubRowContext, renderHubRow, renderHubLinks, renderHubFooter, ensureHubTicker, bindHubEvents };
-Object.assign(window, { loadHub, applyHubSettings, hubNameKey, renderHubCalling, saveHubAccess, renderHubSystem, addHubFolder, removeHubFolder, setHubLimit, hubRefresh, applyHubChange, hubGroupKey, hubNameOf, hubCardOf, hubCatPoint, hubEdgePoint, hubCue, hubCatAct, hubOverride, cardRunningCount, hubCardState, hubStart, hubEnd, hubStop, withHubRuns, hubRowContext, renderHubRow, renderHubLinks, renderHubFooter, ensureHubTicker, bindHubEvents });

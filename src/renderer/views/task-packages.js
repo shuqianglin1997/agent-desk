@@ -2,6 +2,15 @@
 // local history (docs/ARCHITECTURE_PLAN.md phase 6, Mesh plan 10.6.1). Moved
 // from src/renderer.js unchanged.
 
+import { compactDate, formatBytes, setStatus } from './common.js';
+import { appLabel, loadProfiles, sessionOwnerProfile } from './data.js';
+import { openChildDialog } from './dialogs.js';
+import { collectAttentionItems, updateActivityBadge } from './inbox.js';
+import { crossDeviceActionsPaused, resolvedActionSessions } from './session-actions.js';
+import { tr } from './settings.js';
+import { els, state } from './shared.js';
+import { renderTransferList } from './transfers.js';
+
 function directTaskPackageTargets() {
   if (crossDeviceActionsPaused()) return [];
   const overview = state.mesh.overview || {};
@@ -1005,7 +1014,4 @@ function bindTaskPackageEvents() {
   });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { directTaskPackageTargets, renderTaskPackageDeliveryOptions, openTaskPackageExportDialog, resetTaskPackageExportState, renderTaskPackageExportPreview, exportCurrentTaskPackage, saveOrSwitchTaskPackageToPortable, openTaskPackageImportDialog, resetTaskPackageImportState, chooseTaskPackageImportFile, inspectTaskPackageImport, renderTaskPackageImportPreview, appendTaskPackagePreviewSection, commitTaskPackageImport, cancelTaskPackageImportDraft, clearTaskPackageImportInspection, lockTaskPackageDialog, loadTaskPackageHistory, handledIncomingTaskPackageTransferIds, incomingTaskPackageTransfers, pendingIncomingTaskPackageCount, renderIncomingTaskPackages, createIncomingTaskPackageCard, taskPackageTransferStateText, createTaskPackageTransferActions, acceptIncomingTaskPackage, rejectIncomingTaskPackage, prepareIncomingTaskPackage, saveTaskPackageTransferFallback, showTaskPackageFallbackResult, renderTaskPackageHistory, setTaskPackageStatus, taskPackageErrorText, bindTaskPackageEvents };
-Object.assign(window, { directTaskPackageTargets, renderTaskPackageDeliveryOptions, openTaskPackageExportDialog, resetTaskPackageExportState, renderTaskPackageExportPreview, exportCurrentTaskPackage, saveOrSwitchTaskPackageToPortable, openTaskPackageImportDialog, resetTaskPackageImportState, chooseTaskPackageImportFile, inspectTaskPackageImport, renderTaskPackageImportPreview, appendTaskPackagePreviewSection, commitTaskPackageImport, cancelTaskPackageImportDraft, clearTaskPackageImportInspection, lockTaskPackageDialog, loadTaskPackageHistory, handledIncomingTaskPackageTransferIds, incomingTaskPackageTransfers, pendingIncomingTaskPackageCount, renderIncomingTaskPackages, createIncomingTaskPackageCard, taskPackageTransferStateText, createTaskPackageTransferActions, acceptIncomingTaskPackage, rejectIncomingTaskPackage, prepareIncomingTaskPackage, saveTaskPackageTransferFallback, showTaskPackageFallbackResult, renderTaskPackageHistory, setTaskPackageStatus, taskPackageErrorText, bindTaskPackageEvents });

@@ -3,6 +3,20 @@
 // diagnostics and permissions (docs/ARCHITECTURE_PLAN.md phase 6, Mesh plan
 // 11.7). Moved from src/renderer.js unchanged.
 
+import { catalogAgentById, openSlotAssignmentDialog } from './catalog-dialogs.js';
+import { compactDate, setStatus } from './common.js';
+import { currentDeviceLensId, identityGroups, identityGroupsForLens, preferredSlot, provisioningResultMessage, renderTopbarContext, selectDeviceLens, updateUi, validateUiContext } from './context.js';
+import { appLabel, loadMeshSessions, loadProfiles, loadSessions } from './data.js';
+import { setWorkspaceMode } from './detail.js';
+import { applyPairingClaims, connectFromDeviceJourney, createDeviceJourneyInvitation, decideDeviceJourneyClaim, finishDeviceJourney, inspectDeviceJourneyInvitation, joinFromDeviceJourney, openDeviceJourney, renderDeviceJourney, renderDeviceJourneyActions, setDeviceJourneyBusy, stopDeviceJourneyPolling } from './device-journey.js';
+import { captureChildDialogReturnFocus, closeUtilityDialog, openChildDialog } from './dialogs.js';
+import { offersMainEvent, onMainEvent } from './main-events.js';
+import { renderAccountHeader, renderAccounts } from './roster.js';
+import { crossDeviceActionsPaused } from './session-actions.js';
+import { persistUiSelectionMemory, tr } from './settings.js';
+import { els, state } from './shared.js';
+import { openFileSendDialog, openTransferCenter } from './transfers.js';
+
 // Remote inventory reads are deliberately on demand: selecting one remote
 // device may open one authenticated peer, while startup and the "all devices"
 // lens must not fan out into an N² connection mesh. Coalesce concurrent user
@@ -1324,7 +1338,4 @@ function bindMeshChangeEvents() {
   }
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { requestDeviceOverviewReload, flushPendingDeviceOverviewReload, loadDeviceOverview, renderDeviceCenter, renderMeshPreview, renderDeviceLensMenu, renderDeviceLens, renderMeshSummary, fillMeshStats, renderDeviceList, selectedDeviceDetail, ensureDeviceDetailForEntry, renderSelectedDeviceDetail, deviceActionButton, deviceMoreMenu, refreshRemoteInventoryForDevice, viewDeviceSessions, viewDeviceAgentSessions, renderSelectedDeviceActions, renderMeshAgentList, toggleMeshReachability, connectMeshDevice, openRemoteDevice, disconnectMeshDevice, deviceDiagnosticsButton, openMeshNetworkSettings, saveMeshNetworkSettings, splitNetworkLines, connectionPathText, openDeviceDiagnostics, refreshDeviceDiagnostics, renderDeviceDiagnostics, appendDiagnosticSection, configuredText, diagnosticCode, diagnosticTime, openDevicePermissions, saveRemoteDevicePermissions, revokeRemoteDevice, renameLocalDevice, runMeshTransportProbe, meshErrorText, remoteInventoryRefreshFailureText, remoteErrorText, platformLabel, bindDeviceEvents, bindMeshChangeEvents };
-Object.assign(window, { requestDeviceOverviewReload, flushPendingDeviceOverviewReload, loadDeviceOverview, renderDeviceCenter, renderMeshPreview, renderDeviceLensMenu, renderDeviceLens, renderMeshSummary, fillMeshStats, renderDeviceList, selectedDeviceDetail, ensureDeviceDetailForEntry, renderSelectedDeviceDetail, deviceActionButton, deviceMoreMenu, refreshRemoteInventoryForDevice, viewDeviceSessions, viewDeviceAgentSessions, renderSelectedDeviceActions, renderMeshAgentList, toggleMeshReachability, connectMeshDevice, openRemoteDevice, disconnectMeshDevice, deviceDiagnosticsButton, openMeshNetworkSettings, saveMeshNetworkSettings, splitNetworkLines, connectionPathText, openDeviceDiagnostics, refreshDeviceDiagnostics, renderDeviceDiagnostics, appendDiagnosticSection, configuredText, diagnosticCode, diagnosticTime, openDevicePermissions, saveRemoteDevicePermissions, revokeRemoteDevice, renameLocalDevice, runMeshTransportProbe, meshErrorText, remoteInventoryRefreshFailureText, remoteErrorText, platformLabel, bindDeviceEvents, bindMeshChangeEvents });

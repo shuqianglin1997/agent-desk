@@ -3,6 +3,19 @@
 // assign a Slot (docs/ARCHITECTURE_PLAN.md phase 6, Mesh plan 10.9, 11.6).
 // Moved from src/renderer.js unchanged.
 
+import { catCollarChoices, openCatCustomizer, renderCatPreview, setCatDraft, storedCatDraft, syncCatSwatches } from './cat-customizer.js';
+import { setStatus } from './common.js';
+import { actionAgentId, currentDeviceLensId, currentSlotKey, identityGroups, identityGroupsForLens, populateIdentityDatalist, preferredSlot, provisioningResultMessage, rememberProvisioningChoice, selectedProfile, setActionAgent, supportedProvisioningApps, validateUiContext } from './context.js';
+import { appLabel, loadProfiles, loadSessions } from './data.js';
+import { loadDeviceOverview, renderDeviceCenter, renderDeviceLens } from './devices.js';
+import { openDialog } from './dialogs.js';
+import { recordFirstUseCompletion } from './first-use.js';
+import { renderAttentionInbox } from './inbox.js';
+import { renderAccountHeader, renderAccounts } from './roster.js';
+import { renderSessionControls } from './sessions.js';
+import { persistUiSelectionMemory, tr } from './settings.js';
+import { els, state } from './shared.js';
+
 // Each binding records the client's providerNamespace, declared by its adapter
 // and sent with the app list; an id this build does not know (a remote client)
 // keeps its own name, as in Main (src/mesh/domain/agent-catalog.js).
@@ -790,7 +803,7 @@ function bindCatalogDialogEvents() {
     const cats = window.YardCats;
     const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const look = pick(cats.LOOK_KEYS);
-    catDraft = { look, collar: pick(catCollarChoices(look)), accessory: pick(cats.ACCESSORY_KEYS) };
+    setCatDraft({ look, collar: pick(catCollarChoices(look)), accessory: pick(cats.ACCESSORY_KEYS) });
     syncCatSwatches();
     renderCatPreview();
   });
@@ -838,7 +851,4 @@ function bindCatalogDialogEvents() {
   });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
 export { catalogProviderForApp, catalogSlotKey, catalogSlotByKey, catalogAgentById, catalogBindingById, currentCatalogRevision, appendSelectOption, fillAgentAssignmentSelect, bindingOptionLabel, fillBindingAssignmentSelect, openAgentCreationDialog, confirmAgentCreation, createAgentAndPrepare, afterRecruitedAccount, openProfileCreationDialog, syncProfileAssignmentControls, confirmProfileCreation, openAgentOrProfileEditor, confirmAgentOrProfileEdit, refreshCatalogWorkspace, openAgentOrProfileRemoval, catalogRemovalContext, renderCatalogRemovalImpact, confirmCatalogRemoval, openAgentRelationsDialog, syncSplitAgentName, syncSplitConfirmState, confirmAgentMerge, confirmBindingSplit, openSlotAssignmentDialog, syncSlotAssignmentControls, removeUnassignedLocalSlot, confirmSlotAssignment, bindAgentCreationEvents, bindCatalogDialogEvents };
-Object.assign(window, { catalogProviderForApp, catalogSlotKey, catalogSlotByKey, catalogAgentById, catalogBindingById, currentCatalogRevision, appendSelectOption, fillAgentAssignmentSelect, bindingOptionLabel, fillBindingAssignmentSelect, openAgentCreationDialog, confirmAgentCreation, createAgentAndPrepare, afterRecruitedAccount, openProfileCreationDialog, syncProfileAssignmentControls, confirmProfileCreation, openAgentOrProfileEditor, confirmAgentOrProfileEdit, refreshCatalogWorkspace, openAgentOrProfileRemoval, catalogRemovalContext, renderCatalogRemovalImpact, confirmCatalogRemoval, openAgentRelationsDialog, syncSplitAgentName, syncSplitConfirmState, confirmAgentMerge, confirmBindingSplit, openSlotAssignmentDialog, syncSlotAssignmentControls, removeUnassignedLocalSlot, confirmSlotAssignment, bindAgentCreationEvents, bindCatalogDialogEvents });

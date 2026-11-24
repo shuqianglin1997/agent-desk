@@ -2,6 +2,21 @@
 // and the preview (docs/ARCHITECTURE_PLAN.md phase 6). Moved from
 // src/renderer.js unchanged.
 
+import { tr } from './settings.js';
+import { els } from './shared.js';
+
+// ── 猫咪档案卡（编辑对话框换装） ─────────────────────
+// 只有三项：毛色（分三组）、项圈颜色、一件配饰。左边的预览按批准的动作逐帧在动。
+let catDraft = { look: 'orange', collar: '#c94f2e', accessory: 'none' };
+let catBase = null;
+let editingProfile = null;
+let catSwatchesBuilt = false;
+
+// The draft is also set when the edit dialog rolls a random cat (catalog-dialogs).
+function setCatDraft(value) {
+  catDraft = value;
+}
+
 // 没有自己外观的猫，显示规则和卡片一样：橘猫配默认的红项圈。
 function catAppearanceOf(cat, seed) {
   if (!cat || typeof cat !== 'object') return { look: 'orange', accessory: 'none', collar: '#c94f2e' };
@@ -166,7 +181,4 @@ function renderCatPreview() {
   window.PixelCats.show(els.editCatCanvas, { ...catDraft, action: 'onduty', scale: 6, seed: 'editor' });
 }
 
-// Published by name while src/renderer.js is a classic script
-// (docs/ARCHITECTURE_PLAN.md phase 6); the last batch turns these into imports.
-export { catAppearanceOf, openCatCustomizer, storedCatDraft, catLookName, catCollarChoices, catTile, bindCatRadioKeys, buildCatSwatches, pickCatLook, renderCatCollars, syncCatSwatches, renderCatPreview };
-Object.assign(window, { catAppearanceOf, openCatCustomizer, storedCatDraft, catLookName, catCollarChoices, catTile, bindCatRadioKeys, buildCatSwatches, pickCatLook, renderCatCollars, syncCatSwatches, renderCatPreview });
+export { catAppearanceOf, openCatCustomizer, storedCatDraft, catLookName, catCollarChoices, catTile, bindCatRadioKeys, buildCatSwatches, pickCatLook, renderCatCollars, syncCatSwatches, renderCatPreview, catSwatchesBuilt, setCatDraft };

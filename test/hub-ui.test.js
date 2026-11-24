@@ -94,7 +94,8 @@ test('one background chat is one ledger record, and its strings exist in all thr
   const order = ['./pixel/sfx.js', './pixel/desk.js', './renderer/hub.js', './pixel/ui.js', './renderer.js'];
   let cursor = -1;
   for (const file of order) {
-    const index = html.indexOf(`<script src="${file}"></script>`);
+    // renderer.js is the window's one module entry; the others are classic scripts.
+    const index = html.indexOf(file === './renderer.js' ? '<script type="module" src="./renderer.js"></script>' : `<script src="${file}"></script>`);
     assert.ok(index > cursor, `${file} 的位置不对`);
     cursor = index;
   }
