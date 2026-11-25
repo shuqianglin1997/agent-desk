@@ -6,6 +6,7 @@
 import { bindAgentManageEvents } from './renderer/views/agent-manage.js';
 import { catLookName, catSwatchesBuilt, syncCatSwatches } from './renderer/views/cat-customizer.js';
 import { bindAgentCreationEvents, bindCatalogDialogEvents, currentCatalogRevision, openAgentOrProfileEditor, openAgentOrProfileRemoval, openAgentRelationsDialog, openProfileCreationDialog, openSlotAssignmentDialog } from './renderer/views/catalog-dialogs.js';
+import { bindClientUpdateEvents, loadClientUpdates } from './renderer/views/client-updates.js';
 import { actionAgentId, bindEntryEvents, currentAgentId, currentSlotKey, renderTopbarContext, selectAgent, validateSessionContext, validateUiContext } from './renderer/views/context.js';
 import { enrichMeshSession, loadActivity, loadApps, loadProfiles, refreshSessionsOnForeground, sessionAtReplica } from './renderer/views/data.js';
 import { bindRemoteEvents, mountWorkspaceSurfaces, renderRemoteActivity } from './renderer/views/detail.js';
@@ -43,11 +44,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadTaskPackageHistory();
   setStartupStage('ready');
   loadActivity();
+  loadClientUpdates();
   loadQuotas();
   // 卡片中的活动和最近活跃在可见时定时刷新。
   // 8 秒一轮：干活/在岗要跟得上会话节奏，60 秒太钝会漏掉短生成；应用在后台时不扫。
   setInterval(() => {
     if (!document.hidden) loadActivity();
+  }, ACTIVITY_POLL_INTERVAL);
+  // 有序更新的状态用同样的节奏（只看几个文件的状态，变了才重画）。
+  setInterval(() => {
+    if (!document.hidden) loadClientUpdates();
   }, ACTIVITY_POLL_INTERVAL);
   // 额度查询走独立的慢轮询和主进程缓存，绝不混入 8 秒活跃度探测。
   setInterval(() => {
@@ -58,6 +64,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (document.hidden) return;
     refreshSessionsOnForeground();
     loadActivity();
+    loadClientUpdates();
     if (Date.now() - quotaRequestedAt >= QUOTA_REFRESH_INTERVAL) loadQuotas();
   });
   window.addEventListener('focus', refreshSessionsOnForeground);
@@ -77,6 +84,7 @@ function bindEvents() {
   bindSystemEvents();
   bindMeshChangeEvents();
   bindHubEvents();
+  bindClientUpdateEvents();
   bindTransferChangeEvents();
   bindRemoteEvents();
   bindAgentManageEvents();

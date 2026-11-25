@@ -3,7 +3,10 @@
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory;
   else root.createToolCenter = factory;
-})(typeof self !== 'undefined' ? self : this, function ({ document, manager, els, tr, compactDate, currentProfileId, setStatus }) {
+})(typeof self !== 'undefined' ? self : this, function ({ document, manager, els, tr, compactDate, currentProfileId, setStatus, updateDetail = () => null, confirmUpdate = () => true }) {
+  // updateDetail(item): a desktop app's orderly-update line and action, or null
+  // (src/renderer/views/client-updates.js); confirmUpdate(item): false stops an
+  // update the person did not confirm.
   const state = {
     items: [],
     summary: null,
@@ -98,7 +101,8 @@ function renderToolList(container, items) {
   }
 
   for (const item of items) {
-    const status = toolStatus(item);
+    const detail = updateDetail(item);
+    const status = detail ? { state: 'update', label: detail.label } : toolStatus(item);
     const card = document.createElement('article');
     card.className = 'tool-card';
     card.dataset.toolId = item.id;
@@ -171,7 +175,24 @@ function renderToolList(container, items) {
       actions.append(update);
     }
 
-    card.append(rail, identity, badge, version, source, actions);
+    const parts = [rail, identity, badge, version, source];
+    if (detail?.line) {
+      const note = document.createElement('small');
+      note.className = 'tool-source';
+      note.textContent = detail.line;
+      note.title = detail.line;
+      parts.push(note);
+    }
+    if (detail?.action) {
+      const act = document.createElement('button');
+      act.type = 'button';
+      act.className = 'primary';
+      act.textContent = detail.action.label;
+      act.disabled = state.loading || Boolean(state.busyId) || detail.action.disabled;
+      act.addEventListener('click', () => detail.action.run(act));
+      actions.append(act);
+    }
+    card.append(...parts, actions);
     container.append(card);
   }
 }
@@ -222,6 +243,7 @@ async function openManagedTool(item) {
 
 async function updateManagedTool(item) {
   if (!manager.updateTool || state.busyId) return;
+  if (!(await confirmUpdate(item))) return;
   state.busyId = item.id;
   state.statusTone = 'idle';
   state.message = tr('tools.status.updating', { label: item.label });

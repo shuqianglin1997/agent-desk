@@ -5,6 +5,7 @@
 // unchanged.
 
 import { afterRecruitedAccount, createAgentAndPrepare } from './catalog-dialogs.js';
+import { confirmToolUpdate, toolUpdateDetail } from './client-updates.js';
 import { compactDate, setStatus } from './common.js';
 import { currentProfileId } from './context.js';
 import { openDialog } from './dialogs.js';
@@ -104,6 +105,8 @@ const store = window.UiContext.createStore(() => ({
     importMode: 'portable',
     importTransferId: null
   },
+  // Orderly client updates: what Main says about each desktop client (client:updateStatus).
+  clientUpdates: { supported: false, busy: null, clients: [] },
   appMeta: {
     claude: { label: 'Claude', tagColor: '#d96f33', taskPackageMode: 'unsupported' },
     codex: { label: 'Codex', tagColor: '#2f9e8f', taskPackageMode: 'native' }
@@ -407,6 +410,14 @@ const els = {
   removeLocalRegistrationField: document.querySelector('#removeLocalRegistrationField'),
   removeLocalRegistration: document.querySelector('#removeLocalRegistration'),
   confirmRemoveCatalogBtn: document.querySelector('#confirmRemoveCatalogBtn'),
+  clientUpdateDialog: document.querySelector('#clientUpdateDialog'),
+  clientUpdateTitle: document.querySelector('#clientUpdateTitle'),
+  clientUpdateLead: document.querySelector('#clientUpdateLead'),
+  clientUpdateImpact: document.querySelector('#clientUpdateImpact'),
+  clientUpdateStopRunsField: document.querySelector('#clientUpdateStopRunsField'),
+  clientUpdateStopRuns: document.querySelector('#clientUpdateStopRuns'),
+  clientUpdateStopRunsLabel: document.querySelector('#clientUpdateStopRunsLabel'),
+  confirmClientUpdateBtn: document.querySelector('#confirmClientUpdateBtn'),
   agentRelationsDialog: document.querySelector('#agentRelationsDialog'),
   agentRelationsSummary: document.querySelector('#agentRelationsSummary'),
   mergeAgentTarget: document.querySelector('#mergeAgentTarget'),
@@ -485,7 +496,9 @@ const toolCenter = window.createToolCenter({
   tr: (...args) => tr(...args),
   compactDate: (...args) => compactDate(...args),
   currentProfileId: (...args) => currentProfileId(...args),
-  setStatus: (...args) => setStatus(...args)
+  setStatus: (...args) => setStatus(...args),
+  updateDetail: (item) => toolUpdateDetail(item),
+  confirmUpdate: (item) => confirmToolUpdate(item)
 });
 state.tools = toolCenter.state;
 const { refreshToolInventory, renderToolCenter, handleToolProgress } = toolCenter;

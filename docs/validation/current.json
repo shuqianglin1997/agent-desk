@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T05:50:23.064Z",
-  "baseCommit": "58206904a902728e47a385a592e067e73b032a85",
+  "recordedAt": "2026-11-25T06:00:38.551Z",
+  "baseCommit": "8313be0b4f1bd292f600f1eedfc4cc8c0f91b7a3",
   "uncommitted": true,
-  "sourceSha256": "0a0428d8ff0b30dd8c03ad0e0f633280376a8813b43377ec1212e338a6d2f33c",
+  "sourceSha256": "9d304e6d0c05cae19c304fa431cf9955ad7dec7f59c63c1e0739daa282f38f56",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 990,
+      "pass": 988,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after orderly-update batch 3: the card mark on the existing badge, the update line and action on a desktop tool row, one confirmation dialog built from the shared dialog parts (background runs stop only when ticked), the reopen offer in the inbox, the running-conversations prompt before a command-line update, and new text in three languages; the tool center checked on a fake document; digest identical before and after the run",
+      "recordedAt": "2026-11-25T06:00:38.551Z",
+      "sourceSha256": "9d304e6d0c05cae19c304fa431cf9955ad7dec7f59c63c1e0739daa282f38f56"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T06:00:38.551Z",
+      "sourceSha256": "9d304e6d0c05cae19c304fa431cf9955ad7dec7f59c63c1e0739daa282f38f56"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

@@ -2,6 +2,7 @@
 // (docs/ARCHITECTURE_PLAN.md phase 6). Moved from src/renderer.js unchanged.
 
 import { catalogSlotByKey, catalogSlotKey, openSlotAssignmentDialog } from './catalog-dialogs.js';
+import { openClientUpdateDialog, reopenAttentionItems } from './client-updates.js';
 import { currentProfileId, selectProfile } from './context.js';
 import { appLabel } from './data.js';
 import { showDiagnostics } from './diagnostics.js';
@@ -44,6 +45,8 @@ function collectAttentionItems() {
       }
     }
   }
+  // 人自己在客户端里点了更新以后：原样重开刚才开着的那几个。
+  items.push(...reopenAttentionItems());
   if (state.updateInfo?.updateAvailable) {
     items.push({
       kind: 'info',
@@ -98,6 +101,7 @@ function renderAttentionInbox() {
         openQuotaPopover(anchor);
       }
       else if (item.action === 'update') await handleUpdateClick();
+      else if (item.action === 'reopen-client') await openClientUpdateDialog(item.appId, 'reopen', button);
       else if (item.action === 'assign-slot') openSlotAssignmentDialog(catalogSlotByKey(item.slotKey));
     });
     els.attentionItems.append(button);

@@ -346,8 +346,21 @@ async function fetchMaintenanceLatest(request) {
   }
 }
 
+// The clients a tool belongs to: a desktop app's own ids, or the clients whose
+// conversations run through this command-line tool (updated through it, or
+// using it as their command line, as Codex does). The window matches tools to
+// accounts by these.
+function toolClientIds(record) {
+  if (record.kind === 'desktop') return [...(record.tool?.appIds || [])];
+  const discoveryId = record.tool?.discoveryId || null;
+  return apps.appIds().filter((appId) => {
+    const app_ = apps.getApp(appId);
+    return app_.maintenanceToolId === record.id || Boolean(discoveryId && app_.cliLauncher?.toolId === discoveryId);
+  });
+}
+
 function publicMaintenanceInventory(records, checkedAt) {
-  const items = records.map(toolMaintenance.publicRecord);
+  const items = records.map((record) => ({ ...toolMaintenance.publicRecord(record), clientIds: toolClientIds(record) }));
   return {
     ok: true,
     checkedAt,

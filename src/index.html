@@ -493,6 +493,22 @@
       </form>
     </dialog>
 
+    <dialog id="clientUpdateDialog" class="catalog-dialog" aria-labelledby="clientUpdateTitle" aria-describedby="clientUpdateLead">
+      <form method="dialog" class="dialog-body">
+        <h3 id="clientUpdateTitle"></h3>
+        <p id="clientUpdateLead" class="field-hint"></p>
+        <div id="clientUpdateImpact" class="catalog-impact"></div>
+        <label id="clientUpdateStopRunsField" class="catalog-local-registration" hidden>
+          <input id="clientUpdateStopRuns" type="checkbox">
+          <span id="clientUpdateStopRunsLabel"></span>
+        </label>
+        <div class="dialog-actions">
+          <button value="cancel" data-i18n="dialog.cancel">取消</button>
+          <button id="confirmClientUpdateBtn" type="button" class="primary"></button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="agentRelationsDialog" class="wide-dialog catalog-dialog">
       <form method="dialog" class="dialog-body">
         <h3 data-i18n="catalog.relations.title">账号关系</h3>

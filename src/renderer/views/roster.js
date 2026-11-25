@@ -5,6 +5,7 @@
 import { openAgentDossier, renderAgentManageContext } from './agent-manage.js';
 import { catAppearanceOf } from './cat-customizer.js';
 import { catalogAgentById } from './catalog-dialogs.js';
+import { cardUpdateMark } from './client-updates.js';
 import { compactDate, fullDate, setStatus, shortPath } from './common.js';
 import { actionAgentId, currentAgentActionContext, currentAgentId, currentDeviceLensId, identityGroups, openAgent, populateGroupDatalist, preferredGroupSlot, provisioningButtonLabel, rememberProvisioningChoice, renderTopbarContext, selectAgent, selectedDeviceLensLabel, selectedGroupProfile, selectedProfile, setActionAgent, supportedProvisioningApps, updateUi } from './context.js';
 import { appLabel, loadSessions, setSessionScope } from './data.js';
@@ -398,13 +399,15 @@ function updateAccountCard(card, group, now) {
   card.querySelector('.account-card-state-label').textContent = stateLabel;
   card.dataset.readiness = meshMode ? deploymentState : 'local';
 
+  // 有更新在等（docs/ORDERLY_UPDATE_PLAN.md）：要用户处理的徽章优先，其次迷糊，最后才是它。
+  const updateMark = notReady || activityState === 'confused' ? null : cardUpdateMark(group);
   const badgeIcon = notReady
     ? (READINESS_BADGE[deploymentState] || 'bang')
-    : (activityState === 'confused' ? 'q' : '');
+    : (activityState === 'confused' ? 'q' : (updateMark?.icon || ''));
   const badge = card.querySelector('.account-card-badge');
   badge.hidden = !badgeIcon;
   badge.dataset.i = badgeIcon;
-  badge.title = notReady ? deploymentStateLabel(deploymentState) : (badgeIcon ? stateLabel : '');
+  badge.title = notReady ? deploymentStateLabel(deploymentState) : (updateMark ? updateMark.title : (badgeIcon ? stateLabel : ''));
 
   const quotaSummary = card.querySelector('.account-card-quota-summary');
   let quotaTrack = quotaSummary.querySelector('.account-card-quota');
