@@ -1,4 +1,4 @@
-# AgentDesk 内部结构
+# Catshelf（猫架）内部结构
 
 当前源码验证、历史物理证据及未关闭门禁统一见[验证记录](VALIDATION.md)；本页不另行维护测试数字。
 
@@ -6,10 +6,10 @@
 
 ## 1. 职责与边界
 
-AgentDesk 是本地优先的账号、会话历史与工具维护器。它负责：
+Catshelf 是本地优先的账号、会话历史与工具维护器。它负责：
 
 - 保存和启动受支持客户端的账号槽位；
-- 对 AgentDesk 自己启动的官方桌面 Profile 建立精确进程归属、重复启动阻断、正常退出收口与 Crashpad 磁盘保护；
+- 对 Catshelf 自己启动的官方桌面 Profile 建立精确进程归属、重复启动阻断、正常退出收口与 Crashpad 磁盘保护；
 - 只读扫描本地会话元数据；
 - 定位或导出单个会话；
 - 从一条明确本机会话生成或导入经过验证的 TaskPackage；
@@ -20,7 +20,7 @@ AgentDesk 是本地优先的账号、会话历史与工具维护器。它负责�
 
 Personal Agent Mesh 的有人值守代码链路已经接入运行时：版本化首次使用与首个 Agent 的本机无网络初始化、双方身份确认的设备任务向导、设备证书和配对、长期全局 Agent/Blueprint/Deployment/ProvisioningJob、独立签名目录、来源设备库存、SessionPointer、文件与同 Mesh TaskPackage 传输、远程查看/输入、多设备控制台，以及 LAN/签名信令/STUN/TURN。旧端协议 feature 降级、目录权限不对称、inventory 目录隔离、远端准备撤权竞态和 TaskPackage 直送安全边界已有回归；独立 UI 上下文、目录对象管理和真实 1040 × 840 Electron 任务路径也已本机验收。物理双 Mac 另有局域网认证通道与 562,009 字节大库存/刷新证据，但完整设备向导、TaskPackage 直送数据面、真实公网 NAT、coturn 强制中继、断网/睡眠恢复和 macOS/Windows 四向权限矩阵仍未通过，因此当前是“纵向代码 + 本机自动化 + 一项窄双 Mac 证据”，不是公开稳定验收态。
 
-它不包含聊天 transport、任务队列、自动多会话交接编排、规划资料索引或任意命令注册。调度中枢只中转调用方明确发起的一次后台运行：Main 不自己发起、排队、重试、定时、挑选账号，也不把一段对话的结果交给另一个账号。官方桌面客户端的进程监管只服务 AgentDesk 自己启动的 Profile 生命周期和磁盘安全，不启动、续接或编排对话。TaskPackage 是用户显式创建的一次不可变工作快照，不改变这条边界。
+它不包含聊天 transport、任务队列、自动多会话交接编排、规划资料索引或任意命令注册。调度中枢只中转调用方明确发起的一次后台运行：Main 不自己发起、排队、重试、定时、挑选账号，也不把一段对话的结果交给另一个账号。官方桌面客户端的进程监管只服务 Catshelf 自己启动的 Profile 生命周期和磁盘安全，不启动、续接或编排对话。TaskPackage 是用户显式创建的一次不可变工作快照，不改变这条边界。
 
 ## 2. 五层与依赖方向
 
@@ -94,7 +94,7 @@ Optional Signaling Gateway
 
 入口：
 
-- `src/main.js` 只剩启动顺序：开头由 `scripts/main-context.js` 生成的 `mainContext` 把 Main 用到的服务与状态交给命令和从它搬出去的模块（模块里写作 `main.<名字>`，启动时绑定一次），然后登记窗口、命令外壳和退出收口。
+- `src/main.js` 的第一句是 `keepLegacyIdentity`（`src/core/product.js`），之后只剩启动顺序：开头由 `scripts/main-context.js` 生成的 `mainContext` 把 Main 用到的服务与状态交给命令和从它搬出去的模块（模块里写作 `main.<名字>`，启动时绑定一次），然后登记窗口、命令外壳和退出收口。
 - `src/renderer.js` 只剩界面的启动：依次读设置、数据、各视图，登记各视图的事件，并在末尾列出验收用的出口 `AgentDeskInspect`；界面函数不再挂在 `window` 上。
 - `src/automation/cli.js` 是源码态命令行入口，成品命令行在 `src/automation/packaged-cli.js`。
 
@@ -102,6 +102,7 @@ Optional Signaling Gateway
 
 这一层不用 Electron、不认识任何上层，只依赖 Node 自带的模块：可以在 Node 里直接 `require` 测试，其中一部分也被界面以普通脚本加载。
 
+- `src/core/product.js`：产品名 Catshelf／猫架，以及改名后沿用旧名的内部标识（数据目录与钥匙串项用的 `AgentDesk`、程序包标识、命令行的两个命令名、从 `package.json` 读的仓库）。`keepLegacyIdentity(app)` 是 `src/main.js` 的第一句：先用旧名，没有 `--user-data-dir` 时把数据目录固定为 `appData/AgentDesk`，在 `will-finish-launching` 的第一个监听器里换回新名（见 [RENAME_PLAN.md](RENAME_PLAN.md)）。
 - `src/core/`：结果与事实类型 `result.js`（成功加值、失败加原因码；事实带“确切 / 推断 / 不知道”）、路径判断 `paths.js`、读 JSON 与原子写入（同步与异步各一）和带版本的小存储 `json-file.js`、`profiles.json` 的唯一读取 `profile-file.js`、“在跑 / 活跃 / 额度新鲜”的时间窗 `time-windows.js`。
 - `src/json-store.js` 原子 JSON 写入与备份；`src/path-utils.js`、`src/windows.js` 路径与 Windows 安装发现；`src/process.js` 按命令行里的 `--user-data-dir` 判断某个账号的官方应用是否开着（匹配是纯函数，采集失败返回 null 表示不知道）；`src/mac-launch.js` 从可执行文件路径推出 macOS 应用包。
 - `src/settings.js` 设置归一化与迁移（见下面的“设置”）。
@@ -233,15 +234,15 @@ macOS 标准候选由注册表给出并在存在已知 bundle id 时重新读取
 
 Profile 的启动隔离由 `apps.js` 声明，不从显示名推断。每个桌面客户端必须提供官方启动器身份与 `profileIsolation`：支持受管多开的客户端每次生成该 Profile 唯一的 `--user-data-dir`，并叠加 CODEX_HOME、KIMI_CODE_HOME 等客户端专用环境；同一可执行文件可被不同 Profile 复用。Main 只按精确 Profile 路径做重复进程检查。已知不接受独立目录的客户端使用 `official-default-only`，非默认受管槽位在产生副作用前失败关闭。
 
-`profile-runtime.json` 只保存本机 Profile 的受管状态：稳定 `profileId`、Profile 路径、启动 PID/时间、是否仍归 AgentDesk 所有、熔断时间与脱敏事件计数；第 2 版起另有每次启动时的应用版本与应用包位置（`appVersion`、`appBundle`），以及每个客户端的“开着的集合”（`runs`：成员、起止时间、结束原因，见下面的“有序更新”）。第 1 版的文件照常读，这几项算不知道。它不保存 dump 内容、sidecar 内容、会话标题、账号凭据或客户端数据库。Main 每次仍由稳定 `profileId` 重新查 `profiles.json`；Renderer 不能提交路径或 PID。
+`profile-runtime.json` 只保存本机 Profile 的受管状态：稳定 `profileId`、Profile 路径、启动 PID/时间、是否仍归 Catshelf 所有、熔断时间与脱敏事件计数；第 2 版起另有每次启动时的应用版本与应用包位置（`appVersion`、`appBundle`），以及每个客户端的“开着的集合”（`runs`：成员、起止时间、结束原因，见下面的“有序更新”）。第 1 版的文件照常读，这几项算不知道。它不保存 dump 内容、sidecar 内容、会话标题、账号凭据或客户端数据库。Main 每次仍由稳定 `profileId` 重新查 `profiles.json`；Renderer 不能提交路径或 PID。
 
-每个受管 Profile 的 `Crashpad/pending` 默认限制为 100 个直属文件或 200 MiB，每 2 秒复核；一分钟内 5 个同尺寸 dump 触发持久熔断。普通停止与正常退出只允许终止当前记录为 AgentDesk 所有的进程。事故熔断或容量无法安全收敛时，可以按 profiles.json 中稳定 profileId 重新查得的精确 `user-data-dir` 终止旧版本、强制退出或重启后遗留的匹配进程，但无所有权例外只允许路径落在 AgentDesk 自己的受管 Profiles 根；官方默认目录和任意 custom 目录不进入后台扫描、删除或停机。该边界不能扩展成按应用名或路径前缀清理。终止成功后清除 `owned` 与 `launchPid`。清理只接受普通 `.dmp` 与 `_sidecar.json`，拒绝符号链接、目录逃逸和非普通文件，不触碰 `codex-home`、sessions、archives、配置、SQLite 或 `saved-diagnostic-*`。用户显式选择保留后台时停止监管并在设置中显示风险。强制结束 AgentDesk 不等于系统级持续守护保证；下一次管理器启动后恢复受管根限额与事故熔断。
+每个受管 Profile 的 `Crashpad/pending` 默认限制为 100 个直属文件或 200 MiB，每 2 秒复核；一分钟内 5 个同尺寸 dump 触发持久熔断。普通停止与正常退出只允许终止当前记录为 Catshelf 所有的进程。事故熔断或容量无法安全收敛时，可以按 profiles.json 中稳定 profileId 重新查得的精确 `user-data-dir` 终止旧版本、强制退出或重启后遗留的匹配进程，但无所有权例外只允许路径落在 Catshelf 自己的受管 Profiles 根；官方默认目录和任意 custom 目录不进入后台扫描、删除或停机。该边界不能扩展成按应用名或路径前缀清理。终止成功后清除 `owned` 与 `launchPid`。清理只接受普通 `.dmp` 与 `_sidecar.json`，拒绝符号链接、目录逃逸和非普通文件，不触碰 `codex-home`、sessions、archives、配置、SQLite 或 `saved-diagnostic-*`。用户显式选择保留后台时停止监管并在设置中显示风险。强制结束 Catshelf 不等于系统级持续守护保证；下一次管理器启动后恢复受管根限额与事故熔断。
 
 `src/profile-runtime.js` 是上面说的 Profile 进程归属、重复启动、退出收口、Crashpad 限额与熔断、窄范围清理；`src/main/profile-launch.js` 找官方客户端可执行文件（macOS 应用包、Windows 注册表/MSIX/协议）、用账号自己的数据目录启动、判断是否在运行、诊断、把账号搬离 Windows 默认路径；`src/terminal-launcher.js` 按完整目标环境生成固定工具启动脚本（Windows 环境清理匹配大小写别名，Node shebang 启动保留解释器、参数和 PATH，临时终端脚本不使用二次展开的 CALL）。
 
 ### 周期任务与资源
 
-`src/main/owner.js` 是 Main 的周期任务与资源的唯一归属：任务登记间隔、窗口隐藏时停不停；资源登记怎么停；退出时先停任务，再按登记顺序逐个开始停资源（不等慢的），包括还在回答额度的 codex app-server 子进程和扫描工作线程；运行监管每 2 秒一次的检查由它调度，窗口隐藏时照常跑 `src/main/support.js` 放几个共用的小工具：有界文本、界面语言、新猫的默认外观、经工作线程的活动探测、首次用到时创建的运行监管（由 owner 调度）、目录与路径。`src/main/updates.js` 查 AgentDesk 的最新版本、能否自更新、可信下载并交给平台安装程序，`src/updater.js` 解析与校验 Release。
+`src/main/owner.js` 是 Main 的周期任务与资源的唯一归属：任务登记间隔、窗口隐藏时停不停；资源登记怎么停；退出时先停任务，再按登记顺序逐个开始停资源（不等慢的），包括还在回答额度的 codex app-server 子进程和扫描工作线程；运行监管每 2 秒一次的检查由它调度，窗口隐藏时照常跑 `src/main/support.js` 放几个共用的小工具：有界文本、界面语言、新猫的默认外观、经工作线程的活动探测、首次用到时创建的运行监管（由 owner 调度）、目录与路径。`src/main/updates.js` 查 Catshelf 的最新版本、能否自更新、可信下载并交给平台安装程序，`src/updater.js` 解析与校验 Release。
 
 ### 会话索引与扫描
 
@@ -284,7 +285,7 @@ Codex 额外区分：
 
 每个 Profile 可以带 `hub: { callable, writable }`，默认都关，只能在桌面窗口里由 `hub:setAccess` 改；不支持后台运行的客户端拒绝打开。`agent-hub.json`（0600，Main 单写）保存允许的文件夹（Main 的系统选择器产生，最多 24 个）、同时运行上限（1–4，默认 2）和最近 200 条后台对话记录：编号、标题、调用方标签、层数、目标 Profile 与当时的猫名、只读/可写、工作目录、状态、理由码、时间，以及客户端自己的会话编号和会话记录位置。提示词和回答从不写入；回答只在这次桌面运行期间留在内存里，之后从会话记录读回。加载这个文件的进程持有实例锁，所以还写着 `starting`/`running` 的记录一定已经没人监管，加载时改成 `failed` / `interrupted`。
 
-每次状态变化（启动中、运行中、找到会话、结束）由 Main 用 `hub:changed` 推给 Renderer（公开字段，不含工作目录），Renderer 只在启动时读一次 `hub:state`，此后不轮询；用时一格是 Renderer 自己的钟。发起方是哪只猫只取两种 AgentDesk 观察到的事实：调用来自它中转的上一段对话（`parent-run`），或发起的进程环境里的账号目录变量（`CODEX_HOME`、`CLAUDE_CONFIG_DIR`、`KIMI_CODE_HOME`、`DSH_HOME`、`GEMINI_CLI_HOME`、`QWEN_HOME`）恰好对上一个已登记账号（`account-home`，只比较 realpath，不打开、不保存那个路径）；`--from` 只作标签。Gemini CLI 与 Qwen Code 由 AgentDesk 生成会话编号（`--session-id`），记录一开始就能指向它们自己的会话。
+每次状态变化（启动中、运行中、找到会话、结束）由 Main 用 `hub:changed` 推给 Renderer（公开字段，不含工作目录），Renderer 只在启动时读一次 `hub:state`，此后不轮询；用时一格是 Renderer 自己的钟。发起方是哪只猫只取两种 Catshelf 观察到的事实：调用来自它中转的上一段对话（`parent-run`），或发起的进程环境里的账号目录变量（`CODEX_HOME`、`CLAUDE_CONFIG_DIR`、`KIMI_CODE_HOME`、`DSH_HOME`、`GEMINI_CLI_HOME`、`QWEN_HOME`）恰好对上一个已登记账号（`account-home`，只比较 realpath，不打开、不保存那个路径）；`--from` 只作标签。Gemini CLI 与 Qwen Code 由 Catshelf 生成会话编号（`--session-id`），记录一开始就能指向它们自己的会话。
 
 `hub:state` 另带 `accounts`（每个本机 Profile 的编号、调用方用的名字——与 CLI 名册同源的 `hubCatNames()`——和两个开关，不含路径或登录信息）、`clients`（每种客户端能否被调用、不能时的理由码、能时实际运行的命令行名称）、允许的文件夹（名字与显示用路径）和上限。档案的“调用”一段由 `renderHubCalling()` 按展开的那个本机位置渲染，远端位置不显示；开关改动经 `hub:setAccess` 只送 `profileId` 与两个布尔值，先按点的样子显示，Main 返回后以它为准，失败退回。系统页“后台对话”一块由 `renderHubSystem()` 渲染，添加文件夹只调无参数的 `hub:addFolder`（Main 打开系统选择框），移除与上限按编号和数值。说明纸条由 `AgentHubUi.installTips()` 装在整页上：带 `data-hub-tip` 的入口在悬停（命中测试，不可用的按钮也算）或键盘聚焦（`:focus-visible`）时显示，纸条进顶层、`pointer-events: none`，开着时暂时收起入口的 `title`；入口不可用时，Renderer 写在 `data-hub-reason` 里的原因作为最后一行；Esc 在捕获阶段只收起纸条。
 
@@ -325,10 +326,10 @@ Codex 适配器只信任 Profile `sessionRoot` 下 `sessions` / `archived_sessio
 
 ### 有序更新
 
-`docs/ORDERLY_UPDATE_PLAN.md`，只在 macOS 上提供。AgentDesk 不下载、不安装更新，也不改客户端的更新设置，只管它自己打开的账号。
+`docs/ORDERLY_UPDATE_PLAN.md`，只在 macOS 上提供。Catshelf 不下载、不安装更新，也不改客户端的更新设置，只管它自己打开的账号。
 
 - `src/clients/app-update.js`（clients 层）异步读应用包的 `Info.plist`（版本与 bundle id），以及 Squirrel.Mac 在 `~/Library/Caches/<bundle id>.ShipIt` 里的状态：`ShipItState.plist` 指向装着的这份应用、下载好的应用包还在缓存里时，返回它的版本。按文件身份缓存，文件不变就不再跑 plutil。适配器的 `update` 声明更新方式和能不能看出有更新在等。
-- `ProfileRuntimeSupervisor` 在 `registerLaunch` 时记下启动版本与应用包，并把这个账号加进它所属客户端的“开着的集合”；AgentDesk 打开的最后一个退出时，集合结束并记下那次退出的原因（`observed-client-exit`、`user-request`、`client-update`、`app-quit` 等）。`ownedOpenProfiles(appId)` 与 `openSet(appId)` 只读。
+- `ProfileRuntimeSupervisor` 在 `registerLaunch` 时记下启动版本与应用包，并把这个账号加进它所属客户端的“开着的集合”；Catshelf 打开的最后一个退出时，集合结束并记下那次退出的原因（`observed-client-exit`、`user-request`、`client-update`、`app-quit` 等）。`ownedOpenProfiles(appId)` 与 `openSet(appId)` 只读。
 - `src/client-updates.js`（services 层）：`judgeWaiting` 给出“有更新在等”的事实（确切：磁盘版本比某个开着的账号启动时新；推断：ShipIt 里有更新的下载；否则不知道），`judgeReopen` 给出补救的重开集合，每个账号带 `recent`（在最后一个退出前 10 分钟内退出，默认勾上；更早的不勾），`reopenSet` 只打开人勾上的（`profileIds`，全不勾时 `nothing-selected`）；`createClientUpdates` 提供 `status`、`refusal`（现在能不能做，固定原因码）、`restartAll`（停下人选定的后台对话 → 用现有关闭动作逐个关掉 → 推断时最多等 3 分钟新版本 → 逐个照常打开）、`reopenSet`。同一时间只跑一个顺序，`status().busy` 说它在关、在等还是在开。命令在 `src/commands/client-updates.js`，关闭与重开两条标为只限窗口（`windowOnly`）；成品命令行只在 `src/commands/cli-desktop.js` 转发只读的 `clients update-status`，`clients restart-all`、`clients reopen` 在 `src/commands/cli-local.js` 里直接回 `window-only`（`test/client-updates.test.js` 核对两边一一对应）。
 
 ### 设备网服务
@@ -689,6 +690,7 @@ TaskPackage 同时支持便携文件和同 Mesh Preview 直送。两条通道发
 - `scripts/verify-windows-release.ps1` 验证 portable、包内主程序与 input helper 的 Authenticode/时间戳
 - `scripts/verify-windows-publisher.ps1` 把三层 Windows 可执行文件绑定到受保护发布者 thumbprint
 - `scripts/check-docs.js` 当前状态文档的链接、权威版本、证据与发布口径检查
+- `scripts/keychain-name-probe.js` 改名后 Electron 用哪个名字定数据目录、钥匙串项和默认菜单，`keepLegacyIdentity` 是否保住旧的两个（拦截钥匙串调用并在沙箱里运行，碰不到真实钥匙串；升级 Electron 后先跑再装）
 - `scripts/run-tests.js` 即 `npm test`：在单独的临时文件夹里跑全部 Node 测试，跑完那里还剩东西就失败并列出来，文件夹总会删掉；测试的临时文件夹都经 `test/helpers/temp.js` 的 `makeTempDir` 建立并登记删除
 - `scripts/command-docs.js` 生成本页第 2 节的分层表和第 7 节的接口清单（`--write` 写回），`scripts/main-context.js` 生成 `src/main.js` 开头的 `mainContext`，`scripts/hidden-electron-entry.js`、`scripts/hidden-package.js` 是隐藏验收的入口与打包（检查用的包建在系统临时文件夹里，`hidden-check.js --packaged` 查完就删，不进仓库的 `release/`）。
 
@@ -708,7 +710,7 @@ npm run build:mac:dir
 
 `npm run accept:ui` 使用临时 userData 启动真实 Electron 窗口，不读取或改写所有者配置，也不触发剪贴板、外部应用或远端网络。窗口任务路径包括：新增全新首 Agent 的真实本机事务与无网络断言、首次使用重启恢复且不生成默认 Profile、设备任务向导固定 Shell/分层状态，以及 TaskPackage 直送资格和接收阶段投影；原有 58/222/316/38 固定几何、Compact 无横滚、会话选择、卡片名册、三语/明暗主题、父子弹窗、小视口、目录对象、传输草稿和 Remote Surface 契约继续覆盖。脚本已按 2026-11-23／24 的界面重新梳理更新：卡片结构、名册“全部”、会话工具栏“送出”、猫的档案五段、系统页、收件箱的记录段、从空台面开始的首次使用，以及弹窗跟着内容长高后固定区的量法。它会打开真实窗口；需要不打扰使用时，可以用一个把窗口的显示与聚焦改成空操作并启用 mock Keychain 的入口来运行同一份脚本，结果以 [验证记录](VALIDATION.md) 为准。直送窗口验收只证明 UI 资格、状态与明文码不可见，不代表真实 WebRTC 数据面已经传过 TaskPackage。
 
-成品验证分成两层。`verify-electron-package-integrity.js` 不启动应用，直接证明 `app.asar` 存在、`default_app.asar` 不存在，流式复算每个常规文件的整文件与 4 MiB 分块 SHA-256，拒绝缺失元数据、链接、范围空洞/重叠和尾部载荷；`RunAsNode` 仅作为固定 CLI launcher 的兼容 fuse 保留，`NODE_OPTIONS`/inspect 关闭、embedded integrity/only-load-from-ASAR 开启，archive header 再绑定 macOS `Info.plist` 或 Windows PE 的唯一 `INTEGRITY/ELECTRONASAR`。历史 macOS unpacked 成品的 118/118 结果只对应当时产物，不代表当前源码。`packaged-first-use-smoke.js` 才会对同一确切 `AgentDesk.app`、`win-unpacked` 或带版本 portable 使用临时 userData 连续启动三次，核对固定窗口、首次初始化/恢复、零默认 Profile、零 Mesh 网络，以及原始启动句柄和回环调试端点清理；随机 launch token 与 Browser command line 防止同机其他页面冒充本次产物。当时本机确切 `release/mac-arm64/AgentDesk.app` 已使用真实语义开关 `--macos-ci-mock-keychain` 通过这三次启动：runner 先证明 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，再在每次 Browser command line 中核对唯一原生 `--use-mock-keychain`，报告为 `keychainMode=mock`。这只证明该字节在 mock Keychain 下的打包与首次使用事务；新的 GitHub macOS `main` CI 运行仍待结果，且该模式不验证 `safeStorage` 的 macOS 系统 Keychain/OS 密钥保护。Developer ID、签名公证、Draft/公开重下载和物理干净机继续使用系统 Keychain，并仍是开放门禁。
+成品验证分成两层。`verify-electron-package-integrity.js` 不启动应用，直接证明 `app.asar` 存在、`default_app.asar` 不存在，流式复算每个常规文件的整文件与 4 MiB 分块 SHA-256，拒绝缺失元数据、链接、范围空洞/重叠和尾部载荷；`RunAsNode` 仅作为固定 CLI launcher 的兼容 fuse 保留，`NODE_OPTIONS`/inspect 关闭、embedded integrity/only-load-from-ASAR 开启，archive header 再绑定 macOS `Info.plist` 或 Windows PE 的唯一 `INTEGRITY/ELECTRONASAR`。历史 macOS unpacked 成品的 118/118 结果只对应当时产物，不代表当前源码。`packaged-first-use-smoke.js` 才会对同一确切 `Catshelf.app`、`win-unpacked` 或带版本 portable 使用临时 userData 连续启动三次，核对固定窗口、首次初始化/恢复、零默认 Profile、零 Mesh 网络，以及原始启动句柄和回环调试端点清理；随机 launch token 与 Browser command line 防止同机其他页面冒充本次产物。当时本机确切 `release/mac-arm64/AgentDesk.app` 已使用真实语义开关 `--macos-ci-mock-keychain` 通过这三次启动：runner 先证明 bundle 是无 `TeamIdentifier` 的 ad-hoc 签名，再在每次 Browser command line 中核对唯一原生 `--use-mock-keychain`，报告为 `keychainMode=mock`。这只证明该字节在 mock Keychain 下的打包与首次使用事务；新的 GitHub macOS `main` CI 运行仍待结果，且该模式不验证 `safeStorage` 的 macOS 系统 Keychain/OS 密钥保护。Developer ID、签名公证、Draft/公开重下载和物理干净机继续使用系统 Keychain，并仍是开放门禁。
 
 发布事务再高一层：`github-release-gate.js` 与 Preview-only workflow 把 `stableAllowed=false`、精确 DMG + portable + `SHA256SUMS.txt`、Draft 双原生端重下载、发布后无 token 匿名公开重下载、摘要/清单/字节一致、失败回 Draft 与 candidate-burned 固化为门禁；诊断只保留为 Actions artifact，不进入 Release。发布安全测试只证明门禁逻辑，尚未用真实签名凭据、受保护 `preview-release` 环境和真实 Tag 执行，因此当前没有公开 Preview。
 

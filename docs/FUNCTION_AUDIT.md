@@ -1,4 +1,4 @@
-# AgentDesk 全功能梳理
+# Catshelf 全功能梳理
 
 当前源码验证、历史物理证据及未关闭门禁统一见[验证记录](VALIDATION.md)；本页不另行维护测试数字。
 
@@ -16,7 +16,7 @@
 | Header | Device Lens、设备、工具、活动、设置 | 选择全部设备/某台设备；四个入口各自打开独立弹窗，更新/帮助/语言/主题归设置弹窗 | 已收敛；弹窗不替换右下详情，无“更多”杂物菜单、无来源不明状态点；四个弹窗统一固定 Header/Command/Footer 与单一 Content 滚动区 |
 | 固定页面骨架 | 顶部 Agent、左下会话、右下详情、Footer | 庭院/卡片与 Agent/Slot 操作归顶部，会话浏览归左下；右下只承载会话、额度、远控，Footer 只保留全局状态 | 已实现；58px Header、244px Agent、316px 详情、38px Footer，主区恰好三个面板且 Compact 无横滚 |
 | Agent 员工库与运行位置 | 打开账号、首次准备、新增运行位置、运行位置选择、管理 Agent | 长期保存 Agent/Blueprint，以 Deployment 表达当前工作环境就绪状态；准备成功后才产生 Profile/Slot，既有动作落到确切 Slot | 已实现；每个工作环境显示完整员工库，零 Binding/Slot 员工不消失；schema v6 保留 nullable suppressed Slot，增加 Blueprint/Deployment/ProvisioningJob、签名事件目录与一致迁移备份。启动恢复/轮询只观察和提交状态，不自动打开安装页、登录页或官方客户端；外部界面只来自显式继续/打开 |
-| Profile 进程与磁盘保护 | 打开账号、管理 Agent、设置 | 精确识别同一 `user-data-dir`，监管 AgentDesk 所启动的官方客户端；默认退出收口，限制 Crashpad pending 并提供窄范围清理 | 已实现；每受管 Profile 100 文件/200 MiB，1 分钟 5 个同尺寸 dump 熔断。普通关闭只处理 owned 进程；已确认磁盘事故可按精确路径停止 AgentDesk 自己 Profiles 根内的旧版/异常退出遗留进程，无所有权的官方默认/custom 目录不做后台清理或停机。只删除直属 `.dmp`/`_sidecar.json`，不读转储、不触碰会话/归档/配置/SQLite/`codex-home`/留存样本；管理器不运行期间的 OS 级持续守护仍不是当前能力 |
+| Profile 进程与磁盘保护 | 打开账号、管理 Agent、设置 | 精确识别同一 `user-data-dir`，监管 Catshelf 所启动的官方客户端；默认退出收口，限制 Crashpad pending 并提供窄范围清理 | 已实现；每受管 Profile 100 文件/200 MiB，1 分钟 5 个同尺寸 dump 熔断。普通关闭只处理 owned 进程；已确认磁盘事故可按精确路径停止 Catshelf 自己 Profiles 根内的旧版/异常退出遗留进程，无所有权的官方默认/custom 目录不做后台清理或停机。只删除直属 `.dmp`/`_sidecar.json`，不读转储、不触碰会话/归档/配置/SQLite/`codex-home`/留存样本；管理器不运行期间的 OS 级持续守护仍不是当前能力 |
 | 版本化首次使用 | “创建第一个 Agent”、已有 Profile 迁移预览 | 原子建立本机 Agent 目录与设备身份，不打开网络；随后进入首次准备 | 已实现；缺失 Profile 存储保持真实空数组，已有 Profile 先预览选择性无损迁移；真实 Electron 覆盖全新首 Agent、本机无网络初始化、完成页后记账和重启恢复，候选安装包首启仍待发布验收 |
 | 设备任务向导 | 设备中心“添加设备” | 分别呈现身份确认、成员信任、认证连接、目录落库、库存落库和可以使用 | 代码与 UI 路径已实现；加入端验签预览、邀请端签证前确认和各屏障独立投影均有定向回归；“接收连接 30 分钟”只在高级恢复。完整物理双机向导、全应用重启后的双端恢复和公网/跨平台矩阵仍开放 |
 | 目录纠错 | 合并 Agent、拆分绑定、移除运行位置/登录账号/Agent | 修改 AgentIdentity、AccountBinding、AgentSlot 目录关系并预览影响 | 已实现；三种删除范围均经过 MeshService → SQLite → 关闭重开的回归，不触碰官方客户端数据 |
@@ -33,11 +33,11 @@
 | 路径与诊断 | 路径、诊断、位置 | 配置数据根、检查安装候选/权限、打开本地目录 | 保留；不改写会话源文件 |
 | 本地会话容灾 | Mesh 密钥/远端库存失效隔离 | 本地 Profile 只读扫描继续返回最新会话，标明本地模式并暂停跨设备动作；精确 ad-hoc macOS 包普通启动延后 Keychain，点击“设备”才解锁 | 代码纵向已实现；新安装包在不使用 mock Keychain 的普通启动与再次重启中都恢复同一 Agent/Slot、展示 22 条本地会话并停用发送 |
 | 工具维护 | 顶栏“工具” | 发现、打开并显式维护固定目录内的桌面 App/CLI | 保留；不接受界面传入任意命令 |
-| 客户端有序更新 | 卡片记号、“系统 › 工具”的那一行、收件箱 | 有更新在等时一次关齐 AgentDesk 打开的账号、等新版本、原样重开；人在客户端里更新后提供原样重开；更新命令行工具前提示在跑的对话 | 已实现，只在 macOS 上（[ORDERLY_UPDATE_PLAN.md](ORDERLY_UPDATE_PLAN.md) 第 8 节）；Node 用假的进程与版本覆盖，真实的一次更新待所有者在真机上遇到；Sparkle、Cursor、Kimi 的更新方式未核实，Windows 不提供 |
+| 客户端有序更新 | 卡片记号、“系统 › 工具”的那一行、收件箱 | 有更新在等时一次关齐 Catshelf 打开的账号、等新版本、原样重开；人在客户端里更新后提供原样重开；更新命令行工具前提示在跑的对话 | 已实现，只在 macOS 上（[ORDERLY_UPDATE_PLAN.md](ORDERLY_UPDATE_PLAN.md) 第 8 节）；Node 用假的进程与版本覆盖，真实的一次更新待所有者在真机上遇到；Sparkle、Cursor、Kimi 的更新方式未核实，Windows 不提供 |
 | 本地持久化 | profiles.json、settings.json 及备份 | 保存账号、界面设置和猫位置（旧账本只保留迁移兼容） | 保留；原子写入，账号空列表是有效状态 |
 | 应用更新 | Header“设置”弹窗中的“更新” | 检查可信 Release，支持的平台校验后替换 | 保留；正式 macOS 包仍需签名和公证 |
 | Electron 成品完整性 | 打包脚本与独立 verifier | 强制 `app.asar`、禁止 `default_app.asar`，流式复算每个文件的整文件/分块哈希，核对五项 fuse 及 macOS/Windows header 绑定 | 已实现；历史 macOS unpacked 的 118/118 结果不代表当前源码，确切产物见验证记录。该证据不等于签名、公证、三次首次使用或可分发 DMG |
-| 成品首次使用 smoke | `accept:packaged` | 同一确切 `AgentDesk.app` / `win-unpacked` / portable 在一次性 userData 连续三次启动，验证首次初始化、恢复完成、完成后重启、零默认 Profile/远端连接与清理 | 脚本和 macOS/Windows CI 门禁已实现；本机现有确切 `release/mac-arm64/AgentDesk.app` 已在 ad-hoc 签名预检后，使用真实语义开关 `--macos-ci-mock-keychain` 和逐次 Browser 原生开关绑定通过三次启动。新的 GitHub macOS `main` CI 运行仍待结果；该记录不证明系统 Keychain/OS 密钥保护、Developer ID/公证、Draft/公开重下载或物理干净机 |
+| 成品首次使用 smoke | `accept:packaged` | 同一确切 `Catshelf.app` / `win-unpacked` / portable 在一次性 userData 连续三次启动，验证首次初始化、恢复完成、完成后重启、零默认 Profile/远端连接与清理 | 脚本和 macOS/Windows CI 门禁已实现；本机现有确切 `release/mac-arm64/Catshelf.app` 已在 ad-hoc 签名预检后，使用真实语义开关 `--macos-ci-mock-keychain` 和逐次 Browser 原生开关绑定通过三次启动。新的 GitHub macOS `main` CI 运行仍待结果；该记录不证明系统 Keychain/OS 密钥保护、Developer ID/公证、Draft/公开重下载或物理干净机 |
 | Preview 发布事务 | 受保护 Preview Tag | 精确三资产先建 Draft，两个原生系统重下载复验，再发布并无 token 匿名重下载；失败回 Draft，公开过的候选不可复用 | 代码已实现，发布安全证据见[验证记录](VALIDATION.md)；`stableAllowed=false`。真实签名凭据、受保护环境和真实 Tag 尚未执行，当前没有公开 Preview |
 | Personal Mesh 身份与设备 | 顶栏“设备”、添加设备、权限、撤销 | 建立系统保护身份、一次性加密配对、设备权限与可删到零的成员目录 | 代码已实现；LAN 临时入口、签名成员事件和撤销防复活均有自动化 |
 | 全局 Agent 目录与跨设备库存 | 设备 Lens、设备“查看会话”、Agent/会话列表、远端“重扫” | 签名事件目录独立同步长期员工；设备库存只同步来源 Slot/会话，先展示单目标缓存再按需刷新 | 代码已实现；精确协商 `catalog.events.v1` / `catalog.snapshot.v1` / `inventory.device-facts.v1`。目录无固定主机，按来源向量补事件；并发字段自动收敛，关系事务受基线/缺口门禁，删除 tombstone 防旧端复活；0.9.4 走快照兼容，更旧端 inventory-only。现代 inventory 无 Agent/Binding/tombstone；进入明确远端只刷新该 `deviceId`，失败保留缓存；首库存落库前按 canonical Slot 改写会话；库存 4 分钟全快照保持，inventory revision delta 仍待演进 |
@@ -72,7 +72,7 @@
 
 ## 4. 明确不做
 
-- 内嵌聊天、终端或 Agent 对话进程执行；官方桌面客户端的监管只用于 AgentDesk 自己启动的 Profile 生命周期和磁盘安全；
+- 内嵌聊天、终端或 Agent 对话进程执行；官方桌面客户端的监管只用于 Catshelf 自己启动的 Profile 生命周期和磁盘安全；
 - 任务队列、并行/串行编排、优先级计划；
 - 多会话合并、自动上下文拼接、自动交接清单或持续交接编排；
 - 规划文档、任务材料索引、自动总结；

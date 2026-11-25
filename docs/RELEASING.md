@@ -1,6 +1,6 @@
 # Release guide
 
-AgentDesk release artifacts are built by `.github/workflows/release.yml`. A tag
+Catshelf release artifacts are built by `.github/workflows/release.yml`. A tag
 must never publish an unsigned Windows portable executable or an unsigned or
 unnotarized macOS DMG.
 
@@ -37,7 +37,7 @@ complete all of these checks before its artifact can reach the release job:
 3. Require Code Signing EKU on the signer and Time Stamping EKU on the timestamp
    authority.
 4. Extract the final portable executable without running it.
-5. Verify the packaged `AgentDesk.exe` and the fixed
+5. Verify the packaged `Catshelf.exe` and the fixed
    `resources/native/AgentDeskInputHelper.exe` with the same trusted signer and
    their own RFC 3161 timestamps.
 
@@ -76,7 +76,7 @@ Every packaged form is checked independently of source tests:
 `scripts/packaged-first-use-smoke.js` then runs one exact artifact three times
 with one fresh temporary userData directory: first initialization, restart recovery
 and completion, then a completed-state restart. It accepts only an
-`AgentDesk.app`, a `win-unpacked` directory, or the exact versioned portable. It
+`Catshelf.app`, a `win-unpacked` directory, or the exact versioned portable. It
 checks the fixed window shell, one first Agent/local device, zero default
 Profiles, zero remote devices or Mesh connections, and strict process/debug
 loopback cleanup. A random launch token and the Browser command line bind the
@@ -85,7 +85,7 @@ process handle and never resolves a new process from a reusable PID. All three
 launches must use the same candidate bytes. On macOS, only userData is
 temporary. The ad-hoc `main` compatibility job explicitly passes
 `--macos-ci-mock-keychain`; the smoke runner first proves the artifact is an
-ad-hoc-signed `AgentDesk.app`: it explicitly verifies every architecture,
+ad-hoc-signed `Catshelf.app`: it explicitly verifies every architecture,
 enumerates the main executable's slices, and displays/classifies each slice
 separately. Every slice must report exactly one ad-hoc signature, no Authority,
 and no TeamIdentifier; mixed signatures fail closed. Only then does it add
@@ -147,7 +147,7 @@ Windows signing always requires:
   standard Windows certificate variable.
 - `WIN_CSC_KEY_PASSWORD` — password used when exporting that PKCS#12 file.
 
-The outer portable, packaged `AgentDesk.exe`, and
+The outer portable, packaged `Catshelf.exe`, and
 `AgentDeskInputHelper.exe` must all resolve to the exact
 `WIN_SIGNER_THUMBPRINT` Actions variable; accepting any otherwise-valid
 certificate is forbidden.
@@ -200,7 +200,7 @@ explicit ad-hoc signing identity configured by the script:
 
 ```bash
 npm run build:mac:dir
-npm run verify:electron-package -- --artifact release/mac-arm64/AgentDesk.app
+npm run verify:electron-package -- --artifact release/mac-arm64/Catshelf.app
 ```
 
 `npm run accept:packaged -- --artifact <exact-artifact>` exercises the three
@@ -338,8 +338,8 @@ The Preview transaction is fail-closed and non-overwriting:
 4. The native macOS and Windows jobs build, sign, verify, and smoke their exact
    outputs. A separate read-only assembly job accepts exactly these three
    Release assets and no others:
-   - `AgentDesk-<version>-universal.dmg`
-   - `AgentDesk-<version>-portable-x64.exe`
+   - `Catshelf-<version>-universal.dmg`
+   - `Catshelf-<version>-portable-x64.exe`
    - `SHA256SUMS.txt`
 5. `create-draft` creates a Preview Draft containing only those assets.
    Diagnostics remain private Actions artifacts and must never be uploaded to

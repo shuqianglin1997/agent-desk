@@ -1,4 +1,4 @@
-# AgentDesk 演进路线
+# Catshelf 演进路线
 
 当前源码验证、历史物理证据及未关闭门禁统一见[验证记录](VALIDATION.md)；本页不另行维护测试数字。
 
@@ -16,9 +16,9 @@ Renderer/Main 与 CSS 采用逐域迁移：本批迁移工具控制器、本机�
 
 ## 定位
 
-AgentDesk 以“单人 Personal Agent Mesh”为长期主轴：先把本机多账号、逻辑会话和工具维护做准，再扩展为同一个人在多台可信设备上的全局 Agent 目录、会话索引、显式发送和受限控制。整项工作可以通过不可变加密 TaskPackage 交给另一个 Agent、设备或人；同一快照既可保存为便携文件，也可在同一 Mesh 内直接发送。这项能力传递一次快照，不把 Personal Mesh 扩张为团队平台、聊天壳或任务执行编排器。
+Catshelf 以“单人 Personal Agent Mesh”为长期主轴：先把本机多账号、逻辑会话和工具维护做准，再扩展为同一个人在多台可信设备上的全局 Agent 目录、会话索引、显式发送和受限控制。整项工作可以通过不可变加密 TaskPackage 交给另一个 Agent、设备或人；同一快照既可保存为便携文件，也可在同一 Mesh 内直接发送。这项能力传递一次快照，不把 Personal Mesh 扩张为团队平台、聊天壳或任务执行编排器。
 
-Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于 2026-08-13 获批，便携 TaskPackage 基线于 2026-08-14 写入 1.25；1.27 已把版本化首次使用、设备任务向导和同 Mesh TaskPackage 直送带入代码，1.28 又固化成品 fuse/ASAR、三次首次使用 smoke 与 Preview Draft/公开重下载事务，1.29 增加 AgentDesk 所启动 Profile 的进程归属、退出收口和 Crashpad 资源熔断。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；固定 Header/三面板/Footer 页面骨架、四个独立全局弹窗与独立 UI 上下文保持不变。当前没有公开 Preview：真实签名凭据、受保护环境、真实 Tag、物理下载/安装与 TaskPackage/公网/跨平台矩阵仍未关闭，稳定版门禁继续开放。
+Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于 2026-08-13 获批，便携 TaskPackage 基线于 2026-08-14 写入 1.25；1.27 已把版本化首次使用、设备任务向导和同 Mesh TaskPackage 直送带入代码，1.28 又固化成品 fuse/ASAR、三次首次使用 smoke 与 Preview Draft/公开重下载事务，1.29 增加 Catshelf 所启动 Profile 的进程归属、退出收口和 Crashpad 资源熔断。Phase 2–8 的有人值守代码纵向链路以及 Phase 1 的签名公网会合/STUN/TURN 配置已经实现；固定 Header/三面板/Footer 页面骨架、四个独立全局弹窗与独立 UI 上下文保持不变。当前没有公开 Preview：真实签名凭据、受保护环境、真实 Tag、物理下载/安装与 TaskPackage/公网/跨平台矩阵仍未关闭，稳定版门禁继续开放。
 
 ## 当前基线
 
@@ -29,9 +29,9 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 共用状态的猫猫庭院与卡片名册、单一场景 Popover；
 - 桌面 App / CLI 发现、版本检查、打开和显式维护；
 - macOS / Windows 打包、更新与发布校验；
-- AgentDesk 所启动 Profile 的精确进程归属、重复启动阻断、正常退出默认收口，以及受管 Profiles 根 Crashpad pending 的 100 文件/200 MiB 双上限、5 次风暴熔断、旧版/异常退出遗留进程的事故级精确停机和窄范围安全清理；无所有权的官方默认/custom 目录不进入后台清理或停机；
+- Catshelf 所启动 Profile 的精确进程归属、重复启动阻断、正常退出默认收口，以及受管 Profiles 根 Crashpad pending 的 100 文件/200 MiB 双上限、5 次风暴熔断、旧版/异常退出遗留进程的事故级精确停机和窄范围安全清理；无所有权的官方默认/custom 目录不进入后台清理或停机；
 - Electron 成品 `app.asar` 逐文件/分块哈希、header 绑定与五项 fuse 独立 verifier；历史 macOS unpacked 的 118/118 个常规文件曾通过该层，当前源码/产物分开记账，`RunAsNode` 只为两个固定 CLI launcher 保留；
-- 跨 `AgentDesk.app`、`win-unpacked` 与 portable 的三次首次使用 smoke，以及 Preview-only 三资产 Draft/公开匿名重下载、失败回 Draft 和候选不可复用门禁代码；
+- 跨 `Catshelf.app`、`win-unpacked` 与 portable 的三次首次使用 smoke，以及 Preview-only 三资产 Draft/公开匿名重下载、失败回 Draft 和候选不可复用门禁代码；
 - Personal Mesh 初始化、一次性加密配对、设备权限/撤销、全局 Agent 目录、设备 Lens 与可删到零语义；
 - 版本化首次使用：真实空 Profile 目录、创建首个 Agent/本机设备身份的无网络事务、既有 Profile 无损迁移预览与重启恢复；
 - 添加设备任务向导：加入端验签预览、邀请端签证前确认、成员信任、认证连接、目录与库存屏障的独立状态；
@@ -153,4 +153,4 @@ Personal Mesh 规划已于 2026-08-10 获批，永久员工库与按需就绪于
 - 团队、组织和多人共享设备；
 - 通用远程 Shell、任意命令或云端凭据托管。
 
-若未来需求落入拒绝清单，应作为独立产品讨论，不能复用“工具发现”之名重新塞回 AgentDesk。
+若未来需求落入拒绝清单，应作为独立产品讨论，不能复用“工具发现”之名重新塞回 Catshelf。

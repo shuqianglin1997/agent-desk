@@ -1,10 +1,10 @@
 <p align="center">
 
 当前源码验证、历史物理证据及未关闭门禁统一见[验证记录](docs/VALIDATION.md)；本页不另行维护测试数字。
-  <img src="assets/icon.png" width="120" alt="AgentDesk" />
+  <img src="assets/icon.png" width="120" alt="Catshelf" />
 </p>
 
-<h1 align="center">AgentDesk</h1>
+<h1 align="center">Catshelf</h1>
 
 <p align="center"><strong>A local-first personal control plane for AI coding accounts, sessions, diagnostics, and trusted devices.</strong></p>
 
@@ -21,16 +21,16 @@
 
 > **Development status:** `0.10.1-preview.1` implements attended Personal Mesh Preview paths. See the [validation ledger](docs/VALIDATION.md) for source, Electron-window, package and historical two-Mac evidence. Physical TaskPackage delivery, public NAT/TURN, disconnect recovery and the macOS/Windows permission matrix remain open. The signed Draft/redownload/publication transaction has not run with real release credentials, so there is **no public Preview matching this source**.
 
-## What AgentDesk does
+## What Catshelf does
 
-AgentDesk keeps a small, local index around the official AI coding clients already installed on your computer:
+Catshelf (formerly AgentDesk) keeps a small, local index around the official AI coding clients already installed on your computer:
 
 - **Account slots.** Store separate local profile and session-root paths, launch supported desktop apps with the selected slot, and keep work/personal identities from colliding. Managed Claude CLI and DSH slots get their own `CLAUDE_CONFIG_DIR` / `DSH_HOME`; they do not inherit the official `~/.claude` or `~/.dsh` account, proxy, or credentials.
 - **Session browser.** Scan Claude Desktop, Claude CLI, Codex, Cursor, Kimi Code, and Kimi Work history into one searchable, sortable table. View the current Agent or all Agents under the active device lens.
 - **Stable conversation identity.** Codex compaction checkpoints stay inside one user conversation; guardian/subagent rollouts remain hidden instead of appearing as new sessions or projects.
 - **Session location actions.** Select one or several sessions and copy one minimal location format containing only path and coordinate; reveal the active source file or export one supported transcript as Markdown.
 - **Identity grouping.** Merge multiple client forms of the same login into one account card and one yard cat while preserving the underlying slots.
-- **Bounded Profile runtime.** Prevent duplicate launches of the same `user-data-dir`, supervise official clients started by AgentDesk, close owned clients on normal AgentDesk exit by default, and cap each managed Profile's `Crashpad/pending` at 100 files or 200 MiB. Five same-sized dumps within one minute fuse that Profile; this emergency path also stops an exact-path orphan inside AgentDesk's own managed Profiles root. Unowned official-default or custom paths are not background-cleaned or stopped. Safe cleanup deletes only direct `.dmp` and `_sidecar.json` files; sessions, archives, configuration, SQLite, `codex-home`, and saved diagnostic samples remain untouched.
+- **Bounded Profile runtime.** Prevent duplicate launches of the same `user-data-dir`, supervise official clients started by Catshelf, close owned clients on normal Catshelf exit by default, and cap each managed Profile's `Crashpad/pending` at 100 files or 200 MiB. Five same-sized dumps within one minute fuse that Profile; this emergency path also stops an exact-path orphan inside Catshelf's own managed Profiles root. Unowned official-default or custom paths are not background-cleaned or stopped. Safe cleanup deletes only direct `.dmp` and `_sidecar.json` files; sessions, archives, configuration, SQLite, `codex-home`, and saved diagnostic samples remain untouched.
 - **Versioned first use and guided device mesh.** Create the first Agent and local device identity in one recoverable transaction without opening a listener, publishing a lease, or contacting another device. Existing Profiles receive a migration preview. Adding a device then separates both-side identity confirmation, member trust, authenticated connection, catalog storage, and inventory storage instead of treating pairing as “ready.”
 - **Persistent Agent library and on-demand readiness.** Keep an Agent even with zero accounts or slots, show the complete library in every device environment, and use a recoverable local preparation job before committing a new profile, slot, and deployment. Official installation, login, verification, and system permissions remain on the target computer.
 - **Cross-device sessions and files.** Exchange source-owned session inventories, send encrypted SessionPointers without changing the minimal copy format, map projects locally on the target, and transfer explicitly selected files with confirmation, hashing, chunking, and resume.
@@ -47,10 +47,10 @@ Supported tool discovery currently covers Claude Code, DSH, Codex CLI, Gemini CL
 
 ## Product boundary
 
-AgentDesk is an account and history manager, not an execution or orchestration layer.
+Catshelf is an account and history manager, not an execution or orchestration layer.
 
 - It does not embed a terminal or chat surface.
-- It does not start or supervise agent conversations. Process supervision is limited to the lifecycle and disk-safety boundary of official desktop clients that AgentDesk itself launched.
+- It does not start or supervise agent conversations. Process supervision is limited to the lifecycle and disk-safety boundary of official desktop clients that Catshelf itself launched.
 - It does not maintain task queues, multi-session handoff plans, or planning-document indexes. TaskPackage is an explicit immutable checkpoint, not orchestration or ongoing sync.
 - It does not register arbitrary commands or custom protocol agents.
 - It does not store passwords, tokens, or browser credentials.
@@ -78,21 +78,21 @@ Cats are drawn frame by frame (one shared head for every pose, no stretching or 
 
 There is currently no public `v0.10.1-preview.1` build to install. Do not treat an older GitHub Release as this source version. When a matching Preview passes the release gate, [GitHub Releases](https://github.com/shuqianglin1997/agent-desk/releases) will contain exactly:
 
-- macOS: `AgentDesk-<version>-universal.dmg`
-- Windows: `AgentDesk-<version>-portable-x64.exe`
+- macOS: `Catshelf-<version>-universal.dmg`
+- Windows: `Catshelf-<version>-portable-x64.exe`
 - checksums: `SHA256SUMS.txt`
 
 > Security note: do not install the old v0.9.0 macOS image; Apple reports that unsigned package as revoked. Use a current signed and notarized release.
 
 The current source version is `0.10.1-preview.1`. It is only a Preview candidate, not a stable or published release, and does not retroactively turn the `0.10.0` development baseline into one. Private signing credentials, repository/organization Actions variables `APPLE_TEAM_ID` and `WIN_SIGNER_THUMBPRINT`, the protected `preview-release` environment, a real Preview tag, anonymous public-download verification, and physical clean-machine install checks are still required.
 
-On macOS, move AgentDesk.app into `/Applications` and open it normally. Do not bypass Gatekeeper for an unsigned or revoked package. On Windows, see [docs/WINDOWS.md](docs/WINDOWS.md) for Store/MSIX path handling.
+On macOS, move Catshelf.app into `/Applications` and open it normally. Do not bypass Gatekeeper for an unsigned or revoked package. On Windows, see [docs/WINDOWS.md](docs/WINDOWS.md) for Store/MSIX path handling.
 
 ### Import a Codex account
 
 Choose **Add → Import Codex** in the window toolbar. Drop a Codex `auth.json` to add an account, then select **Open account**. A file from a detected Codex home registers that home directly. A standalone file initializes an isolated account on this computer. Codex handles credential refresh and sign-in when needed.
 
-To add an account you already use locally, select a detected `~/.codex` or `CODEX_HOME` folder, or choose a custom Codex folder. AgentDesk registers the location in place so it can open the account and read its existing sessions.
+To add an account you already use locally, select a detected `~/.codex` or `CODEX_HOME` folder, or choose a custom Codex folder. Catshelf registers the location in place so it can open the account and read its existing sessions.
 
 The packaged application exposes `--cli capabilities` for local agents, with commands for existing profiles, Codex credential-file import, launch and session access. See the [CLI guide](docs/AI_INTERFACE.md) for macOS and Windows examples.
 
@@ -156,9 +156,9 @@ Start with the [documentation map and evidence ledger](docs/README.md), then see
 
 ---
 
-# AgentDesk 中文说明
+# Catshelf（猫架）中文说明
 
-AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
+Catshelf（猫架，原名 AgentDesk）是一个本地的 AI 编码账号与会话管理器：把不同客户端、不同账号槽位和本地历史收进同一个窗口，同时保留官方 App / CLI 原本的使用方式。
 
 给 AI 使用和定制：从 [AI 接口与定制指南](docs/AI_INTERFACE.md) 和 `node src/automation/cli.js capabilities` 开始。无窗口只读 JSON CLI 可发现能力、核对账号环境、找会话及预检公司环境接入；配置修改仍由目标客户端/配置工具完成，不要求额外做成 Skill 或 MCP 工具。
 
@@ -171,7 +171,7 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 - **稳定会话身份。** Codex 上下文压缩继续属于同一条用户会话，guardian/subagent 内部 rollout 不再冒充新会话或新项目。
 - **会话定位操作。** 单选或勾选多条会话后统一复制“路径 + 坐标”；当前会话可在系统中定位来源文件，支持的来源可导出 Markdown。
 - **同账号归组。** 桌面端与 CLI 等多个形态可以合并为一个账号、一张卡、一只猫，底层槽位仍各自保留。
-- **Profile 运行保护。** 同一 `user-data-dir` 不重复启动；AgentDesk 默认在正常退出时只关闭自己启动的官方客户端，并把受管 Profile 的 `Crashpad/pending` 限制为 100 个文件或 200 MiB。一分钟内出现 5 个同尺寸 dump 会熔断该 Profile；该事故路径也会按精确路径停掉 AgentDesk 自己的 Profiles 根内由旧版或强制退出遗留的孤儿进程。无所有权的官方默认/custom 目录不做后台清理或停机，普通关闭仍受所有权约束。安全清理只删除直属 `.dmp` 与 `_sidecar.json`，不会触碰会话、归档、配置、SQLite、`codex-home` 或留存诊断样本。
+- **Profile 运行保护。** 同一 `user-data-dir` 不重复启动；Catshelf 默认在正常退出时只关闭自己启动的官方客户端，并把受管 Profile 的 `Crashpad/pending` 限制为 100 个文件或 200 MiB。一分钟内出现 5 个同尺寸 dump 会熔断该 Profile；该事故路径也会按精确路径停掉 Catshelf 自己的 Profiles 根内由旧版或强制退出遗留的孤儿进程。无所有权的官方默认/custom 目录不做后台清理或停机，普通关闭仍受所有权约束。安全清理只删除直属 `.dmp` 与 `_sidecar.json`，不会触碰会话、归档、配置、SQLite、`codex-home` 或留存诊断样本。
 - **版本化首次使用与设备任务向导。** “创建第一个 Agent”在一个可恢复事务中建立本机 Agent 与设备身份，不开放监听、不发布租约、不连接远端；既有 Profile 先进入无损迁移预览。添加设备再把双方身份确认、成员信任、认证连接、目录落库与库存落库分别呈现，不把配对成功写成已经可用。
 - **长期员工库与按需就绪。** Agent 即使没有账号或运行位置也继续存在，每个工作环境都显示完整员工库；首次打开通过可恢复准备任务提交 Profile/Slot/Deployment，官方安装、登录、验证码和系统权限仍在目标电脑完成。
 - **跨设备会话与文件。** 同步来源设备只读库存，发送加密 SessionPointer，目标端确认项目映射；显式选取的文件经接收确认、分块、哈希和断点续传。
@@ -188,7 +188,7 @@ AgentDesk 是一个本地的 AI 编码账号与会话管理器：把不同客户
 
 ## 明确不做
 
-AgentDesk 已收敛为账号与历史管理工具，不承担会话执行和编排：
+Catshelf 已收敛为账号与历史管理工具，不承担会话执行和编排：
 
 - 不内嵌终端或聊天界面；
 - 不启动、托管或续接 Agent 会话；

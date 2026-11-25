@@ -4,11 +4,11 @@
 
 Windows 版使用 electron-builder 的 portable 目标：
 
-`release/AgentDesk-<version>-portable-x64.exe`
+`release/Catshelf-<version>-portable-x64.exe`
 
-不需要安装。AgentDesk 自己的配置仍保存在稳定的 `%APPDATA%\AgentDesk`，不会跟随 portable exe 的临时解压目录。
+不需要安装。Catshelf 自己的配置仍保存在稳定的 `%APPDATA%\AgentDesk`，不会跟随 portable exe 的临时解压目录。
 
-公开 Release 中的 portable 必须经过可信 Authenticode SHA-256 签名和 RFC 3161 时间戳。发布流水线会从最终 portable 中解出并分别验证外层 EXE、包内 `AgentDesk.exe`、`resources/native/AgentDeskInputHelper.exe`；三者必须签名有效、带时间戳且匹配受保护的 `WIN_SIGNER_THUMBPRINT`。任何一项不满足都不会进入 Draft。
+公开 Release 中的 portable 必须经过可信 Authenticode SHA-256 签名和 RFC 3161 时间戳。发布流水线会从最终 portable 中解出并分别验证外层 EXE、包内 `Catshelf.exe`、`resources/native/AgentDeskInputHelper.exe`；三者必须签名有效、带时间戳且匹配受保护的 `WIN_SIGNER_THUMBPRINT`。任何一项不满足都不会进入 Draft。
 
 候选只允许与 DMG、`SHA256SUMS.txt` 一起成为精确三资产 Preview Draft；Windows 原生 runner 先从 Draft 重新下载并复验，发布后再在无 GitHub token 的条件下从公开 URL 匿名重下载，重复摘要、清单、实际字节、签名、fuse/ASAR 和三次首次使用 smoke。后续失败会把 Release 退回 Draft；曾公开的候选 Tag/version 不得复用。
 
@@ -26,7 +26,7 @@ Windows 开发版已经包含有人值守 Personal Mesh 代码和固定协议的
 - 版本化首次使用、设备任务向导和同 Mesh TaskPackage Preview 直送已经进入跨平台代码路径；TaskPackage 直送使用目标设备公钥独占 envelope，接收方逐次接受，失败时保存同一个密文快照为便携文件；
 - 查看屏幕使用 Electron/Chromium 的系统捕获能力，目标端每次同意后才开始；
 - 键鼠控制同时需要 `input.control` 权限、目标端本次同意和可用 helper；
-- helper 使用 `SendInput`，受 UIPI 完整性级别约束，普通 AgentDesk 不能控制更高权限窗口；
+- helper 使用 `SendInput`，受 UIPI 完整性级别约束，普通 Catshelf 不能控制更高权限窗口；
 - UAC 安全桌面、Windows 登录界面、锁屏控制、系统服务和无人值守不在当前范围；
 - 断线、失焦、切换目标、撤销和 3.5 秒 helper 心跳超时都会释放按键。
 
@@ -50,7 +50,7 @@ Windows portable 版满足以下条件时可以自动更新：
 1. 主进程从固定 GitHub 仓库下载资产到系统临时目录。
 2. 下载重定向只允许 GitHub 官方资产域名。
 3. 同时校验 API 声明的文件大小和 SHA-256；任一不符都停止覆盖。
-4. 独立 PowerShell 替换器等待 AgentDesk 退出，把原 `.exe` 备份为 `.old`，再放入新版本。
+4. 独立 PowerShell 替换器等待 Catshelf 退出，把原 `.exe` 备份为 `.old`，再放入新版本。
 5. 替换失败时恢复旧文件；成功后重新启动同一路径的 portable `.exe`。
 
 macOS、源码开发模式、只读目录、非 portable 启动方式、缺少匹配资产或 digest 时不会尝试覆盖，而是打开对应的 GitHub Release 页面供手动更新。
@@ -62,7 +62,7 @@ macOS、源码开发模式、只读目录、非 portable 启动方式、缺少�
 Claude / Codex 当前同时存在传统 Win32 安装和 Microsoft Store / MSIX 安装。两者有两个关键差异：
 
 1. MSIX 的可执行文件位于带版本号的 `C:\Program Files\WindowsApps\...`，更新后目录会变化。
-2. MSIX 会把 App 对 `%APPDATA%` / `%LOCALAPPDATA%` 的访问重定向到包私有目录。官方 App、AgentDesk 和 Explorer 可能看到不同的“同名路径”。
+2. MSIX 会把 App 对 `%APPDATA%` / `%LOCALAPPDATA%` 的访问重定向到包私有目录。官方 App、Catshelf 和 Explorer 可能看到不同的“同名路径”。
 
 因此 Windows 适配必须同时处理“启动器发现”和“数据目录解析”，不能再假设 `%APPDATA%\Claude` 与 `%LOCALAPPDATA%\Programs\Claude\Claude.exe` 永远成立。
 
@@ -80,7 +80,7 @@ Store / MSIX 安装的真实数据通常位于：
 - Codex UI：`%LOCALAPPDATA%\Packages\OpenAI.Codex_*\LocalCache\Roaming\Codex`
 - Codex 会话仍是：`%USERPROFILE%\.codex`
 
-默认槽位使用“自动路径”模式。每次读取配置时，AgentDesk 会比较传统目录和 MSIX 目录，优先选择实际存在且包含会话、`Local State` 等有效数据的目录。
+默认槽位使用“自动路径”模式。每次读取配置时，Catshelf 会比较传统目录和 MSIX 目录，优先选择实际存在且包含会话、`Local State` 等有效数据的目录。
 
 ## 独立账号目录
 
@@ -119,7 +119,7 @@ Windows 启动器按下面顺序发现：
 7. 每用户 AppModel 包仓库注册表中的 `PackageRootFolder`
 8. 自动默认槽位最后可回退到 `claude://` / `codex://` 系统协议
 
-Store 包目录名包含版本、架构和发布者 ID，且普通进程通常不能列举 `WindowsApps` 根目录。AgentDesk 不扫描该目录：优先使用 Windows 的 AppX 查询；每用户包仓库注册表作为独立兼容兜底，读取已登记包的完整安装根目录。商店更新后会重新解析，不保存带版本号的旧路径。注册表包键按正式的四段版本号做数值排序，并使用适配器声明的包身份名，因此也支持包名与界面名不同的应用（例如 `OpenAI.Codex`）。
+Store 包目录名包含版本、架构和发布者 ID，且普通进程通常不能列举 `WindowsApps` 根目录。Catshelf 不扫描该目录：优先使用 Windows 的 AppX 查询；每用户包仓库注册表作为独立兼容兜底，读取已登记包的完整安装根目录。商店更新后会重新解析，不保存带版本号的旧路径。注册表包键按正式的四段版本号做数值排序，并使用适配器声明的包身份名，因此也支持包名与界面名不同的应用（例如 `OpenAI.Codex`）。
 
 自动发现会排除 npm 和 WinGet Links 中同名的 Claude/Codex CLI shim，避免把命令行工具误当成桌面 App。
 
@@ -161,7 +161,7 @@ Store 包目录名包含版本、架构和发布者 ID，且普通进程通常�
 CI 会在 `windows-latest` 执行纯 Node 的 Windows 路径、启动候选、MSIX 映射和进程匹配测试，并调用系统 PowerShell 解析发现/更新脚本。正式发布前仍需要 Windows 11 真机完成：
 
 1. Store/MSIX Claude 默认槽位能识别真实 `LocalCache\Roaming\Claude`。
-2. 新建 Claude 独立槽位，登录后关闭 AgentDesk，再次打开仍能启动同一账号。
+2. 新建 Claude 独立槽位，登录后关闭 Catshelf，再次打开仍能启动同一账号。
 3. Claude 自动更新后，不修改配置也能重新找到新版本。
 4. 删除或移动一条会话文件后，“打开所在位置”不出现“位置不可用”。
 5. 旧 `%APPDATA%\AgentDesk\Profiles` 槽位能一键迁移并保留登录态。
@@ -193,4 +193,4 @@ npm run verify:electron-package -- --artifact release/win-unpacked
 npm run accept:packaged -- --artifact release/win-unpacked
 ```
 
-`npm run build:win` 生成的 `AgentDesk-<version>-portable-x64.exe` 在 `release/` 目录下，但它只是本机无签名兼容构建，不得对外分发。公开发布必须在受保护环境设置 `WIN_CSC_LINK`、`WIN_CSC_KEY_PASSWORD` 与 `WIN_SIGNER_THUMBPRINT`，运行 `npm run build:win:release` 和 `npm run verify:win-release`，再继续完成 Draft 与匿名公开重下载；单独运行这些本地命令不能创建可分发版本。
+`npm run build:win` 生成的 `Catshelf-<version>-portable-x64.exe` 在 `release/` 目录下，但它只是本机无签名兼容构建，不得对外分发。公开发布必须在受保护环境设置 `WIN_CSC_LINK`、`WIN_CSC_KEY_PASSWORD` 与 `WIN_SIGNER_THUMBPRINT`，运行 `npm run build:win:release` 和 `npm run verify:win-release`，再继续完成 Draft 与匿名公开重下载；单独运行这些本地命令不能创建可分发版本。

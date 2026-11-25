@@ -1,4 +1,4 @@
-# AgentDesk 文档导航
+# Catshelf（猫架）文档导航
 
 当前源码验证、历史物理证据及未关闭门禁统一见[验证记录](VALIDATION.md)；本页不另行维护测试数字。
 
@@ -8,11 +8,11 @@
 
 本次本地融合保留精简版和猫庭院，只吸收 CLI 启动/隔离、遗留登记清理与名册排序/横滚；不引入 VHS 全套外观。具体第三方配置边界见 [AgentDock 兼容说明](AGENTDOCK_COMPATIBILITY.md)，当前验证范围见 [验证记录](VALIDATION.md)。
 
-AgentDesk 的文档必须把下面七种状态分开，不能都写成“已完成”：
+Catshelf 的文档必须把下面七种状态分开，不能都写成“已完成”：
 
 | 状态 | 当前事实 | 能说明什么 | 不能说明什么 |
 |---|---|---|---|
-| 已进入代码 | 有人值守 Mesh 的版本化首次使用、双方身份确认的设备任务向导、目录/库存、SessionPointer、文件、便携与同 Mesh TaskPackage 已有纵向实现；直送使用独立 `task.package.transfer.v1`。Mesh 密钥或远端库存不可用时，本机 Profile 会话改走只读扫描，跨设备动作暂停；精确 ad-hoc macOS 开发包的普通启动还会延后 Mesh Keychain，用户打开设备功能时再解锁。Device Lens / Agent / Slot 选择进入稳定设置。AgentDesk 的 Profile 所有权退出收口、受管根 Crashpad 有界保护及事故级遗留进程熔断也已接通 | Renderer、Preload、Main、领域与服务主流程存在 | 不等于真实网络、操作系统权限、真实客户端崩溃注入和长期运行已经验收 |
+| 已进入代码 | 有人值守 Mesh 的版本化首次使用、双方身份确认的设备任务向导、目录/库存、SessionPointer、文件、便携与同 Mesh TaskPackage 已有纵向实现；直送使用独立 `task.package.transfer.v1`。Mesh 密钥或远端库存不可用时，本机 Profile 会话改走只读扫描，跨设备动作暂停；精确 ad-hoc macOS 开发包的普通启动还会延后 Mesh Keychain，用户打开设备功能时再解锁。Device Lens / Agent / Slot 选择进入稳定设置。Catshelf 的 Profile 所有权退出收口、受管根 Crashpad 有界保护及事故级遗留进程熔断也已接通 | Renderer、Preload、Main、领域与服务主流程存在 | 不等于真实网络、操作系统权限、真实客户端崩溃注入和长期运行已经验收 |
 | 本机自动化已验 | Node、TaskPackage/发布安全和真实窗口的结果统一见[验证记录](VALIDATION.md) | 领域规则、IPC/协议、成品/发布门禁纯代码与真实窗口路径可重复验证 | 自动化通过不等于签名产物、GitHub Release 或物理安装已产生 |
 | 历史 macOS unpacked 已验 | 既有成品的 fuse/ASAR 与首次使用证据见[验证记录](VALIDATION.md) | 只证明当时确切产物 | 本批源码修改后不能沿用旧成品结果；签名、公证与物理干净机门禁仍开放 |
 | 发布事务已进入代码 | Preview-only 策略、三资产白名单、Draft 双原生端重下载、发布后匿名公开重下载、失败回 Draft 与 candidate-burned 语义已实现；发布安全证据见[验证记录](VALIDATION.md) | 发布状态机和失败关闭规则有可重复的纯代码证据 | 尚未使用真实签名凭据、受保护环境和真实 Tag 执行，当前没有公开 Preview |
@@ -33,6 +33,7 @@ AgentDesk 的文档必须把下面七种状态分开，不能都写成“已完�
 | 代码如何组织 | [`INTERNAL.md`](INTERNAL.md) | 按五层逐个说明源码文件，以及进程、数据、IPC、协议与测试结构；分层表与接口清单由脚本生成 |
 | 第一次参与开发 | [`STRUCTURE.md`](STRUCTURE.md) | 目录各管什么、依赖方向、加客户端或命令要改哪里、怎么跑测试与隐藏验收 |
 | 下一步按什么顺序做 | [`ROADMAP.md`](ROADMAP.md) | 已批准实施批次与阶段门禁 |
+| 产品改名怎么做 | [`RENAME_PLAN.md`](RENAME_PLAN.md) | 2026-11-24 由 AgentDesk 改名 Catshelf（猫架）：看得见的全改；数据目录、钥匙串项、程序包标识、协议与存盘标识、`AGENTDESK_*` 和仓库不动，以及命令行的兼容 |
 | 界面用词怎么统一 | [`WORDING_PLAN.md`](WORDING_PLAN.md) | 已定：账号、位置、登录、账号库、数据目录五个词（所有者 2026-11-24 确认并已改到界面），三种语言逐条的改前与改后，以及整理中发现的看得见的其他改动 |
 | Mesh 的完整决策 | [`PERSONAL_AGENT_MESH_PLAN.md`](PERSONAL_AGENT_MESH_PLAN.md) | 唯一实施权威；涉及设备/P2P/传输时必须全文重读 |
 | Windows 能力与限制 | [`WINDOWS.md`](WINDOWS.md) | Windows 路径、打包与真机矩阵 |
