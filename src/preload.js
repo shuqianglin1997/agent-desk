@@ -312,6 +312,13 @@ contextBridge.exposeInMainWorld('manager', {
   migrateWindowsProfilePath: (id) => ipcRenderer.invoke('profiles:migrateWindowsPath', id),
   launchProfile: (id) => ipcRenderer.invoke('profiles:launch', id),
   getProfileRuntimeStatus: (id) => ipcRenderer.invoke('profiles:runtimeStatus', id),
+  // Orderly client updates: only a client id and one explicit choice are sent.
+  getClientUpdateStatus: () => ipcRenderer.invoke('client:updateStatus'),
+  restartClientForUpdate: (appId, options = {}) => ipcRenderer.invoke('client:updateRestartAll', {
+    appId: String(appId || ''),
+    stopBackgroundRuns: options.stopBackgroundRuns === true
+  }),
+  reopenClientSet: (appId) => ipcRenderer.invoke('client:reopenSet', { appId: String(appId || '') }),
   onProfileRegistrationsChanged: (callback) => {
     const listener = () => callback();
     ipcRenderer.on('profiles:registrationsChanged', listener);

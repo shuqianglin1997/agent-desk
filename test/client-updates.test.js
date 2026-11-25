@@ -194,6 +194,7 @@ test('status: macOS only, AgentDesk accounts with their start versions, no paths
   });
   const result = await service.status();
   assert.equal(result.supported, true);
+  assert.equal(result.busy, null);
   assert.deepEqual(result.clients.map((client) => client.appId), updateClientIds());
   const claude = result.clients.find((client) => client.appId === 'claude');
   assert.deepEqual(claude, {
@@ -210,7 +211,7 @@ test('status: macOS only, AgentDesk accounts with their start versions, no paths
   assert.equal(JSON.stringify(result).includes('/Applications'), false, 'no bundle paths leave Main');
 
   const elsewhere = createClientUpdates({ platform: 'win32', runtime: () => runtime, profiles: async () => [] });
-  assert.deepEqual(await elsewhere.status(), { supported: false, clients: [] });
+  assert.deepEqual(await elsewhere.status(), { supported: false, busy: null, clients: [] });
 });
 
 test('only desktop adapters declare how they update, with known mechanisms', () => {
@@ -222,4 +223,185 @@ test('only desktop adapters declare how they update, with known mechanisms', () 
     assert.ok(WINDOWS_MECHANISMS.includes(update.windows), appId);
     assert.ok(update.waiting === null || WAITING_SIGNALS.includes(update.waiting), appId);
   }
+});
+
+// A fake supervisor: AgentDesk's open accounts of 'claude', stopped on request.
+function fakeRuntime({ open = [], set = null, failStop = null } = {}) {
+  const state = { open: open.map((member) => ({ ...member })), set, stops: [] };
+  return {
+    state,
+    updateProfiles() {},
+    ownedOpenProfiles: (appId) => (appId === 'claude'
+      ? state.open.map((member) => ({ profile: { id: member.id, appId: 'claude' }, appVersion: member.version, appBundle: '/Applications/Fake.app' }))
+      : []),
+    openSet: (appId) => (appId === 'claude' ? state.set : null),
+    async stopProfile(profile, reason) {
+      state.stops.push([profile.id, reason]);
+      if (failStop === profile.id) return { ok: false, reasonCode: 'profile-process-still-running' };
+      state.open = state.open.filter((member) => member.id !== profile.id);
+      return { ok: true, stopped: 1, remaining: 0 };
+    }
+  };
+}
+
+// The service with a fake clock: delay() moves time on, onWait runs each poll.
+function service({ runtime, disk, staged = { state: 'none' }, runs = [], launchFails = [], onWait = () => {}, platform = 'darwin' }) {
+  let clock = 0;
+  const log = [];
+  const updates = createClientUpdates({
+    platform,
+    now: () => clock,
+    delay: async (ms) => { clock += ms; onWait(clock); },
+    waitMs: 10_000,
+    pollMs: 2_000,
+    runtime: () => runtime,
+    profiles: async () => [{ id: 'a' }, { id: 'b' }],
+    activeRuns: () => runs,
+    stopRun: async (id) => { log.push(['stop-run', id]); },
+    launch: async (id) => { log.push(['open', id]); return launchFails.includes(id) ? { ok: false, reasonCode: 'client-not-installed' } : { ok: true }; },
+    reader: {
+      bundle: async () => ({ version: disk(), bundleId: 'com.example.fake' }),
+      staged: async () => staged
+    }
+  });
+  return { updates, log };
+}
+
+test('restart all: the newer app is on disk, so close each, then open the same ones again', async () => {
+  const runtime = fakeRuntime({ open: [{ id: 'a', version: '1.2.0' }, { id: 'b', version: '1.2.0' }] });
+  const { updates, log } = service({ runtime, disk: () => '1.3.0' });
+  assert.equal(await updates.refusal('restart', { appId: 'claude' }), null);
+  assert.deepEqual(await updates.restartAll({ appId: 'claude' }), { ok: true, version: '1.3.0', opened: ['a', 'b'], failed: [] });
+  assert.deepEqual(runtime.state.stops, [['a', 'client-update'], ['b', 'client-update']]);
+  assert.deepEqual(log, [['open', 'a'], ['open', 'b']]);
+  assert.equal((await updates.status()).busy, null);
+});
+
+test('restart all: a downloaded update is waited for after closing; it stops there when it never arrives', async () => {
+  let version = '1.2.0';
+  const runtime = fakeRuntime({ open: [{ id: 'a', version: '1.2.0' }] });
+  const seen = [];
+  let check = null;
+  const { updates, log } = service({
+    runtime,
+    disk: () => version,
+    staged: { state: 'staged', version: '1.3.0' },
+    onWait: (clock) => { seen.push(clock); if (clock >= 4_000) version = '1.3.0'; check = updates.status(); }
+  });
+  const result = await updates.restartAll({ appId: 'claude' });
+  assert.deepEqual(result, { ok: true, version: '1.3.0', opened: ['a'], failed: [] });
+  assert.deepEqual(seen, [2_000, 4_000]);
+  assert.equal((await check).busy.phase, 'waiting', 'the status says what it is doing meanwhile');
+  assert.deepEqual(log, [['open', 'a']]);
+
+  const stuck = fakeRuntime({ open: [{ id: 'a', version: '1.2.0' }, { id: 'b', version: '1.2.0' }] });
+  const never = service({ runtime: stuck, disk: () => '1.2.0', staged: { state: 'staged', version: '1.3.0' } });
+  assert.deepEqual(await never.updates.restartAll({ appId: 'claude' }), { ok: false, reasonCode: 'update-not-installed', closed: ['a', 'b'], waitedMs: 10_000 });
+  assert.deepEqual(never.log, [], 'nothing is opened without the new version');
+});
+
+test('restart all: background runs refuse it unless the person chose to stop them; a failed close stops there', async () => {
+  const runs = [{ id: 'run-1', target: { id: 'b' } }];
+  const runtime = fakeRuntime({ open: [{ id: 'a', version: '1.2.0' }, { id: 'b', version: '1.2.0' }] });
+  const refused = service({ runtime, disk: () => '1.3.0', runs });
+  assert.equal(await refused.updates.refusal('restart', { appId: 'claude' }), 'background-runs-active');
+  assert.deepEqual(await refused.updates.restartAll({ appId: 'claude' }), { ok: false, reasonCode: 'background-runs-active' });
+  assert.deepEqual(runtime.state.stops, []);
+
+  const chosen = service({ runtime, disk: () => '1.3.0', runs });
+  assert.equal((await chosen.updates.restartAll({ appId: 'claude', stopBackgroundRuns: true })).ok, true);
+  assert.deepEqual(chosen.log, [['stop-run', 'run-1'], ['open', 'a'], ['open', 'b']]);
+
+  const failing = fakeRuntime({ open: [{ id: 'a', version: '1.2.0' }, { id: 'b', version: '1.2.0' }], failStop: 'b' });
+  const failed = service({ runtime: failing, disk: () => '1.3.0' });
+  assert.deepEqual(await failed.updates.restartAll({ appId: 'claude' }), { ok: false, reasonCode: 'client-close-failed', profileId: 'b', closed: ['a'] });
+  assert.deepEqual(failed.log, []);
+});
+
+test('one sequence at a time, and fixed reasons when there is nothing to do', async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const runtime = fakeRuntime({ open: [{ id: 'a', version: '1.2.0' }] });
+  const slow = createClientUpdates({
+    platform: 'darwin',
+    runtime: () => runtime,
+    profiles: async () => [{ id: 'a' }],
+    launch: async () => { await gate; return { ok: true }; },
+    reader: { bundle: async () => ({ version: '1.3.0', bundleId: 'x' }), staged: async () => ({ state: 'none' }) }
+  });
+  const first = slow.restartAll({ appId: 'claude' });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual((await slow.status()).busy, { appId: 'claude', phase: 'opening' });
+  assert.equal(await slow.refusal('reopen', { appId: 'claude' }), 'client-update-busy');
+  assert.deepEqual(await slow.restartAll({ appId: 'claude' }), { ok: false, reasonCode: 'client-update-busy' });
+  release();
+  assert.equal((await first).ok, true);
+
+  const idle = service({ runtime: fakeRuntime({ open: [{ id: 'a', version: '1.3.0' }] }), disk: () => '1.3.0' });
+  assert.equal(await idle.updates.refusal('restart', { appId: 'claude' }), 'no-update-waiting');
+  assert.equal(await idle.updates.refusal('restart', { appId: 'claude-cli' }), 'client-unknown');
+  assert.equal(await idle.updates.refusal('reopen', { appId: 'claude' }), 'nothing-to-reopen');
+  const empty = service({ runtime: fakeRuntime(), disk: () => '1.3.0' });
+  assert.equal(await empty.updates.refusal('restart', { appId: 'claude' }), 'nothing-open');
+  const windows = service({ runtime: fakeRuntime(), disk: () => '1.3.0', platform: 'win32' });
+  assert.equal(await windows.updates.refusal('restart', { appId: 'claude' }), 'platform-unsupported');
+});
+
+test('reopen: the accounts that were open before the update, each opened the usual way', async () => {
+  const set = { members: [{ profileId: 'a', appVersion: '1.2.0', appBundle: '/Applications/Fake.app' }, { profileId: 'b', appVersion: '1.2.0', appBundle: '/Applications/Fake.app' }], startedAt: null, endedAt: '2026-11-24T09:00:00.000Z', endReason: 'observed-client-exit' };
+  const { updates, log } = service({ runtime: fakeRuntime({ set }), disk: () => '1.3.0', launchFails: ['b'] });
+  assert.equal(await updates.refusal('reopen', { appId: 'claude' }), null);
+  assert.deepEqual(await updates.reopenSet({ appId: 'claude' }), {
+    ok: false, reasonCode: 'client-reopen-failed', version: '1.3.0', opened: ['a'], failed: [{ profileId: 'b', reasonCode: 'client-not-installed' }]
+  });
+  assert.deepEqual(log, [['open', 'a'], ['open', 'b']]);
+});
+
+test('the three commands take only a client id and one choice; refusals are reason codes', async () => {
+  const { runCommand, loadPreload } = require('./helpers/behaviour');
+  const calls = [];
+  const clientUpdates = {
+    status: async () => ({ supported: true, busy: null, clients: [] }),
+    refusal: async (action, input) => { calls.push([action, input]); return input.appId === 'claude' ? null : 'client-unknown'; },
+    restartAll: async (input) => ({ ok: true, input }),
+    reopenSet: async (input) => ({ ok: true, input })
+  };
+  assert.deepEqual(await runCommand('client:updateStatus', { clientUpdates }), { supported: true, busy: null, clients: [] });
+  assert.deepEqual(await runCommand('client:updateRestartAll', { clientUpdates }, { appId: 'claude', stopBackgroundRuns: 'yes', profilePath: '/x' }),
+    { ok: true, input: { appId: 'claude', stopBackgroundRuns: false } });
+  assert.deepEqual(await runCommand('client:reopenSet', { clientUpdates }, { appId: 'claude', stopBackgroundRuns: true }), { ok: true, input: { appId: 'claude' } });
+  assert.deepEqual(await runCommand('client:updateRestartAll', { clientUpdates }, { appId: '../Claude' }), { ok: false, reasonCode: 'client-unknown' });
+  assert.deepEqual(calls.map(([action]) => action), ['restart', 'reopen', 'restart']);
+
+  const { api, calls: ipc } = loadPreload();
+  await api.restartClientForUpdate('claude', { stopBackgroundRuns: true, extra: 1 });
+  await api.reopenClientSet('codex');
+  await api.getClientUpdateStatus();
+  assert.deepEqual(JSON.parse(JSON.stringify(ipc)), [
+    ['invoke', 'client:updateRestartAll', { appId: 'claude', stopBackgroundRuns: true }],
+    ['invoke', 'client:reopenSet', { appId: 'codex' }],
+    ['invoke', 'client:updateStatus']
+  ]);
+});
+
+test('the command line relays the same actions, refuses without a supervising desktop, and reports failures as errors', async () => {
+  const { cliCommand } = require('../src/commands/registry');
+  const { InterfaceError } = require('../src/automation/service');
+  const seen = [];
+  const clientUpdates = {
+    status: async () => ({ supported: true, busy: null, clients: [] }),
+    restartAll: async (input) => { seen.push(input); return input.appId === 'cursor' ? { ok: false, reasonCode: 'update-not-installed', closed: ['a'], waitedMs: 180000 } : { ok: false, reasonCode: 'background-runs-active' }; },
+    reopenSet: async (input) => ({ ok: true, version: '1.3.0', opened: [input.appId], failed: [] })
+  };
+  const deps = { clientUpdates, cliOnlyInstance: false, InterfaceError };
+  const restart = cliCommand('clients restart-all', 'desktop');
+  assert.equal(restart.effects, 'restart-local-clients');
+  assert.deepEqual(await cliCommand('clients update-status', 'desktop').exec(deps, {}), { supported: true, busy: null, clients: [] });
+  assert.deepEqual(await cliCommand('clients reopen', 'desktop').exec(deps, { app: 'claude' }), { ok: true, version: '1.3.0', opened: ['claude'], failed: [] });
+  await assert.rejects(restart.exec(deps, { app: 'claude', 'stop-background-runs': 'true' }), (error) => error.code === 'background-runs-active' && error.exitCode === 2 && error.extra === null);
+  await assert.rejects(restart.exec(deps, { app: 'cursor' }), (error) => error.code === 'update-not-installed' && error.extra.closed[0] === 'a' && error.extra.waitedMs === 180000);
+  assert.deepEqual(seen, [{ appId: 'claude', stopBackgroundRuns: false }, { appId: 'cursor', stopBackgroundRuns: false }], 'only "yes" stops background runs');
+  await restart.exec(deps, { app: 'claude', 'stop-background-runs': 'yes' }).catch(() => {});
+  assert.equal(seen[2].stopBackgroundRuns, true);
+  await assert.rejects(cliCommand('clients update-status', 'desktop').exec({ ...deps, cliOnlyInstance: true }, {}), (error) => error.code === 'desktop-not-running');
 });

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T05:45:17.080Z",
-  "baseCommit": "882a35687b75c6a85b51e48d29a882e05bd1e668",
+  "recordedAt": "2026-11-25T05:50:23.064Z",
+  "baseCommit": "58206904a902728e47a385a592e067e73b032a85",
   "uncommitted": true,
-  "sourceSha256": "89400818bf94d7d21b5781ee0980d9a7d44b01ee70d4e8cc20b96008b38f4106",
+  "sourceSha256": "0a0428d8ff0b30dd8c03ad0e0f633280376a8813b43377ec1212e338a6d2f33c",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 986,
+      "pass": 984,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after orderly-update batch 2: client.updateStatus, client.updateRestartAll and client.reopenSet in the command table (and clients update-status, restart-all, reopen on the packaged CLI), with the close, wait and reopen sequence tested on a fake supervisor, fake versions and a fake clock; digest identical before and after the run",
+      "recordedAt": "2026-11-25T05:50:23.064Z",
+      "sourceSha256": "0a0428d8ff0b30dd8c03ad0e0f633280376a8813b43377ec1212e338a6d2f33c"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T05:50:23.064Z",
+      "sourceSha256": "0a0428d8ff0b30dd8c03ad0e0f633280376a8813b43377ec1212e338a6d2f33c"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

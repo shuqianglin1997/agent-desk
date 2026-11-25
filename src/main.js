@@ -55,6 +55,7 @@ function mainContext() {
     get catalogMeshCall() { return catalogMeshCall; },
     get checkForUpdates() { return checkForUpdates; },
     get cliOnlyInstance() { return cliOnlyInstance; },
+    get clientUpdates() { return clientUpdates; },
     get clipboard() { return clipboard; },
     get closePairingEndpoint() { return closePairingEndpoint; },
     get configuredSignalingUrls() { return configuredSignalingUrls; },
@@ -281,9 +282,10 @@ const { InterfaceError } = require('./automation/service');
 const { prepareManagedProfileHome } = require('./profile-home');
 const { terminalLauncherScript } = require('./terminal-launcher');
 const { QuotaService } = require('./quota-service');
+const { createClientUpdates } = require('./client-updates');
 const { deriveEnergy } = require('./yard/energy');
 const IdentityGroups = require('./identity-groups');
-const { HubStore } = require('./hub/store');
+const { HubStore, ACTIVE_STATES: HUB_ACTIVE_STATES } = require('./hub/store');
 const { SessionMarksStore } = require('./session-marks');
 const { HubRunner } = require('./hub/runner');
 const { HubError, normalizeAccess } = require('./hub/roster');
@@ -394,6 +396,15 @@ let hubQuitDone = false;
 let appQuitting = false;
 const windowLamp = createWindowLamp({ getWindow: () => mainWindow });
 const quotaService = new QuotaService();
+// Orderly client updates (docs/ORDERLY_UPDATE_PLAN.md): only AgentDesk's own
+// accounts of a client are closed and reopened, and only when asked; macOS only.
+const clientUpdates = createClientUpdates({
+  runtime: () => profileRuntimeSupervisor || getProfileRuntimeSupervisor(),
+  profiles: () => refreshProfiles(),
+  activeRuns: () => (agentHub ? agentHub.list(200).runs.filter((run) => HUB_ACTIVE_STATES.has(run.state)) : []),
+  stopRun: (runId) => getAgentHub().stop(runId),
+  launch: (profileId) => launchStoredProfile(profileId)
+});
 const pathSelectionRegistry = new PathSelectionRegistry();
 // Discovery can list many homes at once; it gets its own bounded registry so
 // it cannot evict an in-flight path picker selection.

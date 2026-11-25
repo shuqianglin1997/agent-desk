@@ -52,6 +52,7 @@ function normalizeRun(value) {
     endReason: typeof value.endReason === 'string' && RUN_ID.test(value.endReason) ? value.endReason : null
   };
 }
+
 const DEFAULT_LIMITS = Object.freeze({
   maxFiles: 100,
   maxBytes: 200 * 1024 * 1024,

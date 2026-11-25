@@ -38,6 +38,7 @@ const FEATURE_MODULES = [
   ['tools', require('./tools')],
   ['session-marks', require('./session-marks')],
   ['profiles', require('./profiles')],
+  ['client-updates', require('./client-updates')],
   ['system', require('./system')],
   ['devices', require('./devices')],
   ['agents', require('./agents')],

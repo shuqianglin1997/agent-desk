@@ -83,7 +83,7 @@ async function packagedRead(parsed, options) {
     boundaries: {
       ...result.boundaries,
       writes: 'explicit local registration, new isolated environments, credential-file import and keys passed on stdin to the account\'s own client',
-      launchesClients: 'profiles launch only; set-key and status --check official run the client\'s fixed login or status command without a window',
+      launchesClients: 'profiles launch, and clients restart-all and clients reopen for the accounts AgentDesk opened (macOS); set-key and status --check official run the client\'s fixed login or status command without a window',
       readsCredentials: 'only during explicit credential-file import or status checks; values are never printed',
       secrets: 'Keys are read from stdin only, held in memory and passed to the account\'s client; AgentDesk does not store them.',
       notAvailable: ['arbitrary provider configuration', 'remote actions', 'direct Mesh writes', 'generic execution', 'HTTP server', 'MCP server', 'changing who may be called, allowed folders or limits']
