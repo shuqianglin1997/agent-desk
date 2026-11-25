@@ -4,41 +4,61 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
 const { rendererSource, rendererFunction } = require('./helpers/renderer-source');
+const { page, styleRules, loadPreload, commandFor, runCommand } = require('./helpers/behaviour');
+const { LOCALES, mt } = require('../src/i18n/main-i18n');
 
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+const doc = page();
+const inOrder = (...ids) => { const at = ids.map((id) => doc.index(doc.byId(id))); return at.every((i) => i >= 0) && at.every((v, k) => k === 0 || at[k - 1] < v); };
+const inside = (id, containerId) => Boolean(doc.byId(id) && doc.byId(containerId) && doc.within(doc.byId(id), doc.byId(containerId)));
+const bounded = (value, max) => (typeof value === 'string' ? value.slice(0, max) : '');
+const plain = (value) => JSON.parse(JSON.stringify(value));
+
+// Each channel is a command in the table, and the preload method the command
+// names reaches exactly that channel.
+function assertFixedChannels(channels) {
+  const { api, calls } = loadPreload();
+  for (const channel of channels) {
+    const command = commandFor(channel);
+    assert.ok(command.preload?.length, `${channel} has a preload method`);
+    for (const name of command.preload) {
+      calls.length = 0;
+      api[name]({});
+      assert.equal(calls[0]?.[1], channel, `${name} reaches ${channel}`);
+    }
+  }
+}
 
 test('设备入口并入设备视角下拉，设备中心使用独立模态弹窗且不改变三面板骨架', () => {
-  const html = read('src/index.html');
-  const styles = read('src/workspace.css');
-  const workspaceStyles = read('src/workspace.css');
   const renderer = rendererSource();
-  const navStart = html.indexOf('<nav class="topbar-actions"');
-  const navEnd = html.indexOf('</nav>', navStart);
-  const nav = html.slice(navStart, navEnd);
-  const lens = html.slice(html.indexOf('id="deviceLensMenu"'), navStart);
-  assert.ok(lens.indexOf('id="deviceCenterBtn"') > 0);
-  assert.equal(nav.indexOf('id="deviceCenterBtn"'), -1);
-  assert.match(lens, /id="deviceLensOptions"[\s\S]*?id="deviceCenterBtn"[^>]*aria-haspopup="dialog"[^>]*aria-controls="deviceCenterDialog"/);
-  assert.match(html, /id="deviceCenterDialog"[\s\S]*?id="meshEmptyState"[\s\S]*?id="meshReadyState"/);
-  assert.match(html, /id="mainGrid" class="workspace-board" data-workspace="sessions" data-detail="session"/);
-  assert.doesNotMatch(html, /id="detailSurfaceDevices"/);
+  const nav = doc.all((el) => el.tag === 'nav' && doc.hasClass(el, 'topbar-actions'))[0];
+  assert.ok(inside('deviceCenterBtn', 'deviceLensMenu') && !doc.within(doc.byId('deviceCenterBtn'), nav), 'device management is the lens menu\'s last item');
+  assert.ok(inOrder('deviceLensOptions', 'deviceCenterBtn'));
+  const deviceButton = doc.byId('deviceCenterBtn').attrs;
+  assert.deepEqual([deviceButton['aria-haspopup'], deviceButton['aria-controls']], ['dialog', 'deviceCenterDialog']);
+  assert.ok(inside('meshEmptyState', 'deviceCenterDialog') && inside('meshReadyState', 'deviceCenterDialog') && inOrder('meshEmptyState', 'meshReadyState'));
+  const grid = doc.byId('mainGrid').attrs;
+  assert.deepEqual([grid.class, grid['data-workspace'], grid['data-detail']], ['workspace-board', 'sessions', 'session']);
+  assert.ok(!doc.byId('detailSurfaceDevices'));
   assert.doesNotMatch(renderer, /detailSurfaceDevices|deviceCenterDialog\.show\(\)/);
   assert.match(renderer, /\['devices', els\.deviceCenterBtn, els\.deviceCenterDialog\]/);
   assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?openDialog\(dialog\)/);
-  assert.doesNotMatch(workspaceStyles, /--dialog-preferred-height/);
+  assert.deepEqual(styleRules(null).filter((rule) => '--dialog-preferred-height' in rule.decls), []);
   // Height comes from the pixel skin's rule for the shell (unlayered, so it always
-  // wins); the clipping stays in workspace.css.
-  assert.match(read('src/pixel.css'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?height:\s*auto;[^}]*?min-height:\s*0;[^}]*?max-height:\s*calc\(100dvh/);
-  assert.match(read('src/pixel.css'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?overflow:\s*hidden/);
-  assert.match(read('src/pixel.css'), /--header-h:\s*58px;[\s\S]*?--footer-h:\s*38px;[\s\S]*?--agent-h:\s*222px;[\s\S]*?--detail-w:\s*316px/);
-  assert.match(workspaceStyles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\);[\s\S]*?grid-template-rows:\s*var\(--agent-h\) minmax\(0, 1fr\)/);
-  assert.match(styles, /\.mesh-ready-state\[hidden\],[\s\S]*?\.mesh-empty-state\[hidden\][\s\S]*?display:\s*none/);
+  // wins); the clipping is the shell's structure rule in the same sheet.
+  const shell = styleRules('dialog .dialog-body.utility-dialog-shell', ['src/pixel.css']).filter((rule) => !rule.conditional);
+  assert.ok(shell.some((rule) => rule.layer === null && rule.decls.height === 'auto' && rule.decls['min-height'] === '0' && /^calc\(100dvh/.test(rule.decls['max-height'] || '')));
+  assert.ok(shell.some((rule) => rule.decls.overflow === 'hidden'));
+  const tokens = Object.assign({}, ...styleRules(':root', ['src/pixel.css']).filter((rule) => rule.layer === 'tokens' && !rule.conditional).map((rule) => rule.decls));
+  assert.deepEqual([tokens['--header-h'], tokens['--footer-h'], tokens['--agent-h'], tokens['--detail-w']], ['58px', '38px', '222px', '316px']);
+  assert.ok(styleRules('.workspace-board', ['src/workspace.css']).some((rule) => !rule.conditional && rule.decls['grid-template-columns'] === 'minmax(0, 1fr) var(--detail-w)' && rule.decls['grid-template-rows'] === 'var(--agent-h) minmax(0, 1fr)'));
+  assert.ok(styleRules('.mesh-ready-state[hidden]').some((rule) => rule.selectors.includes('.mesh-empty-state[hidden]') && /^none/.test(rule.decls.display)));
 });
 
 test('设备 IPC 只暴露固定语义，不提供通用 channel、命令、路径或凭据接口', () => {
   const preload = read('src/preload.js');
   const main = mainHandlerSource();
-  for (const channel of [
+  assertFixedChannels([
     'devices:list',
     'devices:initialize',
     'devices:rename',
@@ -52,10 +72,10 @@ test('设备 IPC 只暴露固定语义，不提供通用 channel、命令、路�
     'devices:updatePermissions',
     'devices:revoke',
     'remoteInventory:refresh'
-  ]) {
-    assert.ok(main.includes(`ipcMain.handle('${channel}'`), `${channel} missing in main`);
-    assert.ok(preload.includes(`ipcRenderer.invoke('${channel}'`), `${channel} missing in preload`);
-  }
+  ]);
+  // What stays a text search: the preload whitelist must not grow a generic
+  // invoke/on or carry key material, and Main's key and store wiring runs in
+  // Electron's app object, which Node tests don't have.
   assert.doesNotMatch(preload, /^\s*(invoke|on):\s*\(|remoteCommand|generic\.exec|shell\.run/m);
   assert.doesNotMatch(preload, /turnSecret|turnCredential|privateKey|devicePrivateKey/);
   assert.doesNotMatch(main, /ipcMain\.handle\('devices:[^']+',[^\n]*argv|remoteCommand|generic\.exec/);
@@ -64,10 +84,9 @@ test('设备 IPC 只暴露固定语义，不提供通用 channel、命令、路�
   assert.match(main, /path\.join\(userData, 'mesh-keys\.json'\)/);
 });
 
-test('Agent 目录与 Slot 管理只通过固定语义 IPC 暴露', () => {
+test('Agent 目录与 Slot 管理只通过固定语义 IPC 暴露', async (t) => {
   const preload = read('src/preload.js');
-  const main = mainHandlerSource();
-  for (const channel of [
+  assertFixedChannels([
     'agentCatalog:list',
     'agentCatalog:get',
     'agentCatalog:create',
@@ -80,50 +99,81 @@ test('Agent 目录与 Slot 管理只通过固定语义 IPC 暴露', () => {
     'agentSlots:addLocal',
     'agentSlots:assign',
     'agentSlots:removeLocal'
-  ]) {
-    assert.ok(main.includes(`ipcMain.handle('${channel}'`), `${channel} missing in main`);
-    assert.ok(preload.includes(`ipcRenderer.invoke('${channel}'`), `${channel} missing in preload`);
-  }
+  ]);
   assert.doesNotMatch(preload, /agentCatalog:[^'"\n]*(command|path|exec)|agentSlots:[^'"\n]*(command|path|exec)/i);
-  const createAgentHandler = main.match(/ipcMain\.handle\('agentCatalog:create'[\s\S]*?\n\s*}\);/)?.[0] || '';
-  assert.match(preload, /createAgent:\s*\(input\)\s*=>\s*ipcRenderer\.invoke\('agentCatalog:create', input\)/);
-  assert.match(createAgentHandler, /getMeshService\(\)\.createAgent\(\{[\s\S]*?displayName:[\s\S]*?group:[\s\S]*?note:/);
-  assert.doesNotMatch(createAgentHandler, /createStoredProfile|assignSlot|profilePath|sessionRoot/);
-  assert.match(main, /ipcMain\.handle\('agentSlots:addLocal'[\s\S]*?createStoredProfile\([\s\S]*?assignSlot\(/);
-  assert.match(main, /ipcMain\.handle\('agentSlots:removeLocal'[\s\S]*?scope:\s*'slot'/);
-  assert.match(main, /function removeStoredProfileRegistration[\s\S]*?saveProfiles\(next\)/);
-  assert.doesNotMatch(main, /function removeStoredProfileRegistration[\s\S]{0,500}(rmSync|unlinkSync|rmdirSync)/);
+
+  // Creating an Agent passes on only its name, group, note and base revision:
+  // no location is made and no path is read.
+  const seen = [];
+  const agents = [];
+  const mesh = {
+    getOverview: () => ({ initialized: true, localDeviceId: 'dev-1', agents: [...agents] }),
+    createAgent: (input) => { seen.push(['createAgent', input]); agents.push({ agentId: 'a-new' }); return { agents: [...agents] }; },
+    assignSlot: (input) => { seen.push(['assignSlot', input.profileId, input.mode]); return { agents }; },
+    removeCatalogObject: (input) => { seen.push(['remove', input]); return { agents }; }
+  };
+  const deps = {
+    boundedText: bounded,
+    finiteRevision: (value) => (Number.isFinite(value) ? value : null),
+    getMeshService: () => mesh,
+    peerManager: null,
+    withMeshRuntime: (overview) => overview,
+    createStoredProfile: (input) => { seen.push(['createStoredProfile', input.appId]); return { id: 'p-new' }; },
+    removeStoredProfileRegistration: () => {},
+    catalogMeshCall: (callback) => callback()
+  };
+  const created = await runCommand('agentCatalog:create', deps, { displayName: 'A', group: 'g', note: 'n', baseRevision: 3, profilePath: '/x', sessionRoot: '/y' });
+  assert.equal(created.ok, true);
+  assert.deepEqual(seen, [['createAgent', { displayName: 'A', group: 'g', note: 'n', baseRevision: 3 }]]);
+  // A new local location stores the profile first, then assigns its slot.
+  seen.length = 0;
+  await runCommand('agentSlots:addLocal', deps, { appId: 'codex', name: 'w', mode: 'new-agent' });
+  assert.deepEqual(seen, [['createStoredProfile', 'codex'], ['assignSlot', 'p-new', 'new-agent']]);
+  // Removing a local location removes the slot, only.
+  seen.length = 0;
+  await runCommand('agentSlots:removeLocal', deps, { deviceId: 'dev-1', profileId: 'p1', baseRevision: 4, scope: 'agent' });
+  assert.deepEqual(seen, [['remove', { scope: 'slot', deviceId: 'dev-1', profileId: 'p1', baseRevision: 4 }]]);
+
+  // Removing a registration rewrites profiles.json and leaves the folder alone.
+  const dir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'agentdesk-registration-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(dir, 'kept.txt'), 'x');
+  let saved = null;
+  const accounts = require('../src/main/accounts');
+  accounts.bind({ loadProfiles: () => [{ id: 'p1', profilePath: dir }, { id: 'p2' }], saveProfiles: (next) => { saved = next; }, quotaService: { invalidate() {} } });
+  assert.equal(accounts.removeStoredProfileRegistration('p1'), true);
+  assert.deepEqual(saved.map((profile) => profile.id), ['p2']);
+  assert.equal(fs.readFileSync(path.join(dir, 'kept.txt'), 'utf8'), 'x');
+  assert.equal(accounts.removeStoredProfileRegistration('missing'), false);
 });
 
-test('首次准备只暴露员工、设备、客户端枚举和确认状态，不接受路径或命令', () => {
+test('首次准备只暴露员工、设备、客户端枚举和确认状态，不接受路径或命令', async () => {
   const preload = read('src/preload.js');
   const main = mainHandlerSource();
-  for (const channel of [
-    'agentDeployments:ensureReady',
-    'agentDeployments:retryPreparation',
-    'agentDeployments:cancelPreparation'
-  ]) {
-    assert.ok(main.includes(`ipcMain.handle('${channel}'`), `${channel} missing in main`);
-    assert.ok(preload.includes(`ipcRenderer.invoke('${channel}'`), `${channel} missing in preload`);
-  }
-  assert.match(main, /ipcMain\.handle\('agentDeployments:ensureReady'[\s\S]*?agentId:\s*boundedText\(input\.agentId[\s\S]*?deviceId:\s*boundedText\(input\.deviceId[\s\S]*?requestedAppId:\s*boundedText\(input\.requestedAppId[\s\S]*?requestedClientForm:\s*boundedText\(input\.requestedClientForm/);
-  assert.doesNotMatch(
-    main.match(/ipcMain\.handle\('agentDeployments:ensureReady'[\s\S]*?\n\s*}\);/)?.[0] || '',
-    /input\.(path|profilePath|sessionRoot|command|argv|url|environment|token|cookie)/i
-  );
+  assertFixedChannels(['agentDeployments:ensureReady', 'agentDeployments:retryPreparation', 'agentDeployments:cancelPreparation']);
+  let request = null;
+  await runCommand('agentDeployments:ensureReady', {
+    boundedText: bounded,
+    getProvisioningService: () => ({ ensureReady: async (input) => { request = input; return { ok: true }; } }),
+    publicProvisioningResult: (result) => result
+  }, { agentId: 'a1', deviceId: 'd1', requestedAppId: 'codex', path: '/x', profilePath: '/x', sessionRoot: '/y', command: 'sh', argv: ['-c'], url: 'https://x', environment: { A: 1 }, token: 't', cookie: 'c' });
+  assert.deepEqual(request, { agentId: 'a1', deviceId: 'd1', requestedAppId: 'codex', requestedClientForm: 'desktop', interactive: true, manualConfirmation: false });
   assert.doesNotMatch(preload, /agentDeployments:[^'"\n]*(command|path|exec|token|cookie)/i);
   assert.match(main, /getProvisioningService\(\)\.resumeActiveJobs\(\)/);
   assert.match(main, /provisioningService\?\.stop\(\)/);
 });
 
 test('工作环境始终投影完整员工库，并用同一主按钮确保就绪后打开', () => {
-  const html = read('src/index.html');
   const renderer = rendererSource();
-  const projection = read('src/agent-workspace.js');
-  assert.match(html, /<script src="\.\/agent-workspace\.js"><\/script>[\s\S]*?<script type="module" src="\.\/renderer\.js"><\/script>/);
+  const scripts = doc.all((el) => el.tag === 'script' && el.attrs.src);
+  const at = (src) => scripts.findIndex((el) => el.attrs.src === src);
+  assert.ok(at('./agent-workspace.js') >= 0 && at('./agent-workspace.js') < at('./renderer.js'));
+  assert.equal(scripts[at('./renderer.js')].attrs.type, 'module');
   assert.match(renderer, /function identityGroupsForLens[\s\S]*?AgentWorkspace\.projectMeshAgentGroups/);
   assert.doesNotMatch(renderer, /if \(!slots\.length\) continue/);
-  assert.match(projection, /return \(overview\.agents \|\| \[\]\)\.map/);
+  // Every Agent in the catalog is projected, also one with no location anywhere.
+  const groups = require('../src/agent-workspace').projectMeshAgentGroups({ overview: { initialized: true, agents: [{ agentId: 'a1', displayName: 'A' }, { agentId: 'a2', displayName: 'B' }], slots: [] }, lensId: 'all', profiles: [] });
+  assert.equal(groups.length, 2);
   // 打开落在这只猫卡片上显示的运行位置，不选中它，所以正在看的列表不变。
   const launchHandler = renderer.slice(
     renderer.indexOf("card.querySelector('.account-card-launch').addEventListener('click'"),
@@ -156,70 +206,105 @@ test('全局员工目录通过独立 catalog 通道同步，先于来源设备 i
   assert.match(main, /function catalogMeshCall\(callback\)[\s\S]*?broadcastCatalog\(\)[\s\S]*?broadcastInventory\(\)/);
 });
 
-test('远端已就绪与首次准备共用主按钮，只走窄语义 IPC', () => {
-  const html = read('src/index.html');
+test('远端已就绪与首次准备共用主按钮，只走窄语义 IPC', async () => {
   const preload = read('src/preload.js');
   const renderer = rendererSource();
-  const main = mainHandlerSource();
-  const capabilities = read('src/mesh/domain/capabilities.js');
-  assert.match(capabilities, /'agent\.prepare': \{ defaultPaired: false, dangerous: true \}/);
-  assert.match(html, /data-capability="agent\.prepare"/);
-  assert.match(preload, /launchRemoteAgent: \(input\) => ipcRenderer\.invoke\('agentActions:launchRemote', input\)/);
-  assert.match(preload, /prepareRemoteAgent: \(input\) => ipcRenderer\.invoke\('agentActions:prepareRemote', input\)/);
+  const capabilities = require('../src/mesh/domain/capabilities');
+  const prepare = capabilities.CAPABILITIES?.['agent.prepare'] || capabilities.CAPABILITY_DEFINITIONS?.['agent.prepare'];
+  assert.deepEqual(prepare && { defaultPaired: prepare.defaultPaired, dangerous: prepare.dangerous }, { defaultPaired: false, dangerous: true });
+  assert.ok(doc.all((el) => el.attrs['data-capability'] === 'agent.prepare').length > 0);
+  const { api, calls } = loadPreload();
+  api.launchRemoteAgent({ agentId: 'a' }); api.prepareRemoteAgent({ agentId: 'a' });
+  assert.deepEqual(plain(calls), [['invoke', 'agentActions:launchRemote', { agentId: 'a' }], ['invoke', 'agentActions:prepareRemote', { agentId: 'a' }]]);
   assert.match(renderer, /profile[\s\S]*?launchRemoteAgent\(\{[\s\S]*?agentId:[\s\S]*?deviceId:[\s\S]*?profileId:/);
   assert.match(renderer, /prepareRemoteAgent\(\{[\s\S]*?agentId:[\s\S]*?deviceId:[\s\S]*?requestedAppId:[\s\S]*?requestedClientForm:/);
-  assert.match(main, /agentActions:launchRemote[\s\S]*?agentId:[\s\S]*?deviceId:[\s\S]*?profileId:/);
-  assert.match(main, /agentActions:prepareRemote[\s\S]*?requestedAppId:[\s\S]*?requestedClientForm:/);
+  const sent = [];
+  const actionDeps = {
+    boundedText: bounded,
+    getAgentActionService: () => ({ launchRemote: async (input) => { sent.push(input); return { ok: true }; }, prepareRemote: async (input) => { sent.push(input); return { ok: true }; } }),
+    getMeshService: () => ({ getOverview: () => ({}) }),
+    withMeshRuntime: (overview) => overview
+  };
+  const extra = { command: 'sh', path: '/x', argv: ['-c'], url: 'https://x' };
+  await runCommand('agentActions:launchRemote', actionDeps, { agentId: 'a', deviceId: 'd', profileId: 'p', ...extra });
+  await runCommand('agentActions:prepareRemote', actionDeps, { agentId: 'a', deviceId: 'd', requestedAppId: 'codex', ...extra });
+  assert.deepEqual(sent, [{ agentId: 'a', deviceId: 'd', profileId: 'p' }, { agentId: 'a', deviceId: 'd', requestedAppId: 'codex', requestedClientForm: 'desktop' }]);
   assert.doesNotMatch(preload, /agentActions:(command|exec|invoke)|remoteCommand|generic\.exec/i);
 });
 
-test('公网会合设置与诊断使用固定 IPC，界面不接收 TURN 长期凭据或连接原文', () => {
-  const html = read('src/index.html');
+test('公网会合设置与诊断使用固定 IPC，界面不接收 TURN 长期凭据或连接原文', async () => {
   const renderer = rendererSource();
   const preload = read('src/preload.js');
   const main = mainHandlerSource();
-  assert.match(html, /id="networkSettingsBtn"[\s\S]*?id="meshNetworkDialog"/);
-  assert.match(html, /id="meshSignalingUrls"[\s\S]*?id="meshStunUrls"/);
-  assert.doesNotMatch(html, /id="[^"\n]*(turn|credential)|<(input|textarea)[^>]*(turn|credential)/i);
-  assert.match(preload, /getDeviceDiagnostics: \(deviceId\) => ipcRenderer\.invoke\('devices:getDiagnostics'/);
-  assert.match(preload, /updateDeviceNetworkConfig: \(input\) => ipcRenderer\.invoke\('devices:updateNetworkConfig'/);
+  assert.ok(inOrder('networkSettingsBtn', 'meshNetworkDialog'));
+  assert.ok(inside('meshSignalingUrls', 'meshNetworkDialog') && inOrder('meshSignalingUrls', 'meshStunUrls'));
+  assert.deepEqual(doc.all((el) => /turn|credential/i.test(el.attrs.id || '') || (['input', 'textarea'].includes(el.tag) && /turn|credential/i.test(JSON.stringify(el.attrs)))).map((el) => el.attrs.id), [], 'no field for TURN secrets');
+  const { api, calls } = loadPreload();
+  api.getDeviceDiagnostics('d1'); api.updateDeviceNetworkConfig({ signalingUrls: [] });
+  assert.deepEqual(plain(calls).map((call) => call[1]), ['devices:getDiagnostics', 'devices:updateNetworkConfig']);
+  // Every preload method names a fixed channel (a security invariant of the whitelist).
   assert.doesNotMatch(preload, /ipcRenderer\.invoke\([^'"\n]|ipcRenderer\.on\([^'"\n]/);
-  assert.match(main, /ipcMain\.handle\('devices:updateNetworkConfig'[\s\S]*?normalizeServiceUrls\(input\.signalingUrls\)[\s\S]*?normalizeStunUrls\(input\.stunUrls\)/);
+  // The network settings take only the two URL lists, each through its normaliser.
+  const normalised = [];
+  const config = await runCommand('devices:updateNetworkConfig', {
+    boundedText: bounded,
+    configuredSignalingUrls: () => [],
+    ensureSignalingOnline: async () => {},
+    getMeshService: () => ({ updateLocalSignalUrls() {} }),
+    normalizeServiceUrls: (urls) => { normalised.push(['signaling', urls]); return ['https://s.example']; },
+    normalizeStunUrls: (urls) => { normalised.push(['stun', urls]); return ['stun:s.example']; },
+    publicNetworkRuntime: () => ({}),
+    stopSignalingClient: async () => {},
+    updateSettings: (patch) => normalised.push(['settings', patch])
+  }, { signalingUrls: ['a'], stunUrls: ['b'], turnSecret: 'x', turnUrls: ['turn:x'] });
+  assert.deepEqual(config.config, { signalingUrls: ['https://s.example'], stunUrls: ['stun:s.example'] });
+  assert.deepEqual(normalised, [['signaling', ['a']], ['stun', ['b']], ['settings', { meshSignalingUrls: ['https://s.example'], meshStunUrls: ['stun:s.example'], meshNetworkEnrollmentEnabled: true }]]);
   assert.match(main, /deviceDiagnostics\([\s\S]*?candidateTypes[\s\S]*?protocols[\s\S]*?selectedPairState/);
   assert.doesNotMatch(renderer, /candidate\.address|localDescription|remoteDescription|turnSecret|turnUsername|turnCredential\b|devicePrivateKey/);
 });
 
-test('局域网配对端口只在用户创建邀请后临时开启，取消邀请会立即关闭', () => {
+test('局域网配对端口只在用户创建邀请后临时开启，取消邀请会立即关闭', async () => {
   const main = mainHandlerSource();
-  const html = read('src/index.html');
-  assert.match(main, /ipcMain\.handle\('devices:createInvite',[\s\S]*?await openPairingEndpoint\(\)[\s\S]*?createInvite\(\)/);
-  assert.match(main, /ipcMain\.handle\('devices:cancelInvite',[\s\S]*?await closePairingEndpoint\(\)/);
+  const steps = [];
+  const pairingDeps = {
+    boundedText: bounded,
+    pairingApprovalRegistry: { stop: (why) => steps.push(['stop', why]), cancelInvite: (id) => steps.push(['cancel', id]) },
+    setMeshNetworkEnrollmentEnabled: () => {},
+    ensureSignalingOnline: async () => {},
+    openPairingEndpoint: async () => steps.push('open'),
+    closePairingEndpoint: async () => steps.push('close'),
+    getMeshService: () => ({ createInvite: () => { steps.push('invite'); return { code: 'AD1-x' }; }, cancelInvite: () => steps.push('cancelInvite') }),
+    meshReachabilityEnabled: false
+  };
+  assert.equal((await runCommand('devices:createInvite', pairingDeps)).ok, true);
+  assert.deepEqual(steps, [['stop', 'pairing-invite-replaced'], 'open', 'invite'], 'the port opens only for an invitation');
+  steps.length = 0;
+  await runCommand('devices:cancelInvite', pairingDeps, { inviteId: 'i1' });
+  assert.deepEqual(steps, ['cancelInvite', ['cancel', 'i1'], 'close'], 'cancelling closes it again');
+  // Start-up is Electron's app object, which Node tests don't have: held to a text search.
   assert.doesNotMatch(main, /app\.whenReady\(\)[\s\S]{0,600}await openPairingEndpoint\(\)/);
-  assert.match(html, /id="createDeviceInviteBtn"[\s\S]*?id="meshInvitePanel"|id="meshInvitePanel"[\s\S]*?id="createDeviceInviteBtn"/);
-  assert.match(html, /id="devicePermissionsDialog"[\s\S]*?data-capability="screen\.view"[\s\S]*?data-capability="input\.control"/);
+  assert.ok(doc.byId('createDeviceInviteBtn') && doc.byId('meshInvitePanel'));
+  const permission = (name) => doc.all((el) => el.attrs['data-capability'] === name && doc.within(el, doc.byId('devicePermissionsDialog')))[0];
+  assert.ok(permission('screen.view') && permission('input.control') && doc.index(permission('screen.view')) < doc.index(permission('input.control')));
 });
 
 test('设备中心明确保留账号删到零与不补默认账号的空状态', () => {
-  const zh = read('src/i18n/zh.js');
   const renderer = rendererSource();
-  assert.match(zh, /当前没有账号。位置可以删到零，不会自动补回各平台的默认账号/);
+  assert.equal(mt('zh', 'devices.agents.empty'), '当前没有账号。位置可以删到零，不会自动补回各平台的默认账号。');
   assert.match(renderer, /if \(!deviceAgents\.length && !unassignedSlots\.length\)[\s\S]*?devices\.agents\.empty/);
   assert.match(renderer, /unassignedSlots[\s\S]*?catalog\.unassigned\.title[\s\S]*?openSlotAssignmentDialog\(slot\)/);
   assert.match(renderer, /overview\.slots\.filter\(\(slot\) => slot\.agentId === agent\.agentId\)/);
 });
 
 test('Agent 管理明确区分新 Agent、新账号绑定、新运行位置和三种移除范围', () => {
-  const html = read('src/index.html');
   const renderer = rendererSource();
   for (const mode of ['new-agent', 'existing-agent', 'existing-binding']) {
-    assert.match(html, new RegExp(`value="${mode}"`));
+    assert.ok(doc.all((el) => el.attrs.value === mode).length > 0, `mode ${mode} is offered`);
   }
-  for (const scope of ['slot', 'account-binding', 'agent']) {
-    assert.match(html, new RegExp(`name="catalogRemoveScope" value="${scope}"`));
-  }
-  assert.match(html, /id="agentRelationsDialog"[\s\S]*?id="mergeAgentTarget"[\s\S]*?id="splitAccountBinding"/);
-  assert.match(html, /id="agentCreateDialog"[\s\S]*?id="newAgentName"[\s\S]*?id="confirmAddAgentBtn"/);
-  assert.match(html, /id="agentManageDialog"[\s\S]*?id="agentManageLocations"[\s\S]*?id="yardManageActions"[\s\S]*?id="addRuntimeLocationBtn"/);
+  assert.deepEqual(doc.all((el) => el.attrs.name === 'catalogRemoveScope').map((el) => el.attrs.value), ['slot', 'account-binding', 'agent']);
+  assert.ok(['mergeAgentTarget', 'splitAccountBinding'].every((id) => inside(id, 'agentRelationsDialog')) && inOrder('mergeAgentTarget', 'splitAccountBinding'));
+  assert.ok(['newAgentName', 'confirmAddAgentBtn'].every((id) => inside(id, 'agentCreateDialog')) && inOrder('newAgentName', 'confirmAddAgentBtn'));
+  assert.ok(['agentManageLocations', 'yardManageActions', 'addRuntimeLocationBtn'].every((id) => inside(id, 'agentManageDialog')) && inOrder('agentManageLocations', 'yardManageActions', 'addRuntimeLocationBtn'));
   // “招募”打开统一的招募弹窗；在官方窗口登录时，已建好设备网且客户端支持首次准备的，仍走新建 Agent 与首次准备。
   assert.match(renderer, /addProfileBtn\.addEventListener\('click'[\s\S]*?recruitDialog\.open\('new'\)/);
   assert.match(renderer, /function confirmAgentCreation\(\)[\s\S]*?createAgentAndPrepare\(\{/);
@@ -233,8 +318,8 @@ test('Agent 管理明确区分新 Agent、新账号绑定、新运行位置和�
   assert.match(renderer, /removeAccountBinding\(\{[\s\S]*?accountBindingId:/);
   assert.match(renderer, /deleteAgent\(\{[\s\S]*?agentId:/);
   assert.match(renderer, /baseRevision:\s*currentCatalogRevision\(\)/);
-  assert.match(html, /<label id="editIdentityField">[\s\S]*?id="editIdentity"/);
-  assert.doesNotMatch(html, /<label id="editIdentityField">[\s\S]{0,160}id="editName"/);
+  assert.equal(doc.byId('editIdentityField').tag, 'label');
+  assert.ok(inside('editIdentity', 'editIdentityField') && !inside('editName', 'editIdentityField'));
   assert.match(renderer, /function fillAgentAssignmentSelect[\s\S]*?catalog\.assignment\.choose[\s\S]*?\? previous : ''/);
   assert.match(renderer, /newProfileAgent\?\.addEventListener\('change'[\s\S]*?syncProfileAssignmentControls/);
   assert.match(renderer, /slotAssignmentAgent\?\.addEventListener\('change'[\s\S]*?syncSlotAssignmentControls/);
@@ -247,11 +332,10 @@ test('Agent 管理明确区分新 Agent、新账号绑定、新运行位置和�
 });
 
 test('远控返回保留后台查看提示，断开才移除；错误按真实原因分类', () => {
-  const html = read('src/index.html');
   const renderer = rendererSource();
   const main = mainHandlerSource();
   const service = read('src/mesh/main/remote-control-service.js');
-  assert.match(html, /id="remoteActivityBtn"[^>]*aria-live="polite"/);
+  assert.equal(doc.byId('remoteActivityBtn').attrs['aria-live'], 'polite');
   assert.match(renderer, /function activeOutgoingRemoteSessions[\s\S]*?direction === 'outgoing'[\s\S]*?error', 'rejected', 'disconnected/);
   assert.match(renderer, /function renderRemoteActivity[\s\S]*?activeOutgoingRemoteSessions\(\)[\s\S]*?remote\.background\.button/);
   assert.match(renderer, /returnRemoteControl\(state\.ui\.activeRemoteSessionId\)/);
@@ -270,21 +354,26 @@ test('远控返回保留后台查看提示，断开才移除；错误按真实�
   assert.match(renderer, /disabled: state\.mesh\.loading \|\| !canView \|\| !canReachRemote/);
 });
 
-test('会话发送从会话工具栏的“送出”发起，只提交稳定 ID，项目根由 Main 选择', () => {
-  const html = read('src/index.html');
+test('会话发送从会话工具栏的“送出”发起，只提交稳定 ID，项目根由 Main 选择', async () => {
   const renderer = rendererSource();
-  const preload = read('src/preload.js');
-  const main = mainHandlerSource();
-  const activity = html.slice(html.indexOf('id="activityCenterDialog"'));
-  const sessionPane = html.slice(html.indexOf('id="sessionPane"'), html.indexOf('id="detailPanel"'));
-  assert.match(sessionPane, /id="sessionSendMenu"[\s\S]*?id="sendSessionInfoBtn"/);
-  assert.doesNotMatch(activity, /id="sendSessionInfoBtn"/);
+  assert.ok(inside('sessionSendMenu', 'sessionPane') && inside('sendSessionInfoBtn', 'sessionSendMenu'));
+  assert.ok(!inside('sendSessionInfoBtn', 'activityCenterDialog'));
   assert.match(renderer, /conversationId:\s*session\.conversationId,[\s\S]{0,100}replicaId:\s*session\._replicaId/);
   assert.doesNotMatch(renderer, /createSessionPointerTransfer\(\{[^}]*projectPath|chooseProjectBinding\(\{[^}]*localRoot/);
-  assert.match(preload, /ipcRenderer\.invoke\('transfers:createSessionPointer'/);
-  assert.match(main, /ipcMain\.handle\('transfers:createSessionPointer'/);
-  assert.match(main, /ipcMain\.handle\('projects:chooseBinding'[\s\S]*?dialog\.showOpenDialog/);
-  assert.match(html, /不生成交接模板/);
+  assertFixedChannels(['transfers:createSessionPointer', 'projects:chooseBinding']);
+  // The project root comes from Main's folder picker, never from the request.
+  const pickerCalls = [];
+  const bound = await runCommand('projects:chooseBinding', {
+    boundedText: bounded,
+    dialog: { showOpenDialog: async (_window, options) => { pickerCalls.push(options.properties); return { canceled: false, filePaths: ['/picked/root'] }; } },
+    getTransferService: () => ({ saveProjectBinding: (input) => input, list: () => [] }),
+    mainWindow: null,
+    t: (key) => key
+  }, { projectId: 'proj', sourceDeviceId: 'd1', localRoot: '/from/request', projectPath: '/from/request' });
+  assert.deepEqual(pickerCalls, [['openDirectory', 'createDirectory']]);
+  assert.deepEqual(bound.binding, { projectId: 'proj', sourceDeviceId: 'd1', localRoot: '/picked/root' });
+  const pointerNote = doc.all((el) => el.attrs['data-i18n'] === 'transfers.pointerBody')[0];
+  assert.ok(pointerNote && doc.text(pointerNote).includes('不生成交接模板'));
   assert.match(renderer, /const keyState = state\.mesh\.overview\?\.keyState \|\| 'available';[\s\S]*?keyState === 'available'[\s\S]*?await loadMeshSessions\(null, \{ generation \}\)[\s\S]*?loadLocalSessions\(\{ source: 'local-fallback', generation \}\)/);
   assert.match(renderer, /loadDeviceOverview\(\{ requestSecureAccess: true \}\)/);
   assert.match(renderer, /function loadMeshSessions[\s\S]*?return \{ ok: false, reasonCode:[\s\S]*?state\.mesh\.sessionSource = 'mesh'/);
@@ -292,37 +381,40 @@ test('会话发送从会话工具栏的“送出”发起，只提交稳定 ID�
   assert.match(renderer, /function crossDeviceActionsPaused[\s\S]*?sessionSource === 'local-fallback'[\s\S]*?sessionErrorCode/);
   assert.match(renderer, /function directTaskPackageTargets\(\) \{[\s\S]*?if \(crossDeviceActionsPaused\(\)\) return \[\]/);
   for (const locale of ['zh', 'en', 'ja']) {
-    const dictionary = read(`src/i18n/${locale}.js`);
-    assert.match(dictionary, /'status\.sessionsLocalFallback':/);
-    assert.match(dictionary, /'status\.sessionsRemoteUnavailable':/);
-    assert.match(dictionary, /'status\.crossDevicePaused':/);
+    for (const key of ['status.sessionsLocalFallback', 'status.sessionsRemoteUnavailable', 'status.crossDevicePaused']) {
+      assert.equal(typeof LOCALES[locale][key], 'string', `${locale} ${key}`);
+    }
   }
 });
 
-test('文件传输路径只来自 Main 系统选择器，Renderer 只提交设备和传输 ID', () => {
-  const html = read('src/index.html');
+test('文件传输路径只来自 Main 系统选择器，Renderer 只提交设备和传输 ID', async () => {
   const renderer = rendererSource();
-  const preload = read('src/preload.js');
-  const main = mainHandlerSource();
-  const sessionDialog = html.slice(
-    html.indexOf('id="sessionSendDialog"'),
-    html.indexOf('</dialog>', html.indexOf('id="sessionSendDialog"'))
-  );
-  const fileDialog = html.slice(
-    html.indexOf('id="fileSendDialog"'),
-    html.indexOf('</dialog>', html.indexOf('id="fileSendDialog"'))
-  );
-  assert.match(sessionDialog, /id="sessionSendTarget"[\s\S]*?id="confirmSessionSendBtn"/);
-  assert.doesNotMatch(sessionDialog, /id="fileSendTarget"|id="chooseFilesBtn"/);
-  assert.match(fileDialog, /id="fileSendTarget"[\s\S]*?id="chooseFilesBtn"/);
-  assert.doesNotMatch(fileDialog, /id="sessionSendTarget"|id="confirmSessionSendBtn"/);
+  assert.ok(inside('sessionSendTarget', 'sessionSendDialog') && inside('confirmSessionSendBtn', 'sessionSendDialog') && inOrder('sessionSendTarget', 'confirmSessionSendBtn'));
+  assert.ok(!inside('fileSendTarget', 'sessionSendDialog') && !inside('chooseFilesBtn', 'sessionSendDialog'));
+  assert.ok(inside('fileSendTarget', 'fileSendDialog') && inside('chooseFilesBtn', 'fileSendDialog') && inOrder('fileSendTarget', 'chooseFilesBtn'));
+  assert.ok(!inside('sessionSendTarget', 'fileSendDialog') && !inside('confirmSessionSendBtn', 'fileSendDialog'));
   assert.match(renderer, /function openFileSendDialog[\s\S]*?UiContext\.createFileDraft\(/);
   assert.match(renderer, /chooseFileTransfer\(\{ targetDeviceId \}\)/);
   assert.match(renderer, /acceptFileTransfer\(transfer\.transferId\)/);
   assert.doesNotMatch(renderer, /chooseFileTransfer\(\{[^}]*filePaths|acceptFileTransfer\([^)]*,/);
-  assert.match(preload, /ipcRenderer\.invoke\('transfers:chooseFiles'/);
-  assert.match(preload, /ipcRenderer\.invoke\('transfers:acceptFile'/);
-  assert.match(main, /ipcMain\.handle\('transfers:chooseFiles'[\s\S]*?properties: \['openFile', 'multiSelections'\]/);
-  assert.match(main, /ipcMain\.handle\('transfers:acceptFile'[\s\S]*?properties: \['openDirectory', 'createDirectory'\]/);
-  assert.match(main, /createFileTransfer\(\{[\s\S]*?filePaths: result\.filePaths/);
+  assertFixedChannels(['transfers:chooseFiles', 'transfers:acceptFile']);
+  // Files and the destination come from Main's pickers; the request only names ids.
+  const picked = [];
+  const transferDeps = {
+    boundedText: bounded,
+    dialog: { showOpenDialog: async (_window, options) => { picked.push(options.properties); return { canceled: false, filePaths: options.properties.includes('openFile') ? ['/picked/a.txt'] : ['/picked/dir'] }; } },
+    getTransferService: () => ({
+      createFileTransfer: async (input) => { picked.push(['create', input]); return {}; },
+      acceptFileTransfer: async (id, folder) => { picked.push(['accept', id, folder]); return {}; },
+      list: () => []
+    }),
+    mainWindow: null,
+    t: (key) => key
+  };
+  await runCommand('transfers:chooseFiles', transferDeps, { targetDeviceId: 'd2', filePaths: ['/etc/passwd'] });
+  await runCommand('transfers:acceptFile', transferDeps, { transferId: 'tr1', folder: '/tmp/evil' });
+  assert.deepEqual(picked, [
+    ['openFile', 'multiSelections'], ['create', { targetDeviceId: 'd2', filePaths: ['/picked/a.txt'] }],
+    ['openDirectory', 'createDirectory'], ['accept', 'tr1', '/picked/dir']
+  ]);
 });

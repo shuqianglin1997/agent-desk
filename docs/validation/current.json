@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T03:17:45.644Z",
-  "baseCommit": "f10c89b5010471b8f71c0e1dd1f85fc36180e67c",
+  "recordedAt": "2026-11-25T03:28:36.286Z",
+  "baseCommit": "c8c8e276f80149fc7565d86f5d8e3fa17c2f568d",
   "uncommitted": true,
-  "sourceSha256": "338f1b7128cd2a9e316bfc5a85b7d8accf4320b99307fdb4f4c103934e8cc5a0",
+  "sourceSha256": "3142c1e8be4d6ff4a8c9d1d06a2a1c9df06a2a9b77f8384853b8f7e898f8087b",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 960,
+      "pass": 958,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after the main and device UI tests moved to structure and behaviour checks and the text-only test list was added; digest identical before and after the run",
+      "recordedAt": "2026-11-25T03:28:36.286Z",
+      "sourceSha256": "3142c1e8be4d6ff4a8c9d1d06a2a1c9df06a2a9b77f8384853b8f7e898f8087b"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T03:28:36.286Z",
+      "sourceSha256": "3142c1e8be4d6ff4a8c9d1d06a2a1c9df06a2a9b77f8384853b8f7e898f8087b"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",
