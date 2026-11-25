@@ -21,14 +21,15 @@ function safeFs(overrides = {}) {
 }
 
 test('macOS 激活器路径固定在应用原生资源目录', () => {
+  // Joined with the host's separator, so the same check holds when CI runs it on Windows.
   assert.equal(defaultMacApplicationActivatorPath({
     isPackaged: true,
     resourcesPath: '/Applications/AgentDesk.app/Contents/Resources'
-  }), '/Applications/AgentDesk.app/Contents/Resources/native/AgentDeskAppActivator');
+  }), path.join('/Applications/AgentDesk.app/Contents/Resources', 'native', 'AgentDeskAppActivator'));
   assert.equal(defaultMacApplicationActivatorPath({
     isPackaged: false,
     appPath: '/repo/AgentDesk'
-  }), '/repo/AgentDesk/native/bin/AgentDeskAppActivator');
+  }), path.join('/repo/AgentDesk', 'native', 'bin', 'AgentDeskAppActivator'));
   assert.equal(defaultMacApplicationActivatorPath({ isPackaged: true, resourcesPath: 'relative' }), '');
 });
 

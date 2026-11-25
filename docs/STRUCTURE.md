@@ -44,7 +44,7 @@ ui → bridge → commands → services → clients → core
 4. 在 `src/apps.js` 的 `ADAPTERS` 里登记一行。不要在别处加按客户端名字的分支。
 5. 是命令行工具时，在 `src/cli-discovery.js` 与 `src/tool-maintenance.js` 的固定目录里各加一项，适配器用 `cliDiscoveryId`、`maintenanceToolId` 指过去。
 6. 新的界面文字加进 `src/i18n/zh.js`、`en.js`、`ja.js` 三张表，key 集合必须一致；用词按 [WORDING_PLAN.md](WORDING_PLAN.md)。
-7. 测试：在系统临时目录里造合成的数据目录和会话文件，验证扫描结果、导出和发现特征；不读真实账号目录。把新文件加进 `package.json` 的 `check` 脚本（每个源文件一条 `node --check`）。
+7. 测试：在系统临时目录里造合成的数据目录和会话文件，验证扫描结果、导出和发现特征；不读真实账号目录。把新文件加进 `scripts/check-syntax.js` 的清单（`npm run check` 对清单里每个文件跑一次 `node --check`）。
 
 ## 4. 加一条命令
 

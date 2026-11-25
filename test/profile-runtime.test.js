@@ -14,7 +14,10 @@ const {
 } = require('../src/profile-runtime');
 
 function fixture() {
-  const root = makeTempDir('agentdesk-profile-runtime-');
+  // The canonical path: Windows runners hand out an 8.3 short temp path
+  // (RUNNER~1) that the native realpath expands, which the Crashpad cleanup
+  // would rightly read as the folder having moved.
+  const root = fs.realpathSync.native(makeTempDir('agentdesk-profile-runtime-'));
   const profilePath = path.join(root, 'Profile');
   const pendingPath = path.join(profilePath, 'Crashpad', 'pending');
   fs.mkdirSync(pendingPath, { recursive: true });

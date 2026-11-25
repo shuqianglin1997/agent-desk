@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T09:27:49.095Z",
-  "baseCommit": "c9cf2ba8740f5ff43eac80fecd48f461b9b4c729",
+  "recordedAt": "2026-11-25T09:39:11.825Z",
+  "baseCommit": "b017960987ba116c136944dfee5a6afd33914186",
   "uncommitted": true,
-  "sourceSha256": "9fa45078d663a4e5c431136c663195ea5f1a15eeaacf586c2a82316b6b193822",
+  "sourceSha256": "68f1fd211e59c0a145af6dae1d199421d0452ab89aa6dbb97979f5ce9b51bc11",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1017,
+      "pass": 1015,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after bringing CI up to date with the app: the packaged first-use smoke reads renderer state through window.AgentDeskInspect (the renderer is ES modules) and enters first use from the empty desk recruit button (a fresh install opens no dialog by itself); the per-file node --check list moved from package.json into scripts/check-syntax.js (the inline chain was over the 8,191-character cmd.exe limit on Windows CI), with a test that every npm script stays short; three tests no longer assume the host path separator or a canonical temp path (Windows CI on 07628ce failed them); .gitattributes checks text out with LF everywhere. The packaged smoke itself was not run locally (it opens app windows); CI runs it",
+      "recordedAt": "2026-11-25T09:39:11.825Z",
+      "sourceSha256": "68f1fd211e59c0a145af6dae1d199421d0452ab89aa6dbb97979f5ce9b51bc11"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js (node --check on 291 listed files)",
+      "recordedAt": "2026-11-25T09:39:11.825Z",
+      "sourceSha256": "68f1fd211e59c0a145af6dae1d199421d0452ab89aa6dbb97979f5ce9b51bc11"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

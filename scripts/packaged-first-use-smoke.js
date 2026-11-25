@@ -8,6 +8,11 @@
  * its packaged Renderer over a loopback-only DevTools endpoint, and exercises
  * the production preload/Main first-Agent initialization contract.
  *
+ * The Renderer is ES modules, so its state is read through the same
+ * `window.AgentDeskInspect` the hidden acceptance uses. A fresh install opens
+ * no dialog by itself: first use starts from the empty desk's recruit button
+ * (Mesh plan §33), which this runner clicks.
+ *
  * The normal UI create button continues into the official-client provisioning
  * boundary. A release smoke test must not open an installer, login window, or
  * third-party client, so this runner stops at the same bounded
@@ -32,6 +37,8 @@ const ONBOARDING = require(path.join(APP_ROOT, 'src', 'onboarding-state.js'));
 const PRODUCT_NAME = 'Catshelf';
 const DEFAULT_TIMEOUT_MS = 45_000;
 const MAIN_WINDOW_CONTRACT = Object.freeze({ width: 1040, height: 840 });
+// The empty desk's “招募第一只猫” button (src/renderer/views/roster.js).
+const EMPTY_DESK_RECRUIT = '#accountRoster .account-roster-empty button.primary';
 const MAX_OBSERVED_WINDOW_FRAME_CSS_PX = 96;
 const MAX_AVAILABLE_EDGE_INSET_CSS_PX = 8;
 const NETWORK_ENV_KEYS = Object.freeze([
@@ -854,22 +861,27 @@ async function waitFor(client, expression, label, timeoutMs) {
 async function firstUseStartupDiagnostics(instance) {
   let renderer = null;
   try {
-    renderer = await instance.client.evaluate(`({
-      documentReadyState: document.readyState,
-      startupStage: state.startupStage || null,
-      onboardingStateType: typeof window.OnboardingState,
-      dialogOpen: document.querySelector('#welcomeDialog')?.open === true,
-      onboardingContentHidden: document.querySelector('#onboardingContent')?.hidden !== false,
-      firstUseMode: state.firstUse?.mode || null,
-      firstUsePhase: state.firstUse?.model?.phase || null,
-      firstUseVersion: state.firstUse?.model?.version || null,
-      profileCount: Array.isArray(state.profiles) ? state.profiles.length : null,
-      meshOverviewLoaded: state.mesh?.overview !== null,
-      meshInitialized: state.mesh?.overview?.initialized === true,
-      meshLoading: state.mesh?.loading === true,
-      meshErrorCode: state.mesh?.errorCode || null,
-      onboardingProgress: state.onboardingProgress || null
-    })`);
+    renderer = await instance.client.evaluate(`(() => {
+      const state = window.AgentDeskInspect?.state || {};
+      return {
+        documentReadyState: document.readyState,
+        inspectType: typeof window.AgentDeskInspect,
+        startupStage: state.startupStage || null,
+        onboardingStateType: typeof window.OnboardingState,
+        dialogOpen: document.querySelector('#welcomeDialog')?.open === true,
+        onboardingContentHidden: document.querySelector('#onboardingContent')?.hidden !== false,
+        emptyDeskRecruit: Boolean(document.querySelector(${JSON.stringify(EMPTY_DESK_RECRUIT)})),
+        firstUseMode: state.firstUse?.mode || null,
+        firstUsePhase: state.firstUse?.model?.phase || null,
+        firstUseVersion: state.firstUse?.model?.version || null,
+        profileCount: Array.isArray(state.profiles) ? state.profiles.length : null,
+        meshOverviewLoaded: state.mesh?.overview !== null,
+        meshInitialized: state.mesh?.overview?.initialized === true,
+        meshLoading: state.mesh?.loading === true,
+        meshErrorCode: state.mesh?.errorCode || null,
+        onboardingProgress: state.onboardingProgress || null
+      };
+    })()`);
   } catch (error) {
     renderer = { diagnosticError: String(error?.message || error).slice(0, 240) };
   }
@@ -1199,7 +1211,7 @@ async function assertPackagedMainWindow(instance, expectedVersion) {
   await waitFor(
     instance.client,
     `document.readyState === 'complete'
-      && typeof state !== 'undefined'
+      && typeof window.AgentDeskInspect?.state === 'object'
       && typeof window.manager?.initializeFirstAgent === 'function'`,
     'packaged Catshelf main window',
     instance.client.timeoutMs
@@ -1247,13 +1259,30 @@ async function assertPackagedMainWindow(instance, expectedVersion) {
 async function initializeFirstAgent(instance, userData, options) {
   const { client } = instance;
   try {
+    // A fresh install starts on the empty desk with no dialog open; first use
+    // is entered from the desk's recruit button.
+    await waitFor(
+      client,
+      `AgentDeskInspect.state.startupStage === 'ready'
+        && AgentDeskInspect.state.profiles.length === 0
+        && AgentDeskInspect.state.mesh.overview?.initialized !== true
+        && Boolean(document.querySelector(${JSON.stringify(EMPTY_DESK_RECRUIT)}))`,
+      'fresh empty desk with its recruit button',
+      options.timeoutMs
+    );
+    assert.equal(
+      await client.evaluate(`document.querySelector('#welcomeDialog').open`),
+      false,
+      'a fresh install must not open the first-use dialog by itself'
+    );
+    await client.evaluate(`document.querySelector(${JSON.stringify(EMPTY_DESK_RECRUIT)}).click()`);
     await waitFor(
       client,
       `document.querySelector('#welcomeDialog')?.open
-        && state.firstUse.model?.phase === 'agent'
-        && state.firstUse.model?.version === ${JSON.stringify(options.expectedOnboardingVersion)}
-        && state.profiles.length === 0
-        && state.mesh.overview?.initialized !== true`,
+        && AgentDeskInspect.state.firstUse.model?.phase === 'agent'
+        && AgentDeskInspect.state.firstUse.model?.version === ${JSON.stringify(options.expectedOnboardingVersion)}
+        && AgentDeskInspect.state.profiles.length === 0
+        && AgentDeskInspect.state.mesh.overview?.initialized !== true`,
       'fresh versioned first-use Agent step',
       options.timeoutMs
     );
@@ -1336,18 +1365,18 @@ async function recoverAndComplete(instance, userData, first, options) {
   await waitFor(
     client,
     `document.querySelector('#welcomeDialog')?.open
-      && state.firstUse.model?.phase === 'existing'
-      && state.firstUse.model?.version === ${JSON.stringify(options.expectedOnboardingVersion)}
-      && state.mesh.overview?.initialized === true`,
+      && AgentDeskInspect.state.firstUse.model?.phase === 'existing'
+      && AgentDeskInspect.state.firstUse.model?.version === ${JSON.stringify(options.expectedOnboardingVersion)}
+      && AgentDeskInspect.state.mesh.overview?.initialized === true`,
     'packaged first-use restart recovery',
     options.timeoutMs
   );
   const recovered = await client.evaluate(`({
-    agentIds: state.firstUse.model.agents.map((agent) => agent.agentId),
-    agentNames: state.firstUse.model.agents.map((agent) => agent.displayName),
-    deviceId: state.mesh.overview.localDeviceId,
-    profiles: state.profiles.length,
-    overview: state.mesh.overview,
+    agentIds: AgentDeskInspect.state.firstUse.model.agents.map((agent) => agent.agentId),
+    agentNames: AgentDeskInspect.state.firstUse.model.agents.map((agent) => agent.displayName),
+    deviceId: AgentDeskInspect.state.mesh.overview.localDeviceId,
+    profiles: AgentDeskInspect.state.profiles.length,
+    overview: AgentDeskInspect.state.mesh.overview,
     primaryAction: document.querySelector('#onboardingPrimaryBtn').dataset.action
   })`);
   assert.deepEqual(recovered.agentIds, [first.agentId]);
@@ -1361,8 +1390,8 @@ async function recoverAndComplete(instance, userData, first, options) {
   await client.evaluate(`document.querySelector('#onboardingPrimaryBtn').click()`);
   await waitFor(
     client,
-    `state.firstUse.model?.phase === 'complete'
-      && state.firstUse.model?.completeShown === true
+    `AgentDeskInspect.state.firstUse.model?.phase === 'complete'
+      && AgentDeskInspect.state.firstUse.model?.completeShown === true
       && !document.querySelector('#onboardingPrimaryBtn').disabled`,
     'rendered packaged onboarding completion',
     options.timeoutMs
@@ -1372,7 +1401,7 @@ async function recoverAndComplete(instance, userData, first, options) {
   await waitFor(
     client,
     `!document.querySelector('#welcomeDialog').open
-      && state.onboardingProgress.completedVersion === ${JSON.stringify(options.expectedOnboardingVersion)}`,
+      && AgentDeskInspect.state.onboardingProgress.completedVersion === ${JSON.stringify(options.expectedOnboardingVersion)}`,
     'packaged onboarding finish action',
     options.timeoutMs
   );
@@ -1388,20 +1417,20 @@ async function verifyCompletedRestart(instance, userData, first, options) {
   await waitFor(
     client,
     `document.readyState === 'complete'
-      && typeof state !== 'undefined'
-      && state.onboardingProgress.completedVersion === ${JSON.stringify(options.expectedOnboardingVersion)}
-      && state.mesh.overview?.initialized === true
+      && AgentDeskInspect.state.startupStage === 'ready'
+      && AgentDeskInspect.state.onboardingProgress.completedVersion === ${JSON.stringify(options.expectedOnboardingVersion)}
+      && AgentDeskInspect.state.mesh.overview?.initialized === true
       && !document.querySelector('#welcomeDialog').open`,
     'completed packaged first-use restart',
     options.timeoutMs
   );
   const finalState = await client.evaluate(`({
-    agentIds: (state.mesh.overview.agents || []).map((agent) => agent.agentId),
-    agentNames: (state.mesh.overview.agents || []).map((agent) => agent.displayName),
-    deviceId: state.mesh.overview.localDeviceId,
-    profiles: state.profiles.length,
-    overview: state.mesh.overview,
-    completedVersion: state.onboardingProgress.completedVersion,
+    agentIds: (AgentDeskInspect.state.mesh.overview.agents || []).map((agent) => agent.agentId),
+    agentNames: (AgentDeskInspect.state.mesh.overview.agents || []).map((agent) => agent.displayName),
+    deviceId: AgentDeskInspect.state.mesh.overview.localDeviceId,
+    profiles: AgentDeskInspect.state.profiles.length,
+    overview: AgentDeskInspect.state.mesh.overview,
+    completedVersion: AgentDeskInspect.state.onboardingProgress.completedVersion,
     dialogOpen: document.querySelector('#welcomeDialog').open
   })`);
   assert.deepEqual(finalState.agentIds, [first.agentId], 'restart must not duplicate the first Agent');

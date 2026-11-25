@@ -690,6 +690,7 @@ TaskPackage 同时支持便携文件和同 Mesh Preview 直送。两条通道发
 - `scripts/verify-windows-release.ps1` 验证 portable、包内主程序与 input helper 的 Authenticode/时间戳
 - `scripts/verify-windows-publisher.ps1` 把三层 Windows 可执行文件绑定到受保护发布者 thumbprint
 - `scripts/check-docs.js` 当前状态文档的链接、权威版本、证据与发布口径检查
+- `scripts/check-syntax.js` `npm run check` 的逐文件语法检查：对清单里每个源文件跑一次 `node --check`（清单原来是 `package.json` 里一条 `&&` 长链，超过 Windows cmd.exe 8,191 字符的命令行上限）
 - `scripts/keychain-name-probe.js` 改名后 Electron 用哪个名字定数据目录、钥匙串项和默认菜单，`keepLegacyIdentity` 是否保住旧的两个（拦截钥匙串调用并在沙箱里运行，碰不到真实钥匙串；升级 Electron 后先跑再装）
 - `scripts/run-tests.js` 即 `npm test`：在单独的临时文件夹里跑全部 Node 测试，跑完那里还剩东西就失败并列出来，文件夹总会删掉；测试的临时文件夹都经 `test/helpers/temp.js` 的 `makeTempDir` 建立并登记删除
 - `scripts/command-docs.js` 生成本页第 2 节的分层表和第 7 节的接口清单（`--write` 写回），`scripts/main-context.js` 生成 `src/main.js` 开头的 `mainContext`，`scripts/hidden-electron-entry.js`、`scripts/hidden-package.js` 是隐藏验收的入口与打包（检查用的包建在系统临时文件夹里，`hidden-check.js --packaged` 查完就删，不进仓库的 `release/`）。

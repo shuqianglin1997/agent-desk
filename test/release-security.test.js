@@ -6,6 +6,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const packageJson = require('../package.json');
 const packageLock = require('../package-lock.json');
+const { FILES: syntaxCheckedFiles } = require('../scripts/check-syntax');
 
 function major(version) {
   return Number(String(version).replace(/^[^0-9]*/, '').split('.')[0]);
@@ -71,9 +72,14 @@ test('macOS 正式构建强制签名、公证和 Hardened Runtime', () => {
     packageJson.scripts['verify:electron-package'],
     'node scripts/verify-electron-package-integrity.js'
   );
-  assert.match(packageJson.scripts.check, /node --check scripts\/packaged-first-use-smoke\.js/);
-  assert.match(packageJson.scripts.check, /node --check scripts\/verify-electron-package-integrity\.js/);
-  assert.match(packageJson.scripts.check, /node --check scripts\/github-release-gate\.js/);
+  assert.equal(packageJson.scripts.check, 'npm run typecheck && node scripts/check-syntax.js');
+  for (const file of [
+    'scripts/packaged-first-use-smoke.js',
+    'scripts/verify-electron-package-integrity.js',
+    'scripts/github-release-gate.js'
+  ]) {
+    assert.ok(syntaxCheckedFiles.includes(file), `npm run check must syntax-check ${file}`);
+  }
   assert.match(macCi, /npm run build:mac:ci/);
   assert.doesNotMatch(macCi, /npm run build:mac:dir/);
   assertOrdered(macCi, [
@@ -298,7 +304,7 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
     packageJson.scripts['test:ci:windows'],
     'node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/windows-test-annotations.js --test-reporter-destination=stderr'
   );
-  assert.match(packageJson.scripts.check, /node --check scripts\/windows-test-annotations\.js/);
+  assert.ok(syntaxCheckedFiles.includes('scripts/windows-test-annotations.js'), 'npm run check must syntax-check the Windows test reporter');
   assert.match(windowsCi, /- name: Test\s+run: npm run test:ci:windows/);
   assert.doesNotMatch(windowsCi, /run: npm test/);
   assert.match(windowsCi, /npm run build:win/);
@@ -505,6 +511,20 @@ test('主分支 macOS 和 Windows CI 只运行固定 SHA action 且 checkout 不
     );
     assert.doesNotMatch(workflow, /uses: [^\s]+@v\d/);
   }
+});
+
+test('每条 npm 脚本都放得进 Windows cmd.exe 的命令行，逐文件语法检查的清单不重复、每项都存在', () => {
+  // cmd.exe refuses a command line over 8,191 characters ("The command line
+  // is too long"), which is how the old inline `node --check` chain broke
+  // Windows CI. Leave room for npm's own wrapper and appended arguments.
+  for (const [name, script] of Object.entries(packageJson.scripts)) {
+    assert.ok(script.length < 4_000, `npm script ${name} is ${script.length} characters long`);
+  }
+  assert.equal(new Set(syntaxCheckedFiles).size, syntaxCheckedFiles.length, 'syntax check list has duplicates');
+  for (const file of syntaxCheckedFiles) {
+    assert.ok(fs.statSync(path.join(root, file)).isFile(), `syntax check lists a missing file: ${file}`);
+  }
+  assert.ok(syntaxCheckedFiles.includes('scripts/check-syntax.js'));
 });
 
 test('桌面包只携带固定名称的原生 helper', () => {

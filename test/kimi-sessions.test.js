@@ -177,10 +177,11 @@ test('注册表：导出能力与所有受支持桌面客户端的多 Profile �
   const codexLaunchers = apps.macLauncherCandidates('codex', {
     home: '/Users/tester'
   });
-  assert.equal(codexLaunchers[0].path, '/Applications/ChatGPT.app/Contents/MacOS/ChatGPT');
+  // macOS bundle paths, built with the host's separator (CI also runs on Windows).
+  assert.equal(codexLaunchers[0].path, path.join('/Applications', 'ChatGPT.app', 'Contents', 'MacOS', 'ChatGPT'));
   assert.deepEqual(codexLaunchers[0].bundleIdentifiers, ['com.openai.codex']);
   assert.equal(
-    codexLaunchers.some((item) => item.path === '/Applications/Codex.app/Contents/MacOS/Codex'),
+    codexLaunchers.some((item) => item.path === path.join('/Applications', 'Codex.app', 'Contents', 'MacOS', 'Codex')),
     true
   );
   assert.equal(apps.macLaunchAppName('codex'), 'ChatGPT');

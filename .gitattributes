@@ -1,0 +1,4 @@
+# Check text files out with LF on every platform. Windows runners otherwise
+# convert to CRLF, and tests that read source text (and the packaged files)
+# would differ from what macOS sees. Binary files are detected and left alone.
+* text=auto eol=lf
