@@ -8,6 +8,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const { scanCursor, sessionCounts } = require('../src/clients/cursor/sessions');
+const { makeTempDir } = require('./helpers/temp');
 
 function sqlite3Bin() {
   if (process.platform === 'darwin' && fs.existsSync('/usr/bin/sqlite3')) return '/usr/bin/sqlite3';
@@ -19,7 +20,7 @@ function haveSqlite3() {
 
 // 造一个 Cursor 数据目录：<root>/User/globalStorage/state.vscdb，含 composerHeaders
 function buildFixture(now) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cursor-fix-'));
+  const root = makeTempDir('agentdesk-cursor-fix-');
   const dir = path.join(root, 'User', 'globalStorage');
   fs.mkdirSync(dir, { recursive: true });
   const db = path.join(dir, 'state.vscdb');

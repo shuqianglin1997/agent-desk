@@ -11,7 +11,7 @@
 //     ran, and the synchronous file/process calls the main thread made while
 //     serving the refresh path.
 //
-//   node scripts/hidden-check.js [--update] [--keep] [--eval '<renderer expression>'] [--sessions N] [--packaged <binary>]
+//   node scripts/hidden-check.js [--update] [--keep] [--eval '<renderer expression>'] [--sessions N] [--packaged [<binary>]]
 //                                [--write <every ms>:<for ms>] [--lag]
 // --write appends a line to one session file of the first account every few
 // ms for a while, starting with --eval (a session that is writing); --lag adds
@@ -24,6 +24,9 @@
 // --packaged <binary> runs a packaged test build whose app.asar has the hidden
 // entry as its main (made by scripts/hidden-package.js), to check the
 // packaged runtime: Electron, app.asar, fuses and ASAR integrity as released.
+// --packaged with no binary builds that test package first and removes it
+// afterwards. Everything the check makes lives under the system temp folder
+// and is removed at the end, unless --keep is given.
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -72,7 +75,11 @@ function launch(base, userData, home, outputFile, evalExpression, packagedBinary
     child.stdout.on('data', (chunk) => log.push(String(chunk)));
     child.stderr.on('data', (chunk) => log.push(String(chunk)));
     const timer = setTimeout(() => child.kill('SIGKILL'), 120_000);
-    child.on('exit', (code) => { clearTimeout(timer); resolve({ code, log: log.join('') }); });
+    child.on('exit', (code) => {
+      clearTimeout(timer);
+      require('./ui-acceptance').removeChromiumSingletonDir(userData);
+      resolve({ code, log: log.join('') });
+    });
   });
 }
 
@@ -86,6 +93,7 @@ function fullScans(scans, profileIds) {
 async function main() {
   const args = process.argv.slice(2);
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hidden-check-'));
+  let builtPackage = null;
   try {
     const sessionsIndex = args.indexOf('--sessions');
     const perAccount = sessionsIndex >= 0 ? Math.max(1, Math.min(500, Number(args[sessionsIndex + 1]) || 20)) : 20;
@@ -93,7 +101,9 @@ async function main() {
     const outputFile = path.join(base, 'result.json');
     const evalIndex = args.indexOf('--eval');
     const packagedIndex = args.indexOf('--packaged');
-    const packagedBinary = packagedIndex >= 0 ? path.resolve(args[packagedIndex + 1]) : null;
+    const givenBinary = packagedIndex >= 0 && args[packagedIndex + 1] && !args[packagedIndex + 1].startsWith('--') ? args[packagedIndex + 1] : null;
+    if (packagedIndex >= 0 && !givenBinary) builtPackage = require('./hidden-package').build();
+    const packagedBinary = givenBinary ? path.resolve(givenBinary) : (builtPackage ? builtPackage.binary : null);
     const extraEnv = {};
     if (args.includes('--lag')) extraEnv.AGENTDESK_HIDDEN_LAG = '1';
     const writeIndex = args.indexOf('--write');
@@ -150,8 +160,13 @@ async function main() {
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
     if (shapesMatch === false || serious.length) process.exitCode = 1;
   } finally {
-    if (args.includes('--keep')) process.stdout.write(`kept ${base}\n`);
-    else fs.rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    if (args.includes('--keep')) {
+      process.stdout.write(`kept ${base}\n`);
+      if (builtPackage) process.stdout.write(`kept ${builtPackage.output}\n`);
+    } else {
+      fs.rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      if (builtPackage) require('./hidden-package').remove(builtPackage.output);
+    }
   }
 }
 

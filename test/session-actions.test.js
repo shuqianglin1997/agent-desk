@@ -6,9 +6,10 @@ const path = require('node:path');
 const { crc32 } = require('node:zlib');
 const { resolveLocalSessions, sessionDirectories } = require('../src/main/session-actions');
 const { prepareSessionExport } = require('../src/session-export');
+const { makeTempDir } = require('./helpers/temp');
 
 function workspace(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-session-actions-'));
+  const root = makeTempDir('agentdesk-session-actions-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }

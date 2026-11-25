@@ -14,6 +14,7 @@ const { HubStore } = require('../src/hub/store');
 const { HubRunner } = require('../src/hub/runner');
 const { createAgentHub } = require('../src/main/agent-hub');
 const apps = require('../src/apps');
+const { makeTempDir } = require('./helpers/temp');
 
 const PROMPT = 'PROMPT-SENTINEL-7d1f please review the change';
 const ANSWER = 'ANSWER-SENTINEL-93ab looks fine';
@@ -73,7 +74,7 @@ function waitFor(predicate, timeoutMs = 8000) {
 }
 
 function setup(t, options = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hub-'));
+  const root = makeTempDir('agentdesk-hub-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const userData = path.join(root, 'userData');
   const project = path.join(root, 'project');
@@ -157,7 +158,7 @@ test('stream parsers take the session ID early and the last reply at the end', (
 });
 
 test('the final reply can be read back from each client\'s own session record', (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hub-record-'));
+  const root = makeTempDir('agentdesk-hub-record-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const codexFile = path.join(root, 'rollout.jsonl');
   fs.writeFileSync(codexFile, [
@@ -205,7 +206,7 @@ test('only switched-on accounts appear; names resolve to one exact account or re
 });
 
 test('the working directory must sit inside an allowed folder, including through symbolic links', (t) => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hub-cwd-')));
+  const root = fs.realpathSync(makeTempDir('agentdesk-hub-cwd-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const allowed = path.join(root, 'allowed');
   const nested = path.join(allowed, 'src');
@@ -365,7 +366,7 @@ test('removing an account stops its active run', async (t) => {
 test('cat names come from the signed catalog read without keys or writes', (t) => {
   const { MeshService } = require('../src/mesh/main/mesh-service');
   const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hub-names-'));
+  const directory = makeTempDir('agentdesk-hub-names-');
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const protector = {
     isAvailable: () => true,
@@ -392,7 +393,7 @@ test('cat names come from the signed catalog read without keys or writes', (t) =
 
 test('the caller is placed on a cat only from facts AgentDesk observed', async (t) => {
   const { resolveCallerProfile } = require('../src/hub/roster');
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hub-caller-')));
+  const root = fs.realpathSync(makeTempDir('agentdesk-hub-caller-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const codexHome = path.join(root, 'codex-home');
   const claudeHome = path.join(root, 'claude-home');
@@ -449,7 +450,7 @@ test('Gemini CLI and Qwen Code: fixed arguments, AgentDesk-chosen session ID and
   assert.equal(qFail.end().failed, true);
   assert.equal(qwen.createParser({}, {}).end().answer, null);
 
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hub-b4-'));
+  const root = makeTempDir('agentdesk-hub-b4-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const geminiFile = path.join(root, 'session-x.jsonl');
   fs.writeFileSync(geminiFile, [{ sessionId: 's' }, { type: 'user', content: [{ text: 'q' }] }, { type: 'gemini', content: [{ text: 'thinking', thought: true }, { text: 'final gemini' }] }].map((l) => JSON.stringify(l)).join('\n'));

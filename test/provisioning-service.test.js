@@ -7,6 +7,7 @@ const path = require('node:path');
 const { MeshService } = require('../src/mesh/main/mesh-service');
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { ProvisioningService } = require('../src/mesh/main/provisioning-service');
+const { makeTempDir } = require('./helpers/temp');
 const {
   provisioningAdapterDescriptor,
   validateProvisioningBlueprint
@@ -38,7 +39,7 @@ function initialProfile(id, fingerprint) {
 }
 
 function createHarness(initialProfiles = [initialProfile('old-slot', 'account-a')]) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-provisioning-'));
+  const directory = makeTempDir('agentdesk-provisioning-');
   const profiles = [...initialProfiles];
   const adapterState = {
     installed: true,

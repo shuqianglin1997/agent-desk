@@ -6,6 +6,7 @@ const { mainHandlerSource } = require('./helpers/main-handler-source');
 const { rendererSource, rendererFunction } = require('./helpers/renderer-source');
 const { page, styleRules, loadPreload, commandFor, runCommand } = require('./helpers/behaviour');
 const { LOCALES, mt } = require('../src/i18n/main-i18n');
+const { makeTempDir } = require('./helpers/temp');
 
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const doc = page();
@@ -135,8 +136,7 @@ test('Agent 目录与 Slot 管理只通过固定语义 IPC 暴露', async (t) =>
   assert.deepEqual(seen, [['remove', { scope: 'slot', deviceId: 'dev-1', profileId: 'p1', baseRevision: 4 }]]);
 
   // Removing a registration rewrites profiles.json and leaves the folder alone.
-  const dir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'agentdesk-registration-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const dir = makeTempDir(t, 'agentdesk-registration-');
   fs.writeFileSync(path.join(dir, 'kept.txt'), 'x');
   let saved = null;
   const accounts = require('../src/main/accounts');

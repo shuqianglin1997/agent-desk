@@ -6,9 +6,10 @@ const path = require('node:path');
 
 const { scanCodex } = require('../src/clients/codex/sessions');
 const { classifyCodexSessionMeta } = require('../src/clients/codex/rollout');
+const { makeTempDir } = require('./helpers/temp');
 
 function mkTmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-mesh-session-'));
+  return makeTempDir('agentdesk-mesh-session-');
 }
 
 function writeJsonl(filePath, events) {

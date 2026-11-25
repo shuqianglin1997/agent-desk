@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { makeTempDir } = require('./helpers/temp');
 
 const {
   STABLE_ALLOWED,
@@ -197,7 +198,7 @@ test('CLI gate keeps diagnostic reports physically outside release downloads', (
 });
 
 test('public gate anonymously downloads exact URLs and verifies all three hash authorities', async (context) => {
-  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-release-gate-test-'));
+  const temporaryRoot = makeTempDir('agentdesk-release-gate-test-');
   context.after(() => fs.rmSync(temporaryRoot, { recursive: true, force: true }));
   const outputDirectory = path.join(temporaryRoot, 'release-assets');
   const reportPath = path.join(temporaryRoot, 'diagnostics', 'gate.json');

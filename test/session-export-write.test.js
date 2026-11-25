@@ -11,6 +11,7 @@ const vm = require('node:vm');
 const { writeFileAtomicAsync } = require('../src/core/json-file');
 
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { makeTempDir } = require('./helpers/temp');
 
 const main = mainHandlerSource();
 const source = main.match(/^async function exportSessionTranscript\(input\) \{\n.*?^\}/ms)[0];
@@ -39,7 +40,7 @@ function handler(target) {
 }
 
 test('an export is written whole, private, with no temporary file left', async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-export-write-'));
+  const dir = makeTempDir('agentdesk-export-write-');
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const target = path.join(dir, 's.md');
   fs.writeFileSync(target, 'older export');
@@ -52,7 +53,7 @@ test('an export is written whole, private, with no temporary file left', async (
 });
 
 test('an export into a folder that cannot take it fails cleanly', async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-export-write-'));
+  const dir = makeTempDir('agentdesk-export-write-');
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const missing = await handler(path.join(dir, 'gone', 's.md'))({});
   assert.deepEqual({ ...missing }, { ok: false, reason: 'main.sessionActions.writeUnavailable' });

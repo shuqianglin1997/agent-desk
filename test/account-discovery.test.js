@@ -8,6 +8,7 @@ const { createLocationRegistrar } = require('../src/main/profile-registration');
 const { createRecruitHandlers } = require('../src/main/recruit-discovery');
 const { PathSelectionRegistry } = require('../src/main/ipc/path-selections');
 const { discoverLocalProfileLocations } = require('../src/automation/local-locations');
+const { makeTempDir } = require('./helpers/temp');
 
 const SECRET = 'sentinel-discovery-secret-7f3a';
 
@@ -28,7 +29,7 @@ function mkdir(directory) {
 // A home folder with all seven registered clients at default and custom
 // places, plus folders the walk must not enter.
 function fixture(t) {
-  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-discovery-')));
+  const root = fs.realpathSync.native(makeTempDir('agentdesk-discovery-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const home = path.join(root, 'home');
   const support = path.join(root, 'support');

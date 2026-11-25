@@ -14,6 +14,7 @@ const { codexHomeKey } = require('../src/clients/codex/account-import');
 const { createLocationRegistrar } = require('../src/main/profile-registration');
 
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { makeTempDir } = require('./helpers/temp');
 
 const main = mainHandlerSource();
 const fn = (name) => main.match(new RegExp(`^function ${name}\\([^\\n]*\\) \\{\\n.*?^\\}`, 'ms'))[0];
@@ -39,7 +40,7 @@ function builder(home) {
 }
 
 function homes(t) {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-registration-')));
+  const root = fs.realpathSync(makeTempDir('agentdesk-codex-registration-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const user = path.join(root, 'user');
   const work = path.join(root, 'work-codex');

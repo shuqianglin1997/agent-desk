@@ -7,6 +7,7 @@ const path = require('node:path');
 const { MeshService } = require('../src/mesh/main/mesh-service');
 const { MeshStore } = require('../src/mesh/storage/mesh-store');
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
+const { makeTempDir } = require('./helpers/temp');
 const {
   createCatalogSnapshot,
   mergeCatalogSnapshot
@@ -184,7 +185,7 @@ test('并发识别出同一强账号时确定性收敛 Binding 并重定向本�
 });
 
 test('MeshService 在已配对设备间落库零 Slot 员工，删除后旧目录不会复活', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-catalog-sync-'));
+  const directory = makeTempDir('agentdesk-catalog-sync-');
   const hostDir = path.join(directory, 'host');
   const joinDir = path.join(directory, 'join');
   fs.mkdirSync(hostDir, { recursive: true });
@@ -245,7 +246,7 @@ test('MeshService 在已配对设备间落库零 Slot 员工，删除后旧目�
 });
 
 test('签名目录事件让双端字段编辑自动收敛，删除压过并发旧编辑且重建使用新身份', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-catalog-events-sync-'));
+  const directory = makeTempDir('agentdesk-catalog-events-sync-');
   const hostDir = path.join(directory, 'host');
   const joinDir = path.join(directory, 'join');
   fs.mkdirSync(hostDir, { recursive: true });

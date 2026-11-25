@@ -9,6 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { makeTempDir } = require('./helpers/temp');
 const transcripts = {
   ...require('../src/clients/gemini-cli/transcript'),
   ...require('../src/clients/qwen-code/transcript')
@@ -18,7 +19,7 @@ const { scanGemini } = require('../src/clients/gemini-cli/sessions');
 const { scanQwen } = require('../src/clients/qwen-code/sessions');
 
 function root(t) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-gemini-qwen-')));
+  const dir = fs.realpathSync(makeTempDir('agentdesk-gemini-qwen-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }

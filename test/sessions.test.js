@@ -10,6 +10,7 @@ const { claudeActivityFromFile } = require('../src/clients/claude/sessions');
 const { codexActivityFromFile } = require('../src/clients/codex/sessions');
 const { parseDate, cleanTitle, uuidFromFilename } = require('../src/clients/scan');
 const apps = require('../src/apps');
+const { makeTempDir } = require('./helpers/temp');
 // The registry's scan, the path the app uses.
 const scanSessions = (profile) => apps.getApp(profile.appId).scan(profile);
 
@@ -45,7 +46,7 @@ test('uuidFromFilename extracts the codex rollout uuid', () => {
 
 // ── fixture-based scanners ────────────────────────────
 function mkTmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-test-'));
+  return makeTempDir('agentdesk-test-');
 }
 
 test('scanClaude reads title / cwd / dates from local_*.json', () => {

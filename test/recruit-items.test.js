@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createRecruitItems } = require('../src/main/recruit-items');
 const { createLocationRegistrar } = require('../src/main/profile-registration');
+const { makeTempDir } = require('./helpers/temp');
 
 const SECRET = 'sentinel-drop-secret-91c2';
 
@@ -15,7 +16,7 @@ function write(file, content = '') {
 
 // A store, a registrar and the item planner wired the way Main wires them.
 function harness(t, platform = 'linux') {
-  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-drop-')));
+  const root = fs.realpathSync.native(makeTempDir('agentdesk-drop-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const store = { profiles: [] };
   let sequence = 0;

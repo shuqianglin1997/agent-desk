@@ -8,9 +8,10 @@ const path = require('node:path');
 const { kimiTranscriptMarkdown } = require('../src/clients/kimi/transcript');
 const { claudeCliTranscriptMarkdown } = require('../src/clients/claude-cli/transcript');
 const { suggestedTranscriptName } = require('../src/clients/transcript');
+const { makeTempDir } = require('./helpers/temp');
 
 function makeSession(state, wireEvents) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-transcript-'));
+  const dir = makeTempDir('agentdesk-transcript-');
   fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(state));
   const agentDir = path.join(dir, 'agents', 'main');
   fs.mkdirSync(agentDir, { recursive: true });
@@ -88,7 +89,7 @@ test('kimiTranscriptMarkdown 标注工具调用，过滤思考 / 注入 / 系统
 });
 
 test('kimiTranscriptMarkdown 对缺 wire.jsonl 的会话仍导出元数据头', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-transcript-'));
+  const dir = makeTempDir('agentdesk-transcript-');
   fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(STATE));
   const markdown = kimiTranscriptMarkdown(path.join(dir, 'state.json'));
   assert.match(markdown, /^# 配置一下权限/);
@@ -111,7 +112,7 @@ test('kimiTranscriptMarkdown 支持标题覆盖（Kimi Work 的 generated 标题
 });
 
 test('claudeCliTranscriptMarkdown：导出用户/助手/工具，过滤命令注入与子 agent', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-ccli-md-'));
+  const dir = makeTempDir('agentdesk-ccli-md-');
   const file = path.join(dir, 'dddddddd-1111-2222-3333-444444444444.jsonl');
   const events = [
     { type: 'user', message: { role: 'user', content: '<command-name>/clear</command-name>' }, timestamp: '2026-07-20T02:00:00.000Z', cwd: '/Users/demo/proj' },

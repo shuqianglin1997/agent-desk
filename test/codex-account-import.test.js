@@ -13,6 +13,7 @@ const {
   stageCodexAuthHome
 } = require('../src/clients/codex/account-import');
 const { getApp, profileLaunchPlan } = require('../src/apps');
+const { makeTempDir } = require('./helpers/temp');
 
 const chatgptAuth = JSON.stringify({
   auth_mode: 'chatgpt',
@@ -20,7 +21,7 @@ const chatgptAuth = JSON.stringify({
 });
 
 function fixture(t) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-import-'));
+  const directory = makeTempDir('agentdesk-codex-import-');
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   return directory;
 }

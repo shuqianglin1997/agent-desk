@@ -8,6 +8,7 @@ const { Readable } = require('node:stream');
 const credentials = require('../src/account-credentials');
 const credentialImport = require('../src/credential-import');
 const { createCliBroker, runPackagedCli, readSecretFromStdin } = require('../src/automation/packaged-cli');
+const { makeTempDir } = require('./helpers/temp');
 
 // A sentinel that must never show up in AgentDesk files, logs or output.
 const SENTINEL = 'sk-ant-oat01-SENTINELvalue0123456789abcdef';
@@ -15,7 +16,7 @@ const API_SENTINEL = 'sk-SENTINELapikey0123456789abcdef';
 const posixOnly = { skip: process.platform === 'win32' ? 'shell stubs stand in for the official clients on POSIX' : false };
 
 function tmp(t) {
-  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-credentials-')));
+  const root = fs.realpathSync.native(makeTempDir('agentdesk-credentials-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }

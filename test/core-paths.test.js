@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const paths = require('../src/core/paths');
+const { makeTempDir } = require('./helpers/temp');
 
 test('only a real ".." step leaves a folder', () => {
   assert.equal(paths.isInside('/a/..cache/x', '/a', { platform: 'darwin' }), true);
@@ -38,7 +39,7 @@ test('POSIX comparison is case-sensitive; resolve:false compares as given', () =
 
 test('samePathReal follows symbolic links of paths that exist', (t) => {
   if (process.platform === 'win32') return t.skip('symbolic links need extra rights on Windows');
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-core-paths-'));
+  const root = makeTempDir('agentdesk-core-paths-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, 'real'));
   fs.symlinkSync(path.join(root, 'real'), path.join(root, 'link'));

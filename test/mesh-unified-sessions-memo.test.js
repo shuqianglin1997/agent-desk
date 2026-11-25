@@ -18,6 +18,7 @@ const path = require('node:path');
 const { MeshService } = require('../src/mesh/main/mesh-service');
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { MeshStore } = require('../src/mesh/storage/mesh-store');
+const { makeTempDir } = require('./helpers/temp');
 
 const NOW = '2026-08-13T09:00:00.000Z';
 
@@ -64,7 +65,7 @@ function hmacCount(run) {
 }
 
 function setup(t, serviceOptions = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-mesh-memo-'));
+  const dir = makeTempDir('agentdesk-mesh-memo-');
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   fs.mkdirSync(path.join(dir, 'h'));
   fs.mkdirSync(path.join(dir, 'j'));

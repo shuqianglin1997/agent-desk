@@ -66,8 +66,8 @@ npm run check
 npm run check:docs
 ```
 
-- `npm test` 是全部 Node 测试；只跑一个文件用 `node --test test/<名字>.test.js`。`npm run check` 包括类型检查和每个源文件的语法检查；`npm run check:docs` 核对文档的链接、生成的两段、引用的路径和验证记录。
-- 先写测试，再改代码。测试只用合成数据，放在系统临时目录里，用完删掉。
+- `npm test` 是全部 Node 测试，经 `scripts/run-tests.js` 在一个单独的临时文件夹里跑：跑完那里还剩东西就算失败并列出来，文件夹本身总会删掉。只跑一个文件用 `node --test test/<名字>.test.js`。`npm run check` 包括类型检查和每个源文件的语法检查；`npm run check:docs` 核对文档的链接、生成的两段、引用的路径和验证记录。
+- 先写测试，再改代码。测试只用合成数据；需要临时文件夹时用 `test/helpers/temp.js` 的 `makeTempDir(t, 前缀)`，它在测试结束时删掉（不带 `t` 时在进程退出时删掉），不要自己调 `mkdtempSync`。
 - 优先验证行为：命令用替身依赖运行，preload 在替身 Electron 里加载，页面和样式用 `page()`、`styleRules()` 解析后按结构核对。只比对源码文字的测试文件都列在 `test/text-checks.test.js` 里并写明理由；新增一个这样的文件而不写理由，这个测试就失败。
 - 验证记录在 [VALIDATION.md](VALIDATION.md)，源码变了以后要重跑相关检查并刷新记录，`check:docs` 才会通过。
 
@@ -93,6 +93,8 @@ node scripts/ui-text.js --write <基准文件>
 node scripts/ui-text.js --compare <基准文件>
 ```
 
-  `ui-snapshots.js` 逐像素比较两套主题、三种语言下的各个状态；`ui-styles.js` 比较每个元素的全部计算样式（包括强制悬停、聚焦、按下）；`ui-text.js` 找出溢出或被截断的文字，以及界面上是否还出现已经退役的叫法。基准放在仓库以外的临时目录里。
+  `ui-snapshots.js` 逐像素比较两套主题、三种语言下的各个状态（`--compare` 只在有不同时把这次的截图留在基准旁边的 `-candidate` 文件夹里）；`ui-styles.js` 比较每个元素的全部计算样式（包括强制悬停、聚焦、按下）；`ui-text.js` 找出溢出或被截断的文字，以及界面上是否还出现已经退役的叫法。基准只放在自己的工作目录里（不放进仓库，也不放进系统临时文件夹），不再用的随手删掉。
 
-不要在这些脚本运行期间修改源码，也不要在没有明确要求时打开看得见的窗口、启动客户端或安装应用。
+- 打包后的运行时用 `node scripts/hidden-check.js --packaged` 检查：它先用 `scripts/hidden-package.js` 在系统临时文件夹里做一份只给检查用的包，查完连同临时用户目录一起删掉。任何打包产物都不放进仓库的 `release/`。
+
+这些脚本都把临时用户目录建在系统临时文件夹里，跑完删掉（`--keep` 时保留并打印位置）。不要在它们运行期间修改源码，也不要在没有明确要求时打开看得见的窗口、启动客户端或安装应用。

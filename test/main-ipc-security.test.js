@@ -24,6 +24,7 @@ const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { readJsonStore, writeJsonStore } = require('../src/json-store');
 const { resolveProfileStore } = require('../src/main/profile-store-policy');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { makeTempDir } = require('./helpers/temp');
 const {
   normalizeTaskPackageSendInput,
   normalizeTaskPackageTransferInput
@@ -48,7 +49,7 @@ function fakeProtector() {
 }
 
 function meshHarness(profiles) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-first-agent-security-'));
+  const directory = makeTempDir('agentdesk-first-agent-security-');
   const databasePath = path.join(directory, 'mesh.db');
   const keyPath = path.join(directory, 'mesh-keys.json');
   const createService = () => new MeshService({
@@ -207,7 +208,7 @@ test('network enrollment defaults preserve existing networked Meshes but explici
 });
 
 test('a missing Profile store starts empty and remains empty after restart', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-empty-profiles-'));
+  const directory = makeTempDir('agentdesk-empty-profiles-');
   const storeFile = path.join(directory, 'profiles.json');
   const backupFile = `${storeFile}.bak`;
   const load = () => resolveProfileStore({
@@ -244,7 +245,7 @@ test('a missing Profile store starts empty and remains empty after restart', () 
 });
 
 test('a Profile store that exists but cannot be read is never overwritten with an empty list', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-unreadable-profiles-'));
+  const directory = makeTempDir('agentdesk-unreadable-profiles-');
   const storeFile = path.join(directory, 'profiles.json');
   const backupFile = `${storeFile}.bak`;
   const writes = [];

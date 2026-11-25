@@ -6,14 +6,18 @@
 // files), except that app.asar also holds scripts/hidden-electron-entry.js and
 // uses it as its main, so the packaged runtime can be checked without a
 // window. Never a release artifact: unsigned (ad-hoc on macOS), "dir" target
-// only, written to a new folder under the system temp directory.
+// only, written to a new folder under the system temp directory and removed
+// after use: by hidden-check.js --packaged (no binary given), which builds,
+// checks and removes it; run alone, this script builds, verifies, prints and
+// removes it unless --keep is given.
 //
 // Electron comes from a copy of node_modules/electron/dist without the
 // development default_app.asar (electronDist), so the build downloads nothing;
 // the result must pass scripts/verify-electron-package-integrity.js.
 //
-//   node scripts/hidden-package.js            prints { output, binary }
-//   node scripts/hidden-check.js --packaged <binary>
+//   node scripts/hidden-check.js --packaged          build, check, remove
+//   node scripts/hidden-package.js [--keep]          build, verify, print { output, binary }, remove unless --keep
+//   node scripts/hidden-check.js --packaged <binary> check a kept build (remove it afterwards with remove(output))
 
 const fs = require('node:fs');
 const os = require('node:os');
@@ -46,8 +50,25 @@ function binaryIn(output) {
   return path.join(output, folder, name);
 }
 
+function remove(output) {
+  if (output) fs.rmSync(output, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+}
+
+// The build, in a new temp folder; a failed build removes the folder and puts
+// the end of electron-builder's log in the error.
 function build() {
   const output = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hidden-package-'));
+  try {
+    return buildInto(output);
+  } catch (error) {
+    const logFile = path.join(output, 'build.log');
+    const tail = fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf8').slice(-2000) : '';
+    remove(output);
+    throw new Error(tail ? `${error.message}\n${tail}` : error.message);
+  }
+}
+
+function buildInto(output) {
   const electronDist = path.join(output, 'electron-dist');
   fs.cpSync(path.join(ROOT, 'node_modules', 'electron', 'dist'), electronDist, {
     recursive: true,
@@ -66,7 +87,7 @@ function build() {
     shell: process.platform === 'win32'
   });
   fs.writeFileSync(path.join(output, 'build.log'), `${result.stdout || ''}${result.stderr || ''}`);
-  if (result.status !== 0) throw new Error(`electron-builder failed (${result.status}); see ${path.join(output, 'build.log')}`);
+  if (result.status !== 0) throw new Error(`electron-builder failed (${result.status})`);
   const log = `${result.stdout || ''}${result.stderr || ''}`;
   if (/downloaded\s+label=electron/i.test(log)) throw new Error('the build downloaded Electron; electronDist was not used');
   const binary = binaryIn(path.join(output, 'out'));
@@ -77,11 +98,14 @@ function build() {
   return { output, binary };
 }
 
-module.exports = { testConfig, build };
+module.exports = { testConfig, build, remove };
 
 if (require.main === module) {
   try {
-    process.stdout.write(JSON.stringify(build(), null, 2) + '\n');
+    const built = build();
+    process.stdout.write(JSON.stringify(built, null, 2) + '\n');
+    if (process.argv.includes('--keep')) process.stdout.write(`kept ${built.output}\n`);
+    else remove(built.output);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

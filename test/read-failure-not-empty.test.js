@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const { rendererSource } = require('./helpers/renderer-source');
+const { makeTempDir } = require('./helpers/temp');
 
 const renderer = rendererSource();
 const fn = (name) => renderer.match(new RegExp(`^(?:async )?function ${name}\\([^\\n]*\\) \\{\\n.*?^\\}`, 'ms'))[0];
@@ -50,7 +51,7 @@ test('one account whose session scan fails keeps its last rows; the others refre
 });
 
 test('an unreadable Codex title index still lists the sessions, with fallback titles', (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-index-'));
+  const root = makeTempDir('agentdesk-codex-index-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const id = '11111111-1111-4111-8111-111111111111';
   fs.mkdirSync(path.join(root, 'sessions'));
@@ -67,7 +68,7 @@ test('an unreadable Codex title index still lists the sessions, with fallback ti
 test('a failed scan is not published to paired devices as an empty inventory', (t) => {
   const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
   const { MeshService } = require('../src/mesh/main/mesh-service');
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-inventory-failure-'));
+  const directory = makeTempDir('agentdesk-inventory-failure-');
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const NOW = '2026-11-24T12:00:00.000Z';
   let failing = false;

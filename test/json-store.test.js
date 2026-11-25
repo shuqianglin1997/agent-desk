@@ -5,9 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { readJsonStore, writeJsonStore, snapshotFile } = require('../src/json-store');
+const { makeTempDir } = require('./helpers/temp');
 
 function tempDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-store-'));
+  return makeTempDir('agentdesk-store-');
 }
 
 test('JSON 配置写入时保留上一版备份', () => {

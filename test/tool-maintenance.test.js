@@ -6,6 +6,7 @@ const path = require('node:path');
 
 const maintenance = require('../src/tool-maintenance');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { makeTempDir } = require('./helpers/temp');
 
 test('工具目录覆盖桌面应用、CLI 工具和系统终端，ID 与入口唯一', () => {
   const ids = maintenance.TOOL_CATALOG.map((tool) => tool.id);
@@ -31,7 +32,7 @@ test('宽松版本比较兼容四段版本、v 前缀和预发布版本', () => 
 });
 
 test('从 npm 符号链接追到 scoped package，并锁定原安装前缀', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-tool-npm-'));
+  const root = makeTempDir('agentdesk-tool-npm-');
   const prefix = path.join(root, 'prefix');
   const packageRoot = path.join(prefix, 'lib', 'node_modules', '@openai', 'codex');
   const binDir = path.join(prefix, 'bin');

@@ -5,9 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { nearestExistingDirectory } = require('../src/path-utils');
+const { makeTempDir } = require('./helpers/temp');
 
 function mkTmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-path-'));
+  return makeTempDir('agentdesk-path-');
 }
 
 test('存在的文件返回其父目录并标记为精确命中', () => {

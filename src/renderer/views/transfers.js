@@ -205,176 +205,192 @@ function renderTransferList() {
     els.transferList.append(empty);
     return;
   }
-  for (const transfer of state.mesh.transfers) {
-    const card = document.createElement('article');
-    card.className = 'transfer-card';
-    const head = document.createElement('div');
-    head.className = 'transfer-card-head';
-    const title = document.createElement('strong');
-    title.textContent = transfer.type === 'task-package'
-      ? tr(transfer.direction === 'incoming'
-        ? 'taskPackage.transfer.incoming'
-        : 'taskPackage.transfer.outgoing', {
-          title: transfer.taskPackage?.title || tr('taskPackage.history.untitled'),
-          name: transfer.receivedFromName || transfer.targetName || '-'
-        })
-      : tr(transfer.direction === 'incoming' ? 'transfers.incoming' : 'transfers.outgoing', {
-          n: transfer.itemCount,
-          name: transfer.receivedFromName || transfer.targetName || '-'
-        });
-    const stateLabel = document.createElement('span');
-    stateLabel.dataset.state = transfer.state;
-    stateLabel.textContent = tr(`transfers.state.${transfer.state}`);
-    head.append(title, stateLabel);
-    const meta = document.createElement('small');
-    const typeLabel = transfer.type === 'task-package'
-      ? tr('transfers.type.taskPackage')
-      : tr(transfer.type === 'file' ? 'transfers.type.file' : 'transfers.type.pointer');
-    meta.textContent = `${compactDate(transfer.updatedAt)} · ${typeLabel}`;
-    card.append(head, meta);
+  for (const transfer of state.mesh.transfers) els.transferList.append(transferCard(transfer));
+}
 
-    if (transfer.direction === 'incoming' && Array.isArray(transfer.items)) {
-      const itemList = document.createElement('div');
-      itemList.className = 'transfer-item-list';
-      transfer.items.forEach((item, index) => {
-        const row = document.createElement('div');
-        const coordinate = document.createElement('code');
-        coordinate.textContent = `${index + 1}. ${item.path || '-'}\n${item.coordinate || '-'}`;
-        row.append(coordinate);
-        if (item.projectId && !item.mapping?.mapped) {
-          const map = document.createElement('button');
-          map.type = 'button';
-          map.textContent = tr('transfers.mapProject');
-          map.addEventListener('click', async () => {
-            const result = await window.manager.chooseProjectBinding({
-              projectId: item.projectId,
-              sourceDeviceId: transfer.sourceDeviceId
-            });
-            if (result?.ok && !result.cancelled) {
-              state.mesh.transfers = result.transfers || state.mesh.transfers;
-              state.mesh.transferMessage = tr('transfers.projectMapped');
-              setStatus(state.mesh.transferMessage);
-              renderTransferList();
-            }
-          });
-          row.append(map);
-        } else if (item.mapping?.mapped) {
-          const mapped = document.createElement('small');
-          mapped.textContent = tr('transfers.mappedPath', { path: item.mapping.targetPath });
-          row.append(mapped);
-        }
-        itemList.append(row);
+// One transfer: its head and meta line, then what it carries, then its actions.
+function transferCard(transfer) {
+  const card = document.createElement('article');
+  card.className = 'transfer-card';
+  card.append(transferCardHead(transfer), transferCardMeta(transfer));
+  if (transfer.direction === 'incoming' && Array.isArray(transfer.items)) card.append(...transferReceivedItems(transfer));
+  if (transfer.type === 'file' && Array.isArray(transfer.files)) card.append(transferFileList(transfer), transferProgress(transfer));
+  if (transfer.type === 'task-package') card.append(transferProgress(transfer));
+  const actions = transferCardActions(transfer);
+  if (actions) card.append(actions);
+  return card;
+}
+
+function transferCardHead(transfer) {
+  const head = document.createElement('div');
+  head.className = 'transfer-card-head';
+  const title = document.createElement('strong');
+  title.textContent = transfer.type === 'task-package'
+    ? tr(transfer.direction === 'incoming'
+      ? 'taskPackage.transfer.incoming'
+      : 'taskPackage.transfer.outgoing', {
+        title: transfer.taskPackage?.title || tr('taskPackage.history.untitled'),
+        name: transfer.receivedFromName || transfer.targetName || '-'
+      })
+    : tr(transfer.direction === 'incoming' ? 'transfers.incoming' : 'transfers.outgoing', {
+        n: transfer.itemCount,
+        name: transfer.receivedFromName || transfer.targetName || '-'
       });
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'primary';
-      copy.textContent = tr('transfers.copyReceived');
-      copy.addEventListener('click', async () => {
-        const value = window.SessionLocation.formatLocations(transfer.items, {
-          path: tr('session.location.path'),
-          coordinate: tr('session.location.coordinate'),
-          empty: tr('common.unrecorded')
+  const stateLabel = document.createElement('span');
+  stateLabel.dataset.state = transfer.state;
+  stateLabel.textContent = tr(`transfers.state.${transfer.state}`);
+  head.append(title, stateLabel);
+  return head;
+}
+
+function transferCardMeta(transfer) {
+  const meta = document.createElement('small');
+  const typeLabel = transfer.type === 'task-package'
+    ? tr('transfers.type.taskPackage')
+    : tr(transfer.type === 'file' ? 'transfers.type.file' : 'transfers.type.pointer');
+  meta.textContent = `${compactDate(transfer.updatedAt)} · ${typeLabel}`;
+  return meta;
+}
+
+// Session information received from another device: each location (with a
+// way to map its project here), and one button that copies them all.
+function transferReceivedItems(transfer) {
+  const itemList = document.createElement('div');
+  itemList.className = 'transfer-item-list';
+  transfer.items.forEach((item, index) => {
+    const row = document.createElement('div');
+    const coordinate = document.createElement('code');
+    coordinate.textContent = `${index + 1}. ${item.path || '-'}\n${item.coordinate || '-'}`;
+    row.append(coordinate);
+    if (item.projectId && !item.mapping?.mapped) {
+      const map = document.createElement('button');
+      map.type = 'button';
+      map.textContent = tr('transfers.mapProject');
+      map.addEventListener('click', async () => {
+        const result = await window.manager.chooseProjectBinding({
+          projectId: item.projectId,
+          sourceDeviceId: transfer.sourceDeviceId
         });
-        await window.manager.writeClipboard(value);
-        setStatus(tr('status.sessionInfosCopied', { n: transfer.items.length }));
-      });
-      card.append(itemList, copy);
-    }
-
-    if (transfer.type === 'file' && Array.isArray(transfer.files)) {
-      const files = document.createElement('ul');
-      files.className = 'transfer-file-list';
-      for (const file of transfer.files) {
-        const item = document.createElement('li');
-        const name = document.createElement('span');
-        name.textContent = file.name;
-        name.title = file.name;
-        const size = document.createElement('span');
-        size.textContent = formatBytes(file.size);
-        item.append(name, size);
-        files.append(item);
-      }
-      const progress = document.createElement('progress');
-      progress.className = 'transfer-progress';
-      progress.max = Math.max(1, transfer.bytesTotal || 0);
-      progress.value = Math.min(progress.max, transfer.bytesTransferred || 0);
-      progress.setAttribute('aria-label', tr('transfers.progress'));
-      card.append(files, progress);
-    }
-    if (transfer.type === 'task-package') {
-      const progress = document.createElement('progress');
-      progress.className = 'transfer-progress';
-      progress.max = Math.max(1, transfer.bytesTotal || 0);
-      progress.value = Math.min(progress.max, transfer.bytesTransferred || 0);
-      progress.setAttribute('aria-label', tr('transfers.progress'));
-      card.append(progress);
-    }
-
-    const canRetry = transfer.state === 'failed'
-      && (transfer.direction === 'outgoing' || transfer.type === 'file');
-    const canCancel = ['file', 'task-package'].includes(transfer.type)
-      ? !['completed', 'cancelled', 'expired'].includes(transfer.state)
-      : transfer.direction === 'outgoing' && ['queued', 'failed', 'awaiting-ack'].includes(transfer.state);
-    const canAccept = transfer.type === 'file' && transfer.direction === 'incoming' && transfer.acceptRequired;
-    const canOpen = transfer.type === 'file' && transfer.direction === 'incoming' && transfer.canOpen;
-    const taskActions = transfer.type === 'task-package'
-      ? createTaskPackageTransferActions(transfer, { returnFocus: els.activityCenterDialog })
-      : null;
-    if (canRetry || canCancel || canAccept || canOpen || taskActions?.childElementCount) {
-      const actions = document.createElement('div');
-      actions.className = 'transfer-card-actions';
-      if (taskActions?.childElementCount) actions.append(...taskActions.children);
-      if (canAccept) {
-        const accept = document.createElement('button');
-        accept.type = 'button';
-        accept.className = 'primary';
-        accept.textContent = tr('transfers.acceptFiles');
-        accept.addEventListener('click', async () => {
-          state.mesh.transferMessage = tr('transfers.choosingDestination');
-          setStatus(state.mesh.transferMessage);
-          const result = await window.manager.acceptFileTransfer(transfer.transferId);
-          if (!result?.ok) state.mesh.transferMessage = meshErrorText(result?.reasonCode || 'file-transfer-accept-failed');
-          else if (!result.cancelled) state.mesh.transfers = result.transfers || state.mesh.transfers;
+        if (result?.ok && !result.cancelled) {
+          state.mesh.transfers = result.transfers || state.mesh.transfers;
+          state.mesh.transferMessage = tr('transfers.projectMapped');
           setStatus(state.mesh.transferMessage);
           renderTransferList();
-        });
-        actions.append(accept);
-      }
-      if (canOpen) {
-        const open = document.createElement('button');
-        open.type = 'button';
-        open.className = 'primary';
-        open.textContent = tr('transfers.openFiles');
-        open.addEventListener('click', async () => {
-          const result = await window.manager.openReceivedFile(transfer.transferId);
-          if (!result?.ok) setStatus(meshErrorText(result?.reasonCode || 'file-received-location-failed'));
-        });
-        actions.append(open);
-      }
-      if (canRetry) {
-        const retry = document.createElement('button');
-        retry.type = 'button';
-        retry.textContent = tr('transfers.retry');
-        retry.addEventListener('click', async () => {
-          await window.manager.retryTransfer(transfer.transferId);
-          await loadTransfers();
-        });
-        actions.append(retry);
-      }
-      if (canCancel && !(transfer.type === 'task-package' && transfer.direction === 'incoming' && transfer.acceptRequired)) {
-        const cancel = document.createElement('button');
-        cancel.type = 'button';
-        cancel.textContent = tr('transfers.cancel');
-        cancel.addEventListener('click', async () => {
-          await window.manager.cancelTransfer(transfer.transferId);
-          await loadTransfers();
-        });
-        actions.append(cancel);
-      }
-      card.append(actions);
+        }
+      });
+      row.append(map);
+    } else if (item.mapping?.mapped) {
+      const mapped = document.createElement('small');
+      mapped.textContent = tr('transfers.mappedPath', { path: item.mapping.targetPath });
+      row.append(mapped);
     }
-    els.transferList.append(card);
+    itemList.append(row);
+  });
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'primary';
+  copy.textContent = tr('transfers.copyReceived');
+  copy.addEventListener('click', async () => {
+    const value = window.SessionLocation.formatLocations(transfer.items, {
+      path: tr('session.location.path'),
+      coordinate: tr('session.location.coordinate'),
+      empty: tr('common.unrecorded')
+    });
+    await window.manager.writeClipboard(value);
+    setStatus(tr('status.sessionInfosCopied', { n: transfer.items.length }));
+  });
+  return [itemList, copy];
+}
+
+function transferFileList(transfer) {
+  const files = document.createElement('ul');
+  files.className = 'transfer-file-list';
+  for (const file of transfer.files) {
+    const item = document.createElement('li');
+    const name = document.createElement('span');
+    name.textContent = file.name;
+    name.title = file.name;
+    const size = document.createElement('span');
+    size.textContent = formatBytes(file.size);
+    item.append(name, size);
+    files.append(item);
   }
+  return files;
+}
+
+function transferProgress(transfer) {
+  const progress = document.createElement('progress');
+  progress.className = 'transfer-progress';
+  progress.max = Math.max(1, transfer.bytesTotal || 0);
+  progress.value = Math.min(progress.max, transfer.bytesTransferred || 0);
+  progress.setAttribute('aria-label', tr('transfers.progress'));
+  return progress;
+}
+
+// The card's buttons, or null when there is nothing to do.
+function transferCardActions(transfer) {
+  const canRetry = transfer.state === 'failed'
+    && (transfer.direction === 'outgoing' || transfer.type === 'file');
+  const canCancel = ['file', 'task-package'].includes(transfer.type)
+    ? !['completed', 'cancelled', 'expired'].includes(transfer.state)
+    : transfer.direction === 'outgoing' && ['queued', 'failed', 'awaiting-ack'].includes(transfer.state);
+  const canAccept = transfer.type === 'file' && transfer.direction === 'incoming' && transfer.acceptRequired;
+  const canOpen = transfer.type === 'file' && transfer.direction === 'incoming' && transfer.canOpen;
+  const taskActions = transfer.type === 'task-package'
+    ? createTaskPackageTransferActions(transfer, { returnFocus: els.activityCenterDialog })
+    : null;
+  if (!(canRetry || canCancel || canAccept || canOpen || taskActions?.childElementCount)) return null;
+  const actions = document.createElement('div');
+  actions.className = 'transfer-card-actions';
+  if (taskActions?.childElementCount) actions.append(...taskActions.children);
+  if (canAccept) {
+    const accept = document.createElement('button');
+    accept.type = 'button';
+    accept.className = 'primary';
+    accept.textContent = tr('transfers.acceptFiles');
+    accept.addEventListener('click', async () => {
+      state.mesh.transferMessage = tr('transfers.choosingDestination');
+      setStatus(state.mesh.transferMessage);
+      const result = await window.manager.acceptFileTransfer(transfer.transferId);
+      if (!result?.ok) state.mesh.transferMessage = meshErrorText(result?.reasonCode || 'file-transfer-accept-failed');
+      else if (!result.cancelled) state.mesh.transfers = result.transfers || state.mesh.transfers;
+      setStatus(state.mesh.transferMessage);
+      renderTransferList();
+    });
+    actions.append(accept);
+  }
+  if (canOpen) {
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'primary';
+    open.textContent = tr('transfers.openFiles');
+    open.addEventListener('click', async () => {
+      const result = await window.manager.openReceivedFile(transfer.transferId);
+      if (!result?.ok) setStatus(meshErrorText(result?.reasonCode || 'file-received-location-failed'));
+    });
+    actions.append(open);
+  }
+  if (canRetry) {
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.textContent = tr('transfers.retry');
+    retry.addEventListener('click', async () => {
+      await window.manager.retryTransfer(transfer.transferId);
+      await loadTransfers();
+    });
+    actions.append(retry);
+  }
+  if (canCancel && !(transfer.type === 'task-package' && transfer.direction === 'incoming' && transfer.acceptRequired)) {
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = tr('transfers.cancel');
+    cancel.addEventListener('click', async () => {
+      await window.manager.cancelTransfer(transfer.transferId);
+      await loadTransfers();
+    });
+    actions.append(cancel);
+  }
+  return actions;
 }
 
 // Part of the window's start-up bindings (bindEvents in src/renderer.js calls

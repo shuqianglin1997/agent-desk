@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { makeTempDir } = require('./helpers/temp');
 
 const {
   MAC_SUN_PATH_BYTES,
@@ -12,7 +13,7 @@ const {
 } = require('../src/clients/codex/runtime-home');
 
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-home-'));
+  const root = makeTempDir('agentdesk-codex-home-');
   const aliasRoot = path.join('/tmp', `adch-${path.basename(root).slice(-8)}`);
   const sessionRoot = path.join(
     root,

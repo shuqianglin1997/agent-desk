@@ -300,7 +300,13 @@ async function main() {
   }
   if (mode === 'compare') {
     process.stdout.write(`${JSON.stringify({ compared, differences: report.length, report: report.slice(0, 400) }, null, 1)}\n`);
-    if (report.length) process.exitCode = 1;
+    // The candidate records are kept only when they differ, for looking at.
+    if (report.length) {
+      process.stdout.write(`candidate records kept in ${dir}\n`);
+      process.exitCode = 1;
+    } else {
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
   }
 }
 

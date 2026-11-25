@@ -6,6 +6,7 @@ const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { POLICY, POLICY_FILE, maintainHistory, compactToolItem, runAfterProfileStop, compressArchivedRollouts, LSOF_PROCESS_CHECK } = require('../src/clients/codex/history-retention');
 const { ProfileRuntimeSupervisor } = require('../src/profile-runtime');
+const { makeTempDir } = require('./helpers/temp');
 
 // Process checks are injected: what else this machine has open (or how slow
 // lsof is under a loaded test run) must not decide the result. The real lsof
@@ -32,7 +33,7 @@ function workerCli(args, check) {
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6xKsAAAAASUVORK5CYII=';
 
 function fixture(t) {
-  const root=fs.mkdtempSync(path.join(os.tmpdir(),'agentdesk-history-test-'));
+  const root=makeTempDir('agentdesk-history-test-');
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   const state=new DatabaseSync(path.join(root,'state_5.sqlite'));
   state.exec('CREATE TABLE threads(id TEXT PRIMARY KEY,archived INTEGER,updated_at INTEGER,history_mode TEXT)');
@@ -114,7 +115,7 @@ test('symlinked databases are rejected before any maintenance', {skip:process.pl
 });
 
 test('owned natural/explicit exits schedule opt-in maintenance; relaunch waits and unowned stops cannot invoke it', async t=>{
-  const root=fs.mkdtempSync(path.join(os.tmpdir(),'agentdesk-history-lifecycle-'));
+  const root=makeTempDir('agentdesk-history-lifecycle-');
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   const profile={id:'p',appId:'codex',profilePath:root,sessionRoot:root};
   let calls=0,release;
@@ -183,7 +184,7 @@ test('serialized nested MCP output preserves unique media/resources and errors w
 });
 
 test('existing supervisor also maintains managed idle archives once per hour, excluding other roots',async t=>{
-  const root=fs.mkdtempSync(path.join(os.tmpdir(),'agentdesk-idle-history-'));
+  const root=makeTempDir('agentdesk-idle-history-');
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   let now=1,calls=[];
   const managed={id:'managed',appId:'codex',profilePath:root,sessionRoot:root};
@@ -259,7 +260,7 @@ for(const parentStatus of ['interrupted','failed'])test(`terminal ${parentStatus
 const lsofIntegration = process.platform !== 'darwin' ? 'macOS only'
   : process.env.AGENTDESK_LSOF_INTEGRATION !== '1' ? 'opt-in: set AGENTDESK_LSOF_INTEGRATION=1' : false;
 test('the default process check finds another process holding a file', {skip:lsofIntegration}, async t=>{
-  const root=fs.mkdtempSync(path.join(os.tmpdir(),'agentdesk-history-lsof-'));
+  const root=makeTempDir('agentdesk-history-lsof-');
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   const file=fs.realpathSync(root)+'/held.sqlite';fs.writeFileSync(file,'x');
   const {spawn}=require('node:child_process');

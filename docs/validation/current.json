@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T03:35:03.536Z",
-  "baseCommit": "ed30306acfe513e248ef65b83f5f258ddcb66dae",
+  "recordedAt": "2026-11-25T04:06:53.175Z",
+  "baseCommit": "87d3d0d64e7944512eb087afda5a7be6f05c341c",
   "uncommitted": true,
-  "sourceSha256": "5d98ffc2379540f034f7d43a2f172be1719080a2725a88f03e4d07b82876e658",
+  "sourceSha256": "0d6e248c16e1f0070be2a3fad7f969e4c4376a827963b34af996b0dd01a61e04",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 968,
+      "pass": 966,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js (its own temp folder, nothing may be left behind), after two long renderer functions were split, the type check gained src/commands/events.js and every test's temp folders went through test/helpers/temp.js; digest identical before and after the run",
+      "recordedAt": "2026-11-25T04:06:53.175Z",
+      "sourceSha256": "0d6e248c16e1f0070be2a3fad7f969e4c4376a827963b34af996b0dd01a61e04"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T04:06:53.175Z",
+      "sourceSha256": "0d6e248c16e1f0070be2a3fad7f969e4c4376a827963b34af996b0dd01a61e04"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

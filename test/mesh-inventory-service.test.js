@@ -8,11 +8,12 @@ const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { MeshStore } = require('../src/mesh/storage/mesh-store');
 const { MeshService } = require('../src/mesh/main/mesh-service');
 const { buildLocalInventory } = require('../src/mesh/domain/inventory');
+const { makeTempDir } = require('./helpers/temp');
 
 const NOW = '2026-08-10T08:00:00.000Z';
 
 test('两端库存互换后目录按 Agent 去重，会话按强身份折叠且保留来源副本', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-inventory-service-'));
+  const directory = makeTempDir('agentdesk-inventory-service-');
   const hostDir = path.join(directory, 'host');
   const joinDir = path.join(directory, 'join');
   fs.mkdirSync(hostDir, { recursive: true });

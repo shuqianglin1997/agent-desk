@@ -6,9 +6,10 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { probeActivity } = require('../src/activity');
+const { makeTempDir } = require('./helpers/temp');
 
 function mkTmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-activity-'));
+  return makeTempDir('agentdesk-activity-');
 }
 
 test('根目录不存在：rootExists=false，不抛错', () => {
@@ -122,7 +123,7 @@ test('tied Codex active/archive revisions follow the same content/index lifecycl
 
 test('the session count Main reports with activity is the session index count', (t) => {
   const { finishActivities, probeRawActivities } = require('../src/activity');
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-activity-count-'));
+  const root = makeTempDir('agentdesk-activity-count-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dir = path.join(root, 'projects', '-w');
   fs.mkdirSync(dir, { recursive: true });

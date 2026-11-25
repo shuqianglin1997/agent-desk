@@ -301,7 +301,13 @@ async function main() {
     if (!files.includes(file) && (!only || file.startsWith(`${only}-`))) report.push({ file, missingCandidate: true });
   }
   process.stdout.write(`${JSON.stringify({ compared: files.length, differing: report, retried }, null, 1)}\n`);
-  if (report.length) process.exitCode = 1;
+  // The candidate images are kept only when they differ, for looking at.
+  if (report.length) {
+    process.stdout.write(`candidate images kept in ${dir}\n`);
+    process.exitCode = 1;
+  } else {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
 }
 
 module.exports = { THEMES, LANGS, STATES, setSettings, seedEmptyDesk, fixTimes, prepare, settle };

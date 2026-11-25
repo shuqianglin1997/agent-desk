@@ -11,11 +11,12 @@ const apps = require('../src/apps');
 const { registryScan } = require('../src/session-index');
 const { probeRawActivities } = require('../src/activity');
 const { createScanHost } = require('../src/scan-host');
+const { makeTempDir } = require('./helpers/temp');
 
 const inProcess = { scan: registryScan(apps), activityRaw: probeRawActivities };
 
 function claudeHome(t) {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-scan-host-')));
+  const root = fs.realpathSync(makeTempDir('agentdesk-scan-host-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dir = path.join(root, 'projects', '-w');
   fs.mkdirSync(dir, { recursive: true });

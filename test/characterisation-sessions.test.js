@@ -13,6 +13,7 @@ const os = require('node:os');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const { execFileSync } = require('node:child_process');
+const { makeTempDir } = require('./helpers/temp');
 
 const GOLDEN = path.join(__dirname, 'fixtures', 'characterisation', 'sessions.golden.json');
 const UPDATE = process.env.AGENTDESK_UPDATE_GOLDEN === '1';
@@ -219,7 +220,7 @@ let golden = { scan: {}, activity: {} };
 const produced = { scan: {}, activity: {} };
 
 test.before(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-characterisation-'));
+  root = makeTempDir('agentdesk-characterisation-');
   fixture = buildAll(root);
   if (fs.existsSync(GOLDEN)) golden = JSON.parse(fs.readFileSync(GOLDEN, 'utf8'));
 });

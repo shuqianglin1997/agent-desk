@@ -13,6 +13,7 @@ const { LanEndpoint, claimPairing } = require('../src/mesh/network/lan-endpoint'
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { MeshStore } = require('../src/mesh/storage/mesh-store');
 const { MeshService } = require('../src/mesh/main/mesh-service');
+const { makeTempDir } = require('./helpers/temp');
 
 const NOW = '2026-08-10T08:00:00.000Z';
 
@@ -97,7 +98,7 @@ test('设备归一化不会折叠 PEM 公钥换行，存储后的消息签名仍
 });
 
 test('两个隔离端点通过一次性加密邀请码配对、跨设备账号去重、授权并撤销', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-pairing-'));
+  const directory = makeTempDir('agentdesk-pairing-');
   const hostDir = path.join(directory, 'host');
   const joinDir = path.join(directory, 'join');
   fs.mkdirSync(hostDir, { recursive: true });

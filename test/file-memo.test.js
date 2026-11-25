@@ -9,9 +9,10 @@ const os = require('node:os');
 const path = require('node:path');
 const memo = require('../src/clients/file-memo');
 const apps = require('../src/apps');
+const { makeTempDir } = require('./helpers/temp');
 
 function tempRoot(t, name) {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `agentdesk-file-memo-${name}-`)));
+  const root = fs.realpathSync(makeTempDir(`agentdesk-file-memo-${name}-`));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }

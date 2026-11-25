@@ -10,11 +10,12 @@ const path = require('node:path');
 const apps = require('../src/apps');
 const hub = require('../src/hub/adapters');
 const { prepareSessionExport } = require('../src/session-export');
+const { makeTempDir } = require('./helpers/temp');
 
 const PNG = Buffer.from('fixture png bytes').toString('base64');
 
 function root(t) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-claude-kimi-')));
+  const dir = fs.realpathSync(makeTempDir('agentdesk-claude-kimi-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }

@@ -10,12 +10,13 @@ const { scanQwen } = require('../src/clients/qwen-code/sessions');
 const discovery = require('../src/account-discovery');
 const credentials = require('../src/account-credentials');
 const credentialImport = require('../src/credential-import');
+const { makeTempDir } = require('./helpers/temp');
 
 const SECRET = 'sk-SENTINELbatch4key0123456789abcdef';
 const posixOnly = { skip: process.platform === 'win32' ? 'shell stubs stand in for the official clients on POSIX' : false };
 
 function tmp(t) {
-  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-cli-clients-')));
+  const root = fs.realpathSync.native(makeTempDir('agentdesk-cli-clients-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }

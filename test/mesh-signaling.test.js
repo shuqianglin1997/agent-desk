@@ -17,6 +17,7 @@ const {
 const { staticIceServers, mergeIceServers, publicIceDiagnostics } = require('../src/mesh/network/ice-config');
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { MeshService } = require('../src/mesh/main/mesh-service');
+const { makeTempDir } = require('./helpers/temp');
 
 test('信令签名绑定请求内容、操作与短有效期', () => {
   const keys = crypto.generateKeyPairSync('ed25519');
@@ -165,7 +166,7 @@ test('信令回复只走收到消息的共同服务，不采纳对端提供的�
 });
 
 test('不在同一局域网的加入端可经邀请码内的信令地址完成端到端加密配对', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-signal-pairing-'));
+  const directory = makeTempDir('agentdesk-signal-pairing-');
   const gateway = new SignalingGateway({ host: '127.0.0.1', port: 0, pollTimeoutMs: 1_000 });
   let hostClient;
   try {

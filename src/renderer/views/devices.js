@@ -1102,6 +1102,13 @@ function platformLabel(platform) {
 // Part of the window's start-up bindings (bindEvents in src/renderer.js calls
 // these in their original order).
 function bindDeviceEvents() {
+  bindDeviceMeshEvents();
+  bindDeviceJourneyEvents();
+  bindDeviceAdminEvents();
+}
+
+// The lens, setting up the device network, and the two ways into the add-device journey.
+function bindDeviceMeshEvents() {
   els.deviceLensSelect?.addEventListener('change', async () => {
     await selectDeviceLens(els.deviceLensSelect.value || 'all');
   });
@@ -1137,7 +1144,10 @@ function bindDeviceEvents() {
   els.createDeviceInviteBtn?.addEventListener('click', async () => {
     openDeviceJourney('host', els.createDeviceInviteBtn);
   });
+}
 
+// The add-device journey dialog.
+function bindDeviceJourneyEvents() {
   els.deviceJourneyCloseBtn?.addEventListener('click', () => {
     if (state.mesh.deviceJourney?.busy) return;
     els.deviceJourneyDialog?.close();
@@ -1208,7 +1218,10 @@ function bindDeviceEvents() {
     els.deviceJourneyDialog?.close();
     await openMeshNetworkSettings(els.deviceJourneyAdvancedBtn);
   });
+}
 
+// Reachability, network settings, invitations, permissions, diagnostics and reset.
+function bindDeviceAdminEvents() {
   els.receiveConnectionsBtn?.addEventListener('click', async () => {
     await toggleMeshReachability();
   });

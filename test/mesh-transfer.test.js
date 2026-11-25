@@ -17,6 +17,7 @@ const { encryptSecurePayload, decryptSecurePayload } = require('../src/mesh/prot
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { MeshStore } = require('../src/mesh/storage/mesh-store');
 const { MeshService } = require('../src/mesh/main/mesh-service');
+const { makeTempDir } = require('./helpers/temp');
 const {
   TransferService,
   sameDirectoryObjectSync,
@@ -24,7 +25,7 @@ const {
 } = require('../src/mesh/main/transfer-service');
 
 test('纯本地模式查看活动不会提前创建不完整 Mesh 数据库', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-transfer-local-'));
+  const directory = makeTempDir('agentdesk-transfer-local-');
   const databasePath = path.join(directory, 'mesh.db');
   try {
     const service = new TransferService({
@@ -219,7 +220,7 @@ test('Windows 清理根接受等价表示但拒绝兄弟目录、子目录、异
 });
 
 test('SessionPointer 在线送达、离线密文排队、上线重试和本机项目映射', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-transfer-'));
+  const directory = makeTempDir('agentdesk-transfer-');
   const leftDir = path.join(directory, 'left');
   const rightDir = path.join(directory, 'right');
   fs.mkdirSync(leftDir, { recursive: true });
@@ -308,7 +309,7 @@ test('SessionPointer 在线送达、离线密文排队、上线重试和本机�
 });
 
 test('选定文件经加密分块、逐块确认和哈希验证后保存，已有同名文件不被覆盖', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-file-transfer-'));
+  const directory = makeTempDir('agentdesk-file-transfer-');
   const leftDir = path.join(directory, 'left');
   const rightDir = path.join(directory, 'right');
   const sourceDir = path.join(directory, 'source');
@@ -409,7 +410,7 @@ test('选定文件经加密分块、逐块确认和哈希验证后保存，已�
 });
 
 test('同 Mesh TaskPackage 逐次接受后直送，解锁码不进入 Renderer 可见状态或持久化任务', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-task-package-direct-'));
+  const directory = makeTempDir('agentdesk-task-package-direct-');
   const leftDir = path.join(directory, 'left');
   const rightDir = path.join(directory, 'right');
   fs.mkdirSync(leftDir, { recursive: true });

@@ -16,9 +16,10 @@ const {
 } = require('../src/task-package/format');
 const { TaskPackageService, captureGitProject } = require('../src/task-package/service');
 const { scanCodex } = require('../src/clients/codex/sessions');
+const { makeTempDir } = require('./helpers/temp');
 
 function tempRoot(prefix) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  return makeTempDir(prefix);
 }
 
 function writeJsonl(filePath, events) {

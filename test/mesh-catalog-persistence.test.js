@@ -9,6 +9,7 @@ const { MeshService } = require('../src/mesh/main/mesh-service');
 const { MeshStore, preserveMigrationBackup } = require('../src/mesh/storage/mesh-store');
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
 const { MESH_SCHEMA_VERSION } = require('../src/mesh/storage/migrations');
+const { makeTempDir } = require('./helpers/temp');
 
 const NOW = '2026-08-13T08:00:00.000Z';
 
@@ -35,7 +36,7 @@ function fakeProtector() {
 }
 
 function createHarness(profiles) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-catalog-persistence-'));
+  const directory = makeTempDir('agentdesk-catalog-persistence-');
   const databasePath = path.join(directory, 'mesh.db');
   const keyPath = path.join(directory, 'mesh-keys.json');
   const makeService = () => new MeshService({
@@ -201,7 +202,7 @@ test('v4 WAL 中已提交数据会进入 pre-v6 一致备份，Node 22 与 Elect
 });
 
 test('迁移备份失败会清理临时文件且不伪造最终回滚点', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-backup-failure-'));
+  const directory = makeTempDir('agentdesk-backup-failure-');
   const databasePath = path.join(directory, 'mesh.db');
   fs.writeFileSync(databasePath, 'source-remains');
   try {

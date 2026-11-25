@@ -9,9 +9,10 @@ const path = require('node:path');
 const apps = require('../src/apps');
 const { probeActivities } = require('../src/activity');
 const { execute, InterfaceError } = require('../src/automation/service');
+const { makeTempDir } = require('./helpers/temp');
 
 function tempDir(t) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-scan-failure-')));
+  const dir = fs.realpathSync(makeTempDir('agentdesk-scan-failure-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }

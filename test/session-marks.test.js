@@ -9,6 +9,7 @@ const { SessionMarksStore, freshReplyAt, normalizeKey, normalizeName } = require
 const { scanClaudeCli } = require('../src/clients/claude-cli/sessions');
 const { scanCodex } = require('../src/clients/codex/sessions');
 const apps = require('../src/apps');
+const { makeTempDir } = require('./helpers/temp');
 // Who spoke last comes from the adapter, and only adapters that can tell have it.
 const replyStateOf = (appId, filePath) => apps.getApp(appId).replyState?.(filePath) ?? null;
 const { probeActivities, WRITING_WINDOW_MS } = require('../src/activity');
@@ -18,7 +19,7 @@ const YardCats = require('../src/yard/cats');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
 
 function tmp(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-marks-'));
+  const dir = makeTempDir('agentdesk-marks-');
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }

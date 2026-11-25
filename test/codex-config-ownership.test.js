@@ -5,11 +5,12 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { seedCodexHome } = require('../src/clients/codex/home');
+const { makeTempDir } = require('./helpers/temp');
 
 const root = path.join(__dirname, '..');
 
 test('AgentDesk 不修改、不接管 Codex 的 config.toml：只在新建的独立目录里写一行登录存放方式', (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-config-'));
+  const dir = makeTempDir('agentdesk-codex-config-');
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   // A new managed home: one line, the file credential store, private to the user.

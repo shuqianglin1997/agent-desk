@@ -8,9 +8,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { readProfiles } = require('../src/automation/service');
+const { makeTempDir } = require('./helpers/temp');
 
 function userData(t, content) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-profile-readers-'));
+  const dir = makeTempDir('agentdesk-profile-readers-');
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   if (content !== undefined) fs.writeFileSync(path.join(dir, 'profiles.json'), typeof content === 'string' ? content : JSON.stringify(content));
   return dir;

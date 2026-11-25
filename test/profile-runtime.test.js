@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { makeTempDir } = require('./helpers/temp');
 
 const {
   scanCrashpadPending,
@@ -13,7 +14,7 @@ const {
 } = require('../src/profile-runtime');
 
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-profile-runtime-'));
+  const root = makeTempDir('agentdesk-profile-runtime-');
   const profilePath = path.join(root, 'Profile');
   const pendingPath = path.join(profilePath, 'Crashpad', 'pending');
   fs.mkdirSync(pendingPath, { recursive: true });
@@ -89,7 +90,7 @@ test('Crashpad 硬上限按完整事件删除最旧报告，同时满足文件�
 
 test('Crashpad 清理拒绝 pending 符号链接，不会越过 Profile 边界', (t) => {
   if (process.platform === 'win32') return t.skip('Windows symlink creation needs elevated privileges');
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-profile-runtime-link-'));
+  const root = makeTempDir('agentdesk-profile-runtime-link-');
   const profilePath = path.join(root, 'Profile');
   const outside = path.join(root, 'outside');
   fs.mkdirSync(path.join(profilePath, 'Crashpad'), { recursive: true });

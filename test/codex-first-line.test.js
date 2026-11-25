@@ -7,6 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const sessions = require('../src/clients/codex/sessions');
+const { makeTempDir } = require('./helpers/temp');
 
 const ROOT_ID = '11111111-1111-4111-8111-111111111111';
 const CHILD_ID = '22222222-2222-4222-8222-222222222222';
@@ -24,7 +25,7 @@ function rollout(dir, id, payload, minutes) {
 }
 
 test('a session_meta line over 64 KB keeps its identity, title and project; its child stays internal', (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-bigmeta-'));
+  const root = makeTempDir('agentdesk-codex-bigmeta-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const day = path.join(root, 'sessions', '2026', '11', '24');
   rollout(day, ROOT_ID, { session_id: ROOT_ID, cwd: '/work/big' }, 5);
@@ -35,7 +36,7 @@ test('a session_meta line over 64 KB keeps its identity, title and project; its 
 });
 
 test('reading the first line closes the file even when the read fails', (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-fd-'));
+  const root = makeTempDir('agentdesk-codex-fd-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const file = rollout(path.join(root, 'sessions'), ROOT_ID, { session_id: ROOT_ID, cwd: '/work/fd' }, 5);
   const opened = new Set();

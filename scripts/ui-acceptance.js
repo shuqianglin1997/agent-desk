@@ -2415,7 +2415,7 @@ async function launchElectronApp(userData, output) {
     const client = new DevToolsClient(target.webSocketDebuggerUrl);
     await client.connect();
     assert.equal(await client.evaluate('1 + 1'), 2, 'DevTools renderer evaluation handshake failed');
-    return { child, childState, client };
+    return { child, childState, client, userData };
   } catch (error) {
     await stopChild(child, childState);
     throw error;
@@ -2426,6 +2426,21 @@ async function closeElectronApp(instance) {
   if (!instance) return;
   instance.client?.close();
   await stopChild(instance.child, instance.childState);
+  removeChromiumSingletonDir(instance.userData);
+}
+
+// Chromium keeps its single-instance socket in a scoped_dir under the system
+// temp folder (on macOS regardless of TMPDIR), linked from the user data
+// folder; an instance that had to be killed leaves that folder behind. Remove
+// the one this user data folder points to, nothing else.
+function removeChromiumSingletonDir(userData) {
+  if (!userData) return;
+  try {
+    const dir = path.dirname(fs.readlinkSync(path.join(userData, 'SingletonSocket')));
+    if (/^scoped_dir/.test(path.basename(dir))) fs.rmSync(dir, { recursive: true, force: true });
+  } catch (_error) {
+    // No link: the instance never started, or Chromium already removed it.
+  }
 }
 
 async function runRosterAcceptance(client, userData) {
@@ -2584,6 +2599,7 @@ function finishHidden() {
 
 module.exports = {
   HIDDEN,
+  removeChromiumSingletonDir,
   seedUserData,
   launchElectronApp,
   closeElectronApp,

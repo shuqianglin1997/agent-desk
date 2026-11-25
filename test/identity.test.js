@@ -10,9 +10,10 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const { identityFingerprint } = require('../src/identity');
+const { makeTempDir } = require('./helpers/temp');
 
 function tmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-ident-'));
+  return makeTempDir('agentdesk-ident-');
 }
 
 const UUID = '11112222-3333-4444-5555-666677778888';

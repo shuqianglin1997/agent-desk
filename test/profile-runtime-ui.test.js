@@ -8,6 +8,7 @@ const { rendererFunction } = require('./helpers/renderer-source');
 const { loadPreload, runCommand, page } = require('./helpers/behaviour');
 const { normalizeSettings } = require('../src/settings');
 const { DEFAULT_LIMITS, pruneCrashpadPending } = require('../src/profile-runtime');
+const { makeTempDir } = require('./helpers/temp');
 
 test('退出时关闭启动过的客户端是默认；只认 close 和 keep 两种', () => {
   assert.equal(normalizeSettings({}).profileQuitBehavior, 'close');
@@ -44,7 +45,7 @@ test('崩溃报告：最多 100 个、200 MiB，5 个同尺寸算风暴；清理
   assert.equal(DEFAULT_LIMITS.maxBytes, 200 * 1024 * 1024);
   assert.equal(DEFAULT_LIMITS.burstLimit, 5);
 
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-crashpad-'));
+  const dir = makeTempDir('agentdesk-crashpad-');
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const pending = path.join(dir, 'Crashpad', 'pending');
   fs.mkdirSync(pending, { recursive: true });

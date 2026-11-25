@@ -13,6 +13,7 @@ const Lamp = require('../src/pixel/boot.js');
 const { createWindowLamp, LIMITS } = require('../src/main/window-lamp.js');
 const { ProfileRuntimeSupervisor } = require('../src/profile-runtime.js');
 const { rendererSource } = require('./helpers/renderer-source');
+const { makeTempDir } = require('./helpers/temp');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -430,7 +431,7 @@ test('主进程：macOS 关窗先短短关灯再关；其他系统关窗交给�
 });
 
 test('监管器：只列出自己启动且仍在运行的 Profile，每关好一个回调一次', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-lamp-'));
+  const dir = makeTempDir('agentdesk-lamp-');
   try {
     const supervisor = new ProfileRuntimeSupervisor({ stateFile: path.join(dir, 'runtime.json'), snapshotProcessRecords: () => [] });
     supervisor.profiles.set('a', { id: 'a' });

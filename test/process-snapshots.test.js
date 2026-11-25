@@ -9,6 +9,7 @@ const path = require('node:path');
 const { createProcessSnapshots } = require('../src/process-snapshots');
 const { processText } = require('../src/process');
 const { ProfileRuntimeSupervisor } = require('../src/profile-runtime');
+const { makeTempDir } = require('./helpers/temp');
 
 test('callers share one collection and a copy no older than they ask for', async () => {
   let now = 1000;
@@ -42,7 +43,7 @@ test('a failed collection is shared as unavailable, and the text form keeps null
 });
 
 test('the supervisor tick uses the shared list and never the synchronous one', async (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-process-snapshots-'));
+  const root = makeTempDir('agentdesk-process-snapshots-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const profiles = ['a', 'b', 'c'].map((id) => ({ id, profilePath: path.join(root, id) }));
   let asyncCalls = 0;

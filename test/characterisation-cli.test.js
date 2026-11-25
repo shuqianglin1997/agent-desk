@@ -11,6 +11,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { makeTempDir } = require('./helpers/temp');
 
 const GOLDEN = path.join(__dirname, 'fixtures', 'characterisation', 'cli.golden.json');
 const UPDATE = process.env.AGENTDESK_UPDATE_GOLDEN === '1';
@@ -75,7 +76,7 @@ let golden = {};
 const produced = {};
 
 test.before(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-characterisation-cli-'));
+  root = makeTempDir('agentdesk-characterisation-cli-');
   paths = build(root);
   if (fs.existsSync(GOLDEN)) golden = JSON.parse(fs.readFileSync(GOLDEN, 'utf8'));
 });

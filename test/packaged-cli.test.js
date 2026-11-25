@@ -5,9 +5,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { packagedCliArguments, createCliBroker, runPackagedCli } = require('../src/automation/packaged-cli');
+const { makeTempDir } = require('./helpers/temp');
 
 function harness(t, dispatch = () => {}, mainRunning = false) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-packaged-cli-'));
+  const root = makeTempDir('agentdesk-packaged-cli-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const userData = path.join(root, 'AgentDesk');
   const broker = createCliBroker({ userData, whenReady: async () => {}, dispatch });

@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const fuseApi = require('@electron/fuses');
+const { makeTempDir } = require('./helpers/temp');
 const {
   ASAR_FILE_INTEGRITY_BLOCK_SIZE,
   DISABLED_FUSE_STATE,
@@ -23,7 +24,7 @@ const {
 } = require('../scripts/verify-electron-package-integrity');
 
 function fixture(task) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-electron-package-test-'));
+  const root = makeTempDir('agentdesk-electron-package-test-');
   try {
     return task(root);
   } finally {

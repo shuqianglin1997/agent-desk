@@ -5,9 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 const { maskSource, findFunctions, cssStyleRules, splitSelectors, collect } = require('../scripts/arch-metrics');
 const layers = require('../scripts/check-layers');
+const { makeTempDir } = require('./helpers/temp');
 
 function tree(t, files) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-arch-tools-'));
+  const root = makeTempDir('agentdesk-arch-tools-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const [name, body] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });

@@ -16,6 +16,7 @@ const {
 } = catalogDomain;
 // The app passes the adapters' client facts (src/apps.js clientFacts); so do these tests.
 const withClientFacts = (fn) => (existing, value, options = {}) => fn(existing, value, { clientFacts: require('../src/apps').clientFacts, ...options });
+const { makeTempDir } = require('./helpers/temp');
 const reconcileLocalCatalog = withClientFacts(catalogDomain.reconcileLocalCatalog);
 const assignSlot = withClientFacts(catalogDomain.assignSlot);
 const {
@@ -468,7 +469,7 @@ test('移除运行位置、登录账号和 Agent 使用不同作用域并保留 
 });
 
 test('独立 mesh.db + OS 加密密钥文件完成初始化、重命名、同步删到零和重置', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-mesh-'));
+  const directory = makeTempDir('agentdesk-mesh-');
   const databasePath = path.join(directory, 'mesh.db');
   const keyPath = path.join(directory, 'mesh-keys.json');
   const protector = fakeProtector();

@@ -11,6 +11,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const { scanKimiWork, kimiWorkDbPath } = require('../src/clients/kimi-work/sessions');
+const { makeTempDir } = require('./helpers/temp');
 
 function sqlite3Bin() {
   if (process.platform === 'darwin' && fs.existsSync('/usr/bin/sqlite3')) return '/usr/bin/sqlite3';
@@ -42,7 +43,7 @@ CREATE TABLE conversations (
 
 // 造一个 Kimi Work 数据根：sqlite 索引 + 可选的 kernel 会话目录
 function buildFixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kimi-work-fix-'));
+  const root = makeTempDir('agentdesk-kimi-work-fix-');
   const dbDir = path.join(root, 'agents', 'main', 'sessions', 'hosted-logical');
   fs.mkdirSync(dbDir, { recursive: true });
   const db = path.join(dbDir, 'conversations.sqlite');
@@ -92,7 +93,7 @@ test('scanKimiWork：读 sqlite 索引，标题用 generated title，updatedAt �
 });
 
 test('scanKimiWork：缺 db / 缺目录 → 空数组', () => {
-  const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'kimi-work-empty-'));
+  const empty = makeTempDir('agentdesk-kimi-work-empty-');
   assert.deepEqual(scanKimiWork({ sessionRoot: empty }), []);
   assert.deepEqual(scanKimiWork({ sessionRoot: path.join(empty, 'missing') }), []);
 });

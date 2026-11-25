@@ -12,6 +12,7 @@ const apps = require('../src/apps');
 const hub = require('../src/hub/adapters');
 const { readCachedCodexQuota } = require('../src/clients/codex/quota');
 const { captureCodexTaskSession } = require('../src/clients/codex/task-package');
+const { makeTempDir } = require('./helpers/temp');
 
 function line(type, payload, timestamp = '2026-11-24T10:00:00.000Z') { return JSON.stringify({ timestamp, type, payload }); }
 const userItem = (text) => line('response_item', { type: 'message', role: 'user', content: [{ type: 'input_text', text }] });
@@ -24,7 +25,7 @@ const tokenCount = (timestamp) => line('event_msg', { type: 'token_count', rate_
 } }, timestamp);
 
 function home(t) {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-readers-')));
+  const root = fs.realpathSync(makeTempDir('agentdesk-codex-readers-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dir = path.join(root, 'sessions', '2026', '11', '24');
   fs.mkdirSync(dir, { recursive: true });

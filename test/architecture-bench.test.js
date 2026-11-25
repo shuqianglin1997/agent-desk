@@ -6,9 +6,10 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { generate } = require('../scripts/arch-fixtures');
 const apps = require('../src/apps');
+const { makeTempDir } = require('./helpers/temp');
 
 function tempRoot(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-arch-fixture-test-'));
+  const root = makeTempDir('agentdesk-arch-fixture-test-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }

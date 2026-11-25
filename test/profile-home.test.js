@@ -4,13 +4,14 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { makeTempDir } = require('./helpers/temp');
 
 const {
   prepareManagedProfileHome
 } = require('../src/profile-home');
 
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-profile-home-'));
+  const root = makeTempDir('agentdesk-profile-home-');
   const home = path.join(root, 'home');
   fs.mkdirSync(home, { recursive: true });
   return { root, home };

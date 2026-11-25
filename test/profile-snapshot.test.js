@@ -8,6 +8,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { resolveProfileStore, createProfileSnapshot } = require('../src/main/profile-store-policy');
+const { makeTempDir } = require('./helpers/temp');
 
 test('a readable primary store is the only file read', () => {
   const reads = [];
@@ -28,7 +29,7 @@ test('a readable primary store is the only file read', () => {
 });
 
 test('the refresh path reads profiles.json again only when the file changed', async (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-profile-snapshot-'));
+  const directory = makeTempDir('agentdesk-profile-snapshot-');
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const file = path.join(directory, 'profiles.json');
   fs.writeFileSync(file, JSON.stringify({ version: 3, profiles: [{ id: 'a' }] }));

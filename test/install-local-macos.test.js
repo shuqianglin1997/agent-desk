@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { makeTempDir } = require('./helpers/temp');
 
 const {
   parseLsofProcesses,
@@ -27,7 +28,7 @@ test('lsof 解析使用真实映射路径识别临时目录中的旧 AgentDesk b
 });
 
 test('临时保留客户端后会逐字节恢复原 settings.json', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-local-install-settings-'));
+  const root = makeTempDir('agentdesk-local-install-settings-');
   try {
     const settingsFile = path.join(root, 'settings.json');
     const original = '{\n  "version": 4,\n  "settings": {\n    "profileQuitBehavior": "close",\n    "lang": "zh"\n  }\n}\n';
@@ -42,7 +43,7 @@ test('临时保留客户端后会逐字节恢复原 settings.json', () => {
 });
 
 test('安装器在任何目标变更前再次确认没有活跃 bundle 映射', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-local-install-order-'));
+  const root = makeTempDir('agentdesk-local-install-order-');
   try {
     const source = path.join(root, 'source', 'AgentDesk.app');
     const target = path.join(root, 'Applications', 'AgentDesk.app');
@@ -88,7 +89,7 @@ test('安装器在任何目标变更前再次确认没有活跃 bundle 映射', 
 });
 
 test('有运行中的 AgentDesk 且未选择保留客户端时拒绝触碰目标', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-local-install-running-'));
+  const root = makeTempDir('agentdesk-local-install-running-');
   try {
     const source = path.join(root, 'source', 'AgentDesk.app');
     const target = path.join(root, 'Applications', 'AgentDesk.app');
@@ -113,7 +114,7 @@ test('有运行中的 AgentDesk 且未选择保留客户端时拒绝触碰目标
 });
 
 test('启动后若仍有进程映射新 bundle，回滚前必须先终止并复核', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-local-install-rollback-'));
+  const root = makeTempDir('agentdesk-local-install-rollback-');
   try {
     const source = path.join(root, 'source', 'AgentDesk.app');
     const target = path.join(root, 'Applications', 'AgentDesk.app');

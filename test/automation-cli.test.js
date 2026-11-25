@@ -10,6 +10,7 @@ const { run, parse } = require('../src/automation/cli');
 const { execute } = require('../src/automation/service');
 const apps = require('../src/apps');
 const location = require('../src/session-location');
+const { makeTempDir } = require('./helpers/temp');
 
 function invoke(args) {
   let output = '';
@@ -18,7 +19,7 @@ function invoke(args) {
 }
 
 function fixture(t, appId = 'codex') {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-interface-'));
+  const root = makeTempDir('agentdesk-interface-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const userData = path.join(root, 'AgentDesk');
   const profilePath = path.join(root, 'company client');

@@ -4,9 +4,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const json = require('../src/core/json-file');
+const { makeTempDir } = require('./helpers/temp');
 
 function tempDir(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-core-json-'));
+  const dir = makeTempDir('agentdesk-core-json-');
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }

@@ -8,6 +8,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { createOwner } = require('../src/main/owner');
+const { makeTempDir } = require('./helpers/temp');
 
 function fakeClock() {
   let now = 0;
@@ -103,7 +104,7 @@ test('the runtime supervisor can be scheduled by the owner', async () => {
   const os = require('node:os');
   const path = require('node:path');
   const { ProfileRuntimeSupervisor } = require('../src/profile-runtime');
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-owner-'));
+  const root = makeTempDir('agentdesk-owner-');
   try {
     const scheduled = [];
     const supervisor = new ProfileRuntimeSupervisor({

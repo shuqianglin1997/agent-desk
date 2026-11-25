@@ -7,9 +7,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { nearestExistingDirectory } = require('../src/path-utils');
+const { makeTempDir } = require('./helpers/temp');
 
 test('path-utils: the nearest existing folder inside "..cache" is that folder, not the fallback root', (t) => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-dotdot-')));
+  const root = fs.realpathSync(makeTempDir('agentdesk-dotdot-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, '..cache'));
   const result = nearestExistingDirectory(path.join(root, '..cache', 'missing.jsonl'), root);

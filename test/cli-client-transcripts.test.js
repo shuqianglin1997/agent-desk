@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const apps = require('../src/apps');
+const { makeTempDir } = require('./helpers/temp');
 const transcripts = {
   ...require('../src/clients/gemini-cli/transcript'),
   ...require('../src/clients/qwen-code/transcript')
@@ -19,7 +20,7 @@ const SECRET = 'sk-SENTINELexport0123456789abcdef';
 const posixOnly = { skip: process.platform === 'win32' ? 'shell stubs stand in for the official clients on POSIX' : false };
 
 function tmp(t) {
-  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-cli-transcripts-')));
+  const root = fs.realpathSync.native(makeTempDir('agentdesk-cli-transcripts-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }

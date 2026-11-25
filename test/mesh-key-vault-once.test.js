@@ -7,6 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
+const { makeTempDir } = require('./helpers/temp');
 
 function countingProtector() {
   const counts = { decrypt: 0 };
@@ -24,7 +25,7 @@ function countingProtector() {
 }
 
 test('keys are decrypted once, handed out as copies, and read again only after this vault changes them', (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-key-vault-'));
+  const directory = makeTempDir('agentdesk-key-vault-');
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const protector = countingProtector();
   const vault = new EncryptedKeyVault(path.join(directory, 'mesh-keys.json'), protector);
@@ -44,7 +45,7 @@ test('keys are decrypted once, handed out as copies, and read again only after t
 });
 
 test('a keychain that is unavailable is asked again next time', (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-key-vault-'));
+  const directory = makeTempDir('agentdesk-key-vault-');
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const protector = countingProtector();
   const vault = new EncryptedKeyVault(path.join(directory, 'mesh-keys.json'), protector);

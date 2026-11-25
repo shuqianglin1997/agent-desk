@@ -13,11 +13,12 @@ const path = require('node:path');
 const { createCliBroker, runPackagedCli, readPromptFromStdin, PACKAGED_COMMANDS } = require('../src/automation/packaged-cli');
 const { InterfaceError } = require('../src/automation/service');
 const { mainHandlerSource } = require('./helpers/main-handler-source');
+const { makeTempDir } = require('./helpers/temp');
 
 const PROMPT = 'PROMPT-SENTINEL-c41 check the diff\n';
 
 function harness(t, dispatch) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hub-cli-'));
+  const root = makeTempDir('agentdesk-hub-cli-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const userData = path.join(root, 'AgentDesk');
   const broker = createCliBroker({ userData, whenReady: async () => {}, dispatch });
@@ -133,7 +134,7 @@ test('Main relays hub commands only from a running desktop and maps refusals to 
 });
 
 test('a broker request without a running desktop still drains cleanly', async (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-hub-cli-own-'));
+  const root = makeTempDir('agentdesk-hub-cli-own-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const userData = path.join(root, 'AgentDesk');
   const extras = [];

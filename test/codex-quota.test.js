@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const { PassThrough, Writable } = require('node:stream');
+const { makeTempDir } = require('./helpers/temp');
 
 const {
   targetTriple,
@@ -17,7 +18,7 @@ const {
 } = require('../src/clients/codex/quota');
 
 function mkTmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-codex-quota-'));
+  return makeTempDir('agentdesk-codex-quota-');
 }
 
 test('CLI 候选覆盖 PATH、npm 原生包和 Windows 应用别名', () => {

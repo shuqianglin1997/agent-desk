@@ -18,6 +18,7 @@
   },
   "include": [
     "src/core/**/*.js",
+    "src/commands/events.js",
     "types/*.d.ts"
   ]
 }

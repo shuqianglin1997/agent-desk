@@ -6,10 +6,11 @@ const path = require('node:path');
 const { MeshService } = require('../src/mesh/main/mesh-service');
 const { MeshStore } = require('../src/mesh/storage/mesh-store');
 const { EncryptedKeyVault } = require('../src/mesh/storage/secure-keys');
+const { makeTempDir } = require('./helpers/temp');
 
 for (const mode of ['deferred', 'unavailable']) {
   test(`${mode} overview omits removed local registrations across restart without changing catalog or remote facts`, () => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-registration-projection-'));
+    const directory = makeTempDir('agentdesk-registration-projection-');
     const databasePath = path.join(directory, 'mesh.db');
     const keyVault = new EncryptedKeyVault(path.join(directory, 'keys.json'), {
       isAvailable: () => true,

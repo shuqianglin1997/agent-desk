@@ -6,9 +6,10 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { terminalLauncherScript } = require('../src/terminal-launcher');
 const { getApp, CLAUDE_CODE_ENV_KEYS } = require('../src/apps');
+const { makeTempDir } = require('./helpers/temp');
 
 function execute(t, options, env) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentdesk-launcher-'));
+  const root = makeTempDir('agentdesk-launcher-');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const file = path.join(root, 'launch.command');
   fs.writeFileSync(file, terminalLauncherScript({ home: root, platform: process.platform, ...options }));
