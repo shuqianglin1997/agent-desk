@@ -51,7 +51,8 @@
       planType: snapshot && snapshot.planType ? String(snapshot.planType) : null,
       tightest,
       hasQuota: status === 'ok' && tightest !== null,
-      reason: snapshot && snapshot.reason ? String(snapshot.reason) : null
+      reason: snapshot && snapshot.reason ? String(snapshot.reason) : null,
+      reasonKeys: snapshot && Array.isArray(snapshot.reasonKeys) ? snapshot.reasonKeys.map(String) : null
     };
   }
 

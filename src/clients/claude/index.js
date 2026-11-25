@@ -54,7 +54,7 @@ module.exports = {
   hubUnsupported: 'desktop-only',
   // Account ID for recognising the same sign-in (./identity.js).
   accountId: (profile) => claudeIdentity.claudeDesktopAccountId(profile),
-  quota: Object.freeze({ unsupportedReason: 'Claude 个人订阅暂无公开额度 API；为保护账号，AgentDesk 不读取浏览器 Cookie' }),
+  quota: Object.freeze({ unsupportedReason: 'quota.reason.claude.unsupported' }),
   // Claude desktop keeps its sessions inside its own data folder.
   sessionsInProfileFolder: true,
   scan: (profile, report) => sessions.scanClaude(profile, report),

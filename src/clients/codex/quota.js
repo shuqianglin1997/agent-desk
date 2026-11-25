@@ -12,7 +12,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const codexRollout = require('./rollout');
-const { normalizeCodexRateLimits, quotaUnavailable } = require('../../quota');
+const { normalizeCodexRateLimits, quotaUnavailable, quotaReasonFields } = require('../../quota');
 
 const RPC_TIMEOUT_MS = 30_000;
 const MAX_STDOUT_BUFFER = 1024 * 1024;
@@ -385,20 +385,20 @@ async function readCodexQuota(profile, options = {}) {
     return snapshot;
   }
   if (!account.account) {
-    return quotaUnavailable(profile.id, 'codex', 'signed_out', 'Codex 账号尚未登录或尚未返回额度');
+    return quotaUnavailable(profile.id, 'codex', 'signed_out', 'quota.reason.codex.signedOut');
   }
   if (account.account.type !== 'chatgpt') {
     const unavailable = quotaUnavailable(
       profile.id,
       'codex',
       'unsupported',
-      '当前 Codex 使用 API Key 或外部凭据，不适用 ChatGPT 订阅额度'
+      'quota.reason.codex.apiKey'
     );
     if (account.account.type === 'apiKey') unavailable.reasonCode = 'api-key-auth';
     return unavailable;
   }
   return {
-    ...quotaUnavailable(profile.id, 'codex', 'unsupported', '当前账号没有返回可展示的订阅额度'),
+    ...quotaUnavailable(profile.id, 'codex', 'unsupported', 'quota.reason.codex.noPlanQuota'),
     planType: snapshot.planType || account.account.planType || null
   };
 }
@@ -474,7 +474,7 @@ function readCachedCodexQuota(profile) {
         source: 'codex-session-log',
         observedAt: found.observedAt || Date.now()
       }),
-      reason: '实时额度暂不可用，显示最近一次本地会话缓存；缓存不会改变猫咪疲劳状态'
+      ...quotaReasonFields('quota.reason.codex.cached')
     };
   }
   return null;
@@ -482,18 +482,18 @@ function readCachedCodexQuota(profile) {
 
 function friendlyCodexFailure(error) {
   if (error?.code === 'CODEX_CLI_NOT_FOUND') {
-    return '未找到 Codex CLI；安装或更新 Codex CLI 后即可读取实时额度';
+    return 'quota.reason.codex.cliMissing';
   }
   if (error?.code === 'CODEX_RPC_UNSUPPORTED') {
-    return '当前 Codex CLI 版本不支持额度协议，请先更新 Codex';
+    return 'quota.reason.codex.rpcUnsupported';
   }
   if (error?.code === 'CODEX_RPC_TIMEOUT') {
-    return 'Codex 额度服务响应超时，请稍后刷新';
+    return 'quota.reason.codex.timeout';
   }
   if (error?.code === 'CODEX_RATE_LIMITS_FAILED') {
-    return '无法连接 Codex 额度服务，请检查网络或稍后刷新';
+    return 'quota.reason.codex.unreachable';
   }
-  return '暂时无法读取 Codex 实时额度';
+  return 'quota.reason.codex.failed';
 }
 
 module.exports = {

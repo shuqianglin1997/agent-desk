@@ -102,10 +102,19 @@ function formatQuotaReset(value, now = Date.now()) {
   return tr('quota.reset.at', { time });
 }
 
+// A quota reason in the interface language: the main process sends the
+// language-table keys of its reasons; a snapshot without them (an older
+// device) shows the text it sent.
+export function quotaReasonText(snapshot) {
+  const keys = Array.isArray(snapshot?.reasonKeys) ? snapshot.reasonKeys.filter((key) => typeof key === 'string' && key) : [];
+  if (keys.length) return keys.map((key) => tr(key)).join(tr('quota.reason.separator'));
+  return snapshot?.reason ? String(snapshot.reason) : '';
+}
+
 function quotaHeadline(snapshot) {
   if (!snapshot || !window.YardEnergy) return tr('quota.unknown');
   const window_ = window.YardEnergy.constrainingWindow(snapshot, Date.now());
-  if (!window_) return snapshot.reason || tr('quota.unknown');
+  if (!window_) return quotaReasonText(snapshot) || tr('quota.unknown');
   return tr('quota.headline', { label: window_.label, pct: Math.round(window_.remainingPercent) });
 }
 
@@ -272,9 +281,9 @@ function renderAccountQuota() {
       ? `${statusLabel} · ${tr('quota.suffix.refreshing')}`
       : statusLabel;
     if (snapshot.status === 'stale') renderQuotaMeters(snapshot);
-    els.quotaMessage.textContent = snapshot.reason || tr('quota.msg.noData');
+    els.quotaMessage.textContent = quotaReasonText(snapshot) || tr('quota.msg.noData');
   }
-  els.quotaSummary.title = snapshot.reason || `${quotaPlanLabel(snapshot.planType)} ${quotaHeadline(snapshot)}`.trim();
+  els.quotaSummary.title = quotaReasonText(snapshot) || `${quotaPlanLabel(snapshot.planType)} ${quotaHeadline(snapshot)}`.trim();
 }
 
 function renderQuotaOverview() {
@@ -321,8 +330,8 @@ function renderQuotaOverview() {
       value.textContent = tr('quota.overview.value', { label: row.tightest.label, pct: Math.round(row.tightest.remainingPercent) });
       item.title = `${row.name} · ${formatQuotaReset(row.tightest.resetsAt)}`;
     } else {
-      value.textContent = row.status === 'loading' ? tr('quota.overview.querying') : (row.reason || tr('quota.overview.noData'));
-      item.title = row.reason || value.textContent;
+      value.textContent = row.status === 'loading' ? tr('quota.overview.querying') : (quotaReasonText(row) || tr('quota.overview.noData'));
+      item.title = quotaReasonText(row) || value.textContent;
     }
 
     item.append(name, value);
@@ -394,7 +403,7 @@ function bindQuotaRefreshEvents() {
     } else if (quota?.status === 'ok') {
       setStatus(tr('status.quotaRefreshed', { headline: quotaHeadline(quota) }));
     } else {
-      setStatus(quota?.reason || state.quotaError || tr('status.quotaUnavailable'));
+      setStatus(quotaReasonText(quota) || state.quotaError || tr('status.quotaUnavailable'));
     }
   });
 }

@@ -11,7 +11,7 @@ import { appLabel, loadSessions, setSessionScope } from './data.js';
 import { onboardingNeedsPresentation } from './first-use.js';
 import { cardRunningCount, hubCardState, renderHubLinks } from './hub.js';
 import { renderAttentionInbox } from './inbox.js';
-import { positionQuotaPopover, renderQuotaSummary, toggleQuotaPopover } from './quota.js';
+import { positionQuotaPopover, quotaReasonText, renderQuotaSummary, toggleQuotaPopover } from './quota.js';
 import { applySessionFilter, renderSessionControls } from './sessions.js';
 import { persistSettings, persistUiSelectionMemory, tr } from './settings.js';
 import { READINESS_BADGE, els, sessionMarks, state } from './shared.js';
@@ -450,7 +450,7 @@ function updateAccountCard(card, group, now) {
     const notApplicable = trustedQuota.status === 'not_applicable';
     quotaValue.textContent = tr(conflict ? 'card.quotaConflict'
       : (notApplicable ? 'quota.status.notApplicable' : 'devices.value.unknown'));
-    quotaValue.title = notApplicable ? trustedQuota.snapshot.reason
+    quotaValue.title = notApplicable ? quotaReasonText(trustedQuota.snapshot)
       : tr(conflict ? 'card.quotaConflictHint' : 'quota.chip.noData');
     quotaTrack.dataset.trusted = 'false';
     quotaTrack.dataset.reason = trustedQuota.reason || 'unknown';

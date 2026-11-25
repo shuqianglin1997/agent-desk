@@ -138,7 +138,18 @@ function normalizeCodexRateLimits(payload, options = {}) {
   };
 }
 
+// A reason written as a language-table key ("quota.reason.…"): the snapshot
+// carries the key for the renderer to translate, and `reason` keeps the zh
+// text for anything that reads reasons as text.
+function quotaReasonFields(...keys) {
+  const { mt } = require('./i18n/main-i18n');
+  return { reason: keys.map((key) => mt('zh', key)).join(mt('zh', 'quota.reason.separator')), reasonKeys: keys };
+}
+
+const isReasonKey = (value) => typeof value === 'string' && /^quota\.reason\.[\w.-]+$/.test(value);
+
 function quotaUnavailable(profileId, provider, status = 'unsupported', reason = null, observedAt = Date.now()) {
+  const fields = isReasonKey(reason) ? quotaReasonFields(reason) : { reason: reason ? String(reason) : null };
   return {
     profileId: profileId === undefined ? null : String(profileId),
     provider: String(provider || 'unknown'),
@@ -149,12 +160,14 @@ function quotaUnavailable(profileId, provider, status = 'unsupported', reason = 
     rateLimitReachedType: null,
     source: 'agentdesk',
     observedAt: timestampToIso(observedAt),
-    reason: reason ? String(reason) : null
+    ...fields
   };
 }
 
 module.exports = {
   VALID_STATUSES,
+  quotaReasonFields,
+  isReasonKey,
   clampPercent,
   timestampToIso,
   durationLabel,

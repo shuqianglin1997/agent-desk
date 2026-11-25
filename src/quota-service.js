@@ -7,7 +7,7 @@
  */
 
 const apps = require('./apps');
-const { quotaUnavailable } = require('./quota');
+const { quotaUnavailable, quotaReasonFields, isReasonKey } = require('./quota');
 
 const SUCCESS_TTL_MS = 5 * 60_000;
 const STALE_TTL_MS = 60_000;
@@ -32,7 +32,7 @@ function quotaOf(profile) {
 }
 
 function unsupportedQuota(profile) {
-  return quotaUnavailable(profile.id, profile.appId, 'unsupported', quotaOf(profile)?.unsupportedReason || '这个客户端暂不支持额度查询');
+  return quotaUnavailable(profile.id, profile.appId, 'unsupported', quotaOf(profile)?.unsupportedReason || 'quota.reason.unsupported');
 }
 
 async function fetchProfileQuota(profile, options = {}) {
@@ -48,7 +48,11 @@ async function fetchProfileQuota(profile, options = {}) {
       // A damaged/unreadable rollout must not make the whole IPC request fail.
     }
     const reason = quota.failureReason(error);
-    if (cached) return { ...cached, reason: `${reason}；${cached.reason}` };
+    if (cached) {
+      const keys = [reason, ...(Array.isArray(cached.reasonKeys) ? cached.reasonKeys : [])];
+      if (isReasonKey(reason) && keys.every(isReasonKey)) return { ...cached, ...quotaReasonFields(...keys) };
+      return { ...cached, reason: `${reason}；${cached.reason}` };
+    }
     return quotaUnavailable(profile.id, profile.appId, 'error', reason);
   }
 }
