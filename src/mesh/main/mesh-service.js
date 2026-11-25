@@ -171,7 +171,12 @@ class MeshService {
       .filter(Boolean));
     const overview = this.getOverview();
     if (!overview.initialized) throw new Error('mesh-not-initialized');
-    if (overview.keyState !== 'available') throw new Error(overview.keyState || 'mesh-keys-unavailable');
+    if (overview.keyState !== 'available') {
+      // Name an unreadable key on its own, so the dialog can say what to
+      // allow; any other failure keeps its own reason.
+      try { this.keyVault.load(); } catch (_error) { throw new Error('mesh-keys-unavailable'); }
+      throw new Error(overview.keyState || 'mesh-operation-failed');
+    }
     const profiles = new Map(this.currentProfiles().map((profile) => [String(profile.id), profile]));
     const waiting = overview.slots
       .filter((slot) => (

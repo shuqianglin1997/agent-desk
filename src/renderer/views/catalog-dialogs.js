@@ -675,7 +675,7 @@ function openSlotAssignmentDialog(slot) {
     device: device?.name || slot.deviceId,
     app: appLabel(slot.appId),
     label: slot.localLabel || slot.profileId,
-    state: slot.assignmentState || 'pending'
+    state: tr('catalog.unassigned.state')
   });
   els.slotAssignmentName.value = slot.localLabel || appLabel(slot.appId);
   els.slotAssignmentGroup.value = '';

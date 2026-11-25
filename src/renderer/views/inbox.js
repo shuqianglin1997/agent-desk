@@ -64,7 +64,7 @@ function collectAttentionItems() {
         title: tr('attention.catalog.title', { name: slot.localLabel || appLabel(slot.appId) }),
         detail: tr('attention.catalog.detail', {
           device: device?.name || slot.deviceId,
-          state: slot.assignmentState || 'pending'
+          state: tr('catalog.unassigned.state')
         }),
         slotKey: catalogSlotKey(slot),
         action: 'assign-slot'

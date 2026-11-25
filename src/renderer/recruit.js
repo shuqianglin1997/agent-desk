@@ -427,7 +427,7 @@
     const missing = (result?.results || []).filter((item) => item.ok && item.onDesk === false).length;
     renderExisting();
     setStatus(failed ? tr('recruit.existing.partial', { n: registered, failed })
-      : missing ? tr('recruit.existing.notPlaced', { n: registered, missing })
+      : missing ? tr(result?.deskReasonCode === 'mesh-keys-unavailable' ? 'recruit.existing.notPlacedKeys' : 'recruit.existing.notPlaced', { n: registered, missing })
         : tr('recruit.existing.registered.done', { n: registered }), failed || missing ? 'error' : 'neutral');
     const first = (result?.results || []).find((item) => item.ok && !item.existing) || (result?.results || []).find((item) => item.ok);
     if (first) await afterAccountChange(first.profileId);

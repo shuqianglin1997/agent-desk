@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T08:04:27.075Z",
-  "baseCommit": "7add5202480e5157b88aa9f71851d840d01b65c2",
+  "recordedAt": "2026-11-25T08:07:32.338Z",
+  "baseCommit": "32541d40630d833835fc58d1e3e49a5a96dd4490",
   "uncommitted": true,
-  "sourceSha256": "d4ad3ec2c0f46975ff0a3b0341f11100497f0b815f9b589d3a40b2f0088a3f5f",
+  "sourceSha256": "371d0d1ac54143e42aa182a98d602681271228425a6f90c88dda53ba6b7038ab",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1008,
+      "pass": 1006,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after two follow-ups to recruit \"bring back\": the assign dialog summary and the inbox item for an unassigned location say 已登记，不在台面上 instead of the raw assignment state; when the mesh keys cannot be read, bringLocalProfilesToDesk reports mesh-keys-unavailable and the dialog asks to allow keychain access and register again instead of pointing to the device page (test/recruit-desk-placement.test.js now covers a refused keychain read on a new run, then success once allowed)",
+      "recordedAt": "2026-11-25T08:07:32.338Z",
+      "sourceSha256": "371d0d1ac54143e42aa182a98d602681271228425a6f90c88dda53ba6b7038ab"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax and type check",
+      "recordedAt": "2026-11-25T08:07:32.338Z",
+      "sourceSha256": "371d0d1ac54143e42aa182a98d602681271228425a6f90c88dda53ba6b7038ab"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

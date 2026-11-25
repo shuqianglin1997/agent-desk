@@ -19,11 +19,16 @@ const { makeTempDir } = require('./helpers/temp');
 
 const NOW = '2026-11-24T08:00:00.000Z';
 
-function fakeProtector() {
+// The system key protection; `locked` stands for a keychain read that is
+// refused (the person denied access, or the item is locked).
+function fakeProtector(keys) {
   return {
     isAvailable: () => true,
     encryptString: (value) => Buffer.from(`protected:${Buffer.from(value).toString('base64')}`),
-    decryptString: (buffer) => Buffer.from(buffer.toString().replace(/^protected:/, ''), 'base64').toString()
+    decryptString: (buffer) => {
+      if (keys.locked) throw new Error('keychain access denied');
+      return Buffer.from(buffer.toString().replace(/^protected:/, ''), 'base64').toString();
+    }
   };
 }
 
@@ -54,9 +59,10 @@ function setup(t, options = {}) {
     home
   });
 
+  const keys = { locked: false };
   const service = new MeshService({
     databasePath: path.join(root, 'mesh.db'),
-    keyVault: new EncryptedKeyVault(path.join(root, 'mesh-keys.json'), fakeProtector()),
+    keyVault: new EncryptedKeyVault(path.join(root, 'mesh-keys.json'), fakeProtector(keys)),
     profilesProvider: () => store.profiles.map((profile) => ({ ...profile })),
     sessionCountProvider: () => 0,
     appVersion: 'test',
@@ -113,7 +119,9 @@ function setup(t, options = {}) {
     const slot = localSlots(overview).find((item) => item.profileId === profileId);
     return slot?.assignmentState === 'linked' && slot.accountBindingId ? slot.agentId : null;
   };
-  return { store, service, handlers, registrar, discover, register, localSlots, accountOf, bringCalls, claudeHome };
+  // A new run of the app: the vault has not read the keys yet.
+  const relaunchKeys = () => { service.keyVault = new EncryptedKeyVault(path.join(root, 'mesh-keys.json'), fakeProtector(keys)); };
+  return { store, service, handlers, registrar, discover, register, localSlots, accountOf, bringCalls, claudeHome, keys, relaunchKeys };
 }
 
 test('a location whose account was removed is not "on the desk" and comes back without a second registration', async (t) => {
@@ -215,19 +223,26 @@ test('a removed location whose sign-in is live on another account joins that sig
   assert.equal(overview.agents.length, 1);
 });
 
-test('when the desk cannot be updated the location stays registered and is reported as not on the desk', async (t) => {
-  const s = setup(t, { bringToDesk: () => ({ ok: false, reasonCode: 'mesh-keys-unavailable' }) });
+test('when the mesh keys cannot be read the location stays registered and the reason names the keys', async (t) => {
+  const s = setup(t);
   let found = await s.discover();
   s.register(found.codex, found.claude);
   const claudeId = s.store.profiles[1].id;
   const overview = s.service.initialize();
   s.service.removeCatalogObject({ scope: 'agent', agentId: s.accountOf(overview, claudeId) });
+  s.relaunchKeys();
+  s.keys.locked = true;
   found = await s.discover();
   const result = s.register(found.claude);
   assert.equal(result.ok, true);
   assert.equal(result.deskReasonCode, 'mesh-keys-unavailable');
   assert.deepEqual(result.results.map(({ ok, existing, onDesk }) => ({ ok, existing, onDesk })), [{ ok: true, existing: true, onDesk: false }]);
   assert.equal(s.store.profiles.length, 2);
+  // Once the keys can be read again, registering it again puts it on the desk.
+  s.keys.locked = false;
+  found = await s.discover();
+  assert.equal(found.claude.onDesk, false);
+  assert.equal(s.register(found.claude).results[0].onDesk, true);
 });
 
 test('without a device mesh every registered location is on the desk and nothing else runs', async (t) => {
