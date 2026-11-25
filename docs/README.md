@@ -27,6 +27,7 @@ Catshelf 的文档必须把下面七种状态分开，不能都写成“已完�
 | 想知道什么 | 文档 | 角色 |
 |---|---|---|
 | AI 如何使用、接公司环境和定制 | [`AI_INTERFACE.md`](AI_INTERFACE.md) | 可运行只读 CLI、配置所有权、扩展点与验收；没有通用写入/远程执行 |
+| 别人装的版本出了问题，怎么修好再给他打包 | [`FIX_AND_REBUILD.md`](FIX_AND_REBUILD.md) | 写给帮人修问题的 AI：查清装的是哪份源码、哪些名字不能动、怎么在他的电脑上打包安装、不能做什么 |
 | 产品现在是什么 | [`PRODUCT.md`](PRODUCT.md) | 当前产品事实与边界 |
 | 用户现在能怎么用 | [`SCENARIOS.md`](SCENARIOS.md) | 当前用户场景及每条路径的证据边界 |
 | 每项功能做到哪一步 | [`FUNCTION_AUDIT.md`](FUNCTION_AUDIT.md) | 功能、证据层级和剩余缺口 |

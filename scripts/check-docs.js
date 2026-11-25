@@ -7,6 +7,7 @@ const ROOT = path.resolve(__dirname, '..');
 const CURRENT_STATE_DOCS = [
   'AGENTS.md',
   'docs/AI_INTERFACE.md',
+  'docs/FIX_AND_REBUILD.md',
   'README.md',
   'docs/README.md',
   'docs/PRODUCT.md',

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T08:15:14.750Z",
-  "baseCommit": "1de66e67ee779db8417fbcdfabed8a017f3ee35f",
+  "recordedAt": "2026-11-25T08:29:24.816Z",
+  "baseCommit": "abc0c433be624b7b2bcfa8cd4f1b4ceef260e9ae",
   "uncommitted": true,
-  "sourceSha256": "ab8a4ca43fa3c218fc79900881a5b13d16724d854889af37e706f903f1074c78",
+  "sourceSha256": "cb03e463bdee8e0c61b5067e73c4e55e38e901a01ea07b8bc54b1bd9a2080dd8",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1015,
+      "pass": 1013,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after packages started recording their source: the beforePack hook writes build-info.json (commit, and whether src/assets/package.json differed from it; no time) via scripts/build-info.js, package.json build.files packs it, src/core/product.js reads it only inside an .asar, and the source CLI's capabilities and the macOS About panel report it. New test/build-info.test.js (5 tests, one in a temp git repository); the CLI characterisation golden regenerated for the added capabilities.build field only. Docs: new docs/FIX_AND_REBUILD.md for an AI fixing and rebuilding for someone, README rewritten, AGENTS.md separates the owner-only workflow. No package was built in this step",
+      "recordedAt": "2026-11-25T08:29:24.816Z",
+      "sourceSha256": "cb03e463bdee8e0c61b5067e73c4e55e38e901a01ea07b8bc54b1bd9a2080dd8"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax and type check, including scripts/build-info.js",
+      "recordedAt": "2026-11-25T08:29:24.816Z",
+      "sourceSha256": "cb03e463bdee8e0c61b5067e73c4e55e38e901a01ea07b8bc54b1bd9a2080dd8"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

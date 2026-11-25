@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const paths = require('../core/paths');
 const { readProfileFile } = require('../core/profile-file');
+const { buildInfo } = require('../core/product');
 const apps = require('../apps');
 const locations = require('../session-location');
 const { TOOL_IDS, discoverCli } = require('../cli-discovery');
@@ -42,6 +43,8 @@ function capabilities() {
       notAvailable: ['profile mutations', 'provider configuration writes', 'launch', 'live quota', 'remote actions', 'Mesh writes', 'generic execution', 'HTTP server', 'MCP server']
     },
     guide: 'docs/AI_INTERFACE.md',
+    // Which source this copy was built from; docs/FIX_AND_REBUILD.md uses it.
+    build: buildInfo(),
     extensionPoints: [
       { purpose: 'Client paths, isolation and scan adapters', source: 'src/apps.js' },
       { purpose: 'Known CLI discovery (not arbitrary commands)', source: 'src/cli-discovery.js' },

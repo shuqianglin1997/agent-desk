@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
+const { writeBuildInfo } = require('./build-info');
 
 const root = path.resolve(__dirname, '..');
 const outputDirectory = path.join(root, 'native', 'bin');
@@ -130,12 +131,21 @@ function build() {
   throw new Error(`native-helper-platform-unsupported:${process.platform}`);
 }
 
-module.exports = async function beforePack() {
-  const outputs = [build()].flat();
+// electron-builder's beforePack hook: record which source this package is
+// built from (scripts/build-info.js), then build the native helpers.
+async function prepareForPack({ writeInfo = writeBuildInfo, buildHelpers = build } = {}) {
+  const info = writeInfo();
+  if (info) process.stdout.write(`Catshelf build info: ${info.commit || 'no git commit'}${info.dirty ? ' + uncommitted changes' : ''}\n`);
+  const outputs = [buildHelpers()].flat();
   process.stdout.write(`Catshelf native helpers built: ${outputs.join(', ')}\n`);
+}
+
+module.exports = async function beforePack() {
+  await prepareForPack();
 };
 
 module.exports._internals = {
+  prepareForPack,
   createWindowsBuildInvocation,
   buildUniversalMacHelper,
   run

@@ -2,6 +2,8 @@
 
 桌面用户用 Catshelf 管理账号和会话，AI 可以直接调用安装包里的 CLI。先运行 `capabilities` 读取机器可读的命令清单，再按用户授权登记目录、导入认证文件、启动客户端或读取指定会话。源码也提供独立的只读 Node 入口。
 
+`capabilities` 的 `build` 字段说明这份程序是用哪份源码打的：`version`、`commit`（完整提交号，没有记录时为 `null`）、`dirty`（打包时有没有未提交的改动）、`repository` 和 `packaged`（源码运行时为 `false`）。帮装了 Catshelf 的人修问题、再给他打包，按 [FIX_AND_REBUILD.md](FIX_AND_REBUILD.md) 做。
+
 当前是 Preview。“可供 AI 使用”不表示桌面全部动作已开放成 API，也不表示 AI 可以跳过登录、路径选择、Mesh 授权或用户确认。当前验证和开放门禁见 [VALIDATION.md](VALIDATION.md)。
 
 ## 从安装包调用

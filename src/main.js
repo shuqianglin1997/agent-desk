@@ -520,6 +520,12 @@ if (cliLaunchArgs !== null) {
     if (process.platform === 'darwin' && !app.isPackaged && app.dock) {
       try { app.dock.setIcon(path.join(__dirname, '..', 'assets', 'icon.png')); } catch (_error) { /* best effort */ }
     }
+    // The About panel says which source this copy was built from
+    // (docs/FIX_AND_REBUILD.md); without a record the default panel stays.
+    try {
+      const product = require('./core/product');
+      app.setAboutPanelOptions(product.aboutPanelOptions(product.buildInfo()));
+    } catch (_error) { /* best effort */ }
     deferSecureMeshStartup = detectSecureMeshStartupDeferral();
     registerIpc();
     registerRemoteEmergencyStop();

@@ -188,6 +188,14 @@ claimed as configured merely because the workflow references them.
 
 Node.js 22.12 or newer is required.
 
+Every electron-builder run, local or release, packs `build-info.json` into
+`app.asar`: the `beforePack` hook (`scripts/build-native-helpers.js`) writes the
+commit and whether `src`, `assets` or `package.json` differed from it
+(`scripts/build-info.js`). It holds no time, so both halves of a universal
+build are identical. A package reports it in `--cli capabilities` (`build`)
+and in the macOS About panel; a source checkout reports `packaged: false`.
+[FIX_AND_REBUILD.md](FIX_AND_REBUILD.md) uses it to fetch the exact source.
+
 ```bash
 npm ci
 npm run check

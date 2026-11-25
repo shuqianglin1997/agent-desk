@@ -32,7 +32,47 @@ function repositoryOf(manifest) {
   return Object.freeze({ owner: match[1], name: match[2] });
 }
 
-const REPOSITORY = repositoryOf(JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')));
+// The app's root: the repository in a source checkout, app.asar in a package.
+const APP_ROOT = path.join(__dirname, '..', '..');
+const REPOSITORY = repositoryOf(JSON.parse(fs.readFileSync(path.join(APP_ROOT, 'package.json'), 'utf8')));
+
+/**
+ * Which source this copy was built from (docs/FIX_AND_REBUILD.md). A package
+ * carries build-info.json, written by scripts/build-info.js just before
+ * electron-builder packs it; it is read only when the root is an .asar, so a
+ * stale file in a source checkout is never reported. Unknown stays null.
+ * @param {string} [root]
+ * @returns {{ version: string, packaged: boolean, commit: string | null, dirty: boolean | null, repository: string }}
+ */
+function buildInfo(root = APP_ROOT) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const { owner, name } = repositoryOf(manifest);
+  const packaged = /\.asar$/i.test(path.resolve(root));
+  let commit = null;
+  let dirty = null;
+  if (packaged) {
+    try {
+      const record = JSON.parse(fs.readFileSync(path.join(root, 'build-info.json'), 'utf8'));
+      if (typeof record?.commit === 'string' && /^[0-9a-f]{40}$/.test(record.commit)) {
+        commit = record.commit;
+        dirty = typeof record.dirty === 'boolean' ? record.dirty : null;
+      }
+    } catch (_error) { /* no record: the commit is unknown */ }
+  }
+  return { version: String(manifest.version || ''), packaged, commit, dirty, repository: `https://github.com/${owner}/${name}` };
+}
+
+/**
+ * The macOS About panel: version, short commit ("+" when the package had
+ * uncommitted changes, "source" when running from a checkout) and where the
+ * source is.
+ * @param {ReturnType<typeof buildInfo>} info
+ */
+function aboutPanelOptions(info) {
+  const short = info.commit ? `${info.commit.slice(0, 7)}${info.dirty ? '+' : ''}` : (info.packaged ? 'unknown' : 'source');
+  const commitLine = info.commit ? `\ncommit ${info.commit}${info.dirty ? ' + uncommitted changes' : ''}` : '';
+  return { applicationVersion: info.version, version: short, credits: `${info.repository}${commitLine}` };
+}
 
 /**
  * Call first thing in Main, before anything reads the app name or the data
@@ -77,5 +117,7 @@ module.exports = {
   CLI_COMMANDS,
   REPOSITORY,
   repositoryOf,
+  buildInfo,
+  aboutPanelOptions,
   keepLegacyIdentity
 };
