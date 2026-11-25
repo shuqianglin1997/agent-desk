@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T06:28:17.101Z",
-  "baseCommit": "897696c54d0649e67100f58eb1d4227257cca80c",
+  "recordedAt": "2026-11-25T06:39:21.691Z",
+  "baseCommit": "ff03d8d309cf831fce14afb6a538aa45193d1a2e",
   "uncommitted": true,
-  "sourceSha256": "5424940eba7021cb4c08d4ff88f52a75f0fd6424155af71e367a7da4d2f45865",
+  "sourceSha256": "4b2e1b929f1373c8306682125cb92e549b9ab650c51b30d3d3c4be5bf5fda504",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 990,
+      "pass": 988,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after the tools page's update lines were shortened in three languages (no version; the row shows it) and two locations of one account are told apart in the confirmation list; digest identical before and after the run",
+      "recordedAt": "2026-11-25T06:39:21.691Z",
+      "sourceSha256": "4b2e1b929f1373c8306682125cb92e549b9ab650c51b30d3d3c4be5bf5fda504"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T06:39:21.691Z",
+      "sourceSha256": "4b2e1b929f1373c8306682125cb92e549b9ab650c51b30d3d3c4be5bf5fda504"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

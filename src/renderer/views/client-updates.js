@@ -70,10 +70,13 @@ async function readClientUpdates() {
   }
 }
 
-// The account's name for a location id: the card's name, else the location's.
+// How a location is listed: the card's (account's) name, and the location's
+// own name too when it differs, so two locations of one account stay apart.
 function accountName(profileId) {
   const group = identityGroups().find((item) => (item.members || []).some((member) => String(member._meshProfileId || member.id) === profileId));
-  return group?.primary?.name || state.profiles.find((profile) => profile.id === profileId)?.name || profileId;
+  const own = state.profiles.find((profile) => profile.id === profileId)?.name || '';
+  const name = group?.primary?.name || own || profileId;
+  return own && own !== name ? `${name} · ${own}` : name;
 }
 
 // The card mark: one of this card's local locations is open in a client that
@@ -102,9 +105,8 @@ function toolUpdateDetail(item) {
   if (!client) return null;
   const phase = busy ? tr(`clientUpdate.tool.phase.${state.clientUpdates.busy.phase}`) : null;
   if (waitingFor(client)) {
-    const line = client.waiting.certainty === 'exact'
-      ? tr('clientUpdate.tool.exact', { n: client.open.length, version: client.diskVersion || '-' })
-      : tr('clientUpdate.tool.inferred', { n: client.open.length });
+    // The row shows the version already; the line says only what is waiting.
+    const line = tr(client.waiting.certainty === 'exact' ? 'clientUpdate.tool.exact' : 'clientUpdate.tool.inferred', { n: client.open.length });
     return {
       label: tr('clientUpdate.tool.waiting'),
       line,
@@ -114,7 +116,7 @@ function toolUpdateDetail(item) {
   if (client.reopen) {
     return {
       label: tr('clientUpdate.tool.reopenable'),
-      line: tr('clientUpdate.tool.reopen', { version: client.reopen.toVersion, n: client.reopen.profileIds.length }),
+      line: tr('clientUpdate.tool.reopen', { n: client.reopen.profileIds.length }),
       action: { label: phase || tr('clientUpdate.tool.reopenAction'), disabled: Boolean(state.clientUpdates.busy), run: (button) => openClientUpdateDialog(client.appId, 'reopen', button) }
     };
   }
