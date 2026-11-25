@@ -1457,9 +1457,11 @@ function verifyPackagedCli(artifact, directory, timeoutMs) {
   assert.equal(fs.realpathSync(invoke('paths').userData), fs.realpathSync(userData));
   const registered = invoke('profiles', 'register', '--app', 'codex', '--session-root', codexHome);
   assert.ok(registered.profileId);
-  assert.deepEqual(invoke('profiles', 'import-auth', '--app', 'codex', '--file', authPath), {
-    profileId: registered.profileId, existing: true
-  });
+  // The CLI contract lets responses gain fields (capabilities.output.unknownFields);
+  // what matters is that the home's own auth file maps to the registered Profile.
+  const imported = invoke('profiles', 'import-auth', '--app', 'codex', '--file', authPath);
+  assert.equal(imported.profileId, registered.profileId);
+  assert.equal(imported.existing, true);
   assert.deepEqual(invoke('profiles', 'list').profiles.map(({ id }) => id), [registered.profileId]);
   const sessions = invoke('sessions', 'list', '--profile', registered.profileId).sessions;
   assert.equal(sessions.length, 1);

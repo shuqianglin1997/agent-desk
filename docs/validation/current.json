@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T08:44:07.520Z",
-  "baseCommit": "027c72bcab2665f1625331578aab9b375c0ebf60",
+  "recordedAt": "2026-11-25T08:46:42.761Z",
+  "baseCommit": "bab6b0b54f7decd019a220183a2a95905df7d007",
   "uncommitted": true,
-  "sourceSha256": "304da6ce3197c0f13bd5979f1169136ac2695f7d54c72c7575b7b77db77b5112",
+  "sourceSha256": "e50b3d681a9c54989359148899a84a6cd1eddf5f9c50830ac074169c495d518d",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1016,
+      "pass": 1014,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after the packaged first-use smoke stopped requiring an exact profiles import-auth response (the CLI may add fields; it now checks profileId and existing). macOS CI on 3dec1e0 failed at that assertion; the packaged smoke itself was not run locally",
+      "recordedAt": "2026-11-25T08:46:42.761Z",
+      "sourceSha256": "e50b3d681a9c54989359148899a84a6cd1eddf5f9c50830ac074169c495d518d"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax and type check",
+      "recordedAt": "2026-11-25T08:46:42.761Z",
+      "sourceSha256": "e50b3d681a9c54989359148899a84a6cd1eddf5f9c50830ac074169c495d518d"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",
