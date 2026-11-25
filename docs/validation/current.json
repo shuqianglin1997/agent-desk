@@ -36,6 +36,48 @@
       "sourceSha256": "4b2e1b929f1373c8306682125cb92e549b9ab650c51b30d3d3c4be5bf5fda504"
     },
     {
+      "command": "node scripts/ui-snapshots.js --compare <baseline from 8313be0>",
+      "result": "passed",
+      "scope": "Orderly update: 66 pixel snapshots (two themes, three languages, every listed state) against a baseline captured from the commit before the interface change; 0 differing, no retries; run at 897696c",
+      "recordedAt": "2026-11-25T06:39:21.691Z"
+    },
+    {
+      "command": "node scripts/ui-styles.js --compare <baseline from 8313be0>",
+      "result": "passed-after-index-remap",
+      "scope": "Orderly update: after dropping the new closed #clientUpdateDialog and shifting later body-child indices by one, all 32,572 elements per combination, every forced hover/focus/active state and the sheets are identical in all six combinations; run at ff03d8d (the first run found three empty-list placeholders inside the closed System page, fixed in ff03d8d)",
+      "recordedAt": "2026-11-25T06:39:21.691Z"
+    },
+    {
+      "command": "node scripts/ui-text.js --compare <baseline from 8313be0>",
+      "result": "passed-after-index-remap",
+      "scope": "Orderly update: the 42 reported new overflows are elements that already overflowed in the baseline under their previous index; retired words 0; run at 897696c",
+      "recordedAt": "2026-11-25T06:39:21.691Z"
+    },
+    {
+      "command": "node scripts/ui-acceptance.js --hidden",
+      "result": "passed",
+      "scope": "Orderly update: 27 hidden-window task paths; run at ff03d8d",
+      "recordedAt": "2026-11-25T06:39:21.691Z"
+    },
+    {
+      "command": "node scripts/hidden-check.js",
+      "result": "passed",
+      "scope": "Orderly update: read payload shapes match, one full scan at start-up, 21 scans until the probe all on the worker, 0 synchronous main-thread calls on the steady refresh path, no serious log lines; run at 897696c",
+      "recordedAt": "2026-11-25T06:39:21.691Z"
+    },
+    {
+      "command": "node scripts/hidden-check.js --packaged",
+      "result": "passed",
+      "scope": "Orderly update: self-built test package, removed afterwards; same results as the unpacked check, no download lines, release/ empty; run at 897696c",
+      "recordedAt": "2026-11-25T06:39:21.691Z"
+    },
+    {
+      "command": "one-off hidden-window screenshots with an injected update status (scratch script, not in the repository)",
+      "result": "passed",
+      "scope": "Orderly update: card mark, tools row (exact and inferred), confirmation dialog (confirm disabled until background runs are ticked; Main refuses with nothing-open), inbox reopen entry and reopen dialog in light zh/en/ja and dark zh; no new text cut off after 99c6897; the real status read in the same window: nothing waiting for the five desktop clients",
+      "recordedAt": "2026-11-25T06:39:21.691Z"
+    },
+    {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",
       "tests": 990,
