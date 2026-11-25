@@ -189,12 +189,13 @@
     function fill(target) {
       const key = target.dataset.hubTip;
       const reason = disabled(target) ? (target.dataset.hubReason || '').trim() : '';
-      tip.replaceChildren(
+      // replaceChildren would write a null out as the text "null".
+      tip.replaceChildren(...[
         el('b', { text: t(`hub.tip.${key}.title`) }),
         el('p', { text: t(`hub.tip.${key}.body`) }),
         el('small', { text: t(`hub.tip.${key}.facts`) }),
         reason ? el('small', { className: 'hub-tip-reason', text: reason }) : null
-      );
+      ].filter(Boolean));
     }
     function place(target) {
       const rect = target.getBoundingClientRect();

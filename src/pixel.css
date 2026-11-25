@@ -2356,6 +2356,9 @@ dialog:not([open]) { translate: 0 40px; clip-path: inset(-12px -12px 40px -12px)
   box-shadow: var(--px), 4px 4px 0 0 var(--px-shade);
   pointer-events: none;
 }
+/* display: grid above would override the browser's display: none for a closed popover and
+   leave the tip on screen after it is hidden */
+.hub-tip:not(:popover-open) { display: none; }
 .hub-tip:popover-open { animation: hub-tip-in 0.08s steps(2) both; }
 @keyframes hub-tip-in { from { clip-path: inset(0 0 60% 0); } to { clip-path: inset(-8px); } }
 .hub-tip > b { color: var(--px-ink); font-weight: 700; }

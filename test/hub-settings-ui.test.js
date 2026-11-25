@@ -151,3 +151,88 @@ test('every hub string exists in Chinese, English and Japanese', () => {
   const zh = localeKeys('zh');
   for (const match of html.matchAll(/data-i18n="(hub\.[^"]+)"/g)) assert.ok(zh.has(match[1]), `${match[1]} 不在词表里`);
 });
+
+// Just enough of a document for installTips: listeners by type, a popover
+// that tracks whether it is open, and nodes that keep what they were given.
+function tipDocument() {
+  const listeners = {};
+  const make = (tag) => ({
+    tag, children: [], dataset: {}, style: {}, attrs: {}, textContent: '', className: '', isConnected: true,
+    open: false,
+    setAttribute(name, value) { this.attrs[name] = value; },
+    getAttribute(name) { return name in this.attrs ? this.attrs[name] : null; },
+    hasAttribute(name) { return name in this.attrs; },
+    removeAttribute(name) { delete this.attrs[name]; },
+    append(...items) { this.children.push(...items); },
+    replaceChildren(...items) { this.children = items; },
+    matches(selector) { return selector === ':popover-open' ? this.open : false; },
+    showPopover() { this.open = true; },
+    hidePopover() { this.open = false; },
+    getBoundingClientRect: () => ({ left: 100, top: 100, bottom: 120, width: 200, height: 80 }),
+    querySelector: () => null,
+    contains(node) { return node === this; }
+  });
+  const body = make('body');
+  const win = {
+    innerWidth: 1040, innerHeight: 840,
+    matchMedia: () => ({ matches: true }),
+    requestAnimationFrame: (fn) => { fn(); return 1; },
+    addEventListener: (type, fn) => { (listeners[`win:${type}`] ||= []).push(fn); }
+  };
+  const doc = {
+    defaultView: win, body, documentElement: { addEventListener: (type, fn) => { (listeners[`root:${type}`] ||= []).push(fn); } },
+    createElement: make,
+    getElementById: (id) => body.children.find((node) => node.attrs.id === id) || null,
+    elementsFromPoint: () => doc.pointAt,
+    pointAt: [],
+    addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); }
+  };
+  const fire = (type, event = {}) => { for (const fn of listeners[type] || []) fn({ preventDefault() {}, stopPropagation() {}, ...event }); };
+  return { doc, make, fire };
+}
+
+function installedTips() {
+  const { doc, make, fire } = tipDocument();
+  global.self = {};
+  global.document = doc;
+  delete require.cache[require.resolve('../src/renderer/hub.js')];
+  require('../src/renderer/hub.js');
+  const Ui = global.self.AgentHubUi;
+  delete global.self;
+  const tips = Ui.installTips(doc, (key) => `t:${key}`);
+  return { doc, make, fire, tips, done: () => { delete global.document; } };
+}
+
+test('an open tip lists only its own lines; the reason line is there only when the button is disabled', (t) => {
+  const { make, tips, done } = installedTips();
+  t.after(done);
+  const button = make('button');
+  button.dataset.hubTip = 'copy';
+  button.closest = () => button;
+  tips.show(button);
+  assert.equal(tips.element.open, true);
+  assert.deepEqual(tips.element.children.map((node) => typeof node === 'object' && node ? node.tag : String(node)), ['b', 'p', 'small']);
+  button.matches = (selector) => selector === ':disabled';
+  button.dataset.hubReason = 'pick one first';
+  tips.show(button);
+  assert.deepEqual(tips.element.children.map((node) => node.tag), ['b', 'p', 'small', 'small']);
+  assert.equal(tips.element.children[3].textContent, 'pick one first');
+});
+
+test('moving off the button or clicking elsewhere closes the tip, and a closed tip is not drawn', (t) => {
+  const { doc, make, fire, tips, done } = installedTips();
+  t.after(done);
+  const button = make('button');
+  button.dataset.hubTip = 'copy';
+  tips.show(button);
+  doc.pointAt = [];
+  fire('pointermove', { clientX: 5, clientY: 5 });
+  assert.equal(tips.element.open, false, 'pointer moved off');
+  tips.show(button);
+  fire('pointerdown');
+  assert.equal(tips.element.open, false, 'clicked elsewhere');
+  // The browser hides a closed popover with display: none; the tip's own
+  // display: grid must not override that, or it stays on screen.
+  const { declared } = require('./helpers/behaviour');
+  assert.equal(declared('.hub-tip:not(:popover-open)', 'display'), 'none');
+});

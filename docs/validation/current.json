@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T08:07:32.338Z",
-  "baseCommit": "32541d40630d833835fc58d1e3e49a5a96dd4490",
+  "recordedAt": "2026-11-25T08:15:14.750Z",
+  "baseCommit": "1de66e67ee779db8417fbcdfabed8a017f3ee35f",
   "uncommitted": true,
-  "sourceSha256": "371d0d1ac54143e42aa182a98d602681271228425a6f90c88dda53ba6b7038ab",
+  "sourceSha256": "ab8a4ca43fa3c218fc79900881a5b13d16724d854889af37e706f903f1074c78",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1010,
+      "pass": 1008,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after the explanation tip (说明纸条) fix: a closed tip is no longer drawn (.hub-tip set display: grid, which overrode the browser's display: none for a closed popover, so the tip stayed on screen after moving away or clicking elsewhere), and an enabled button's tip no longer ends with a \"null\" line. Two new tests in test/hub-settings-ui.test.js run installTips on a small fake document",
+      "recordedAt": "2026-11-25T08:15:14.750Z",
+      "sourceSha256": "ab8a4ca43fa3c218fc79900881a5b13d16724d854889af37e706f903f1074c78"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax and type check",
+      "recordedAt": "2026-11-25T08:15:14.750Z",
+      "sourceSha256": "ab8a4ca43fa3c218fc79900881a5b13d16724d854889af37e706f903f1074c78"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",
