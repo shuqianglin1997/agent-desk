@@ -6,6 +6,12 @@
    都在坑位允许往外画的范围里（.account-card-pit 的 clip-path 左右 12px、上面 60px），
    所以卡片、名册、搁板和名牌的尺寸都不变。 */
 .agent-panel .account-card-avatar {
+  display: block;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  image-rendering: pixelated;
+  transition: transform 0.08s steps(2);
   width: 80px;
   height: 80px;
   margin: -12px -8px 0;
@@ -13,6 +19,9 @@
 
 /* 页脚的猫：20×18 格，一格 2px。平时揣着手只占下面 13 格；复制、导出时跳起来，会高出页脚的木板一点，不裁。 */
 .status-mascot {
+  flex: none;
+  image-rendering: pixelated;
+  transform-origin: 50% 100%;
   width: 40px;
   height: 36px;
   align-self: flex-end;

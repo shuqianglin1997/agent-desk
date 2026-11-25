@@ -96,7 +96,8 @@ test('样式里的逐帧动画与同一条路一致：会话行六帧写进来�
   const folder = [...block('lamp-folder').matchAll(/translate: 0 (\d+)(?:px)?;/g)].map((match) => Number(match[1]));
   assert.deepEqual(folder, Lamp.path(40, 0, 3));
   assert.match(css, /dialog\[open\] \{ animation: lamp-folder 144ms linear backwards; \}/);
-  assert.match(css, /dialog \{ transition: translate 80ms steps\(2, end\), clip-path 80ms steps\(2, end\), display 80ms allow-discrete, overlay 80ms allow-discrete; \}/);
+  // The dialog's transition sits in workspace.css's one dialog rule (phase 7 merged the sheets' dialog rules).
+  assert.match(read('src/workspace.css'), /\n  dialog \{[^}]*?\n    transition: translate 80ms steps\(2, end\), clip-path 80ms steps\(2, end\), display 80ms allow-discrete, overlay 80ms allow-discrete;\n[^}]*\}/);
   // 明暗只用台阶：灯的四档是硬切换，新加的样子里没有透明度渐变。
   const section = css.slice(css.indexOf('/* ══ 开灯与关灯'));
   assert.doesNotMatch(section, /opacity:\s*0(?:\.\d+)?\s*;[^}]*transition|@keyframes[^{]*\{[^}]*opacity/);

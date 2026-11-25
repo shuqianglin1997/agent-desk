@@ -41,7 +41,10 @@
 }
 
 @layer reset {
-  *, *::before, *::after { box-sizing: border-box; }
+  *::after {
+    box-sizing: border-box;
+    border-radius: 0;
+  }
 
   html,
   body {
@@ -103,6 +106,7 @@
 
   button:active:not(:disabled) {
     box-shadow: none;
+    transform: translateY(2px);
   }
 
   button.danger:hover:not(:disabled) {
@@ -135,7 +139,13 @@
   .account-card-avatar { width: 44px; height: 40px; flex: none; image-rendering: pixelated; border-radius: 9px; border: 1px solid var(--line-soft); background: var(--surface-sunken); }
   .account-card-name { font-weight: 600; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-primary); }
   .account-card-state { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .account-card-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .account-card-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+    box-shadow: 0 0 0 2px var(--px-edge);
+  }
   /* 原型 qbar：卡片底部额度条（颜色随 data-level，同 quota-chip 色阶）；轨道用主题变量 */
   .account-card-quota { height: 6px; border-radius: 3px; margin-top: 10px; background: var(--line-soft); overflow: hidden; }
 
@@ -166,11 +176,6 @@
 
   .topbar-actions button {
     padding: 0 9px;
-  }
-
-  .device-count-badge {
-    margin-left: 2px;
-    text-align: center;
   }
 
   .device-lens-select {
@@ -826,6 +831,17 @@
   .session-select-box {
     accent-color: var(--accent);
     vertical-align: middle;
+    display: block;
+    width: 14px;
+    height: 14px;
+    margin: 2px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: var(--px);
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    background: var(--px-float);
   }
 
   .session-select-box:disabled {
@@ -904,6 +920,10 @@
     padding: 0 20px;
     backdrop-filter: blur(var(--glass-blur));
     font-size: 11.5px;
+    background: var(--px-wood);
+    border-top: 2px solid var(--px-edge);
+    box-shadow: inset 0 2px 0 0 var(--px-wood-hi);
+    color: var(--px-on-wood);
   }
 
   #statusText {
@@ -2271,10 +2291,6 @@
     min-width: 0;
   }
 
-  .presenter-head {
-    border-bottom: 1px solid var(--line-soft);
-  }
-
   .presenter-head > div { display: flex; align-items: center; gap: 8px; }
   .presenter-head > div span {
     color: var(--ink-tertiary);
@@ -2298,6 +2314,14 @@
     padding: 12px;
     font-size: 11.5px;
     white-space: nowrap;
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+    width: 620px;
+    max-width: 100%;
+    margin: 14px 0 0 8px;
+    color: var(--px-ink-2);
   }
 
   /* Sessions: stable filters above, selected-row actions only when needed. */
@@ -2504,21 +2528,6 @@
   }
 
   /* ── 1.11 fixed workspace: Header + 3 panels + global Footer ─────── */
-  .visually-hidden {
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    padding: 0 !important;
-    margin: -1px !important;
-    overflow: hidden !important;
-    clip: rect(0, 0, 0, 0) !important;
-    white-space: nowrap !important;
-    border: 0 !important;
-  }
-
-  .app-topbar {
-    grid-column: 1;
-  }
 
   .topbar-lens .device-lens-select {
     width: 174px;
@@ -2538,25 +2547,10 @@
     display: none !important;
   }
 
-  .device-count-badge,
-  .activity-count-badge {
-    line-height: 1;
-  }
-
-  .workspace-board {
-    grid-column: 1;
-  }
-
   .agent-panel > .presenter-head {
     padding: 0 12px;
     border-bottom: 1px solid var(--line-soft);
     background: color-mix(in oklab, var(--surface-sunken) 62%, var(--surface-raised));
-  }
-
-  .agent-panel .presenter {
-    grid-column: 1;
-    grid-row: 1;
-    border-right: 1px solid var(--line-soft);
   }
 
   .agent-panel .presenter > .account-roster {
@@ -2685,9 +2679,13 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+    position: relative;
+    color: var(--px-ink);
+    background: transparent;
   }
 
   .app-topbar {
+    grid-column: 1;
     --caption-start: 14px;
     --caption-end: 14px;
     --lens-width: 216px;
@@ -2703,8 +2701,13 @@
     gap: var(--header-gap);
     min-width: 0;
     padding: 0 var(--caption-end) 0 var(--caption-start);
-    border-bottom: 1px solid var(--line-mid);
     user-select: none;
+    z-index: 20;
+    border: 0;
+    backdrop-filter: none;
+    /* 顶栏是桌子的后沿，页脚是前沿：一条木板，上面一格高光，下面一格暗边 */
+    background: var(--px-wood);
+    box-shadow: inset 0 2px 0 0 var(--px-wood-hi), inset 0 -4px 0 0 var(--px-wood-lo), 0 2px 0 0 var(--px-edge), 0 6px 0 0 var(--px-shade);
   }
 
   :root:is([data-window-platform="darwin"], [data-window-platform="win32"]) .app-topbar { -webkit-app-region: drag; }
@@ -2718,6 +2721,7 @@
   }
 
   .workspace-board {
+    grid-column: 1;
     grid-row: 2;
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--detail-w);
@@ -2726,13 +2730,8 @@
     min-height: 0;
     overflow: hidden;
     background: transparent;
-  }
-
-  .workspace-board > .workspace-panel {
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-    box-shadow: none;
+    gap: 8px;
+    padding: 0 20px 8px;
   }
 
   .agent-panel {
@@ -2765,6 +2764,15 @@
     grid-template-columns: minmax(0, 1fr) auto;
     min-width: 0;
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    border: 0;
+    border-top: 2px solid var(--px-ink);
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
   }
 }
 
@@ -2789,15 +2797,6 @@
     border-color: var(--line-soft);
     background: var(--surface-sunken);
     transform: none;
-  }
-
-  button.primary {
-    border-color: var(--accent);
-    font-weight: 720;
-  }
-
-  button.primary:hover:not(:disabled) {
-    border-color: var(--accent-700);
   }
 
   input[type="search"],
@@ -2835,12 +2834,8 @@
   input[type="checkbox"],
   input[type="radio"] { accent-color: var(--focus); }
 
-  .presenter-head,
-  .session-toolbar {
-    min-width: 0;
-  }
-
   .presenter-head {
+
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2848,34 +2843,80 @@
     min-width: 0;
     border: 0;
     background: transparent;
+    position: absolute;
+    z-index: 3;
+    inset: 0 0 auto 0;
+    height: 26px;
+    padding: 2px 0 0;
+    pointer-events: none;
   }
 
-  .presenter-head > div:first-child,
   .session-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .presenter-head > div:first-child {
     display: flex;
     align-items: baseline;
     gap: 8px;
     min-width: 0;
   }
 
-  .presenter-head h2,
+  .presenter-head h2 {
+    margin: 0;
+    font-size: var(--text-section);
+    font-weight: 650;
+    line-height: 1.35;
+    white-space: nowrap;
+    color: var(--px-ink-2);
+    font: 700 12px/1 var(--font-px);
+    -webkit-font-smoothing: none;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
   .session-heading h3 {
     margin: 0;
     font-size: var(--text-section);
     font-weight: 650;
     line-height: 1.35;
     white-space: nowrap;
+    max-width: 300px;
+    overflow: hidden;
+    color: var(--px-ink);
+    font: 700 15px/1.3 var(--font-sans);
+    -webkit-font-smoothing: auto;
+    text-overflow: ellipsis;
   }
 
-  .presenter-head #presenterCount,
+  .presenter-head #presenterCount {
+    font-size: var(--text-label);
+    font-variant-numeric: tabular-nums;
+    font-weight: 400;
+    white-space: nowrap;
+    color: var(--px-ink-2);
+    font: 600 12px/1 var(--font-px);
+    -webkit-font-smoothing: none;
+  }
   .session-heading > span {
     font-size: var(--text-label);
     font-variant-numeric: tabular-nums;
     font-weight: 400;
     white-space: nowrap;
+    color: var(--px-brand-ink);
+    font: 700 12px/1 var(--font-px);
+    -webkit-font-smoothing: none;
+    font-variant-numeric: tabular-nums;
   }
 
-  .context-menu { flex: none; }
+  .context-menu {
+    flex: none;
+    /* 上下文菜单：招募、系统、设备视角、送出、显示 */
+    position: relative;
+  }
 
   .context-menu > summary {
     justify-content: center;
@@ -2886,10 +2927,6 @@
   .context-menu > summary:hover,
   .context-menu[open] > summary { border-color: var(--line-strong); color: var(--ink-primary); }
 
-  .context-menu-panel {
-    gap: 2px;
-  }
-
   .context-menu-panel button {
     min-height: 30px;
     border-radius: var(--radius-sm);
@@ -2898,6 +2935,7 @@
 
   .context-menu-panel button:hover:not(:disabled) {
     color: var(--ink-primary);
+    background: var(--px-hl);
   }
 
   .context-menu-divider {
@@ -2912,6 +2950,16 @@
     max-width: calc(100vw - 48px);
     overflow: hidden;
     border-radius: 14px;
+    padding: 0;
+    border: 0;
+    color: var(--px-ink);
+    /* 弹窗跟着内容长高：内容少就矮，窗口放不下才滚动，不用固定高度逼出滚动条或留一片空白 */
+    height: fit-content;
+    max-height: calc(100dvh - 48px);
+    /* 档案夹：弹窗是一个夹子，标题写在夹子上沿凸出来的标签上 */
+    background: var(--px-float);
+    box-shadow: var(--px), 6px 8px 0 0 var(--px-shade);
+    transition: translate 80ms steps(2, end), clip-path 80ms steps(2, end), display 80ms allow-discrete, overlay 80ms allow-discrete;
   }
 
   dialog .dialog-body {
@@ -2949,16 +2997,10 @@
     border-top: 1px solid var(--line-soft);
   }
 
-  .utility-dialog-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 16px 17px;
-    border: 0;
-    box-shadow: none;
+  .utility-dialog-head > div {
+    min-width: 0;
+    display: grid;
   }
-
-  .utility-dialog-head > div { min-width: 0; }
   .utility-dialog-head > div > span {
     color: var(--accent-ink, var(--accent));
     font-family: var(--font-display);
@@ -2971,7 +3013,6 @@
   .utility-dialog-head > button { flex: none; height: 30px; }
 
   .utility-dialog-header,
-  .utility-dialog-commandbar,
   .utility-dialog-footer {
     position: relative;
     z-index: 2;
@@ -2986,6 +3027,9 @@
   }
 
   .utility-dialog-commandbar {
+    position: relative;
+    z-index: 2;
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2993,6 +3037,7 @@
     min-height: 48px;
     padding: 9px 14px;
     background: var(--surface-float);
+    border-bottom: 2px dotted var(--px-line);
   }
 
   .utility-dialog-content {
@@ -3031,6 +3076,8 @@
   .topbar-lens {
     display: flex;
     min-width: 0;
+    /* 设备视角：位置不变（距左 387、宽 216、高 34），下划线表示它是一个选择器 */
+    justify-content: stretch;
   }
 
   .device-lens-control {
@@ -3076,6 +3123,7 @@
     width: max-content;
     min-width: 0;
     max-width: 100%;
+    gap: 2px;
   }
 
   .topbar-actions > button,
@@ -3088,16 +3136,10 @@
     white-space: nowrap;
   }
 
-  .topbar-actions .topbar-nav-button:hover:not(:disabled) {
-    border-color: var(--line-soft);
-  }
-
-  .topbar-actions .topbar-nav-button[aria-expanded="true"] {
-    border-color: var(--focus-line);
-  }
-
-  .device-count-badge,
-  .activity-count-badge {
+  .device-count-badge {
+    margin-left: 2px;
+    text-align: center;
+    line-height: 1;
     display: inline-grid;
     min-width: 16px;
     height: 16px;
@@ -3109,20 +3151,11 @@
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 760;
+    display: none;
   }
 
   .device-count-badge[hidden],
   .activity-count-badge[hidden] { display: none; }
-
-  .topbar-actions > .remote-activity-btn {
-    display: block;
-    flex: 0 1 90px;
-    max-width: 90px;
-    overflow: hidden;
-    border-color: var(--success-line);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 
   @media (max-width: 1160px) {
     :root[data-window-platform="win32"] .topbar-nav-button {
@@ -3139,25 +3172,22 @@
   }
 
   .agent-panel .presenter {
+    grid-column: 1;
+    grid-row: 1;
     min-width: 0;
     min-height: 0;
     grid-template-rows: minmax(0, 1fr);
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .agent-panel .presenter {
     border: 0;
     background: transparent;
-  }
-
-  .agent-panel .account-roster {
-    grid-row: 1;
-    grid-auto-flow: column;
-    grid-auto-columns: 180px;
-    justify-content: start;
-    min-height: 0;
-    overscroll-behavior-inline: contain;
-    background: transparent;
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 32px 0 0 4px;
+    overflow: visible;
+    padding-top: 14px;
   }
 
   .agent-panel .account-card {
@@ -3181,30 +3211,40 @@
 
   .agent-panel .account-card-name {
     display: block;
+    max-width: 168px;
+    margin-top: 4px;
     overflow: hidden;
+    font: 700 13px/1.3 var(--font-sans);
+    -webkit-font-smoothing: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .agent-panel .account-card-name { font-size: var(--text-title); font-weight: 600; line-height: 1.35; }
-
   .agent-panel .account-card-state {
-    font-size: var(--text-label);
-    font-weight: 500;
-  }
 
-  .agent-panel .account-card-state {
-    margin-top: 0;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--px-ink-2);
+    font: 400 11.5px/1.3 var(--font-sans);
+    -webkit-font-smoothing: auto;
+    /* 卡片高度是定死的（Agent 区 222px），多一行就会把按钮挤出搁板下沿，所以“N 条新回复”接在名牌状态那一行的后半段 */
+    max-width: 100%;
+    min-width: 0;
   }
 
   .agent-panel .account-card-fact-value {
     min-width: 0;
     overflow: hidden;
-    font-variant-numeric: tabular-nums;
-    font-weight: 550;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: inherit;
+    font: 600 12px/1 var(--font-px);
+    -webkit-font-smoothing: none;
+    text-align: left;
   }
 
   .agent-panel .account-card-quota-summary {
@@ -3218,15 +3258,25 @@
 
   .agent-panel .account-card-runtime {
     min-width: 0;
-    font-size: var(--text-label);
     cursor: default;
+    /* 运行位置：一行字，多个位置时才是下拉 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    max-width: 172px;
+    min-height: 18px;
+    height: 18px;
+    color: var(--px-ink-2);
+    font: 500 11.5px/1 var(--font-sans);
+    -webkit-font-smoothing: auto;
   }
 
   .agent-panel .account-card-runtime-single {
-    padding-inline: 6px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    padding: 0;
   }
 
   .agent-panel .account-card-runtime select {
@@ -3240,6 +3290,11 @@
   .agent-panel .account-card-actions {
     grid-template-columns: minmax(0, 1fr) max-content;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: 26px;
   }
 
   .agent-panel .account-card-actions > button {
@@ -3251,45 +3306,31 @@
     line-height: 1.15;
   }
 
-  .agent-panel .account-card.selected .account-card-launch:not(:disabled) {
-    border-color: var(--accent);
-  }
-
-  .agent-panel .account-card.selected .account-card-launch:hover:not(:disabled) {
-    border-color: var(--accent-700);
-  }
-
   .agent-panel .account-card-manage {
     border-color: transparent;
     background: transparent;
+    color: var(--px-ink);
   }
 
-  .presenter-head .quota-chip {
-    flex: none;
-    width: auto;
-    border-color: transparent;
-    font-size: var(--text-label);
+  .presenter-head .quota-chip b {
+    color: inherit;
+    font: inherit;
+    letter-spacing: 0;
   }
-
-  .presenter-head .quota-chip b { font-variant-numeric: tabular-nums; }
 
   .presenter-head .quota-chip[aria-expanded="true"] {
     border-color: var(--focus-line);
   }
 
-  /* Session panel ------------------------------------------------------ */
-  .workspace-board > .session-pane {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 0;
-    padding: 0;
-  }
-
   .session-toolbar {
+
     display: grid;
     gap: 5px;
     min-width: 0;
-    border-bottom: 1px solid var(--line-soft);
+    min-height: 40px;
+    padding: 5px 8px 3px 12px;
+    border: 0;
+    background: transparent;
   }
 
   .session-toolbar-main {
@@ -3303,6 +3344,9 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
+    flex: 0 0 auto;
+    gap: 4px;
+    min-width: 0;
   }
 
   .session-toolbar-controls input[type="search"] {
@@ -3310,6 +3354,10 @@
     padding-left: 10px;
     background: var(--surface-raised);
     font-size: var(--text-label);
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 190px;
   }
 
   .session-display-menu > summary {
@@ -3325,10 +3373,10 @@
     display: flex;
     justify-content: flex-end;
     margin-inline-start: auto;
-  }
-
-  .session-toolbar-actions > button {
-    font-size: var(--text-label);
+    flex: none;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 2px;
   }
 
   .session-toolbar-actions > button:disabled {
@@ -3337,18 +3385,20 @@
     opacity: 0.55;
   }
 
-  .session-toolbar-selection,
-  .session-toolbar-notice {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: var(--text-label);
-  }
-
   .session-toolbar-selection[hidden],
   .session-toolbar-notice[hidden] { display: none; }
 
-  .session-toolbar-selection { white-space: nowrap; }
+  .session-toolbar-selection {
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 2px 0 6px;
+    color: var(--px-ink);
+    font: 700 12px/1 var(--font-px);
+    -webkit-font-smoothing: none;
+  }
   .session-toolbar-selection > button {
     width: 23px;
     height: 23px;
@@ -3357,7 +3407,6 @@
     border-color: transparent;
   }
 
-  .session-toolbar-notice { justify-content: flex-end; }
   .session-toolbar-notice > button { min-height: 24px; padding: 0 6px; font-size: var(--text-label); }
 
   .session-replica-options,
@@ -3402,6 +3451,10 @@
     table-layout: fixed;
     color: var(--ink-secondary);
     font-size: var(--text-label);
+    position: relative;
+    z-index: 1;
+    border-collapse: collapse;
+    background: transparent;
   }
   .session-table[data-mode="compact"] { min-width: 0; }
   .session-table[data-mode="detail"] { min-width: 1136px; }
@@ -3446,10 +3499,15 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .session-table tbody tr { position: relative; cursor: pointer; }
+  .session-table tbody tr {
+    position: relative;
+    cursor: pointer;
+    height: 36px;
+    background: transparent;
+    box-shadow: none;
+  }
   .session-table tbody tr:is(.session-active,.selected) > td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
   .session-table .title-cell { color: var(--ink-primary); font-size: var(--text-body); font-weight: 550; }
-  .session-table .title-cell-main,
   .session-table .cell-subline { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .session-table button.title-cell-main {
     width: 100%;
@@ -3508,6 +3566,10 @@
     overflow: auto;
     overscroll-behavior: contain;
     border-radius: 12px;
+    border: 0;
+    background: var(--px-float);
+    color: var(--px-ink);
+    box-shadow: var(--px), 4px 6px 0 0 var(--px-shade);
   }
 
   .quota-popover-head {
@@ -3553,6 +3615,14 @@
   /* Footer ------------------------------------------------------------- */
   .footer-status {
     overflow: hidden;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: var(--px-ink);
+    font-size: 12.5px;
+    white-space: nowrap;
   }
   .footer-status::before {
     width: 7px;
@@ -3562,6 +3632,7 @@
     border-radius: 50%;
     background: var(--success);
     box-shadow: 0 0 0 3px var(--success-wash);
+    content: none;
   }
   .footer-status[data-tone="warning"]::before {
     background: var(--warn);
@@ -3617,6 +3688,11 @@
   .device-center-content {
     padding: 10px 12px 12px;
     overflow: hidden;
+    /* 设备页：弹窗高度跟着内容走以后，百分比高度不再可靠；内容区改用网格把高度传给里面的两栏，
+       设备多到放不下时仍由两栏各自滚动。 */
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
   }
 
   .device-center-content > .mesh-empty-state {
@@ -4064,6 +4140,7 @@
     gap: 4px;
     min-width: 0;
     text-align: center;
+    color: var(--px-ink-2);
   }
 
   .device-journey-progress li span {
@@ -4361,6 +4438,7 @@
     gap: 5px;
     min-width: 0;
     text-align: center;
+    color: var(--px-ink-2);
   }
 
   .onboarding-progress li span {
@@ -4408,6 +4486,8 @@
   .onboarding-step > header {
     display: grid;
     gap: 4px;
+    /* 小标题下面那条线不贴着字 */
+    padding-bottom: 8px;
   }
 
   .onboarding-step > header > span,
@@ -4650,7 +4730,6 @@
 }
 
 @layer themes {
-  [hidden] { display: none; }
 
   :root[data-theme="dark"] .device-lens-control { background: var(--surface-sunken); }
 
@@ -4664,7 +4743,18 @@
   }
 }
 @layer features {
-  .visually-hidden { position: absolute; }
+  .visually-hidden {
+    clip-path: inset(50%);
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
   .account-card { user-select: none; -webkit-user-select: none; }
   .account-roster.roster-reordering, .roster-reordering .account-card { cursor: grabbing; }
   .account-card.roster-dragging { opacity: .65; outline: 2px dashed var(--accent); outline-offset: -3px; }

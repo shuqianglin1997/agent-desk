@@ -348,7 +348,7 @@ Codex 适配器只信任 Profile `sessionRoot` 下 `sessions` / `archived_sessio
 
 ### 固定工作台与 CSS 层级
 
-`src/workspace.css` 是主窗口与全局弹窗唯一一份分层样式，按 `base / reset / tokens / shell / components / features / themes` 的层叠顺序组织；原来的 `styles.css` 里仍生效的规则成了 `base` 层（2026-11-24 架构整理第 7 阶段），仍排在最前：reset 层给表单控件的 `font: inherit` 一直压过这些旧规则里写给按钮和输入框的字体，挪到 reset 之后会改变显示（例如配对码输入框的行高）。文件已删除。`pixel.css`（台灯下的书桌皮肤）与 `cats.css` 不分层，排在所有层之后。最高主题层保留语义 `[hidden]` 规则，避免后写的 `display:grid` 把已隐藏视图重新显示。
+`src/workspace.css` 是主窗口与全局弹窗唯一一份分层样式，按 `base / reset / tokens / shell / components / features / themes` 的层叠顺序组织；原来的 `styles.css` 里仍生效的规则成了 `base` 层（2026-11-24 架构整理第 7 阶段），仍排在最前：reset 层给表单控件的 `font: inherit` 一直压过这些旧规则里写给按钮和输入框的字体，挪到 reset 之后会改变显示（例如配对码输入框的行高）。文件已删除。`pixel.css`（台灯下的书桌皮肤）与 `cats.css` 不分层，排在所有层之后。`pixel.css` 的 `[hidden] { display: none !important }` 保证带 hidden 属性的元素一定隐藏，各部件自己写的 `display` 不会把它重新显示。
 
 - Renderer 内容区按 58px Header、38px Footer、20px 横向 padding、10px 纵向 padding、10px gap 和 222px Agent 面板布局，隔离远控使用 316px 右侧区域。Compact 表 `min-width: 0` 且没有水平滚动。
 - Agent 仅以卡片呈现；运行位置始终可见，唯一位置显示为文字，多位置使用选择器。旧场景设置只保留作为兼容数据。名册最前面的“全部”卡片与点猫共同驱动同一个 `agentScope`（`pickRosterAll` / `pickRosterAgent`），不再有独立的范围开关；没有选中 Agent 时范围落在 `all`。卡片动作的落点由 `cardActionProfile(group)` 统一给出，显示与执行用同一个结果；`openAgent(agentId)` 不改变当前 Agent，所以“打开”不带动会话列表。

@@ -36,7 +36,9 @@ test('1.13 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下�
   assert.match(styles, /\.workspace-board \.table-wrap\s*\{[\s\S]*?overflow-x:\s*hidden/);
   assert.match(styles, /\.session-table\[data-mode="compact"\]\s*\{\s*min-width:\s*0/);
   // 账号名册是唯一的 Agent 呈现面。
-  assert.match(styles, /\.agent-panel \.account-roster \{[\s\S]*?display:\s*grid/);
+  // The roster's one rule (in the pixel skin) lays the cards out in a row; the
+  // grid declaration this pinned never applied (the skin's display: flex won).
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'pixel.css'), 'utf8'), /\.agent-panel \.account-roster \{[^}]*?display:\s*flex;/);
   // 庭院场景已经退出窗口，它的场景代码、调色板、氛围和皮肤不再随应用提供；猫的素材、状态和额度判断保留。
   // 第 2 阶段：旧位置设置退休（settings 版本 5 收进 retired），interactions.js 一并删除。
   for (const gone of ['scene.js', 'palettes.js', 'atmosphere.js', 'yard.css', 'interactions.js']) {

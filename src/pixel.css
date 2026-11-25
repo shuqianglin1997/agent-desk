@@ -167,14 +167,8 @@
   --font-display: var(--font-px);
 }
 
-[hidden] { display: none !important; }
-
-.visually-hidden {
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+[hidden] {
+  display: none !important;
 }
 
 /* ── 像素图标：位图来自 pixel/icons.js，颜色跟随文字 ── */
@@ -222,14 +216,16 @@ button {
 summary { font-size: 12px; }
 :root[lang="ja"] { --font-px: "Fusion Pixel JA", "Fusion Pixel", var(--font-sans); }
 button:hover:not(:disabled) { background: var(--px-hl); border-color: transparent; }
-button:active:not(:disabled) { transform: translateY(2px); }
 button:disabled { box-shadow: var(--px-quiet); opacity: 1; cursor: not-allowed; }
 
-button.primary,
-button.primary:hover:not(:disabled) {
+button.primary {
+  font-weight: 720;
   border: 0;
+  background: var(--px-brand);
+  color: var(--px-on-brand);
+  box-shadow: 0 -2px 0 0 var(--px-edge), 0 2px 0 0 var(--px-edge), -2px 0 0 0 var(--px-edge), 2px 0 0 0 var(--px-edge),
+              inset 0 0 0 2px var(--px-brand), inset 0 0 0 4px var(--px-brand-hi), inset 0 -8px 0 0 var(--px-brand-deep);
 }
-button.primary:hover:not(:disabled) { filter: brightness(1.07); }
 button.primary:active:not(:disabled) { box-shadow: var(--px); }
 button.primary:disabled { background: transparent; box-shadow: var(--px-quiet); }
 
@@ -261,17 +257,7 @@ textarea {
 }
 
 /* ── 外壳 ─────────────────────────────────────────── */
-.app-shell {
-  position: relative;
-  color: var(--px-ink);
-}
 .app-shell.fx-quake { animation: fx-quake 0.2s steps(1); }
-
-.app-topbar {
-  z-index: 20;
-  border: 0;
-  backdrop-filter: none;
-}
 
 .topbar-brand {
   color: var(--px-ink);
@@ -282,8 +268,6 @@ textarea {
 }
 .topbar-brand i { color: var(--px-wood-accent); font-style: normal; }
 
-/* 上下文菜单：招募、系统、设备视角、送出、显示 */
-.context-menu { position: relative; }
 .context-menu > summary {
   display: inline-flex;
   align-items: center;
@@ -302,19 +286,6 @@ textarea {
 .context-menu > summary::marker { content: ""; }
 .context-menu > summary:hover,
 .context-menu[open] > summary { background: var(--px-hl); }
-.context-menu-panel {
-  position: absolute;
-  z-index: 40;
-  top: calc(100% + 6px);
-  right: 0;
-  display: grid;
-  min-width: 170px;
-  padding: 4px;
-  border: 0;
-  border-radius: 0;
-  background: var(--px-float);
-  animation: fx-drop 0.14s steps(4) both;
-}
 .context-menu-panel button {
   display: flex;
   align-items: center;
@@ -330,13 +301,10 @@ textarea {
   text-align: left;
   white-space: nowrap;
 }
-.context-menu-panel button:hover:not(:disabled),
 .context-menu-panel button[aria-selected="true"] { background: var(--px-hl); }
 .context-menu-panel button:disabled { color: var(--px-off); }
 .context-menu-panel button small { margin-left: auto; padding-left: 12px; color: var(--px-ink-2); font: 500 12px/1 var(--font-px); -webkit-font-smoothing: none; }
 
-/* 设备视角：位置不变（距左 387、宽 216、高 34），下划线表示它是一个选择器 */
-.topbar-lens { justify-content: stretch; }
 .device-lens-menu { width: 100%; height: 34px; }
 .device-lens-menu > summary {
   width: 100%;
@@ -351,9 +319,7 @@ textarea {
 .device-lens-options { display: grid; }
 .device-lens-options:not(:empty) { margin-bottom: 3px; padding-bottom: 3px; border-bottom: 2px dotted var(--px-line); }
 .device-lens-menu .topbar-nav-button { font-size: 12px; }
-.device-count-badge { display: none; }
 
-.topbar-actions { gap: 2px; }
 .topbar-actions > button,
 .topbar-actions .topbar-nav-button {
   height: 28px;
@@ -364,44 +330,54 @@ textarea {
   background: transparent;
   font: 600 12px/1 var(--font-px); -webkit-font-smoothing: none;
 }
-.topbar-actions .topbar-nav-button:hover:not(:disabled),
-.topbar-actions .topbar-nav-button[aria-expanded="true"] { border: 0; color: var(--px-ink); background: var(--px-hl); }
+.topbar-actions .topbar-nav-button:hover:not(:disabled) {
+  border: 0; color: var(--px-ink); background: var(--px-hl);
+}
+.topbar-actions .topbar-nav-button[aria-expanded="true"] {
+  border: 0; color: var(--px-ink); background: var(--px-hl);
+}
 .activity-count-badge {
+  display: inline-grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
   padding: 2px 4px;
   border-radius: 0;
   background: var(--px-brand);
   color: var(--px-on-brand);
   font: 700 12px/1 var(--font-px); -webkit-font-smoothing: none;
 }
-.topbar-actions > .remote-activity-btn { border: 0; color: var(--px-on-wood); background: transparent; box-shadow: var(--px); }
+.topbar-actions > .remote-activity-btn {
+  display: block;
+  flex: 0 1 90px;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 0;
+  color: var(--px-on-wood);
+  background: transparent;
+  box-shadow: var(--px);
+}
 
 /* ── 队伍：一只猫一张卡片，猫站在卡片里的台面线上 ─── */
-.workspace-board { gap: 8px; padding: 0 20px 8px; }
-.workspace-board > .workspace-panel { border: 0; border-radius: 0; background: transparent; }
+.workspace-board > .workspace-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  box-shadow: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
 
 .workspace-board > .agent-panel {
   position: relative;
   display: block;
   overflow: visible;
 }
-.presenter-head {
-  position: absolute;
-  z-index: 3;
-  inset: 0 0 auto 0;
-  height: 26px;
-  padding: 2px 0 0;
-  pointer-events: none;
-}
 .presenter-head > * { pointer-events: auto; }
-.presenter-head h2 {
-  color: var(--px-ink-2);
-  font: 700 12px/1 var(--font-px); -webkit-font-smoothing: none;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.presenter-head #presenterCount { color: var(--px-ink-2); font: 600 12px/1 var(--font-px); -webkit-font-smoothing: none; }
 .presenter-tools { display: flex; align-items: center; gap: 2px; height: 22px; }
-.presenter-head .quota-chip,
 .presenter-head .context-menu > summary {
   height: 22px;
   padding: 0 6px;
@@ -412,35 +388,24 @@ textarea {
 }
 .presenter-head .quota-chip:hover,
 .presenter-head .quota-chip[aria-expanded="true"] { border: 0; background: var(--px-hl); color: var(--px-ink); }
-.presenter-head .quota-chip { display: inline-flex; align-items: center; gap: 6px; }
+.presenter-head .quota-chip {
+  flex: none;
+  width: auto;
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--px-ink-2);
+  font: 600 12px/1 var(--font-px);
+  -webkit-font-smoothing: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .presenter-head .quota-chip span,
-.presenter-head .quota-chip b,
 .presenter-head .context-menu > summary span { color: inherit; font: inherit; letter-spacing: 0; }
 .presenter-head .context-menu > summary { color: var(--px-ink); }
 
-.agent-panel .presenter {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 32px 0 0 4px;
-  overflow: visible;
-}
-.agent-panel .account-roster {
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-width: 0;
-  height: calc(100% + 32px);
-  margin: -32px -12px 0 -6px;
-  padding: 32px 12px 0 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  scrollbar-gutter: auto;
-}
 .agent-panel .account-roster::-webkit-scrollbar { display: none; }
 
 .agent-panel .account-card,
@@ -497,14 +462,6 @@ textarea {
   clip-path: inset(-60px -12px 0 -12px);
 }
 .account-card-cat { display: block; width: 64px; height: 68px; transform-origin: 50% 100%; }
-.agent-panel .account-card-avatar {
-  display: block;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  image-rendering: pixelated;
-  transition: transform 0.08s steps(2);
-}
 .account-card:hover .account-card-avatar { transform: translateY(-3px); }
 .account-card[data-readiness="offline"] .account-card-avatar { opacity: 0.4; }
 .account-card-ledge { display: block; margin-top: -2px; }
@@ -530,24 +487,6 @@ textarea {
   mask: var(--pxi) center / contain no-repeat;
 }
 
-.agent-panel .account-card-name {
-  display: block;
-  max-width: 168px;
-  margin-top: 4px;
-  overflow: hidden;
-  font: 700 13px/1.3 var(--font-sans); -webkit-font-smoothing: auto;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.agent-panel .account-card-state {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin: 0;
-  color: var(--px-ink-2);
-  font: 400 11.5px/1.3 var(--font-sans); -webkit-font-smoothing: auto;
-}
 .agent-panel .account-card-dot { width: 8px; height: 8px; border-radius: 0; background: var(--px-mute); }
 .account-card-state[data-activity="working"] .account-card-dot { background: var(--px-ok); }
 .account-card-state[data-activity="busy"] .account-card-dot { background: var(--px-warn); }
@@ -587,22 +526,8 @@ textarea {
 .account-card-quota[data-level="steady"] i.on { background: var(--px-info); }
 .account-card-quota[data-level="tired"] i.on { background: var(--px-warn); }
 .account-card-quota[data-level="exhausted"] i.on { background: var(--px-bad); }
-.agent-panel .account-card-fact-value { color: inherit; font: 600 12px/1 var(--font-px); -webkit-font-smoothing: none; text-align: left; }
 
-/* 运行位置：一行字，多个位置时才是下拉 */
-.agent-panel .account-card-runtime {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  max-width: 172px;
-  min-height: 18px;
-  height: 18px;
-  color: var(--px-ink-2);
-  font: 500 11.5px/1 var(--font-sans); -webkit-font-smoothing: auto;
-}
 .agent-panel .account-card-runtime .pxi { width: 10px; height: 10px; }
-.agent-panel .account-card-runtime-single { padding: 0; }
 .agent-panel .account-card-runtime select {
   width: auto;
   max-width: 140px;
@@ -622,13 +547,6 @@ textarea {
 .agent-panel .account-card-runtime select:hover { background: var(--px-hl); }
 .agent-panel .account-card-runtime select[hidden] + .pxi { display: none; }
 
-.agent-panel .account-card-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  height: 26px;
-}
 .agent-panel .account-card-actions > button {
   display: inline-flex;
   align-items: center;
@@ -652,7 +570,15 @@ textarea {
   -webkit-mask: var(--pxi-play) center / contain no-repeat;
   mask: var(--pxi-play) center / contain no-repeat;
 }
-.agent-panel .account-card.selected .account-card-launch:not(:disabled),
+.agent-panel .account-card.selected .account-card-launch:not(:disabled) {
+  margin: 2px;
+  padding: 0 10px 3px;
+  border: 0;
+  background: var(--px-brand);
+  color: var(--px-on-brand);
+  box-shadow: var(--px), inset 0 -3px 0 0 var(--px-brand-deep);
+  font-weight: 700;
+}
 .agent-panel .account-card.selected .account-card-launch:hover:not(:disabled) {
   margin: 2px;
   padding: 0 10px 3px;
@@ -663,18 +589,7 @@ textarea {
   font-weight: 700;
 }
 .agent-panel .account-card.selected .account-card-launch:active:not(:disabled) { padding-bottom: 1px; box-shadow: var(--px); }
-.agent-panel .account-card-manage { color: var(--px-ink); }
 
-.account-roster-empty {
-  display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
-  width: 620px;
-  max-width: 100%;
-  margin: 14px 0 0 8px;
-  color: var(--px-ink-2);
-}
 .account-roster-empty-seat { display: grid; }
 .account-roster-empty > div { padding-top: 6px; }
 .account-roster-empty b { display: block; color: var(--px-ink); font: 700 15px/1.3 var(--font-sans); -webkit-font-smoothing: auto; }
@@ -705,31 +620,7 @@ textarea {
 .roster-bracket i:nth-child(4) { right: 0; bottom: 0; border-width: 0 3px 3px 0; --x: 1; --y: 1; }
 
 /* ── 会话：一个面板，里面不再套框 ─────────────────── */
-.workspace-board > .session-pane {
-  margin: 2px;
-  border: 0;
-  border-radius: 0;
-  overflow: hidden;
-}
-.session-toolbar {
-  min-height: 40px;
-  padding: 5px 8px 3px 12px;
-  border: 0;
-  background: transparent;
-}
 .session-toolbar-main { flex-wrap: nowrap; gap: 8px; }
-.session-heading { flex: 0 1 auto; min-width: 0; }
-.session-toolbar-controls { flex: 0 0 auto; gap: 4px; min-width: 0; }
-.session-toolbar-controls input[type="search"] { flex: 1 1 auto; width: 100%; min-width: 0; max-width: 190px; }
-.session-toolbar-actions { flex: none; flex-wrap: nowrap; }
-.session-heading h3 {
-  max-width: 300px;
-  overflow: hidden;
-  color: var(--px-ink);
-  font: 700 15px/1.3 var(--font-sans); -webkit-font-smoothing: auto;
-  text-overflow: ellipsis;
-}
-.session-heading > span,
 .session-heading #sessionCount {
   color: var(--px-brand-ink);
   font: 700 12px/1 var(--font-px); -webkit-font-smoothing: none;
@@ -763,8 +654,18 @@ textarea {
 .session-display-menu > summary > span { display: none; }
 .session-display-menu .context-menu-panel { right: auto; left: 0; }
 
-.session-toolbar-actions { align-items: center; gap: 2px; }
-.session-toolbar-actions > button,
+.session-toolbar-actions > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 7px;
+  border: 0;
+  background: transparent;
+  color: var(--px-ink);
+  font: 600 12px/1 var(--font-px); -webkit-font-smoothing: none;
+  white-space: nowrap;
+}
 .session-send-menu > summary {
   display: inline-flex;
   align-items: center;
@@ -814,17 +715,7 @@ textarea {
 .session-toolbar-actions > button.primary:active:not(:disabled) { padding-bottom: 1px; box-shadow: var(--px); }
 .session-toolbar-actions > button.primary:disabled { background: transparent; box-shadow: none; }
 .session-toolbar-actions > button.fx-bump { animation: fx-bump 0.14s steps(1); }
-.session-toolbar-selection {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 2px 0 6px;
-  color: var(--px-ink);
-  font: 700 12px/1 var(--font-px); -webkit-font-smoothing: none;
-}
 .session-toolbar-selection button { height: 20px; padding: 0 4px; }
-.session-toolbar-notice { padding: 4px 8px; border: 0; background: var(--px-hl); color: var(--px-ink); font-size: 12px; }
 
 .session-pane .table-wrap { position: relative; border: 0; background: transparent; }
 .session-band {
@@ -838,7 +729,6 @@ textarea {
   transition: transform 0.09s steps(3);
   pointer-events: none;
 }
-.session-table { position: relative; z-index: 1; border-collapse: collapse; background: transparent; }
 .session-table thead th {
   position: sticky;
   z-index: 2;
@@ -854,7 +744,6 @@ textarea {
   letter-spacing: 0.06em;
 }
 .session-table thead th button { color: inherit; font: inherit; box-shadow: none; }
-.session-table tbody tr,
 .session-table tbody tr.session-active,
 .session-table tbody tr.selected { height: 36px; background: transparent; box-shadow: none; }
 .session-table tbody td {
@@ -884,7 +773,6 @@ textarea {
   -webkit-mask: var(--pxi-play) center / contain no-repeat;
   mask: var(--pxi-play) center / contain no-repeat;
 }
-.session-select-box,
 .session-table input[type="checkbox"] {
   display: block;
   width: 14px;
@@ -902,6 +790,7 @@ textarea {
 }
 .session-table input[type="checkbox"].fx-stamp { animation: fx-stamp 0.14s steps(1); }
 .session-table .title-cell-main {
+
   display: block;
   max-width: 100%;
   height: auto;
@@ -924,30 +813,7 @@ textarea {
 .session-table tr.empty-row td { height: 120px; color: var(--px-ink-2); text-align: center; }
 
 /* ── 对白：猫、状态灯、一句逐字打出的话 ───────────── */
-.app-footer {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 20px;
-  border: 0;
-  border-top: 2px solid var(--px-ink);
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-.status-mascot { flex: none; image-rendering: pixelated; transform-origin: 50% 100%; }
 .status-mascot.talk { transform: translateY(-2px); }
-.footer-status {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  color: var(--px-ink);
-  font-size: 12.5px;
-  white-space: nowrap;
-}
-.footer-status::before { content: none; }
 .footer-status[data-tone="warning"] .status-lamp { background: var(--px-warn); }
 .status-typed { overflow: hidden; text-overflow: ellipsis; }
 .status-next { color: var(--px-wood-accent); font-size: 10px; font-style: normal; animation: fx-blink 0.7s steps(1) infinite; }
@@ -961,17 +827,15 @@ textarea {
 }
 
 /* ── 浮层和弹窗：打开时才出现的那一层框，里面不再套框 ── */
-*,
-*::before,
-*::after { border-radius: 0; }
-
-dialog {
-  padding: 0;
-  border: 0;
-  color: var(--px-ink);
+* {
+  box-sizing: border-box;
+  border-radius: 0;
 }
-/* 弹窗跟着内容长高：内容少就矮，窗口放不下才滚动，不用固定高度逼出滚动条或留一片空白 */
-dialog { height: fit-content; max-height: calc(100dvh - 48px); }
+*::before {
+  box-sizing: border-box;
+  border-radius: 0;
+}
+
 dialog .dialog-body,
 dialog .dialog-body.utility-dialog-shell {
   height: auto;
@@ -998,7 +862,6 @@ dialog :is(section, .agent-manage-section) > header {
   background: transparent;
 }
 dialog :is(section, .agent-manage-section) > header :is(span, b, strong) { font-family: var(--font-sans); -webkit-font-smoothing: auto; }
-.utility-dialog-commandbar { border-bottom: 2px dotted var(--px-line); }
 .utility-dialog-footer { border-top: 2px dotted var(--px-line); }
 .utility-dialog-head > div > span:first-child {
   color: var(--px-ink-2);
@@ -1111,9 +974,6 @@ dialog button.danger-zone-action > small { color: var(--px-bad-ink); }
 .dossier-note { margin: 6px 4px 2px; color: var(--px-ink-2); font-size: 12px; line-height: 1.5; }
 .agent-manage-footer { min-height: 32px; padding: 6px 18px 10px; }
 
-/* 设备页：弹窗高度跟着内容走以后，百分比高度不再可靠；内容区改用网格把高度传给里面的两栏，
-   设备多到放不下时仍由两栏各自滚动。 */
-.device-center-content { display: grid; grid-template-rows: minmax(0, 1fr); min-height: 0; }
 .device-center-content > .mesh-ready-state { height: auto; min-height: 0; }
 
 /* 系统页：左边是这台电脑上的工具，右边是 AgentDesk 自己的设置 */
@@ -1280,11 +1140,6 @@ dialog button.danger-zone-action > small { color: var(--px-bad-ink); }
 .inbox-actions > button { border-top: 2px dotted var(--px-line); border-bottom: 0; grid-template-columns: minmax(0, 1fr); justify-content: stretch; }
 .agent-manage-footer small { color: var(--px-ink-2); font-size: 11.5px; }
 
-.quota-popover {
-  border: 0;
-  background: var(--px-float);
-  color: var(--px-ink);
-}
 .quota-popover:popover-open { animation: fx-drop 0.14s steps(4) both; }
 .quota-popover button { box-shadow: none; }
 
@@ -1384,15 +1239,12 @@ body {
   background-image: radial-gradient(ellipse 62% 54% at 50% 30%, var(--px-lamp) 0 62%, transparent 62%),
                     radial-gradient(ellipse 96% 86% at 50% 34%, var(--px-bg) 0 74%, var(--px-dusk) 74%);
 }
-.app-shell { background: transparent; }
 
-/* 顶栏是桌子的后沿，页脚是前沿：一条木板，上面一格高光，下面一格暗边 */
-.app-topbar { background: var(--px-wood); box-shadow: inset 0 2px 0 0 var(--px-wood-hi), inset 0 -4px 0 0 var(--px-wood-lo), 0 2px 0 0 var(--px-edge), 0 6px 0 0 var(--px-shade); }
 .app-topbar .topbar-brand, .app-topbar .topbar-brand i { color: var(--px-on-wood); }
 .app-topbar .topbar-brand i { color: var(--px-wood-accent); }
 .app-topbar summary, .app-topbar .topbar-nav-button, .app-topbar .device-lens-menu > summary * { color: var(--px-on-wood); }
 .device-lens-menu > summary { box-shadow: 0 2px 0 0 var(--px-on-wood); }
-.status-bar, footer#statusBar { background: var(--px-wood); border-top: 2px solid var(--px-edge); box-shadow: inset 0 2px 0 0 var(--px-wood-hi); color: var(--px-on-wood); }
+footer#statusBar { background: var(--px-wood); border-top: 2px solid var(--px-edge); box-shadow: inset 0 2px 0 0 var(--px-wood-hi); color: var(--px-on-wood); }
 .status-bar *, footer#statusBar * { color: var(--px-on-wood); }
 
 /* 搁板：每只猫脚下是同一条木板，左右伸出去和邻居接上，于是整排猫坐在一条搁板上 */
@@ -1410,7 +1262,6 @@ body {
 }
 .agent-panel .account-card > *, .agent-panel .account-card-all > * { position: relative; z-index: 1; }
 .agent-panel .account-card-select > .account-card-name, .agent-panel .account-card-all .account-card-name { margin-top: 12px; }
-.agent-panel .presenter { padding-top: 14px; }
 .agent-panel .account-card.selected::before, .agent-panel .account-card-all[aria-pressed="true"]::before {
   box-shadow: var(--px), inset 0 6px 0 0 var(--px-brand), var(--px-lip);
 }
@@ -1425,7 +1276,19 @@ body {
 :root[data-theme="dark"] #sessionTitle { background: var(--px-wood); color: var(--px-ink); }
 
 /* 账本：会话是一页摊开的账，左边一条红色的页边线，行与行之间是点线 */
-.workspace-board > .session-pane { box-shadow: var(--px), var(--px-lip); background: var(--px-float); }
+.workspace-board > .session-pane {
+  /* Session panel ------------------------------------------------------ */
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  margin: 2px;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow: var(--px), var(--px-lip);
+  background: var(--px-float);
+}
 .session-pane .table-wrap { background-image: linear-gradient(to right, transparent 42px, color-mix(in srgb, var(--px-brand) 55%, transparent) 42px 44px, transparent 44px); }
 .session-table thead th { border-bottom: 2px solid var(--px-edge); }
 .session-table tbody td { border-bottom: 2px dotted var(--px-line); }
@@ -1433,7 +1296,13 @@ body {
 .session-table tbody tr.selected { background: var(--px-chk); }
 
 /* 朱印：主按钮是一枚印，红底，里面一圈浅色的印边，下沿有厚度，按下去沉 2px */
-button.primary, button.primary:hover:not(:disabled),
+button.primary:hover:not(:disabled) {
+  border: 0;
+  filter: brightness(1.07);
+  background: var(--px-brand); color: var(--px-on-brand);
+  box-shadow: 0 -2px 0 0 var(--px-edge), 0 2px 0 0 var(--px-edge), -2px 0 0 0 var(--px-edge), 2px 0 0 0 var(--px-edge),
+  inset 0 0 0 2px var(--px-brand), inset 0 0 0 4px var(--px-brand-hi), inset 0 -8px 0 0 var(--px-brand-deep);
+}
 .agent-panel .account-card.selected .account-card-launch,
 .session-toolbar-actions > button.primary {
   background: var(--px-brand); color: var(--px-on-brand);
@@ -1447,22 +1316,44 @@ button:hover:not(:disabled):not(.primary), .context-menu[open] > summary,
 dialog button:has(> small):hover:not(:disabled) { background: var(--dither-hl); }
 .app-topbar summary:hover, .app-topbar .topbar-nav-button:hover:not(:disabled) { background: repeating-conic-gradient(var(--px-wood-hi) 0 25%, transparent 0 50%) 0 0 / 4px 4px; }
 
-/* 档案夹：弹窗是一个夹子，标题写在夹子上沿凸出来的标签上 */
-dialog { background: var(--px-float); box-shadow: var(--px), 6px 8px 0 0 var(--px-shade); }
-.utility-dialog-head { align-items: flex-end; padding-bottom: 0; border-bottom: 2px solid var(--px-edge); background: var(--px-lo); }
-.utility-dialog-head > div { display: grid; }
+.utility-dialog-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 17px;
+  border: 0;
+  box-shadow: none;
+  align-items: flex-end;
+  padding-bottom: 0;
+  border-bottom: 2px solid var(--px-edge);
+  background: var(--px-lo);
+}
 .utility-dialog-head h3 {
   justify-self: start; order: -1; margin: 0 0 8px !important; padding: 4px 14px 6px; background: var(--px-brand); color: var(--px-on-brand);
   box-shadow: 0 -2px 0 0 var(--px-edge), -2px 0 0 0 var(--px-edge), 2px 0 0 0 var(--px-edge), inset 0 2px 0 0 var(--px-brand-hi), 0 2px 0 0 var(--px-edge);
 }
 .utility-dialog-head p { margin: 0 0 10px !important; }
-.context-menu-panel, .quota-popover { box-shadow: var(--px), 4px 6px 0 0 var(--px-shade); }
+.context-menu-panel {
+  gap: 2px;
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  min-width: 170px;
+  padding: 4px;
+  border: 0;
+  border-radius: 0;
+  background: var(--px-float);
+  animation: fx-drop 0.14s steps(4) both;
+  box-shadow: var(--px), 4px 6px 0 0 var(--px-shade);
+}
 
 /* 小灯珠：能量格和状态灯都有一格高光 */
 .account-card-quota i { box-shadow: inset 0 0 0 2px var(--px-mute); }
 .account-card-quota i.on { box-shadow: inset 0 0 0 2px var(--px-edge), inset 2px 2px 0 2px color-mix(in srgb, #fff 42%, transparent); }
-.account-card-dot, .status-lamp { box-shadow: 0 0 0 2px var(--px-edge); }
-.session-select-box, .session-table input[type="checkbox"] { background: var(--px-float); }
+.status-lamp { box-shadow: 0 0 0 2px var(--px-edge); }
+.session-table input[type="checkbox"] { background: var(--px-float); }
 
 /* 滚动条：一根像素的小柱子 */
 .session-pane .table-wrap::-webkit-scrollbar, .utility-dialog-content::-webkit-scrollbar { width: 10px; }
@@ -1523,12 +1414,8 @@ dialog p.task-package-security, dialog p.welcome-tip, dialog p.onboarding-safety
 button:disabled, button.primary:disabled, .session-toolbar-actions > button.primary:disabled { color: var(--px-off); }
 
 /* 进度：做完的一步是绿色方块里打勾，字不染色；还没到的一步用说明色 */
-.onboarding-progress li, .device-journey-progress li { color: var(--px-ink-2); }
 .onboarding-progress li[data-state="complete"], .onboarding-progress li[data-state="current"],
 .device-journey-progress li[data-state="complete"], .device-journey-progress li[data-state="current"] { color: var(--px-ink); }
-
-/* 小标题下面那条线不贴着字 */
-.onboarding-step > header { padding-bottom: 8px; }
 
 /* 档案夹的“关闭”在右上角，和标签在同一行 */
 .utility-dialog-head > .utility-dialog-close { align-self: flex-start; margin-top: 10px; }
@@ -1538,8 +1425,23 @@ button:disabled, button.primary:disabled, .session-toolbar-actions > button.prim
 .app-topbar .context-menu-panel small, .app-topbar .context-menu-panel em { color: var(--px-ink-2); }
 
 /* 蜂蜜黄底上的字全部用正文墨色：夜间的说明色在这块底上不够深 */
-.dossier-location[aria-expanded="true"], .context-menu-panel button[aria-selected="true"], .session-toolbar-notice,
-dialog label:has(input:checked), dialog .task-package-security, .session-table tbody tr.selected.session-active {
+.session-toolbar-notice {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: flex-end;
+  padding: 4px 8px;
+  border: 0;
+  background: var(--px-hl);
+  color: var(--px-ink);
+  font-size: 12px;
+  --px-ink-2: var(--px-ink); --ink-secondary: var(--px-ink); --ink-tertiary: var(--px-ink);
+}
+.dossier-location[aria-expanded="true"],
+.context-menu-panel button[aria-selected="true"],
+dialog label:has(input:checked),
+dialog .task-package-security,
+.session-table tbody tr.selected.session-active {
   --px-ink-2: var(--px-ink); --ink-secondary: var(--px-ink); --ink-tertiary: var(--px-ink);
 }
 .dossier-location[aria-expanded="true"] *, dialog label:has(input:checked) *, dialog .task-package-security { color: var(--px-ink); }
@@ -1551,11 +1453,6 @@ dialog label:has(input:checked), dialog .task-package-security, .session-table t
    最后 64px 用有序抖动从实到空化进桌面，像走出了灯光。滚到头的那一侧保持完整。
    两条蒙版由 pixel/icons.js 生成（和图标同一种本地蒙版）；没生成出来时退回成不透明，也就是原样显示。
    选中的卡片会停在网点区以内（scroll-padding），不会被化掉一半。 */
-.agent-panel .account-roster {
-  --roster-fade-start: 0px;
-  --roster-fade-end: 0px;
-  scroll-padding-inline: 72px;
-}
 .agent-panel .account-roster[data-more-start="true"] { --roster-fade-start: 64px; }
 .agent-panel .account-roster[data-more-end="true"] { --roster-fade-end: 64px; }
 
@@ -1915,6 +1812,28 @@ dialog button > small { max-width: 456px; }
 .agent-panel .account-card .account-card-pit { width: 64px; }
 /* 名册两头化进桌面时，搁板那一条不化：靠“全部”那头的木板一直是实的，只在还有猫没露出来的远端跟着猫一起走出灯光 */
 .agent-panel .account-roster {
+  grid-row: 1;
+  grid-auto-flow: column;
+  grid-auto-columns: 180px;
+  justify-content: start;
+  min-height: 0;
+  overscroll-behavior-inline: contain;
+  background: transparent;
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  height: calc(100% + 32px);
+  margin: -32px -12px 0 -6px;
+  padding: 32px 12px 0 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+  --roster-fade-start: 0px;
+  --roster-fade-end: 0px;
+  scroll-padding-inline: 72px;
   position: relative;
   mask-image: linear-gradient(#000 0 0), var(--px-dissolve-start, linear-gradient(#000 0 0)), var(--px-dissolve-end, linear-gradient(#000 0 0)), linear-gradient(#000 0 0);
   mask-size: calc(100% - var(--roster-fade-start) - var(--roster-fade-end)) 100%, var(--roster-fade-start) 8px, var(--roster-fade-end) 8px, calc(100% - var(--roster-fade-end)) 16px;
@@ -1964,7 +1883,6 @@ html[data-boot="off"] :is(.workspace-board, .workspace-board .account-card-quota
 
 /* 弹窗是从桌上抽出的档案夹：从下往上三档抽出来（下沿先露出来），合上用两档，更快 */
 dialog[open] { animation: lamp-folder 144ms linear backwards; }
-dialog { transition: translate 80ms steps(2, end), clip-path 80ms steps(2, end), display 80ms allow-discrete, overlay 80ms allow-discrete; }
 dialog:not([open]) { translate: 0 40px; clip-path: inset(-12px -12px 40px -12px); pointer-events: none; }
 @keyframes lamp-folder {
   0% { translate: 0 40px; clip-path: inset(-12px -12px 40px -12px); animation-timing-function: steps(1, end); }
@@ -2370,8 +2288,6 @@ dialog:not([open]) { translate: 0 40px; clip-path: inset(-12px -12px 40px -12px)
 #sessionTagPicker kbd { margin-left: auto; padding-left: 12px; color: var(--px-ink-2); font: 700 11px/1 var(--font-px); -webkit-font-smoothing: none; }
 
 .agent-panel .account-card { position: relative; }
-/* 卡片高度是定死的（Agent 区 222px），多一行就会把按钮挤出搁板下沿，所以“N 条新回复”接在名牌状态那一行的后半段 */
-.agent-panel .account-card-state { max-width: 100%; min-width: 0; }
 .agent-panel .account-card-state-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-card-replies { flex: none; color: var(--px-brand-ink); font: 700 11.5px/1.3 var(--font-sans); -webkit-font-smoothing: auto; white-space: nowrap; }
 .account-card-replies::before { content: "· "; color: var(--px-ink-2); font-weight: 400; }

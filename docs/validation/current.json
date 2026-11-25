@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T00:47:36.532Z",
-  "baseCommit": "e1a87ead60e2ceaf1106058c97dbd927ce8e9fb4",
+  "recordedAt": "2026-11-25T01:10:03.169Z",
+  "baseCommit": "aed4c014e86bd163029a6267c07429e7761f5092",
   "uncommitted": true,
-  "sourceSha256": "6577597f0f1d091c62f5dee1cea7fe46950cd0df3f0aa914af569df7d63aa4ac",
+  "sourceSha256": "f9905ed9b7d47f84e8a8ad359847ee86e949e40484b5ab8c9febc496a526508e",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 948,
+      "pass": 946,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after phase 7 batch 6 (selectors from two sheets merged into one rule); digest identical before and after the run",
+      "recordedAt": "2026-11-25T01:10:03.169Z",
+      "sourceSha256": "f9905ed9b7d47f84e8a8ad359847ee86e949e40484b5ab8c9febc496a526508e"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T01:10:03.169Z",
+      "sourceSha256": "f9905ed9b7d47f84e8a8ad359847ee86e949e40484b5ab8c9febc496a526508e"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

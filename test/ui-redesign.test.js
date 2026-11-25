@@ -66,7 +66,8 @@ test('卡片工作台不加载旧庭院并保留共用像素头像', () => {
   assert.match(renderer, /PixelUi\?\.setCat\(card\.querySelector\('\.account-card-avatar'\)/);
   assert.match(read('src/pixel/ui.js'), /PixelCats[\s\S]*?Cats\.show\(canvas/);
   assert.doesNotMatch(renderer, /function drawAccountAvatar/);
-  assert.match(workspaceStyles, /@layer themes\s*\{\s*\[hidden\]\s*\{\s*display:\s*none;/);
+  // [hidden] hides whatever display a part sets: one rule, !important (see the !important list).
+  assert.match(read('src/pixel.css'), /\n\[hidden\] \{\s*display: none !important;\s*\}/);
   assert.doesNotMatch(workspaceStyles, /\.session-table tbody tr(?::|\.)[^\{]*::(?:before|after)/);
 });
 
@@ -77,10 +78,9 @@ test('卡片名册使用固定宽度与可信摘要，并用真实窗口验收�
   const identityGroups = read('src/identity-groups.js');
   const acceptance = read('scripts/ui-acceptance.js');
 
-  assert.match(workspaceStyles, /\.agent-panel \.account-roster \{[\s\S]*?grid-auto-columns:\s*180px;[\s\S]*?justify-content:\s*start;/);
-  // Overflow, scroll padding and gutter come from the pixel skin's rule for the
-  // same selector (unlayered, so it always wins over workspace.css's layers).
-  assert.match(read('src/pixel.css'), /\.agent-panel \.account-roster \{[\s\S]*?overflow-x:\s*auto;[\s\S]*?\}/);
+  // The roster's one rule is in the pixel skin (phase 7 merged the sheets' rules for it).
+  assert.match(read('src/pixel.css'), /\.agent-panel \.account-roster \{[^}]*?grid-auto-columns:\s*180px;[^}]*?justify-content:\s*start;[^}]*?overflow-x:\s*auto;[^}]*\}/);
+  assert.doesNotMatch(workspaceStyles, /\.agent-panel \.account-roster \{/);
   assert.match(read('src/pixel.css'), /\.agent-panel \.account-card,\s*\.agent-panel \.account-card\.selected \{\s*display:\s*grid;[^}]*?grid-template-rows:/);
   // 卡片里已经没有的包裹层，样式也一并清掉了。
   assert.doesNotMatch(workspaceStyles, /\.account-card-details|\.account-card-top|\.account-card-meta|\.agent-panel-body/);
@@ -205,7 +205,8 @@ test('1.14 全局弹窗统一固定 Shell，关闭不伪装主操作，次级流
   assert.match(styles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?overflow:\s*hidden/);
   assert.doesNotMatch(styles, /--dialog-preferred-height/);
   assert.match(styles, /\.utility-dialog-content\s*\{[\s\S]*?overflow-y:\s*auto/);
-  assert.match(styles, /\.utility-dialog-header,[\s\S]*?\.utility-dialog-commandbar,[\s\S]*?\.utility-dialog-footer\s*\{[\s\S]*?flex:\s*none/);
+  assert.match(styles, /\.utility-dialog-header,\s*\.utility-dialog-footer\s*\{[^}]*?flex:\s*none/);
+  assert.match(styles, /\.utility-dialog-commandbar\s*\{[^}]*?flex:\s*none/);
   assert.doesNotMatch(styles, /\.device-center-dialog \.dialog-body(?:\.utility-dialog-shell)?\s*\{[^}]*min-height:\s*610px/);
 
   const helpHandler = renderer.slice(renderer.indexOf("els.helpBtn.addEventListener"), renderer.indexOf("els.activityCenterBtn", renderer.indexOf("els.helpBtn.addEventListener")));
