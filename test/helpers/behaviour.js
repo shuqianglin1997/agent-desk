@@ -100,4 +100,48 @@ function page(file = 'src/index.html') {
   };
 }
 
-module.exports = { ROOT, loadPreload, commandFor, runCommand, parseHtml, page };
+// The main window's style rules, parsed: for a selector, every rule whose
+// selector list contains it exactly, with its sheet, layer, media and
+// declarations ({ property: value }, !important kept on the value).
+function styleRules(selector, files = ['src/workspace.css', 'src/pixel.css', 'src/cats.css']) {
+  const { cssStyleRules, splitSelectors } = require('../../scripts/arch-metrics');
+  const out = [];
+  for (const file of files) {
+    const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    const { text, rules } = cssStyleRules(source);
+    const original = source.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+    // the cascade layer enclosing each '{' (one pass, brace depth)
+    const layerAt = new Map(); const stack = []; let preludeStart = 0;
+    for (let i = 0; i < text.length; i += 1) {
+      if (text[i] === '{') {
+        const prelude = text.slice(preludeStart, i).trim();
+        const enclosing = [...stack].reverse().find((x) => x) || null;
+        layerAt.set(i, enclosing);
+        const m = prelude.match(/^@layer\s+([\w-]+)$/);
+        stack.push(m ? m[1] : null);
+        preludeStart = i + 1;
+      } else if (text[i] === '}') { stack.pop(); preludeStart = i + 1; } else if (text[i] === ';') preludeStart = i + 1;
+    }
+    for (const rule of rules) {
+      if (!splitSelectors(rule.prelude).includes(selector)) continue;
+      const end = text.indexOf('}', rule.declarationsStart);
+      const decls = {};
+      for (const part of original.slice(rule.declarationsStart, end).split(/;(?![^(]*\))/)) {
+        const i = part.indexOf(':');
+        if (i > 0) decls[part.slice(0, i).trim()] = part.slice(i + 1).trim().replace(/\s+/g, ' ');
+      }
+      out.push({ file, conditional: rule.conditional, layer: layerAt.get(rule.declarationsStart - 1) ?? null, decls });
+    }
+  }
+  return out;
+}
+
+// The one value a property has in the rules listing exactly this selector
+// (unconditional rules; the later one in cascade order wins on a tie of
+// layer, as the sheets are loaded in this order).
+function declared(selector, property, files) {
+  const values = styleRules(selector, files).filter((r) => !r.conditional && property in r.decls).map((r) => r.decls[property]);
+  return values.length ? values[values.length - 1] : undefined;
+}
+
+module.exports = { ROOT, loadPreload, commandFor, runCommand, parseHtml, page, styleRules, declared };

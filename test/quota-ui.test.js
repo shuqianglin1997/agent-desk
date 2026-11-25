@@ -5,10 +5,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { rendererSource, rendererFunction } = require('./helpers/renderer-source');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
+const { page, styleRules, declared } = require('./helpers/behaviour');
+const { cssStyleRules, splitSelectors } = require('../scripts/arch-metrics');
+
+const doc = page();
 const renderer = rendererSource();
-const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
-const workspaceStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
+const allSelectors = ['src/workspace.css', 'src/pixel.css', 'src/cats.css']
+  .flatMap((file) => cssStyleRules(fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).rules.flatMap((rule) => splitSelectors(rule.prelude)));
 
 function between(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -19,8 +22,11 @@ function between(source, startMarker, endMarker) {
 }
 
 test('账号额度浮层保留手动刷新和可访问进度条', () => {
-  assert.match(html, /id="quotaSummary"[^>]*aria-live="polite"/);
-  assert.match(html, /id="quotaRefreshBtn"[^>]*>↻ 刷新额度<\/button>/);
+  assert.equal(doc.byId('quotaSummary').attrs['aria-live'], 'polite');
+  const refresh = doc.byId('quotaRefreshBtn');
+  assert.equal(refresh.tag, 'button');
+  assert.ok(doc.within(refresh, doc.byId('quotaPopover')), 'refresh sits in the quota popover');
+  assert.match(doc.text(refresh), /^↻ /);
   assert.match(renderer, /setAttribute\('role', 'progressbar'\)/);
   assert.match(renderer, /listQuotas\(\{ force: force === true \}\)/);
 });
@@ -34,23 +40,25 @@ test('额度慢轮询不混进 8 秒 activity IPC', () => {
 });
 
 test('额度浮层独立于工作台布局，会话默认跨栏，远控详情列保留', () => {
-  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'pixel.css'), 'utf8'), /--detail-w:\s*316px/);
-  assert.match(workspaceStyles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\)/);
-  assert.match(workspaceStyles, /\.workspace-board\[data-detail="session"\] > \.session-pane \{ grid-column: 1 \/ -1; \}/);
-  assert.match(workspaceStyles, /\.quota-popover\s*\{\s*position: fixed/);
-  assert.doesNotMatch(workspaceStyles, /\[data-detail="quota"\]/);
+  assert.equal(declared(':root', '--detail-w'), '316px');
+  assert.equal(declared('.workspace-board', 'grid-template-columns'), 'minmax(0, 1fr) var(--detail-w)');
+  assert.equal(declared('.workspace-board[data-detail="session"] > .session-pane', 'grid-column'), '1 / -1');
+  assert.equal(declared('.quota-popover', 'position'), 'fixed');
+  assert.deepEqual(allSelectors.filter((selector) => selector.includes('[data-detail="quota"]')), []);
 });
 
 test('单账号和跨账号额度共用原生浮层，聚合模块在 renderer 前加载', () => {
-  assert.match(html, /<\/main>[\s\S]*?id="quotaPopover"[^>]*popover="auto"[^>]*role="dialog"[\s\S]*?id="quotaSummary"[\s\S]*?id="quotaOverview"/);
-  assert.match(html, /id="quotaOverview"[^>]*hidden/);
-  assert.match(html, /id="quotaOverviewMeta"/);
-  assert.match(html, /id="quotaOverviewList"/);
+  const popover = doc.byId('quotaPopover');
+  assert.equal(popover.attrs.popover, 'auto');
+  assert.equal(popover.attrs.role, 'dialog');
+  assert.ok(!doc.within(popover, doc.byId('mainGrid')), 'the popover is outside the workspace');
+  for (const id of ['quotaSummary', 'quotaOverview', 'quotaOverviewMeta', 'quotaOverviewList']) assert.ok(doc.within(doc.byId(id), popover), `${id} is in the popover`);
+  assert.ok(doc.index(doc.byId('quotaSummary')) < doc.index(doc.byId('quotaOverview')));
+  assert.ok('hidden' in doc.byId('quotaOverview').attrs);
   // UMD 依赖链：yard/energy.js → quota-overview.js → renderer.js
-  const energyIndex = html.indexOf('./yard/energy.js');
-  const overviewIndex = html.indexOf('./quota-overview.js');
-  const rendererIndex = html.indexOf('./renderer.js');
-  assert.ok(energyIndex > 0 && energyIndex < overviewIndex && overviewIndex < rendererIndex);
+  const scripts = doc.all((el) => el.tag === 'script' && el.attrs.src).map((el) => el.attrs.src);
+  const at = (src) => scripts.indexOf(src);
+  assert.ok(at('./yard/energy.js') >= 0 && at('./yard/energy.js') < at('./quota-overview.js') && at('./quota-overview.js') < at('./renderer.js'));
 });
 
 test('额度随数据刷新，按账号组归拢，展开状态和浮层同步', () => {
@@ -62,14 +70,16 @@ test('额度随数据刷新，按账号组归拢，展开状态和浮层同步',
   assert.match(renderer, /els\.quotaSummary\.hidden = .*anchor !== accountCardControl\(actionAgentId\(\), '\.account-card-quota-summary'\)/);
   assert.match(renderer, /account-card-quota-summary'\)\.addEventListener\('click',[\s\S]*?setActionAgent\(agentId\);[\s\S]*?toggleQuotaPopover\(anchor\)/);
   assert.match(renderer, /quotaPopover\.addEventListener\('beforetoggle',[\s\S]*?setActionAgent\(null\)/);
-  assert.match(html, /class="presenter-head"[\s\S]*?id="quotaChipAll"/);
-  assert.match(html, /class="account-card-quota-summary"[^>]*popovertarget="quotaPopover"[^>]*aria-controls="quotaPopover"/);
-  assert.match(html, /id="quotaChipAll"[^>]*popovertarget="quotaPopover"[^>]*aria-controls="quotaPopover"/);
+  const chipAll = doc.byId('quotaChipAll');
+  assert.ok(doc.within(chipAll, doc.all((el) => doc.hasClass(el, 'presenter-head'))[0]));
+  const cardQuota = doc.all((el) => doc.hasClass(el, 'account-card-quota-summary'))[0];
+  for (const el of [cardQuota, chipAll]) assert.deepEqual([el.attrs.popovertarget, el.attrs['aria-controls']], ['quotaPopover', 'quotaPopover']);
   assert.match(renderer, /anchor\.setAttribute\('aria-expanded', 'true'\)/);
   assert.match(renderer, /state\.quotaAnchor\?\.setAttribute\('aria-expanded', 'false'\)/);
   assert.match(renderer, /value\.textContent = tr\('quotaMap\.minimum', \{ pct \}\)/);
   // Agent 管理已升级为原生模态 Dialog；Renderer 只打开确定对象，关闭和 Esc 交给原生 Dialog 语义。
-  assert.match(html, /class="account-card-manage"[^>]*aria-haspopup="dialog"[^>]*aria-controls="agentManageDialog"/);
+  const manage = doc.all((el) => doc.hasClass(el, 'account-card-manage'))[0];
+  assert.deepEqual([manage.attrs['aria-haspopup'], manage.attrs['aria-controls']], ['dialog', 'agentManageDialog']);
   assert.match(renderer, /function openAgentManageDialog\(\)[\s\S]*?openDialog\(els\.agentManageDialog\)/);
   // 子流程叠在档案上面，不再先把档案关掉；档案关上时被操作的猫回到正在看的那只。
   assert.doesNotMatch(renderer, /closeAgentManageDialog/);
@@ -77,8 +87,8 @@ test('额度随数据刷新，按账号组归拢，展开状态和浮层同步',
   assert.match(renderer, /function openAgentDossier\(agentId\) \{[\s\S]*?setActionAgent\(agentId\);[\s\S]*?openAgentManageDialog\(\)/);
   // 无官方额度接口的账号折叠为尾部一行，不逐行刷灰
   assert.match(renderer, /quota-overview-rest/);
-  assert.match(styles, /\.quota-overview-rest\s*\{/);
+  assert.ok(styleRules('.quota-overview-rest').length > 0);
   for (const level of ['fresh', 'steady', 'tired', 'exhausted']) {
-    assert.match(styles, new RegExp(`\\.quota-overview-item\\[data-level="${level}"\\]::before`));
+    assert.ok(styleRules(`.quota-overview-item[data-level="${level}"]::before`).length > 0, `${level} has its colour`);
   }
 });
