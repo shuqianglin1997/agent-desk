@@ -26,6 +26,7 @@
     "build:mac": "electron-builder --mac --publish never",
     "build:mac:dir": "electron-builder --mac dir --publish never --config.mac.forceCodeSigning=false --config.mac.notarize=false --config.mac.hardenedRuntime=false --config.mac.identity=-",
     "build:mac:ci": "electron-builder --mac dir --universal --publish never --config.mac.forceCodeSigning=false --config.mac.notarize=false --config.mac.hardenedRuntime=false --config.mac.identity=-",
+    "build:mac:test": "electron-builder --mac dmg --universal --publish never --config.mac.forceCodeSigning=false --config.mac.notarize=false --config.mac.hardenedRuntime=false --config.mac.identity=-",
     "install:mac:local": "node scripts/install-local-macos.js --preserve-clients",
     "build:win": "electron-builder --win --publish never",
     "build:win:release": "electron-builder --win --publish never --config.win.forceCodeSigning=true",

@@ -18,7 +18,7 @@ Catshelf (Chinese 猫架; formerly AgentDesk) is a desktop app for macOS and Win
 
 ## Status
 
-The source is version `0.10.1-preview.1`, a Preview. There is **no public Preview matching this source** yet: publishing one needs signing and notarization credentials, a release tag and clean-machine checks that have not been done (see [docs/RELEASING.md](docs/RELEASING.md)). What has been checked, and how, is in the [validation ledger](docs/VALIDATION.md). Personal Mesh is attended only; public NAT/TURN, disconnect recovery and the macOS/Windows permission matrix are still open.
+The source is version `0.10.1-preview.1`, a Preview. There is **no public Preview matching this source** yet (unsigned test builds are a separate thing, see below): publishing one needs signing and notarization credentials, a release tag and clean-machine checks that have not been done (see [docs/RELEASING.md](docs/RELEASING.md)). What has been checked, and how, is in the [validation ledger](docs/VALIDATION.md). Personal Mesh is attended only; public NAT/TURN, disconnect recovery and the macOS/Windows permission matrix are still open.
 
 ## Download and install
 
@@ -30,7 +30,9 @@ When a matching Preview passes the release gate, [GitHub Releases](https://githu
 
 > Security note: do not install the old v0.9.0 macOS image; Apple reports that unsigned package as revoked. Use a current signed and notarized release.
 
-On macOS, move Catshelf.app into `/Applications` and open it normally; do not bypass Gatekeeper for an unsigned or revoked package. On Windows, run the portable `.exe`; see [docs/WINDOWS.md](docs/WINDOWS.md) for Store/MSIX paths.
+On macOS, move Catshelf.app into `/Applications` and open it normally. On Windows, run the portable `.exe`; see [docs/WINDOWS.md](docs/WINDOWS.md) for Store/MSIX paths.
+
+**Unsigned test builds.** Until the signed Preview exists, Releases also has prereleases titled “Unsigned test build” (tags starting with `test-`): a universal macOS DMG and a Windows portable `.exe` with `-unsigned` in their names, plus `SHA256SUMS.txt`. They are built on GitHub from the commit named in their notes and are not signed or notarized. On macOS the first launch is blocked: open System Settings → Privacy & Security and click **Open Anyway**; do not use other workarounds. On Windows, at the SmartScreen prompt choose **More info**, then **Run anyway**.
 
 Your accounts, settings and device keys live in a data folder that keeps the old name: `~/Library/Application Support/AgentDesk` on macOS, `%APPDATA%\AgentDesk` on Windows.
 
@@ -74,7 +76,7 @@ npm run build:win      # Windows portable, release/
 npm run build:mac      # signed and notarized release; credentials required
 ```
 
-A build you make yourself runs on your own computer. Public releases are only the signed ones described in [docs/RELEASING.md](docs/RELEASING.md).
+A build you make yourself runs on your own computer. This project publishes only the signed Preview and the labelled unsigned test builds that GitHub builds from a tagged commit, both described in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## For AI assistants
 
@@ -98,13 +100,15 @@ Start at the [documentation map](docs/README.md). Product facts: [docs/PRODUCT.m
 
 ## 现在的状态
 
-源码版本是 `0.10.1-preview.1`，属于 Preview。目前**还没有与这份源码对应的公开 Preview**：发布需要的签名与公证凭据、发布 tag 和干净机器上的安装检查都还没做（见 [docs/RELEASING.md](docs/RELEASING.md)）。做过哪些检查、怎么做的，记在[验证记录](docs/VALIDATION.md)。设备网只做有人值守；公网 NAT/TURN、断网恢复和 macOS/Windows 权限矩阵仍未完成。
+源码版本是 `0.10.1-preview.1`，属于 Preview。目前**还没有与这份源码对应的公开 Preview**（未签名测试版是另一回事，见下）：发布需要的签名与公证凭据、发布 tag 和干净机器上的安装检查都还没做（见 [docs/RELEASING.md](docs/RELEASING.md)）。做过哪些检查、怎么做的，记在[验证记录](docs/VALIDATION.md)。设备网只做有人值守；公网 NAT/TURN、断网恢复和 macOS/Windows 权限矩阵仍未完成。
 
 ## 下载与安装
 
 对应的 Preview 通过发布门禁后，[GitHub Releases](https://github.com/shuqianglin1997/catshelf/releases) 里只有三个文件：macOS 的 `Catshelf-<版本>-universal.dmg`、Windows 的 `Catshelf-<版本>-portable-x64.exe`，以及校验文件 `SHA256SUMS.txt`。不要安装旧的 v0.9.0 macOS 镜像（苹果已将这个未签名的包标为吊销）。
 
-macOS 上把 Catshelf.app 拖进“应用程序”后正常打开，不要绕过系统的安全检查；Windows 上直接运行 portable 版 `.exe`，Store/MSIX 的路径说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
+macOS 上把 Catshelf.app 拖进“应用程序”后正常打开；Windows 上直接运行 portable 版 `.exe`，Store/MSIX 的路径说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
+
+**未签名测试版。** 签名的 Preview 出来以前，Releases 里还有标题为“未签名测试版”的预发布（标签以 `test-` 开头）：一个 macOS 通用 DMG 和一个 Windows portable `.exe`，文件名里带 `-unsigned`，另有 `SHA256SUMS.txt`。它们在 GitHub 上用说明里写的那个提交打出来，没有签名和公证。macOS 第一次打开会被拦下：到“系统设置 → 隐私与安全性”点“仍要打开”，不要用别的办法绕过；Windows 在 SmartScreen 提示时点“更多信息 → 仍要运行”。
 
 账号、设置和设备网的钥匙放在沿用旧名的数据目录里：macOS 是 `~/Library/Application Support/AgentDesk`，Windows 是 `%APPDATA%\AgentDesk`。
 
@@ -148,7 +152,7 @@ npm run build:win      # Windows portable，输出在 release/
 npm run build:mac      # 签名并公证的发布包，需要凭据
 ```
 
-自己打的包在自己的电脑上用；对外发布的只有 [docs/RELEASING.md](docs/RELEASING.md) 里那种签名包。
+自己打的包在自己的电脑上用；本项目对外只发签名的 Preview，以及 GitHub 按打了标签的提交打出、明确标注的未签名测试版，两者都写在 [docs/RELEASING.md](docs/RELEASING.md) 里。
 
 ## 给 AI 助手
 

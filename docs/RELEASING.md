@@ -241,6 +241,40 @@ npm run verify:win-release
 The verifier checks the final portable file and the two executable files inside
 it; checking only the outer container is insufficient.
 
+## Unsigned test builds
+
+Owner decision 2026-11-25 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.39): until the
+signed Preview exists, a clearly labelled unsigned test build may be published
+as a GitHub prerelease. It is a separate path from the signed Preview below
+and does not satisfy any of its gates.
+
+- Start it by pushing a tag that begins with `test-`, for example
+  `test-20261125-b0b8b2b`:
+
+  ```bash
+  git tag test-YYYYMMDD-<short commit> <commit>
+  git push origin refs/tags/test-YYYYMMDD-<short commit>
+  ```
+
+  `.github/workflows/test-build.yml` runs only for such tags; `release.yml`
+  runs only for `v*` tags, so neither starts the other.
+- The Windows job builds the unsigned portable (`npm run build:win`), checks
+  fuses and ASAR in `win-unpacked` and inside the portable, and runs the
+  packaged first-use smoke in the portable. The macOS job builds an ad-hoc
+  signed universal DMG (`npm run build:mac:test`), checks both architectures
+  of the app and its native helpers, `codesign --verify --deep --strict`, and
+  fuses and ASAR. The macOS first-use smoke needs the mock keychain, which only
+  `macos-ci.yml` may use; the push of the same commit to `main` covers it.
+- The last job, the only one with `contents: write`, renames the files with
+  `-unsigned`, writes `SHA256SUMS.txt`, refuses anything but exactly three
+  files, and creates a prerelease titled “未签名测试版 / Unsigned test build”
+  whose notes name the commit and the way to open it (macOS: System Settings →
+  Privacy & Security → Open Anyway; Windows: More info → Run anyway). It never
+  signs and reads no signing secret.
+- Not covered: signing, notarization, the Draft native redownload and the
+  anonymous public redownload. A prerelease is not GitHub's Latest, so the
+  in-app update check does not offer it.
+
 ## Personal Mesh evidence and release classes
 
 The current `0.10.1-preview.1` evidence is intentionally layered. The full Node

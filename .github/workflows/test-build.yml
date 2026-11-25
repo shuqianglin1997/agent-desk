@@ -1,0 +1,232 @@
+name: Unsigned test build
+
+# Owner decision 2026-11-25 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.39): besides the
+# signed, notarized Preview that only release.yml publishes (v* tags), a
+# clearly labelled unsigned test build may be published as a GitHub
+# prerelease. Pushing a tag named test-* starts this workflow and nothing
+# else; it never signs, reads no signing secret and writes only in the last
+# job. The macOS first-use smoke needs the mock keychain, which only
+# macos-ci.yml may use; the same commit's push to main covers it.
+
+on:
+  push:
+    tags:
+      - 'test-*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-build-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build unsigned Windows portable
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm run build:win
+
+      - name: Resolve unique Windows artifacts
+        id: packaged_artifacts
+        shell: pwsh
+        run: |
+          $unpackedCandidates = @(
+            Get-ChildItem -LiteralPath 'release' -Directory -Recurse |
+              Where-Object { $_.Name -ceq 'win-unpacked' }
+          )
+          if ($unpackedCandidates.Count -ne 1) {
+            throw "Expected exactly one win-unpacked directory; found $($unpackedCandidates.Count)."
+          }
+          $portableCandidates = @(
+            Get-ChildItem -LiteralPath 'release' -File -Filter 'Catshelf-*-portable-x64.exe'
+          )
+          if ($portableCandidates.Count -ne 1) {
+            throw "Expected exactly one Windows portable executable; found $($portableCandidates.Count)."
+          }
+          "unpacked=$($unpackedCandidates[0].FullName)" >> $env:GITHUB_OUTPUT
+          "portable=$($portableCandidates[0].FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Verify Electron fuses and ASAR layout in win-unpacked
+        shell: pwsh
+        env:
+          PACKAGED_UNPACKED: ${{ steps.packaged_artifacts.outputs.unpacked }}
+        run: npm run verify:electron-package -- --artifact "$env:PACKAGED_UNPACKED"
+
+      - name: Verify Electron fuses and ASAR layout inside the Windows portable
+        shell: pwsh
+        env:
+          PACKAGED_PORTABLE: ${{ steps.packaged_artifacts.outputs.portable }}
+        run: npm run verify:win-portable-package -- -PortablePath "$env:PACKAGED_PORTABLE"
+
+      - name: Smoke packaged first use in the Windows portable
+        shell: pwsh
+        env:
+          PACKAGED_PORTABLE: ${{ steps.packaged_artifacts.outputs.portable }}
+          SMOKE_ARTIFACTS: ${{ runner.temp }}\agentdesk-smoke-test-build-windows
+        run: npm run accept:packaged -- --artifact "$env:PACKAGED_PORTABLE" --artifacts "$env:SMOKE_ARTIFACTS"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-build-windows
+          path: ${{ steps.packaged_artifacts.outputs.portable }}
+          if-no-files-found: error
+          retention-days: 7
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build unsigned universal macOS DMG
+        run: npm run build:mac:test
+
+      - name: Resolve unique macOS app and DMG
+        id: packaged_app
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_paths=()
+          while IFS= read -r app_path; do
+            app_paths+=("$app_path")
+          done < <(find release -type d -name 'Catshelf.app' -prune -print | sort)
+          dmg_paths=()
+          while IFS= read -r dmg_path; do
+            dmg_paths+=("$dmg_path")
+          done < <(find release -maxdepth 1 -type f -name 'Catshelf-*-universal.dmg' -print | sort)
+          if [ "${#app_paths[@]}" -ne 1 ] || [ "${#dmg_paths[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one Catshelf.app and one universal DMG; found ${#app_paths[@]} and ${#dmg_paths[@]}."
+            exit 1
+          fi
+          printf 'path=%s\n' "${app_paths[0]}" >> "$GITHUB_OUTPUT"
+          printf 'dmg=%s\n' "${dmg_paths[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify universal macOS package shape
+        shell: bash
+        env:
+          PACKAGED_APP: ${{ steps.packaged_app.outputs.path }}
+        run: |
+          set -euo pipefail
+          app_architectures="$(lipo -archs "$PACKAGED_APP/Contents/MacOS/Catshelf")"
+          input_helper_path="$PACKAGED_APP/Contents/Resources/native/AgentDeskInputHelper"
+          app_activator_path="$PACKAGED_APP/Contents/Resources/native/AgentDeskAppActivator"
+          for helper_path in "$input_helper_path" "$app_activator_path"; do
+            if [ ! -f "$helper_path" ] || [ ! -x "$helper_path" ] || [ -L "$helper_path" ]; then
+              echo "::error::Expected a packaged universal native helper at its fixed path: $helper_path"
+              exit 1
+            fi
+          done
+          for binary in "$PACKAGED_APP/Contents/MacOS/Catshelf" "$input_helper_path" "$app_activator_path"; do
+            architectures="$(lipo -archs "$binary")"
+            if [[ " $architectures " != *" arm64 "* ]] || [[ " $architectures " != *" x86_64 "* ]]; then
+              echo "::error::Expected arm64 and x86_64 in $binary; found: $architectures"
+              exit 1
+            fi
+          done
+          codesign --verify --deep --strict "$PACKAGED_APP"
+
+      - name: Verify Electron fuses and ASAR integrity in the macOS app
+        shell: bash
+        env:
+          PACKAGED_APP: ${{ steps.packaged_app.outputs.path }}
+        run: npm run verify:electron-package -- --artifact "$PACKAGED_APP"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-build-macos
+          path: ${{ steps.packaged_app.outputs.dmg }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: test-build-windows
+          path: incoming/windows
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: test-build-macos
+          path: incoming/macos
+
+      - name: Stage the release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t portables < <(find incoming/windows -type f -name 'Catshelf-*-portable-x64.exe')
+          mapfile -t dmgs < <(find incoming/macos -type f -name 'Catshelf-*-universal.dmg')
+          if [ "${#portables[@]}" -ne 1 ] || [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::Expected one Windows portable and one macOS DMG; found ${#portables[@]} and ${#dmgs[@]}."
+            exit 1
+          fi
+          mkdir dist
+          portable_name="$(basename "${portables[0]}")"
+          dmg_name="$(basename "${dmgs[0]}")"
+          cp "${portables[0]}" "dist/${portable_name%-portable-x64.exe}-unsigned-portable-x64.exe"
+          cp "${dmgs[0]}" "dist/${dmg_name%-universal.dmg}-unsigned-universal.dmg"
+          (cd dist && sha256sum -- *.exe *.dmg > SHA256SUMS.txt)
+          count="$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          if [ "$count" -ne 3 ]; then
+            echo "::error::Expected exactly three release files; found $count."
+            exit 1
+          fi
+          ls -l dist
+          cat dist/SHA256SUMS.txt
+
+      - name: Publish the prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          cat > notes.md <<'NOTES'
+          **未签名测试版。** 这不是签名、公证的 Preview，供试用和反馈问题。
+
+          - 打包用的提交：@COMMIT@
+          - macOS（Apple 芯片与 Intel 通用）：打开 DMG，把 Catshelf 拖进“应用程序”。第一次打开会被系统拦下：到“系统设置 → 隐私与安全性”，在下方点“仍要打开”。不要用别的办法绕过系统保护；旧的 v0.9.0 已被苹果吊销，不要安装。
+          - Windows：直接运行 portable 版 exe。SmartScreen 提示时点“更多信息 → 仍要运行”。
+          - 校验和见 `SHA256SUMS.txt`。
+          - 账号、设置和设备网的钥匙在数据目录 `AgentDesk` 里（macOS `~/Library/Application Support/AgentDesk`，Windows `%APPDATA%\AgentDesk`），换新版本不会动它们。
+          - 出了问题：程序的 `--cli capabilities` 会写出它的版本和提交号；把这些和发生了什么交给你的 AI 助手，按仓库里的 `docs/FIX_AND_REBUILD.md` 处理。
+
+          **Unsigned test build.** Not the signed, notarized Preview; for trying it out and reporting problems.
+
+          - Built from commit @COMMIT@.
+          - macOS (Apple silicon and Intel): open the DMG and drag Catshelf to Applications. The first launch is blocked: open System Settings → Privacy & Security and click "Open Anyway". Do not use other workarounds, and do not install the revoked v0.9.0.
+          - Windows: run the portable exe. At the SmartScreen prompt choose "More info", then "Run anyway".
+          - Checksums: `SHA256SUMS.txt`.
+          - Your accounts, settings and device keys stay in the `AgentDesk` data folder; a new version does not touch them.
+          - If something goes wrong: the app's `--cli capabilities` reports its version and commit; give that and what happened to your AI assistant and follow `docs/FIX_AND_REBUILD.md` in the repository.
+          NOTES
+          sed -i "s/@COMMIT@/${COMMIT}/g" notes.md
+          gh release create "$TAG" --repo "$REPOSITORY" --verify-tag --prerelease --title "未签名测试版 / Unsigned test build ${TAG}" --notes-file notes.md dist/*

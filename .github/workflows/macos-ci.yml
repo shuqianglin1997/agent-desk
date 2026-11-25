@@ -36,8 +36,9 @@ jobs:
         run: npm test
 
       # This ad-hoc-signed unpacked build is a CI compatibility check only.
-      # Production DMGs are created exclusively by release.yml with Developer
-      # ID signing and notarization.
+      # Signed DMGs are created exclusively by release.yml with Developer ID
+      # signing and notarization; labelled unsigned test DMGs only by
+      # test-build.yml.
       - name: Build unpacked macOS app
         run: npm run build:mac:ci
 

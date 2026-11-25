@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T08:35:39.573Z",
-  "baseCommit": "3dec1e02d03cf4a3f067a59ea1285c89a83e9b63",
+  "recordedAt": "2026-11-25T08:44:07.520Z",
+  "baseCommit": "027c72bcab2665f1625331578aab9b375c0ebf60",
   "uncommitted": true,
-  "sourceSha256": "1b4f541305bed736b911470729f3796e038aaec0e1c58dd71eb4d42104a576bc",
+  "sourceSha256": "304da6ce3197c0f13bd5979f1169136ac2695f7d54c72c7575b7b77db77b5112",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1016,
+      "pass": 1014,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after the owner allowed unsigned test builds (plan 1.39): new .github/workflows/test-build.yml (test-* tags only, read-only except the release job, no signing secrets, both packages verified before a three-file prerelease) and npm script build:mac:test; release-security covers the new workflow's pinned actions, credential-free checkouts, trigger, permissions, verification steps and labels. The workflow itself has not run yet",
+      "recordedAt": "2026-11-25T08:44:07.520Z",
+      "sourceSha256": "304da6ce3197c0f13bd5979f1169136ac2695f7d54c72c7575b7b77db77b5112"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax and type check",
+      "recordedAt": "2026-11-25T08:44:07.520Z",
+      "sourceSha256": "304da6ce3197c0f13bd5979f1169136ac2695f7d54c72c7575b7b77db77b5112"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

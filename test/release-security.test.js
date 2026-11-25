@@ -491,7 +491,7 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
 });
 
 test('主分支 macOS 和 Windows CI 只运行固定 SHA action 且 checkout 不留凭据', () => {
-  for (const workflowName of ['macos-ci.yml', 'windows-ci.yml']) {
+  for (const workflowName of ['macos-ci.yml', 'windows-ci.yml', 'test-build.yml']) {
     const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', workflowName), 'utf8');
     const actionReferences = [...workflow.matchAll(/uses: (actions\/[A-Za-z0-9_.-]+)@([^\s]+)/g)];
     assert.ok(actionReferences.length > 0, `${workflowName} has no first-party action references`);
@@ -836,4 +836,45 @@ test('安装文档不再建议用 xattr 绕过 Gatekeeper', () => {
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
   assert.doesNotMatch(readme, /xattr\s+-d/);
   assert.match(readme, /v0\.9\.0[\s\S]{0,180}revoked/i);
+});
+
+// Owner decision 2026-11-25 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.39): an unsigned
+// test build may be published as a clearly labelled prerelease. It must stay a
+// separate path: only test-* tags start it, it never signs or reads signing
+// secrets, only its last job may write, and the release holds exactly the two
+// packages and SHA256SUMS.txt.
+test('未签名测试版只由 test- 标签发起，标为预发布，不碰签名，只发三个文件', () => {
+  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'test-build.yml'), 'utf8').replace(/\r\n/g, '\n');
+  const release = fs.readFileSync(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8');
+  const trigger = workflow.slice(workflow.indexOf('\non:'), workflow.indexOf('\npermissions:'));
+  assert.match(trigger, /^\non:\n  push:\n    tags:\n      - 'test-\*'\n$/);
+  assert.match(release, /tags:\n\s+- 'v\*'/);
+  // Read-only by default; only the release job may write, and only contents.
+  assert.match(workflow, /^permissions:\n  contents: read$/m);
+  assert.equal((workflow.match(/contents: write/g) || []).length, 1);
+  assert.match(workflow, /\n  release:\n    needs: \[windows, macos\]\n    runs-on: ubuntu-latest\n    permissions:\n      contents: write\n/);
+  // No signing: no secrets other than the run's own token, ad-hoc macOS identity.
+  assert.deepEqual([...new Set(workflow.match(/\$\{\{\s*secrets\.[A-Za-z_]+/g) || [])], []);
+  assert.doesNotMatch(workflow, /CSC_LINK|APPLE_|WIN_CSC|notarize=true|forceCodeSigning=true/);
+  assert.match(packageJson.scripts['build:mac:test'], /--mac dmg --universal/);
+  assert.match(packageJson.scripts['build:mac:test'], /identity=-/);
+  assert.match(packageJson.scripts['build:mac:test'], /notarize=false/);
+  assert.match(workflow, /npm run build:mac:test/);
+  assert.match(workflow, /CSC_IDENTITY_AUTO_DISCOVERY: "false"\n\s+run: npm run build:win/);
+  // Both packages are checked before anything is published.
+  for (const step of [
+    'npm run verify:electron-package -- --artifact "$PACKAGED_APP"',
+    'npm run verify:electron-package -- --artifact "$env:PACKAGED_UNPACKED"',
+    'npm run verify:win-portable-package -- -PortablePath "$env:PACKAGED_PORTABLE"',
+    'npm run accept:packaged -- --artifact "$env:PACKAGED_PORTABLE"'
+  ]) assert.ok(workflow.includes(step), step);
+  assert.doesNotMatch(workflow, /mock-keychain/);
+  // A labelled prerelease of exactly three files.
+  assert.match(workflow, /gh release create "\$TAG"[^\n]*--prerelease/);
+  assert.match(workflow, /--verify-tag/);
+  assert.match(workflow, /未签名测试版 \/ Unsigned test build/);
+  assert.match(workflow, /-unsigned-universal\.dmg/);
+  assert.match(workflow, /-unsigned-portable-x64\.exe/);
+  assert.match(workflow, /Expected exactly three release files/);
+  assert.doesNotMatch(workflow, /xattr|spctl --master-disable/);
 });

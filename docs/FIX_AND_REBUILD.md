@@ -101,6 +101,6 @@ npm run build:win
 
 ## 7. 不要做的
 
-- 不要把这个包发给其他人下载，也不要当成本项目的发布版本：本项目对外只发经过签名和公证的 Preview（见 [RELEASING.md](RELEASING.md)）。
+- 不要把这个包发给其他人下载，也不要当成本项目的发布版本：本项目对外只发签名公证的 Preview，以及 GitHub 按打了标签的提交打出的未签名测试版（见 [RELEASING.md](RELEASING.md)）。
 - 不要向 `shuqianglin1997/catshelf` 推送。他愿意的话，可以从自己的 fork 提一个 pull request，把修复交回项目。
 - 不要为了绕过系统安全提示去改系统设置或去掉文件的隔离属性；在他自己电脑上打的包本来就不需要。
