@@ -14,10 +14,9 @@
 
 <p align="center"><a href="#catshelf猫架中文说明">中文说明</a></p>
 
-<p align="center">
-  <a href="https://github.com/shuqianglin1997/catshelf/releases/download/film-20261125/catshelf-film-en.mp4"><img src="docs/media/catshelf-cover-en.png" width="640" alt="Catshelf launch film (one minute): every AI account, a cat on your shelf" /></a><br />
-  <sub>Launch film, about one minute: <a href="https://github.com/shuqianglin1997/catshelf/releases/download/film-20261125/catshelf-film-en.mp4">English</a> · <a href="https://github.com/shuqianglin1997/catshelf/releases/download/film-20261125/catshelf-film-zh.mp4">中文</a></sub>
-</p>
+https://github.com/user-attachments/assets/3f651fb3-d9c0-4092-bec9-6f85c5f69fac
+
+<p align="center"><sub>Catshelf launch film, about one minute · <a href="https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e">中文</a></sub></p>
 
 Catshelf (Chinese 猫架; formerly AgentDesk) is a desktop app for macOS and Windows. It keeps the AI coding clients you already use (Claude, Claude CLI, Codex, Cursor, Kimi Code, Kimi Work, DSH, OpenCode, Gemini CLI, Qwen Code), each of your accounts on them, and their local session history in one window. It opens the official client for the account you pick. It does not run agents itself, and it never stores passwords or tokens.
 
@@ -101,10 +100,9 @@ Start at the [documentation map](docs/README.md). Product facts: [docs/PRODUCT.m
 
 # Catshelf（猫架）中文说明
 
-<p align="center">
-  <a href="https://github.com/shuqianglin1997/catshelf/releases/download/film-20261125/catshelf-film-zh.mp4"><img src="docs/media/catshelf-cover-zh.png" width="640" alt="猫架发布短片（约一分钟）：每个 AI 账号，都是架子上的一只猫" /></a><br />
-  <sub>发布短片，约一分钟：<a href="https://github.com/shuqianglin1997/catshelf/releases/download/film-20261125/catshelf-film-zh.mp4">中文</a> · <a href="https://github.com/shuqianglin1997/catshelf/releases/download/film-20261125/catshelf-film-en.mp4">English</a></sub>
-</p>
+https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e
+
+<p align="center"><sub>猫架发布短片，约一分钟 · <a href="https://github.com/user-attachments/assets/3f651fb3-d9c0-4092-bec9-6f85c5f69fac">English</a></sub></p>
 
 猫架（Catshelf，原名 AgentDesk）是 macOS 和 Windows 上的桌面应用：把你已经在用的 AI 编程客户端（Claude、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work、DSH、OpenCode、Gemini CLI、Qwen Code）、你在它们上面的每个账号，以及本机的会话记录放进同一个窗口。选一个账号就打开它的官方客户端。猫架自己不跑 Agent，也不保存密码和令牌。
 
