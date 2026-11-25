@@ -32,6 +32,7 @@ AgentDesk 的文档必须把下面七种状态分开，不能都写成“已完�
 | 每项功能做到哪一步 | [`FUNCTION_AUDIT.md`](FUNCTION_AUDIT.md) | 功能、证据层级和剩余缺口 |
 | 代码如何组织 | [`INTERNAL.md`](INTERNAL.md) | 运行时、数据、IPC、协议与测试结构 |
 | 下一步按什么顺序做 | [`ROADMAP.md`](ROADMAP.md) | 已批准实施批次与阶段门禁 |
+| 界面用词怎么统一 | [`WORDING_PLAN.md`](WORDING_PLAN.md) | 草案：全局对象、本机位置与平台登录的叫法，三种语言逐条的改前与改后，以及整理中发现的看得见的其他改动；所有者确认前不改界面文字 |
 | Mesh 的完整决策 | [`PERSONAL_AGENT_MESH_PLAN.md`](PERSONAL_AGENT_MESH_PLAN.md) | 唯一实施权威；涉及设备/P2P/传输时必须全文重读 |
 | Windows 能力与限制 | [`WINDOWS.md`](WINDOWS.md) | Windows 路径、打包与真机矩阵 |
 | 如何发布 | [`RELEASING.md`](RELEASING.md) | 签名、公证、Preview 与稳定版门禁 |
