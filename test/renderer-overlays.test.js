@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { rendererFiles, rendererFunction } = require('./helpers/renderer-source');
+const { page } = require('./helpers/behaviour');
 
 const SRC = path.join(__dirname, '..', 'src');
 const files = [...rendererFiles(), ...fs.readdirSync(path.join(SRC, 'renderer')).filter((f) => f.endsWith('.js')).map((f) => path.join(SRC, 'renderer', f))];
@@ -36,7 +37,9 @@ test('menus close through closeContextMenu and one rule set', () => {
 });
 
 test('popovers are browser popovers', () => {
-  const html = read(path.join(SRC, 'index.html'));
-  for (const id of ['quotaPopover', 'sessionTagPicker']) assert.match(html, new RegExp(`id="${id}"[^>]*popover="auto"`));
+  const doc = page();
+  const popovers = doc.all((el) => 'popover' in el.attrs).map((el) => [el.attrs.id, el.attrs.popover]);
+  assert.deepEqual(popovers.map(([id]) => id).sort(), ['quotaPopover', 'sessionTagPicker']);
+  for (const [id, value] of popovers) assert.equal(value, 'auto', `${id} is a light-dismiss popover`);
   for (const file of files) assert.doesNotMatch(read(file), /\.popover\s*=|setAttribute\('popover'/, `${rel(file)} makes a popover by hand`);
 });

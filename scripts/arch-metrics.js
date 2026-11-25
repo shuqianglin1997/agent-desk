@@ -520,7 +520,7 @@ function collect(root = ROOT) {
   };
 }
 
-module.exports = { maskSource, findFunctions, cssStyleRules, splitSelectors, cssMetrics, collect, mainProcessFiles, countLines };
+module.exports = { maskSource, findFunctions, cssStyleRules, splitSelectors, cssMetrics, testMetrics, collect, mainProcessFiles, countLines };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
