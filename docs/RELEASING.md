@@ -258,13 +258,16 @@ and does not satisfy any of its gates.
 
   `.github/workflows/test-build.yml` runs only for such tags; `release.yml`
   runs only for `v*` tags, so neither starts the other.
-- The Windows job builds the unsigned portable (`npm run build:win`), checks
-  fuses and ASAR in `win-unpacked` and inside the portable, and runs the
-  packaged first-use smoke in the portable. The macOS job builds an ad-hoc
-  signed universal DMG (`npm run build:mac:test`), checks both architectures
-  of the app and its native helpers, `codesign --verify --deep --strict`, and
-  fuses and ASAR. The macOS first-use smoke needs the mock keychain, which only
-  `macos-ci.yml` may use; the push of the same commit to `main` covers it.
+- The Windows job builds the unsigned portable (`npm run build:win`) and
+  checks fuses and ASAR in `win-unpacked` and inside the portable. The macOS
+  job builds an ad-hoc signed universal DMG (`npm run build:mac:test`), checks
+  both architectures of the app and its native helpers,
+  `codesign --verify --deep --strict`, and fuses and ASAR.
+- The packaged first-use smoke (`npm run accept:packaged`) is not run for now:
+  it is out of date with the app and fails on both platforms before it checks
+  anything about the build. The owner chose on 2026-11-25 to publish test
+  builds without it until it is repaired; then it goes back into the Windows
+  job, and macOS CI runs it on `main`.
 - The last job, the only one with `contents: write`, renames the files with
   `-unsigned`, writes `SHA256SUMS.txt`, refuses anything but exactly three
   files, and creates a prerelease titled “未签名测试版 / Unsigned test build”

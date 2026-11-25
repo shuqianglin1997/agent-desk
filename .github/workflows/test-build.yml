@@ -5,8 +5,8 @@ name: Unsigned test build
 # clearly labelled unsigned test build may be published as a GitHub
 # prerelease. Pushing a tag named test-* starts this workflow and nothing
 # else; it never signs, reads no signing secret and writes only in the last
-# job. The macOS first-use smoke needs the mock keychain, which only
-# macos-ci.yml may use; the same commit's push to main covers it.
+# job. The packaged first-use smoke is not run here for now (see the
+# Windows job); macOS CI runs it on main once it is repaired.
 
 on:
   push:
@@ -72,12 +72,11 @@ jobs:
           PACKAGED_PORTABLE: ${{ steps.packaged_artifacts.outputs.portable }}
         run: npm run verify:win-portable-package -- -PortablePath "$env:PACKAGED_PORTABLE"
 
-      - name: Smoke packaged first use in the Windows portable
-        shell: pwsh
-        env:
-          PACKAGED_PORTABLE: ${{ steps.packaged_artifacts.outputs.portable }}
-          SMOKE_ARTIFACTS: ${{ runner.temp }}\agentdesk-smoke-test-build-windows
-        run: npm run accept:packaged -- --artifact "$env:PACKAGED_PORTABLE" --artifacts "$env:SMOKE_ARTIFACTS"
+      # The packaged first-use smoke (npm run accept:packaged) is out of date
+      # with the app (it waits for a global renderer state and a first-use
+      # dialog that no longer opens by itself), so it fails before checking
+      # anything about this build. The owner chose on 2026-11-25 to publish
+      # without it until it is repaired; add the step back then.
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

@@ -862,11 +862,12 @@ test('未签名测试版只由 test- 标签发起，标为预发布，不碰签�
   assert.match(workflow, /npm run build:mac:test/);
   assert.match(workflow, /CSC_IDENTITY_AUTO_DISCOVERY: "false"\n\s+run: npm run build:win/);
   // Both packages are checked before anything is published.
+  // The packaged first-use smoke is left out until it is repaired (owner,
+  // 2026-11-25); the structural checks stay.
   for (const step of [
     'npm run verify:electron-package -- --artifact "$PACKAGED_APP"',
     'npm run verify:electron-package -- --artifact "$env:PACKAGED_UNPACKED"',
-    'npm run verify:win-portable-package -- -PortablePath "$env:PACKAGED_PORTABLE"',
-    'npm run accept:packaged -- --artifact "$env:PACKAGED_PORTABLE"'
+    'npm run verify:win-portable-package -- -PortablePath "$env:PACKAGED_PORTABLE"'
   ]) assert.ok(workflow.includes(step), step);
   assert.doesNotMatch(workflow, /mock-keychain/);
   // A labelled prerelease of exactly three files.

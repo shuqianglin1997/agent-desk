@@ -2829,9 +2829,9 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 
 所有者在两条路之间选了这一条（原话：“先发未签名测试版就行”）：在签名、公证的 Preview 之外，允许把明确标着“未签名测试版”的包发到 GitHub Releases 供人试用。本条改写第 3 节第 29 条“只允许发布签名、公证并明确标记的 Preview”和第 29 节验收第 44 条“所有可安装交付物都明确标为签名公证 Preview”的写法；签名 Preview 的门禁（第 45 条的三资产、Draft 重下载、匿名复验、失败回草稿、候选不复用）对 Preview 本身不变，也不因此提前发布稳定版。
 
-- 怎么发：推送一个 `test-` 开头的标签，`.github/workflows/test-build.yml` 在 GitHub 的 Windows 与 macOS 机器上各打一个未签名包（macOS 为本机签名的通用 DMG），核对 Electron fuse 与 ASAR 完整性、通用包的两种架构与原生 helper，Windows 再在 portable 内层跑一次首次使用 smoke；然后建一个 GitHub 预发布，只含两个包和 `SHA256SUMS.txt`。签名 Preview 仍只由 `release.yml` 的 `v` 开头标签发起，两条流程互不触发。
+- 怎么发：推送一个 `test-` 开头的标签，`.github/workflows/test-build.yml` 在 GitHub 的 Windows 与 macOS 机器上各打一个未签名包（macOS 为本机签名的通用 DMG），核对 Electron fuse 与 ASAR 完整性、通用包的两种架构与原生 helper；然后建一个 GitHub 预发布，只含两个包和 `SHA256SUMS.txt`。签名 Preview 仍只由 `release.yml` 的 `v` 开头标签发起，两条流程互不触发。
 - 怎么标：预发布的标题写“未签名测试版 / Unsigned test build”，文件名带 `-unsigned`，说明里写打包用的提交号、macOS 第一次打开时到“系统设置 → 隐私与安全性”点“仍要打开”、Windows 在 SmartScreen 里点“更多信息 → 仍要运行”。不教人清除隔离属性或关闭系统保护；已吊销的 v0.9.0 仍不得使用。预发布不是 GitHub 的 Latest，应用里的检查更新不会把它当成新版本。
-- 没有覆盖的：没有签名与公证；没有 Draft 原生重下载和公开后匿名复验；macOS 首次使用 smoke 需要模拟钥匙串，只允许在 `macos-ci.yml` 里跑，由推到 main 的同一提交覆盖，测试版工作流不重复。
+- 没有覆盖的：没有签名与公证；没有 Draft 原生重下载和公开后匿名复验；没有首次使用 smoke。原计划 Windows 在 portable 内层跑一次，但这个 smoke 脚本跟不上现在的应用（等一个已不存在的全局界面状态和不再自动弹出的首次使用窗口），两个平台都在检查本次构建之前就失败；所有者 2026-11-25 选择先不跑它发布（“Publish without it”），修好后加回。CI 里能确认的是：两个平台的安装包命令行能登记测试账号并读出会话，窗口能正常加载。
 
 ### 1.38 改名 Catshelf／猫架 — 2026-11-24
 

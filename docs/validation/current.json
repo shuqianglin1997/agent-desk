@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T08:46:42.761Z",
-  "baseCommit": "bab6b0b54f7decd019a220183a2a95905df7d007",
+  "recordedAt": "2026-11-25T09:27:49.095Z",
+  "baseCommit": "c9cf2ba8740f5ff43eac80fecd48f461b9b4c729",
   "uncommitted": true,
-  "sourceSha256": "e50b3d681a9c54989359148899a84a6cd1eddf5f9c50830ac074169c495d518d",
+  "sourceSha256": "9fa45078d663a4e5c431136c663195ea5f1a15eeaacf586c2a82316b6b193822",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1016,
+      "pass": 1014,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after the unsigned test build stopped running the packaged first-use smoke (owner, 2026-11-25: publish without it until it is repaired). On GitHub, test-20261125-b8fe44d showed the macOS job passing (build, both architectures, codesign --verify --deep --strict, fuses/ASAR) and the Windows smoke passing its CLI part before timing out on a global renderer state that no longer exists",
+      "recordedAt": "2026-11-25T09:27:49.095Z",
+      "sourceSha256": "9fa45078d663a4e5c431136c663195ea5f1a15eeaacf586c2a82316b6b193822"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax and type check",
+      "recordedAt": "2026-11-25T09:27:49.095Z",
+      "sourceSha256": "9fa45078d663a4e5c431136c663195ea5f1a15eeaacf586c2a82316b6b193822"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",
