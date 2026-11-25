@@ -21,7 +21,9 @@ test('添加设备使用固定 Header、滚动 Content、固定 Footer 的子任
   assert.match(html, /id="deviceJourneyCloseBtn"[^>]*type="button"/);
   // 弹窗跟着内容长高，不再写死期望高度。
   assert.doesNotMatch(css, /--dialog-preferred-height/);
-  assert.match(css, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?height:\s*auto;[\s\S]*?max-height:\s*calc\(100dvh/);
+  // The pixel skin's rule for the dialog shell sets the height (unlayered, so it
+  // always wins over workspace.css's layers).
+  assert.match(fs.readFileSync(path.join(ROOT, 'src/pixel.css'), 'utf8'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?height:\s*auto;[^}]*?max-height:\s*calc\(100dvh/);
   assert.match(css, /\.device-journey-content\s*\{[\s\S]*?display:\s*grid/);
 });
 

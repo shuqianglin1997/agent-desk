@@ -223,18 +223,15 @@ summary { font-size: 12px; }
 :root[lang="ja"] { --font-px: "Fusion Pixel JA", "Fusion Pixel", var(--font-sans); }
 button:hover:not(:disabled) { background: var(--px-hl); border-color: transparent; }
 button:active:not(:disabled) { transform: translateY(2px); }
-button:disabled { color: var(--px-off); box-shadow: var(--px-quiet); opacity: 1; cursor: not-allowed; }
+button:disabled { box-shadow: var(--px-quiet); opacity: 1; cursor: not-allowed; }
 
 button.primary,
 button.primary:hover:not(:disabled) {
   border: 0;
-  background: var(--px-brand);
-  color: var(--px-on-brand);
-  box-shadow: var(--px), inset 0 -3px 0 0 var(--px-brand-deep);
 }
 button.primary:hover:not(:disabled) { filter: brightness(1.07); }
 button.primary:active:not(:disabled) { box-shadow: var(--px); }
-button.primary:disabled { background: transparent; color: var(--px-off); box-shadow: var(--px-quiet); }
+button.primary:disabled { background: transparent; box-shadow: var(--px-quiet); }
 
 input:not([type="checkbox"]):not([type="radio"]),
 select,
@@ -316,7 +313,6 @@ textarea {
   border: 0;
   border-radius: 0;
   background: var(--px-float);
-  box-shadow: var(--px), 4px 4px 0 0 var(--px-shade);
   animation: fx-drop 0.14s steps(4) both;
 }
 .context-menu-panel button {
@@ -460,8 +456,6 @@ textarea {
   padding: 0 6px 4px;
   border: 0;
   border-radius: 0;
-  background: var(--px-float);
-  box-shadow: var(--px);
   color: var(--px-ink);
   text-align: center;
   cursor: pointer;
@@ -818,7 +812,7 @@ textarea {
   font-weight: 700;
 }
 .session-toolbar-actions > button.primary:active:not(:disabled) { padding-bottom: 1px; box-shadow: var(--px); }
-.session-toolbar-actions > button.primary:disabled { background: transparent; color: var(--px-off); box-shadow: none; }
+.session-toolbar-actions > button.primary:disabled { background: transparent; box-shadow: none; }
 .session-toolbar-actions > button.fx-bump { animation: fx-bump 0.14s steps(1); }
 .session-toolbar-selection {
   display: inline-flex;
@@ -1038,7 +1032,6 @@ dialog button:has(> small),
   text-align: left;
   white-space: normal;
 }
-dialog button:has(> small):hover:not(:disabled) { background: var(--px-hl); }
 dialog button:has(> small):active:not(:disabled) { transform: none; }
 dialog button:has(> small) > span { font-weight: 700; }
 dialog button:has(> small) > small { color: var(--px-ink-2); font-size: 11.5px; font-weight: 400; }
@@ -1071,7 +1064,6 @@ dialog button.danger-zone-action > small { color: var(--px-bad-ink); }
   align-items: baseline;
   gap: 10px;
   margin: 4px 0 2px;
-  color: var(--px-ink-2);
   font: 700 12px/1.5 var(--font-px); -webkit-font-smoothing: none;
   letter-spacing: 0.06em;
 }
@@ -1262,7 +1254,6 @@ dialog button.danger-zone-action > small { color: var(--px-bad-ink); }
   margin: 8px 0 2px;
   padding-top: 8px;
   border-top: 2px dotted var(--px-line);
-  color: var(--px-ink);
   font: 700 12.5px/1.4 var(--font-sans); -webkit-font-smoothing: auto;
 }
 .inbox-section h5 > em { color: var(--px-ink-2); font: 600 12px/1 var(--font-px); -webkit-font-smoothing: none; font-style: normal; }
@@ -1293,7 +1284,6 @@ dialog button.danger-zone-action > small { color: var(--px-bad-ink); }
   border: 0;
   background: var(--px-float);
   color: var(--px-ink);
-  box-shadow: var(--px), 4px 4px 0 0 var(--px-shade);
 }
 .quota-popover:popover-open { animation: fx-drop 0.14s steps(4) both; }
 .quota-popover button { box-shadow: none; }

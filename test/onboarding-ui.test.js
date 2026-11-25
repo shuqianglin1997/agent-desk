@@ -85,7 +85,9 @@ test('迁移预览、首选客户端和高级入口具备键盘与状态语义',
 test('首用 Dialog 只让 Content 滚动，Header 与事务 Footer 保持固定并支持小视口', () => {
   assert.match(css, /\.welcome-dialog\.is-onboarding[\s\S]*?width:\s*min\(680px/);
   assert.doesNotMatch(css, /--dialog-preferred-height/);
-  assert.match(css, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?height:\s*auto;[\s\S]*?max-height:\s*calc\(100dvh/);
+  // The pixel skin's rule for the dialog shell sets the height (unlayered, so it
+  // always wins over workspace.css's layers).
+  assert.match(fs.readFileSync(path.join(ROOT, 'src/pixel.css'), 'utf8'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?height:\s*auto;[^}]*?max-height:\s*calc\(100dvh/);
   assert.match(css, /\.onboarding-migration-list[\s\S]*?overflow:\s*auto/);
   assert.match(css, /\.onboarding-footer > span\s*\{\s*flex:\s*1/);
   assert.match(css, /@media \(max-width:\s*680px\)[\s\S]*?\.onboarding-agent-form\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\)/);

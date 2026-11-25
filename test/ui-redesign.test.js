@@ -79,7 +79,7 @@ test('卡片名册使用固定宽度与可信摘要，并用真实窗口验收�
   // Overflow, scroll padding and gutter come from the pixel skin's rule for the
   // same selector (unlayered, so it always wins over workspace.css's layers).
   assert.match(read('src/pixel.css'), /\.agent-panel \.account-roster \{[\s\S]*?overflow-x:\s*auto;[\s\S]*?\}/);
-  assert.match(workspaceStyles, /\.agent-panel \.account-card \{\s*display:\s*grid;[\s\S]*?grid-template-rows:/);
+  assert.match(read('src/pixel.css'), /\.agent-panel \.account-card,\s*\.agent-panel \.account-card\.selected \{\s*display:\s*grid;[^}]*?grid-template-rows:/);
   // 卡片里已经没有的包裹层，样式也一并清掉了。
   assert.doesNotMatch(workspaceStyles, /\.account-card-details|\.account-card-top|\.account-card-meta|\.agent-panel-body/);
   assert.match(renderer, /function revealSelectedAccountCard\(\)[\s\S]*?scrollPaddingInlineStart[\s\S]*?scrollLeft = Math\.min/);
@@ -197,7 +197,10 @@ test('1.14 全局弹窗统一固定 Shell，关闭不伪装主操作，次级流
   assert.doesNotMatch(html, /id="toolCenterDialog"|id="settingsDialog"/);
 
   // 弹窗跟着内容长高，只用窗口高度封顶；不再有逼出滚动条或留白的固定高度。
-  assert.match(styles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?height:\s*auto;[\s\S]*?max-height:\s*calc\(100dvh[\s\S]*?overflow:\s*hidden/);
+  // Height comes from the pixel skin's rule for the shell (unlayered, so it always
+  // wins); the clipping stays in workspace.css.
+  assert.match(read('src/pixel.css'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?height:\s*auto;[^}]*?max-height:\s*calc\(100dvh/);
+  assert.match(styles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?overflow:\s*hidden/);
   assert.doesNotMatch(styles, /--dialog-preferred-height/);
   assert.match(styles, /\.utility-dialog-content\s*\{[\s\S]*?overflow-y:\s*auto/);
   assert.match(styles, /\.utility-dialog-header,[\s\S]*?\.utility-dialog-commandbar,[\s\S]*?\.utility-dialog-footer\s*\{[\s\S]*?flex:\s*none/);
