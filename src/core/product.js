@@ -38,15 +38,16 @@ const REPOSITORY = repositoryOf(JSON.parse(fs.readFileSync(path.join(__dirname, 
  * Call first thing in Main, before anything reads the app name or the data
  * folder. The app name is the old one while Electron fixes the keychain item
  * during start-up, and the new one from `will-finish-launching` on (menus,
- * dialogs, the about panel). An explicit --user-data-dir (tests, portable
- * setups) is left alone; otherwise the data folder is appData/AgentDesk.
- * Measured on Electron 43.3.0 with scripts/keychain-name-probe.js; rerun it
- * after an Electron upgrade.
+ * dialogs, the about panel). The listener goes first because Electron builds
+ * its default menu (About/Hide/Quit <name>) in its own listener for the same
+ * event. An explicit --user-data-dir (tests, portable setups) is left alone;
+ * otherwise the data folder is appData/AgentDesk. Measured on Electron 43.3.0
+ * with scripts/keychain-name-probe.js; rerun it after an Electron upgrade.
  * @param {{
  *   setName(name: string): void,
  *   getPath(name: string): string,
  *   setPath(name: string, value: string): void,
- *   once(event: string, listener: () => void): unknown,
+ *   prependOnceListener(event: string, listener: () => void): unknown,
  *   commandLine: { hasSwitch(name: string): boolean }
  * }} app
  * @param {{ legacyName?: string, productName?: string, mkdir?: (dir: string) => void }} [options]
@@ -64,7 +65,7 @@ function keepLegacyIdentity(app, options = {}) {
     mkdir(userData);
     app.setPath('userData', userData);
   }
-  app.once('will-finish-launching', () => app.setName(productName));
+  app.prependOnceListener('will-finish-launching', () => app.setName(productName));
   return { userData };
 }
 

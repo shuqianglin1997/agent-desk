@@ -157,7 +157,7 @@ function deviceJourneyIdentity(model, value) {
       name: model.preview.sourceDeviceName || tr('devices.value.unknown'),
       meta: [
         platformLabel(model.preview.platform),
-        model.preview.appVersion ? `AgentDesk ${model.preview.appVersion}` : null,
+        model.preview.appVersion ? `Catshelf ${model.preview.appVersion}` : null,
         model.preview.expiresAt ? tr('deviceJourney.identity.expires', { time: compactDate(model.preview.expiresAt) }) : null
       ].filter(Boolean).join(' · '),
       fingerprint: model.preview.sourceFingerprint || '—'
@@ -170,7 +170,7 @@ function deviceJourneyIdentity(model, value) {
       meta: [
         platformLabel(model.claim.platform),
         model.claim.arch,
-        model.claim.appVersion ? `AgentDesk ${model.claim.appVersion}` : null,
+        model.claim.appVersion ? `Catshelf ${model.claim.appVersion}` : null,
         model.claim.expiresAt ? tr('deviceJourney.identity.expires', { time: compactDate(model.claim.expiresAt) }) : null
       ].filter(Boolean).join(' · '),
       fingerprint: model.claim.fingerprint || '—'
@@ -183,7 +183,7 @@ function deviceJourneyIdentity(model, value) {
       meta: [
         platformLabel(value.target.platform),
         value.target.arch,
-        value.target.appVersion ? `AgentDesk ${value.target.appVersion}` : null
+        value.target.appVersion ? `Catshelf ${value.target.appVersion}` : null
       ].filter(Boolean).join(' · '),
       fingerprint: value.target.fingerprint || '—'
     };

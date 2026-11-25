@@ -327,7 +327,7 @@ function renderSelectedDeviceDetail(overview) {
     els.deviceDetailMeta.textContent = [
       platformLabel(device.platform),
       device.arch,
-      `AgentDesk ${device.appVersion}`,
+      `Catshelf ${device.appVersion}`,
       connection?.authenticated ? connectionPathText(connection) : null,
       tr('devices.device.fingerprint', { value: device.fingerprint || '-' })
     ].filter(Boolean).join(' · ');
@@ -841,7 +841,7 @@ function renderDeviceDiagnostics() {
   if (!value) return;
   appendDiagnosticSection(els.meshDiagnosticsBody, tr('devices.diagnostics.identity'), [
     [tr('devices.diagnostics.deviceStatus'), diagnosticCode(value.device.status)],
-    [tr('devices.diagnostics.appProtocol'), `${value.device.platform} ${value.device.arch} · AgentDesk ${value.device.appVersion} · ${value.device.protocolVersion}`],
+    [tr('devices.diagnostics.appProtocol'), `${value.device.platform} ${value.device.arch} · Catshelf ${value.device.appVersion} · ${value.device.protocolVersion}`],
     [tr('devices.diagnostics.fingerprint'), value.device.fingerprint || '-'],
     [tr('devices.diagnostics.inventory'), `r${value.device.inventoryRevision || 0}`]
   ]);

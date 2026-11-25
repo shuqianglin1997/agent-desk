@@ -21,7 +21,7 @@ function fakeApp({ switches = [], appData = '/Users/alice/Library/Application Su
     setName(value) { calls.push(['setName', value]); name = value; },
     getPath(key) { calls.push(['getPath', key]); return key === 'appData' ? appData : `/unexpected/${key}`; },
     setPath(key, value) { calls.push(['setPath', key, value]); },
-    once(event, listener) { calls.push(['once', event]); listeners[event] = listener; },
+    prependOnceListener(event, listener) { calls.push(['prependOnceListener', event]); listeners[event] = listener; },
     commandLine: { hasSwitch: (key) => switches.includes(key) }
   };
 }
@@ -35,20 +35,22 @@ test('启动最早处：先用旧名，数据目录固定为 appData/AgentDesk�
     ['setName', 'AgentDesk'],
     ['getPath', 'appData'],
     ['setPath', 'userData', userData],
-    ['once', 'will-finish-launching']
+    ['prependOnceListener', 'will-finish-launching']
   ]);
   assert.deepEqual(made, [userData], 'the folder exists before setPath');
   assert.deepEqual(result, { userData });
   assert.equal(app.name, 'AgentDesk', 'Electron fixes the keychain item while the old name is set');
   app.listeners['will-finish-launching']();
   assert.equal(app.name, 'Catshelf', 'menus, dialogs and the about panel show the new name');
+  // Prepended: Electron's own will-finish-launching listener builds the default
+  // menu from the app name, so ours must run before it.
 });
 
 test('显式 --user-data-dir（验收、便携）不被改写', () => {
   const app = fakeApp({ switches: ['user-data-dir'] });
   const made = [];
   assert.deepEqual(product.keepLegacyIdentity(app, { mkdir: (dir) => made.push(dir) }), { userData: null });
-  assert.deepEqual(app.calls, [['setName', 'AgentDesk'], ['once', 'will-finish-launching']]);
+  assert.deepEqual(app.calls, [['setName', 'AgentDesk'], ['prependOnceListener', 'will-finish-launching']]);
   assert.deepEqual(made, []);
 });
 

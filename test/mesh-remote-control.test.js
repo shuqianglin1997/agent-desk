@@ -88,8 +88,8 @@ test('远控使用主窗口内嵌沙箱 Surface、目标端确认与常驻停止
   assert.match(service, /new this\.WebContentsView\([\s\S]*?contextIsolation: true[\s\S]*?nodeIntegration: false[\s\S]*?sandbox: true/);
   assert.match(service, /mainWindowProvider[\s\S]*?contentView\.addChildView\(view\)/);
   assert.match(service, /setConsoleSurface\([\s\S]*?view\.setBounds\(bounds\)[\s\S]*?view\.setVisible\(true\)/);
-  assert.doesNotMatch(service, /title: 'AgentDesk Remote Console'/);
-  assert.match(service, /alwaysOnTop: true[\s\S]*?title: 'AgentDesk Remote View'[\s\S]*?contextIsolation: true[\s\S]*?sandbox: true/);
+  assert.doesNotMatch(service, /title: '(?:Catshelf|AgentDesk) Remote Console'/);
+  assert.match(service, /alwaysOnTop: true[\s\S]*?title: 'Catshelf Remote View'[\s\S]*?contextIsolation: true[\s\S]*?sandbox: true/);
   assert.match(service, /requireCapability\(peer\.remote, 'screen\.view'\)/);
   assert.match(service, /requireCapability\(context\.peer\.remote, 'screen\.view'\)/);
   assert.match(service, /remote-host:authorize-view/);

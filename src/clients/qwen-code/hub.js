@@ -23,7 +23,7 @@ const qwen = Object.freeze({
     write: '--approval-mode auto-edit (file edits approved; headless runs exclude shell by default)',
     end: 'Process exit; non-zero codes 1, 41, 42, 44, 52, 53, 55 on failures (troubleshooting.md, headless.md).',
     answer: 'result field of the last type "result" element of the --output-format json array.',
-    sessionRecord: 'Session ID chosen by AgentDesk with --session-id; the record is under QWEN_HOME/projects/<cwd>/chats and found with the Qwen Code scanner.'
+    sessionRecord: 'Session ID chosen by Catshelf with --session-id; the record is under QWEN_HOME/projects/<cwd>/chats and found with the Qwen Code scanner.'
   }),
   args(access, context = {}) {
     return [

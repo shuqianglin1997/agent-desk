@@ -78,7 +78,7 @@ const SANDBOX = `(version 1)
 function probeMain() {
   return `'use strict';
 const fs = require('node:fs');
-const { app, safeStorage } = require('electron');
+const { app, safeStorage, Menu } = require('electron');
 const log = (line) => fs.appendFileSync(process.env.KC_PROBE_LOG, line + '\\n');
 if (process.env.KC_PROBE_INTERPOSED !== '1') { log('abort\\tnot-interposed'); process.exit(3); }
 try { app.dock?.hide(); } catch (_error) { /* not yet available */ }
@@ -87,6 +87,8 @@ if (process.env.KC_PROBE_MODE === 'pinned') {
 }
 app.whenReady().then(() => {
   log('ready\\t' + app.getName() + '\\t' + app.getPath('userData'));
+  const appMenu = Menu.getApplicationMenu()?.items?.[0];
+  log('menu\\t' + [appMenu?.label, ...(appMenu?.submenu?.items || []).map((item) => item.label)].filter(Boolean).join('|'));
   try { safeStorage.encryptString('probe'); log('encrypt\\tok'); } catch (error) { log('encrypt\\tfailed ' + error.message); }
   app.quit();
 });
@@ -123,7 +125,8 @@ function runCase(root, mode, files) {
     userDataFolder: ready ? path.basename(ready[2]) : null,
     userDataInsideProbeHome: ready ? ready[2].startsWith(fs.realpathSync(home)) || ready[2].startsWith(home) : false,
     keychain: [...new Set(lines.filter((line) => line[0] === 'keychain').map((line) => `${line[2]} / ${line[3]}`))],
-    encrypted: lines.some((line) => line[0] === 'encrypt' && line[1] === 'ok')
+    encrypted: lines.some((line) => line[0] === 'encrypt' && line[1] === 'ok'),
+    menu: lines.find((line) => line[0] === 'menu')?.[1] || ''
   };
 }
 
@@ -140,6 +143,10 @@ function judge(results) {
   }
   if (servicesOf(pinned).join() !== 'ProbeOld Safe Storage' || pinned.userDataFolder !== 'ProbeOld' || pinned.appName !== 'ProbeNew') {
     problems.push('pinned: keepLegacyIdentity no longer keeps the old keychain item and data folder; do not install');
+  }
+  // The default menu's About/Hide/Quit items carry the app name of the moment it is built.
+  if (process.platform === 'darwin' && (!pinned.menu.includes('ProbeNew') || pinned.menu.includes('ProbeOld'))) {
+    problems.push('pinned: the default menu shows the old name; the name must be restored before Electron builds it');
   }
   return problems;
 }

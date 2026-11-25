@@ -326,7 +326,7 @@ async function waitForTarget(port, childState) {
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  throw new Error('Timed out waiting for the AgentDesk renderer target');
+  throw new Error('Timed out waiting for the Catshelf renderer target');
 }
 
 async function waitFor(client, expression, label, timeoutMs = 15_000) {
@@ -448,7 +448,7 @@ function assertFixedShell(layout) {
     assert.ok(layout.compactTableOverflow <= 1, `Compact table must not scroll horizontally, overflow ${layout.compactTableOverflow}px ${JSON.stringify(layout.compactTableDebug)}`);
     assert.ok(layout.compactTableWidthOverflow <= 1, `Compact table must fit its panel, overflow ${layout.compactTableWidthOverflow}px`);
   }
-  assert.ok(layout.brand.rect?.width > 45 && layout.brand.rect?.height > 15, 'the text-only AgentDesk title must remain visible');
+  assert.ok(layout.brand.rect?.width > 45 && layout.brand.rect?.height > 15, 'the text-only Catshelf title must remain visible');
   assert.notEqual(layout.brand.display, 'none');
   assert.equal(layout.brand.visibility, 'visible');
   assert.equal(layout.brand.opacity, '1');
@@ -1117,7 +1117,7 @@ async function runAcceptance(client, artifactDir, userData) {
       };
     })()`);
     assert.equal(workspace.retiredUi, false);
-    assert.equal(workspace.title, 'AgentDesk');
+    assert.equal(workspace.title, 'Catshelf');
     assert.ok(workspace.runtimeText?.length > 0);
 
     await client.evaluate(`document.querySelector('.account-card.selected .account-card-manage').click()`);
@@ -2570,7 +2570,7 @@ async function main() {
     ));
     assert.deepEqual(seriousLogs, [], `Electron emitted serious errors:\n${seriousLogs.join('\n')}`);
     assert.ok(fs.existsSync(path.join(userData, 'mesh.db')), 'Mesh acceptance must stay inside the disposable userData directory');
-    process.stdout.write(`\nAgentDesk ${HIDDEN ? 'hidden-window' : 'real-window'} acceptance passed (${checks.length} task paths).\n`);
+    process.stdout.write(`\nCatshelf ${HIDDEN ? 'hidden-window' : 'real-window'} acceptance passed (${checks.length} task paths).\n`);
     if (artifactDir) process.stdout.write(`Screenshots: ${artifactDir}\n`);
   } catch (error) {
     const recentOutput = output.join('').trim().split(/\r?\n/).slice(-30).join('\n');

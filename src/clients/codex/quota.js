@@ -253,7 +253,7 @@ function queryCodexAppServer(profile, options = {}) {
       callback(value);
     }
     // Owned until it answers: quitting AgentDesk stops it (stopAppServers).
-    const live = { stop: () => finish(reject, codedError('CODEX_RPC_STOPPED', 'Codex app-server stopped because AgentDesk is quitting')) };
+    const live = { stop: () => finish(reject, codedError('CODEX_RPC_STOPPED', 'Codex app-server stopped because Catshelf is quitting')) };
     LIVE_APP_SERVERS.add(live);
 
     function send(message) {

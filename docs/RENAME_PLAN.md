@@ -31,12 +31,13 @@ Electron 默认用应用名决定数据目录（`appData/<应用名>`），也�
 
 1. 先把应用名设成 `AgentDesk`；
 2. 没有显式 `--user-data-dir` 时，把数据目录固定为 `appData/AgentDesk`（目录不存在就先建）；
-3. 在 `will-finish-launching` 时把应用名改回 `Catshelf`，菜单、对话框和关于面板从这里起都是新名字。
+3. 在 `will-finish-launching` 时把应用名改回 `Catshelf`，菜单、对话框和关于面板从这里起都是新名字。这个监听器排在最前面：Electron 自己在同一事件里按当时的应用名建默认菜单（“关于 / 隐藏 / 退出 <名字>”），排在它后面菜单就会是旧名。
 
 依据（2026-11-24，Electron 43.3.0，macOS 26.6）：`scripts/keychain-name-probe.js` 用 `node_modules` 里的 Electron 跑一个探针应用。它把 Electron 引用的 `SecItemCopyMatching`/`SecItemAdd`/`SecItemUpdate`/`SecItemDelete` 换成只记录名字、回答“没有”的替身，并在禁止连接钥匙串服务的沙箱里运行，所以碰不到真实钥匙串。结果：
 
 - 不处理时，产品名 `ProbeNew` 用钥匙串项 `ProbeNew Safe Storage`，数据目录是 `appData/ProbeNew`；
 - 先设旧名 `ProbeOld`、在 `will-finish-launching` 或 `ready` 再改回新名时，钥匙串项仍是 `ProbeOld Safe Storage`，数据目录是 `appData/ProbeOld`，此后应用名是 `ProbeNew`。钥匙串的名字在启动早期就定下，之后改名不影响。
+- 改回新名的监听器如果排在 Electron 自己的后面，默认菜单是“About / Hide / Quit ProbeOld”；排在最前面时是 “ProbeNew”，钥匙串项不变。探针也核对这一项。
 
 `test/product-identity.test.js` 看住这个函数的行为，`test/release-security.test.js` 看住它是 `src/main.js` 的第一句。Electron 升级后，先跑一次 `node scripts/keychain-name-probe.js` 再装。
 

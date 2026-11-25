@@ -147,7 +147,7 @@
       context.fillRect((frame * 7) % canvas.width, canvas.height / 2 - 18, 96, 36);
       context.fillStyle = '#f3ead3';
       context.font = '28px sans-serif';
-      context.fillText('AgentDesk secure remote view', 42, 58);
+      context.fillText('Catshelf secure remote view', 42, 58);
       frame += 1;
     };
     draw();

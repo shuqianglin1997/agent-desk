@@ -426,7 +426,7 @@ class RemoteControlService {
       fullscreenable: false,
       alwaysOnTop: true,
       skipTaskbar: false,
-      title: 'AgentDesk Remote View',
+      title: 'Catshelf Remote View',
       backgroundColor: '#efe6cd',
       webPreferences: {
         preload: path.join(this.remoteDirectory, 'host-preload.js'),

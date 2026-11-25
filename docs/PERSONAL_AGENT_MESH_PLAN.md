@@ -2831,7 +2831,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 
 - 改的：应用名与程序包 `Catshelf.app`、窗口标题、菜单、关于面板、对话框、三种语言的词表、安装包与发布产物的文件名、命令行的说明文字，以及当前状态文档。历史记录与 ADR 里的旧名保留。
 - 不动的：程序包标识 `com.hupo.agentdesk`；数据目录 `AgentDesk`；钥匙串项 `AgentDesk Safe Storage`（`mesh-keys.json` 靠它解密，名字一变已配对的设备就要重配）；设备网协议与信令、`mesh.db` 等存盘与文件名、默认设备名 `AgentDesk device`；`AGENTDESK_*` 环境变量；`.agentdesk-task` 扩展名；GitHub 仓库地址与自动更新所查的仓库（仓库还没改名，地址只在 `package.json` 一处）。
-- 怎么保住：`src/main.js` 的第一句先用旧名并固定数据目录，`will-finish-launching` 时再换回新名。Electron 43.3.0 上用拦截钥匙串调用、碰不到真实钥匙串的探针实测过：钥匙串项的名字在这之前就已定下（`scripts/keychain-name-probe.js`，升级 Electron 后先重跑再装）。
+- 怎么保住：`src/main.js` 的第一句先用旧名并固定数据目录，`will-finish-launching` 时再换回新名（这个监听器排在 Electron 建默认菜单之前，菜单上才是新名字）。Electron 43.3.0 上用拦截钥匙串调用、碰不到真实钥匙串的探针实测过：钥匙串项的名字在这之前就已定下（`scripts/keychain-name-probe.js`，升级 Electron 后先重跑再装）。
 - 命令行：`--cli`、全部命令、参数、输出字段与退出码不变；可执行文件随应用改名为 `Catshelf`；本机安装另在 `~/.local/bin` 写 `catshelf` 和别名 `agentdesk` 两个命令。旧的 `/Applications/AgentDesk.app/…` 绝对路径随旧应用删除而失效。
 - 自动更新同时认 `Catshelf-` 与 `AgentDesk-` 开头的发布文件。没有在 Windows 上实测，真实钥匙串只在装好后第一次打开“设备”时才会用到。
 

@@ -765,12 +765,12 @@ function boundedTaskCheckpoint(value = {}) {
 }
 
 function taskPackageSuggestedName(title) {
-  const stem = String(title || 'AgentDesk-task')
+  const stem = String(title || 'Catshelf-task')
     .normalize('NFC')
     .replace(/[\0-\x1f\x7f<>:"/\\|?*]/g, '_')
     .replace(/[. ]+$/g, '')
     .trim()
-    .slice(0, 100) || 'AgentDesk-task';
+    .slice(0, 100) || 'Catshelf-task';
   return `${stem}.agentdesk-task`;
 }
 

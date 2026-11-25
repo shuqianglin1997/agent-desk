@@ -32,13 +32,14 @@ const path = require('node:path');
 const { seedUserData, launchElectronApp, closeElectronApp, waitFor, pressEscape, finishHidden } = require('./ui-acceptance');
 const { THEMES, LANGS, STATES, setSettings, seedEmptyDesk, fixTimes, prepare } = require('./ui-snapshots');
 
-// Retired names (WORDING_PLAN section 1, "现在的叫法"). Kept on purpose and so
-// not reported: the dossier's 资料 / Profile / プロフィール, 账号 after a
-// provider's name, and the catalog's default name "Agent" (section 3.1).
+// Retired names (WORDING_PLAN section 1, "现在的叫法"), and the product's old
+// name AgentDesk (docs/RENAME_PLAN.md). Kept on purpose and so not reported:
+// the dossier's 资料 / Profile / プロフィール, 账号 after a provider's name, and
+// the catalog's default name "Agent" (section 3.1).
 const RETIRED = {
-  zh: [/(?<!Personal )Agent(?!Desk| Mesh)/, /员工/, /运行位置/, /槽位/, /\bProfile\b/, /账号目录/, /账号数据目录/, /登录账号/, /账号绑定/],
-  en: [/\bAgents?\b(?!Desk| Mesh)/, /\bemployees?\b/i, /\bslots?\b/i, /\bruntime locations?\b/i, /\bRun at\b/, /\baccount (?:folders?|dir(?:ector(?:y|ies))?|slots?|bindings?)\b/i, /\bsign-in accounts?\b/i, /\blogin (?:accounts?|bindings?)\b/i],
-  ja: [/Agent(?!Desk| Mesh)/, /従業員/, /実行場所/, /スロット/, /プロファイル/, /アカウント(?:ディレクトリ|フォルダ|スロット|枠|紐付け)/, /ログインアカウント/]
+  zh: [/AgentDesk/, /(?<!Personal )Agent(?!Desk| Mesh)/, /员工/, /运行位置/, /槽位/, /\bProfile\b/, /账号目录/, /账号数据目录/, /登录账号/, /账号绑定/],
+  en: [/AgentDesk/, /\bAgents?\b(?!Desk| Mesh)/, /\bemployees?\b/i, /\bslots?\b/i, /\bruntime locations?\b/i, /\bRun at\b/, /\baccount (?:folders?|dir(?:ector(?:y|ies))?|slots?|bindings?)\b/i, /\bsign-in accounts?\b/i, /\blogin (?:accounts?|bindings?)\b/i],
+  ja: [/AgentDesk/, /Agent(?!Desk| Mesh)/, /従業員/, /実行場所/, /スロット/, /プロファイル/, /アカウント(?:ディレクトリ|フォルダ|スロット|枠|紐付け)/, /ログインアカウント/]
 };
 
 const CAPTURE = `(() => {

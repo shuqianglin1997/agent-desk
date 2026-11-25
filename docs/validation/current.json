@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T07:23:44.148Z",
-  "baseCommit": "07f97d66563358a977406a813cefc76d92fd1964",
+  "recordedAt": "2026-11-25T07:28:31.209Z",
+  "baseCommit": "5d6fb8988afaebeb87e88a3796a2fa1a5470c2d0",
   "uncommitted": true,
-  "sourceSha256": "574afb18d20edf33e99a7d418a3b4c24845baf5c13a271a8dc01c345b6bdeed6",
+  "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1003,
+      "pass": 1001,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after rename batch 3: the product name shown in the window: the Chinese word list says 猫架 (each sentence reread, spaces that only set off the Latin name removed, three sentences rewritten), the English and Japanese lists say Catshelf, the page's preset text, title and wordmark (Cat<i>shelf</i>), device version labels, the remote view and console window titles, the task package file filter, the hub's session-record notes; the start-up name restore now runs before Electron builds its default menu (the probe saw About/Hide/Quit with the old name otherwise); the text scan reports AgentDesk as a retired name; digest identical before and after the run",
+      "recordedAt": "2026-11-25T07:28:31.209Z",
+      "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T07:28:31.209Z",
+      "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

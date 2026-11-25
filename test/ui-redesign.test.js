@@ -33,7 +33,7 @@ test('窗口顶栏保留设备视角位置并使用纯文字标题', () => {
   ]) {
     assert.match(topbar, new RegExp(`id="${button}"[^>]*aria-haspopup="dialog"[^>]*aria-controls="${dialog}"[^>]*aria-expanded="false"`));
   }
-  assert.match(topbar, /<span class="topbar-brand" aria-label="AgentDesk">Agent<i>Desk<\/i><\/span>/);
+  assert.match(topbar, /<span class="topbar-brand" aria-label="Catshelf">Cat<i>shelf<\/i><\/span>/);
   assert.doesNotMatch(topbar, /brand-mark|agent-view-segment|viewToggle|classicViewBtn/);
   assert.match(workspaceStyles, /--lens-width: 216px;[\s\S]*?50vw - 25px/);
   const presenter = html.slice(html.indexOf('class="presenter-head"'), html.indexOf('<section class="presenter">'));

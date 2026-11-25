@@ -44,7 +44,7 @@ const COMMANDS = [
         const result = await dialog.showSaveDialog(mainWindow, {
           title: t('main.taskPackage.exportTitle'),
           defaultPath: path.join(app.getPath('desktop'), taskPackageSuggestedName(preview.title)),
-          filters: [{ name: 'AgentDesk Task Package', extensions: ['agentdesk-task'] }]
+          filters: [{ name: 'Catshelf Task Package', extensions: ['agentdesk-task'] }]
         });
         if (result.canceled || !result.filePath) return { ok: true, cancelled: true };
         let attachmentPaths = [];
@@ -183,7 +183,7 @@ const COMMANDS = [
             app.getPath('desktop'),
             taskPackageSuggestedName(transfer.taskPackage?.title || 'task-package')
           ),
-          filters: [{ name: 'AgentDesk Task Package', extensions: ['agentdesk-task'] }]
+          filters: [{ name: 'Catshelf Task Package', extensions: ['agentdesk-task'] }]
         });
         if (result.canceled || !result.filePath) return { ok: true, cancelled: true };
         const saved = await getTransferService().saveTaskPackageFallback(transferId, result.filePath);
@@ -208,7 +208,7 @@ const COMMANDS = [
         const result = await dialog.showOpenDialog(mainWindow, {
           title: t('main.taskPackage.importTitle'),
           properties: ['openFile'],
-          filters: [{ name: 'AgentDesk Task Package', extensions: ['agentdesk-task'] }]
+          filters: [{ name: 'Catshelf Task Package', extensions: ['agentdesk-task'] }]
         });
         if (result.canceled || !result.filePaths[0]) return { ok: true, cancelled: true };
         return { ok: true, draft: getTaskPackageService().createImportDraft(result.filePaths[0]) };

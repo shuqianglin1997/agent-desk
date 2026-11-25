@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AgentDesk</title>
+    <title>Catshelf</title>
     <link rel="stylesheet" href="./workspace.css" />
     <link rel="stylesheet" href="./pixel.css" />
     <link rel="stylesheet" href="./cats.css" />
@@ -13,7 +13,7 @@
   <body>
     <div class="app-shell">
       <header class="app-topbar">
-        <span class="topbar-brand" aria-label="AgentDesk">Agent<i>Desk</i></span>
+        <span class="topbar-brand" aria-label="Catshelf">Cat<i>shelf</i></span>
         <div class="topbar-lens">
           <span id="topbarContext" class="visually-hidden" aria-live="polite"></span>
           <label class="device-lens-control visually-hidden">
@@ -228,7 +228,7 @@
               <button id="pathConfigBtn" type="button"><span data-i18n="account.path">路径</span><small data-i18n="account.pathHint">数据目录与会话根目录</small></button>
               <button id="diagnosticsBtn" type="button"><span data-i18n="account.diagnostics">诊断</span><small data-i18n="account.diagnosticsHint">客户端、目录、会话与启动状态</small></button>
               <button id="refreshBtn" type="button"><span data-i18n="account.refresh">重扫</span><small data-i18n="account.refreshHint">重新读取当前来源的会话与状态</small></button>
-              <button id="stopProfileBtn" type="button"><span data-i18n="account.stopRuntime">关闭客户端</span><small data-i18n="account.stopRuntimeHint">只关闭由 AgentDesk 启动的当前位置的进程</small></button>
+              <button id="stopProfileBtn" type="button"><span data-i18n="account.stopRuntime">关闭客户端</span><small data-i18n="account.stopRuntimeHint">只关闭由猫架启动的当前位置的进程</small></button>
               <button id="cleanCrashpadBtn" type="button"><span data-i18n="account.cleanCrashpad">清理崩溃报告</span><small data-i18n="account.cleanCrashpadHint">只删除 Crashpad/pending 中的转储和 sidecar</small></button>
               <button id="profileFolderBtn" type="button"><span data-i18n="account.folder">打开位置</span><small data-i18n="account.folderHint">在本机文件管理器中显示数据目录</small></button>
             </div>
@@ -249,7 +249,7 @@
             <div class="hub-switches">
               <label class="hub-switch" for="hubAllowCall" data-hub-tip="allow">
                 <input id="hubAllowCall" type="checkbox" role="switch">
-                <span><b data-i18n="hub.dossier.allow">允许别的账号调用它</b><small data-i18n="hub.dossier.allow.hint">打开后，你的其他账号可以通过 AgentDesk 让它在后台干活。AgentDesk 自己不会调用它。</small></span>
+                <span><b data-i18n="hub.dossier.allow">允许别的账号调用它</b><small data-i18n="hub.dossier.allow.hint">打开后，你的其他账号可以通过猫架让它在后台干活。猫架自己不会调用它。</small></span>
                 <em id="hubAllowCallState"></em>
               </label>
               <label class="hub-switch" for="hubAllowWrite">
@@ -263,7 +263,7 @@
           <section class="agent-manage-section" data-section="farewell">
             <h4><span data-i18n="dossier.farewell">送走</span></h4>
             <div class="agent-manage-actions">
-              <button id="removeProfileBtn" class="danger-zone-action" type="button"><span data-i18n="account.removeCatalog">从 AgentDesk 移除…</span><small data-i18n="account.removeHint">先预览对位置、登录或整个账号的影响</small></button>
+              <button id="removeProfileBtn" class="danger-zone-action" type="button"><span data-i18n="account.removeCatalog">从猫架移除…</span><small data-i18n="account.removeHint">先预览对位置、登录或整个账号的影响</small></button>
             </div>
           </section>
         </div>
@@ -306,7 +306,7 @@
         <header class="utility-dialog-head utility-dialog-header">
           <div>
             <h3 id="recruitTitle" data-i18n="recruit.title">招募</h3>
-            <p id="recruitSummary" data-i18n="recruit.summary">四种添加账号的办法，挑一种。登录、密钥和令牌都留在各自的官方客户端里，AgentDesk 自己不保存。</p>
+            <p id="recruitSummary" data-i18n="recruit.summary">四种添加账号的办法，挑一种。登录、密钥和令牌都留在各自的官方客户端里，猫架自己不保存。</p>
           </div>
           <button type="button" id="recruitCloseBtn" class="utility-dialog-close" data-i18n="dialog.close">关闭</button>
         </header>
@@ -347,7 +347,7 @@
             </table>
           </section>
           <section id="recruitAi" role="tabpanel" aria-labelledby="recruitTabAi" data-section="ai" hidden>
-            <p data-i18n="recruit.ai.lead">AgentDesk 的命令行可以让 AI 替你查找、登记和配置账号。</p>
+            <p data-i18n="recruit.ai.lead">猫架的命令行可以让 AI 替你查找、登记和配置账号。</p>
             <ol class="recruit-steps" id="recruitSteps"></ol>
           </section>
         </div>
@@ -463,7 +463,7 @@
 
     <dialog id="removeCatalogDialog" class="catalog-dialog">
       <form method="dialog" class="dialog-body">
-        <h3 data-i18n="catalog.remove.title">从 AgentDesk 移除</h3>
+        <h3 data-i18n="catalog.remove.title">从猫架移除</h3>
         <p id="removeCatalogIntro" class="field-hint"></p>
         <fieldset class="catalog-scope-list">
           <legend data-i18n="catalog.remove.scope">选择作用范围</legend>
@@ -482,7 +482,7 @@
         </fieldset>
         <label id="removeLocalRegistrationField" class="catalog-local-registration" hidden>
           <input id="removeLocalRegistration" type="checkbox">
-          <span data-i18n="catalog.remove.localRegistration">同时从本机 AgentDesk 删除这个位置登记（不删除官方客户端数据）</span>
+          <span data-i18n="catalog.remove.localRegistration">同时从这台电脑上的猫架删除这个位置登记（不删除官方客户端数据）</span>
         </label>
         <div id="removeCatalogImpact" class="catalog-impact" aria-live="polite"></div>
         <p class="catalog-data-safety" data-i18n="catalog.remove.safety">不会注销你在服务商那里的账号，不会删除官方客户端目录、凭据、项目或云端内容。</p>
@@ -760,7 +760,7 @@
                 <span data-i18n="deviceJourney.join.code">另一台设备生成的一次性配对码</span>
                 <textarea id="meshJoinCode" rows="3" autocomplete="off" spellcheck="false"></textarea>
               </label>
-              <p data-i18n="deviceJourney.join.inspectNote">AgentDesk 会先在本机验签并显示邀请设备，再由你确认；检查本身不会加入设备网。</p>
+              <p data-i18n="deviceJourney.join.inspectNote">猫架会先在本机验签并显示邀请设备，再由你确认；检查本身不会加入设备网。</p>
             </div>
 
             <article id="deviceJourneyIdentityCard" class="device-journey-identity-card" hidden>
@@ -1092,7 +1092,7 @@
         <header class="utility-dialog-head utility-dialog-header">
           <div>
             <h3 id="systemDialogTitle" data-i18n="system.title">系统</h3>
-            <p id="systemDialogLead" data-i18n="system.lead">这台电脑上的工具，和 AgentDesk 自己的设置。都是很少动的东西。</p>
+            <p id="systemDialogLead" data-i18n="system.lead">这台电脑上的工具，和猫架自己的设置。都是很少动的东西。</p>
           </div>
           <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
@@ -1140,14 +1140,14 @@
             <label class="system-setting-line settings-runtime-policy" for="profileQuitBehavior">
               <b data-i18n="settings.profileLifecycle">Profile 后台生命周期</b>
               <select id="profileQuitBehavior">
-                <option value="close" data-i18n="settings.profileQuit.close">退出 AgentDesk 时关闭所启动的客户端</option>
-                <option value="keep" data-i18n="settings.profileQuit.keep">退出 AgentDesk 后保留客户端运行</option>
+                <option value="close" data-i18n="settings.profileQuit.close">退出猫架时关闭所启动的客户端</option>
+                <option value="keep" data-i18n="settings.profileQuit.keep">退出猫架后保留客户端运行</option>
               </select>
-              <small data-i18n="settings.profileQuit.hint">默认关闭可避免失控的后台进程继续生成崩溃报告；选择保留后，AgentDesk 退出期间无法继续监控磁盘增长。</small>
+              <small data-i18n="settings.profileQuit.hint">默认关闭可避免失控的后台进程继续生成崩溃报告；选择保留后，猫架退出期间无法继续监控磁盘增长。</small>
             </label>
             <section id="hubSystem" class="hub-system" aria-labelledby="hubSystemTitle">
               <h4 id="hubSystemTitle"><span data-i18n="hub.system.title">后台对话</span></h4>
-              <p data-i18n="hub.system.lead">AgentDesk 只中转你自己的某个账号发起的调用，不自己派活。</p>
+              <p data-i18n="hub.system.lead">猫架只中转你自己的某个账号发起的调用，不自己派活。</p>
               <div class="system-setting-line hub-folders">
                 <b data-i18n="hub.system.folders">允许干活的文件夹</b>
                 <button id="hubAddFolderBtn" type="button"><i class="pxi" data-i="plus" aria-hidden="true"></i><span data-i18n="hub.system.addFolder">添加文件夹…</span></button>
@@ -1185,7 +1185,7 @@
         <header class="utility-dialog-head utility-dialog-header">
           <div>
             <span id="welcomeDialogKicker" aria-hidden="true">AGENTDESK GUIDE</span>
-            <h3 id="welcomeDialogTitle" data-i18n="welcome.title">AgentDesk 使用说明</h3>
+            <h3 id="welcomeDialogTitle" data-i18n="welcome.title">猫架使用说明</h3>
             <p id="welcomeDialogLead" class="welcome-lead" data-i18n="welcome.lead">把长期工作的账号放进账号库，再选择它此刻在哪个设备和客户端工作。登录始终发生在官方客户端。</p>
           </div>
           <button id="welcomeDialogCloseBtn" class="utility-dialog-close" type="button" data-i18n="dialog.close">关闭</button>
@@ -1226,7 +1226,7 @@
               <header>
                 <span data-i18n="onboarding.agent.kicker">FIRST AGENT</span>
                 <h4 id="onboardingAgentTitle" data-i18n="onboarding.agent.title">创建第一个账号</h4>
-                <p data-i18n="onboarding.agent.lead">先确定它是谁、使用哪个受支持客户端。AgentDesk 随后为本机准备位置。</p>
+                <p data-i18n="onboarding.agent.lead">先确定它是谁、使用哪个受支持客户端。猫架随后为本机准备位置。</p>
               </header>
               <div class="onboarding-agent-form">
                 <label>
@@ -1246,7 +1246,7 @@
               <header>
                 <span data-i18n="onboarding.prepare.kicker">FIRST PREPARATION</span>
                 <h4 id="onboardingPreparationTitle" data-i18n="onboarding.prepare.title">准备本机位置</h4>
-                <p data-i18n="onboarding.prepare.lead">AgentDesk 只创建受管目录并打开白名单内的官方客户端。安装、登录、验证码和系统权限仍由你在本机完成。</p>
+                <p data-i18n="onboarding.prepare.lead">猫架只创建受管目录并打开白名单内的官方客户端。安装、登录、验证码和系统权限仍由你在本机完成。</p>
               </header>
               <div class="onboarding-preparation-card" aria-live="polite">
                 <span id="onboardingPreparationIcon" aria-hidden="true">⋯</span>

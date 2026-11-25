@@ -27,7 +27,7 @@ const gemini = Object.freeze({
     write: '--approval-mode auto_edit (auto-approve edit tools); shell still needs approval and is denied headless',
     end: 'Process exit: 0 success, 1 error, 42 input error, 53 turn limit (headless.md).',
     answer: 'response field of the single --output-format json object; error object on failure.',
-    sessionRecord: 'Session ID chosen by AgentDesk with --session-id; the record is found with the Gemini CLI scanner under GEMINI_CLI_HOME/.gemini/tmp.'
+    sessionRecord: 'Session ID chosen by Catshelf with --session-id; the record is found with the Gemini CLI scanner under GEMINI_CLI_HOME/.gemini/tmp.'
   }),
   args(access, context = {}) {
     return [
