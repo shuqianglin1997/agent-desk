@@ -229,8 +229,7 @@
   input[type="radio"] { accent-color: var(--focus); }
 
   .presenter-head,
-  .session-toolbar,
-  .inspector-head {
+  .session-toolbar {
     min-width: 0;
   }
 
@@ -573,8 +572,7 @@
     box-shadow: none;
   }
 
-  .agent-panel .account-card-name,
-  .agent-panel .account-card-group {
+  .agent-panel .account-card-name {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -583,7 +581,6 @@
 
   .agent-panel .account-card-name { font-size: var(--text-title); font-weight: 600; line-height: 1.35; }
 
-  .agent-panel .account-card-group,
   .agent-panel .account-card-state {
     font-size: var(--text-label);
     font-weight: 500;
@@ -1389,7 +1386,6 @@
     .task-package-import-preview-details { grid-template-columns: minmax(0, 1fr); }
   }
 
-  .settings-dialog-content,
   .welcome-dialog-content,
   .network-settings-content,
   .diagnostics-content {

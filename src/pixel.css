@@ -1517,7 +1517,7 @@ dialog p, dialog .field-hint, dialog label > small, dialog span > small { max-wi
 dialog p.task-package-security, dialog p.welcome-tip, dialog p.onboarding-safety-note { max-width: none; padding-right: max(12px, calc(100% - 468px)); }
 
 /* 木板上的字一律用木板上的浅色 */
-.app-topbar #topbarContext, .app-topbar .topbar-context, .app-topbar .topbar-context * { color: var(--px-on-wood); }
+.app-topbar #topbarContext { color: var(--px-on-wood); }
 
 /* 不可用的按钮：去掉印和框，字仍然读得出来 */
 button:disabled, button.primary:disabled, .session-toolbar-actions > button.primary:disabled { color: var(--px-off); }
@@ -1749,7 +1749,6 @@ dialog button > small { max-width: 456px; }
 .recruit-home > em { align-self: center; padding: 2px 6px; color: var(--px-ok-ink); font-style: normal; box-shadow: 0 0 0 2px var(--px-ok); }
 .recruit-home.is-registered { cursor: default; }
 .recruit-home.is-registered:hover { background: transparent; }
-.recruit-empty { color: var(--px-ink-2); }
 
 /* 拖进来：投放区是一张虚线框的空白纸，拖进来时整块变成正指着的蜂蜜色 */
 .recruit-drop {
