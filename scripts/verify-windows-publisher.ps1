@@ -29,7 +29,7 @@ if ($expected -notmatch '^[A-F0-9]{40}$') {
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $packageJson = Get-Content -LiteralPath (Join-Path $repositoryRoot 'package.json') -Raw | ConvertFrom-Json
-$expectedPortableName = "AgentDesk-$($packageJson.version)-portable-x64.exe"
+$expectedPortableName = "Catshelf-$($packageJson.version)-portable-x64.exe"
 $resolvedReleaseDir = (Resolve-Path -LiteralPath $ReleaseDir).Path
 $portableCandidates = @(
   Get-ChildItem -LiteralPath $resolvedReleaseDir -File |

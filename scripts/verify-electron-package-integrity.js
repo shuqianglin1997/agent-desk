@@ -55,11 +55,11 @@ function resolvePackagedLayout(artifactPath) {
   const resolvedArtifact = fs.realpathSync(artifactPath);
   const stats = fs.statSync(resolvedArtifact);
   if (!stats.isDirectory()) {
-    throw new Error('Artifact must be an AgentDesk.app bundle or a win-unpacked directory.');
+    throw new Error('Artifact must be a Catshelf.app bundle or a win-unpacked directory.');
   }
 
   if (resolvedArtifact.endsWith('.app')) {
-    const executablePath = path.join(resolvedArtifact, 'Contents', 'MacOS', 'AgentDesk');
+    const executablePath = path.join(resolvedArtifact, 'Contents', 'MacOS', 'Catshelf');
     const resourcesPath = path.join(resolvedArtifact, 'Contents', 'Resources');
     const infoPlistPath = path.join(resolvedArtifact, 'Contents', 'Info.plist');
     assertRegularFile(executablePath, 'packaged macOS Electron executable');
@@ -73,7 +73,7 @@ function resolvePackagedLayout(artifactPath) {
     };
   }
 
-  const executablePath = path.join(resolvedArtifact, 'AgentDesk.exe');
+  const executablePath = path.join(resolvedArtifact, 'Catshelf.exe');
   const resourcesPath = path.join(resolvedArtifact, 'resources');
   if (path.basename(resolvedArtifact).toLowerCase() !== 'win-unpacked') {
     throw new Error('Windows package integrity must be checked against the final win-unpacked directory.');
@@ -93,7 +93,7 @@ function assertAsarResourceLayout(resourcesPath) {
   const defaultAppAsarPath = path.join(resourcesPath, 'default_app.asar');
   assertRegularFile(appAsarPath, 'packaged app.asar');
   if (fs.existsSync(defaultAppAsarPath)) {
-    throw new Error(`default_app.asar is forbidden in a packaged AgentDesk artifact: ${defaultAppAsarPath}`);
+    throw new Error(`default_app.asar is forbidden in a packaged Catshelf artifact: ${defaultAppAsarPath}`);
   }
   return appAsarPath;
 }
@@ -314,7 +314,7 @@ function collectAsarEntries(header) {
       if (hasOwn(node, 'unpacked') && node.unpacked !== true) {
         throw new Error(`app.asar symbolic-link unpacked marker must be true when present: ${archivePath}`);
       }
-      throw new Error(`app.asar symbolic-link entries are not allowed in AgentDesk packages: ${archivePath}`);
+      throw new Error(`app.asar symbolic-link entries are not allowed in Catshelf packages: ${archivePath}`);
     }
 
     assertExactKeys(

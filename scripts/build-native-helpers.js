@@ -132,7 +132,7 @@ function build() {
 
 module.exports = async function beforePack() {
   const outputs = [build()].flat();
-  process.stdout.write(`AgentDesk native helpers built: ${outputs.join(', ')}\n`);
+  process.stdout.write(`Catshelf native helpers built: ${outputs.join(', ')}\n`);
 };
 
 module.exports._internals = {

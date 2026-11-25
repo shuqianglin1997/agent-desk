@@ -6,10 +6,10 @@ release_dir="${1:-release}"
 dmg_paths=()
 while IFS= read -r dmg_path; do
   dmg_paths+=("$dmg_path")
-done < <(find "$release_dir" -maxdepth 1 -type f -name 'AgentDesk-*-universal.dmg' -print | sort)
+done < <(find "$release_dir" -maxdepth 1 -type f -name 'Catshelf-*-universal.dmg' -print | sort)
 
 if [ "${#dmg_paths[@]}" -ne 1 ]; then
-  echo "::error::Expected exactly one universal AgentDesk DMG in ${release_dir}; found ${#dmg_paths[@]}." >&2
+  echo "::error::Expected exactly one universal Catshelf DMG in ${release_dir}; found ${#dmg_paths[@]}." >&2
   exit 1
 fi
 
@@ -30,16 +30,16 @@ hdiutil verify "$dmg_path"
 hdiutil attach -quiet -nobrowse -readonly -mountpoint "$mount_point" "$dmg_path"
 mounted=1
 
-app_path="${mount_point}/AgentDesk.app"
+app_path="${mount_point}/Catshelf.app"
 if [ ! -d "$app_path" ]; then
-  echo "::error::AgentDesk.app is missing from ${dmg_path}." >&2
+  echo "::error::Catshelf.app is missing from ${dmg_path}." >&2
   exit 1
 fi
 
 expected_version="$(node -p "require('./package.json').version")"
 actual_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_path/Contents/Info.plist")"
 if [ "$actual_version" != "$expected_version" ]; then
-  echo "::error::DMG contains AgentDesk ${actual_version}; expected ${expected_version}." >&2
+  echo "::error::DMG contains Catshelf ${actual_version}; expected ${expected_version}." >&2
   exit 1
 fi
 
@@ -54,7 +54,7 @@ repository_root="$(cd "$(dirname "$0")/.." && pwd)"
 echo "Verifying Electron fuses and packaged ASAR integrity"
 node "$repository_root/scripts/verify-electron-package-integrity.js" --artifact "$app_path"
 
-app_executable="${app_path}/Contents/MacOS/AgentDesk"
+app_executable="${app_path}/Contents/MacOS/Catshelf"
 architectures="$(lipo -archs "$app_executable")"
 if [[ " ${architectures} " != *" arm64 "* ]] || [[ " ${architectures} " != *" x86_64 "* ]]; then
   echo "::error::Expected a universal executable; found architectures: ${architectures}." >&2
@@ -88,7 +88,7 @@ codesign --verify --deep --strict --verbose=2 "$app_path"
 signature_details="$(codesign -dvvv "$app_path" 2>&1)"
 printf '%s\n' "$signature_details"
 if ! grep -q '^Authority=Developer ID Application:' <<<"$signature_details"; then
-  echo "::error::AgentDesk is not signed with a Developer ID Application certificate." >&2
+  echo "::error::Catshelf is not signed with a Developer ID Application certificate." >&2
   exit 1
 fi
 expected_team_identifier="${APPLE_TEAM_ID:-}"
@@ -99,11 +99,11 @@ fi
 team_line="$(grep -m1 '^TeamIdentifier=' <<<"$signature_details" || true)"
 actual_team_identifier="${team_line#TeamIdentifier=}"
 if [ -z "$actual_team_identifier" ] || [ "$actual_team_identifier" = "not set" ]; then
-  echo "::error::AgentDesk signature has no Apple Developer team identifier." >&2
+  echo "::error::Catshelf signature has no Apple Developer team identifier." >&2
   exit 1
 fi
 if [ "$actual_team_identifier" != "$expected_team_identifier" ]; then
-  echo "::error::AgentDesk was signed by team ${actual_team_identifier}; expected ${expected_team_identifier}." >&2
+  echo "::error::Catshelf was signed by team ${actual_team_identifier}; expected ${expected_team_identifier}." >&2
   exit 1
 fi
 
@@ -147,4 +147,4 @@ if command -v syspolicy_check >/dev/null 2>&1; then
   syspolicy_check distribution "$app_path"
 fi
 
-echo "macOS release verification passed for AgentDesk ${actual_version}."
+echo "macOS release verification passed for Catshelf ${actual_version}."

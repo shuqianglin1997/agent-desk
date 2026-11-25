@@ -59,8 +59,8 @@ test('release gate is Preview-only and derives one exact three-file allowlist', 
     /does not exactly match/
   );
   assert.deepEqual(exactAssetList(version), [
-    `AgentDesk-${version}-portable-x64.exe`,
-    `AgentDesk-${version}-universal.dmg`,
+    `Catshelf-${version}-portable-x64.exe`,
+    `Catshelf-${version}-universal.dmg`,
     'SHA256SUMS.txt'
   ]);
 });

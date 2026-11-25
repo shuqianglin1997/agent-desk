@@ -105,8 +105,8 @@ jobs:
           printf 'commit_sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           printf 'apple_team_id=%s\n' "$APPLE_TEAM_ID" >> "$GITHUB_OUTPUT"
           printf 'win_signer_thumbprint=%s\n' "$(printf '%s' "$WIN_SIGNER_THUMBPRINT" | tr '[:lower:]' '[:upper:]')" >> "$GITHUB_OUTPUT"
-          printf 'dmg_name=AgentDesk-%s-universal.dmg\n' "$version" >> "$GITHUB_OUTPUT"
-          printf 'portable_name=AgentDesk-%s-portable-x64.exe\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'dmg_name=Catshelf-%s-universal.dmg\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'portable_name=Catshelf-%s-portable-x64.exe\n' "$version" >> "$GITHUB_OUTPUT"
 
   build-macos:
     needs: release-policy
@@ -217,9 +217,9 @@ jobs:
           dmg_paths=()
           while IFS= read -r dmg_path; do
             dmg_paths+=("$dmg_path")
-          done < <(find release -maxdepth 1 -type f -name 'AgentDesk-*-universal.dmg' -print | sort)
+          done < <(find release -maxdepth 1 -type f -name 'Catshelf-*-universal.dmg' -print | sort)
           if [ "${#dmg_paths[@]}" -ne 1 ]; then
-            echo "::error::Expected exactly one verified universal AgentDesk DMG; found ${#dmg_paths[@]}."
+            echo "::error::Expected exactly one verified universal Catshelf DMG; found ${#dmg_paths[@]}."
             exit 1
           fi
           printf 'dmg_path=%s\n' "${dmg_paths[0]}" >> "$GITHUB_OUTPUT"
@@ -264,9 +264,9 @@ jobs:
           app_paths=()
           while IFS= read -r app_path; do
             app_paths+=("$app_path")
-          done < <(find "$mount_point" -maxdepth 2 -type d -name 'AgentDesk.app' -prune -print | sort)
+          done < <(find "$mount_point" -maxdepth 2 -type d -name 'Catshelf.app' -prune -print | sort)
           if [ "${#app_paths[@]}" -ne 1 ]; then
-            echo "::error::Expected exactly one AgentDesk.app in the final DMG; found ${#app_paths[@]}."
+            echo "::error::Expected exactly one Catshelf.app in the final DMG; found ${#app_paths[@]}."
             exit 1
           fi
 
@@ -412,7 +412,7 @@ jobs:
         shell: pwsh
         run: |
           $portableCandidates = @(
-            Get-ChildItem -LiteralPath 'release' -File -Filter 'AgentDesk-*-portable-x64.exe'
+            Get-ChildItem -LiteralPath 'release' -File -Filter 'Catshelf-*-portable-x64.exe'
           )
           if ($portableCandidates.Count -ne 1) {
             throw "Expected exactly one verified Windows portable executable; found $($portableCandidates.Count)."
@@ -660,7 +660,7 @@ jobs:
             --draft \
             --prerelease \
             --verify-tag \
-            --title "AgentDesk $VERSION Preview" \
+            --title "Catshelf $VERSION Preview" \
             --notes "Preview candidate. GitHub-hosted macOS and Windows re-download gates must pass before publication. Physical clean-machine quarantine and SmartScreen gates remain separate."
           release_id="$(gh api "repos/$GH_REPO/releases/tags/$RELEASE_TAG" --jq .id)"
           if [[ ! "$release_id" =~ ^[0-9]+$ ]]; then
@@ -753,10 +753,10 @@ jobs:
           mounted=1
           app_paths=()
           while IFS= read -r app_path; do app_paths+=("$app_path"); done < <(
-            find "$mount_point" -maxdepth 2 -type d -name 'AgentDesk.app' -prune -print | sort
+            find "$mount_point" -maxdepth 2 -type d -name 'Catshelf.app' -prune -print | sort
           )
           if [ "${#app_paths[@]}" -ne 1 ]; then
-            echo "::error::Expected exactly one AgentDesk.app in downloaded draft DMG; found ${#app_paths[@]}."
+            echo "::error::Expected exactly one Catshelf.app in downloaded draft DMG; found ${#app_paths[@]}."
             exit 1
           fi
           npm run accept:packaged -- --artifact "${app_paths[0]}" --artifacts "$SMOKE_ARTIFACTS"
@@ -1071,10 +1071,10 @@ jobs:
           mounted=1
           app_paths=()
           while IFS= read -r app_path; do app_paths+=("$app_path"); done < <(
-            find "$mount_point" -maxdepth 2 -type d -name 'AgentDesk.app' -prune -print | sort
+            find "$mount_point" -maxdepth 2 -type d -name 'Catshelf.app' -prune -print | sort
           )
           if [ "${#app_paths[@]}" -ne 1 ]; then
-            echo "::error::Expected exactly one AgentDesk.app in anonymous public DMG; found ${#app_paths[@]}."
+            echo "::error::Expected exactly one Catshelf.app in anonymous public DMG; found ${#app_paths[@]}."
             exit 1
           fi
           npm run accept:packaged -- --artifact "${app_paths[0]}" --artifacts "$SMOKE_ARTIFACTS"

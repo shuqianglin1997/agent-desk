@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T06:49:07.916Z",
-  "baseCommit": "d92b5afc7268233393334be4d859514d296692f5",
+  "recordedAt": "2026-11-25T07:19:44.322Z",
+  "baseCommit": "386c118d16e8302058112916a3daf8f0c33a042a",
   "uncommitted": true,
-  "sourceSha256": "ca3af5608e160c6de5a2c3b6f5e3b6647595d0bb3b358529e6edf082287a1852",
+  "sourceSha256": "23fbc76f56883fa6fdae4ba7818d5a6e239066b03d8b3dc742d09c8885b31630",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 998,
+      "pass": 996,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after rename batch 1: the product name Catshelf with the data folder and keychain item kept under the old name (src/core/product.js, the first statement of src/main.js), the updater reading the repository from package.json and accepting Catshelf- and AgentDesk- release files, and the release scripts and workflows expecting Catshelf.app, Catshelf.exe and Catshelf- artifacts; digest identical before and after the run",
+      "recordedAt": "2026-11-25T07:19:44.322Z",
+      "sourceSha256": "23fbc76f56883fa6fdae4ba7818d5a6e239066b03d8b3dc742d09c8885b31630"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T07:19:44.322Z",
+      "sourceSha256": "23fbc76f56883fa6fdae4ba7818d5a6e239066b03d8b3dc742d09c8885b31630"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

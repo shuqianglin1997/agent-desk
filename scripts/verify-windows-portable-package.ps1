@@ -55,7 +55,7 @@ function Resolve-PortableApplicationRoot {
   $outerDirectory = Join-Path (Join-Path $TemporaryRoot 'outer') 'win-unpacked'
   Expand-WithSevenZip -SevenZip $SevenZip -Archive $Portable -Destination $outerDirectory
 
-  $appCandidates = @(Get-ChildItem -LiteralPath $outerDirectory -Recurse -File -Filter 'AgentDesk.exe')
+  $appCandidates = @(Get-ChildItem -LiteralPath $outerDirectory -Recurse -File -Filter 'Catshelf.exe')
   if ($appCandidates.Count -eq 0) {
     $nestedArchives = @(
       Get-ChildItem -LiteralPath $outerDirectory -Recurse -File |
@@ -76,11 +76,11 @@ function Resolve-PortableApplicationRoot {
 
     $payloadDirectory = Join-Path (Join-Path $TemporaryRoot 'payload') 'win-unpacked'
     Expand-WithSevenZip -SevenZip $SevenZip -Archive $nestedArchives[0].FullName -Destination $payloadDirectory
-    $appCandidates = @(Get-ChildItem -LiteralPath $payloadDirectory -Recurse -File -Filter 'AgentDesk.exe')
+    $appCandidates = @(Get-ChildItem -LiteralPath $payloadDirectory -Recurse -File -Filter 'Catshelf.exe')
   }
 
   if ($appCandidates.Count -ne 1) {
-    throw "Expected exactly one AgentDesk.exe inside the Windows portable artifact; found $($appCandidates.Count)."
+    throw "Expected exactly one Catshelf.exe inside the Windows portable artifact; found $($appCandidates.Count)."
   }
 
   return $appCandidates[0].Directory.FullName
@@ -88,7 +88,7 @@ function Resolve-PortableApplicationRoot {
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $packageJson = Get-Content -LiteralPath (Join-Path $repositoryRoot 'package.json') -Raw | ConvertFrom-Json
-$expectedPortableName = "AgentDesk-$($packageJson.version)-portable-x64.exe"
+$expectedPortableName = "Catshelf-$($packageJson.version)-portable-x64.exe"
 $portable = Get-Item -LiteralPath (Resolve-Path -LiteralPath $PortablePath).Path
 if (-not $portable.PSIsContainer -and $portable.Name -cne $expectedPortableName) {
   throw "Expected portable artifact $expectedPortableName; found $($portable.Name)."

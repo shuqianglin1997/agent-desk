@@ -115,7 +115,7 @@ function Expand-WithSevenZip {
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $packagePath = Join-Path $repositoryRoot 'package.json'
 $packageJson = Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json
-$expectedPortableName = "AgentDesk-$($packageJson.version)-portable-x64.exe"
+$expectedPortableName = "Catshelf-$($packageJson.version)-portable-x64.exe"
 
 if ([string]::IsNullOrWhiteSpace($ExpectedSignerThumbprint)) {
   throw 'ExpectedSignerThumbprint/WIN_SIGNER_THUMBPRINT is required before inspecting a Windows release payload.'
@@ -128,10 +128,10 @@ if ($requiredPublisherThumbprint -notmatch '^[A-F0-9]{40}$') {
 $resolvedReleaseDir = (Resolve-Path -LiteralPath $ReleaseDir).Path
 $portableCandidates = @(
   Get-ChildItem -LiteralPath $resolvedReleaseDir -File |
-    Where-Object { $_.Name -like 'AgentDesk-*-portable-*.exe' }
+    Where-Object { $_.Name -like 'Catshelf-*-portable-*.exe' }
 )
 if ($portableCandidates.Count -ne 1) {
-  throw "Expected exactly one AgentDesk portable executable in $resolvedReleaseDir; found $($portableCandidates.Count)."
+  throw "Expected exactly one Catshelf portable executable in $resolvedReleaseDir; found $($portableCandidates.Count)."
 }
 
 $portable = $portableCandidates[0]
@@ -151,7 +151,7 @@ try {
   $outerDirectory = Join-Path (Join-Path $temporaryRoot 'outer') 'win-unpacked'
   Expand-WithSevenZip -SevenZip $sevenZip -Archive $portable.FullName -Destination $outerDirectory
 
-  $appCandidates = @(Get-ChildItem -LiteralPath $outerDirectory -Recurse -File -Filter 'AgentDesk.exe')
+  $appCandidates = @(Get-ChildItem -LiteralPath $outerDirectory -Recurse -File -Filter 'Catshelf.exe')
   if ($appCandidates.Count -eq 0) {
     $nestedArchives = @(
       Get-ChildItem -LiteralPath $outerDirectory -Recurse -File |
@@ -172,11 +172,11 @@ try {
 
     $payloadDirectory = Join-Path (Join-Path $temporaryRoot 'payload') 'win-unpacked'
     Expand-WithSevenZip -SevenZip $sevenZip -Archive $nestedArchives[0].FullName -Destination $payloadDirectory
-    $appCandidates = @(Get-ChildItem -LiteralPath $payloadDirectory -Recurse -File -Filter 'AgentDesk.exe')
+    $appCandidates = @(Get-ChildItem -LiteralPath $payloadDirectory -Recurse -File -Filter 'Catshelf.exe')
   }
 
   if ($appCandidates.Count -ne 1) {
-    throw "Expected exactly one AgentDesk.exe inside the final portable artifact; found $($appCandidates.Count)."
+    throw "Expected exactly one Catshelf.exe inside the final portable artifact; found $($appCandidates.Count)."
   }
 
   $innerApp = $appCandidates[0]
@@ -204,7 +204,7 @@ try {
 
   Assert-TrustedTimestampedSignature `
     -Path $innerApp.FullName `
-    -Label 'packaged AgentDesk.exe' `
+    -Label 'packaged Catshelf.exe' `
     -ExpectedSignerThumbprint $outerSignerThumbprint | Out-Null
 
   Assert-TrustedTimestampedSignature `

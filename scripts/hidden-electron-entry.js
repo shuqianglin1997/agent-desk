@@ -34,7 +34,9 @@ function note(list, entry) {
 }
 
 if (typeof app.setAppPath === 'function') app.setAppPath(ROOT);
-app.setName('AgentDesk');
+// What the packaged app's package.json gives (productName); src/main.js then
+// keeps the old name only while Electron fixes the keychain item and data folder.
+app.setName(require('../src/core/product').PRODUCT_NAME);
 for (const flag of ['use-mock-keychain', 'disable-renderer-backgrounding', 'disable-background-timer-throttling', 'disable-backgrounding-occluded-windows']) {
   app.commandLine.appendSwitch(flag);
 }

@@ -46,14 +46,14 @@ test('CLI requires an explicit artifact and validates bounded numeric options', 
   assert.throws(() => parseArguments(['--artifact', '/tmp/a', '--expected-onboarding-version', '0'], {}), /positive integer/);
   assert.throws(() => parseArguments(['--mystery'], {}), /Unknown argument/);
   const parsed = parseArguments([
-    '--artifact', '/tmp/AgentDesk.app',
+    '--artifact', '/tmp/Catshelf.app',
     '--expected-version', '9.8.7-preview.1',
     '--expected-onboarding-version', '3',
     '--timeout-ms', '6000',
     '--macos-ci-mock-keychain',
     '--keep-temp'
   ], {});
-  assert.equal(parsed.artifact, path.resolve('/tmp/AgentDesk.app'));
+  assert.equal(parsed.artifact, path.resolve('/tmp/Catshelf.app'));
   assert.equal(parsed.expectedVersion, '9.8.7-preview.1');
   assert.equal(parsed.expectedOnboardingVersion, 3);
   assert.equal(parsed.timeoutMs, 6000);
@@ -61,9 +61,9 @@ test('CLI requires an explicit artifact and validates bounded numeric options', 
   assert.equal(parsed.keepTemp, true);
 });
 
-test('macOS resolver accepts only a real AgentDesk.app app.asar executable layout', () => fixture((root) => {
-  const bundle = path.join(root, 'mac-arm64', 'AgentDesk.app');
-  touch(path.join(bundle, 'Contents', 'MacOS', 'AgentDesk'), 0o700);
+test('macOS resolver accepts only a real Catshelf.app app.asar executable layout', () => fixture((root) => {
+  const bundle = path.join(root, 'mac-arm64', 'Catshelf.app');
+  touch(path.join(bundle, 'Contents', 'MacOS', 'Catshelf'), 0o700);
   touch(path.join(bundle, 'Contents', 'Resources', 'app.asar'));
   touch(path.join(bundle, 'Contents', 'Info.plist'));
   const fromBundle = resolvePackagedArtifact(bundle, 'darwin');
@@ -121,7 +121,7 @@ test('macOS resolver accepts only a real AgentDesk.app app.asar executable layou
   )));
   assert.throws(
     () => readMacSignatureDetails(fromBundle.artifactPath, () => ({ status: 1, stdout: '', stderr: '' })),
-    /valid signature on every AgentDesk\.app architecture/
+    /valid signature on every Catshelf\.app architecture/
   );
   assert.equal(resolveSmokeKeychainMode(
     { macosCiMockKeychain: true },
@@ -130,13 +130,13 @@ test('macOS resolver accepts only a real AgentDesk.app app.asar executable layou
   ), 'mock');
   assert.equal(resolveSmokeKeychainMode(
     { macosCiMockKeychain: false },
-    { kind: 'windows-portable', artifactPath: 'C:\\AgentDesk-portable.exe' },
+    { kind: 'windows-portable', artifactPath: 'C:\\Catshelf-portable.exe' },
     { platform: 'win32', readMacSignatureDetails: () => { throw new Error('must not inspect'); } }
   ), 'system');
   assert.throws(
     () => resolveSmokeKeychainMode(
       { macosCiMockKeychain: true },
-      { kind: 'windows-portable', artifactPath: 'C:\\AgentDesk-portable.exe' },
+      { kind: 'windows-portable', artifactPath: 'C:\\Catshelf-portable.exe' },
       { platform: 'win32', readMacSignatureDetails: () => adHocDetails }
     ),
     /supported only on macOS/
@@ -186,31 +186,31 @@ test('macOS resolver accepts only a real AgentDesk.app app.asar executable layou
 
 test('Windows resolver distinguishes win-unpacked and the versioned portable artifact', () => fixture((root) => {
   const unpacked = path.join(root, 'win-unpacked');
-  touch(path.join(unpacked, 'AgentDesk.exe'));
+  touch(path.join(unpacked, 'Catshelf.exe'));
   touch(path.join(unpacked, 'resources', 'app.asar'));
   const directory = resolvePackagedArtifact(unpacked, 'win32');
   assert.equal(directory.kind, 'windows-unpacked');
   assert.equal(directory.allowLauncherExit, false);
-  const executable = resolvePackagedArtifact(path.join(unpacked, 'AgentDesk.exe'), 'win32');
+  const executable = resolvePackagedArtifact(path.join(unpacked, 'Catshelf.exe'), 'win32');
   assert.equal(executable.kind, 'windows-unpacked');
 
-  const portablePath = path.join(root, 'AgentDesk-0.10.1-preview.1-portable-x64.exe');
+  const portablePath = path.join(root, 'Catshelf-0.10.1-preview.1-portable-x64.exe');
   touch(portablePath);
   const portable = resolvePackagedArtifact(portablePath, 'win32');
   assert.equal(portable.kind, 'windows-portable');
   assert.equal(portable.allowLauncherExit, false, 'portable launcher must remain supervised until the app exits');
 
-  const arbitrary = path.join(root, 'AgentDesk-random.exe');
+  const arbitrary = path.join(root, 'Catshelf-random.exe');
   touch(arbitrary);
   assert.throws(() => resolvePackagedArtifact(arbitrary, 'win32'), /neither win-unpacked/);
 }));
 
 test('packaged Renderer proof requires app.asar and parses the packaged version token', () => {
-  const url = 'file:///private/tmp/AgentDesk.app/Contents/Resources/app.asar/src/index.html';
+  const url = 'file:///private/tmp/Catshelf.app/Contents/Resources/app.asar/src/index.html';
   assert.equal(assertPackagedRendererUrl(url), url);
   assert.throws(() => assertPackagedRendererUrl('file:///repo/src/index.html'), /not running from app\.asar/);
   assert.equal(
-    runtimeVersionFromUserAgent('Mozilla/5.0 Electron/43.3.0 AgentDesk/0.10.1-preview.1'),
+    runtimeVersionFromUserAgent('Mozilla/5.0 Electron/43.3.0 Catshelf/0.10.1-preview.1'),
     '0.10.1-preview.1'
   );
   assert.equal(runtimeVersionFromUserAgent('Mozilla/5.0 agent-desk/1.2.3'), '1.2.3');
@@ -406,7 +406,7 @@ test('browser discovery accepts only the spawned loopback DevTools endpoint', ()
     keychainMode: 'system'
   };
   const commandLine = [
-    'C:\\AgentDesk\\AgentDesk.exe',
+    'C:\\Catshelf\\Catshelf.exe',
     '--enable-automation',
     `--agentdesk-packaged-smoke-token=${identity.launchToken}`,
     '--remote-debugging-address=127.0.0.1',

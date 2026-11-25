@@ -1,8 +1,8 @@
-# AgentDesk Personal Agent Mesh 系统规划基准
+# Catshelf Personal Agent Mesh 系统规划基准
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.37
+> 版本：1.38
 >
 > 日期：2026-11-24
 >
@@ -42,7 +42,7 @@
 
 ## 1. 一句话定义
 
-AgentDesk Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控制平面：同一个人用一份全局 Agent 目录管理自己的全部 Agent，再把每个 Agent 在不同平台账号、设备和客户端形态上的登录位置作为可选择的执行端；任意可信设备都可以查看会话、发送简洁会话信息、按需传输文件，并在授权范围内查看或操作其他设备。
+Catshelf Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控制平面：同一个人用一份全局 Agent 目录管理自己的全部 Agent，再把每个 Agent 在不同平台账号、设备和客户端形态上的登录位置作为可选择的执行端；任意可信设备都可以查看会话、发送简洁会话信息、按需传输文件，并在授权范围内查看或操作其他设备。
 
 它不是团队协作平台，也不是通用远程运维平台。
 
@@ -113,7 +113,7 @@ AgentDesk Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控�
 27. 第一次点击“创建第一个 Agent”可以同时显式建立本机 Agent 目录和本机设备身份，使普通首次使用不必先理解或进入设备中心；该动作不得开放局域网端口、发布公网租约、连接其他设备或授予任何远端权限。已有 Profile 时先预览无损迁移，不能用首次向导绕过既有目录与身份规则。
 28. 同一 Personal Mesh 内可以直接发送 TaskPackage，但必须使用独立 `task.package.receive` 能力和显式接收确认。包格式、不可变语义、来源保留和逐项校验不变；一次性解锁码只允许进入绑定目标设备与 transferId 的加密 envelope，明文不得进入 Renderer、包、历史、日志或持久化存储。旧端不支持该协议时退回便携加密文件。
 29. 未关闭真实公网 NAT/TURN、长连接恢复与 macOS/Windows 权限矩阵前，只允许发布签名、公证并明确标记的 Preview，不得称为稳定 Personal Mesh。当前开发基线 0.10.0 不补发为稳定版本；成熟化批次建议使用 `v0.10.1-preview.1`，完整门禁关闭后再发布 `v0.10.1`。
-30. AgentDesk 启动的官方桌面客户端属于受管本机资源，不等于 Agent 对话执行器。默认退出 AgentDesk 时必须关闭这些客户端及同一 Profile 的 Crashpad 进程；用户可显式选择保留后台运行，但界面必须说明 AgentDesk 退出后不再监控。每个受管 Profile 的 `Crashpad/pending` 默认最多保留 100 个文件或 200 MiB，任一上限先到即按完整事件清理最旧报告；一分钟内出现 5 个同尺寸 dump 视为崩溃风暴并熔断该 Profile。普通关闭与正常退出仍只处理当前 AgentDesk 明确拥有的进程；只有路径位于 AgentDesk 自己的受管 Profiles 根、且已确认崩溃风暴或容量无法安全收敛时，磁盘保护才可按精确 `user-data-dir` 停止旧版本、强制退出或重启后遗留的匹配进程。没有当前所有权记录的官方默认目录或任意 custom 目录不得被后台清理或停机。安全清理只允许删除 `Crashpad/pending` 直属的 `.dmp` 与 `_sidecar.json`，绝不触碰会话、归档、配置、SQLite、`codex-home` 或留存样本。
+30. Catshelf 启动的官方桌面客户端属于受管本机资源，不等于 Agent 对话执行器。默认退出 Catshelf 时必须关闭这些客户端及同一 Profile 的 Crashpad 进程；用户可显式选择保留后台运行，但界面必须说明 Catshelf 退出后不再监控。每个受管 Profile 的 `Crashpad/pending` 默认最多保留 100 个文件或 200 MiB，任一上限先到即按完整事件清理最旧报告；一分钟内出现 5 个同尺寸 dump 视为崩溃风暴并熔断该 Profile。普通关闭与正常退出仍只处理当前 Catshelf 明确拥有的进程；只有路径位于 Catshelf 自己的受管 Profiles 根、且已确认崩溃风暴或容量无法安全收敛时，磁盘保护才可按精确 `user-data-dir` 停止旧版本、强制退出或重启后遗留的匹配进程。没有当前所有权记录的官方默认目录或任意 custom 目录不得被后台清理或停机。安全清理只允许删除 `Crashpad/pending` 直属的 `.dmp` 与 `_sidecar.json`，绝不触碰会话、归档、配置、SQLite、`codex-home` 或留存样本。
 31. Mesh 会话聚合、系统密钥保护或远端库存暂不可用时，健康的本地 Profile 会话必须继续由本机只读扫描器展示，不能被空远端结果覆盖；界面要明确标记“仅本机会话”，并暂停远端会话与跨设备动作。Device Lens、Agent 与 Slot 的明确选择需写入稳定设置并在重启后恢复；旧安装没有选择记忆时，只允许在“本机所有 linked Profile 唯一归属于同一个 Agent”这一可证明无歧义的情况下恢复该 Agent，多个候选时仍保持未选择，绝不取列表第一项。
 32. 本地 ad-hoc 打包的 macOS 开发版可能因重签名后 Keychain ACL 不再匹配而阻塞密钥解密。对精确识别为 `Signature=adhoc`、无 Authority、无 TeamIdentifier 的已打包 macOS 开发版，普通启动只读持久 Mesh 快照并标记 `keyState=deferred`，先展示本地最新会话、暂停跨设备动作；只有用户显式打开设备功能时才请求密钥访问并恢复联网与准备任务。Developer ID 签名包、Windows 和开发源码态不走该延后路径；检测失败必须回到原安全路径，不能为了可用性普遍绕过系统密钥保护。
 33. 桌面客户端的产品显示名、macOS 包名、可执行文件名和账号数据目录是四个独立事实，必须由客户端注册表显式声明，不能互相猜测。同一个受信任官方可执行文件可以由多个 Profile 复用，但每次启动必须携带该 Profile 独立的数据目录与客户端专用会话环境；同一 Profile 阻止重复启动，不同 Profile 允许并行。已知不接受独立数据目录的客户端只能打开官方默认槽位，受管多 Profile 必须失败关闭，不能伪装隔离后串用账号数据。
@@ -163,7 +163,7 @@ AgentDesk Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控�
 - 多设备控制台、连接诊断、断线恢复和审计；
 - P2P 直连、必要时加密中继；
 - macOS 与 Windows 的权限适配。
-- AgentDesk 所启动官方客户端的 Profile 进程归属、重复启动阻断、正常退出收口、Crashpad 容量上限、崩溃风暴熔断与窄范围安全清理。
+- Catshelf 所启动官方客户端的 Profile 进程归属、重复启动阻断、正常退出收口、Crashpad 容量上限、崩溃风暴熔断与窄范围安全清理。
 
 ### 5.2 明确不纳入第一版
 
@@ -372,7 +372,7 @@ AccountBinding 表示一个实际的平台登录身份，例如某个 Codex 账�
 - 同一个 AccountBinding 可以在多台设备上有 AgentSlot；
 - AccountBinding 不保存邮箱、密码、Cookie、Token 或平台原始账号 ID；
 - AccountBinding 可以在零个设备上存在，表示这张员工工作证已经登记但尚未在当前设备登录；
-- 合并和拆分 AccountBinding 只改变 AgentDesk 的目录关系，不改官方账号或本地会话文件。
+- 合并和拆分 AccountBinding 只改变 Catshelf 的目录关系，不改官方账号或本地会话文件。
 
 ### 7.5 AgentPresence
 
@@ -472,7 +472,7 @@ ProvisioningJob 是一次“确保员工在目标设备就绪”的可恢复事�
 - `(agentId, deviceId, clientForm)` 同时最多一个活动 Job；重复点击复用现有任务；
 - 每一步幂等，应用退出后从持久状态恢复；
 - Profile 与 Slot 在身份验证通过前保持 staging，不进入普通运行位置和会话统计；
-- 成功时原子提交 Deployment、Profile 与 Slot 关系；失败只清理 AgentDesk 创建的暂存记录，不删除官方客户端或用户文件；
+- 成功时原子提交 Deployment、Profile 与 Slot 关系；失败只清理 Catshelf 创建的暂存记录，不删除官方客户端或用户文件；
 - 需要软件安装、官方登录、验证码、双重认证或系统权限时进入明确等待状态，不能伪装成自动完成；
 - 登录身份与预期 AccountBinding 不一致时停止提交并要求用户纠正，不能静默改绑员工。
 
@@ -594,7 +594,7 @@ ProjectIdentity 的建立依据按可信度排序：
 
 ConversationIdentity 是会话表唯一直接渲染的身份，代表用户可继续、可复制信息、可发送的一条逻辑对话。建议字段：
 
-- conversationId：AgentDesk/Mesh 稳定 ID；
+- conversationId：Catshelf/Mesh 稳定 ID；
 - adapterNamespace 与 adapterConversationKey；
 - agentId、accountBindingId；
 - primaryProjectId，可为空；
@@ -921,7 +921,7 @@ flowchart TB
 7. 校验通过后，接收方选择本机 Agent 与运行位置以及任务资料保存目录。
 8. Codex 原生包写入目标会话根并验证可扫描性；其他来源保存只读会话内容。两种模式都保存人工检查点、Git patch 和明确附件。
 9. 导入成功后可以请求打开目标 Agent；打开失败只提示手动打开，不撤销已经提交的会话和资料。
-10. 来源保持不变。用户确认接收端可以继续以后，可自行归档来源；AgentDesk 不自动删除或合并两端。
+10. 来源保持不变。用户确认接收端可以继续以后，可自行归档来源；Catshelf 不自动删除或合并两端。
 
 直送接收卡中的来源设备 ID 和名称来自认证连接；来源 Agent 名和交接人标签来自受包完整性保护的发送方声明，不能显示成已由来源 catalog 验证的身份。
 
@@ -945,9 +945,9 @@ flowchart TB
 5. 删除该设备的缓存索引和密钥关系；本地审计是否保留由用户选择。
 6. 被撤销设备再次上线也不能重新加入，必须重新配对。
 
-可以撤销最后一台远端设备。若用户重置本机 Personal Mesh，则回到纯本地 AgentDesk。
+可以撤销最后一台远端设备。若用户重置本机 Personal Mesh，则回到纯本地 Catshelf。
 
-当前正在使用的本机也可以选择“离开 Personal Mesh”：先发布本机成员撤销、终止连接并删除远端缓存，然后继续作为纯本地 AgentDesk 使用。即使它是最后一台在线 admin，也不能靠“必须保留一台”的产品规则阻止，只能明确提示需要恢复材料才能重建原 Mesh。
+当前正在使用的本机也可以选择“离开 Personal Mesh”：先发布本机成员撤销、终止连接并删除远端缓存，然后继续作为纯本地 Catshelf 使用。即使它是最后一台在线 admin，也不能靠“必须保留一台”的产品规则阻止，只能明确提示需要恢复材料才能重建原 Mesh。
 
 ### 10.9 移除运行位置、登录账号或 Agent
 
@@ -971,12 +971,12 @@ flowchart TB
 
 ### 10.10 首次准备并打开 Agent
 
-普通“新增 Agent”先选名称和受支持客户端，确认后导航到本机工作环境并为新 Agent 准备独立目录。既有公司接口或个人环境从管理入口登记，AgentDesk 不接管 AgentDock/官方客户端的 provider、API 地址和密钥配置。当前准备适配器限 Claude/Codex 桌面，portableSettingKeys 为空，非空技能/工具/项目要求返回 unsupported；模型预留字段不代表功能已支持。
+普通“新增 Agent”先选名称和受支持客户端，确认后导航到本机工作环境并为新 Agent 准备独立目录。既有公司接口或个人环境从管理入口登记，Catshelf 不接管 AgentDock/官方客户端的 provider、API 地址和密钥配置。当前准备适配器限 Claude/Codex 桌面，portableSettingKeys 为空，非空技能/工具/项目要求返回 unsupported；模型预留字段不代表功能已支持。
 
 1. 用户选择 Agent 和工作环境，点击“首次准备并打开”。
 2. Main 根据 AgentBlueprint、目标 Device 能力和客户端适配器生成有界准备计划；Renderer 不提交路径或命令。
 3. 已安装客户端时创建受管 staging 目录并应用白名单配置；缺少客户端时进入等待安装，安全可自动安装的 CLI 仍需明确确认，桌面 App 使用官方安装入口并在完成后自动续跑。
-4. 需要登录时打开官方客户端或固定官方登录流程，AgentDesk 只观察安全身份指纹，不读取或传输密码、Token、Cookie。
+4. 需要登录时打开官方客户端或固定官方登录流程，Catshelf 只观察安全身份指纹，不读取或传输密码、Token、Cookie。
 5. 身份验证成功后原子提交 Profile、AgentSlot 和 AgentDeployment；随后执行正常打开。
 6. 应用退出、设备重启或网络中断后 Job 从最后完成步骤继续；后台恢复和轮询只观察、准备并提交状态，不打开下载页、登录页或官方客户端。需要外部界面的步骤停在明确等待态，直到用户再次点击；重复点击不重复造 Slot，后台检查也不能吞掉后到的显式点击。
 7. 目标为远端设备时使用 `agent.prepare` 固定语义请求；目录和受控配置可自动执行，安装、登录与系统权限在目标设备确认。无人值守准备另行评审。
@@ -1157,7 +1157,7 @@ Renderer 状态也必须拆开，不能继续让一个 `selectedProfileId` 同�
 
 建议结构：
 
-- 紧凑工具条：设备标签、直连/中继、延迟、流预算、布局与返回动作；不重复 AgentDesk 品牌抬头；
+- 紧凑工具条：设备标签、直连/中继、延迟、流预算、布局与返回动作；不重复 Catshelf 品牌抬头；
 - 左侧或顶部标签：已连接设备；
 - 中央：当前高质量画面；
 - 可选网格：其他设备低频缩略图；
@@ -1165,7 +1165,7 @@ Renderer 状态也必须拆开，不能继续让一个 `selectedProfileId` 同�
 - 明显的当前输入目标边框；
 - 被控端常驻“正在被设备 X 查看/控制”的提示与停止按钮。
 
-远控只替换右下详情内容；Header、顶部 Agent 面板、左下会话列表和 Footer 保持原位。返回工作台先释放输入并恢复此前详情，最后一路断开后清除 Header 的后台查看提示；不复制整套 AgentDesk 主界面，也不打开第二个顶级窗口。
+远控只替换右下详情内容；Header、顶部 Agent 面板、左下会话列表和 Footer 保持原位。返回工作台先释放输入并恢复此前详情，最后一路断开后清除 Header 的后台查看提示；不复制整套 Catshelf 主界面，也不打开第二个顶级窗口。
 
 ### 11.9 交互状态与错误文案
 
@@ -1505,7 +1505,7 @@ Electron utility process 本身没有浏览器 DOM WebRTC API。Phase 1 技术�
 2. Production：使用经过签名的原生 helper 持有网络、采集和输入；
 3. 不采用未经维护、与 Electron ABI 不稳定的原生模块作为默认路径。
 
-第一版设备“在线”的含义是：用户已登录桌面会话，并且 AgentDesk 正在运行或由用户明确允许在登录后启动。AgentDesk 完全退出、系统停在登录界面或设备关机时，普通交互端不应宣称在线。真正脱离用户桌面会话运行的 endpoint 属于 Phase 9 无人值守设计。
+第一版设备“在线”的含义是：用户已登录桌面会话，并且 Catshelf 正在运行或由用户明确允许在登录后启动。Catshelf 完全退出、系统停在登录界面或设备关机时，普通交互端不应宣称在线。真正脱离用户桌面会话运行的 endpoint 属于 Phase 9 无人值守设计。
 
 目标设备接到远控邀请时，由 Main 创建专用的 host media context；现有 Main Renderer 不承担屏幕采集或远端输入通道。
 
@@ -1859,7 +1859,7 @@ SQLite 具体实现必须在技术验证阶段确认 Electron 打包、签名、
 
 当前实现说明（2026-08-13）：`mesh.db` 已升级到 schema v6。v4 继续以可空 `agent_slots.agent_id/account_binding_id` 准确持久化 suppressed Slot；v5 新增 `agent_blueprints`、`agent_deployments` 与 `provisioning_jobs`；v6 把此前预留但未使用的 `catalog_events` 固化为无 Device 外键的原始签名事件日志，并独立保存 `source_sequence` 与 `lamport`。事件不能因来源设备稍后被移除而级联消失，撤销只拒绝撤销生效后的新事件；此前签署的合法历史仍可由其他可信设备补齐。现有数据库升级前使用参数化 `VACUUM INTO` 生成包含已提交 WAL 的一致快照，fsync、校验旧 schema 版本、`integrity_check` 与外键后，再以同目录原子无覆盖方式发布 `pre-v6` 回滚点并启动事务迁移；Node 22 测试运行时与 Electron 43 内嵌 Node 均走同一路径。
 
-旧 Agent/Binding 不再因最后一个本机 Profile 消失而被清理，既有目录在升级时由本机签名 bootstrap 事件完整覆盖；显式删除 Agent 生成事件与 tombstone，外键级联只清理 AgentDesk 运行模型，受影响 Slot 转为 suppressed。移除 Slot 或 Binding 只改变工作位置或账号关系，不删除员工。本机首次准备执行器、完整员工库工作环境 UI、事件增量/缺口补齐、0.9.4 快照兼容以及远端 `profile.launch` / 有人值守 `agent.prepare` 已落地；事件日志 checkpoint 压缩和目录冲突专用 UI 仍是后续加固项。
+旧 Agent/Binding 不再因最后一个本机 Profile 消失而被清理，既有目录在升级时由本机签名 bootstrap 事件完整覆盖；显式删除 Agent 生成事件与 tombstone，外键级联只清理 Catshelf 运行模型，受影响 Slot 转为 suppressed。移除 Slot 或 Binding 只改变工作位置或账号关系，不删除员工。本机首次准备执行器、完整员工库工作环境 UI、事件增量/缺口补齐、0.9.4 快照兼容以及远端 `profile.launch` / 有人值守 `agent.prepare` 已落地；事件日志 checkpoint 压缩和目录冲突专用 UI 仍是后续加固项。
 
 TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本机导入/导出的包 ID、方向、交付模式、标题、来源/目标 Agent、来源/目标设备安全显示信息、会话模式、大小、可选本机位置、transferId、结果与时间；`task-package-consumed.json` 独立保存最小已消费墓碑，不能依赖可裁剪、可清理的展示历史防止同一包重放导入。解锁码和加密 envelope 永不持久化。便携加密包由用户选择保存位置；直接传送的密文暂存与两种模式的解密草稿都进入系统临时目录下的私有 staging，并按拒绝、取消、成功、撤权、设备撤销、远端错误、过期、应用退出和 24 小时陈旧清理规则删除。
 
@@ -2030,7 +2030,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - 覆盖项目文件；
 - 清空本机数据。
 
-`agent.prepare` 不构成上述规则的旁路：远端只可请求目标设备按本地固定适配器准备；创建 AgentDesk 私有 staging 目录和应用已批准的非敏感 Blueprint 可自动执行，软件安装、官方登录、系统权限和任何管理员权限仍必须在目标设备确认。如后续确需无人值守安装或凭据迁移，应引入独立产品与安全评审以及 OS 级重新认证。
+`agent.prepare` 不构成上述规则的旁路：远端只可请求目标设备按本地固定适配器准备；创建 Catshelf 私有 staging 目录和应用已批准的非敏感 Blueprint 可自动执行，软件安装、官方登录、系统权限和任何管理员权限仍必须在目标设备确认。如后续确需无人值守安装或凭据迁移，应引入独立产品与安全评审以及 OS 级重新认证。
 
 ## 21. 平台适配
 
@@ -2110,8 +2110,8 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 | 磁盘空间不足 | 传输前检查，过程中安全停止 |
 | 同一设备被两处控制 | 默认只允许一个 input.control owner；其他为仅查看 |
 | 设备被撤销 | 立即断开、清缓存、拒绝重连 |
-| Profile 的 Crashpad handler 陷入重复自崩溃 | 100 文件或 200 MiB 硬上限持续生效；一分钟内 5 个同尺寸 dump 触发持久熔断。当前 owned Profile 被关闭；AgentDesk 自己的受管 Profiles 根还会按精确 `user-data-dir` 关闭旧版本或异常退出遗留的孤儿进程；无所有权的官方默认/custom 目录不被接管 |
-| 退出 AgentDesk 时仍有其启动的 Profile 在运行 | 默认先终止并复核同一 `user-data-dir` 的受管进程；不能安全收口则取消退出并提示。只有用户显式选择“保留客户端”才允许退出，且明确提示退出期间不再监控 |
+| Profile 的 Crashpad handler 陷入重复自崩溃 | 100 文件或 200 MiB 硬上限持续生效；一分钟内 5 个同尺寸 dump 触发持久熔断。当前 owned Profile 被关闭；Catshelf 自己的受管 Profiles 根还会按精确 `user-data-dir` 关闭旧版本或异常退出遗留的孤儿进程；无所有权的官方默认/custom 目录不被接管 |
+| 退出 Catshelf 时仍有其启动的 Profile 在运行 | 默认先终止并复核同一 `user-data-dir` 的受管进程；不能安全收口则取消退出并提示。只有用户显式选择“保留客户端”才允许退出，且明确提示退出期间不再监控 |
 
 ## 24. 可观测性、诊断与隐私
 
@@ -2189,7 +2189,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Electron 成品必须只从 `app.asar` 加载业务应用，不得回落到 `default_app.asar`；最终可执行文件的 fuse 状态和 ASAR 完整性由独立验证器检查。
 - 候选包首次使用必须在一次性 userData 中经过首次初始化、重启恢复并完成、完成后再重启；三次启动都必须使用同一个确切成品。
 - 可公开的 Preview 必须经过精确三资产 Draft、两个原生系统的 Draft 重下载验证、发布后无 token 匿名重下载和失败回 Draft；诊断附件不得混入 Release 资产。
-- AgentDesk 所启动的 Profile 默认随管理器正常退出而关闭；同一 `user-data-dir` 不重复启动，外部启动的同路径进程在 AgentDesk 解除所有权后不能被普通关闭误杀。只有崩溃风暴或容量无法安全收敛这一磁盘事故路径可以停止无当前所有权记录的遗留进程，并且该例外只适用于 AgentDesk 自己的受管 Profiles 根；官方默认/custom 目录仍失败关闭。
+- Catshelf 所启动的 Profile 默认随管理器正常退出而关闭；同一 `user-data-dir` 不重复启动，外部启动的同路径进程在 Catshelf 解除所有权后不能被普通关闭误杀。只有崩溃风暴或容量无法安全收敛这一磁盘事故路径可以停止无当前所有权记录的遗留进程，并且该例外只适用于 Catshelf 自己的受管 Profiles 根；官方默认/custom 目录仍失败关闭。
 - Crashpad 只扫描、限额和清理 `Crashpad/pending` 的直属 `.dmp` / `_sidecar.json`；符号链接、越界路径和不明文件失败关闭，会话、归档、配置、SQLite 与留存样本必须保持原样。
 
 ### 25.2 新单元测试
@@ -2322,7 +2322,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 ### 26.1 启用前
 
 - Personal Mesh 功能默认未初始化；
-- AgentDesk 行为与当前版本一致；
+- Catshelf 行为与当前版本一致；
 - profiles.json 和 settings.json 不迁移；
 - 不增加远端后台连接。
 
@@ -2702,7 +2702,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 21. 不同步密码、Token、Cookie 或原始平台账号 ID。
 22. 不提供通用命令和远程 Shell。
 23. 主窗口稳定保持 Header、Footer 与三个固定面板；庭院/卡片共享状态；设备、工具、活动、设置只使用独立临时弹窗，远控只使用右下隔离 Surface，均不产生额外永久区域。
-24. 本地纯 AgentDesk 功能可在 Mesh 禁用时独立工作。
+24. 本地纯 Catshelf 功能可在 Mesh 禁用时独立工作。
 25. 更新、迁移、断线和撤销都有可验证的失败恢复。
 26. 同一用户会话发生任意次数上下文压缩后仍保持一个 ConversationIdentity、一条列表行和原 ProjectIdentity。
 27. guardian、subagent、sidechain 等内部记录默认不可见；父记录缺失时也不会伪装成新会话或新项目。
@@ -2724,7 +2724,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 43. 同一 Mesh 的目标设备支持协议且开启 `task.package.receive` 时，用户可以直接发送并由接收端逐次确认 TaskPackage；明文解锁码不进入 Renderer、包、历史、日志或持久化，拒绝、取消、篡改、断线和旧端回退均不损伤来源。
 44. 未完成真实公网 NAT/TURN、长连接恢复和 macOS/Windows 权限矩阵时，所有可安装交付物都明确标为签名公证 Preview；只有相关物理门禁关闭后才可发布稳定版本。
 45. 任何公开 Preview 必须只包含确切 DMG、portable 与 `SHA256SUMS.txt`，并经过 Draft 原生双端重下载、公开后无 token 匿名重下载、发布前摘要/清单/实际字节一致、签名与成品首次使用复验；失败候选不得被覆盖或以同一 Tag/version 重用。
-46. AgentDesk 启动同一 Profile 前必须识别既有 `user-data-dir` 实例；其正常退出默认关闭所启动的 Profile，Crashpad 风暴不得无限写盘。升级、管理器强制退出或重启后，AgentDesk 自己的受管 Profiles 根内精确匹配的孤儿进程若继续制造已确认的崩溃风暴，也必须被事故熔断停止；普通用户关闭仍不得越过进程所有权，无所有权的官方默认/custom 目录不得被事故路径误接管。持续一小时的故障注入中，每个 Profile 的 `Crashpad/pending` 不得超过 100 个文件或 200 MiB；安全清理后会话、归档、配置、SQLite、`codex-home` 与留存诊断样本保持完整，多 Profile 的限额和熔断互不串扰。
+46. Catshelf 启动同一 Profile 前必须识别既有 `user-data-dir` 实例；其正常退出默认关闭所启动的 Profile，Crashpad 风暴不得无限写盘。升级、管理器强制退出或重启后，Catshelf 自己的受管 Profiles 根内精确匹配的孤儿进程若继续制造已确认的崩溃风暴，也必须被事故熔断停止；普通用户关闭仍不得越过进程所有权，无所有权的官方默认/custom 目录不得被事故路径误接管。持续一小时的故障注入中，每个 Profile 的 `Crashpad/pending` 不得超过 100 个文件或 200 MiB；安全清理后会话、归档、配置、SQLite、`codex-home` 与留存诊断样本保持完整，多 Profile 的限额和熔断互不串扰。
 47. 普通启动、后台恢复、密钥解锁恢复和轮询只观察 ProvisioningJob；没有该 Profile 的身份信息时保持等待登录，已有身份时可提交 ready，但两种情况都不得自动打开下载页、登录页或官方客户端。外部界面只能来自明确用户动作或已经完成的远端有人确认。
 
 ## 30. 主要风险
@@ -2760,7 +2760,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - 同一 AccountBinding 的额度快照在设备间冲突；
 - 远端索引规模使当前 Renderer 阻塞；
 - 本地数据库和原有 JSON 状态产生双写。
-- 官方客户端或 Crashpad handler 自崩溃后被持续重拉，形成孤儿进程并快速写满磁盘；仅依赖客户端自己的崩溃报告策略不足以保护 AgentDesk 管理的数据卷。
+- 官方客户端或 Crashpad handler 自崩溃后被持续重拉，形成孤儿进程并快速写满磁盘；仅依赖客户端自己的崩溃报告策略不足以保护 Catshelf 管理的数据卷。
 
 ### 30.3 安全风险
 
@@ -2824,6 +2824,16 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.38 改名 Catshelf／猫架 — 2026-11-24
+
+所有者定了新名字（原话：“定 Catshelf ／ 猫架”）和时机（“改完名再装”），做法见 `docs/RENAME_PLAN.md`。本条改写 1.37 条“不改：AgentDesk、Personal Agent Mesh 这类名字”里的 AgentDesk：界面上的产品名改为中文“猫架”、英文和日文 “Catshelf”，本文正文里的产品名随之改为 Catshelf（第 6.4 节的历史核查与第 33 节的旧条目保留原名）。Personal Agent Mesh 这个名字、领域模型、存盘字段、协议消息和安全边界都不变。
+
+- 改的：应用名与程序包 `Catshelf.app`、窗口标题、菜单、关于面板、对话框、三种语言的词表、安装包与发布产物的文件名、命令行的说明文字，以及当前状态文档。历史记录与 ADR 里的旧名保留。
+- 不动的：程序包标识 `com.hupo.agentdesk`；数据目录 `AgentDesk`；钥匙串项 `AgentDesk Safe Storage`（`mesh-keys.json` 靠它解密，名字一变已配对的设备就要重配）；设备网协议与信令、`mesh.db` 等存盘与文件名、默认设备名 `AgentDesk device`；`AGENTDESK_*` 环境变量；`.agentdesk-task` 扩展名；GitHub 仓库地址与自动更新所查的仓库（仓库还没改名，地址只在 `package.json` 一处）。
+- 怎么保住：`src/main.js` 的第一句先用旧名并固定数据目录，`will-finish-launching` 时再换回新名。Electron 43.3.0 上用拦截钥匙串调用、碰不到真实钥匙串的探针实测过：钥匙串项的名字在这之前就已定下（`scripts/keychain-name-probe.js`，升级 Electron 后先重跑再装）。
+- 命令行：`--cli`、全部命令、参数、输出字段与退出码不变；可执行文件随应用改名为 `Catshelf`；本机安装另在 `~/.local/bin` 写 `catshelf` 和别名 `agentdesk` 两个命令。旧的 `/Applications/AgentDesk.app/…` 绝对路径随旧应用删除而失效。
+- 自动更新同时认 `Catshelf-` 与 `AgentDesk-` 开头的发布文件。没有在 Windows 上实测，真实钥匙串只在装好后第一次打开“设备”时才会用到。
 
 ### 1.37 界面用词：账号、位置、登录、账号库、数据目录 — 2026-11-24
 

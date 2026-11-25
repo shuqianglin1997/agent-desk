@@ -123,30 +123,30 @@ function writeWindowsIntegrityExecutable(filePath, integrityList) {
 
 test('CLI accepts exactly one explicit packaged artifact', () => {
   assert.deepEqual(
-    parseArguments(['--artifact', './release/mac-arm64/AgentDesk.app']),
-    { artifact: path.resolve('./release/mac-arm64/AgentDesk.app') }
+    parseArguments(['--artifact', './release/mac-arm64/Catshelf.app']),
+    { artifact: path.resolve('./release/mac-arm64/Catshelf.app') }
   );
   assert.throws(() => parseArguments([]), /--artifact is required/);
   assert.throws(() => parseArguments(['--artifact']), /exactly once/);
   assert.throws(() => parseArguments(['--unknown']), /Unknown argument/);
 });
 
-test('layout resolver accepts only AgentDesk.app and win-unpacked package roots', () => fixture((root) => {
-  const macApp = path.join(root, 'AgentDesk.app');
-  touch(path.join(macApp, 'Contents', 'MacOS', 'AgentDesk'));
+test('layout resolver accepts only Catshelf.app and win-unpacked package roots', () => fixture((root) => {
+  const macApp = path.join(root, 'Catshelf.app');
+  touch(path.join(macApp, 'Contents', 'MacOS', 'Catshelf'));
   touch(path.join(macApp, 'Contents', 'Info.plist'));
   const mac = resolvePackagedLayout(macApp);
   assert.equal(mac.platform, 'darwin');
-  assert.equal(mac.executablePath, path.join(mac.artifactPath, 'Contents', 'MacOS', 'AgentDesk'));
+  assert.equal(mac.executablePath, path.join(mac.artifactPath, 'Contents', 'MacOS', 'Catshelf'));
 
   const winUnpacked = path.join(root, 'win-unpacked');
-  touch(path.join(winUnpacked, 'AgentDesk.exe'));
+  touch(path.join(winUnpacked, 'Catshelf.exe'));
   const windows = resolvePackagedLayout(winUnpacked);
   assert.equal(windows.platform, 'win32');
   assert.equal(windows.resourcesPath, path.join(windows.artifactPath, 'resources'));
 
   const arbitrary = path.join(root, 'windows-output');
-  touch(path.join(arbitrary, 'AgentDesk.exe'));
+  touch(path.join(arbitrary, 'Catshelf.exe'));
   assert.throws(() => resolvePackagedLayout(arbitrary), /final win-unpacked directory/);
 }));
 
@@ -293,7 +293,7 @@ test('ASAR bytes, per-file metadata, and native embedded header hashes must all 
     /header root must be a directory with a files object/
   );
 
-  const windowsExecutablePath = path.join(root, 'AgentDesk.exe');
+  const windowsExecutablePath = path.join(root, 'Catshelf.exe');
   const resedit = writeWindowsIntegrityExecutable(windowsExecutablePath, [{
     file: 'resources\\app.asar',
     alg: 'SHA256',
@@ -306,7 +306,7 @@ test('ASAR bytes, per-file metadata, and native embedded header hashes must all 
     /does not match the packaged ASAR header/
   );
 
-  const noIntegrityExecutablePath = path.join(root, 'AgentDesk-no-integrity.exe');
+  const noIntegrityExecutablePath = path.join(root, 'Catshelf-no-integrity.exe');
   fs.writeFileSync(
     noIntegrityExecutablePath,
     Buffer.from(resedit.NtExecutable.createEmpty(false, false).generate())

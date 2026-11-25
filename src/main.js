@@ -1,3 +1,7 @@
+// First, before anything reads the app name or the data folder: the data
+// folder and the keychain item keep the old name, the app shows the new one
+// (docs/RENAME_PLAN.md).
+require('./core/product').keepLegacyIdentity(require('electron').app);
 const { registerCommandIpc } = require('./main/ipc/command-shell');
 const { cliCommand } = require('./commands/registry');
 const { windowChromeOptions, windowsControls } = require('./main/window-chrome');
@@ -362,7 +366,7 @@ const { isInside: isSubpath, samePath: pathsEqual } = require('./core/paths').na
 // 便捷取词：按当前语言解析主进程侧文案（键在 src/i18n/*.js 的 main.* 命名空间）。
 const t = (key, params) => mt(currentLang(), key, params);
 
-const APP_NAME = 'AgentDesk';
+const APP_NAME = require('./core/product').PRODUCT_NAME;
 // Resolve the physical ASAR boundary before loading so a Windows portable 8.3
 // path and Chromium's long path cannot describe the same trusted document with
 // different URLs. The exact result is shared by loadFile and the IPC allowlist.

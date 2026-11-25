@@ -9,7 +9,7 @@ async function main() {
     turnTtlSeconds: integer(process.env.AGENTDESK_TURN_TTL_SECONDS, 3600)
   });
   await gateway.start();
-  process.stdout.write(`AgentDesk signaling gateway listening on ${gateway.address()}\n`);
+  process.stdout.write(`Catshelf signaling gateway listening on ${gateway.address()}\n`);
   const shutdown = async () => {
     await gateway.stop();
     process.exit(0);

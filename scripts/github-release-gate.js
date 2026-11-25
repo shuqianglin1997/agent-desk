@@ -65,8 +65,8 @@ function validateVersionPolicy(version, tag) {
 
 function expectedAssetNames(version) {
   return Object.freeze({
-    macos: `AgentDesk-${version}-universal.dmg`,
-    windows: `AgentDesk-${version}-portable-x64.exe`,
+    macos: `Catshelf-${version}-universal.dmg`,
+    windows: `Catshelf-${version}-portable-x64.exe`,
     manifest: 'SHA256SUMS.txt'
   });
 }

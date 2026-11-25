@@ -41,12 +41,12 @@ function testConfig(output, electronDist) {
 
 function binaryIn(output) {
   if (process.platform === 'darwin') {
-    const folder = fs.readdirSync(output).find((name) => name.startsWith('mac') && fs.existsSync(path.join(output, name, 'AgentDesk.app')));
-    return folder ? path.join(output, folder, 'AgentDesk.app', 'Contents', 'MacOS', 'AgentDesk') : null;
+    const folder = fs.readdirSync(output).find((name) => name.startsWith('mac') && fs.existsSync(path.join(output, name, 'Catshelf.app')));
+    return folder ? path.join(output, folder, 'Catshelf.app', 'Contents', 'MacOS', 'Catshelf') : null;
   }
   const folder = fs.readdirSync(output).find((name) => name.endsWith('-unpacked'));
   if (!folder) return null;
-  const name = process.platform === 'win32' ? 'AgentDesk.exe' : 'agentdesk';
+  const name = process.platform === 'win32' ? 'Catshelf.exe' : 'catshelf';
   return path.join(output, folder, name);
 }
 

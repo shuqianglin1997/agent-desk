@@ -83,9 +83,9 @@ test('macOS 正式构建强制签名、公证和 Hardened Runtime', () => {
     '- name: Verify Electron fuses and ASAR integrity in unpacked macOS app',
     '- name: Smoke packaged first use in unpacked macOS app'
   ], 'macOS CI packaged smoke order');
-  assert.match(macCi, /find release -type d -name 'AgentDesk\.app' -prune/);
-  assert.match(macCi, /Expected exactly one unpacked AgentDesk\.app/);
-  assert.match(macCi, /lipo -archs "\$PACKAGED_APP\/Contents\/MacOS\/AgentDesk"/);
+  assert.match(macCi, /find release -type d -name 'Catshelf\.app' -prune/);
+  assert.match(macCi, /Expected exactly one unpacked Catshelf\.app/);
+  assert.match(macCi, /lipo -archs "\$PACKAGED_APP\/Contents\/MacOS\/Catshelf"/);
   assert.match(macCi, /Contents\/Resources\/native\/AgentDeskInputHelper/);
   assert.match(macCi, /Contents\/Resources\/native\/AgentDeskAppActivator/);
   assert.match(macCi, /\[ -L "\$helper_path" \]/);
@@ -191,9 +191,9 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
     '- name: Smoke exact final DMG from a read-only mount',
     '- name: Upload macOS artifact'
   ], 'macOS release final-artifact order');
-  assert.match(macJob, /find release -maxdepth 1 -type f -name 'AgentDesk-\*-universal\.dmg'/);
+  assert.match(macJob, /find release -maxdepth 1 -type f -name 'Catshelf-\*-universal\.dmg'/);
   assert.match(macJob, /hdiutil attach -readonly -nobrowse -mountpoint/);
-  assert.match(macJob, /find "\$mount_point" -maxdepth 2 -type d -name 'AgentDesk\.app' -prune/);
+  assert.match(macJob, /find "\$mount_point" -maxdepth 2 -type d -name 'Catshelf\.app' -prune/);
   assert.match(macJob, /npm run accept:packaged -- --artifact "\$\{app_paths\[0\]\}"/);
   assert.match(macJob, /hdiutil detach "\$mount_point"/);
   assert.match(macJob, /The verified macOS DMG changed during packaged smoke/);
@@ -274,7 +274,7 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
   assert.match(windowsVerifier, /1\.3\.6\.1\.5\.5\.7\.3\.8/);
   assert.match(windowsVerifier, /TimeStamperCertificate/);
   assert.match(windowsVerifier, /Expand-WithSevenZip/);
-  assert.match(windowsVerifier, /Expected exactly one AgentDesk\.exe/);
+  assert.match(windowsVerifier, /Expected exactly one Catshelf\.exe/);
   assert.match(windowsVerifier, /resources\\native\\AgentDeskInputHelper\.exe/);
   assert.match(windowsVerifier, /ExpectedSignerThumbprint\/WIN_SIGNER_THUMBPRINT is required/);
   assert.match(windowsVerifier, /signer certificate does not match the required publisher identity/);
@@ -286,7 +286,7 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
   ], 'Windows publisher identity must be verified before any 7-Zip extraction');
   assert.match(windowsVerifier, /verify-electron-package-integrity\.js/);
   assertOrdered(windowsVerifier, [
-    'Expected exactly one AgentDesk.exe inside the final portable artifact',
+    'Expected exactly one Catshelf.exe inside the final portable artifact',
     "verify-electron-package-integrity.js",
     "resources\\native\\AgentDeskInputHelper.exe",
     "Assert-TrustedTimestampedSignature"
@@ -331,11 +331,11 @@ test('发布工作流缺少凭据时失败，并验证两端最终产物及内�
   assert.doesNotMatch(windowsCi, /build:win:release|verify:win-release|dist-windows/);
 
   assert.match(windowsPortablePackageVerifier, /Parameter\(Mandatory = \$true\).*PortablePath/s);
-  assert.match(windowsPortablePackageVerifier, /AgentDesk-\$\(\$packageJson\.version\)-portable-x64\.exe/);
+  assert.match(windowsPortablePackageVerifier, /Catshelf-\$\(\$packageJson\.version\)-portable-x64\.exe/);
   assert.match(windowsPortablePackageVerifier, /Resolve-SevenZip/);
   assert.match(windowsPortablePackageVerifier, /Expand-WithSevenZip/);
   assert.match(windowsPortablePackageVerifier, /\| Out-Host/);
-  assert.match(windowsPortablePackageVerifier, /Expected exactly one AgentDesk\.exe inside the Windows portable artifact/);
+  assert.match(windowsPortablePackageVerifier, /Expected exactly one Catshelf\.exe inside the Windows portable artifact/);
   assert.match(windowsPortablePackageVerifier, /verify-electron-package-integrity\.js/);
   assert.match(windowsPortablePackageVerifier, /resources\\native\\AgentDeskInputHelper\.exe/);
   assert.match(windowsPortablePackageVerifier, /Directory\]::Delete\(\$temporaryRoot, \$true\)/);
@@ -625,8 +625,8 @@ test('GitHub Release 采用 draft 预验、匿名复验和失败回草稿事务'
   assert.match(workflow, /name: dist-windows-signed\s+path: release-input\/windows/);
   assert.match(workflow, /Expected exactly two named build artifacts/);
   assert.match(workflow, /Release asset directory must contain exactly three files/);
-  assert.match(workflow, /AgentDesk-%s-universal\.dmg/);
-  assert.match(workflow, /AgentDesk-%s-portable-x64\.exe/);
+  assert.match(workflow, /Catshelf-%s-universal\.dmg/);
+  assert.match(workflow, /Catshelf-%s-portable-x64\.exe/);
   assert.match(workflow, /release-assets\/SHA256SUMS\.txt/);
   assert.match(workflow, /gh release create "\$RELEASE_TAG"[\s\S]*--draft[\s\S]*--prerelease/);
   assert.match(workflow, /Candidates are immutable and cannot be overwritten or reused/);
@@ -819,6 +819,17 @@ test('Electron 工具链和锁文件满足安全发布基线', () => {
     packageLock.packages[''].devDependencies['electron-builder'],
     packageJson.devDependencies['electron-builder']
   );
+});
+
+test('改名后数据目录与钥匙串项沿用旧名：src/main.js 的第一句就固定它们', () => {
+  // docs/RENAME_PLAN.md §3. A name change would orphan the data folder and leave
+  // mesh-keys.json undecryptable, so the pin must run before anything else.
+  const main = fs.readFileSync(path.join(root, 'src', 'main.js'), 'utf8');
+  const firstStatement = main.split('\n').map((line) => line.trim()).find((line) => line && !line.startsWith('//'));
+  assert.equal(firstStatement, "require('./core/product').keepLegacyIdentity(require('electron').app);");
+  // When Electron fixes the keychain item's name was measured on this version.
+  assert.equal(packageJson.devDependencies.electron, '43.3.0',
+    'after an Electron upgrade, rerun node scripts/keychain-name-probe.js, then update this version');
 });
 
 test('安装文档不再建议用 xattr 绕过 Gatekeeper', () => {

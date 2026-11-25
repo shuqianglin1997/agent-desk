@@ -49,9 +49,9 @@ jobs:
           app_paths=()
           while IFS= read -r app_path; do
             app_paths+=("$app_path")
-          done < <(find release -type d -name 'AgentDesk.app' -prune -print | sort)
+          done < <(find release -type d -name 'Catshelf.app' -prune -print | sort)
           if [ "${#app_paths[@]}" -ne 1 ]; then
-            echo "::error::Expected exactly one unpacked AgentDesk.app; found ${#app_paths[@]}."
+            echo "::error::Expected exactly one unpacked Catshelf.app; found ${#app_paths[@]}."
             exit 1
           fi
           printf 'path=%s\n' "${app_paths[0]}" >> "$GITHUB_OUTPUT"
@@ -62,7 +62,7 @@ jobs:
           PACKAGED_APP: ${{ steps.packaged_app.outputs.path }}
         run: |
           set -euo pipefail
-          app_architectures="$(lipo -archs "$PACKAGED_APP/Contents/MacOS/AgentDesk")"
+          app_architectures="$(lipo -archs "$PACKAGED_APP/Contents/MacOS/Catshelf")"
           input_helper_path="$PACKAGED_APP/Contents/Resources/native/AgentDeskInputHelper"
           app_activator_path="$PACKAGED_APP/Contents/Resources/native/AgentDeskAppActivator"
           for helper_path in "$input_helper_path" "$app_activator_path"; do

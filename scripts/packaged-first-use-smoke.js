@@ -3,7 +3,7 @@
 /*
  * Packaged first-use smoke test.
  *
- * This runner intentionally accepts only a packaged AgentDesk artifact. It
+ * This runner intentionally accepts only a packaged Catshelf artifact. It
  * launches the artifact with a disposable Chromium userData directory, drives
  * its packaged Renderer over a loopback-only DevTools endpoint, and exercises
  * the production preload/Main first-Agent initialization contract.
@@ -29,7 +29,7 @@ const { loadElectronBuilderDependency } = require('./verify-electron-package-int
 const APP_ROOT = path.resolve(__dirname, '..');
 const PACKAGE = require(path.join(APP_ROOT, 'package.json'));
 const ONBOARDING = require(path.join(APP_ROOT, 'src', 'onboarding-state.js'));
-const PRODUCT_NAME = 'AgentDesk';
+const PRODUCT_NAME = 'Catshelf';
 const DEFAULT_TIMEOUT_MS = 45_000;
 const MAIN_WINDOW_CONTRACT = Object.freeze({ width: 1040, height: 840 });
 const MAX_OBSERVED_WINDOW_FRAME_CSS_PX = 96;
@@ -150,8 +150,8 @@ function usage() {
     '  node scripts/packaged-first-use-smoke.js --artifact <path> [options]',
     '',
     'Accepted artifacts:',
-    '  macOS:   AgentDesk.app or a directory containing AgentDesk.app',
-    '  Windows: win-unpacked directory, its AgentDesk.exe, or the portable .exe',
+    '  macOS:   Catshelf.app or a directory containing Catshelf.app',
+    '  Windows: win-unpacked directory, its Catshelf.exe, or the portable .exe',
     '',
     'Options:',
     `  --expected-version <version>             default: ${PACKAGE.version}`,
@@ -246,10 +246,10 @@ function resolveMacBundle(inputPath) {
     bundlePath = inputPath;
   } else if (stat.isDirectory()) {
     const bundles = fs.readdirSync(inputPath, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name.toLowerCase() === 'agentdesk.app')
+      .filter((entry) => entry.isDirectory() && entry.name.toLowerCase() === 'catshelf.app')
       .map((entry) => path.join(inputPath, entry.name));
     if (bundles.length !== 1) {
-      throw new Error(`Expected exactly one AgentDesk.app in ${inputPath}; found ${bundles.length}`);
+      throw new Error(`Expected exactly one Catshelf.app in ${inputPath}; found ${bundles.length}`);
     }
     [bundlePath] = bundles;
   } else if (stat.isFile()) {
@@ -259,13 +259,13 @@ function resolveMacBundle(inputPath) {
     if (
       path.basename(macosDirectory) === 'MacOS'
       && path.basename(contentsDirectory) === 'Contents'
-      && path.basename(possibleBundle).toLowerCase() === 'agentdesk.app'
+      && path.basename(possibleBundle).toLowerCase() === 'catshelf.app'
     ) {
       bundlePath = possibleBundle;
     }
   }
-  if (!bundlePath || path.basename(bundlePath).toLowerCase() !== 'agentdesk.app') {
-    throw new Error('macOS artifact must be AgentDesk.app, not a source Electron runtime');
+  if (!bundlePath || path.basename(bundlePath).toLowerCase() !== 'catshelf.app') {
+    throw new Error('macOS artifact must be Catshelf.app, not a source Electron runtime');
   }
   const executablePath = path.join(bundlePath, 'Contents', 'MacOS', PRODUCT_NAME);
   const asarPath = path.join(bundlePath, 'Contents', 'Resources', 'app.asar');
@@ -302,7 +302,7 @@ function resolveWindowsArtifact(inputPath) {
     throw new Error('Windows artifact must be a .exe or win-unpacked directory');
   }
   const adjacentAsar = path.join(path.dirname(inputPath), 'resources', 'app.asar');
-  if (path.basename(inputPath).toLowerCase() === 'agentdesk.exe' && fs.existsSync(adjacentAsar)) {
+  if (path.basename(inputPath).toLowerCase() === 'catshelf.exe' && fs.existsSync(adjacentAsar)) {
     requireFile(adjacentAsar, 'win-unpacked app.asar');
     return {
       kind: 'windows-unpacked',
@@ -312,8 +312,8 @@ function resolveWindowsArtifact(inputPath) {
       allowLauncherExit: false
     };
   }
-  if (!/^AgentDesk-.+-portable-(x64|arm64)\.exe$/i.test(path.basename(inputPath))) {
-    throw new Error('Windows executable is neither win-unpacked AgentDesk.exe nor a versioned AgentDesk portable artifact');
+  if (!/^Catshelf-.+-portable-(x64|arm64)\.exe$/i.test(path.basename(inputPath))) {
+    throw new Error('Windows executable is neither win-unpacked Catshelf.exe nor a versioned Catshelf portable artifact');
   }
   return {
     kind: 'windows-portable',
@@ -334,7 +334,7 @@ function resolvePackagedArtifact(inputPath, platform = process.platform) {
   const absolute = path.resolve(String(inputPath || ''));
   if (!absolute || !fs.existsSync(absolute)) throw new Error(`Artifact does not exist: ${absolute}`);
   if (/[\\/]node_modules[\\/]electron(?:[\\/]|$)/i.test(absolute)) {
-    throw new Error('Source Electron runtime is forbidden; provide a packaged AgentDesk artifact');
+    throw new Error('Source Electron runtime is forbidden; provide a packaged Catshelf artifact');
   }
   return platform === 'darwin' ? resolveMacBundle(absolute) : resolveWindowsArtifact(absolute);
 }
@@ -529,7 +529,7 @@ function readMacSignatureDetails(bundlePath, commandRunner = spawnSync) {
     '--strict',
     '--all-architectures',
     bundlePath
-  ], 'macOS CI mock Keychain requires a valid signature on every AgentDesk.app architecture', commandRunner);
+  ], 'macOS CI mock Keychain requires a valid signature on every Catshelf.app architecture', commandRunner);
   const executablePath = path.join(bundlePath, 'Contents', 'MacOS', PRODUCT_NAME);
   const architectureResult = runMacSignatureCommand(
     '/usr/bin/lipo',
@@ -566,7 +566,7 @@ function resolveSmokeKeychainMode(options, artifact, runtime = {}) {
     throw new Error('--macos-ci-mock-keychain is supported only on macOS');
   }
   if (artifact?.kind !== 'mac-app' || !String(artifact?.artifactPath || '').toLowerCase().endsWith('.app')) {
-    throw new Error('--macos-ci-mock-keychain requires a packaged AgentDesk.app');
+    throw new Error('--macos-ci-mock-keychain requires a packaged Catshelf.app');
   }
   const signatureDetails = runtime.readMacSignatureDetails
     ? runtime.readMacSignatureDetails(artifact.artifactPath)
@@ -593,7 +593,7 @@ function assertPackagedRendererUrl(url) {
 }
 
 function runtimeVersionFromUserAgent(userAgent) {
-  const match = String(userAgent || '').match(/(?:AgentDesk|agent-desk)\/([^\s]+)/i);
+  const match = String(userAgent || '').match(/(?:Catshelf|AgentDesk|agent-desk)\/([^\s]+)/i);
   return match ? match[1] : null;
 }
 
@@ -1201,7 +1201,7 @@ async function assertPackagedMainWindow(instance, expectedVersion) {
     `document.readyState === 'complete'
       && typeof state !== 'undefined'
       && typeof window.manager?.initializeFirstAgent === 'function'`,
-    'packaged AgentDesk main window',
+    'packaged Catshelf main window',
     instance.client.timeoutMs
   );
   const snapshot = await instance.client.evaluate(`({
@@ -1610,7 +1610,7 @@ async function runSmoke(options) {
     fs.mkdirSync(options.artifacts, { recursive: true });
     fs.writeFileSync(path.join(options.artifacts, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
   }
-  process.stdout.write(`\nPackaged first-use smoke passed for AgentDesk ${options.expectedVersion}.\n`);
+  process.stdout.write(`\nPackaged first-use smoke passed for Catshelf ${options.expectedVersion}.\n`);
   return report;
 }
 

@@ -1,5 +1,5 @@
 /*
- * AgentDesk — GitHub Releases update helpers.
+ * Catshelf — GitHub Releases update helpers.
  *
  * Pure Node module so release parsing, asset selection, URL trust boundaries,
  * version comparison, and the Windows portable replacement script can be
@@ -8,10 +8,12 @@
 
 const path = require('node:path');
 
-const REPOSITORY = Object.freeze({
-  owner: 'shuqianglin1997',
-  name: 'agent-desk'
-});
+// From package.json's `repository`, the one place to change when the
+// repository is renamed (docs/RENAME_PLAN.md).
+const { REPOSITORY } = require('./core/product');
+// Release files carry the product name; releases from before the rename
+// carried the old one.
+const ASSET_NAMES = ['catshelf', 'agentdesk'];
 
 const REPOSITORY_PATH = `/${REPOSITORY.owner}/${REPOSITORY.name}`;
 const RELEASES_URL = `https://github.com${REPOSITORY_PATH}/releases`;
@@ -123,7 +125,7 @@ function selectReleaseAsset(release, platform, arch) {
   const assets = releaseAssets(release);
   const score = (asset) => {
     const name = String(asset.name || '').toLowerCase();
-    if (!name.includes('agentdesk')) return -1;
+    if (!ASSET_NAMES.some((product) => name.includes(product))) return -1;
     const namedArch = explicitAssetArchitecture(name);
     if (namedArch && namedArch !== arch) return -1;
 

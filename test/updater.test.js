@@ -47,6 +47,13 @@ test('不会把其他架构的 portable 当成当前 Windows 更新包', () => {
   assert.equal(updater.selectReleaseAsset(release, 'win32', 'x64'), null);
 });
 
+test('改名后的发布文件（Catshelf-…）和改名前的（AgentDesk-…）都认，别的名字不认', () => {
+  assert.equal(updater.selectReleaseAsset({ assets: [asset('Catshelf-0.3.0-portable-x64.exe')] }, 'win32', 'x64').name, 'Catshelf-0.3.0-portable-x64.exe');
+  assert.equal(updater.selectReleaseAsset({ assets: [asset('Catshelf-0.3.0-universal.dmg')] }, 'darwin', 'arm64').name, 'Catshelf-0.3.0-universal.dmg');
+  assert.equal(updater.selectReleaseAsset({ assets: [asset('AgentDesk-0.3.0-universal.dmg')] }, 'darwin', 'arm64').name, 'AgentDesk-0.3.0-universal.dmg');
+  assert.equal(updater.selectReleaseAsset({ assets: [asset('Other-0.3.0-universal.dmg')] }, 'darwin', 'arm64'), null);
+});
+
 test('旧版没有 portable 字样的 exe 仍可作为回退资产', () => {
   const release = { assets: [asset('AgentDesk 0.3.0.exe')] };
   assert.equal(updater.selectReleaseAsset(release, 'win32', 'x64').name, 'AgentDesk 0.3.0.exe');
