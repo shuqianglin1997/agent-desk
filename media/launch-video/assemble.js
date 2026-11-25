@@ -30,6 +30,8 @@ function film(lang, from, to, name) {
   const out = path.join(build.OUT, `catshelf-${name}-${lang}.mp4`);
   const run = spawnSync(encoder(), ['--frames', dir, '--manifest', path.join(dir, 'manifest.txt'), '--audio', wav, '--out', out], { encoding: 'utf8' });
   if (run.status !== 0) throw new Error(`encode failed:\n${run.stdout}${run.stderr}`);
+  // AVFoundation leaves its working copy beside the finished file (<name>.sb-…); only the film stays.
+  for (const entry of fs.readdirSync(build.OUT)) if (entry.startsWith(`${path.basename(out)}.sb-`)) fs.rmSync(path.join(build.OUT, entry), { force: true });
   process.stdout.write(`${run.stdout.trim()}\n  ${report.frames} frames drawn, ${report.written} distinct, ${((Date.now() - started) / 1000).toFixed(0)} s in all\n`);
   return out;
 }
