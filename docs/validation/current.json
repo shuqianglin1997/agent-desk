@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T06:06:00.483Z",
-  "baseCommit": "6ee76fea2f1e60b510d79ba1517f7d0f14ca58d9",
+  "recordedAt": "2026-11-25T06:08:24.037Z",
+  "baseCommit": "4bf5b94956a3766ad7d47e3448743aeb27a36401",
   "uncommitted": true,
-  "sourceSha256": "1edac1ff725b40b6e806560bb67dc7b0baa85a03cf192f84b255115eb85b638c",
+  "sourceSha256": "ed220ae423ea1fd777f2bead64c920f6f901b8e38e749a5dffa72d0157298aa9",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 990,
+      "pass": 988,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after clients restart-all got a 5-minute wait for the desktop's answer on the packaged command line (others keep 45 seconds); digest identical before and after the run",
+      "recordedAt": "2026-11-25T06:08:24.037Z",
+      "sourceSha256": "ed220ae423ea1fd777f2bead64c920f6f901b8e38e749a5dffa72d0157298aa9"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T06:08:24.037Z",
+      "sourceSha256": "ed220ae423ea1fd777f2bead64c920f6f901b8e38e749a5dffa72d0157298aa9"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

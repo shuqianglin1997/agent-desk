@@ -16,6 +16,8 @@ const { CALLER_HOME_KEYS } = require('../hub/roster');
 const ACTIONS = Object.fromEntries(cliTable().filter((entry) => entry.runs === 'desktop').map((entry) => [entry.name, cliDescriptor(entry)]));
 const SECRET_ACTIONS = new Set(cliTable().filter((entry) => entry.secretOnStdin).map((entry) => entry.name));
 const PROMPT_ACTIONS = new Set(cliTable().filter((entry) => entry.promptOnStdin).map((entry) => entry.name));
+// Actions that take longer than the usual wait for the desktop's answer.
+const RELAY_TIMEOUTS = new Map(cliTable().filter((entry) => Number.isInteger(entry.relayTimeoutMs)).map((entry) => [entry.name, entry.relayTimeoutMs]));
 const MAX_SECRET_BYTES = 8 * 1024;
 const MAX_PROMPT_BYTES = 64 * 1024;
 
@@ -179,6 +181,11 @@ function createCliBroker({ userData, whenReady, dispatch }) {
   };
 }
 
+// How long the command line waits for the desktop to answer one action.
+function relayTimeoutFor(command) {
+  return RELAY_TIMEOUTS.get(command) || REQUEST_TIMEOUT_MS;
+}
+
 async function dispatchPackagedAction(args, options, secret, extra = {}) {
   const { app, userData, broker, timeoutMs = REQUEST_TIMEOUT_MS } = options;
   const requestId = crypto.randomUUID();
@@ -317,7 +324,7 @@ async function runPackagedCli(argv, options) {
           ...(Object.keys(homes).length ? { homes } : {})
         };
       }
-      response = await dispatchPackagedAction(invocation.argv, options, secret, extra);
+      response = await dispatchPackagedAction(invocation.argv, { ...options, timeoutMs: options.timeoutMs ?? relayTimeoutFor(command) }, secret, extra);
     }
     else response = success(command, await packagedRead(parsed, options));
   } catch (error) {
@@ -334,4 +341,4 @@ async function runPackagedCli(argv, options) {
   }
 }
 
-module.exports = { packagedCliArguments, createCliBroker, runPackagedCli, readSecretFromStdin, readPromptFromStdin, PACKAGED_COMMANDS, MAX_PROMPT_BYTES };
+module.exports = { packagedCliArguments, createCliBroker, runPackagedCli, readSecretFromStdin, readPromptFromStdin, relayTimeoutFor, PACKAGED_COMMANDS, MAX_PROMPT_BYTES };

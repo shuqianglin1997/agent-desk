@@ -404,4 +404,9 @@ test('the command line relays the same actions, refuses without a supervising de
   await restart.exec(deps, { app: 'claude', 'stop-background-runs': 'yes' }).catch(() => {});
   assert.equal(seen[2].stopBackgroundRuns, true);
   await assert.rejects(cliCommand('clients update-status', 'desktop').exec({ ...deps, cliOnlyInstance: true }, {}), (error) => error.code === 'desktop-not-running');
+  // The command line waits long enough for a restart that waits for the updater.
+  const { relayTimeoutFor } = require('../src/automation/packaged-cli');
+  const { WAIT_FOR_UPDATE_MS } = require('../src/client-updates');
+  assert.ok(relayTimeoutFor('clients restart-all') >= WAIT_FOR_UPDATE_MS + 60_000);
+  assert.equal(relayTimeoutFor('clients reopen'), relayTimeoutFor('profiles launch'), 'the others keep the usual wait');
 });

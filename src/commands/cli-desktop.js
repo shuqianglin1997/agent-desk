@@ -176,6 +176,8 @@ const CLI_DESKTOP = [
       'stop-background-runs': pathParameter('yes: stop the background runs on these accounts first.')
     },
     effects: 'restart-local-clients',
+    // Closing, up to 3 minutes for the updater, then opening again.
+    relayTimeoutMs: 5 * 60_000,
     exec: (deps, input) => clientUpdatesCommand(deps, (updates) => updates.restartAll({
       appId: input.app,
       stopBackgroundRuns: input['stop-background-runs'] === 'yes'

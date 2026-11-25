@@ -180,7 +180,7 @@ AgentDesk 后台对话（只在我让你叫我的另一个账号做事时用）
 | 命令 | 作用 | 边界 |
 |---|---|---|
 | `clients update-status` | 每个桌面客户端：有没有更新在等（`waiting` 是事实：`exact`、`inferred` 或 `unknown`，不知道时 `value` 为 null）、AgentDesk 开着的账号和各自启动时的版本、能不能原样重开（`reopen`） | 只读；不含路径或秘密 |
-| `clients restart-all --app <id>` | 逐个关掉这个客户端里 AgentDesk 打开的账号，等它自己的更新器换好新版本，再把这些账号照常打开 | 没有更新在等时拒绝（`no-update-waiting`）；有后台对话在跑时拒绝（`background-runs-active`），要加 `--stop-background-runs yes` 才先停下它们；等不到新版本返回 `update-not-installed` 并停住，不重新打开 |
+| `clients restart-all --app <id>` | 逐个关掉这个客户端里 AgentDesk 打开的账号，等它自己的更新器换好新版本，再把这些账号照常打开 | 没有更新在等时拒绝（`no-update-waiting`）；有后台对话在跑时拒绝（`background-runs-active`），要加 `--stop-background-runs yes` 才先停下它们；等不到新版本返回 `update-not-installed` 并停住，不重新打开；命令行等桌面回答最多 5 分钟（其他命令 45 秒） |
 | `clients reopen --app <id>` | 人自己在客户端里更新以后，把刚才开着的那几个原样打开 | 没有可重开的返回 `nothing-to-reopen` |
 
 失败的顺序以错误返回，`error` 里只带账号编号（`closed`、`opened`、`failed`）、等了多久和版本。
