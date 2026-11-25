@@ -79,7 +79,7 @@ function readProfiles(directory) {
   // discover Windows default paths or silently normalize a legacy store.
   const payload = read.ok ? read.value.parsed : null;
   if (!payload || payload.version !== 2 || !Array.isArray(payload.profiles)) {
-    throw new InterfaceError('profile-store-version', 'Expected a version 2 Profile store. Migrate using AgentDesk before reading it.', 4);
+    throw new InterfaceError('profile-store-version', 'Expected a version 2 Profile store. Migrate using Catshelf before reading it.', 4);
   }
   const ids = new Set();
   for (const profile of payload.profiles) {
@@ -203,7 +203,7 @@ function integrationPlan(options, store) {
     nextSteps: [
       'Resolve root warnings and confirm which exact environment the user wants; never derive account identity from its name or API host.',
       'Use the official client or external configurator to set provider, endpoint, model and authentication in that root; do not put secrets in this plan, argv, repository or logs.',
-      'In AgentDesk use Manage Agent → Import runtime location; choose the exact client and roots through its path picker, then explicitly assign the intended Agent.',
+      'In Catshelf use Manage Agent → Import runtime location; choose the exact client and roots through its path picker, then explicitly assign the intended Agent.',
       'Read back the resulting Profile using profiles inspect. Only open or make a billable API test when the user requests it.'
     ]
   };

@@ -523,10 +523,10 @@
   // ---------- 交给 AI ----------
   function commands() {
     const windows = platform === 'win32';
-    const cli = windows ? '& $agentdesk --cli' : '"$agentdesk" --cli';
+    const cli = windows ? '& $catshelf --cli' : '"$catshelf" --cli';
     const id = tr('recruit.ai.id');
     return [
-      ['recruit.ai.step0', windows ? `$agentdesk = "${tr('recruit.ai.windowsPath')}"` : 'agentdesk=/Applications/AgentDesk.app/Contents/MacOS/AgentDesk'],
+      ['recruit.ai.step0', windows ? `$catshelf = "${tr('recruit.ai.windowsPath')}"` : 'catshelf=/Applications/Catshelf.app/Contents/MacOS/Catshelf'],
       ['recruit.ai.step1', `${cli} capabilities`],
       ['recruit.ai.step2', `${cli} profiles discover --scan home`],
       ['recruit.ai.step3', windows

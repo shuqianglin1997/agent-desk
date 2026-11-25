@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T07:19:44.322Z",
-  "baseCommit": "386c118d16e8302058112916a3daf8f0c33a042a",
+  "recordedAt": "2026-11-25T07:23:44.148Z",
+  "baseCommit": "07f97d66563358a977406a813cefc76d92fd1964",
   "uncommitted": true,
-  "sourceSha256": "23fbc76f56883fa6fdae4ba7818d5a6e239066b03d8b3dc742d09c8885b31630",
+  "sourceSha256": "574afb18d20edf33e99a7d418a3b4c24845baf5c13a271a8dc01c345b6bdeed6",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1003,
+      "pass": 1001,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after rename batch 2: the local macOS installer installs /Applications/Catshelf.app (quits Catshelf and the old AgentDesk first), then deletes /Applications/AgentDesk.app only when it carries the same bundle id and no process maps it, and writes the catshelf and agentdesk commands to ~/.local/bin (never over a file it did not write; both run the app's --cli and drop a leading --cli, run against a fake app); the command line's help, boundaries and messages say Catshelf, the CLI golden refreshed (only prose changed, suggestedUserData still ends in AgentDesk); the recruit dialog's command names the Catshelf binary; digest identical before and after the run",
+      "recordedAt": "2026-11-25T07:23:44.148Z",
+      "sourceSha256": "574afb18d20edf33e99a7d418a3b4c24845baf5c13a271a8dc01c345b6bdeed6"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T07:23:44.148Z",
+      "sourceSha256": "574afb18d20edf33e99a7d418a3b4c24845baf5c13a271a8dc01c345b6bdeed6"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

@@ -85,16 +85,16 @@ async function packagedRead(parsed, options) {
       writes: 'explicit local registration, new isolated environments, credential-file import and keys passed on stdin to the account\'s own client',
       launchesClients: 'profiles launch only (restarting a client\'s accounts for an update is window-only); set-key and status --check official run the client\'s fixed login or status command without a window',
       readsCredentials: 'only during explicit credential-file import or status checks; values are never printed',
-      secrets: 'Keys are read from stdin only, held in memory and passed to the account\'s client; AgentDesk does not store them.',
+      secrets: 'Keys are read from stdin only, held in memory and passed to the account\'s client; Catshelf does not store them.',
       notAvailable: ['arbitrary provider configuration', 'remote actions', 'direct Mesh writes', 'generic execution', 'HTTP server', 'MCP server', 'changing who may be called, allowed folders or limits']
     },
     hub: {
-      relay: 'run is relayed only when a caller asks; AgentDesk never starts, queues, retries or schedules runs, never picks an account and never passes one run\'s result to another',
-      callable: 'only accounts the person switched on in AgentDesk; the switch, allowed folders and the concurrency limit are changed in the desktop only',
-      prompt: 'standard input only, at most 64 KiB; it is not stored by AgentDesk',
+      relay: 'run is relayed only when a caller asks; Catshelf never starts, queues, retries or schedules runs, never picks an account and never passes one run\'s result to another',
+      callable: 'only accounts the person switched on in Catshelf; the switch, allowed folders and the concurrency limit are changed in the desktop only',
+      prompt: 'standard input only, at most 64 KiB; it is not stored by Catshelf',
       access: 'read-only by default; write needs --access write and the account\'s own switch',
-      limits: 'one run per account, a global limit set in AgentDesk, and at most two levels of nesting (AGENTDESK_HUB_DEPTH)',
-      requiresDesktop: 'agents list, run and runs stop need the AgentDesk desktop to be running; runs list, status and output also read finished records without it',
+      limits: 'one run per account, a global limit set in Catshelf, and at most two levels of nesting (AGENTDESK_HUB_DEPTH)',
+      requiresDesktop: 'agents list, run and runs stop need the Catshelf desktop to be running; runs list, status and output also read finished records without it',
       stored: 'title, caller label, target, state, times and where the client\'s own session record is; never the prompt or the answer'
     }
   };
@@ -217,7 +217,7 @@ async function dispatchPackagedAction(args, options, secret, extra = {}) {
     const claimed = !canceled && fs.existsSync(path.join(directory, 'running.json'));
     throw new InterfaceError(claimed ? 'operation-outcome-unknown' : 'desktop-unavailable', claimed
       ? 'The desktop accepted the operation but the result timed out. Inspect the profile before retrying.'
-      : 'The currently running AgentDesk did not accept the command. Check the desktop version or retry when it is idle.');
+      : 'The currently running Catshelf did not accept the command. Check the desktop version or retry when it is idle.');
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }

@@ -9,8 +9,11 @@
 // The commands relayed to the running desktop are in ./cli-desktop.js. The
 // order here is the order `capabilities` lists them in.
 
+// The data folder keeps the old name (docs/RENAME_PLAN.md).
+const { LEGACY_NAME } = require('../core/product');
+
 const parameter = (description, required = false, extra = {}) => ({ type: 'string', description, required, ...extra });
-const userData = parameter('Absolute AgentDesk userData directory; never inferred from the shell client home.', true);
+const userData = parameter('Absolute Catshelf userData directory (its folder is still named AgentDesk); never inferred from the shell client home.', true);
 const profileId = parameter('Exact local Profile ID returned by profiles list.', true);
 const pathParameter = (description, required = false) => ({ type: 'string', description, required });
 
@@ -36,7 +39,7 @@ function windowOnly(name, command, description, extraParameters = {}) {
     parameters: { app: pathParameter('Desktop client ID from apps (accepted; the answer is always window-only).'), ...extraParameters },
     effects: 'window-only',
     exec({ InterfaceError }) {
-      throw new InterfaceError('window-only', 'Only the person does this, in the AgentDesk window (System > Tools).', 5);
+      throw new InterfaceError('window-only', 'Only the person does this, in the Catshelf window (System > Tools).', 5);
     }
   };
 }
@@ -54,7 +57,7 @@ const CLI_LOCAL = [
     runs: 'cli',
     description: 'Suggest the standard desktop data directory without reading it.',
     parameters: {},
-    exec: ({ apps }) => ({ platform: process.platform, suggestedUserData: apps.appSupportDir('AgentDesk'), confirmed: false, note: 'Pass --user-data explicitly. Portable/test/custom installations may use another directory; CODEX_HOME is not AgentDesk userData.' })
+    exec: ({ apps }) => ({ platform: process.platform, suggestedUserData: apps.appSupportDir(LEGACY_NAME), confirmed: false, note: 'Pass --user-data explicitly. Portable/test/custom installations may use another directory; CODEX_HOME is not Catshelf userData. The folder keeps the name AgentDesk from before the rename.' })
   },
   {
     name: 'apps',
@@ -204,8 +207,8 @@ const CLI_LOCAL = [
       return status({ profile: input.profile, official: input.check === 'official' }, { userData: directory });
     }
   },
-  windowOnly('clients restart-all', 'client.updateRestartAll', 'Window only: closing every account of a desktop client AgentDesk opened and reopening them after its update is done by the person in AgentDesk (System > Tools). Always answers window-only.', { 'stop-background-runs': pathParameter('Accepted; the answer is always window-only.') }),
-  windowOnly('clients reopen', 'client.reopenSet', 'Window only: reopening the accounts that were open before a client update is done by the person in AgentDesk (System > Tools). Always answers window-only.')
+  windowOnly('clients restart-all', 'client.updateRestartAll', 'Window only: closing every account of a desktop client Catshelf opened and reopening them after its update is done by the person in Catshelf (System > Tools). Always answers window-only.', { 'stop-background-runs': pathParameter('Accepted; the answer is always window-only.') }),
+  windowOnly('clients reopen', 'client.reopenSet', 'Window only: reopening the accounts that were open before a client update is done by the person in Catshelf (System > Tools). Always answers window-only.')
 ];
 
 module.exports = { CLI_LOCAL, parameter, pathParameter, profileId };

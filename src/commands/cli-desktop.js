@@ -19,7 +19,7 @@ function registered(deps, result) {
 
 // The update status needs the desktop that supervises the clients it opened.
 async function clientUpdateStatus({ clientUpdates, cliOnlyInstance, InterfaceError }) {
-  if (cliOnlyInstance) throw new InterfaceError('desktop-not-running', 'Open the AgentDesk desktop first; it supervises the clients it opened.', 1);
+  if (cliOnlyInstance) throw new InterfaceError('desktop-not-running', 'Open the Catshelf desktop first; it supervises the clients it opened.', 1);
   return clientUpdates.status();
 }
 
@@ -92,7 +92,7 @@ const CLI_DESKTOP = [
   {
     name: 'profiles set-key',
     runs: 'desktop',
-    description: 'Read an API key or token from standard input and hand it to the Profile\'s own client (its login command or its documented configuration file). The value is never accepted as an argument, stored by AgentDesk or echoed.',
+    description: 'Read an API key or token from standard input and hand it to the Profile\'s own client (its login command or its documented configuration file). The value is never accepted as an argument, stored by Catshelf or echoed.',
     parameters: {
       profile: profileId,
       method: pathParameter('key (default) or provider: a custom API endpoint for this account.'),
@@ -138,7 +138,7 @@ const CLI_DESKTOP = [
   {
     name: 'clients update-status',
     runs: 'desktop',
-    description: 'For each desktop client: whether an update is waiting for the accounts AgentDesk opened (exact, inferred or unknown), which of them are open and from which version, and which can be reopened after an update. macOS only. Contains no path or secret. Restarting and reopening are done by the person in the AgentDesk window.',
+    description: 'For each desktop client: whether an update is waiting for the accounts Catshelf opened (exact, inferred or unknown), which of them are open and from which version, and which can be reopened after an update. macOS only. Contains no path or secret. Restarting and reopening are done by the person in the Catshelf window.',
     parameters: {},
     effects: 'read-only',
     exec: (deps) => clientUpdateStatus(deps)
@@ -158,8 +158,8 @@ const CLI_DESKTOP = [
     description: 'Have one allowed account run a background conversation. The prompt is read from standard input (never an argument). Returns the run ID at once.',
     parameters: {
       agent: pathParameter('Exact cat name from agents list, or its ID when a name is shared.', true),
-      title: pathParameter('Short title shown in the AgentDesk ledger.', true),
-      cwd: pathParameter('Absolute working directory inside a folder the person allowed in AgentDesk.', true),
+      title: pathParameter('Short title shown in the Catshelf ledger.', true),
+      cwd: pathParameter('Absolute working directory inside a folder the person allowed in Catshelf.', true),
       from: pathParameter('Display label for the caller, for example "Claude personal". Shown only; never an identity.'),
       access: pathParameter('read (default) or write: write also needs the account\'s own "may edit files" switch.')
     },

@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 
 /*
- * Safe local macOS installer for AgentDesk development builds.
+ * Safe local macOS installer for Catshelf development builds.
  *
  * Never move or replace a bundle while a process still maps files from it.
  * Doing so makes macOS attribute later privacy prompts to the temporary bundle
- * path. This installer quits the old manager first, stages a verified copy on
- * the destination volume, atomically swaps it, and verifies the relaunched
- * process maps the canonical /Applications bundle.
+ * path. This installer quits the old manager first (Catshelf, or AgentDesk from
+ * before the rename), stages a verified copy on the destination volume,
+ * atomically swaps it, and verifies the relaunched process maps the canonical
+ * /Applications bundle. Only then does it delete /Applications/AgentDesk.app
+ * (same bundle id, no process using it), so one copy stays on the computer,
+ * and write the `catshelf` and `agentdesk` commands (docs/RENAME_PLAN.md).
  */
 
 const fs = require('node:fs');
@@ -16,10 +19,19 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 
-const APP_ID = 'com.hupo.agentdesk';
-const DEFAULT_TARGET = '/Applications/AgentDesk.app';
-const DEFAULT_SETTINGS = path.join(os.homedir(), 'Library', 'Application Support', 'AgentDesk', 'settings.json');
-const BUNDLE_PATH_PATTERN = /(?:^|\/)AgentDesk\.app(?:[./]|$)/;
+const { PRODUCT_NAME, LEGACY_NAME, BUNDLE_ID, CLI_COMMANDS } = require('../src/core/product');
+
+const APP_ID = BUNDLE_ID;
+const BUNDLE_NAME = `${PRODUCT_NAME}.app`;
+const DEFAULT_TARGET = `/Applications/${BUNDLE_NAME}`;
+// The app from before the rename; removed once the new one runs.
+const LEGACY_TARGET = `/Applications/${LEGACY_NAME}.app`;
+// The data folder keeps the old name (src/core/product.js).
+const DEFAULT_SETTINGS = path.join(os.homedir(), 'Library', 'Application Support', LEGACY_NAME, 'settings.json');
+const BUNDLE_PATH_PATTERN = /(?:^|\/)(?:Catshelf|AgentDesk)\.app(?:[./]|$)/;
+const PROCESS_NAMES = [PRODUCT_NAME, LEGACY_NAME];
+const DEFAULT_COMMAND_DIRECTORY = path.join(os.homedir(), '.local', 'bin');
+const COMMAND_MARKER = '# Catshelf command line, written by scripts/install-local-macos.js';
 
 async function installLocalMacApp(options = {}, dependencies = {}) {
   if (process.platform !== 'darwin' && options.allowNonDarwin !== true) {
@@ -29,6 +41,9 @@ async function installLocalMacApp(options = {}, dependencies = {}) {
   const source = path.resolve(requiredPath(options.source, 'source-required'));
   const target = path.resolve(options.target || DEFAULT_TARGET);
   validateInstallPaths(source, target, options);
+  const legacyTarget = options.legacyTarget === undefined
+    ? (target === DEFAULT_TARGET ? LEGACY_TARGET : null)
+    : options.legacyTarget && path.resolve(options.legacyTarget);
   assertBundle(source, deps);
 
   const initialProcesses = deps.listProcesses();
@@ -53,16 +68,16 @@ async function installLocalMacApp(options = {}, dependencies = {}) {
 
   const destinationDirectory = path.dirname(target);
   const token = `${process.pid}-${crypto.randomUUID()}`;
-  const staging = path.join(destinationDirectory, `.AgentDesk.install-${token}.app`);
-  const rollback = path.join(destinationDirectory, `.AgentDesk.rollback-${token}.app`);
-  const failed = path.join(destinationDirectory, `.AgentDesk.failed-${token}.app`);
+  const staging = path.join(destinationDirectory, `.${PRODUCT_NAME}.install-${token}.app`);
+  const rollback = path.join(destinationDirectory, `.${PRODUCT_NAME}.rollback-${token}.app`);
+  const failed = path.join(destinationDirectory, `.${PRODUCT_NAME}.failed-${token}.app`);
   let rollbackCreated = false;
   let targetPublished = false;
   let launchRequested = false;
 
-  assertGeneratedPath(staging, destinationDirectory, '.AgentDesk.install-');
-  assertGeneratedPath(rollback, destinationDirectory, '.AgentDesk.rollback-');
-  assertGeneratedPath(failed, destinationDirectory, '.AgentDesk.failed-');
+  assertGeneratedPath(staging, destinationDirectory, `.${PRODUCT_NAME}.install-`);
+  assertGeneratedPath(rollback, destinationDirectory, `.${PRODUCT_NAME}.rollback-`);
+  assertGeneratedPath(failed, destinationDirectory, `.${PRODUCT_NAME}.failed-`);
 
   try {
     deps.copyBundle(source, staging);
@@ -83,12 +98,18 @@ async function installLocalMacApp(options = {}, dependencies = {}) {
     let retainedRollback = null;
     if (rollbackCreated) {
       try {
-        removeGeneratedBundle(rollback, destinationDirectory, '.AgentDesk.rollback-');
+        removeGeneratedBundle(rollback, destinationDirectory, `.${PRODUCT_NAME}.rollback-`);
       } catch (_cleanupError) {
         retainedRollback = rollback;
       }
     }
-    return { ok: true, source, target, relaunched: true, retainedRollback };
+    // The new app runs: everything below is clean-up and convenience, and a
+    // failure there never undoes the install.
+    const legacy = removeLegacyBundle(legacyTarget, deps);
+    const commands = options.writeCommands === false
+      ? []
+      : writeCommandLaunchers(options.commandDirectory || DEFAULT_COMMAND_DIRECTORY, path.join(target, 'Contents', 'MacOS', PRODUCT_NAME));
+    return { ok: true, source, target, relaunched: true, retainedRollback, legacy, commands };
   } catch (error) {
     if (launchRequested) {
       const livePublishedProcesses = processesMappedInside(deps.listProcesses(), target);
@@ -101,7 +122,7 @@ async function installLocalMacApp(options = {}, dependencies = {}) {
           // mapped by a live process. Leave both target and rollback in place.
           error.rollbackBlockedByLiveProcess = true;
           if (fs.existsSync(staging)) {
-            removeGeneratedBundle(staging, destinationDirectory, '.AgentDesk.install-');
+            removeGeneratedBundle(staging, destinationDirectory, `.${PRODUCT_NAME}.install-`);
           }
           throw error;
         }
@@ -115,7 +136,7 @@ async function installLocalMacApp(options = {}, dependencies = {}) {
       fs.renameSync(rollback, target);
       rollbackCreated = false;
     }
-    if (fs.existsSync(staging)) removeGeneratedBundle(staging, destinationDirectory, '.AgentDesk.install-');
+    if (fs.existsSync(staging)) removeGeneratedBundle(staging, destinationDirectory, `.${PRODUCT_NAME}.install-`);
     if (fs.existsSync(failed)) error.failedBundle = failed;
     throw error;
   }
@@ -123,7 +144,7 @@ async function installLocalMacApp(options = {}, dependencies = {}) {
 
 function defaultDependencies(overrides) {
   return {
-    listProcesses: () => listAgentDeskBundleProcesses(),
+    listProcesses: () => listAppBundleProcesses(),
     terminateProcesses,
     copyBundle: (source, destination) => {
       execFileSync('/usr/bin/ditto', ['--noqtn', source, destination], { stdio: 'inherit' });
@@ -150,17 +171,28 @@ function defaultDependencies(overrides) {
   };
 }
 
-function listAgentDeskBundleProcesses() {
-  let output = '';
+// Processes of Catshelf and of AgentDesk from before the rename, each found by
+// its command name and kept only when it maps a file from such a bundle.
+function listAppBundleProcesses() {
+  const byPid = new Map();
+  for (const name of PROCESS_NAMES) {
+    for (const entry of parseLsofProcesses(lsofText(name))) {
+      if (entry.paths.some((item) => BUNDLE_PATH_PATTERN.test(item))) byPid.set(entry.pid, entry);
+    }
+  }
+  return [...byPid.values()];
+}
+
+function lsofText(commandName) {
   try {
-    output = execFileSync('/usr/sbin/lsof', [
+    return execFileSync('/usr/sbin/lsof', [
       '-n',
       '-P',
       '-F',
       'pcn',
       '-a',
       '-c',
-      'AgentDesk',
+      commandName,
       '-d',
       'txt'
     ], {
@@ -170,13 +202,10 @@ function listAgentDeskBundleProcesses() {
     });
   } catch (error) {
     // lsof returns 1 when no matching process exists.
-    if (error.status === 1 && !error.stdout) return [];
-    if (typeof error.stdout === 'string') output = error.stdout;
-    else throw installError('process-inspection-failed');
+    if (error.status === 1 && !error.stdout) return '';
+    if (typeof error.stdout === 'string') return error.stdout;
+    throw installError('process-inspection-failed');
   }
-  return parseLsofProcesses(output).filter((entry) => (
-    entry.paths.some((item) => BUNDLE_PATH_PATTERN.test(item))
-  ));
 }
 
 function parseLsofProcesses(text) {
@@ -211,7 +240,7 @@ function terminateProcesses(processes) {
 }
 
 function processRank(entry) {
-  return entry.command === 'AgentDesk' ? 0 : 1;
+  return PROCESS_NAMES.includes(entry.command) ? 0 : 1;
 }
 
 async function waitForNoBundleProcesses(deps, timeoutMs) {
@@ -294,10 +323,82 @@ function assertBundle(bundlePath, deps) {
   if (deps.bundleIdentifier(bundlePath) !== APP_ID) throw installError('bundle-identifier-mismatch');
 }
 
+// Delete the app from before the rename, but only when it is the same app
+// (bundle id) and no process maps a file from it. Otherwise leave it and say why.
+function removeLegacyBundle(legacyTarget, deps) {
+  if (!legacyTarget) return { path: null, removed: false, reason: 'not-checked' };
+  let stat;
+  try {
+    stat = fs.lstatSync(legacyTarget);
+  } catch (_error) {
+    return { path: legacyTarget, removed: false, reason: 'absent' };
+  }
+  if (stat.isSymbolicLink() || !stat.isDirectory()) return { path: legacyTarget, removed: false, reason: 'not-a-bundle' };
+  let identifier = null;
+  try {
+    identifier = deps.bundleIdentifier(legacyTarget);
+  } catch (_error) {
+    return { path: legacyTarget, removed: false, reason: 'unreadable' };
+  }
+  if (identifier !== APP_ID) return { path: legacyTarget, removed: false, reason: 'other-app' };
+  if (processesMappedInside(deps.listProcesses(), legacyTarget).length) return { path: legacyTarget, removed: false, reason: 'in-use' };
+  try {
+    fs.rmSync(legacyTarget, { recursive: true });
+  } catch (_error) {
+    return { path: legacyTarget, removed: false, reason: 'remove-failed' };
+  }
+  return { path: legacyTarget, removed: !fs.existsSync(legacyTarget), reason: fs.existsSync(legacyTarget) ? 'remove-failed' : null };
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+function launcherScript(executable) {
+  return [
+    '#!/bin/sh',
+    COMMAND_MARKER,
+    '# Runs the app\'s command line; a leading --cli is accepted and dropped.',
+    'if [ "$1" = "--cli" ]; then shift; fi',
+    `exec ${shellQuote(executable)} --cli "$@"`,
+    ''
+  ].join('\n');
+}
+
+// `catshelf` and the old name `agentdesk`: both run the app's --cli. A file of
+// the same name this script did not write is left alone.
+function writeCommandLaunchers(directory, executable) {
+  const results = [];
+  try {
+    fs.mkdirSync(directory, { recursive: true, mode: 0o755 });
+  } catch (_error) {
+    return CLI_COMMANDS.map((name) => ({ name, path: path.join(directory, name), written: false, reason: 'directory-unavailable' }));
+  }
+  for (const name of CLI_COMMANDS) {
+    const file = path.join(directory, name);
+    const temporary = path.join(directory, `.${name}.${process.pid}.${crypto.randomUUID()}.tmp`);
+    try {
+      const stat = fs.lstatSync(file, { throwIfNoEntry: false });
+      if (stat && (stat.isSymbolicLink() || !stat.isFile() || !fs.readFileSync(file, 'utf8').includes(COMMAND_MARKER))) {
+        results.push({ name, path: file, written: false, reason: 'not-ours' });
+        continue;
+      }
+      fs.writeFileSync(temporary, launcherScript(executable), { mode: 0o755, flag: 'wx' });
+      fs.renameSync(temporary, file);
+      fs.chmodSync(file, 0o755);
+      results.push({ name, path: file, written: true, reason: null });
+    } catch (_error) {
+      fs.rmSync(temporary, { force: true });
+      results.push({ name, path: file, written: false, reason: 'write-failed' });
+    }
+  }
+  return results;
+}
+
 function validateInstallPaths(source, target, options) {
   if (source === target) throw installError('source-equals-target');
-  if (path.basename(source) !== 'AgentDesk.app') throw installError('source-bundle-name-invalid');
-  if (path.basename(target) !== 'AgentDesk.app') throw installError('target-bundle-name-invalid');
+  if (path.basename(source) !== BUNDLE_NAME) throw installError('source-bundle-name-invalid');
+  if (path.basename(target) !== BUNDLE_NAME) throw installError('target-bundle-name-invalid');
   if (options.allowCustomTarget !== true && target !== DEFAULT_TARGET) {
     throw installError('target-must-be-applications');
   }
@@ -348,9 +449,9 @@ function parseArguments(argv) {
 
 function defaultBuildSource() {
   const candidates = [
-    path.join(__dirname, '..', 'release', 'mac-arm64', 'AgentDesk.app'),
-    path.join(__dirname, '..', 'release', 'mac-universal', 'AgentDesk.app'),
-    path.join(__dirname, '..', 'release', 'mac', 'AgentDesk.app')
+    path.join(__dirname, '..', 'release', 'mac-arm64', BUNDLE_NAME),
+    path.join(__dirname, '..', 'release', 'mac-universal', BUNDLE_NAME),
+    path.join(__dirname, '..', 'release', 'mac', BUNDLE_NAME)
   ].filter((candidate) => fs.existsSync(candidate));
   if (candidates.length !== 1) throw installError('build-source-ambiguous');
   return candidates[0];
@@ -360,9 +461,16 @@ async function main() {
   try {
     const result = await installLocalMacApp(parseArguments(process.argv.slice(2)));
     process.stdout.write(`Installed and verified ${result.target}\n`);
+    if (result.legacy.removed) process.stdout.write(`Removed ${result.legacy.path}\n`);
+    else if (result.legacy.reason !== 'absent' && result.legacy.reason !== 'not-checked') {
+      process.stdout.write(`Kept ${result.legacy.path}: ${result.legacy.reason}\n`);
+    }
+    for (const command of result.commands) {
+      process.stdout.write(command.written ? `Command ${command.name}: ${command.path}\n` : `Command ${command.name} not written (${command.reason}): ${command.path}\n`);
+    }
   } catch (error) {
     const failed = error.failedBundle ? `; failed bundle kept at ${error.failedBundle}` : '';
-    process.stderr.write(`AgentDesk local install failed: ${error.code || error.message}${failed}\n`);
+    process.stderr.write(`${PRODUCT_NAME} local install failed: ${error.code || error.message}${failed}\n`);
     process.exitCode = 1;
   }
 }
@@ -372,10 +480,16 @@ if (require.main === module) void main();
 module.exports = {
   APP_ID,
   DEFAULT_TARGET,
+  LEGACY_TARGET,
+  DEFAULT_SETTINGS,
   BUNDLE_PATH_PATTERN,
+  COMMAND_MARKER,
   parseLsofProcesses,
-  listAgentDeskBundleProcesses,
+  listAppBundleProcesses,
   temporarilyKeepManagedClients,
+  removeLegacyBundle,
+  writeCommandLaunchers,
+  launcherScript,
   installLocalMacApp,
   validateInstallPaths
 };

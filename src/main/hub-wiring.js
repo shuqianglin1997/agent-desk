@@ -43,20 +43,20 @@ const HUB_ERRORS = {
   'access-invalid': [2, 'Use --access read or --access write.'],
   'depth-limit': [2, 'Calls nest at most two levels. This Agent was itself called by another.'],
   'agent-ambiguous': [2, 'More than one allowed account has that name. Use one of the IDs.'],
-  'write-not-allowed': [2, 'This account is not allowed to edit files. Ask the person to switch it on in AgentDesk, or use --access read.'],
+  'write-not-allowed': [2, 'This account is not allowed to edit files. Ask the person to switch it on in Catshelf, or use --access read.'],
   'cwd-invalid': [2, 'Use an absolute working directory without control characters.'],
-  'cwd-not-allowed': [2, 'The working directory is not inside a folder allowed in AgentDesk. Ask the person to allow it on the System page.'],
+  'cwd-not-allowed': [2, 'The working directory is not inside a folder allowed in Catshelf. Ask the person to allow it on the System page.'],
   'cwd-missing': [3, 'The working directory does not exist.'],
-  'agent-not-found': [3, 'No allowed account has that name or ID. Use agents list; the person switches accounts on in AgentDesk.'],
+  'agent-not-found': [3, 'No allowed account has that name or ID. Use agents list; the person switches accounts on in Catshelf.'],
   'run-not-found': [3, 'No run has that ID.'],
   'client-unsupported': [5, 'This client cannot run in the background. Desktop-only clients need the same account\'s command-line client.'],
-  'home-missing': [4, 'The account\'s folder is missing. Check the account in AgentDesk.'],
-  'not-signed-in': [1, 'The account is not signed in. The person signs it in from AgentDesk.'],
+  'home-missing': [4, 'The account\'s folder is missing. Check the account in Catshelf.'],
+  'not-signed-in': [1, 'The account is not signed in. The person signs it in from Catshelf.'],
   'client-missing': [1, 'The account\'s command-line client is not installed or was not found.'],
   'quota-exhausted': [1, 'The account is almost out of quota, so it does not take new runs.'],
   'agent-busy': [1, 'This account is already running a background conversation. One run per account.'],
-  'run-limit': [1, 'The limit of background runs set in AgentDesk is reached. Nothing was queued; try again later.'],
-  'desktop-not-running': [1, 'Open AgentDesk first. Background runs are supervised by the running desktop.']
+  'run-limit': [1, 'The limit of background runs set in Catshelf is reached. Nothing was queued; try again later.'],
+  'desktop-not-running': [1, 'Open Catshelf first. Background runs are supervised by the running desktop.']
 };
 
 function hubInterfaceError(error) {
