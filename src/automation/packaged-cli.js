@@ -16,8 +16,6 @@ const { CALLER_HOME_KEYS } = require('../hub/roster');
 const ACTIONS = Object.fromEntries(cliTable().filter((entry) => entry.runs === 'desktop').map((entry) => [entry.name, cliDescriptor(entry)]));
 const SECRET_ACTIONS = new Set(cliTable().filter((entry) => entry.secretOnStdin).map((entry) => entry.name));
 const PROMPT_ACTIONS = new Set(cliTable().filter((entry) => entry.promptOnStdin).map((entry) => entry.name));
-// Actions that take longer than the usual wait for the desktop's answer.
-const RELAY_TIMEOUTS = new Map(cliTable().filter((entry) => Number.isInteger(entry.relayTimeoutMs)).map((entry) => [entry.name, entry.relayTimeoutMs]));
 const MAX_SECRET_BYTES = 8 * 1024;
 const MAX_PROMPT_BYTES = 64 * 1024;
 
@@ -85,7 +83,7 @@ async function packagedRead(parsed, options) {
     boundaries: {
       ...result.boundaries,
       writes: 'explicit local registration, new isolated environments, credential-file import and keys passed on stdin to the account\'s own client',
-      launchesClients: 'profiles launch, and clients restart-all and clients reopen for the accounts AgentDesk opened (macOS); set-key and status --check official run the client\'s fixed login or status command without a window',
+      launchesClients: 'profiles launch only (restarting a client\'s accounts for an update is window-only); set-key and status --check official run the client\'s fixed login or status command without a window',
       readsCredentials: 'only during explicit credential-file import or status checks; values are never printed',
       secrets: 'Keys are read from stdin only, held in memory and passed to the account\'s client; AgentDesk does not store them.',
       notAvailable: ['arbitrary provider configuration', 'remote actions', 'direct Mesh writes', 'generic execution', 'HTTP server', 'MCP server', 'changing who may be called, allowed folders or limits']
@@ -179,11 +177,6 @@ function createCliBroker({ userData, whenReady, dispatch }) {
       do { queued = pending; await queued; } while (queued !== pending);
     }
   };
-}
-
-// How long the command line waits for the desktop to answer one action.
-function relayTimeoutFor(command) {
-  return RELAY_TIMEOUTS.get(command) || REQUEST_TIMEOUT_MS;
 }
 
 async function dispatchPackagedAction(args, options, secret, extra = {}) {
@@ -324,7 +317,7 @@ async function runPackagedCli(argv, options) {
           ...(Object.keys(homes).length ? { homes } : {})
         };
       }
-      response = await dispatchPackagedAction(invocation.argv, { ...options, timeoutMs: options.timeoutMs ?? relayTimeoutFor(command) }, secret, extra);
+      response = await dispatchPackagedAction(invocation.argv, options, secret, extra);
     }
     else response = success(command, await packagedRead(parsed, options));
   } catch (error) {
@@ -341,4 +334,4 @@ async function runPackagedCli(argv, options) {
   }
 }
 
-module.exports = { packagedCliArguments, createCliBroker, runPackagedCli, readSecretFromStdin, readPromptFromStdin, relayTimeoutFor, PACKAGED_COMMANDS, MAX_PROMPT_BYTES };
+module.exports = { packagedCliArguments, createCliBroker, runPackagedCli, readSecretFromStdin, readPromptFromStdin, PACKAGED_COMMANDS, MAX_PROMPT_BYTES };

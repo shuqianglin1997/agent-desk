@@ -51,7 +51,7 @@ AgentDesk 仍然不下载、不安装任何更新，也不改客户端的更新�
 | `clients/<id>` | 每家适配器声明自己的更新方式（Squirrel、Sparkle、MSIX、VS Code 系、不知道）和“怎么看出有更新在等”。不知道就声明不知道 |
 | `core` | “有更新在等”用统一的事实类型表达：确切、推断、不知道 |
 | `services` | 运行时服务记录启动版本和开着的集合，放进统一的存盘件并带版本迁移；关闭、等待、重开的顺序由它负责，进程的归属沿用现有规则，只动 AgentDesk 自己启动的 |
-| `commands` | `client.update.status`、`client.update.restartAll`、`client.reopenSet`，带“现在能不能做”和固定原因码；界面和命令行共用 |
+| `commands` | `client.update.status`、`client.update.restartAll`、`client.reopenSet`，带“现在能不能做”和固定原因码；只读的状态查询界面和命令行共用；关闭与重开只在窗口里由人触发 |
 | `ui` | 卡片上的记号、确认对话框，用公共部件 |
 
 验收里固定包含：分层检查通过；适配器之外没有新增的按客户端名字的判断；三语词表一致；`ARCHITECTURE_PLAN.md` 第 8 节的各项指标不倒退。
@@ -91,14 +91,14 @@ AgentDesk 仍然不下载、不安装任何更新，也不改客户端的更新�
 
 **命令行工具。** 在“工具”里自动更新一个命令行工具之前，它的账号有对话在跑（活动探测按数据根各数一次，或调度中枢的后台对话，取较大的）就先问一句“有 N 条在跑，更新可能打断”。Codex 的命令行和 Codex 账号共用会话目录，也算在内。
 
-**命令。** 命令表只允许一个点，所以计划里的三条落成 `client.updateStatus`、`client.updateRestartAll`、`client.reopenSet`（通道同名，preload 是 `getClientUpdateStatus`、`restartClientForUpdate`、`reopenClientSet`）。窗口只送客户端标识和“是否停下后台对话”。成品命令行转给正在运行的桌面：`clients update-status`、`clients restart-all --app <id>`（有后台对话时要加 `--stop-background-runs yes`）、`clients reopen --app <id>`；没有桌面在监管时一律回 `desktop-not-running`。固定原因码：`platform-unsupported`、`client-unknown`、`client-update-busy`、`nothing-open`、`no-update-waiting`、`background-runs-active`、`nothing-to-reopen`，做到一半停下的是 `background-run-stop-failed`、`client-close-failed`、`update-not-installed`、`client-reopen-failed`。
+**命令。** 命令表只允许一个点，所以计划里的三条落成 `client.updateStatus`、`client.updateRestartAll`、`client.reopenSet`（通道同名，preload 是 `getClientUpdateStatus`、`restartClientForUpdate`、`reopenClientSet`）。窗口只送客户端标识和“是否停下后台对话”。后两条在命令表里标为只限窗口（`windowOnly`），由人在窗口里点。成品命令行只转发只读的 `clients update-status`（没有桌面在监管时回 `desktop-not-running`）；`clients restart-all`、`clients reopen` 在命令行进程里直接回 `window-only`，不碰桌面。固定原因码：`platform-unsupported`、`client-unknown`、`client-update-busy`、`nothing-open`、`no-update-waiting`、`background-runs-active`、`nothing-to-reopen`，做到一半停下的是 `background-run-stop-failed`、`client-close-failed`、`update-not-installed`、`client-reopen-failed`。
 
 **开发时自己定的、计划没写细的**（所有者可以改）：
 
 1. “刚才开着的”取整段集合，包括这段时间里早些时候关掉的账号；确认框会列出名字。
 2. 补救的提示一直留着，直到再打开这个客户端的某个账号；没有单独的“不用了”。
 3. 等新版本最多 3 分钟。
-4. 命令行也能做这三件事（第 5 节“界面和命令行共用”），遇到后台对话同样要显式选择。
+4. 命令行只读（规划会话 2026-11-24 定）：只有状态查询；关闭与重开只在窗口里由人触发，命令行回 `window-only`。理由：第 4 节“不替人决定什么时候重启”，命令行是给 AI 用的，开放以后任何 Agent 都能关掉人正开着的客户端，连它自己所在的那个也包括在内。
 
 **没验证的。** 真实的一次更新（Squirrel 真的在这几个实例都退出后换上新版本、重新打开的确是原来那几个）只能由所有者在真机上遇到一次来确认；Codex 的 Sparkle、Cursor 和 Kimi 的更新方式仍按第 2 节没有核实；Windows 不提供。
 

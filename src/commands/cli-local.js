@@ -24,6 +24,23 @@ function locate({ readProfiles, getProfile, scanProfile, findSession, InterfaceE
   return { profile, session };
 }
 
+// A window-only action (docs/ORDERLY_UPDATE_PLAN.md §5): the command line
+// answers window-only at once and never reaches the desktop. `windowOnly`
+// names the window's command (src/commands/client-updates.js).
+function windowOnly(name, command, description, extraParameters = {}) {
+  return {
+    name,
+    runs: 'packaged',
+    windowOnly: command,
+    description,
+    parameters: { app: pathParameter('Desktop client ID from apps (accepted; the answer is always window-only).'), ...extraParameters },
+    effects: 'window-only',
+    exec({ InterfaceError }) {
+      throw new InterfaceError('window-only', 'Only the person does this, in the AgentDesk window (System > Tools).', 5);
+    }
+  };
+}
+
 const CLI_LOCAL = [
   {
     name: 'capabilities',
@@ -186,7 +203,9 @@ const CLI_LOCAL = [
       }
       return status({ profile: input.profile, official: input.check === 'official' }, { userData: directory });
     }
-  }
+  },
+  windowOnly('clients restart-all', 'client.updateRestartAll', 'Window only: closing every account of a desktop client AgentDesk opened and reopening them after its update is done by the person in AgentDesk (System > Tools). Always answers window-only.', { 'stop-background-runs': pathParameter('Accepted; the answer is always window-only.') }),
+  windowOnly('clients reopen', 'client.reopenSet', 'Window only: reopening the accounts that were open before a client update is done by the person in AgentDesk (System > Tools). Always answers window-only.')
 ];
 
 module.exports = { CLI_LOCAL, parameter, pathParameter, profileId };

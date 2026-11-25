@@ -5,7 +5,9 @@
 // in order, and reopening the ones that were open after the person updated
 // from inside the client. macOS only; every refusal is a fixed reason code.
 // AgentDesk never downloads or installs an update and never restarts on its
-// own: the two actions run only when they are asked for.
+// own. The status is shared with the command line (clients update-status);
+// the two actions are window-only (`windowOnly`): the person starts them in
+// the window, and the command line answers window-only (cli-local.js).
 
 const APP_ID = /^[a-z][a-z0-9-]{0,63}$/;
 
@@ -31,6 +33,7 @@ const COMMANDS = [
     id: 'client.updateRestartAll',
     channel: 'client:updateRestartAll',
     preload: ['restartClientForUpdate'],
+    windowOnly: true,
     input: clientInput,
     poll: ({ clientUpdates }, input) => clientUpdates.refusal('restart', input),
     exec: ({ clientUpdates }, input) => clientUpdates.restartAll(input)
@@ -41,6 +44,7 @@ const COMMANDS = [
     id: 'client.reopenSet',
     channel: 'client:reopenSet',
     preload: ['reopenClientSet'],
+    windowOnly: true,
     input: (raw) => ({ appId: clientInput(raw).appId }),
     poll: ({ clientUpdates }, input) => clientUpdates.refusal('reopen', input),
     exec: ({ clientUpdates }, input) => clientUpdates.reopenSet(input)

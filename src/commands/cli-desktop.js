@@ -3,7 +3,7 @@
 // AgentDesk — the packaged command line's actions that the running desktop
 // carries out (runs: 'desktop'): local profile registration, credential
 // import, opening a profile, new isolated environments, keys handed to an
-// account's own client, orderly client updates, and the hub (调度中枢:
+// account's own client, the orderly-update status, and the hub (调度中枢:
 // agents list, run, runs …).
 // The packaged CLI relays the request; Main runs it with its own services as
 // `deps`. A key or prompt arrives in `extra` (from standard input), never as
@@ -17,34 +17,10 @@ function registered(deps, result) {
   return result;
 }
 
-// The client-update actions answer with the window's fixed reason codes.
-const CLIENT_UPDATE_ERRORS = {
-  'desktop-not-running': [1, 'Open the AgentDesk desktop first; it supervises the clients it opened.'],
-  'platform-unsupported': [5, 'Orderly client updates are available on macOS only.'],
-  'client-unknown': [2, 'Use the ID of a desktop client from apps.'],
-  'client-update-busy': [1, 'A restart or reopen is already running. Check clients update-status.'],
-  'nothing-open': [3, 'AgentDesk has no account of this client open.'],
-  'no-update-waiting': [3, 'No update is known to be waiting for this client.'],
-  'background-runs-active': [2, 'Background runs are active on these accounts. Pass --stop-background-runs yes to stop them first.'],
-  'nothing-to-reopen': [3, 'There is nothing to reopen for this client.'],
-  'background-run-stop-failed': [1, 'A background run could not be stopped; no account was closed.'],
-  'client-close-failed': [1, 'An account could not be closed. The ones in closed stay closed; nothing was reopened.'],
-  'update-not-installed': [1, 'The accounts were closed but the new version was not in place in time (another window of this app may still be open). They were not reopened.'],
-  'client-reopen-failed': [1, 'Some accounts could not be opened again; see failed.']
-};
-const CLIENT_UPDATE_DETAILS = ['profileId', 'closed', 'opened', 'failed', 'waitedMs', 'version'];
-
-async function clientUpdatesCommand({ clientUpdates, cliOnlyInstance, InterfaceError }, action) {
-  const fail = (code, result = {}) => {
-    const [exitCode, message] = CLIENT_UPDATE_ERRORS[code] || [1, 'The client accounts could not all be closed or opened. Check clients update-status.'];
-    // What a sequence did before it stopped: profile IDs, counts and a version only.
-    const details = Object.fromEntries(CLIENT_UPDATE_DETAILS.filter((key) => result[key] !== undefined).map((key) => [key, result[key]]));
-    return new InterfaceError(code, message, exitCode, Object.keys(details).length ? details : undefined);
-  };
-  if (cliOnlyInstance) throw fail('desktop-not-running');
-  const result = await action(clientUpdates);
-  if (result && result.ok === false) throw fail(result.reasonCode, result);
-  return result;
+// The update status needs the desktop that supervises the clients it opened.
+async function clientUpdateStatus({ clientUpdates, cliOnlyInstance, InterfaceError }) {
+  if (cliOnlyInstance) throw new InterfaceError('desktop-not-running', 'Open the AgentDesk desktop first; it supervises the clients it opened.', 1);
+  return clientUpdates.status();
 }
 
 const CLI_DESKTOP = [
@@ -156,40 +132,16 @@ const CLI_DESKTOP = [
       });
     }
   },
-  // Orderly client updates (docs/ORDERLY_UPDATE_PLAN.md): the same service and
-  // refusals as the window (src/commands/client-updates.js); macOS only. Only
-  // a desktop that supervises the clients it opened can answer.
+  // Orderly client updates (docs/ORDERLY_UPDATE_PLAN.md): only the read-only
+  // status is relayed; closing and reopening are window-only (cli-local.js
+  // answers them with window-only).
   {
     name: 'clients update-status',
     runs: 'desktop',
-    description: 'For each desktop client: whether an update is waiting for the accounts AgentDesk opened (exact, inferred or unknown), which of them are open and from which version, and which can be reopened after an update. macOS only. Contains no path or secret.',
+    description: 'For each desktop client: whether an update is waiting for the accounts AgentDesk opened (exact, inferred or unknown), which of them are open and from which version, and which can be reopened after an update. macOS only. Contains no path or secret. Restarting and reopening are done by the person in the AgentDesk window.',
     parameters: {},
     effects: 'read-only',
-    exec: (deps) => clientUpdatesCommand(deps, (updates) => updates.status())
-  },
-  {
-    name: 'clients restart-all',
-    runs: 'desktop',
-    description: 'Close every account of one desktop client that AgentDesk opened, wait until the client\'s own updater has put the new version in place, then open the same accounts again. Refused unless an update is waiting, and while one of them has a background run unless --stop-background-runs yes is given. Never downloads or installs anything.',
-    parameters: {
-      app: pathParameter('Exact desktop client ID from apps.', true),
-      'stop-background-runs': pathParameter('yes: stop the background runs on these accounts first.')
-    },
-    effects: 'restart-local-clients',
-    // Closing, up to 3 minutes for the updater, then opening again.
-    relayTimeoutMs: 5 * 60_000,
-    exec: (deps, input) => clientUpdatesCommand(deps, (updates) => updates.restartAll({
-      appId: input.app,
-      stopBackgroundRuns: input['stop-background-runs'] === 'yes'
-    }))
-  },
-  {
-    name: 'clients reopen',
-    runs: 'desktop',
-    description: 'Open again the accounts of one desktop client that were open before they all closed and its app was updated. Refused when there is nothing to reopen.',
-    parameters: { app: pathParameter('Exact desktop client ID from apps.', true) },
-    effects: 'launch-local-client',
-    exec: (deps, input) => clientUpdatesCommand(deps, (updates) => updates.reopenSet({ appId: input.app }))
+    exec: (deps) => clientUpdateStatus(deps)
   },
   // 调度中枢: relayed through the running desktop, which supervises each run.
   {

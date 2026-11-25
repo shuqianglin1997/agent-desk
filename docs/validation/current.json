@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T06:39:21.691Z",
-  "baseCommit": "ff03d8d309cf831fce14afb6a538aa45193d1a2e",
+  "recordedAt": "2026-11-25T06:45:06.559Z",
+  "baseCommit": "8f44f9c049f482834735c96840f37e2b49d64e5d",
   "uncommitted": true,
-  "sourceSha256": "4b2e1b929f1373c8306682125cb92e549b9ab650c51b30d3d3c4be5bf5fda504",
+  "sourceSha256": "23794f90b0fda3fe841826f7bab657b403955c43efe3803d12dd722b10dd4ce3",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 990,
+      "pass": 988,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after clients restart-all and clients reopen became window-only on the command line (they answer window-only without reaching the desktop; only clients update-status is relayed); digest identical before and after the run",
+      "recordedAt": "2026-11-25T06:45:06.559Z",
+      "sourceSha256": "23794f90b0fda3fe841826f7bab657b403955c43efe3803d12dd722b10dd4ce3"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T06:45:06.559Z",
+      "sourceSha256": "23794f90b0fda3fe841826f7bab657b403955c43efe3803d12dd722b10dd4ce3"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

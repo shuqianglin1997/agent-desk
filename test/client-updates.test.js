@@ -384,29 +384,34 @@ test('the three commands take only a client id and one choice; refusals are reas
   ]);
 });
 
-test('the command line relays the same actions, refuses without a supervising desktop, and reports failures as errors', async () => {
-  const { cliCommand } = require('../src/commands/registry');
+test('the command line reads the status only; restarting and reopening answer window-only without reaching the desktop', async () => {
+  const { cliCommand, cliTable, commandTable } = require('../src/commands/registry');
   const { InterfaceError } = require('../src/automation/service');
-  const seen = [];
-  const clientUpdates = {
-    status: async () => ({ supported: true, busy: null, clients: [] }),
-    restartAll: async (input) => { seen.push(input); return input.appId === 'cursor' ? { ok: false, reasonCode: 'update-not-installed', closed: ['a'], waitedMs: 180000 } : { ok: false, reasonCode: 'background-runs-active' }; },
-    reopenSet: async (input) => ({ ok: true, version: '1.3.0', opened: [input.appId], failed: [] })
-  };
-  const deps = { clientUpdates, cliOnlyInstance: false, InterfaceError };
-  const restart = cliCommand('clients restart-all', 'desktop');
-  assert.equal(restart.effects, 'restart-local-clients');
-  assert.deepEqual(await cliCommand('clients update-status', 'desktop').exec(deps, {}), { supported: true, busy: null, clients: [] });
-  assert.deepEqual(await cliCommand('clients reopen', 'desktop').exec(deps, { app: 'claude' }), { ok: true, version: '1.3.0', opened: ['claude'], failed: [] });
-  await assert.rejects(restart.exec(deps, { app: 'claude', 'stop-background-runs': 'true' }), (error) => error.code === 'background-runs-active' && error.exitCode === 2 && error.extra === null);
-  await assert.rejects(restart.exec(deps, { app: 'cursor' }), (error) => error.code === 'update-not-installed' && error.extra.closed[0] === 'a' && error.extra.waitedMs === 180000);
-  assert.deepEqual(seen, [{ appId: 'claude', stopBackgroundRuns: false }, { appId: 'cursor', stopBackgroundRuns: false }], 'only "yes" stops background runs');
-  await restart.exec(deps, { app: 'claude', 'stop-background-runs': 'yes' }).catch(() => {});
-  assert.equal(seen[2].stopBackgroundRuns, true);
-  await assert.rejects(cliCommand('clients update-status', 'desktop').exec({ ...deps, cliOnlyInstance: true }, {}), (error) => error.code === 'desktop-not-running');
-  // The command line waits long enough for a restart that waits for the updater.
-  const { relayTimeoutFor } = require('../src/automation/packaged-cli');
-  const { WAIT_FOR_UPDATE_MS } = require('../src/client-updates');
-  assert.ok(relayTimeoutFor('clients restart-all') >= WAIT_FOR_UPDATE_MS + 60_000);
-  assert.equal(relayTimeoutFor('clients reopen'), relayTimeoutFor('profiles launch'), 'the others keep the usual wait');
+  const clientUpdates = { status: async () => ({ supported: true, busy: null, clients: [] }) };
+  const status = cliCommand('clients update-status', 'desktop');
+  assert.equal(status.effects, 'read-only');
+  assert.deepEqual(await status.exec({ clientUpdates, cliOnlyInstance: false, InterfaceError }, {}), { supported: true, busy: null, clients: [] });
+  await assert.rejects(status.exec({ clientUpdates, cliOnlyInstance: true, InterfaceError }, {}), (error) => error.code === 'desktop-not-running');
+
+  // Nothing that closes or opens a client is relayed to the desktop.
+  for (const name of ['clients restart-all', 'clients reopen']) {
+    assert.equal(cliCommand(name, 'desktop'), null, name);
+    const entry = cliCommand(name, 'packaged');
+    assert.equal(entry.effects, 'window-only');
+    assert.throws(() => entry.exec({ InterfaceError }, { app: 'claude', 'stop-background-runs': 'yes' }), (error) => error.code === 'window-only' && error.exitCode === 5);
+  }
+  // Each window-only command line entry names a window command marked window-only, and back.
+  const windowOnlyIds = commandTable().commands.filter((command) => command.windowOnly === true).map((command) => command.id).sort();
+  assert.deepEqual(windowOnlyIds, ['client.reopenSet', 'client.updateRestartAll']);
+  assert.deepEqual(cliTable().filter((entry) => entry.windowOnly).map((entry) => entry.windowOnly).sort(), windowOnlyIds);
+
+  // Through the packaged command line: a fixed error, and no request is queued for the desktop.
+  const { runPackagedCli } = require('../src/automation/packaged-cli');
+  let out = '';
+  const code = await runPackagedCli(['clients', 'restart-all', '--app', 'claude'], {
+    userData: '/nonexistent-agentdesk-user-data', stdout: { write: (text) => { out += text; } },
+    app: { requestSingleInstanceLock() { throw new Error('the desktop must not be asked'); } }
+  });
+  assert.equal(code, 5);
+  assert.equal(JSON.parse(out).error.code, 'window-only');
 });

@@ -27,8 +27,6 @@ pbpaste | "$agentdesk" --cli profiles set-key --profile "exact-profile-id"
 "$agentdesk" --cli runs status --run "run-…"
 "$agentdesk" --cli runs output --run "run-…"
 "$agentdesk" --cli clients update-status
-"$agentdesk" --cli clients restart-all --app claude
-"$agentdesk" --cli clients reopen --app claude
 ```
 
 Windows 的 portable `.exe` 接受同一批参数。为避免图形程序的控制台捕获差异，用 `--output` 写到一个新的绝对路径，再检查进程退出码和 JSON 的 `ok` 字段。
@@ -175,15 +173,12 @@ AgentDesk 后台对话（只在我让你叫我的另一个账号做事时用）
 
 ## 客户端有序更新（macOS）
 
-同一个桌面客户端的几个账号共用电脑上的一份应用，它的更新器要等这几个都退出才能换上新版本，换好后只打开默认的那个（见 [ORDERLY_UPDATE_PLAN.md](ORDERLY_UPDATE_PLAN.md)）。这三条转给正在运行的桌面，只动 AgentDesk 自己打开的账号；没有桌面在监管时返回 `desktop-not-running`。AgentDesk 不下载、不安装更新，也不改客户端的更新设置，什么时候重开由调用的人决定。
+同一个桌面客户端的几个账号共用电脑上的一份应用，它的更新器要等这几个都退出才能换上新版本，换好后只打开默认的那个（见 [ORDERLY_UPDATE_PLAN.md](ORDERLY_UPDATE_PLAN.md)）。命令行只读：状态查询转给正在运行的桌面，没有桌面在监管时返回 `desktop-not-running`。一起重开和原样重开只在窗口里由人点（“系统 › 工具”和收件箱），命令行调用它们一律返回 `window-only`，不碰桌面。AgentDesk 不下载、不安装更新，也不改客户端的更新设置，不替人决定什么时候重启。
 
 | 命令 | 作用 | 边界 |
 |---|---|---|
 | `clients update-status` | 每个桌面客户端：有没有更新在等（`waiting` 是事实：`exact`、`inferred` 或 `unknown`，不知道时 `value` 为 null）、AgentDesk 开着的账号和各自启动时的版本、能不能原样重开（`reopen`） | 只读；不含路径或秘密 |
-| `clients restart-all --app <id>` | 逐个关掉这个客户端里 AgentDesk 打开的账号，等它自己的更新器换好新版本，再把这些账号照常打开 | 没有更新在等时拒绝（`no-update-waiting`）；有后台对话在跑时拒绝（`background-runs-active`），要加 `--stop-background-runs yes` 才先停下它们；等不到新版本返回 `update-not-installed` 并停住，不重新打开；命令行等桌面回答最多 5 分钟（其他命令 45 秒） |
-| `clients reopen --app <id>` | 人自己在客户端里更新以后，把刚才开着的那几个原样打开 | 没有可重开的返回 `nothing-to-reopen` |
-
-失败的顺序以错误返回，`error` 里只带账号编号（`closed`、`opened`、`failed`）、等了多久和版本。
+| `clients restart-all`、`clients reopen` | 只限窗口：一起重开、原样重开由人在 AgentDesk 里点 | 一律返回 `window-only`（退出码 5），不转给桌面 |
 
 ## 精确选择本机数据
 
