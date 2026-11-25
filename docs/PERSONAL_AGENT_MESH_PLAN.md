@@ -2834,6 +2834,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - 应用里的检查更新遇到 `test-` 开头的 Latest，当作“还没有正式发布的版本”，从不提供、下载或安装测试版。这之前打的测试版没有这条判断，检查更新会报版本号无效，不会安装任何东西。
 - 第一份签名版发布时，这条规矩和 README 的下载链接一起重新定：签名 Preview 按 `docs/RELEASING.md` 的发布类别仍标为预发布，到时由所有者决定 README 指向哪里，`test-build.yml` 改回预发布或停用。
 - 同一批：README 开头的“正式版要通过发布门禁”等发布规矩挪到 `docs/RELEASING.md`，README 只留一句指向它。
+- 同一件事的第二批：应用加一份小的滚动日志（macOS `~/Library/Logs/Catshelf`，Windows 数据目录的 `logs`，每份约 1 MiB、留三份，只有桌面进程写）和只读的 `--cli diagnostics`。日志只写固定的事件名、原因码、构建信息和源码位置，不写密钥、令牌、会话内容、标题或邮箱，主目录写成 `~`；设备网的 IP、SDP、设备私钥和 TURN 凭据同样不进（第 24 节）。供帮人修问题的 AI 读取，见 `docs/FIX_AND_REBUILD.md`。窗口里没有应用级的诊断页，所以没有加“复制诊断信息”，账号的位置诊断照旧。
 
 ### 1.39 先发未签名测试版 — 2026-11-25
 

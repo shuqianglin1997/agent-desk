@@ -13,6 +13,7 @@ macOS 在应用包内调用可执行文件。CLI 默认使用该 Catshelf 实例
 ```sh
 catshelf=/Applications/Catshelf.app/Contents/MacOS/Catshelf
 "$catshelf" --cli capabilities
+"$catshelf" --cli diagnostics
 "$catshelf" --cli apps
 "$catshelf" --cli profiles discover --scan home
 "$catshelf" --cli profiles register --app codex --session-root "$HOME/.codex"
@@ -47,6 +48,38 @@ $process.ExitCode
 
 `profiles launch` 按已登记的精确 ID 调用客户端。`sessions list` 返回元数据，`sessions locate` 返回定位，`sessions read` 按所选客户端的正文解析能力返回 Markdown 和 `truncated` 标记。修改命令和桌面共用 Profile 存储与单实例锁。已打开的桌面在收到登记结果后刷新账号列表。
 
+## 排查问题：diagnostics 与日志
+
+`diagnostics` 是只读的排查命令（只成品有），帮装了 Catshelf 的人看问题时先跑它。输出：
+
+| 字段 | 内容 |
+|---|---|
+| `build` | 与 `capabilities` 的 `build` 相同：版本、提交号、打包时有没有未提交的改动、仓库地址 |
+| `system` | 平台、架构、系统内核与系统版本、Electron／Chrome／Node 版本 |
+| `executable`、`portableExecutable` | 这份程序从哪里运行（Windows portable 另给 exe 原本的位置） |
+| `paths` | 数据目录、日志目录和日志文件 |
+| `checks.dataFolder` | 数据目录能不能读写（`ok`、`missing`、`unreadable`、`not-writable`、`not-directory`），以及 `profiles.json`、`settings.json` 在不在 |
+| `checks.desktop` | 有没有正在运行、能收转交命令的 Catshelf（`running`）；查法和转交命令一样走单实例锁，带一个没有请求目录的编号，正在运行的 Catshelf（新旧版本都是）收到后直接忽略，不弹窗 |
+| `checks.appLocation` | 只在 macOS：`applications`、`translocated`（从“下载”或 DMG 里直接打开，系统把它放进了随机的只读位置）、`disk-image`、`other` |
+| `checks.log` | 日志有几份、共多大 |
+| `log.lines` | 日志最后若干行（`--lines`，默认 40，最多 200） |
+
+路径里的主目录写成 `~`。不输出密钥、令牌、会话内容、对话标题或账号名。它唯一写的东西是在数据目录里建一个空的探测文件、马上删掉。
+
+日志是 Catshelf 自己的一份小日志：macOS 在 `~/Library/Logs/Catshelf/catshelf.log`（Electron 的 `app.getPath('logs')`），Windows 在数据目录的 `logs\catshelf.log`（`%APPDATA%\AgentDesk\logs`）；用 `--user-data-dir` 指定数据目录时在那个目录的 `logs` 里。每份最多约 1 MiB，滚动留三份（`catshelf.log`、`catshelf.1.log`、`catshelf.2.log`）。只有桌面进程写，命令行进程不写。每行是时间、固定的事件名和白名单里的值：
+
+| 事件 | 什么时候 |
+|---|---|
+| `start` | 进程启动：版本、提交号、`dirty`、`packaged`、平台、架构、系统内核、Electron 版本、进程号 |
+| `ready`、`window.shown`、`index.ready` | 启动的各个阶段，`ms` 是从进程启动算起的毫秒数 |
+| `instance.taken` | 已经有一个 Catshelf 开着，这一个让位退出 |
+| `window.load-failed`、`renderer.gone`、`child.gone` | 窗口没加载出来、窗口或辅助进程意外退出（Electron 给的原因和退出码） |
+| `uncaught`、`index.failed`、`command.threw` | 未捕获的异常或失败：错误类名、错误码和源码里的位置（`src/…:行:列`），不写错误消息 |
+| `command.failed`、`cli.failed` | 窗口命令或转交给桌面的命令行操作失败：命令名和固定原因码 |
+| `quit` | 退出 |
+
+写入前后各过一遍清理：主目录换成 `~`，邮箱、密钥和令牌形状的字符串换掉。实现在 `src/core/log.js`、`src/main/app-log.js` 和 `src/automation/diagnostics.js`，`test/app-log.test.js` 用哨兵密钥、令牌、邮箱和标题核对它们进不了日志和输出。
+
 ## 从源码调用
 
 在仓库根、Node.js 22.12+ 下执行，不需要启动 Electron，也不需要 npm 或依赖安装：
@@ -72,7 +105,7 @@ node src/automation/cli.js tools
 | Catshelf | 登记路径，选择确切 Profile，按固定适配器启动并索引会话 | 用户可显式导入登录文件到新的独立目录，或把粘贴的密钥交给该账号自己的官方客户端；Catshelf 不保存任何密钥。其余 Provider 配置由客户端或配置工具维护 |
 | 既有 `cli-discovery.js` | 发现其他产品的 CLI 启动器 | 不是 Catshelf 自己的 CLI；发现不等于登录成功或 API 可用 |
 | Preload / IPC | 受信任桌面窗口的内部协议 | 不是公共 API；不可用调试端口、通用 invoke、HTTP 包装或直接改 DB 绕过路径选择和确认 |
-| 本地 CLI | 成品提供能力、全客户端账号发现与批量登记、新建独立环境、登录文件导入、从标准输入交密钥、登录状态、启动、会话列表和正文，以及调度中枢的名册与后台对话；源码入口提供查询和接入预检 | Profile 写入复用 Main 的本机单实例所有权。发行包通过 `capabilities` 声明实际能力 |
+| 本地 CLI | 成品提供能力、排查用的 `diagnostics`、全客户端账号发现与批量登记、新建独立环境、登录文件导入、从标准输入交密钥、登录状态、启动、会话列表和正文，以及调度中枢的名册与后台对话；源码入口提供查询和接入预检 | Profile 写入复用 Main 的本机单实例所有权。发行包通过 `capabilities` 声明实际能力 |
 | `AGENTS.md` 与本指南 | AI 的任务路由、配置所有权、扩展点和验收方法 | CLI 未覆盖的定制可修改源码，但须按具体需求、已有架构和授权实现 |
 
 `Profile` 是本机运行位置，不等于全局 `Agent`、登录身份或远端 `Slot`。CLI 不读取/解密 Mesh 数据库，因此看不到零 Slot 的全局员工或远端目录；不能根据 Profile 数量推断用户共有多少 Agent。

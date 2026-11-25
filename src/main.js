@@ -2,6 +2,13 @@
 // folder and the keychain item keep the old name, the app shows the new one
 // (docs/RENAME_PLAN.md).
 require('./core/product').keepLegacyIdentity(require('electron').app);
+// Then Catshelf's own log (src/core/log.js): start-up phases, the build,
+// uncaught exceptions and fixed reason codes. A --cli process writes nothing.
+const { startAppLog, uptime } = require('./main/app-log');
+const appLog = startAppLog({
+  app: require('electron').app,
+  cli: require('./automation/packaged-cli').packagedCliArguments(process.argv, process.defaultApp === true) !== null
+});
 const { registerCommandIpc } = require('./main/ipc/command-shell');
 const { cliCommand } = require('./commands/registry');
 const { windowChromeOptions, windowsControls } = require('./main/window-chrome');
@@ -281,6 +288,7 @@ const {
   stageCodexAuthHome
 } = require('./clients/codex/account-import');
 const { packagedCliArguments, createCliBroker, runPackagedCli } = require('./automation/packaged-cli');
+const { collectDiagnostics } = require('./automation/diagnostics');
 const { discoverLocalProfileLocations, profileSignInStatus } = require('./automation/local-locations');
 const { InterfaceError } = require('./automation/service');
 const { prepareManagedProfileHome } = require('./profile-home');
@@ -428,7 +436,36 @@ const cliLaunchArgs = packagedCliArguments(process.argv, process.defaultApp === 
 // running, so nothing could supervise a background run started from here.
 const cliOnlyInstance = cliLaunchArgs !== null;
 const cliUserData = app.getPath('userData');
-const cliBroker = createCliBroker({ userData: cliUserData, whenReady: () => app.whenReady(), dispatch: runCliProfileAction });
+const cliBroker = createCliBroker({ userData: cliUserData, whenReady: () => app.whenReady(), dispatch: runCliProfileAction, log: appLog });
+
+// `--cli diagnostics` (src/automation/diagnostics.js), with what only Electron
+// knows. Whether a Catshelf is running is asked the way relayed commands ask:
+// the single-instance lock, with a request id that has no request folder, so
+// a running desktop (this version or an older one) ignores it.
+function cliDiagnostics(input) {
+  return collectDiagnostics({
+    lines: input.lines,
+    build: require('./core/product').buildInfo(),
+    system: {
+      platform: process.platform,
+      arch: process.arch,
+      osRelease: os.release(),
+      osVersion: typeof process.getSystemVersion === 'function' ? process.getSystemVersion() : null,
+      electron: process.versions.electron || null,
+      chrome: process.versions.chrome || null,
+      node: process.versions.node
+    },
+    userData: cliUserData,
+    logDirectory: appLog.directory,
+    executable: process.execPath,
+    portableExecutable: process.platform === 'win32' ? process.env.PORTABLE_EXECUTABLE_FILE || null : null,
+    probeDesktop: () => {
+      const free = app.requestSingleInstanceLock({ agentdeskCliRequest: crypto.randomUUID() });
+      if (free) app.releaseSingleInstanceLock();
+      return !free;
+    }
+  });
+}
 
 function createWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
@@ -464,9 +501,13 @@ function createWindow() {
   windowLamp.attach(mainWindow, { platform: process.platform, isQuitting: () => appQuitting, quit: () => app.quit() });
 
   mainWindow.once('ready-to-show', () => {
+    appLog.write('window.shown', { ms: uptime() });
     if (!mainWindow || mainWindow.isDestroyed()) return;
     mainWindow.show();
     mainWindow.focus();
+  });
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, _description, _url, isMainFrame) => {
+    if (isMainFrame) appLog.write('window.load-failed', { code: errorCode });
   });
   mainWindow.on('closed', () => {
     void remoteControlService?.stopAll('main-window-closed');
@@ -504,9 +545,12 @@ function syncWindowControlTheme(preferences) {
 
 if (cliLaunchArgs !== null) {
   void runPackagedCli(cliLaunchArgs, {
-    app, userData: cliUserData, broker: cliBroker, version: app.getVersion(), discover: discoverLocalProfileLocations, status: profileSignInStatus
+    app, userData: cliUserData, broker: cliBroker, version: app.getVersion(), discover: discoverLocalProfileLocations, status: profileSignInStatus,
+    diagnostics: cliDiagnostics
   }).then((exitCode) => app.exit(exitCode), () => app.exit(1));
 } else if (!app.requestSingleInstanceLock()) {
+  // Another Catshelf has the data folder: it comes to the front instead.
+  appLog.write('instance.taken');
   app.quit();
 } else {
   app.on('second-instance', (_event, _argv, _cwd, data) => {
@@ -516,6 +560,7 @@ if (cliLaunchArgs !== null) {
   });
 
   app.whenReady().then(() => {
+    appLog.write('ready', { ms: uptime() });
     // 开发态 dock 也用品牌像素脸（打包态由 electron-builder 的 icns 提供），品牌全站统一
     if (process.platform === 'darwin' && !app.isPackaged && app.dock) {
       try { app.dock.setIcon(path.join(__dirname, '..', 'assets', 'icon.png')); } catch (_error) { /* best effort */ }
@@ -535,7 +580,10 @@ if (cliLaunchArgs !== null) {
     // Warm the session index on the worker thread first: resuming jobs reads the
     // Mesh overview, whose session counts then come from the index instead of a
     // scan on this thread.
-    void sessionIndex.refresh(loadProfiles()).catch(() => null).then(() => {
+    void sessionIndex.refresh(loadProfiles()).then(
+      () => appLog.write('index.ready', { ms: uptime() }),
+      (error) => appLog.error('index.failed', error)
+    ).then(() => {
       if (!deferSecureMeshStartup) getProvisioningService().resumeActiveJobs();
     });
 
@@ -641,7 +689,7 @@ function registerIpc() {
     getWindow: () => mainWindow,
     allowedUrl: MAIN_DOCUMENT_URL
   });
-  registerCommandIpc({ ipcMain, deps: mainContext() });
+  registerCommandIpc({ ipcMain, deps: mainContext(), log: appLog });
 
   // 四个专用通道，只收会话键、1–5 的数字和有界字符串；SessionMarksStore 逐项重新校验，不开放通用读写。
 

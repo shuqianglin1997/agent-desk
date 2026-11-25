@@ -60,6 +60,19 @@ const CLI_LOCAL = [
     exec: ({ apps }) => ({ platform: process.platform, suggestedUserData: apps.appSupportDir(LEGACY_NAME), confirmed: false, note: 'Pass --user-data explicitly. Portable/test/custom installations may use another directory; CODEX_HOME is not Catshelf userData. The folder keeps the name AgentDesk from before the rename.' })
   },
   {
+    name: 'diagnostics',
+    runs: 'packaged',
+    description: 'For troubleshooting: this copy\'s build (version, commit, repository), the system, where the data folder and the log are, the last log lines, and self-checks (data folder readable and writable, whether a running Catshelf receives commands). No keys, tokens, session contents, titles or account names; paths under the home folder start with ~. Writes only one empty probe file in the data folder and removes it.',
+    parameters: {
+      lines: parameter('How many of the last log lines to include.', false, { type: 'integer', minimum: 0, maximum: 200, default: 40 })
+    },
+    effects: 'read-only',
+    exec({ diagnostics, InterfaceError }, input) {
+      if (typeof diagnostics !== 'function') throw new InterfaceError('diagnostics-unavailable', 'Diagnostics need the packaged app.', 5);
+      return diagnostics({ lines: input.lines ?? 40 });
+    }
+  },
+  {
     name: 'apps',
     runs: 'cli',
     description: 'List registered client capabilities, not installed or authenticated state.',

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T12:43:35.433Z",
-  "baseCommit": "5fdfb75f1bada8c08342fc676362d97ce77fce16",
+  "recordedAt": "2026-11-25T12:52:06.698Z",
+  "baseCommit": "b3159e3188a54b39e45c9a45ae14bb19aa5ff59e",
   "uncommitted": true,
-  "sourceSha256": "4a5cebeb87442c3dd31a6760050287bd9c84b9748051a95c286b3457335babae",
+  "sourceSha256": "4d29c23af4df82c12e3c1190a11a4978e915a919dabca3007383b124a896f22e",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1028,
+      "pass": 1026,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite with Catshelf's own log and --cli diagnostics: src/core/log.js writes fixed event names and whitelisted values only (three files of about 1 MiB; macOS ~/Library/Logs/Catshelf, otherwise the data folder's logs/, an explicit --user-data-dir keeps it inside), redacts the home folder, e-mail addresses and key or token shapes again on write and read; src/main/app-log.js logs start-up phases, the build, uncaught exceptions (uncaughtExceptionMonitor, Electron's handling unchanged) and helper processes that went away, and a --cli process writes nothing; the command shell and the CLI broker log failures by command id and fixed reason code. test/app-log.test.js puts sentinel keys, tokens, an e-mail address, a session title and the home folder into fields, errors, results and a hand-written log line and finds none of them in the files or in diagnostics output; it also covers rotation, repeat suppression, the data-folder and desktop self-checks and the capabilities entry.",
+      "recordedAt": "2026-11-25T12:52:06.698Z",
+      "sourceSha256": "4d29c23af4df82c12e3c1190a11a4978e915a919dabca3007383b124a896f22e"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js (node --check on 294 listed files)",
+      "recordedAt": "2026-11-25T12:52:06.698Z",
+      "sourceSha256": "4d29c23af4df82c12e3c1190a11a4978e915a919dabca3007383b124a896f22e"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

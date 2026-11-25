@@ -59,7 +59,7 @@ async function packagedRead(parsed, options) {
   if (command === 'paths') return { platform: process.platform, userData: options.userData, confirmed: true };
   const packagedOnly = cliCommand(command, 'packaged');
   if (packagedOnly) {
-    return packagedOnly.exec({ discover: options.discover, status: options.status, userData: options.userData, InterfaceError }, input);
+    return packagedOnly.exec({ discover: options.discover, status: options.status, diagnostics: options.diagnostics, userData: options.userData, InterfaceError }, input);
   }
   if (command === 'apps') {
     const result = execute(command, input);
@@ -88,6 +88,11 @@ async function packagedRead(parsed, options) {
       secrets: 'Keys are read from stdin only, held in memory and passed to the account\'s client; Catshelf does not store them.',
       notAvailable: ['arbitrary provider configuration', 'remote actions', 'direct Mesh writes', 'generic execution', 'HTTP server', 'MCP server', 'changing who may be called, allowed folders or limits']
     },
+    troubleshooting: {
+      command: 'diagnostics',
+      log: 'Catshelf keeps a small log of start-up phases, the build, uncaught exceptions and fixed reason codes: macOS ~/Library/Logs/Catshelf/catshelf.log, Windows %APPDATA%\\AgentDesk\\logs\\catshelf.log; at most three files of about 1 MiB. diagnostics prints its location and last lines.',
+      guide: 'docs/FIX_AND_REBUILD.md'
+    },
     hub: {
       relay: 'run is relayed only when a caller asks; Catshelf never starts, queues, retries or schedules runs, never picks an account and never passes one run\'s result to another',
       callable: 'only accounts the person switched on in Catshelf; the switch, allowed folders and the concurrency limit are changed in the desktop only',
@@ -100,7 +105,9 @@ async function packagedRead(parsed, options) {
   };
 }
 
-function createCliBroker({ userData, whenReady, dispatch }) {
+// `log` (src/main/app-log.js), when given, records a relayed command that
+// failed: its name and error code, never its arguments, key or prompt.
+function createCliBroker({ userData, whenReady, dispatch, log = null }) {
   let pending = Promise.resolve();
   // A key piped to `profiles set-key` travels in memory with the single
   // instance message; it never touches the request folder.
@@ -142,6 +149,9 @@ function createCliBroker({ userData, whenReady, dispatch }) {
       contexts.delete(requestId);
       if (!claimed) return;
       response = failure(command, error);
+      const name = typeof command === 'string' ? command.replace(/ /g, '.') : null;
+      if (error instanceof InterfaceError) log?.write('cli.failed', { command: name, code: error.code });
+      else log?.error('cli.failed', error, { command: name });
     }
     try {
       writeFileAtomic(path.join(directory, 'response.json'), JSON.stringify(response), { mode: 0o600 });

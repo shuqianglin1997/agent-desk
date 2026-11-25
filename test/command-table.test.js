@@ -103,7 +103,8 @@ test('Main hands the commands and the moved modules every service they take, as 
   const mainContext = require('../scripts/main-context');
   const main = read('src/main.js');
   assert.equal(mainContext.current(main), mainContext.block(main), 'run node scripts/main-context.js --write');
-  assert.match(main, /registerCommandIpc\(\{ ipcMain, deps: mainContext\(\) \}\)/);
+  // The log (src/main/app-log.js) records failed commands by id and reason code.
+  assert.match(main, /registerCommandIpc\(\{ ipcMain, deps: mainContext\(\), log: appLog \}\)/);
 });
 
 test('the command line reads its commands from the same table, and prints only their descriptors', () => {

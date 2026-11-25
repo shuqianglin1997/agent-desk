@@ -42,15 +42,33 @@ The source is version `0.10.1-preview.1`, a Preview. The downloads above are uns
 
 Your accounts, settings and device keys live in a data folder that keeps the old name: `~/Library/Application Support/AgentDesk` on macOS, `%APPDATA%\AgentDesk` on Windows. A new version does not touch it.
 
-## If something goes wrong
+## Let your AI set up your accounts
 
-Packages built from this source on record which commit they were built from (older ones don't). Run the package's command line (no window opens):
+Catshelf has its own command line, so the AI you already use on this computer (Codex, Claude, GPT…) can find, register and check your accounts for you. Copy this to it as one message:
 
-```bash
-/Applications/Catshelf.app/Contents/MacOS/Catshelf --cli capabilities
+```text
+Help me set up my accounts in Catshelf, an open-source desktop app that keeps AI coding accounts in one window.
+- Source and docs: https://github.com/shuqianglin1997/catshelf. Read docs/AI_INTERFACE.md there before doing anything.
+- Its command line opens no window:
+  macOS:   /Applications/Catshelf.app/Contents/MacOS/Catshelf --cli <command words and options>
+  Windows: the portable .exe I downloaded is a GUI program, so write the answer to a new file and read it:
+    Start-Process -FilePath "<path to Catshelf-unsigned-portable-x64.exe>" -ArgumentList @('--cli', <command words and options>, '--output', '"<new absolute .json path>"') -Wait
+- Start with `capabilities`, then `apps` and `profiles discover`. Register what I choose with `profiles register`, or make a new separate account with `profiles create`. Ask me before every change and use the exact ids it returns.
+- Keys and sign-ins: never ask me to paste a key or token into this chat, and never put one in a command argument. I either paste it into Catshelf's own window (Recruit), or on macOS I copy it and you run `pbpaste | <the macOS path above> --cli profiles set-key --profile <id>`, which reads it from standard input. Signing in happens in the official client. Check the result with `profiles status --profile <id>`.
+- If anything fails, run `diagnostics` and show me what it says.
 ```
 
-`data.build` in the output gives the version, the exact commit, whether the package had uncommitted changes, and the repository. On macOS, **About Catshelf** shows the same. Put that and what happened into an issue, or hand both to your AI assistant: [docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md) tells it how to fetch exactly that source, fix the problem, and build and install a new copy on your computer without touching your data.
+## If something goes wrong
+
+Run the package's own diagnostics (no window opens):
+
+```bash
+/Applications/Catshelf.app/Contents/MacOS/Catshelf --cli diagnostics
+```
+
+On Windows, use `--output` as shown in [docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md). It prints the version and the exact commit this copy was built from, the system, where the data folder and the log are (`~/Library/Logs/Catshelf` on macOS, `%APPDATA%\AgentDesk\logs` on Windows), the last log lines and a few self-checks. It contains no keys, tokens, session contents or account names, and your home folder shows as `~`. On macOS, **About Catshelf** also shows the version and commit.
+
+Hand that and what happened to your AI assistant: [docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md) tells it what to check when Catshelf does not open at all, how to fetch exactly that source, fix the problem, and build and install a new copy on your computer without touching your data. Or put it into an issue.
 
 ## What it does
 
@@ -68,7 +86,7 @@ It does not embed a chat or terminal, run task queues or orchestrate agents, reg
 
 ## Build from source
 
-Requires Node.js 22.12 or newer. macOS builds also need the Xcode command line tools; Windows builds need the Visual Studio C++ build tools.
+You need no GitHub account and nothing from GitHub's build service: `git clone https://github.com/shuqianglin1997/catshelf.git`, or **Code → Download ZIP** on this page. You need Node.js 22.12 or newer. `npm ci` downloads the dependencies and Electron (from npm and GitHub's public downloads, without an account); the first packaging run also downloads electron-builder's own tools. macOS needs the Xcode command line tools (`xcode-select --install`). Windows needs Visual Studio Build Tools with “Desktop development with C++”: packaging compiles a small native helper with MSVC.
 
 ```bash
 npm ci
@@ -77,16 +95,16 @@ npm test               # all Node tests
 npm run check          # syntax and type check
 npm run check:docs     # documentation and validation ledger
 
-npm run build:mac:dir  # local test build (ad-hoc signed), release/mac-arm64/ (Intel: release/mac/)
-npm run build:win      # Windows portable, release/
-npm run build:mac      # signed and notarized release; credentials required
+npm run build:mac:dir  # app for this Mac: release/mac-arm64/Catshelf.app (Intel: release/mac/)
+npm run build:mac:test # universal DMG: release/Catshelf-<version>-universal.dmg
+npm run build:win      # Windows portable: release/Catshelf-<version>-portable-x64.exe
 ```
 
-A build you make yourself runs on your own computer. This project publishes only the signed Preview and the labelled unsigned test builds that GitHub builds from a tagged commit, both described in [docs/RELEASING.md](docs/RELEASING.md).
+A build you make is for your own computer: it is not notarized by Apple (macOS gets an ad-hoc signature, Windows none). On the computer that built it, it usually opens without a prompt; if the system stops it, allow it the same way as above. `npm run install:mac:local -- --source <the .app>` puts a macOS build into Applications ([docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md)). The signed build (`npm run build:mac`) needs the project's credentials; what this project publishes, and how, is in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## For AI assistants
 
-- Fixing a problem for someone who installed Catshelf: [docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md).
+- Fixing a problem for someone who installed Catshelf: start with `--cli diagnostics`, then [docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md).
 - Using Catshelf from the command line (accounts, sessions, background runs): [docs/AI_INTERFACE.md](docs/AI_INTERFACE.md), starting with `--cli capabilities` on a package or `node src/automation/cli.js capabilities` in the source.
 - Changing the code: [AGENTS.md](AGENTS.md) and [docs/STRUCTURE.md](docs/STRUCTURE.md). Only the owner pushes to this repository.
 
@@ -130,15 +148,33 @@ https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e
 
 账号、设置和设备网的钥匙放在沿用旧名的数据目录里：macOS 是 `~/Library/Application Support/AgentDesk`，Windows 是 `%APPDATA%\AgentDesk`。换新版本不会动它。
 
-## 用着出了问题
+## 让你的 AI 帮你配置账号
 
-从这份源码起打的安装包都记着自己是用哪个提交打的（更早的包没有）。运行它自带的命令行（不会打开窗口）：
+猫架自带命令行，你电脑上已经在用的 AI（Codex、Claude、GPT 等）可以替你找到、登记和检查账号。把下面这段整段发给它：
 
-```bash
-/Applications/Catshelf.app/Contents/MacOS/Catshelf --cli capabilities
+```text
+请帮我在猫架（Catshelf）里配置账号。它是一个开源的桌面应用，把 AI 编程账号放进同一个窗口。
+- 源码和文档：https://github.com/shuqianglin1997/catshelf。动手之前先读里面的 docs/AI_INTERFACE.md。
+- 它的命令行不会打开窗口：
+  macOS：/Applications/Catshelf.app/Contents/MacOS/Catshelf --cli <命令和参数>
+  Windows：我下载的 portable .exe 是图形程序，要把结果写进一个新文件再读：
+    Start-Process -FilePath "<Catshelf-unsigned-portable-x64.exe 的路径>" -ArgumentList @('--cli', <命令和参数>, '--output', '"<新的 .json 绝对路径>"') -Wait
+- 先跑 `capabilities`，再跑 `apps` 和 `profiles discover`。我选中的用 `profiles register` 登记，要新的独立账号用 `profiles create`。每次改动前先问我，用它返回的确切编号。
+- 密钥和登录：不要让我把密钥或令牌贴进这个对话，也不要把它写进命令参数。要么我在猫架自己的窗口里（招募）粘贴；要么在 macOS 上我先复制，你运行 `pbpaste | <上面的 macOS 路径> --cli profiles set-key --profile <编号>`，它从标准输入读。登录在官方客户端里完成。用 `profiles status --profile <编号>` 核对结果。
+- 出了错就跑 `diagnostics`，把结果给我看。
 ```
 
-输出里的 `data.build` 写着版本、确切的提交号、打包时有没有未提交的改动，以及源码仓库；macOS 的“关于 Catshelf”里也有。把这些和出了什么问题一起写进 issue，或者交给你的 AI 助手：[docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md) 告诉它怎么取回同一份源码、修好问题，再在你的电脑上打包装好，不动你的数据。
+## 用着出了问题
+
+运行安装包自带的诊断（不会打开窗口）：
+
+```bash
+/Applications/Catshelf.app/Contents/MacOS/Catshelf --cli diagnostics
+```
+
+Windows 上照 [docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md) 的写法加 `--output`。它会写出这份程序的版本和确切的提交号、系统、数据目录和日志在哪（macOS 是 `~/Library/Logs/Catshelf`，Windows 是 `%APPDATA%\AgentDesk\logs`）、日志最后几行和几项自检。里面没有密钥、令牌、会话内容和账号名，主目录写成 `~`。macOS 的“关于 Catshelf”里也有版本号和提交号。
+
+把这些和出了什么问题一起交给你的 AI 助手：[docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md) 告诉它猫架根本打不开时查什么、怎么取回同一份源码、修好问题，再在你的电脑上打包装好，不动你的数据。也可以写进 issue。
 
 ## 能做什么
 
@@ -156,7 +192,7 @@ https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e
 
 ## 从源码构建
 
-需要 Node.js 22.12 或更新。macOS 打包还需要 Xcode 命令行工具，Windows 打包需要 Visual Studio 的 C++ 构建工具。
+不需要 GitHub 账号，也不需要 GitHub 的打包服务：`git clone https://github.com/shuqianglin1997/catshelf.git`，或者在这个页面点 “Code → Download ZIP”。需要 Node.js 22.12 或更新。`npm ci` 会联网下载依赖和 Electron（来自 npm 和 GitHub 的公开下载地址，不需要账号）；第一次打包时 electron-builder 还会下载它自己的打包工具。macOS 需要 Xcode 命令行工具（`xcode-select --install`）；Windows 需要 Visual Studio Build Tools 里的“使用 C++ 的桌面开发”，打包时要用 MSVC 编译一个小的原生程序。
 
 ```bash
 npm ci
@@ -165,16 +201,16 @@ npm test               # 全部 Node 测试
 npm run check          # 语法与类型检查
 npm run check:docs     # 文档与验证记录
 
-npm run build:mac:dir  # 本机测试包（本机签名），release/mac-arm64/（Intel 是 release/mac/）
-npm run build:win      # Windows portable，输出在 release/
-npm run build:mac      # 签名并公证的发布包，需要凭据
+npm run build:mac:dir  # 给这台 Mac 用的 App：release/mac-arm64/Catshelf.app（Intel 是 release/mac/）
+npm run build:mac:test # 通用 DMG：release/Catshelf-<版本>-universal.dmg
+npm run build:win      # Windows portable：release/Catshelf-<版本>-portable-x64.exe
 ```
 
-自己打的包在自己的电脑上用；本项目对外只发签名的 Preview，以及 GitHub 按打了标签的提交打出、明确标注的未签名测试版，两者都写在 [docs/RELEASING.md](docs/RELEASING.md) 里。
+自己打的包只在自己的电脑上用：没有苹果公证（macOS 只做本机签名，Windows 没有签名）。在打包的这台电脑上通常直接能打开；系统拦下时照上面的办法放行。`npm run install:mac:local -- --source <那个 .app>` 把 macOS 的包装进“应用程序”（见 [docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md)）。签名的发布包（`npm run build:mac`）需要项目的凭据；本项目对外发什么、怎么发，见 [docs/RELEASING.md](docs/RELEASING.md)。
 
 ## 给 AI 助手
 
-- 帮装了猫架的人修问题：[docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md)。
+- 帮装了猫架的人修问题：先跑 `--cli diagnostics`，再看 [docs/FIX_AND_REBUILD.md](docs/FIX_AND_REBUILD.md)。
 - 用命令行操作猫架（账号、会话、后台对话）：[docs/AI_INTERFACE.md](docs/AI_INTERFACE.md)，安装包上从 `--cli capabilities` 开始，源码里从 `node src/automation/cli.js capabilities` 开始。
 - 改代码：[AGENTS.md](AGENTS.md) 和 [docs/STRUCTURE.md](docs/STRUCTURE.md)。只有仓库所有者向这个仓库推送。
 
