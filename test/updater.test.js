@@ -10,7 +10,7 @@ function asset(name, overrides = {}) {
     state: 'uploaded',
     size: 1024,
     digest: `sha256:${'a'.repeat(64)}`,
-    browser_download_url: `https://github.com/shuqianglin1997/agent-desk/releases/download/v0.3.0/${encodeURIComponent(name)}`,
+    browser_download_url: `https://github.com/shuqianglin1997/catshelf/releases/download/v0.3.0/${encodeURIComponent(name)}`,
     ...overrides
   };
 }
@@ -62,7 +62,7 @@ test('旧版没有 portable 字样的 exe 仍可作为回退资产', () => {
 test('Release URL 和下载 URL 被固定在官方仓库', () => {
   assert.equal(
     updater.trustedGitHubUrl(
-      'https://github.com/shuqianglin1997/agent-desk/releases/tag/v0.3.0',
+      'https://github.com/shuqianglin1997/catshelf/releases/tag/v0.3.0',
       'release'
     ),
     true
@@ -89,7 +89,7 @@ test('Release URL 和下载 URL 被固定在官方仓库', () => {
 test('resolveRelease 输出更新信息和 GitHub SHA-256', () => {
   const release = {
     tag_name: 'v0.3.0',
-    html_url: 'https://github.com/shuqianglin1997/agent-desk/releases/tag/v0.3.0',
+    html_url: 'https://github.com/shuqianglin1997/catshelf/releases/tag/v0.3.0',
     draft: false,
     prerelease: false,
     published_at: '2026-07-16T00:00:00Z',

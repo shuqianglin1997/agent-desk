@@ -6,7 +6,7 @@
 >
 > 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.38，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
 >
-> 仓库：`shuqianglin1997/agent-desk`
+> 仓库：`shuqianglin1997/catshelf`（2026-11-25 由 `agent-desk` 改名，旧地址自动跳转）
 >
 > 本轮开发前回滚点：`c42ac57c63a2e5160cd7c1544ba83bfe7797f43f`
 

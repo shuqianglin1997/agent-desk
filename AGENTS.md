@@ -4,7 +4,7 @@
 
 - Helping someone who installed Catshelf and hit a problem (fix it, rebuild it for their computer)? Start with `docs/FIX_AND_REBUILD.md`. It says how to find the exact source of their copy, what must never change, and how to build and install the fix.
 - The sections up to the Personal Agent Mesh gate apply to anyone changing this code.
-- The last section, "Only in the owner's own checkout", applies only when working for the owner (shuqianglin1997) in their checkout. Anyone else is not authorized to push to `shuqianglin1997/agent-desk`: work in your own clone or fork, and offer a fix back as a pull request if the person wants to.
+- The last section, "Only in the owner's own checkout", applies only when working for the owner (shuqianglin1997) in their checkout. Anyone else is not authorized to push to `shuqianglin1997/catshelf`: work in your own clone or fork, and offer a fix back as a pull request if the person wants to.
 
 ## AI-facing use and customization
 
@@ -31,7 +31,7 @@ These two parts are the owner's own workflow. They do not apply to anyone else's
 
 ### Durable GitHub authentication and push continuity
 
-- The owner has already established that `shuqianglin1997/agent-desk` is their repository and has explicitly authorized Catshelf (formerly AgentDesk) development pushes. Do not repeatedly question repository ownership.
+- The owner has already established that `shuqianglin1997/catshelf` (renamed from `agent-desk` on 2026-11-25; the old address redirects) is their repository and has explicitly authorized Catshelf (formerly AgentDesk) development pushes. Do not repeatedly question repository ownership.
 - Before starting any new GitHub verification flow, inspect and reuse the previously successful Git transport, credential helper, GitHub CLI login, SSH agent, or repository-specific key.
 - Never leave a successful push dependent on a temporary GitHub CLI directory or an in-memory credential. Persist the working authentication in the macOS Keychain or a repository-scoped SSH key, then verify it with a non-mutating remote check before ending the task.
 - If persistent authentication is genuinely absent or expired, state the exact missing mechanism once and restore a durable path. Do not send the owner through repeated email/device verification as the default response on later pushes.

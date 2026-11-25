@@ -19,7 +19,9 @@
 | 设备网协议、信令、存盘里的标识与文件名 | `mesh.db`、`mesh-keys.json`、消息类型、默认设备名等 | 别的设备上的旧版本要认得 |
 | 环境变量 | `AGENTDESK_*` | 调度中枢的调用方、测试与发布脚本在用 |
 | 存盘与格式的名字 | `profiles.json` 等、`.agentdesk-task`、`agentdesk:lamp` 事件、`AgentDeskInspect`、`AgentDeskInputHelper`、localStorage 键 | 旧文件、旧任务包和验收脚本要继续读得懂 |
-| 仓库与自动更新 | npm 包名 `agent-desk`、`shuqianglin1997/agent-desk` | GitHub 仓库还没改名（要所有者在网页上改）。地址只写在 `package.json` 的 `repository` 一处，自动更新从那里读，以后改那一处 |
+| npm 包名 | `agent-desk` | 只在 `package.json` 的 `name` 里，不出现在界面和安装包文件名上 |
+
+仓库已在 2026-11-25 由所有者改名为 `shuqianglin1997/catshelf`，旧地址 `shuqianglin1997/agent-desk` 自动跳转。地址只写在 `package.json` 的 `repository`、`homepage` 与 `bugs`，自动更新和安装包里记录的源码地址都从 `repository` 读。
 
 自动更新认发布产物时 `catshelf` 与 `agentdesk` 两种文件名都认。现在没有公开发布，所以不存在只认旧文件名的已发布版本。
 
@@ -59,4 +61,4 @@ Windows 上的 `safeStorage` 把密钥存在数据目录的 `Local State` 里，
 
 - Windows：数据目录、`safeStorage`、portable 自更新的文件名都没在 Windows 上实测。
 - 真实钥匙串：只在探针里看过名字，没有用装好的新版本打开设备网解一次钥匙。装好后第一次打开“设备”时，系统可能像每次重装开发版一样问一次是否允许访问 `AgentDesk Safe Storage`。
-- 商标没人查过；GitHub 仓库改名要所有者自己在网页上做，推送暂停。
+- 商标没人查过。

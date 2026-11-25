@@ -22,7 +22,7 @@ The source is version `0.10.1-preview.1`, a Preview. There is **no public Previe
 
 ## Download and install
 
-When a matching Preview passes the release gate, [GitHub Releases](https://github.com/shuqianglin1997/agent-desk/releases) will contain exactly:
+When a matching Preview passes the release gate, [GitHub Releases](https://github.com/shuqianglin1997/catshelf/releases) will contain exactly:
 
 - macOS: `Catshelf-<version>-universal.dmg`
 - Windows: `Catshelf-<version>-portable-x64.exe`
@@ -102,7 +102,7 @@ Start at the [documentation map](docs/README.md). Product facts: [docs/PRODUCT.m
 
 ## 下载与安装
 
-对应的 Preview 通过发布门禁后，[GitHub Releases](https://github.com/shuqianglin1997/agent-desk/releases) 里只有三个文件：macOS 的 `Catshelf-<版本>-universal.dmg`、Windows 的 `Catshelf-<版本>-portable-x64.exe`，以及校验文件 `SHA256SUMS.txt`。不要安装旧的 v0.9.0 macOS 镜像（苹果已将这个未签名的包标为吊销）。
+对应的 Preview 通过发布门禁后，[GitHub Releases](https://github.com/shuqianglin1997/catshelf/releases) 里只有三个文件：macOS 的 `Catshelf-<版本>-universal.dmg`、Windows 的 `Catshelf-<版本>-portable-x64.exe`，以及校验文件 `SHA256SUMS.txt`。不要安装旧的 v0.9.0 macOS 镜像（苹果已将这个未签名的包标为吊销）。
 
 macOS 上把 Catshelf.app 拖进“应用程序”后正常打开，不要绕过系统的安全检查；Windows 上直接运行 portable 版 `.exe`，Store/MSIX 的路径说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
 

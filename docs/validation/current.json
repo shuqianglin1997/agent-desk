@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T08:29:24.816Z",
-  "baseCommit": "abc0c433be624b7b2bcfa8cd4f1b4ceef260e9ae",
+  "recordedAt": "2026-11-25T08:35:39.573Z",
+  "baseCommit": "3dec1e02d03cf4a3f067a59ea1285c89a83e9b63",
   "uncommitted": true,
-  "sourceSha256": "cb03e463bdee8e0c61b5067e73c4e55e38e901a01ea07b8bc54b1bd9a2080dd8",
+  "sourceSha256": "1b4f541305bed736b911470729f3796e038aaec0e1c58dd71eb4d42104a576bc",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1015,
+      "pass": 1013,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after the repository address moved to shuqianglin1997/catshelf (the owner renamed it on GitHub on 2026-11-25; the old address redirects): package.json repository, homepage and bugs, so the updater and the packed build record follow; tests and the CLI golden updated for the new name only",
+      "recordedAt": "2026-11-25T08:35:39.573Z",
+      "sourceSha256": "1b4f541305bed736b911470729f3796e038aaec0e1c58dd71eb4d42104a576bc"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax and type check",
+      "recordedAt": "2026-11-25T08:35:39.573Z",
+      "sourceSha256": "1b4f541305bed736b911470729f3796e038aaec0e1c58dd71eb4d42104a576bc"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

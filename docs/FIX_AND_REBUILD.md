@@ -1,6 +1,6 @@
 # 帮装了 Catshelf 的人修问题、重新打包
 
-这一页写给 AI 助手：有人装了 Catshelf（猫架，原名 AgentDesk），用的时候遇到问题，请你帮他修好，再在他自己的电脑上打一个新包装上。按下面的顺序做。仓库根目录的 `AGENTS.md` 里，“Only in the owner's own checkout”以外的规矩对你同样适用；那一节只属于项目所有者，你无权向 `shuqianglin1997/agent-desk` 推送。
+这一页写给 AI 助手：有人装了 Catshelf（猫架，原名 AgentDesk），用的时候遇到问题，请你帮他修好，再在他自己的电脑上打一个新包装上。按下面的顺序做。仓库根目录的 `AGENTS.md` 里，“Only in the owner's own checkout”以外的规矩对你同样适用；那一节只属于项目所有者，你无权向 `shuqianglin1997/catshelf` 推送。
 
 当前源码的验证范围见[验证记录](VALIDATION.md)，发布门禁见 [RELEASING.md](RELEASING.md)。
 
@@ -39,7 +39,7 @@ macOS 上，应用菜单里的“关于 Catshelf”（About Catshelf）也写着
 ## 2. 取回同一份源码
 
 ```bash
-git clone https://github.com/shuqianglin1997/agent-desk.git catshelf
+git clone https://github.com/shuqianglin1997/catshelf.git
 cd catshelf
 git checkout <data.build.commit>
 ```
@@ -102,5 +102,5 @@ npm run build:win
 ## 7. 不要做的
 
 - 不要把这个包发给其他人下载，也不要当成本项目的发布版本：本项目对外只发经过签名和公证的 Preview（见 [RELEASING.md](RELEASING.md)）。
-- 不要向 `shuqianglin1997/agent-desk` 推送。他愿意的话，可以从自己的 fork 提一个 pull request，把修复交回项目。
+- 不要向 `shuqianglin1997/catshelf` 推送。他愿意的话，可以从自己的 fork 提一个 pull request，把修复交回项目。
 - 不要为了绕过系统安全提示去改系统设置或去掉文件的隔离属性；在他自己电脑上打的包本来就不需要。

@@ -78,7 +78,8 @@ test('名字：显示 Catshelf／猫架，程序包标识与数据目录名不�
 
 test('仓库地址只在 package.json 的 repository 一处，其余两处跟着它', () => {
   const { owner, name } = product.REPOSITORY;
-  assert.deepEqual({ owner, name }, { owner: 'shuqianglin1997', name: 'agent-desk' });
+  // Renamed from agent-desk on 2026-11-25 (docs/RENAME_PLAN.md); the old address redirects.
+  assert.deepEqual({ owner, name }, { owner: 'shuqianglin1997', name: 'catshelf' });
   assert.equal(packageJson.homepage, `https://github.com/${owner}/${name}`);
   assert.equal(packageJson.bugs.url, `https://github.com/${owner}/${name}/issues`);
   assert.equal(require('../src/updater').REPOSITORY, product.REPOSITORY);

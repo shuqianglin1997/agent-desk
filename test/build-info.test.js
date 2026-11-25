@@ -60,7 +60,7 @@ test('without git (a source download) the commit is unknown, not guessed', (t) =
 
 test('a packaged copy reports its build; a source checkout does not trust a stale build-info.json', (t) => {
   const base = makeTempDir(t, 'agentdesk-build-info-');
-  const repository = 'https://github.com/shuqianglin1997/agent-desk';
+  const repository = 'https://github.com/shuqianglin1997/catshelf';
   const asar = path.join(base, 'Catshelf.app', 'Contents', 'Resources', 'app.asar');
   write(path.join(asar, 'package.json'), JSON.stringify(packageJson));
   write(path.join(asar, 'build-info.json'), JSON.stringify({ schemaVersion: 1, commit: COMMIT, dirty: true }));
@@ -79,7 +79,7 @@ test('a packaged copy reports its build; a source checkout does not trust a stal
 });
 
 test('the macOS About panel names the version, the short commit and where the source is', () => {
-  const repository = 'https://github.com/shuqianglin1997/agent-desk';
+  const repository = 'https://github.com/shuqianglin1997/catshelf';
   assert.deepEqual(product.aboutPanelOptions({ version: '0.10.1-preview.1', packaged: true, commit: COMMIT, dirty: false, repository }), {
     applicationVersion: '0.10.1-preview.1',
     version: 'aaaaaaa',
