@@ -7,6 +7,13 @@
  * a cancel stops it. The Renderer only receives display paths and one-time
  * selection IDs; Main keeps the real location and re-checks it before
  * registering. No credentials are read for output, copied or moved here.
+ *
+ * With a device mesh the desk shows only the accounts in the account catalog,
+ * so a registered location is "on the desk" only when an account owns it
+ * (deskPlacement). One that is registered but owned by no account can be
+ * picked again: registering it reuses its Profile and bringToDesk puts it on
+ * the desk under the mesh rules. Without a mesh deskPlacement gives null and
+ * every registered location is on the desk, as before.
  */
 
 const os = require('node:os');
@@ -21,7 +28,15 @@ function shortPath(value, home) {
   return value;
 }
 
-function publicLocation(location, selections, home = os.homedir()) {
+// Whether a registered location is on the desk: null when it is not
+// registered, true without a mesh (onDesk is null), otherwise whether an
+// account on the desk owns its Profile.
+function onDeskOf(profileId, onDesk) {
+  if (!profileId) return null;
+  return onDesk ? onDesk.has(String(profileId)) : true;
+}
+
+function publicLocation(location, selections, home = os.homedir(), onDesk = null) {
   const shownPath = location.kind === 'desktop' ? location.profilePath : location.sessionRoot;
   const { selectionId, displayPath } = selections.issue({
     kind: 'client-location',
@@ -47,7 +62,8 @@ function publicLocation(location, selections, home = os.homedir()) {
     isDefault: location.isDefault === true,
     identity,
     sessionCount: Number.isInteger(location.sessionCount) ? location.sessionCount : null,
-    registeredProfileId: location.registeredProfileId || null
+    registeredProfileId: location.registeredProfileId || null,
+    onDesk: onDeskOf(location.registeredProfileId, onDesk)
   };
 }
 
@@ -57,11 +73,18 @@ function createRecruitHandlers(deps) {
     loadProfiles,
     registerLocations,
     pickDirectory,
+    deskPlacement = () => null,
+    bringToDesk = null,
     env = process.env,
     home = os.homedir(),
     discovery = accountDiscovery
   } = deps;
   let running = null;
+
+  // A failed read of the mesh falls back to the no-mesh answer.
+  function placement() {
+    try { return deskPlacement() || null; } catch (_error) { return null; }
+  }
 
   function cancel() {
     running?.abort();
@@ -79,9 +102,10 @@ function createRecruitHandlers(deps) {
       const described = await discovery.describeLocations(result.locations, {
         profiles: loadProfiles(), home, signal: controller.signal
       });
+      const onDesk = placement();
       return {
         ok: true,
-        locations: described.map((location) => publicLocation(location, selections, home)),
+        locations: described.map((location) => publicLocation(location, selections, home, onDesk)),
         hints: result.hints.map((hint) => ({ appId: hint.appId, kind: hint.kind, displayPath: shortPath(hint.path, home) })),
         ambiguousCount: result.ambiguous.length,
         truncated: result.truncated,
@@ -132,12 +156,25 @@ function createRecruitHandlers(deps) {
       return { selectionId: item.selectionId, ...outcome };
     });
     selections.consume(valid.map((item) => item.selectionId));
+    // With a mesh, the registered locations no account owns go onto the desk.
+    const before = placement();
+    const offDesk = before
+      ? results.filter((item) => item.ok && !before.has(String(item.profileId))).map((item) => item.profileId)
+      : [];
+    let deskReasonCode;
+    if (offDesk.length && bringToDesk) {
+      const placed = bringToDesk(offDesk);
+      if (!placed?.ok) deskReasonCode = placed?.reasonCode || 'mesh-operation-failed';
+    }
+    const onDesk = offDesk.length ? placement() : before;
+    for (const item of results) if (item.ok) item.onDesk = onDeskOf(item.profileId, onDesk);
     const added = results.filter((item) => item.ok && !item.existing).length;
     return {
       ok: results.some((item) => item.ok),
       added,
       existing: results.filter((item) => item.ok && item.existing).length,
       failed: results.filter((item) => !item.ok).length,
+      ...(deskReasonCode ? { deskReasonCode } : {}),
       results
     };
   }

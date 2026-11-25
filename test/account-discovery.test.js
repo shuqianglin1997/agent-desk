@@ -215,7 +215,7 @@ test('recruit IPC hands out selection IDs only, re-checks locations and register
   assert.equal(scanned.ok, true);
   assert.ok(scanned.locations.length >= 13);
   for (const location of scanned.locations) {
-    assert.deepEqual(Object.keys(location).sort(), ['appId', 'displayPath', 'identity', 'isDefault', 'registeredProfileId', 'selectionId', 'sessionCount', 'shortPath', 'source']);
+    assert.deepEqual(Object.keys(location).sort(), ['appId', 'displayPath', 'identity', 'isDefault', 'onDesk', 'registeredProfileId', 'selectionId', 'sessionCount', 'shortPath', 'source']);
   }
   assert.equal(JSON.stringify(scanned).includes(SECRET), false);
   const pick = (appId, source) => scanned.locations.find((item) => item.appId === appId && item.source === source).selectionId;

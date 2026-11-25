@@ -369,10 +369,14 @@
         ...homes.map((home) => {
           const sessions = !Number.isInteger(home.sessionCount) ? tr('recruit.existing.sessionsUnknown')
             : tr(home.sessionCount === 1 ? 'recruit.existing.sessionsOne' : 'recruit.existing.sessions', { n: home.sessionCount });
-          const registered = Boolean(home.registeredProfileId);
-          return el('label', { className: `recruit-home${registered ? ' is-registered' : ''}` },
+          // Registered and owned by an account on the desk: nothing to do.
+          // Registered but owned by no account (with a device mesh): it can
+          // be picked again to put it back on the desk.
+          const onDesk = Boolean(home.registeredProfileId) && home.onDesk !== false;
+          const offDesk = Boolean(home.registeredProfileId) && home.onDesk === false;
+          return el('label', { className: `recruit-home${onDesk ? ' is-registered' : ''}${offDesk ? ' is-off-desk' : ''}` },
             el('input', {
-              type: 'checkbox', checked: state.checked.has(home.selectionId), disabled: registered || state.busy,
+              type: 'checkbox', checked: state.checked.has(home.selectionId), disabled: onDesk || state.busy,
               onchange: (event) => {
                 if (event.target.checked) state.checked.add(home.selectionId);
                 else state.checked.delete(home.selectionId);
@@ -383,7 +387,8 @@
               el('b', { text: identityText(home) }),
               el('small', { text: `${sessions} · ${translated(`recruit.existing.source.${home.source}`, 'recruit.existing.source.default')}` }),
               el('code', { text: pathText(home), title: home.displayPath })),
-            registered ? el('em', { text: tr('recruit.existing.registered') }) : null
+            onDesk ? el('em', { text: tr('recruit.existing.registered') })
+              : (offDesk ? el('em', { text: tr('catalog.unassigned.state') }) : null)
           );
         })
       ));
@@ -411,14 +416,19 @@
     state.checked.clear();
     for (const item of result?.results || []) {
       const home = state.homes.find((entry) => entry.selectionId === item.selectionId);
-      if (home && item.ok) home.registeredProfileId = item.profileId;
+      if (home && item.ok) {
+        home.registeredProfileId = item.profileId;
+        home.onDesk = item.onDesk !== false;
+      }
     }
     const added = result?.added || 0;
     const failed = result?.failed || 0;
+    const registered = added + (result?.existing || 0);
+    const missing = (result?.results || []).filter((item) => item.ok && item.onDesk === false).length;
     renderExisting();
-    setStatus(failed
-      ? tr('recruit.existing.partial', { n: added + (result?.existing || 0), failed })
-      : tr('recruit.existing.registered.done', { n: added + (result?.existing || 0) }), failed ? 'error' : 'neutral');
+    setStatus(failed ? tr('recruit.existing.partial', { n: registered, failed })
+      : missing ? tr('recruit.existing.notPlaced', { n: registered, missing })
+        : tr('recruit.existing.registered.done', { n: registered }), failed || missing ? 'error' : 'neutral');
     const first = (result?.results || []).find((item) => item.ok && !item.existing) || (result?.results || []).find((item) => item.ok);
     if (first) await afterAccountChange(first.profileId);
   }

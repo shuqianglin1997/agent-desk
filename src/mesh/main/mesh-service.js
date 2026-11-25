@@ -133,6 +133,86 @@ class MeshService {
     }
   }
 
+  // This device's Profiles that an account on the desk owns, read without
+  // keys and without any write (recruit "bring back"). A Profile counts when
+  // its Slot is linked to a live account, as the desk and the device page's
+  // "awaiting an account" list decide. null without a device mesh: then the
+  // desk shows every registered Profile.
+  localProfilesOnDesk() {
+    if (!fs.existsSync(this.databasePath)) return null;
+    const store = new MeshStore(this.databasePath);
+    try {
+      const snapshot = store.readSnapshot();
+      if (!snapshot) return null;
+      const agentIds = new Set((snapshot.agents || []).map((agent) => agent?.agentId));
+      const onDesk = new Set();
+      for (const slot of snapshot.slots || []) {
+        if (slot?.deviceId === snapshot.mesh.localDeviceId && linkedSlot(slot) && agentIds.has(slot.agentId)) {
+          onDesk.add(String(slot.profileId));
+        }
+      }
+      return onDesk;
+    } finally {
+      store.close();
+    }
+  }
+
+  // Recruit "bring back": the person picked these registered local Profiles
+  // to put on the desk; their registrations are reused, never repeated. The
+  // keyed reconcile gives a Profile without a Slot its Slot as for any new
+  // Profile (a strong account key joins its live sign-in, otherwise a new
+  // account). A Slot left without an account (its account was removed or
+  // its sign-in changed) is assigned explicitly: to the live sign-in with
+  // the same strong account key, otherwise to a new account with a new id,
+  // so a removed account is never revived (plan 10.9 and 17.5).
+  bringLocalProfilesToDesk(profileIds = []) {
+    const wanted = new Set((Array.isArray(profileIds) ? profileIds : [])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean));
+    const overview = this.getOverview();
+    if (!overview.initialized) throw new Error('mesh-not-initialized');
+    if (overview.keyState !== 'available') throw new Error(overview.keyState || 'mesh-keys-unavailable');
+    const profiles = new Map(this.currentProfiles().map((profile) => [String(profile.id), profile]));
+    const waiting = overview.slots
+      .filter((slot) => (
+        slot.deviceId === overview.localDeviceId
+        && wanted.has(String(slot.profileId))
+        && profiles.has(String(slot.profileId))
+        && !linkedSlot(slot)
+      ))
+      .map((slot) => String(slot.profileId));
+    if (!waiting.length) return overview;
+    const deviceId = overview.localDeviceId;
+    return this.mutateCatalog({}, 'catalog.slot-assigned', (catalog) => waiting.reduce((current, profileId) => {
+      const slot = current.slots.find((item) => item.deviceId === deviceId && item.profileId === profileId);
+      if (!slot || linkedSlot(slot)) return current;
+      const provider = providerNamespace(slot.appId, apps.clientFacts);
+      const binding = slot.observedAccountKey
+        ? current.accountBindings.find((item) => (
+          item.providerNamespace === provider && item.meshScopedAccountKey === slot.observedAccountKey
+        ))
+        : null;
+      const profile = profiles.get(profileId);
+      const input = binding
+        ? { deviceId, profileId, mode: 'existing-binding', accountBindingId: binding.accountBindingId }
+        : {
+            deviceId,
+            profileId,
+            mode: 'new-agent',
+            displayName: profile.name,
+            displayAlias: profile.name,
+            catAppearance: profile.cat || null,
+            group: profile.group,
+            note: profile.note
+          };
+      return assignSlot(current, input, {
+        clientFacts: apps.clientFacts,
+        now: this.now(),
+        randomUUID: this.randomUUID
+      });
+    }, catalog));
+  }
+
   getOverview(options = {}) {
     if (!fs.existsSync(this.databasePath)) return this.uninitializedOverview();
     const store = new MeshStore(this.databasePath);
@@ -1921,6 +2001,11 @@ function createKeyMemo(fingerprint, version, limit) {
       values.set(encoded, key);
     }
   };
+}
+
+// A Slot an account on the desk owns (src/agent-workspace.js shows only these).
+function linkedSlot(slot) {
+  return slot?.assignmentState === 'linked' && Boolean(slot.agentId) && Boolean(slot.accountBindingId);
 }
 
 function cleanName(value) {

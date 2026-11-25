@@ -629,7 +629,7 @@ function renderMeshAgentList(overview) {
       const action = document.createElement('span');
       action.textContent = tr('catalog.unassigned.action');
       const meta = document.createElement('small');
-      meta.textContent = `${appLabel(slot.appId)} · ${slot.assignmentState || 'pending'}`;
+      meta.textContent = `${appLabel(slot.appId)} · ${tr('catalog.unassigned.state')}`;
       card.append(name, action, meta);
       card.addEventListener('click', () => openSlotAssignmentDialog(slot));
       els.meshAgentList.append(card);

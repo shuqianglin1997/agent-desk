@@ -364,7 +364,7 @@ ProvisioningService 把状态观察和外部界面副作用分开。`resumeActiv
 命令层：`src/commands/` 是命令表，窗口能向 Main 发起的每个操作是一条命令（标识、通道、调用它的 preload 方法、可选的 input/poll，以及 exec），按功能一个文件；`registry.js` 汇总并校验，`events.js` 是 Main 发给窗口的通知。命令不引用 Electron，Main 把用到的服务作为参数传入，所以测试可以用替身依赖直接运行一条命令。只为命令服务的 Main 模块也在这一层：
 
 - `src/main/accounts.js` 新建与登记账号、检查拖进来的东西、把粘贴的密钥交给账号自己的客户端；`src/main/profile-registration.js` 已有目录的登记规划与一次保存的批量登记（幂等）。
-- `src/main/recruit-discovery.js` 发现已有客户端目录，结果只发一次性选择编号，登记前在 Main 重新核对；`src/main/recruit-items.js` 拖进来或选中的文件夹、登录文件：先判定会做什么（原地登记、复制、已在台面上），执行前再核对一次。
+- `src/main/recruit-discovery.js` 发现已有客户端目录，结果只发一次性选择编号，登记前在 Main 重新核对；建了设备网时用 `MeshService.localProfilesOnDesk()`（不取钥匙、不写）判断已登记的位置有没有账号认领（`onDesk`），没有的可以再勾选，登记时经 `bringLocalProfilesToDesk()` 放回台面；`src/main/recruit-items.js` 拖进来或选中的文件夹、登录文件：先判定会做什么（原地登记、复制、已在台面上），执行前再核对一次。
 - `src/main/session-files.js` 对选中会话的操作：显示文件、打开所在文件夹、导出；`src/main/session-actions.js` 把会话选择解析回确切的本机记录。
 - `src/main/hub-wiring.js` 调度中枢在 Main 这一侧的接线与命令行桌面动作的转发。
 - `src/automation/service.js` 本地只读命令的外壳，`src/automation/local-locations.js` 命令行读本机位置，`src/automation/packaged-cli.js` 成品命令行。

@@ -644,6 +644,10 @@ function registerIpc() {
     selections: recruitSelectionRegistry,
     loadProfiles,
     registerLocations,
+    // With a device mesh only accounts in the account catalog are on the
+    // desk; a registered location no account owns is put there on request.
+    deskPlacement: () => getMeshService().localProfilesOnDesk(),
+    bringToDesk: (profileIds) => catalogMeshCall(() => getMeshService().bringLocalProfilesToDesk(profileIds)),
     pickDirectory: async () => {
       const result = await dialog.showOpenDialog(mainWindow, {
         title: t('main.picker.recruitFolder'),

@@ -65,7 +65,7 @@ Personal Agent Mesh 稳定区分全局 AgentIdentity、实际登录 AccountBindi
 - 客户端显示名、官方包名和可执行文件名分别由注册表声明；Codex 在 macOS 上识别当前 `ChatGPT.app`，不会因产品标签仍叫 Codex 而误判未安装。Claude、Codex、Kimi Code 与 Cursor 的每个受管 Profile 都使用独立 `user-data-dir` 和客户端专用会话环境，同一官方程序可并行承载多个 Profile；已知不接受独立目录的 Kimi Work 只允许官方默认槽位，不伪造隔离多开；
 - 启动前精确检查同一 `user-data-dir`，不重复拉起；Catshelf 正常退出默认关闭自己启动的 Profile，显式选择保留时说明退出期间不再监管；
 - 每个受管 Profile 的 `Crashpad/pending` 受 100 文件/200 MiB 双上限和一分钟 5 个同尺寸 dump 的风暴熔断保护；普通关闭只处理 Catshelf owned 进程，已确认磁盘事故可按精确 Profile 路径停止 Catshelf 自己 Profiles 根内的升级/异常退出遗留进程，无所有权的官方默认/custom 目录不被后台清理或停机；安全清理只删除直属 dump/sidecar，不触碰 Agent 数据；
-- 添加账号是 Agent 标题行的一个“招募”弹窗，分四段：新来一只、把已有的领回来、拖进来、交给 AI；首次使用的“导入 Codex”和“高级：手动导入运行位置”打开它的对应段。客户端在原有七种之外加了 OpenCode、Gemini CLI、Qwen Code（会话扫描、终端启动与账号隔离）。已登记客户端都能在默认位置、环境变量目录、主目录（最多四层、跳过隐私授权目录和云盘、有时间与数量上限、可取消）和用户指定的文件夹里被认出，多选后一次登记，只登记目录、不复制登录，已登记的标为已在台面上；Codex、Claude CLI、Kimi Code、DSH 可以粘贴密钥或令牌、或填接口账号（地址、密钥、模型），密钥只交给该账号自己的官方客户端，Catshelf 不保存；DSH、Kimi Code、Codex 与 Windows/Linux 的 Claude CLI 登录文件可以导入到新的独立目录，复制前提示原处可能掉线；成品命令行提供同源的 `profiles discover`、`create`、`set-key`（只读标准输入）、`status` 与 `import-auth`；
+- 添加账号是 Agent 标题行的一个“招募”弹窗，分四段：新来一只、把已有的领回来、拖进来、交给 AI；首次使用的“导入 Codex”和“高级：手动导入运行位置”打开它的对应段。客户端在原有七种之外加了 OpenCode、Gemini CLI、Qwen Code（会话扫描、终端启动与账号隔离）。已登记客户端都能在默认位置、环境变量目录、主目录（最多四层、跳过隐私授权目录和云盘、有时间与数量上限、可取消）和用户指定的文件夹里被认出，多选后一次登记，只登记目录、不复制登录，已登记的标为已在台面上（建了设备网时，没有账号认领的标为“已登记，不在台面上”，可以再勾选放回台面）；Codex、Claude CLI、Kimi Code、DSH 可以粘贴密钥或令牌、或填接口账号（地址、密钥、模型），密钥只交给该账号自己的官方客户端，Catshelf 不保存；DSH、Kimi Code、Codex 与 Windows/Linux 的 Claude CLI 登录文件可以导入到新的独立目录，复制前提示原处可能掉线；成品命令行提供同源的 `profiles discover`、`create`、`set-key`（只读标准输入）、`status` 与 `import-auth`；
 - 同一登录可通过手动 identityKey 或本地指纹归组；
 - Windows 支持传统安装与 Store/MSIX 路径；
 - 配置使用本地 JSON、原子写入和备份。

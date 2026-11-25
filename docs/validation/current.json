@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T07:54:32.681Z",
-  "baseCommit": "36cac1df3b36e8dcb8f02fa1eef99b937fbda66b",
+  "recordedAt": "2026-11-25T08:04:27.075Z",
+  "baseCommit": "7add5202480e5157b88aa9f71851d840d01b65c2",
   "uncommitted": true,
-  "sourceSha256": "4dd599aebdce67321a603432341d38db676429c30393369d540bce31725c8d49",
+  "sourceSha256": "d4ad3ec2c0f46975ff0a3b0341f11100497f0b815f9b589d3a40b2f0088a3f5f",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,31 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1008,
+      "pass": 1006,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after recruit \"bring back\" learned the device mesh: a registered location that no account on the desk owns is reported onDesk=false and can be picked; registering it reuses its Profile and puts it on the desk (keyed reconcile for a Profile without a Slot; an unassigned Slot joins the live sign-in with the same strong key, otherwise a new account with a new id). New test/recruit-desk-placement.test.js (5 tests): removed account, keys deferred at registration, strong-key rejoin, desk update failure, no mesh unchanged",
+      "recordedAt": "2026-11-25T08:04:27.075Z",
+      "sourceSha256": "d4ad3ec2c0f46975ff0a3b0341f11100497f0b815f9b589d3a40b2f0088a3f5f"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax and type check",
+      "recordedAt": "2026-11-25T08:04:27.075Z",
+      "sourceSha256": "d4ad3ec2c0f46975ff0a3b0341f11100497f0b815f9b589d3a40b2f0088a3f5f"
+    },
+    {
+      "command": "scratch hidden-window script reusing scripts/ui-acceptance.js launcher (temp userData and HOME, CODEX_HOME pointed at a temp Codex home, window never shown, no client launched)",
+      "result": "passed",
+      "scope": "Recruit path only: build the account catalog with two Codex locations, remove one account; the device page lists the location under 待归属位置 as \"Codex · 已登记，不在台面上\"; recruit 把已有的领回来 shows the same words with the box enabled; picking it and 登记所选 shows 已在台面上, the desk goes from 账号 ×1 to ×2, the location's Slot is linked to a new account id, profiles.json still has 2 entries; zh only, light theme; the deferred-key path (ad-hoc packaged build) is covered by the Node test, not by this run; not a visible-window run",
+      "recordedAt": "2026-11-25T08:04:27.075Z",
+      "sourceSha256": "d4ad3ec2c0f46975ff0a3b0341f11100497f0b815f9b589d3a40b2f0088a3f5f"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",
