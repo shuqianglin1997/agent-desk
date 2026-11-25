@@ -3,11 +3,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { rendererSource } = require('./helpers/renderer-source');
+const { page, styleRules, declared } = require('./helpers/behaviour');
 
 const ROOT = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(ROOT, 'src/index.html'), 'utf8');
 const renderer = rendererSource();
-const css = fs.readFileSync(path.join(ROOT, 'src/workspace.css'), 'utf8');
+const doc = page();
 
 function bodyOf(name, nextName) {
   const start = renderer.indexOf(`function ${name}`);
@@ -17,19 +17,23 @@ function bodyOf(name, nextName) {
 }
 
 test('添加设备使用固定 Header、滚动 Content、固定 Footer 的子任务 Dialog', () => {
-  assert.match(html, /id="deviceJourneyDialog"[\s\S]*?utility-dialog-header[\s\S]*?device-journey-content[\s\S]*?device-journey-footer/);
-  assert.match(html, /id="deviceJourneyCloseBtn"[^>]*type="button"/);
+  const dialog = doc.byId('deviceJourneyDialog');
+  const part = (name) => doc.all((el) => doc.hasClass(el, name) && doc.within(el, dialog))[0];
+  const order = ['utility-dialog-header', 'device-journey-content', 'device-journey-footer'].map((name) => doc.index(part(name)));
+  assert.ok(order.every((i) => i > 0) && order[0] < order[1] && order[1] < order[2], 'header, content, footer in order');
+  assert.equal(doc.byId('deviceJourneyCloseBtn').attrs.type, 'button');
   // 弹窗跟着内容长高，不再写死期望高度。
-  assert.doesNotMatch(css, /--dialog-preferred-height/);
+  assert.deepEqual(styleRules(null).filter((rule) => '--dialog-preferred-height' in rule.decls), []);
   // The pixel skin's rule for the dialog shell sets the height (unlayered, so it
   // always wins over workspace.css's layers).
-  assert.match(fs.readFileSync(path.join(ROOT, 'src/pixel.css'), 'utf8'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?height:\s*auto;[^}]*?max-height:\s*calc\(100dvh/);
-  assert.match(css, /\.device-journey-content\s*\{[\s\S]*?display:\s*grid/);
+  const shell = styleRules('dialog .dialog-body.utility-dialog-shell').filter((rule) => rule.layer === null && !rule.conditional);
+  assert.ok(shell.some((rule) => rule.decls.height === 'auto' && /^calc\(100dvh/.test(rule.decls['max-height'] || '')), 'the skin lets the shell grow up to the window');
+  assert.equal(declared('.device-journey-content', 'display'), 'grid');
 });
 
 test('身份、信任、连接、目录、库存按独立步骤呈现', () => {
   for (const step of ['identity', 'trust', 'connect', 'catalog', 'inventory']) {
-    assert.match(html, new RegExp(`data-step="${step}"`));
+    assert.ok(doc.all((el) => el.attrs['data-step'] === step).length > 0, `step ${step} is on the page`);
   }
   const facts = bodyOf('renderDeviceJourneyFacts', 'renderDeviceJourneyActions');
   assert.match(facts, /\['trust',\s*value\.trusted/);
@@ -40,13 +44,14 @@ test('身份、信任、连接、目录、库存按独立步骤呈现', () => {
 });
 
 test('普通添加与加入入口进入任务向导，30 分钟接收只留在高级更多菜单', () => {
-  assert.match(html, /id="deviceCenterMoreMenu"[\s\S]*?id="receiveConnectionsBtn"/);
+  assert.ok(doc.within(doc.byId('receiveConnectionsBtn'), doc.byId('deviceCenterMoreMenu')), 'receiving connections is in the device page\'s more menu');
   // bindEvents and the bind…Events parts it calls, in the view modules.
   const bind = rendererSource().match(/^function bind\w*Events\(\) \{\n[\s\S]*?^\}/gm).join('\n');
   assert.match(bind, /showJoinMeshBtn[\s\S]*?openDeviceJourney\('join'/);
   assert.match(bind, /createDeviceInviteBtn[\s\S]*?openDeviceJourney\('host'/);
-  const journey = html.slice(html.indexOf('id="deviceJourneyDialog"'), html.indexOf('id="devicePermissionsDialog"'));
-  assert.doesNotMatch(journey, /receiveConnectionsBtn|接收连接 30 分钟/);
+  const journey = doc.byId('deviceJourneyDialog');
+  assert.equal(doc.within(doc.byId('receiveConnectionsBtn'), journey), false);
+  assert.doesNotMatch(doc.text(journey), /接收连接 30 分钟/);
 });
 
 test('加入前必须经过 Main 验签预览和确认 token；契约缺失时失败关闭', () => {

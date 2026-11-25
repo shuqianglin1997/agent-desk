@@ -3,12 +3,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { rendererSource } = require('./helpers/renderer-source');
+const { page, styleRules, declared, loadPreload } = require('./helpers/behaviour');
 
 const ROOT = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(ROOT, 'src/index.html'), 'utf8');
 const renderer = rendererSource();
-const css = fs.readFileSync(path.join(ROOT, 'src/workspace.css'), 'utf8');
-const preload = fs.readFileSync(path.join(ROOT, 'src/preload.js'), 'utf8');
+const doc = page();
 
 function bodyOf(name, nextName) {
   const start = renderer.indexOf(`function ${name}`);
@@ -18,16 +17,18 @@ function bodyOf(name, nextName) {
 }
 
 test('首次使用复用有界 Dialog，不改变 Header/Footer/三面板骨架', () => {
-  assert.equal((html.match(/<header class="app-topbar">/g) || []).length, 1);
-  assert.equal((html.match(/<footer id="statusBar"/g) || []).length, 1);
+  assert.equal(doc.all((el) => el.tag === 'header' && doc.hasClass(el, 'app-topbar')).length, 1);
+  assert.equal(doc.all((el) => el.tag === 'footer' && el.attrs.id === 'statusBar').length, 1);
   for (const id of ['agentPanel', 'sessionPane', 'detailPanel']) {
-    assert.match(html, new RegExp(`id="${id}"`));
+    assert.ok(doc.byId(id), `${id} exists`);
   }
-  assert.match(html, /id="welcomeDialog"[\s\S]*?id="onboardingContent"/);
-  assert.match(html, /id="onboardingMigration"[\s\S]*?id="onboardingAgent"[\s\S]*?id="onboardingPreparation"[\s\S]*?id="onboardingComplete"/);
-  assert.match(html, /id="onboardingFooter" class="utility-dialog-footer/);
-  assert.match(html, /id="welcomeDialogCloseBtn"[^>]*type="button"/);
-  assert.match(html, /id="welcomeDialog"[^>]*aria-labelledby="welcomeDialogTitle"[^>]*aria-describedby="welcomeDialogLead"/);
+  const dialog = doc.byId('welcomeDialog');
+  assert.ok(doc.within(doc.byId('onboardingContent'), dialog));
+  const steps = ['onboardingMigration', 'onboardingAgent', 'onboardingPreparation', 'onboardingComplete'].map((id) => doc.index(doc.byId(id)));
+  assert.deepEqual(steps, [...steps].sort((a, b) => a - b), 'the steps keep their order');
+  assert.ok(doc.hasClass(doc.byId('onboardingFooter'), 'utility-dialog-footer'));
+  assert.equal(doc.byId('welcomeDialogCloseBtn').attrs.type, 'button');
+  assert.deepEqual([dialog.attrs['aria-labelledby'], dialog.attrs['aria-describedby']], ['welcomeDialogTitle', 'welcomeDialogLead']);
   const boot = renderer.slice(
     renderer.indexOf("window.addEventListener('DOMContentLoaded'"),
     renderer.indexOf('const LEGACY_SETTING_KEYS')
@@ -53,7 +54,10 @@ test('首次使用复用有界 Dialog，不改变 Header/Footer/三面板骨架'
 
 test('首个 Agent 只提交稳定 Profile ID、名称和客户端枚举，不回退旧联网初始化', () => {
   const setup = bodyOf('startFirstAgentSetup', 'continueFirstPreparation');
-  assert.match(preload, /initializeFirstAgent:\s*\(input\s*=\s*\{\}\)\s*=>\s*ipcRenderer\.invoke\('onboarding:initializeFirstAgent', input\)/);
+  const { api, calls } = loadPreload();
+  api.initializeFirstAgent({ displayName: 'x' });
+  api.initializeFirstAgent();
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [['invoke', 'onboarding:initializeFirstAgent', { displayName: 'x' }], ['invoke', 'onboarding:initializeFirstAgent', {}]]);
   assert.match(setup, /displayName:\s*model\.draft\.displayName/);
   assert.match(setup, /requestedAppId:\s*model\.draft\.requestedAppId/);
   assert.match(setup, /requestedClientForm:\s*model\.draft\.requestedClientForm/);
@@ -73,22 +77,23 @@ test('欢迎完成版本不会在打开 Dialog 前写入，只在完成页可见
 });
 
 test('迁移预览、首选客户端和高级入口具备键盘与状态语义', () => {
-  assert.match(html, /id="onboardingMigrationList"/);
-  assert.match(html, /id="onboardingAgentName"[^>]*maxlength="80"/);
-  assert.match(html, /id="onboardingAgentClient"[^>]*aria-label=/);
-  assert.match(html, /id="onboardingStatus"[^>]*role="status"[^>]*aria-live="polite"/);
-  assert.match(html, /id="onboardingAdvancedBtn"[^>]*type="button"/);
+  assert.ok(doc.byId('onboardingMigrationList'));
+  assert.equal(doc.byId('onboardingAgentName').attrs.maxlength, '80');
+  assert.ok('aria-label' in doc.byId('onboardingAgentClient').attrs);
+  assert.deepEqual([doc.byId('onboardingStatus').attrs.role, doc.byId('onboardingStatus').attrs['aria-live']], ['status', 'polite']);
+  assert.equal(doc.byId('onboardingAdvancedBtn').attrs.type, 'button');
   assert.match(renderer, /onboardingMigrationList[\s\S]*?checkbox\.type\s*=\s*'checkbox'/);
   assert.match(renderer, /welcomeDialog\?\.querySelector\('form'\)\?\.addEventListener\('submit'/);
 });
 
 test('首用 Dialog 只让 Content 滚动，Header 与事务 Footer 保持固定并支持小视口', () => {
-  assert.match(css, /\.welcome-dialog\.is-onboarding[\s\S]*?width:\s*min\(680px/);
-  assert.doesNotMatch(css, /--dialog-preferred-height/);
+  assert.match(declared('.welcome-dialog.is-onboarding', 'width'), /^min\(680px/);
+  assert.deepEqual(styleRules(null).filter((rule) => '--dialog-preferred-height' in rule.decls), []);
   // The pixel skin's rule for the dialog shell sets the height (unlayered, so it
   // always wins over workspace.css's layers).
-  assert.match(fs.readFileSync(path.join(ROOT, 'src/pixel.css'), 'utf8'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?height:\s*auto;[^}]*?max-height:\s*calc\(100dvh/);
-  assert.match(css, /\.onboarding-migration-list[\s\S]*?overflow:\s*auto/);
-  assert.match(css, /\.onboarding-footer > span\s*\{\s*flex:\s*1/);
-  assert.match(css, /@media \(max-width:\s*680px\)[\s\S]*?\.onboarding-agent-form\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\)/);
+  const shell = styleRules('dialog .dialog-body.utility-dialog-shell').filter((rule) => rule.layer === null && !rule.conditional);
+  assert.ok(shell.some((rule) => rule.decls.height === 'auto' && /^calc\(100dvh/.test(rule.decls['max-height'] || '')), 'the skin lets the shell grow up to the window');
+  assert.equal(declared('.onboarding-migration-list', 'overflow'), 'auto');
+  assert.equal(declared('.onboarding-footer > span', 'flex'), '1');
+  assert.ok(styleRules('.onboarding-agent-form').some((rule) => rule.conditional && rule.decls['grid-template-columns'] === 'minmax(0, 1fr)'), 'one column on a narrow window');
 });

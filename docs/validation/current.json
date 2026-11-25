@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T03:14:35.698Z",
-  "baseCommit": "604c12be9b6d050b363991e3497662e6ae9173d3",
+  "recordedAt": "2026-11-25T03:16:32.804Z",
+  "baseCommit": "7e6809abdf9614d29628c791c34066e172724461",
   "uncommitted": true,
-  "sourceSha256": "5d91854f72f8fea68a5ef21e58c441621b1d6045a8c6686a67bcf8dc55ce2737",
+  "sourceSha256": "ac406aad021d3d28704f8e6ee28650f1337ad14d3fd6a76b90c5e2681ef58ae0",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 959,
+      "pass": 957,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after phase 8 batch 9 (first-use and add-device tests); digest identical before and after the run",
+      "recordedAt": "2026-11-25T03:16:32.804Z",
+      "sourceSha256": "ac406aad021d3d28704f8e6ee28650f1337ad14d3fd6a76b90c5e2681ef58ae0"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T03:16:32.804Z",
+      "sourceSha256": "ac406aad021d3d28704f8e6ee28650f1337ad14d3fd6a76b90c5e2681ef58ae0"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

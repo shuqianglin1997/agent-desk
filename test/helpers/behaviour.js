@@ -101,7 +101,7 @@ function page(file = 'src/index.html') {
 }
 
 // The main window's style rules, parsed: for a selector, every rule whose
-// selector list contains it exactly, with its sheet, layer, media and
+// selector list contains it exactly (all rules when selector is null), with its sheet, layer, media and
 // declarations ({ property: value }, !important kept on the value).
 function styleRules(selector, files = ['src/workspace.css', 'src/pixel.css', 'src/cats.css']) {
   const { cssStyleRules, splitSelectors } = require('../../scripts/arch-metrics');
@@ -123,14 +123,15 @@ function styleRules(selector, files = ['src/workspace.css', 'src/pixel.css', 'sr
       } else if (text[i] === '}') { stack.pop(); preludeStart = i + 1; } else if (text[i] === ';') preludeStart = i + 1;
     }
     for (const rule of rules) {
-      if (!splitSelectors(rule.prelude).includes(selector)) continue;
+      const selectors = splitSelectors(rule.prelude);
+      if (selector != null && !selectors.includes(selector)) continue;
       const end = text.indexOf('}', rule.declarationsStart);
       const decls = {};
       for (const part of original.slice(rule.declarationsStart, end).split(/;(?![^(]*\))/)) {
         const i = part.indexOf(':');
         if (i > 0) decls[part.slice(0, i).trim()] = part.slice(i + 1).trim().replace(/\s+/g, ' ');
       }
-      out.push({ file, conditional: rule.conditional, layer: layerAt.get(rule.declarationsStart - 1) ?? null, decls });
+      out.push({ file, selectors, conditional: rule.conditional, layer: layerAt.get(rule.declarationsStart - 1) ?? null, decls });
     }
   }
   return out;

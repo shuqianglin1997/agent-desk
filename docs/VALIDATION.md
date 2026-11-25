@@ -4,6 +4,8 @@
 
 ## 当前工作树
 
+2026-11-24 架构整理第 8 阶段第 9 批：首次使用与添加设备弹窗的测试改读解析后的页面与规则。onboarding-ui 和 device-journey-ui 不再按文字读 index.html、样式表和 preload：页面上唯一的顶栏与页脚、各弹窗的 id、ARIA 标注、按钮类型、首次使用各步骤的顺序、添加设备弹窗的头、内容、尾的顺序、各步骤以及“接收连接”放在哪里，都从解析后的页面读；弹窗宽度、迁移清单的滚动、页脚的占位、窄窗口的一列、添加设备的网格与皮肤里随内容长高的弹窗外壳从解析后的规则读（并核对没有规则再声明已退役的 --dialog-preferred-height）；创建第一个账号的调用从替身 preload 读。界面接线的检查保持原样，各自限定在所属函数里。test/helpers/behaviour.js：styleRules(null) 列出全部规则及其选择器。
+
 2026-11-24 架构整理第 8 阶段第 8 批：位置运行与额度界面的测试改读结构与行为。profile-runtime-ui：退出方式默认 close、只认 close 和 keep（normalizeSettings）；页面里的下拉框两项都有、“停止”在“清理”前（解析后的页面）；停止与清理只发位置的标识（preload），由主进程查表（命令）；崩溃报告上限 100 个、200 MiB、5 个同尺寸；在临时目录里清理会删掉旧转储，会话、Codex 目录、SQLite 文件和 pending 里的其他文件原样不动。仍按文字、各限定在一个函数里的（Node 里没有 DOM 和 Electron 的 app）：界面记住选择、清理前确认，以及主进程退出前停下受管客户端。quota-ui：浮层、浮层里的各部分、卡片与标题行上的入口从解析后的页面读，脚本顺序从页面的脚本读，--detail-w、工作台的列、会话面板的跨栏和浮层的定位从解析后的样式规则读（各取该选择器声明的那一个值）。test/helpers/behaviour.js 加 styleRules / declared：列出恰好含某个选择器的规则，带样式表、层（按花括号深度算）、媒体条件和声明。
 
 2026-11-24 架构整理第 8 阶段第 7 批：额度 IPC、Codex 配置归属与浮层按行为核对。第 8 阶段测试工作的第一批（比对文字的测试换成行为或结构检查）。test/helpers/behaviour.js：用替身 electron 运行 src/preload.js 并记下它发出的 IPC；按 IPC 外壳的方式（整理输入、poll、exec）用替身依赖运行命令表里的一条命令；把 index.html 解析成元素树。quota-ipc：preload 的 listQuotas 带着参数发 quota:all；命令刷新本机位置，只有 force 恰为 true 才强制刷新，并带上客户端版本；改了位置的路径或移除位置，它的额度缓存作废（不存在的位置什么都不变）。codex-config-ownership：新建的受管 Codex 目录只写一行（文件登录存放方式，权限 0600），别的不写；已有的 config.toml 一个字节都不变，再写一次也不变。renderer-overlays：浮层从解析后的页面里读。arch-metrics 导出 testMetrics，留作只做文字比对的测试文件清单。只做文字比对的测试文件 16 → 14。
