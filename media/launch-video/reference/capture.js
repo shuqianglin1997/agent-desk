@@ -142,7 +142,13 @@ const STATES = [
   { name: 'recruit-existing', enter: [`document.querySelector('#addProfileBtn').click()`, `[...document.querySelectorAll('#recruitDialog [role=tab]')][1]?.click()`], ready: `document.querySelector('#recruitDialog').open`, escape: true },
   { name: 'recruit-drop', enter: [`document.querySelector('#addProfileBtn').click()`, `[...document.querySelectorAll('#recruitDialog [role=tab]')][2]?.click()`], ready: `document.querySelector('#recruitDialog').open`, escape: true },
   { name: 'recruit-ai', enter: [`document.querySelector('#addProfileBtn').click()`, `[...document.querySelectorAll('#recruitDialog [role=tab]')][3]?.click()`], ready: `document.querySelector('#recruitDialog').open`, escape: true },
-  { name: 'archive', enter: [`document.querySelectorAll('#accountRoster .account-card-manage')[0].click()`], ready: `document.querySelector('#agentManageDialog').open`, escape: true }
+  { name: 'archive', enter: [`document.querySelectorAll('#accountRoster .account-card-manage')[0].click()`], ready: `document.querySelector('#agentManageDialog').open`, escape: true },
+  // The edit dialog with the cat's appearance (coat, collar, accessory).
+  { name: 'edit', enter: [`document.querySelectorAll('#accountRoster .account-card-manage')[0].click()`, `[...document.querySelectorAll('#agentManageDialog button')].find((b) => /^(编辑|Edit)/.test(b.textContent.trim())).click()`], ready: `Boolean(document.querySelector('dialog[open] .cat-customizer'))`, escape: true, leave: `document.querySelectorAll('dialog[open]').forEach((d) => d.close())` },
+  // The tag menu on a row (right click).
+  { name: 'tag-picker', enter: [`document.querySelectorAll('#sessionRows tr:not(.empty-row)')[1].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 300, clientY: 420 }))`], ready: `Boolean(document.querySelector('#sessionTagPicker:popover-open'))`, escape: true },
+  // "Send to device": the dialog as it looks with one paired device. The device is typed into the page here only to see the layout.
+  { name: 'send-dialog', enter: [`(() => { const d = document.querySelector('#sessionSendDialog'); d.querySelector('#sessionSendTarget').innerHTML = '<option>Study PC</option>'; d.querySelector('#sessionSendStatus').textContent = '…'; d.showModal(); })()`], ready: `document.querySelector('#sessionSendDialog').open`, escape: true, leave: `document.querySelector('#sessionSendDialog').close()` }
 ];
 
 async function captureLanguage(outDir, lang, tempRoot) {

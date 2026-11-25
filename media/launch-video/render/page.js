@@ -49,7 +49,7 @@ async function run(job) {
   if (job.stills) {
     // Single frames by time (seconds), or named states for checking the drawing.
     for (const still of job.stills) {
-      if (still.state) film.renderState(ctx, still.state, job.lang, still);
+      if (still.state) { const data = film.renderState(ctx, still.state, job.lang, still); if (data) { result[still.name] = data; continue; } }
       else film.render(ctx, still.t, job.lang, job.options || {});
       const file = path.join(job.out, `${still.name}.png`);
       fs.writeFileSync(file, await toPng(canvas));

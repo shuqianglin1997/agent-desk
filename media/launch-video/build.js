@@ -6,6 +6,7 @@
  *
  *   node media/launch-video/build.js stills <zh|en> <t,t,…>          single frames into out/stills/
  *   node media/launch-video/build.js film <zh|en> [from] [to] [name] frames, sound and mp4 into out/
+ *   node media/launch-video/build.js cover <zh|en>                   the 1280×720 cover into out/
  *
  * Frames are drawn by a hidden Electron page (render/), sound by audio/mix.js,
  * and the mp4 is written by the Swift encoder (encode/encode.swift) through
@@ -28,7 +29,7 @@ function electron(job) {
   delete env.ELECTRON_RUN_AS_NODE;
   const run = spawnSync(require(path.join(ROOT, 'node_modules', 'electron')), [path.join(HERE, 'render', 'main.js'), `--user-data-dir=${path.join(OUT, '.render-profile')}`, `--job=${jobFile}`], { cwd: ROOT, env, encoding: 'utf8' });
   fs.rmSync(jobFile, { force: true });
-  const noise = /Security Warning|Content-Security|unsafe-eval|unnecessary security|electronjs\.org|will not show up|once the app is packaged|console-message|^\s*$|Policy set or a policy/;
+  const noise = /For more information and help|Security Warning|Content-Security|unsafe-eval|unnecessary security|electronjs\.org|will not show up|once the app is packaged|console-message|^\s*$|Policy set or a policy/;
   const lines = `${run.stdout || ''}${run.stderr || ''}`.split(/\r?\n/).filter((line) => !noise.test(line));
   if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
   if (run.status !== 0) throw new Error(`render failed (exit ${run.status})`);
@@ -40,6 +41,19 @@ function stills(lang, times) {
   return times.map((t) => path.join(out, `${lang}-${t.toFixed(2).padStart(5, '0')}.png`));
 }
 
+// The cover image, drawn at its own size.
+function cover(lang) {
+  electron({ lang, width: 1280, height: 720, out: OUT, stills: [{ state: 'cover', name: `catshelf-cover-${lang}` }] });
+  return path.join(OUT, `catshelf-cover-${lang}.png`);
+}
+
+// Where each caption sits (frame pixels), measured with the real font.
+function captions(lang) {
+  const report = path.join(OUT, `captions-${lang}.json`);
+  electron({ lang, out: OUT, report, stills: [{ state: 'captions', name: 'captions' }] });
+  return JSON.parse(fs.readFileSync(report, 'utf8')).captions;
+}
+
 function frames(lang, from, to, name) {
   const out = path.join(OUT, 'frames', `${name}-${lang}`);
   fs.rmSync(out, { recursive: true, force: true });
@@ -48,17 +62,19 @@ function frames(lang, from, to, name) {
   return { dir: out, report: JSON.parse(fs.readFileSync(report, 'utf8')) };
 }
 
-module.exports = { electron, stills, frames, OUT, HERE, ROOT };
+module.exports = { electron, stills, frames, cover, captions, OUT, HERE, ROOT };
 
 if (require.main === module) {
   const [command, lang, ...rest] = process.argv.slice(2);
   if (command === 'stills') {
     for (const file of stills(lang, rest.join(',').split(',').map(Number))) process.stdout.write(`${file}\n`);
+  } else if (command === 'cover') {
+    process.stdout.write(`${cover(lang)}\n`);
   } else if (command === 'film') {
     const [from = '0', to = '60', name = 'film'] = rest;
     require('./assemble.js').film(lang, Number(from), Number(to), name);
   } else {
-    process.stderr.write('usage: build.js stills <lang> <t,…> | film <lang> [from] [to] [name]\n');
+    process.stderr.write('usage: build.js stills <lang> <t,…> | film <lang> [from] [to] [name] | cover <lang>\n');
     process.exitCode = 1;
   }
 }
