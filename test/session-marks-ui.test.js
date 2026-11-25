@@ -129,7 +129,8 @@ test('tags: five shapes that differ from each other, colours readable as graphic
   if (shapes.length) assert.equal(new Set(shapes.map((s) => s.join('/'))).size, 5);
   for (const name of ['tag1', 'tag2', 'tag3', 'tag4', 'tag5', 'reply', 'mail']) assert.ok(PixelIcons.svg(name).includes('<rect'), name);
   const css = read('src/pixel.css');
-  const block = (selector) => css.slice(css.indexOf(selector + ' {'), css.indexOf('}', css.indexOf(selector + ' {')));
+  // the skin's palette rules start a line (the tokens rule at the top of the file is indented in its layer)
+  const block = (selector) => css.slice(css.indexOf('\n' + selector + ' {'), css.indexOf('}', css.indexOf('\n' + selector + ' {')));
   const token = (text, name) => (text.match(new RegExp(`--px-${name}:\\s*(#[0-9A-Fa-f]{6})`)) || [])[1];
   const lum = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
     .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))

@@ -169,7 +169,7 @@ test('设备中心是独立模态弹窗，采用设备列表加所选详情且�
   assert.match(renderer, /const deviceBindingIds = new Set\(deviceSlots\.map[\s\S]*?deviceBindingIds\.has\(binding\.accountBindingId\)/);
   assert.match(renderer, /function viewDeviceSessions[\s\S]*?closeUtilityDialog\(els\.deviceCenterDialog\)[\s\S]*?UiContext\.viewDeviceSessions\(state\.ui, device\.deviceId\)[\s\S]*?setWorkspaceMode\('sessions'\)/);
   assert.match(renderer, /function viewDeviceAgentSessions[\s\S]*?UiContext\.viewDeviceAgentSessions\(state\.ui,[\s\S]*?agentId: agent\.agentId[\s\S]*?closeUtilityDialog\(els\.deviceCenterDialog\)[\s\S]*?setWorkspaceMode\('sessions'\)/);
-  assert.match(workspaceStyles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?overflow:\s*hidden/);
+  assert.match(read('src/pixel.css'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?overflow:\s*hidden/);
   assert.match(workspaceStyles, /\.device-center-content\s*\{[\s\S]*?overflow:\s*hidden/);
   assert.match(styles, /\.device-list\s*\{[\s\S]*?overflow-y:\s*auto/);
   assert.doesNotMatch(styles, /\.account-actions/);
@@ -202,10 +202,10 @@ test('1.14 全局弹窗统一固定 Shell，关闭不伪装主操作，次级流
   // Height comes from the pixel skin's rule for the shell (unlayered, so it always
   // wins); the clipping stays in workspace.css.
   assert.match(read('src/pixel.css'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?height:\s*auto;[^}]*?max-height:\s*calc\(100dvh/);
-  assert.match(styles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?overflow:\s*hidden/);
+  assert.match(read('src/pixel.css'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?overflow:\s*hidden/);
   assert.doesNotMatch(styles, /--dialog-preferred-height/);
   assert.match(styles, /\.utility-dialog-content\s*\{[\s\S]*?overflow-y:\s*auto/);
-  assert.match(styles, /\.utility-dialog-header,\s*\.utility-dialog-footer\s*\{[^}]*?flex:\s*none/);
+  assert.match(read('src/pixel.css'), /\.utility-dialog-header,\s*\.utility-dialog-footer\s*\{[^}]*?flex:\s*none/);
   assert.match(styles, /\.utility-dialog-commandbar\s*\{[^}]*?flex:\s*none/);
   assert.doesNotMatch(styles, /\.device-center-dialog \.dialog-body(?:\.utility-dialog-shell)?\s*\{[^}]*min-height:\s*610px/);
 

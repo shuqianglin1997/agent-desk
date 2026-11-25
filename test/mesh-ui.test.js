@@ -29,8 +29,8 @@ test('设备入口并入设备视角下拉，设备中心使用独立模态弹�
   // Height comes from the pixel skin's rule for the shell (unlayered, so it always
   // wins); the clipping stays in workspace.css.
   assert.match(read('src/pixel.css'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?height:\s*auto;[^}]*?min-height:\s*0;[^}]*?max-height:\s*calc\(100dvh/);
-  assert.match(workspaceStyles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?overflow:\s*hidden/);
-  assert.match(workspaceStyles, /--header-h:\s*58px;[\s\S]*?--footer-h:\s*38px;[\s\S]*?--agent-h:\s*222px;[\s\S]*?--detail-w:\s*316px/);
+  assert.match(read('src/pixel.css'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[^}]*?overflow:\s*hidden/);
+  assert.match(read('src/pixel.css'), /--header-h:\s*58px;[\s\S]*?--footer-h:\s*38px;[\s\S]*?--agent-h:\s*222px;[\s\S]*?--detail-w:\s*316px/);
   assert.match(workspaceStyles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\);[\s\S]*?grid-template-rows:\s*var\(--agent-h\) minmax\(0, 1fr\)/);
   assert.match(styles, /\.mesh-ready-state\[hidden\],[\s\S]*?\.mesh-empty-state\[hidden\][\s\S]*?display:\s*none/);
 });

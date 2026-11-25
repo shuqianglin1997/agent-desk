@@ -62,9 +62,9 @@ test('任务包导出与导入弹窗固定头尾，仅内容区滚动且关闭�
     assert.match(dialog, /class="dialog-body utility-dialog-shell child-dialog-shell"/);
     assert.match(dialog, new RegExp(`utility-dialog-header[\\s\\S]*?id="${closeId}"[\\s\\S]*?utility-dialog-content[\\s\\S]*?utility-dialog-footer[\\s\\S]*?id="${cancelId}"`));
   }
-  assert.match(styles, /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?overflow:\s*hidden/);
+  assert.match(read('src/pixel.css'), /dialog \.dialog-body\.utility-dialog-shell\s*\{[\s\S]*?overflow:\s*hidden/);
   assert.match(styles, /\.utility-dialog-content\s*\{[\s\S]*?overflow-y:\s*auto/);
-  assert.match(styles, /\.utility-dialog-header,[\s\S]*?\.utility-dialog-footer\s*\{[\s\S]*?flex:\s*none/);
+  assert.match(read('src/pixel.css'), /\.utility-dialog-header,[\s\S]*?\.utility-dialog-footer\s*\{[\s\S]*?flex:\s*none/);
   assert.match(dialogSlice(html, 'taskPackageDialog'), /id="taskPackageObjective"[^>]*required/);
   assert.match(styles, /\.task-package-import-preview-details\s*\{[\s\S]*?grid-template-columns/);
 });

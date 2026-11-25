@@ -7,69 +7,24 @@
  *               these rules have always yielded to
  *   reset       element defaults
  *   tokens      size and type variables (the colour palette for both themes
- *               is in pixel.css, which maps the older colour names onto it)
+ *               is the skin's own, in pixel.css)
  *   shell       the fixed 1040 × 840 frame: header, panels, footer
  *   components  shared controls, cards, tables and dialogs
  *   features    one block per feature
  *   themes      [hidden], dark-theme and reduced-motion adjustments
- * pixel.css (the desk-lamp skin) and cats.css follow, unlayered.
+ * pixel.css (the desk-lamp skin) and cats.css follow, unlayered. Rules of
+ * these layers for parts the skin draws too (the tokens among them) sit at
+ * the top of pixel.css, still in their layers, so every selector is styled
+ * in one sheet. Moving them only put them after this file's rules of the
+ * same layer; phase 7 checked that this changes no winner.
  */
 
 @layer base, reset, tokens, shell, components, features, themes;
-
-@layer tokens {
-  :root {
-
-    --text-label: 12px;
-    --text-body: 13px;
-    --text-title: 14px;
-    --text-section: 16px;
-    --font-mono: "SFMono-Regular", "Roboto Mono", Menlo, Consolas, monospace;
-
-    --header-h: 58px;
-    --footer-h: 38px;
-    --agent-h: 222px;
-    --detail-w: 316px;
-    --board-gap: 10px;
-    --board-pad-x: 20px;
-    --board-pad-y: 10px;
-    --panel-head-h: 38px;
-    --control-h: 32px;
-    --glass-blur: 10px;
-  }
-
-}
 
 @layer reset {
   *::after {
     box-sizing: border-box;
     border-radius: 0;
-  }
-
-  html,
-  body {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-  }
-
-  body {
-    overflow: hidden;
-    color: var(--ink-primary);
-    background: var(--surface-canvas);
-    font-family: var(--font-sans);
-    font-size: var(--text-body);
-    line-height: 1.48;
-    letter-spacing: normal;
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
-
-  button,
-  input,
-  select,
-  textarea {
-    font: inherit;
   }
 
   ::selection { background: var(--accent-tint); }
@@ -85,24 +40,6 @@
 }
 
 @layer base {
-  :root {
-    color-scheme: light;
-  }
-
-  [data-theme="dark"] {
-    color-scheme: dark;
-  }
-
-  button,
-  input,
-  select,
-  textarea {
-    color: var(--ink-primary);
-  }
-
-  button {
-    white-space: nowrap;
-  }
 
   button:active:not(:disabled) {
     box-shadow: none;
@@ -148,12 +85,6 @@
   }
   /* 原型 qbar：卡片底部额度条（颜色随 data-level，同 quota-chip 色阶）；轨道用主题变量 */
   .account-card-quota { height: 6px; border-radius: 3px; margin-top: 10px; background: var(--line-soft); overflow: hidden; }
-
-  .topbar-brand {
-    align-items: center;
-    gap: 9px;
-    min-width: 172px;
-  }
 
   .topbar-brand > span:last-child {
     display: grid;
@@ -647,10 +578,6 @@
     min-height: 0;
   }
 
-  .session-toolbar-main {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
   .session-toolbar h3 {
     display: inline;
     margin: 0;
@@ -710,13 +637,6 @@
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 8%, transparent);
   }
 
-  input[type="search"],
-  input[type="text"],
-  select,
-  textarea {
-    width: 100%;
-  }
-
   input::placeholder,
   textarea::placeholder {
     color: var(--ink-tertiary);
@@ -752,26 +672,8 @@
     backdrop-filter: blur(6px);
   }
 
-  th,
-  td {
-    height: 40px;
-    padding: 0 12px;
-    border-bottom: 1px solid var(--line-soft);
-    overflow: hidden;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   /* 会话表 = 主工作面：表头退成注脚层、表体等宽数字、标题列主导、元数据退灰（细线表） */
   .table-wrap table { font-variant-numeric: tabular-nums; }
-
-  th {
-    color: var(--ink-tertiary);
-    font-size: 11.5px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-  }
 
   .session-table .sort-button {
     gap: 5px;
@@ -2246,7 +2148,6 @@
 
   /* ═══ v2 组件三级权重制（美术统筹收编·porcelain）：主操作填充 > 次操作色块 > 工具幽灵 ═══
    * 形式即逻辑——按钮视觉重量 = 逻辑重要度。日系 primary-filled / tonal / text-button 三层。 */
-  :root { --ctl-lg: 32px; --ctl-md: 28px; --ctl-sm: 24px; }
 
   /* 顶栏：全局动作幽灵化（房檐不与工作台抢权重），模式切换胶囊 */
   .topbar-actions button { height: 26px; border: 0; background: transparent; box-shadow: none; color: var(--ink-secondary); font-size: 12px; }
@@ -2327,10 +2228,6 @@
   /* Sessions: stable filters above, selected-row actions only when needed. */
   .session-pane { gap: 8px; padding: 12px 16px 12px 18px; }
 
-  .session-display-menu > summary {
-    border: 1px solid var(--line-mid);
-    background: var(--surface-sunken);
-  }
   .session-replica-option {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -2537,12 +2434,6 @@
     font-weight: 650;
   }
 
-  .topbar-actions > button,
-  .topbar-actions .topbar-nav-button {
-    min-width: 0;
-    box-shadow: none;
-  }
-
   .topbar-actions > [hidden] {
     display: none !important;
   }
@@ -2741,8 +2632,6 @@
     grid-template-rows: var(--panel-head-h) minmax(0, 1fr);
   }
 
-  .workspace-board > .agent-panel { border-color: transparent; background: transparent; }
-
   .session-pane {
     grid-column: 1;
     grid-row: 2;
@@ -2777,51 +2666,6 @@
 }
 
 @layer components {
-  button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: 0;
-    height: var(--control-h);
-    padding: 0 11px;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  button:hover:not(:disabled) {
-    color: var(--ink-primary);
-  }
-
-  button:disabled {
-    border-color: var(--line-soft);
-    background: var(--surface-sunken);
-    transform: none;
-  }
-
-  input[type="search"],
-  input[type="text"],
-  input[type="url"],
-  textarea,
-  select {
-    min-width: 0;
-    border: 1px solid var(--line-mid);
-    border-radius: var(--radius-sm);
-    color: var(--ink-primary);
-    background: var(--surface-raised);
-    box-shadow: inset 0 1px 0 rgba(28, 29, 27, 0.025);
-  }
-
-  input[type="search"],
-  input[type="text"],
-  input[type="url"],
-  select {
-    height: var(--control-h);
-    min-height: 28px;
-    padding: 0 10px;
-  }
-
-  textarea { padding: 9px 10px; resize: vertical; }
 
   input:focus,
   textarea:focus,
@@ -2918,21 +2762,6 @@
     position: relative;
   }
 
-  .context-menu > summary {
-    justify-content: center;
-    border-radius: var(--radius-sm);
-    user-select: none;
-  }
-
-  .context-menu > summary:hover,
-  .context-menu[open] > summary { border-color: var(--line-strong); color: var(--ink-primary); }
-
-  .context-menu-panel button {
-    min-height: 30px;
-    border-radius: var(--radius-sm);
-    font-size: 11.5px;
-  }
-
   .context-menu-panel button:hover:not(:disabled) {
     color: var(--ink-primary);
     background: var(--px-hl);
@@ -2962,26 +2791,6 @@
     transition: translate 80ms steps(2, end), clip-path 80ms steps(2, end), display 80ms allow-discrete, overlay 80ms allow-discrete;
   }
 
-  dialog .dialog-body {
-    display: grid;
-    gap: 13px;
-    margin: 0;
-    padding: 18px;
-    overflow: auto;
-  }
-
-  dialog .dialog-body.utility-dialog-shell {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    width: 100%;
-    /* 跟着内容长高：内容少就矮，窗口放不下时才由内容区滚动。 */
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background: var(--surface-float);
-  }
-
   dialog .dialog-body > h3 {
     margin: 0 0 2px;
     font-size: 18px;
@@ -3008,23 +2817,7 @@
     font-weight: 800;
     letter-spacing: 0.15em;
   }
-  .utility-dialog-head h3 { margin: 4px 0 0; font-size: 18px; font-weight: 650; letter-spacing: normal; }
-  .utility-dialog-head p { margin: 5px 0 0; color: var(--ink-secondary); font-size: var(--text-label); line-height: 1.48; }
   .utility-dialog-head > button { flex: none; height: 30px; }
-
-  .utility-dialog-header,
-  .utility-dialog-footer {
-    position: relative;
-    z-index: 2;
-    flex: none;
-  }
-
-  .utility-dialog-close {
-    min-width: 58px;
-    border-color: var(--line-soft);
-    background: var(--surface-raised);
-    font-weight: 620;
-  }
 
   .utility-dialog-commandbar {
     position: relative;
@@ -3052,26 +2845,9 @@
     background: var(--surface-canvas);
   }
 
-  .utility-dialog-footer,
-  dialog .dialog-actions.utility-dialog-footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    min-height: 48px;
-    margin: 0;
-    padding: 9px 14px;
-    border-top: 1px solid var(--line-soft);
-    background: var(--surface-raised);
-  }
 }
 
 @layer features {
-  /* Header ------------------------------------------------------------- */
-  .topbar-brand {
-    justify-self: start;
-    padding: 0;
-  }
 
   .topbar-lens {
     display: flex;
@@ -3124,16 +2900,6 @@
     min-width: 0;
     max-width: 100%;
     gap: 2px;
-  }
-
-  .topbar-actions > button,
-  .topbar-actions .topbar-nav-button {
-    flex: none;
-    position: relative;
-    border-color: transparent;
-    font-size: var(--text-label);
-    font-weight: 500;
-    white-space: nowrap;
   }
 
   .device-count-badge {
@@ -3190,24 +2956,7 @@
     padding-top: 14px;
   }
 
-  .agent-panel .account-card {
-    align-items: start;
-    min-width: 0;
-    min-height: 0;
-    scroll-snap-align: start;
-  }
-
   .agent-panel .account-card:hover { transform: none; }
-
-  .agent-panel .account-card.selected {
-    border-color: color-mix(in srgb, var(--accent) 50%, var(--line-mid));
-  }
-
-  .agent-panel .account-card-select {
-    min-width: 0;
-    border-radius: 4px;
-    box-shadow: none;
-  }
 
   .agent-panel .account-card-name {
     display: block;
@@ -3247,13 +2996,6 @@
     text-align: left;
   }
 
-  .agent-panel .account-card-quota-summary {
-    min-width: 0;
-    border-radius: 3px;
-    box-shadow: none;
-    text-align: left;
-  }
-
   .agent-panel .account-card-quota-summary:disabled { opacity: 1; }
 
   .agent-panel .account-card-runtime {
@@ -3279,14 +3021,6 @@
     padding: 0;
   }
 
-  .agent-panel .account-card-runtime select {
-    min-width: 0;
-    padding-inline: 5px;
-    overflow: hidden;
-    border-radius: 5px;
-    font-size: var(--text-label);
-  }
-
   .agent-panel .account-card-actions {
     grid-template-columns: minmax(0, 1fr) max-content;
     min-width: 0;
@@ -3295,15 +3029,6 @@
     justify-content: center;
     gap: 2px;
     height: 26px;
-  }
-
-  .agent-panel .account-card-actions > button {
-    justify-content: center;
-    min-width: 0;
-    border-radius: 5px;
-    font-size: var(--text-label);
-    font-weight: 550;
-    line-height: 1.15;
   }
 
   .agent-panel .account-card-manage {
@@ -3318,10 +3043,6 @@
     letter-spacing: 0;
   }
 
-  .presenter-head .quota-chip[aria-expanded="true"] {
-    border-color: var(--focus-line);
-  }
-
   .session-toolbar {
 
     display: grid;
@@ -3331,13 +3052,6 @@
     padding: 5px 8px 3px 12px;
     border: 0;
     background: transparent;
-  }
-
-  .session-toolbar-main {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    min-width: 0;
   }
 
   .session-toolbar-controls {
@@ -3360,11 +3074,6 @@
     max-width: 190px;
   }
 
-  .session-display-menu > summary {
-    min-width: 74px;
-    padding: 0 8px;
-    font-size: var(--text-label);
-  }
   .session-display-menu > summary b { color: var(--ink-primary); font-size: var(--text-label); }
   .session-display-options { min-width: 126px; }
   .session-display-options button[aria-pressed="true"] { color: var(--focus-ink, var(--focus)); background: var(--focus-wash); font-weight: 700; }
@@ -3377,12 +3086,6 @@
     flex-wrap: nowrap;
     align-items: center;
     gap: 2px;
-  }
-
-  .session-toolbar-actions > button:disabled {
-    border-color: transparent;
-    background: transparent;
-    opacity: 0.55;
   }
 
   .session-toolbar-selection[hidden],
@@ -3508,7 +3211,6 @@
   }
   .session-table tbody tr:is(.session-active,.selected) > td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
   .session-table .title-cell { color: var(--ink-primary); font-size: var(--text-body); font-weight: 550; }
-  .session-table .cell-subline { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .session-table button.title-cell-main {
     width: 100%;
     height: auto;
@@ -3520,7 +3222,6 @@
     text-align: start;
   }
   .session-table button.title-cell-main:focus-visible { outline-offset: -2px; }
-  .session-table .cell-subline { margin-top: 1px; font-weight: 400; }
   .session-table .mono { font-family: var(--font-mono); font-size: var(--text-label); }
   .session-table[data-mode="compact"] .path-cell { font-family: inherit; }
 

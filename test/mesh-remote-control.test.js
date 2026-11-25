@@ -118,7 +118,7 @@ test('右下详情面板承载隔离远控 Surface，其他两个面板和普通
   assert.match(renderer, /remoteWorkspaceHost\.getBoundingClientRect\(\)/);
   assert.match(read('src/index.html'), /id="detailPanel"[\s\S]*?id="remoteWorkspaceHost"[^>]*data-detail-surface="remote"/);
   assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\)/);
-  assert.match(styles, /--detail-w:\s*316px/);
+  assert.match(read('src/pixel.css'), /--detail-w:\s*316px/);
   assert.match(styles, /\.detail-panel > \.remote-workspace-host\s*\{[\s\S]*?display:\s*grid/);
   assert.doesNotMatch(read('src/index.html'), /<video|remote-stage|remote-console/);
 });

@@ -30,7 +30,7 @@ test('1.13 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下�
   const board = html.slice(html.indexOf('<main id="mainGrid"'), html.indexOf('</main>'));
   assert.equal((board.match(/class="workspace-panel /g) || []).length, 3);
   assert.match(html, /id="agentPanel"[\s\S]*?<section class="presenter">[\s\S]*?id="accountRoster"[\s\S]*?id="accountCardTemplate"/);
-  assert.match(styles, /--header-h:\s*58px;[\s\S]*?--footer-h:\s*38px;[\s\S]*?--agent-h:\s*222px;[\s\S]*?--detail-w:\s*316px/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'pixel.css'), 'utf8'), /--header-h:\s*58px;[\s\S]*?--footer-h:\s*38px;[\s\S]*?--agent-h:\s*222px;[\s\S]*?--detail-w:\s*316px/);
   assert.match(styles, /\.app-shell\s*\{[\s\S]*?grid-template:\s*var\(--header-h\) minmax\(0, 1fr\) var\(--footer-h\) \/ minmax\(0, 1fr\)/);
   assert.match(styles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\);[\s\S]*?grid-template-rows:\s*var\(--agent-h\) minmax\(0, 1fr\)/);
   assert.match(styles, /\.workspace-board \.table-wrap\s*\{[\s\S]*?overflow-x:\s*hidden/);

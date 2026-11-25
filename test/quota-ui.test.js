@@ -34,7 +34,7 @@ test('额度慢轮询不混进 8 秒 activity IPC', () => {
 });
 
 test('额度浮层独立于工作台布局，会话默认跨栏，远控详情列保留', () => {
-  assert.match(workspaceStyles, /--detail-w:\s*316px/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'pixel.css'), 'utf8'), /--detail-w:\s*316px/);
   assert.match(workspaceStyles, /\.workspace-board\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--detail-w\)/);
   assert.match(workspaceStyles, /\.workspace-board\[data-detail="session"\] > \.session-pane \{ grid-column: 1 \/ -1; \}/);
   assert.match(workspaceStyles, /\.quota-popover\s*\{\s*position: fixed/);

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T01:10:03.169Z",
-  "baseCommit": "aed4c014e86bd163029a6267c07429e7761f5092",
+  "recordedAt": "2026-11-25T01:23:41.243Z",
+  "baseCommit": "43150488ae7cd5333c262f1a2c832403f1b170a8",
   "uncommitted": true,
-  "sourceSha256": "f9905ed9b7d47f84e8a8ad359847ee86e949e40484b5ab8c9febc496a526508e",
+  "sourceSha256": "013f2e99f9503668741dc5ef087c6ead397acb4ad34547a35196ceb752c275ff",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 952,
+      "pass": 950,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after phase 7 batch 7 (every selector in one sheet; style-structure guard tests); digest identical before and after the run",
+      "recordedAt": "2026-11-25T01:23:41.243Z",
+      "sourceSha256": "013f2e99f9503668741dc5ef087c6ead397acb4ad34547a35196ceb752c275ff"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T01:23:41.243Z",
+      "sourceSha256": "013f2e99f9503668741dc5ef087c6ead397acb4ad34547a35196ceb752c275ff"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",
