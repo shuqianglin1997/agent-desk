@@ -2,7 +2,7 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.39
+> 版本：1.40
 >
 > 日期：2026-11-25
 >
@@ -112,7 +112,7 @@ Catshelf Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控�
 26. 一次整项工作需要由另一个 Agent、另一台设备或另一个人接手时，使用用户显式生成的 TaskPackage：它固定人工填写的阶段检查点、会话内容、Git 基线与已跟踪差异和明确附件；来源副本始终保留，接收方先验证再导入。TaskPackage 不改变全局 Agent 目录权威，不自动同步或合并两端，也不把 Personal Mesh 扩展为团队成员系统。
 27. 第一次点击“创建第一个 Agent”可以同时显式建立本机 Agent 目录和本机设备身份，使普通首次使用不必先理解或进入设备中心；该动作不得开放局域网端口、发布公网租约、连接其他设备或授予任何远端权限。已有 Profile 时先预览无损迁移，不能用首次向导绕过既有目录与身份规则。
 28. 同一 Personal Mesh 内可以直接发送 TaskPackage，但必须使用独立 `task.package.receive` 能力和显式接收确认。包格式、不可变语义、来源保留和逐项校验不变；一次性解锁码只允许进入绑定目标设备与 transferId 的加密 envelope，明文不得进入 Renderer、包、历史、日志或持久化存储。旧端不支持该协议时退回便携加密文件。
-29. 未关闭真实公网 NAT/TURN、长连接恢复与 macOS/Windows 权限矩阵前，只允许发布签名、公证并明确标记的 Preview，不得称为稳定 Personal Mesh。当前开发基线 0.10.0 不补发为稳定版本；成熟化批次建议使用 `v0.10.1-preview.1`，完整门禁关闭后再发布 `v0.10.1`。1.39 起另允许发布明确标为“未签名测试版”的 GitHub 预发布（`test-` 开头的标签），见第 33 节 1.39。
+29. 未关闭真实公网 NAT/TURN、长连接恢复与 macOS/Windows 权限矩阵前，只允许发布签名、公证并明确标记的 Preview，不得称为稳定 Personal Mesh。当前开发基线 0.10.0 不补发为稳定版本；成熟化批次建议使用 `v0.10.1-preview.1`，完整门禁关闭后再发布 `v0.10.1`。1.39 起另允许在 GitHub 发布明确标为“未签名测试版”的包（`test-` 开头的标签），见第 33 节 1.39；1.40 起签名版出现以前，最新的未签名测试版标为 GitHub 的 Latest，见第 33 节 1.40。
 30. Catshelf 启动的官方桌面客户端属于受管本机资源，不等于 Agent 对话执行器。默认退出 Catshelf 时必须关闭这些客户端及同一 Profile 的 Crashpad 进程；用户可显式选择保留后台运行，但界面必须说明 Catshelf 退出后不再监控。每个受管 Profile 的 `Crashpad/pending` 默认最多保留 100 个文件或 200 MiB，任一上限先到即按完整事件清理最旧报告；一分钟内出现 5 个同尺寸 dump 视为崩溃风暴并熔断该 Profile。普通关闭与正常退出仍只处理当前 Catshelf 明确拥有的进程；只有路径位于 Catshelf 自己的受管 Profiles 根、且已确认崩溃风暴或容量无法安全收敛时，磁盘保护才可按精确 `user-data-dir` 停止旧版本、强制退出或重启后遗留的匹配进程。没有当前所有权记录的官方默认目录或任意 custom 目录不得被后台清理或停机。安全清理只允许删除 `Crashpad/pending` 直属的 `.dmp` 与 `_sidecar.json`，绝不触碰会话、归档、配置、SQLite、`codex-home` 或留存样本。
 31. Mesh 会话聚合、系统密钥保护或远端库存暂不可用时，健康的本地 Profile 会话必须继续由本机只读扫描器展示，不能被空远端结果覆盖；界面要明确标记“仅本机会话”，并暂停远端会话与跨设备动作。Device Lens、Agent 与 Slot 的明确选择需写入稳定设置并在重启后恢复；旧安装没有选择记忆时，只允许在“本机所有 linked Profile 唯一归属于同一个 Agent”这一可证明无歧义的情况下恢复该 Agent，多个候选时仍保持未选择，绝不取列表第一项。
 32. 本地 ad-hoc 打包的 macOS 开发版可能因重签名后 Keychain ACL 不再匹配而阻塞密钥解密。对精确识别为 `Signature=adhoc`、无 Authority、无 TeamIdentifier 的已打包 macOS 开发版，普通启动只读持久 Mesh 快照并标记 `keyState=deferred`，先展示本地最新会话、暂停跨设备动作；只有用户显式打开设备功能时才请求密钥访问并恢复联网与准备任务。Developer ID 签名包、Windows 和开发源码态不走该延后路径；检测失败必须回到原安全路径，不能为了可用性普遍绕过系统密钥保护。
@@ -2722,7 +2722,7 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 41. 全新安装可以直接创建第一个 Agent；该动作只原子建立本机目录与设备身份并进入首次准备，不开放端口、发布租约或连接远端。已有 Profile 时必须先预览无损迁移，首次向导的展示完成状态按版本准确持久化。
 42. 添加设备的普通路径能让用户在一个可恢复向导里看见并完成身份确认、成员信任、认证连接、目录落库和首份库存落库；每一步失败给出准确下一步，已配对但离线不会被误报为未配对或要求重来。
 43. 同一 Mesh 的目标设备支持协议且开启 `task.package.receive` 时，用户可以直接发送并由接收端逐次确认 TaskPackage；明文解锁码不进入 Renderer、包、历史、日志或持久化，拒绝、取消、篡改、断线和旧端回退均不损伤来源。
-44. 未完成真实公网 NAT/TURN、长连接恢复和 macOS/Windows 权限矩阵时，所有可安装交付物都明确标为签名公证 Preview；只有相关物理门禁关闭后才可发布稳定版本。明确标为“未签名测试版”的预发布除外（第 33 节 1.39）。
+44. 未完成真实公网 NAT/TURN、长连接恢复和 macOS/Windows 权限矩阵时，所有可安装交付物都明确标为签名公证 Preview；只有相关物理门禁关闭后才可发布稳定版本。明确标为“未签名测试版”的包除外（第 33 节 1.39、1.40）。
 45. 任何公开 Preview 必须只包含确切 DMG、portable 与 `SHA256SUMS.txt`，并经过 Draft 原生双端重下载、公开后无 token 匿名重下载、发布前摘要/清单/实际字节一致、签名与成品首次使用复验；失败候选不得被覆盖或以同一 Tag/version 重用。
 46. Catshelf 启动同一 Profile 前必须识别既有 `user-data-dir` 实例；其正常退出默认关闭所启动的 Profile，Crashpad 风暴不得无限写盘。升级、管理器强制退出或重启后，Catshelf 自己的受管 Profiles 根内精确匹配的孤儿进程若继续制造已确认的崩溃风暴，也必须被事故熔断停止；普通用户关闭仍不得越过进程所有权，无所有权的官方默认/custom 目录不得被事故路径误接管。持续一小时的故障注入中，每个 Profile 的 `Crashpad/pending` 不得超过 100 个文件或 200 MiB；安全清理后会话、归档、配置、SQLite、`codex-home` 与留存诊断样本保持完整，多 Profile 的限额和熔断互不串扰。
 47. 普通启动、后台恢复、密钥解锁恢复和轮询只观察 ProvisioningJob；没有该 Profile 的身份信息时保持等待登录，已有身份时可提交 ready，但两种情况都不得自动打开下载页、登录页或官方客户端。外部界面只能来自明确用户动作或已经完成的远端有人确认。
@@ -2824,6 +2824,16 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.40 下载链接总指向最新的测试版 — 2026-11-25
+
+所有者要求第一次来的人打开 README 就能看到各平台的下载地址，以后再发测试版也不用手改 README。GitHub 的 `releases/latest/download/<文件名>` 只认 Latest，而 Latest 不能是预发布。本条改写 1.39 条“GitHub 预发布”“预发布不是 GitHub 的 Latest”两处写法；签名 Preview 的门禁、`release.yml` 和稳定版的门槛都不变。
+
+- 签名版出现以前，`test-build.yml` 把每次的未签名测试版发成普通发布并明确标为 Latest（`gh release create --latest`，不带 `--prerelease`），发完读回 Latest 的标签核对。标题照旧写“未签名测试版 / Unsigned test build”，说明里写版本号、提交号和放行办法。
+- 文件名固定、不带版本号：`Catshelf-unsigned-universal.dmg`、`Catshelf-unsigned-portable-x64.exe`、`SHA256SUMS.txt`。README 中英两部分直接链接 `releases/latest/download/` 下这三个名字；版本号和提交号在发布说明、`--cli capabilities` 与 `--cli diagnostics` 里。
+- 应用里的检查更新遇到 `test-` 开头的 Latest，当作“还没有正式发布的版本”，从不提供、下载或安装测试版。这之前打的测试版没有这条判断，检查更新会报版本号无效，不会安装任何东西。
+- 第一份签名版发布时，这条规矩和 README 的下载链接一起重新定：签名 Preview 按 `docs/RELEASING.md` 的发布类别仍标为预发布，到时由所有者决定 README 指向哪里，`test-build.yml` 改回预发布或停用。
+- 同一批：README 开头的“正式版要通过发布门禁”等发布规矩挪到 `docs/RELEASING.md`，README 只留一句指向它。
 
 ### 1.39 先发未签名测试版 — 2026-11-25
 

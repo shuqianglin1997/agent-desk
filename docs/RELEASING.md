@@ -2,7 +2,20 @@
 
 Catshelf release artifacts are built by `.github/workflows/release.yml`. A tag
 must never publish an unsigned Windows portable executable or an unsigned or
-unnotarized macOS DMG.
+unnotarized macOS DMG. The one exception is the clearly labelled unsigned test
+build from `.github/workflows/test-build.yml` (see [Unsigned test
+builds](#unsigned-test-builds)).
+
+The README's download links point at
+`https://github.com/shuqianglin1997/catshelf/releases/latest/download/` followed
+by `Catshelf-unsigned-universal.dmg`, `Catshelf-unsigned-portable-x64.exe` or
+`SHA256SUMS.txt`. GitHub serves that path only from the release marked Latest,
+which can never be a prerelease or a draft. So, until a signed release exists,
+every unsigned test build is published as the Latest release with exactly those
+fixed file names, and the README never needs editing for a new test build. When
+the first signed release is published, these links and this rule are decided
+again together: the signed Preview is a prerelease by the rules below, so it can
+never be Latest as they stand.
 
 As of 2026-08-14 there is no public `v0.10.1-preview.1` Release. The transaction
 and its security tests exist in the repository, but real signing credentials,
@@ -243,10 +256,10 @@ it; checking only the outer container is insufficient.
 
 ## Unsigned test builds
 
-Owner decision 2026-11-25 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.39): until the
-signed Preview exists, a clearly labelled unsigned test build may be published
-as a GitHub prerelease. It is a separate path from the signed Preview below
-and does not satisfy any of its gates.
+Owner decisions 2026-11-25 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.39 and 1.40):
+until the signed Preview exists, a clearly labelled unsigned test build may be
+published on GitHub Releases. It is a separate path from the signed Preview
+below and does not satisfy any of its gates.
 
 - Start it by pushing a tag that begins with `test-`, for example
   `test-20261125-b0b8b2b`:
@@ -268,15 +281,24 @@ and does not satisfy any of its gates.
   anything about the build. The owner chose on 2026-11-25 to publish test
   builds without it until it is repaired; then it goes back into the Windows
   job, and macOS CI runs it on `main`.
-- The last job, the only one with `contents: write`, renames the files with
-  `-unsigned`, writes `SHA256SUMS.txt`, refuses anything but exactly three
-  files, and creates a prerelease titled “未签名测试版 / Unsigned test build”
-  whose notes name the commit and the way to open it (macOS: System Settings →
-  Privacy & Security → Open Anyway; Windows: More info → Run anyway). It never
-  signs and reads no signing secret.
+- The last job, the only one with `contents: write`, copies the two packages
+  to fixed names without the version — `Catshelf-unsigned-universal.dmg` and
+  `Catshelf-unsigned-portable-x64.exe` — writes `SHA256SUMS.txt` for them,
+  refuses anything but exactly three files, and creates a release titled
+  “未签名测试版 / Unsigned test build `<tag>`” with `--latest` and without
+  `--prerelease`, then reads back that the Latest release is this tag. Its
+  notes name the version, the commit and the way to open it (macOS: System
+  Settings → Privacy & Security → Open Anyway; Windows: More info → Run
+  anyway). It never signs and reads no signing secret.
+- The in-app update check (`src/updater.js` `isTestBuildRelease`) treats a
+  Latest whose tag starts with `test-` as “no official release yet”: it never
+  offers, downloads or installs a test build. Test builds made before this
+  rule have no such check; their update check reports an invalid version and
+  installs nothing.
+- Earlier test builds stay on the Releases page with their versioned file
+  names (`Catshelf-<version>-unsigned-…`); only the newest one is Latest.
 - Not covered: signing, notarization, the Draft native redownload and the
-  anonymous public redownload. A prerelease is not GitHub's Latest, so the
-  in-app update check does not offer it.
+  anonymous public redownload.
 
 ## Personal Mesh evidence and release classes
 

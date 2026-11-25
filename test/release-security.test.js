@@ -858,12 +858,13 @@ test('安装文档不再建议用 xattr 绕过 Gatekeeper', () => {
   assert.match(readme, /v0\.9\.0[\s\S]{0,180}revoked/i);
 });
 
-// Owner decision 2026-11-25 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.39): an unsigned
-// test build may be published as a clearly labelled prerelease. It must stay a
+// Owner decisions 2026-11-25 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.39, 1.40): an
+// unsigned test build may be published, clearly labelled. It must stay a
 // separate path: only test-* tags start it, it never signs or reads signing
 // secrets, only its last job may write, and the release holds exactly the two
-// packages and SHA256SUMS.txt.
-test('未签名测试版只由 test- 标签发起，标为预发布，不碰签名，只发三个文件', () => {
+// packages and SHA256SUMS.txt. Until a signed release exists it is GitHub's
+// Latest, with fixed file names, so the README's links always reach it.
+test('未签名测试版只由 test- 标签发起，标为 Latest，文件名固定，不碰签名，只发三个文件', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'test-build.yml'), 'utf8').replace(/\r\n/g, '\n');
   const release = fs.readFileSync(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8');
   const trigger = workflow.slice(workflow.indexOf('\non:'), workflow.indexOf('\npermissions:'));
@@ -890,12 +891,20 @@ test('未签名测试版只由 test- 标签发起，标为预发布，不碰签�
     'npm run verify:win-portable-package -- -PortablePath "$env:PACKAGED_PORTABLE"'
   ]) assert.ok(workflow.includes(step), step);
   assert.doesNotMatch(workflow, /mock-keychain/);
-  // A labelled prerelease of exactly three files.
-  assert.match(workflow, /gh release create "\$TAG"[^\n]*--prerelease/);
-  assert.match(workflow, /--verify-tag/);
+  // A labelled Latest release of exactly three files with fixed names.
+  const create = workflow.split('\n').find((line) => line.includes('gh release create'));
+  assert.match(create, /gh release create "\$TAG" [^\n]*--verify-tag [^\n]*--latest /);
+  assert.doesNotMatch(create, /--prerelease|--draft/);
+  assert.match(workflow, /gh release view --repo "\$REPOSITORY" --json tagName --jq \.tagName\)" = "\$TAG"/);
   assert.match(workflow, /未签名测试版 \/ Unsigned test build/);
-  assert.match(workflow, /-unsigned-universal\.dmg/);
-  assert.match(workflow, /-unsigned-portable-x64\.exe/);
+  assert.match(workflow, /cp "\$\{portables\[0\]\}" dist\/Catshelf-unsigned-portable-x64\.exe\n/);
+  assert.match(workflow, /cp "\$\{dmgs\[0\]\}" dist\/Catshelf-unsigned-universal\.dmg\n/);
   assert.match(workflow, /Expected exactly three release files/);
+  // The README's download links are the same fixed names on the Latest release.
+  const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+  const latest = `${packageJson.repository.url.replace(/\.git$/, '')}/releases/latest/download/`;
+  for (const name of ['Catshelf-unsigned-universal.dmg', 'Catshelf-unsigned-portable-x64.exe', 'SHA256SUMS.txt']) {
+    assert.equal(readme.split(`${latest}${name}`).length - 1, 2, `README links ${name} once in each language`);
+  }
   assert.doesNotMatch(workflow, /xattr|spctl --master-disable/);
 });

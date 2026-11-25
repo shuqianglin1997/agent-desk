@@ -105,6 +105,32 @@ test('resolveRelease 输出更新信息和 GitHub SHA-256', () => {
   assert.equal(result.asset.sha256, 'a'.repeat(64));
 });
 
+// docs/RELEASING.md: until a signed release exists the newest unsigned test
+// build is GitHub's Latest. The update check treats it as "no official
+// release" and never offers or installs it.
+test('Latest 是未签名测试版（test- 标签）时，检查更新当作还没有正式版，不提供下载', async () => {
+  assert.equal(updater.isTestBuildRelease({ tag_name: 'test-20261126-abc1234' }), true);
+  assert.equal(updater.isTestBuildRelease({ tag_name: 'TEST-x' }), true);
+  for (const tag of ['v0.3.0', '0.3.0', 'latest-test', '', undefined]) {
+    assert.equal(updater.isTestBuildRelease({ tag_name: tag }), false, String(tag));
+  }
+  assert.equal(updater.isTestBuildRelease(null), false);
+
+  const updates = require('../src/main/updates');
+  const release = {
+    tag_name: 'test-20261126-abc1234', draft: false, prerelease: false,
+    html_url: 'https://github.com/shuqianglin1997/catshelf/releases/tag/test-20261126-abc1234',
+    assets: [asset('Catshelf-unsigned-portable-x64.exe'), asset('Catshelf-unsigned-universal.dmg')]
+  };
+  updates.bind({
+    APP_NAME: 'Catshelf',
+    app: { getVersion: () => '0.10.1-preview.1', isPackaged: true },
+    t: (key) => key,
+    net: { fetch: async () => ({ ok: true, headers: new Map(), text: async () => JSON.stringify(release) }) }
+  });
+  assert.deepEqual(await updates.checkForUpdates({ force: true }), { ok: false, reason: 'main.upd.noRelease' });
+});
+
 test('portable executable 只接受绝对 exe 路径', () => {
   assert.equal(
     updater.portableExecutablePath({ PORTABLE_EXECUTABLE_FILE: '"D:\\Apps\\AgentDesk.exe"' }),

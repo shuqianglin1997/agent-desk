@@ -46,6 +46,8 @@ async function latestUpdateInfo(force = false) {
   }
 
   const release = await fetchLatestGitHubRelease();
+  // An unsigned test build as Latest is not an official release.
+  if (updater.isTestBuildRelease(release)) throw new Error(main.t('main.upd.noRelease'));
   const resolved = updater.resolveRelease(release, {
     currentVersion: main.app.getVersion(),
     platform: process.platform,

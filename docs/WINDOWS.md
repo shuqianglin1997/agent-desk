@@ -55,7 +55,7 @@ Windows portable 版满足以下条件时可以自动更新：
 
 macOS、源码开发模式、只读目录、非 portable 启动方式、缺少匹配资产或 digest 时不会尝试覆盖，而是打开对应的 GitHub Release 页面供手动更新。
 
-发布流水线会校验 Git tag 与 `package.json` 版本一致，并生成 `SHA256SUMS.txt`。Release 必须先由维护者审阅；草稿和预发布版本不会被客户端自动更新器当成最新版。因此 `v0.10.1-preview.1` 一类 Preview 只供用户明确下载测试，不能静默替换稳定渠道。
+发布流水线会校验 Git tag 与 `package.json` 版本一致，并生成 `SHA256SUMS.txt`。Release 必须先由维护者审阅；草稿和预发布版本不会被客户端自动更新器当成最新版；未签名测试版（`test-` 开头的标签）即使标为 Latest，更新器也当作还没有正式版本，不提供、不安装（见 [RELEASING.md](RELEASING.md)）。因此 `v0.10.1-preview.1` 一类 Preview 只供用户明确下载测试，不能静默替换稳定渠道。
 
 ## Windows 上为什么不能只写死一个路径
 

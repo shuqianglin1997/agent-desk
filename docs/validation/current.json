@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T11:47:21.387Z",
-  "baseCommit": "797a778c30ff514fde105ecc6b41db46a85f1389",
+  "recordedAt": "2026-11-25T12:43:35.433Z",
+  "baseCommit": "5fdfb75f1bada8c08342fc676362d97ce77fce16",
   "uncommitted": true,
-  "sourceSha256": "5076a046593206c6b4bccd7e122556cf6a9f2128027ec4408f2559c4dccb7cbb",
+  "sourceSha256": "4a5cebeb87442c3dd31a6760050287bd9c84b9748051a95c286b3457335babae",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1018,
+      "pass": 1016,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite for the download links: test builds are GitHub's Latest with fixed names (Catshelf-unsigned-universal.dmg, Catshelf-unsigned-portable-x64.exe, SHA256SUMS.txt) so the README's releases/latest/download links reach the newest; the in-app update check treats a Latest tagged test-* as no official release (updater isTestBuildRelease, checked through checkForUpdates with a stub fetch); release-security holds the workflow's --latest, the read-back and the README links in both languages.",
+      "recordedAt": "2026-11-25T12:43:35.433Z",
+      "sourceSha256": "4a5cebeb87442c3dd31a6760050287bd9c84b9748051a95c286b3457335babae"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js (node --check on 291 listed files)",
+      "recordedAt": "2026-11-25T12:43:35.433Z",
+      "sourceSha256": "4a5cebeb87442c3dd31a6760050287bd9c84b9748051a95c286b3457335babae"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

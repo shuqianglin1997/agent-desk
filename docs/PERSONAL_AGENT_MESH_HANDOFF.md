@@ -4,7 +4,7 @@
 >
 > 当前分支：`main`
 >
-> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.39，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
+> 实施基线：`docs/PERSONAL_AGENT_MESH_PLAN.md` 1.40，状态 `OWNER APPROVED — IMPLEMENTATION AUTHORIZED`
 >
 > 仓库：`shuqianglin1997/catshelf`（2026-11-25 由 `agent-desk` 改名，旧地址自动跳转）
 >
@@ -134,7 +134,7 @@ git diff --check
 
 ## 6. 文档权威关系
 
-- `PERSONAL_AGENT_MESH_PLAN.md` 1.39 是实施权威。
+- `PERSONAL_AGENT_MESH_PLAN.md` 1.40 是实施权威。
 - 1.12／1.13 阶段的 HTML 审阅稿已在 2026-11-24 删除，结论都已写入计划；需要时从 Git 历史查阅。
 - `ADR_PERSONAL_MESH_SINGLE_WINDOW_SURFACE.md` 已修订为固定三面板与右下 Remote Surface。
 - 旧 owner review、旧会话身份 review、文章插图和规划变更记录中出现的“七行/第六行”只代表当时的历史方案，不能覆盖 1.10。

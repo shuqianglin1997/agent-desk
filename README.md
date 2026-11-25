@@ -18,27 +18,29 @@ https://github.com/user-attachments/assets/3f651fb3-d9c0-4092-bec9-6f85c5f69fac
 
 <p align="center"><sub>Catshelf launch film, about one minute · <a href="https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e">中文</a></sub></p>
 
+<p align="center">
+  <a href="https://github.com/shuqianglin1997/catshelf/releases/latest/download/Catshelf-unsigned-universal.dmg"><strong>Download for macOS</strong></a> · Apple silicon and Intel, <code>.dmg</code>
+  <br />
+  <a href="https://github.com/shuqianglin1997/catshelf/releases/latest/download/Catshelf-unsigned-portable-x64.exe"><strong>Download for Windows</strong></a> · 64-bit, portable <code>.exe</code>
+  <br />
+  <sub>The newest unsigned test build · checksums: <a href="https://github.com/shuqianglin1997/catshelf/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a> · <a href="https://github.com/shuqianglin1997/catshelf/releases">all releases</a></sub>
+</p>
+
+The first time you open it, the system stops it because it is not signed yet. **macOS:** after the warning, open System Settings → Privacy & Security and click **Open Anyway** next to the message about Catshelf. **Windows:** at the SmartScreen prompt choose **More info**, then **Run anyway**. Do not use other workarounds.
+
 Catshelf (Chinese 猫架; formerly AgentDesk) is a desktop app for macOS and Windows. It keeps the AI coding clients you already use (Claude, Claude CLI, Codex, Cursor, Kimi Code, Kimi Work, DSH, OpenCode, Gemini CLI, Qwen Code), each of your accounts on them, and their local session history in one window. It opens the official client for the account you pick. It does not run agents itself, and it never stores passwords or tokens.
 
 ## Status
 
-The source is version `0.10.1-preview.1`, a Preview. There is **no public Preview matching this source** yet (unsigned test builds are a separate thing, see below): publishing one needs signing and notarization credentials, a release tag and clean-machine checks that have not been done (see [docs/RELEASING.md](docs/RELEASING.md)). What has been checked, and how, is in the [validation ledger](docs/VALIDATION.md). Personal Mesh is attended only; public NAT/TURN, disconnect recovery and the macOS/Windows permission matrix are still open.
+The source is version `0.10.1-preview.1`, a Preview. The downloads above are unsigned test builds that GitHub builds from a tagged commit; there is no public Preview matching this source yet (signed and notarized). How both kinds are released, and what a signed Preview must pass first, is in [docs/RELEASING.md](docs/RELEASING.md). What has been checked, and how, is in the [validation ledger](docs/VALIDATION.md). Personal Mesh is attended only; public NAT/TURN, disconnect recovery and the macOS/Windows permission matrix are still open.
 
-## Download and install
+## Install
 
-When a matching Preview passes the release gate, [GitHub Releases](https://github.com/shuqianglin1997/catshelf/releases) will contain exactly:
+- **macOS:** open the DMG, drag Catshelf into Applications and open it from there. Do not install the old v0.9.0 macOS image; Apple reports that unsigned package as revoked.
+- **Windows:** run the `.exe` directly; it installs nothing. Store/MSIX paths are in [docs/WINDOWS.md](docs/WINDOWS.md).
+- **Checksum:** compare the file's SHA-256 with `SHA256SUMS.txt`: `shasum -a 256 Catshelf-unsigned-universal.dmg` on macOS, `Get-FileHash .\Catshelf-unsigned-portable-x64.exe` in PowerShell.
 
-- macOS: `Catshelf-<version>-universal.dmg`
-- Windows: `Catshelf-<version>-portable-x64.exe`
-- checksums: `SHA256SUMS.txt`
-
-> Security note: do not install the old v0.9.0 macOS image; Apple reports that unsigned package as revoked. Use a current signed and notarized release.
-
-On macOS, move Catshelf.app into `/Applications` and open it normally. On Windows, run the portable `.exe`; see [docs/WINDOWS.md](docs/WINDOWS.md) for Store/MSIX paths.
-
-**Unsigned test builds.** Until the signed Preview exists, Releases also has prereleases titled “Unsigned test build” (tags starting with `test-`): a universal macOS DMG and a Windows portable `.exe` with `-unsigned` in their names, plus `SHA256SUMS.txt`. They are built on GitHub from the commit named in their notes and are not signed or notarized. On macOS the first launch is blocked: open System Settings → Privacy & Security and click **Open Anyway**; do not use other workarounds. On Windows, at the SmartScreen prompt choose **More info**, then **Run anyway**.
-
-Your accounts, settings and device keys live in a data folder that keeps the old name: `~/Library/Application Support/AgentDesk` on macOS, `%APPDATA%\AgentDesk` on Windows.
+Your accounts, settings and device keys live in a data folder that keeps the old name: `~/Library/Application Support/AgentDesk` on macOS, `%APPDATA%\AgentDesk` on Windows. A new version does not touch it.
 
 ## If something goes wrong
 
@@ -104,21 +106,29 @@ https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e
 
 <p align="center"><sub>猫架发布短片，约一分钟 · <a href="https://github.com/user-attachments/assets/3f651fb3-d9c0-4092-bec9-6f85c5f69fac">English</a></sub></p>
 
+<p align="center">
+  <a href="https://github.com/shuqianglin1997/catshelf/releases/latest/download/Catshelf-unsigned-universal.dmg"><strong>下载 macOS 版</strong></a> · Apple 芯片与 Intel 通用，<code>.dmg</code>
+  <br />
+  <a href="https://github.com/shuqianglin1997/catshelf/releases/latest/download/Catshelf-unsigned-portable-x64.exe"><strong>下载 Windows 版</strong></a> · 64 位，免安装 <code>.exe</code>
+  <br />
+  <sub>最新的未签名测试版 · 校验和：<a href="https://github.com/shuqianglin1997/catshelf/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a> · <a href="https://github.com/shuqianglin1997/catshelf/releases">全部发布</a></sub>
+</p>
+
+第一次打开时，因为还没有签名，系统会把它拦下。**macOS：**看到提示后，打开“系统设置 → 隐私与安全性”，在关于 Catshelf 的那条提示旁点“仍要打开”。**Windows：**SmartScreen 提示时点“更多信息”，再点“仍要运行”。不要用别的办法绕过。
+
 猫架（Catshelf，原名 AgentDesk）是 macOS 和 Windows 上的桌面应用：把你已经在用的 AI 编程客户端（Claude、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work、DSH、OpenCode、Gemini CLI、Qwen Code）、你在它们上面的每个账号，以及本机的会话记录放进同一个窗口。选一个账号就打开它的官方客户端。猫架自己不跑 Agent，也不保存密码和令牌。
 
 ## 现在的状态
 
-源码版本是 `0.10.1-preview.1`，属于 Preview。目前**还没有与这份源码对应的公开 Preview**（未签名测试版是另一回事，见下）：发布需要的签名与公证凭据、发布 tag 和干净机器上的安装检查都还没做（见 [docs/RELEASING.md](docs/RELEASING.md)）。做过哪些检查、怎么做的，记在[验证记录](docs/VALIDATION.md)。设备网只做有人值守；公网 NAT/TURN、断网恢复和 macOS/Windows 权限矩阵仍未完成。
+源码版本是 `0.10.1-preview.1`，属于 Preview。上面的下载是 GitHub 按打了标签的提交打出的未签名测试版；与这份源码对应、签名并公证的公开 Preview 还没有。两种包怎么发、签名的 Preview 先要过哪些门禁，见 [docs/RELEASING.md](docs/RELEASING.md)。做过哪些检查、怎么做的，记在[验证记录](docs/VALIDATION.md)。设备网只做有人值守；公网 NAT/TURN、断网恢复和 macOS/Windows 权限矩阵仍未完成。
 
-## 下载与安装
+## 安装
 
-对应的 Preview 通过发布门禁后，[GitHub Releases](https://github.com/shuqianglin1997/catshelf/releases) 里只有三个文件：macOS 的 `Catshelf-<版本>-universal.dmg`、Windows 的 `Catshelf-<版本>-portable-x64.exe`，以及校验文件 `SHA256SUMS.txt`。不要安装旧的 v0.9.0 macOS 镜像（苹果已将这个未签名的包标为吊销）。
+- **macOS：**打开 DMG，把 Catshelf 拖进“应用程序”，再从那里打开。不要安装旧的 v0.9.0 macOS 镜像（苹果已将这个未签名的包标为吊销）。
+- **Windows：**直接运行 `.exe`，不需要安装。Store/MSIX 的路径说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
+- **校验：**把文件的 SHA-256 和 `SHA256SUMS.txt` 对一下：macOS 用 `shasum -a 256 Catshelf-unsigned-universal.dmg`，Windows 在 PowerShell 里用 `Get-FileHash .\Catshelf-unsigned-portable-x64.exe`。
 
-macOS 上把 Catshelf.app 拖进“应用程序”后正常打开；Windows 上直接运行 portable 版 `.exe`，Store/MSIX 的路径说明见 [docs/WINDOWS.md](docs/WINDOWS.md)。
-
-**未签名测试版。** 签名的 Preview 出来以前，Releases 里还有标题为“未签名测试版”的预发布（标签以 `test-` 开头）：一个 macOS 通用 DMG 和一个 Windows portable `.exe`，文件名里带 `-unsigned`，另有 `SHA256SUMS.txt`。它们在 GitHub 上用说明里写的那个提交打出来，没有签名和公证。macOS 第一次打开会被拦下：到“系统设置 → 隐私与安全性”点“仍要打开”，不要用别的办法绕过；Windows 在 SmartScreen 提示时点“更多信息 → 仍要运行”。
-
-账号、设置和设备网的钥匙放在沿用旧名的数据目录里：macOS 是 `~/Library/Application Support/AgentDesk`，Windows 是 `%APPDATA%\AgentDesk`。
+账号、设置和设备网的钥匙放在沿用旧名的数据目录里：macOS 是 `~/Library/Application Support/AgentDesk`，Windows 是 `%APPDATA%\AgentDesk`。换新版本不会动它。
 
 ## 用着出了问题
 

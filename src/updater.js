@@ -154,6 +154,13 @@ function selectReleaseAsset(release, platform, arch) {
     .sort((left, right) => right.score - left.score)[0]?.asset || null;
 }
 
+// Until a signed release exists, the newest unsigned test build (tag test-…)
+// is GitHub's Latest so the README's download links reach it
+// (docs/RELEASING.md). The update check never offers or installs one.
+function isTestBuildRelease(release) {
+  return /^test-/i.test(String(release?.tag_name || ''));
+}
+
 function resolveRelease(release, options = {}) {
   const current = parseVersion(options.currentVersion);
   const latest = parseVersion(release?.tag_name);
@@ -252,6 +259,7 @@ function windowsUpdaterScript() {
 }
 
 module.exports = {
+  isTestBuildRelease,
   GITHUB_API_VERSION,
   LATEST_RELEASE_API,
   RELEASES_URL,
