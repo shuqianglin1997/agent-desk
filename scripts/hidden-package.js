@@ -95,7 +95,9 @@ function buildInto(output) {
   const artifact = process.platform === 'darwin' ? path.resolve(binary, '..', '..', '..') : path.dirname(binary);
   const verify = spawnSync(process.execPath, [path.join(__dirname, 'verify-electron-package-integrity.js'), '--artifact', artifact], { encoding: 'utf8' });
   if (verify.status !== 0) throw new Error(`the test build is not like a release build: ${(verify.stderr || verify.stdout || '').trim().slice(0, 400)}`);
-  return { output, binary };
+  // The build log goes with the build; what it said about downloading is kept.
+  const downloads = log.split(/\r?\n/).filter((line) => /download/i.test(line)).map((line) => line.trim()).slice(0, 20);
+  return { output, binary, downloads };
 }
 
 module.exports = { testConfig, build, remove };

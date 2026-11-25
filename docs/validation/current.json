@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T04:57:57.122Z",
-  "baseCommit": "247a211222308aa36e5010e1f88ddf28b1453a85",
+  "recordedAt": "2026-11-25T05:15:56.858Z",
+  "baseCommit": "de4141169812d571edd22dddec0624be529c7897",
   "uncommitted": true,
-  "sourceSha256": "cc6038593af8b4eeefa91ea4d04fe9a9a3b2a337f57c08bb4ed46a7c829b372f",
+  "sourceSha256": "5675c987e90de9d60fb6d9577a268cd1307d3a0914f148226e9982d78b2ed14c",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 971,
+      "pass": 969,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after the idle quota hint was shortened in three languages and the packaged check started reporting the build log's download lines; digest identical before and after the run",
+      "recordedAt": "2026-11-25T05:15:56.858Z",
+      "sourceSha256": "5675c987e90de9d60fb6d9577a268cd1307d3a0914f148226e9982d78b2ed14c"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T05:15:56.858Z",
+      "sourceSha256": "5675c987e90de9d60fb6d9577a268cd1307d3a0914f148226e9982d78b2ed14c"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

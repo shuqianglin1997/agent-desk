@@ -650,7 +650,7 @@
     'quota.available': 'Quota available',
     'quota.suffix.refreshing': 'refreshing',
     'quota.msg.loading': 'Reading official quota; first cold start may take ~10s…',
-    'quota.msg.idle': 'Querying starts automatically once an account is selected; quota never mixes into the high-frequency activity poll.',
+    'quota.msg.idle': 'Quota loads once an account is selected.',
     'quota.msg.refreshFailKeep': 'Refresh failed: {err}. Kept the last data.',
     'quota.msg.noData': 'No quota data to show right now.',
     'quota.status.unsupported': 'Unsupported',

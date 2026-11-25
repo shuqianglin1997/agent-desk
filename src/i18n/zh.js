@@ -650,7 +650,7 @@
     'quota.available': '额度可用',
     'quota.suffix.refreshing': '刷新中',
     'quota.msg.loading': '正在读取官方额度；首次冷启动可能需要十几秒…',
-    'quota.msg.idle': '选择账号后会自动查询，额度不会混入高频活跃度轮询。',
+    'quota.msg.idle': '选择账号后会自动查询额度。',
     'quota.msg.refreshFailKeep': '刷新失败：{err}。已保留上次数据。',
     'quota.msg.noData': '当前没有可展示的额度数据。',
     'quota.status.unsupported': '暂不支持',

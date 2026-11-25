@@ -155,6 +155,8 @@ async function main() {
       report.shapeDifferences = differing.map((channel) => ({ channel, expected: golden[channel], actual: result.shapes[channel] }));
     }
     report.shapesMatch = shapesMatch;
+    // A test package this check built itself: the build log's lines about downloading.
+    if (builtPackage) report.packageBuild = { downloadLines: builtPackage.downloads || [] };
     if (result.extra !== undefined) report.extra = result.extra;
     if (args.includes('--lag')) report.measurements = { workerCalls: result.workerCalls, mainLag: result.mainLag, writer: result.writer || null };
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');

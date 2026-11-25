@@ -650,7 +650,7 @@
     'quota.available': 'クォータ利用可',
     'quota.suffix.refreshing': '更新中',
     'quota.msg.loading': '公式クォータを読み込み中。初回は十数秒かかることがあります…',
-    'quota.msg.idle': 'アカウントを選ぶと自動で照会します。クォータは高頻度のアクティビティ監視には混ざりません。',
+    'quota.msg.idle': 'アカウントを選ぶとクォータを自動で照会します。',
     'quota.msg.refreshFailKeep': '更新失敗：{err}。前回のデータを保持しました。',
     'quota.msg.noData': '現在表示できるクォータデータがありません。',
     'quota.status.unsupported': '未対応',
