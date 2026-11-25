@@ -867,7 +867,6 @@
   .dialog-body label textarea {
     text-transform: none;
     letter-spacing: normal;
-    font-weight: 400;
   }
 
   .dialog-actions {
@@ -1021,7 +1020,6 @@
     border-color: transparent;
     color: var(--ink-on-accent);
     background: var(--danger);
-    font-weight: 650;
   }
 
   button.danger-button:hover:not(:disabled) {
@@ -1175,9 +1173,6 @@
     padding: 8px;
     color: var(--ink-primary);
     background: var(--surface-sunken);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1.4;
   }
 
   .mesh-code-panel > div:last-child,
@@ -1382,8 +1377,6 @@
   .device-network-field textarea {
     min-height: 64px;
     resize: vertical;
-    font-family: var(--font-mono);
-    font-size: 11.5px;
   }
 
   .device-network-field small {
@@ -1446,7 +1439,6 @@
   .transfer-item-list button {
     min-height: 24px;
     padding: 3px 8px;
-    font-size: 11px;
   }
 
   .transfer-list {
@@ -1888,7 +1880,6 @@
   .tool-card-actions button {
     height: 23px;
     padding: 0 7px;
-    font-size: 11px;
   }
 
   .tool-card[data-state="current"] .tool-card-rail,
@@ -2150,7 +2141,7 @@
    * 形式即逻辑——按钮视觉重量 = 逻辑重要度。日系 primary-filled / tonal / text-button 三层。 */
 
   /* 顶栏：全局动作幽灵化（房檐不与工作台抢权重），模式切换胶囊 */
-  .topbar-actions button { height: 26px; border: 0; background: transparent; box-shadow: none; color: var(--ink-secondary); font-size: 12px; }
+  .topbar-actions button { height: 26px; border: 0; background: transparent; box-shadow: none; color: var(--ink-secondary); }
   .topbar-actions button:hover { background: var(--hover-wash); }
 
   /* 键盘焦点环全站一致 */
@@ -2318,7 +2309,7 @@
   }
   .device-list-pane > header small,
   .device-agent-section > header small { color: var(--ink-tertiary); font-size: 11px; }
-  .device-list-pane > header button { height: 26px; padding: 0 9px; font-size: 11.5px; }
+  .device-list-pane > header button { height: 26px; padding: 0 9px; }
 
   .device-list {
     display: grid;
@@ -2376,7 +2367,7 @@
   .device-detail-stat b { display: block; font-family: var(--font-mono); font-size: 11.5px; }
   .device-detail-stat small { color: var(--ink-tertiary); font-size: 11px; }
   .device-detail-actions { display: flex; align-items: center; gap: 6px; min-height: 28px; }
-  .device-detail-actions > button { height: 28px; padding: 0 9px; font-size: 11.5px; }
+  .device-detail-actions > button { height: 28px; padding: 0 9px; }
   .device-detail-actions .remote-control-action { border-color: var(--accent); color: var(--ink-on-accent); background: var(--accent); font-weight: 700; }
   .device-connection-state {
     color: var(--ink-tertiary);
@@ -3345,24 +3336,10 @@
 
   /* Global utility dialogs -------------------------------------------- */
   .device-center-dialog { width: min(760px, calc(100vw - 48px)); }
-  .device-center-dialog .dialog-body.utility-dialog-shell {
-    --dialog-safe-margin: 42px;
-  }
-  .activity-center-dialog .dialog-body.utility-dialog-shell {
-    --dialog-safe-margin: 64px;
-  }
   .task-package-dialog,
   .task-package-import-dialog { width: min(720px, calc(100vw - 52px)); }
-  .task-package-dialog .dialog-body.utility-dialog-shell,
-  .task-package-import-dialog .dialog-body.utility-dialog-shell {
-    --dialog-safe-margin: 48px;
-  }
   .task-package-dialog[data-flow="fallback"] .task-package-content > :not(#taskPackageExportResult):not(#taskPackageStatus) {
     display: none;
-  }
-
-  .child-dialog-shell {
-    --dialog-safe-margin: 64px;
   }
 
   .device-center-head {
