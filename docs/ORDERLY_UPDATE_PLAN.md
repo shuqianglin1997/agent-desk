@@ -75,7 +75,7 @@ AgentDesk 仍然不下载、不安装任何更新，也不改客户端的更新�
 
 四批各提交一次：`5820690` 数据，`8313be0` 命令与顺序，`c0e9324` 界面，最后一批是文档。
 
-**记下来。** `profile-runtime.json` 升到第 2 版：每次由 AgentDesk 打开一个账号，就记下启动前从应用包 `Info.plist` 读到的版本和应用包位置。每个客户端另记一个“开着的集合”：从 AgentDesk 打开它的第一个账号算起，凡是这段时间里由 AgentDesk 打开过的账号都在里面；AgentDesk 打开的最后一个也退出时，集合结束，并记下最后那次退出的原因。第 1 版的文件照常读，这几项算不知道。
+**记下来。** `profile-runtime.json` 升到第 2 版：每次由 AgentDesk 打开一个账号，就记下启动前从应用包 `Info.plist` 读到的版本和应用包位置。每个客户端另记一个“开着的集合”：从 AgentDesk 打开它的第一个账号算起，凡是这段时间里由 AgentDesk 打开过的账号都在里面，每个账号退出时记下退出时间（再打开就清掉）；AgentDesk 打开的最后一个也退出时，集合结束，并记下最后那次退出的原因。第 1 版的文件照常读，这几项算不知道。
 
 **看得见。** 判断在 `src/client-updates.js`，结果用统一的事实类型：
 
@@ -87,15 +87,15 @@ AgentDesk 仍然不下载、不安装任何更新，也不改客户端的更新�
 
 **一起重开。** 确认对话框用公共的对话框部件，逐个列出会被打断的账号，标出谁有对话在跑、谁有调度中枢的后台对话；有后台对话时“关掉并重开”是灰的，要人先勾“同时停下这 N 段后台对话”。确认后的顺序：按人的选择停下后台对话，用现有的关闭动作逐个关掉（原因记为 `client-update`），推断的情况再等新版本换好（最多 3 分钟，每 2 秒看一次），然后把刚才关掉的这些账号各带各的数据目录重新打开。有一个关不掉就停在那里，后面不再关、也不重新打开；等不到新版本时如实说明（可能还有别的窗口开着这个应用），不重新打开。
 
-**补救。** AgentDesk 打开的这个客户端的账号都退出了、磁盘上的版本比它们启动时的新、而且集合不是因为退出 AgentDesk（或移除、移动位置、磁盘事故）结束的，就在收件箱里给一条“{客户端} 已换成 {版本}”，“工具”那一行给“重新打开…”。确认框列出要打开的账号。只要再打开这个客户端的任何一个账号，这条就不再出现。
+**补救。** AgentDesk 打开的这个客户端的账号都退出了、磁盘上的版本比它们启动时的新、而且集合不是因为退出 AgentDesk（或移除、移动位置、磁盘事故）结束的，就在收件箱里给一条“{客户端} 已换成 {版本}”，“工具”那一行给“重新打开…”。确认框里每个账号一个勾选框：在最后一个账号退出前 10 分钟内退出的默认勾上；更早退出的默认不勾，旁边写“较早前已关”（退出时间不知道的按勾上算）。人可以改勾选，只打开勾着的；全都不勾时“重新打开”按钮是灰的，Main 也拒绝（`nothing-selected`）。只要再打开这个客户端的任何一个账号，这条就不再出现。“一起重开”不用勾选，它只重开自己刚关掉的那几个。
 
 **命令行工具。** 在“工具”里自动更新一个命令行工具之前，它的账号有对话在跑（活动探测按数据根各数一次，或调度中枢的后台对话，取较大的）就先问一句“有 N 条在跑，更新可能打断”。Codex 的命令行和 Codex 账号共用会话目录，也算在内。
 
-**命令。** 命令表只允许一个点，所以计划里的三条落成 `client.updateStatus`、`client.updateRestartAll`、`client.reopenSet`（通道同名，preload 是 `getClientUpdateStatus`、`restartClientForUpdate`、`reopenClientSet`）。窗口只送客户端标识和“是否停下后台对话”。后两条在命令表里标为只限窗口（`windowOnly`），由人在窗口里点。成品命令行只转发只读的 `clients update-status`（没有桌面在监管时回 `desktop-not-running`）；`clients restart-all`、`clients reopen` 在命令行进程里直接回 `window-only`，不碰桌面。固定原因码：`platform-unsupported`、`client-unknown`、`client-update-busy`、`nothing-open`、`no-update-waiting`、`background-runs-active`、`nothing-to-reopen`，做到一半停下的是 `background-run-stop-failed`、`client-close-failed`、`update-not-installed`、`client-reopen-failed`。
+**命令。** 命令表只允许一个点，所以计划里的三条落成 `client.updateStatus`、`client.updateRestartAll`、`client.reopenSet`（通道同名，preload 是 `getClientUpdateStatus`、`restartClientForUpdate`、`reopenClientSet`）。窗口只送客户端标识和“是否停下后台对话”。后两条在命令表里标为只限窗口（`windowOnly`），由人在窗口里点。成品命令行只转发只读的 `clients update-status`（没有桌面在监管时回 `desktop-not-running`）；`clients restart-all`、`clients reopen` 在命令行进程里直接回 `window-only`，不碰桌面。固定原因码：`platform-unsupported`、`client-unknown`、`client-update-busy`、`nothing-open`、`no-update-waiting`、`background-runs-active`、`nothing-to-reopen`、`nothing-selected`，做到一半停下的是 `background-run-stop-failed`、`client-close-failed`、`update-not-installed`、`client-reopen-failed`。
 
 **开发时自己定的、计划没写细的**（所有者可以改）：
 
-1. “刚才开着的”取整段集合，包括这段时间里早些时候关掉的账号；确认框会列出名字。
+1. 补救的确认框列出整段集合，但只默认勾上在最后一个账号退出前 10 分钟内退出的；更早退出的标“较早前已关”、默认不勾，人自己决定开不开（规划会话 2026-11-24 定：一小时前故意关掉的账号不该被“原样重开”打开）。
 2. 补救的提示一直留着，直到再打开这个客户端的某个账号；没有单独的“不用了”。
 3. 等新版本最多 3 分钟。
 4. 命令行只读（规划会话 2026-11-24 定）：只有状态查询；关闭与重开只在窗口里由人触发，命令行回 `window-only`。理由：第 4 节“不替人决定什么时候重启”，命令行是给 AI 用的，开放以后任何 Agent 都能关掉人正开着的客户端，连它自己所在的那个也包括在内。

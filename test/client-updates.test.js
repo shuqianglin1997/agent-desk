@@ -8,7 +8,7 @@ const path = require('node:path');
 const { makeTempDir } = require('./helpers/temp');
 const { ProfileRuntimeSupervisor, RUNTIME_STATE_VERSION } = require('../src/profile-runtime');
 const { createBundleReader } = require('../src/clients/app-update');
-const { judgeWaiting, judgeReopen, createClientUpdates, updateClientIds } = require('../src/client-updates');
+const { judgeWaiting, judgeReopen, selectedForReopen, createClientUpdates, updateClientIds } = require('../src/client-updates');
 const apps = require('../src/apps');
 
 // A fake app bundle and ShipIt cache under a temp home. plutil is replaced by
@@ -92,8 +92,11 @@ test('reopen offer: all exited, the set did not end by quitting, and the app on 
     startedAt: '2026-11-24T08:00:00.000Z', endedAt: '2026-11-24T09:00:00.000Z', endReason: 'observed-client-exit'
   };
   const liveIds = new Set(['a', 'b']);
-  assert.deepEqual(judgeReopen({ set, openCount: 0, diskVersion: '1.3.0', liveIds }),
-    { profileIds: ['a', 'b'], fromVersion: '1.2.0', toVersion: '1.3.0', endedAt: set.endedAt });
+  assert.deepEqual(judgeReopen({ set, openCount: 0, diskVersion: '1.3.0', liveIds }), {
+    profileIds: ['a', 'b'],
+    members: [{ profileId: 'a', recent: true }, { profileId: 'b', recent: true }],
+    fromVersion: '1.2.0', toVersion: '1.3.0', endedAt: set.endedAt
+  });
   assert.equal(judgeReopen({ set, openCount: 1, diskVersion: '1.3.0', liveIds }), null, 'one is open again');
   assert.equal(judgeReopen({ set, openCount: 0, diskVersion: '1.2.0', liveIds }), null, 'same version');
   assert.equal(judgeReopen({ set: { ...set, endedAt: null }, diskVersion: '1.3.0', liveIds }), null, 'not ended');
@@ -102,6 +105,30 @@ test('reopen offer: all exited, the set did not end by quitting, and the app on 
   }
   assert.equal(judgeReopen({ set, diskVersion: '1.3.0', liveIds: new Set() }), null, 'every member removed');
   assert.equal(judgeReopen({ set: { ...set, endReason: 'client-update' }, diskVersion: '1.3.0', liveIds }).profileIds.length, 2);
+});
+
+test('reopen offer: an account closed well before the last one is not ticked by default', () => {
+  const endedAt = '2026-11-24T09:00:00.000Z';
+  const minutesBefore = (n) => new Date(Date.parse(endedAt) - n * 60_000).toISOString();
+  const set = {
+    members: [
+      { profileId: 'early', appVersion: '1.2.0', exitedAt: minutesBefore(60) },
+      { profileId: 'clicked', appVersion: '1.2.0', exitedAt: minutesBefore(10) },
+      { profileId: 'last', appVersion: '1.2.0', exitedAt: endedAt },
+      { profileId: 'unknown', appVersion: '1.2.0' }
+    ],
+    startedAt: minutesBefore(120), endedAt, endReason: 'observed-client-exit'
+  };
+  const offer = judgeReopen({ set, diskVersion: '1.3.0', liveIds: new Set(['early', 'clicked', 'last', 'unknown']) });
+  assert.deepEqual(offer.members, [
+    { profileId: 'early', recent: false },
+    { profileId: 'clicked', recent: true },
+    { profileId: 'last', recent: true },
+    { profileId: 'unknown', recent: true }
+  ]);
+  assert.deepEqual(selectedForReopen(offer), ['clicked', 'last', 'unknown'], 'by default: the recent ones');
+  assert.deepEqual(selectedForReopen(offer, ['early', 'not-in-offer']), ['early'], 'the person\'s ticks, within the offer');
+  assert.deepEqual(selectedForReopen(offer, []), []);
 });
 
 function processFor(pid, profilePath) {
@@ -128,12 +155,15 @@ test('the runtime store keeps each launch version and the open set until the las
   processes = processes.filter((item) => item.pid !== 11);
   await supervisor.stopProfile(profiles[0], 'user-request');
   assert.equal(supervisor.openSet('claude').endedAt, null, 'b is still open');
+  assert.ok(Date.parse(supervisor.openSet('claude').members[0].exitedAt), 'a keeps when it left');
+  assert.equal(supervisor.openSet('claude').members[1].exitedAt, null);
   processes = processes.filter((item) => item.pid !== 12);
   await supervisor.tick();
   const ended = supervisor.openSet('claude');
   assert.equal(ended.endReason, 'observed-client-exit');
   assert.ok(ended.endedAt);
   assert.deepEqual(ended.members.map((member) => member.profileId), ['a', 'b'], 'everyone who was open in the set');
+  assert.equal(ended.members[1].exitedAt, ended.endedAt, 'the last one left when the set ended');
   assert.equal(supervisor.openSet('cursor').endedAt, null, 'another client is its own set');
 
   // Saved as version 2 and read back.
@@ -207,7 +237,7 @@ test('status: macOS only, AgentDesk accounts with their start versions, no paths
     reopen: null
   });
   const codex = result.clients.find((client) => client.appId === 'codex');
-  assert.deepEqual(codex.reopen, { profileIds: ['c'], fromVersion: '2.0.0', toVersion: '2.1.0', endedAt: '2026-11-24T09:00:00.000Z' });
+  assert.deepEqual(codex.reopen, { profileIds: ['c'], members: [{ profileId: 'c', recent: true }], fromVersion: '2.0.0', toVersion: '2.1.0', endedAt: '2026-11-24T09:00:00.000Z' });
   assert.equal(JSON.stringify(result).includes('/Applications'), false, 'no bundle paths leave Main');
 
   const elsewhere = createClientUpdates({ platform: 'win32', runtime: () => runtime, profiles: async () => [] });
@@ -355,6 +385,13 @@ test('reopen: the accounts that were open before the update, each opened the usu
     ok: false, reasonCode: 'client-reopen-failed', version: '1.3.0', opened: ['a'], failed: [{ profileId: 'b', reasonCode: 'client-not-installed' }]
   });
   assert.deepEqual(log, [['open', 'a'], ['open', 'b']]);
+
+  // Only the accounts the person ticked; none ticked is refused.
+  const chosen = service({ runtime: fakeRuntime({ set }), disk: () => '1.3.0' });
+  assert.deepEqual(await chosen.updates.reopenSet({ appId: 'claude', profileIds: ['b', 'elsewhere'] }), { ok: true, version: '1.3.0', opened: ['b'], failed: [] });
+  assert.deepEqual(chosen.log, [['open', 'b']]);
+  assert.equal(await chosen.updates.refusal('reopen', { appId: 'claude', profileIds: [] }), 'nothing-selected');
+  assert.deepEqual(await chosen.updates.reopenSet({ appId: 'claude', profileIds: [] }), { ok: false, reasonCode: 'nothing-selected' });
 });
 
 test('the three commands take only a client id and one choice; refusals are reason codes', async () => {
@@ -369,17 +406,18 @@ test('the three commands take only a client id and one choice; refusals are reas
   assert.deepEqual(await runCommand('client:updateStatus', { clientUpdates }), { supported: true, busy: null, clients: [] });
   assert.deepEqual(await runCommand('client:updateRestartAll', { clientUpdates }, { appId: 'claude', stopBackgroundRuns: 'yes', profilePath: '/x' }),
     { ok: true, input: { appId: 'claude', stopBackgroundRuns: false } });
-  assert.deepEqual(await runCommand('client:reopenSet', { clientUpdates }, { appId: 'claude', stopBackgroundRuns: true }), { ok: true, input: { appId: 'claude' } });
+  assert.deepEqual(await runCommand('client:reopenSet', { clientUpdates }, { appId: 'claude', stopBackgroundRuns: true, profileIds: ['p-1', '../x', 7, 'p-2'] }),
+    { ok: true, input: { appId: 'claude', profileIds: ['p-1', 'p-2'] } });
   assert.deepEqual(await runCommand('client:updateRestartAll', { clientUpdates }, { appId: '../Claude' }), { ok: false, reasonCode: 'client-unknown' });
   assert.deepEqual(calls.map(([action]) => action), ['restart', 'reopen', 'restart']);
 
   const { api, calls: ipc } = loadPreload();
   await api.restartClientForUpdate('claude', { stopBackgroundRuns: true, extra: 1 });
-  await api.reopenClientSet('codex');
+  await api.reopenClientSet('codex', ['p-1']);
   await api.getClientUpdateStatus();
   assert.deepEqual(JSON.parse(JSON.stringify(ipc)), [
     ['invoke', 'client:updateRestartAll', { appId: 'claude', stopBackgroundRuns: true }],
-    ['invoke', 'client:reopenSet', { appId: 'codex' }],
+    ['invoke', 'client:reopenSet', { appId: 'codex', profileIds: ['p-1'] }],
     ['invoke', 'client:updateStatus']
   ]);
 });

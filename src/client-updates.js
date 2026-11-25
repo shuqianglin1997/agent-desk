@@ -32,6 +32,9 @@ const NO_REOPEN = new Set(['app-quit', 'profile-remove', 'profile-path-change', 
 // and how often it looks.
 const WAIT_FOR_UPDATE_MS = 3 * 60_000;
 const WAIT_POLL_MS = 2_000;
+// An account that exited this long or less before the last one is reopened
+// by default; one closed earlier is left for the person to tick.
+const RECENT_EXIT_MS = 10 * 60_000;
 const REASON = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 const newer = (candidate, than) => Boolean(candidate && than) && compareVersions(candidate, than) === 1;
@@ -63,6 +66,9 @@ function judgeWaiting({ open = [], diskVersion = null, signal = null, staged = n
 // The reopen offer: AgentDesk's accounts of this client have all exited, the
 // set did not end by AgentDesk quitting (or a removed, moved or fused
 // location), and the app on disk is newer than what they started from.
+// Each member says whether it exited within RECENT_EXIT_MS before the last
+// one (`recent`, ticked by default) or earlier (the person may have closed it
+// on purpose, so it is not ticked); an unknown exit time counts as recent.
 //   set: the client's open set; openCount: AgentDesk's accounts open now;
 //   liveIds: profile ids that still exist.
 function judgeReopen({ set = null, openCount = 0, diskVersion = null, liveIds = new Set() } = {}) {
@@ -71,7 +77,26 @@ function judgeReopen({ set = null, openCount = 0, diskVersion = null, liveIds = 
   const older = members.filter((member) => newer(diskVersion, member.appVersion));
   if (!older.length) return null;
   const fromVersion = older.map((member) => member.appVersion).sort((a, b) => compareVersions(b, a) || 0)[0];
-  return { profileIds: members.map((member) => member.profileId), fromVersion, toVersion: diskVersion, endedAt: set.endedAt };
+  const endedAt = Date.parse(set.endedAt);
+  const recent = (member) => {
+    const exitedAt = Date.parse(member.exitedAt || '');
+    return !Number.isFinite(exitedAt) || endedAt - exitedAt <= RECENT_EXIT_MS;
+  };
+  return {
+    profileIds: members.map((member) => member.profileId),
+    members: members.map((member) => ({ profileId: member.profileId, recent: recent(member) })),
+    fromVersion,
+    toVersion: diskVersion,
+    endedAt: set.endedAt
+  };
+}
+
+// Which accounts to reopen: the person's ticks, within the offer; without a
+// selection, the ones ticked by default.
+function selectedForReopen(offer, profileIds) {
+  if (!Array.isArray(profileIds)) return offer.members.filter((member) => member.recent).map((member) => member.profileId);
+  const chosen = new Set(profileIds);
+  return offer.profileIds.filter((profileId) => chosen.has(profileId));
 }
 
 function backgroundRunsByProfile(runs) {
@@ -202,7 +227,10 @@ function createClientUpdates(deps = {}) {
     if (busy) return 'client-update-busy';
     const { runtime, liveIds } = await context();
     const client = await clientStatusOf(timing, input.appId, runtime, liveIds, backgroundRunsByProfile(runsNow()));
-    if (action === 'reopen') return client.reopen ? null : 'nothing-to-reopen';
+    if (action === 'reopen') {
+      if (!client.reopen) return 'nothing-to-reopen';
+      return selectedForReopen(client.reopen, input.profileIds).length ? null : 'nothing-selected';
+    }
     if (!client.open.length) return 'nothing-open';
     if (client.waiting.value !== true) return 'no-update-waiting';
     if (client.open.some((member) => member.backgroundRuns > 0) && input.stopBackgroundRuns !== true) return 'background-runs-active';
@@ -247,7 +275,8 @@ function createClientUpdates(deps = {}) {
     }
   }
 
-  // Open again exactly the accounts of the reopen offer.
+  // Open again the accounts of the reopen offer the person ticked
+  // (input.profileIds); without a selection, the ones ticked by default.
   async function reopenSet(input = {}) {
     const refused = await refusal('reopen', input);
     if (refused) return { ok: false, reasonCode: refused };
@@ -257,8 +286,10 @@ function createClientUpdates(deps = {}) {
       const { runtime, liveIds } = await context();
       const client = await clientStatusOf(timing, input.appId, runtime, liveIds, new Map());
       if (!client.reopen) return { ok: false, reasonCode: 'nothing-to-reopen' };
+      const selected = selectedForReopen(client.reopen, input.profileIds);
+      if (!selected.length) return { ok: false, reasonCode: 'nothing-selected' };
       const version = client.reopen.toVersion;
-      const { ok, reasonCode, opened, failed } = await openEach(deps.launch, client.reopen.profileIds);
+      const { ok, reasonCode, opened, failed } = await openEach(deps.launch, selected);
       return ok ? { ok, version, opened, failed } : { ok, reasonCode, version, opened, failed };
     } finally {
       busy = null;
@@ -268,4 +299,4 @@ function createClientUpdates(deps = {}) {
   return { status, refusal, restartAll, reopenSet };
 }
 
-module.exports = { NO_REOPEN, WAIT_FOR_UPDATE_MS, updateClientIds, judgeWaiting, judgeReopen, createClientUpdates };
+module.exports = { NO_REOPEN, WAIT_FOR_UPDATE_MS, RECENT_EXIT_MS, updateClientIds, judgeWaiting, judgeReopen, selectedForReopen, createClientUpdates };

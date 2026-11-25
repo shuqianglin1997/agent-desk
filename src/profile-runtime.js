@@ -42,7 +42,12 @@ function normalizeRun(value) {
   const members = [];
   for (const member of value.members.slice(0, 256)) {
     if (!member || typeof member.profileId !== 'string' || members.some((item) => item.profileId === member.profileId)) continue;
-    members.push({ profileId: member.profileId, appVersion: launchVersionOf(member.appVersion), appBundle: launchBundleOf(member.appBundle) });
+    members.push({
+      profileId: member.profileId,
+      appVersion: launchVersionOf(member.appVersion),
+      appBundle: launchBundleOf(member.appBundle),
+      exitedAt: isoOrNull(member.exitedAt)
+    });
   }
   if (!members.length) return null;
   return {
@@ -756,9 +761,10 @@ class ProfileRuntimeSupervisor {
   }
 
   // The open set of one client: a launch joins it (a new set starts when the
-  // last one had ended); when AgentDesk's last open account of that client has
-  // exited, the set ends with the reason of that last exit. Only AgentDesk's
-  // own launches are members. Callers save the state.
+  // last one had ended); each member that exits keeps when it did (`exitedAt`,
+  // cleared when it is opened again); when AgentDesk's last open account of
+  // that client has exited, the set ends with the reason of that last exit.
+  // Only AgentDesk's own launches are members. Callers save the state.
   joinOpenSet(profile, record) {
     const appId = typeof profile?.appId === 'string' && RUN_ID.test(profile.appId) ? profile.appId : null;
     if (!appId) return;
@@ -768,7 +774,7 @@ class ProfileRuntimeSupervisor {
       : { members: [], startedAt: record.launchedAt, endedAt: null, endReason: null };
     run.members = [
       ...run.members.filter((member) => member.profileId !== profile.id),
-      { profileId: profile.id, appVersion: record.appVersion, appBundle: record.appBundle }
+      { profileId: profile.id, appVersion: record.appVersion, appBundle: record.appBundle, exitedAt: null }
     ];
     this.runs.set(appId, run);
   }
@@ -777,8 +783,10 @@ class ProfileRuntimeSupervisor {
     const appId = profile?.appId;
     const run = appId ? this.runs.get(appId) : null;
     if (!run || run.endedAt) return;
+    const at = new Date(this.now()).toISOString();
+    for (const member of run.members) if (member.profileId === profile.id) member.exitedAt = at;
     if (this.ownedOpenProfiles(appId).some((item) => item.profile.id !== profile.id)) return;
-    run.endedAt = new Date(this.now()).toISOString();
+    run.endedAt = at;
     run.endReason = RUN_ID.test(String(reason)) ? String(reason) : 'exited';
   }
 

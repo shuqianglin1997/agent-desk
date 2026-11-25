@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T06:45:06.559Z",
-  "baseCommit": "8f44f9c049f482834735c96840f37e2b49d64e5d",
+  "recordedAt": "2026-11-25T06:49:07.916Z",
+  "baseCommit": "d92b5afc7268233393334be4d859514d296692f5",
   "uncommitted": true,
-  "sourceSha256": "23794f90b0fda3fe841826f7bab657b403955c43efe3803d12dd722b10dd4ce3",
+  "sourceSha256": "ca3af5608e160c6de5a2c3b6f5e3b6647595d0bb3b358529e6edf082287a1852",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 991,
+      "pass": 989,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after the reopen offer got a checkbox per account (ticked when it left within 10 minutes of the last one, an earlier one marked closed earlier and not ticked; only ticked accounts open; none ticked refused with nothing-selected); includes the test that an account closed earlier is not ticked by default; digest identical before and after the run",
+      "recordedAt": "2026-11-25T06:49:07.916Z",
+      "sourceSha256": "ca3af5608e160c6de5a2c3b6f5e3b6647595d0bb3b358529e6edf082287a1852"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T06:49:07.916Z",
+      "sourceSha256": "ca3af5608e160c6de5a2c3b6f5e3b6647595d0bb3b358529e6edf082287a1852"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

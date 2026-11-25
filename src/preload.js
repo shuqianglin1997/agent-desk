@@ -318,7 +318,10 @@ contextBridge.exposeInMainWorld('manager', {
     appId: String(appId || ''),
     stopBackgroundRuns: options.stopBackgroundRuns === true
   }),
-  reopenClientSet: (appId) => ipcRenderer.invoke('client:reopenSet', { appId: String(appId || '') }),
+  reopenClientSet: (appId, profileIds = []) => ipcRenderer.invoke('client:reopenSet', {
+    appId: String(appId || ''),
+    profileIds: Array.isArray(profileIds) ? profileIds.map(String).slice(0, 64) : []
+  }),
   onProfileRegistrationsChanged: (callback) => {
     const listener = () => callback();
     ipcRenderer.on('profiles:registrationsChanged', listener);

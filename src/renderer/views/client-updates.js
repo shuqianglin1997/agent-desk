@@ -141,6 +141,34 @@ function impactLine(text) {
   return line;
 }
 
+// One account in the reopen list: the shared checkbox row, ticked when it left
+// within ten minutes of the last one; an earlier one says so and is not ticked.
+function reopenChoice(member) {
+  const row = document.createElement('label');
+  row.className = 'catalog-local-registration';
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.checked = member.recent === true;
+  box.dataset.profileId = member.profileId;
+  box.addEventListener('change', syncReopenConfirm);
+  const name = document.createElement('span');
+  const label = accountName(member.profileId);
+  name.textContent = member.recent ? label : tr('clientUpdate.dialog.earlier', { name: label });
+  row.append(box, name);
+  return row;
+}
+
+function reopenTicked() {
+  return [...els.clientUpdateImpact.querySelectorAll('input[type="checkbox"][data-profile-id]')]
+    .filter((box) => box.checked)
+    .map((box) => box.dataset.profileId);
+}
+
+// Nothing ticked, nothing to open.
+function syncReopenConfirm() {
+  els.confirmClientUpdateBtn.disabled = reopenTicked().length === 0;
+}
+
 // From the latest poll; Main checks again before it does anything.
 async function openClientUpdateDialog(appId, mode, trigger = document.activeElement) {
   const client = clientOf(appId);
@@ -167,15 +195,15 @@ async function openClientUpdateDialog(appId, mode, trigger = document.activeElem
   } else {
     els.clientUpdateTitle.textContent = tr('clientUpdate.dialog.reopenTitle', { app });
     els.clientUpdateLead.textContent = tr('clientUpdate.dialog.reopenLead', { app, version: client.reopen.toVersion });
-    for (const profileId of client.reopen.profileIds) lines.push(accountName(profileId));
     els.confirmClientUpdateBtn.textContent = tr('clientUpdate.dialog.reopenConfirm');
   }
-  els.clientUpdateImpact.replaceChildren(...lines.map(impactLine));
+  els.clientUpdateImpact.replaceChildren(...(mode === 'restart' ? lines.map(impactLine) : client.reopen.members.map(reopenChoice)));
   // Background runs stop only by an explicit choice; unticked, it cannot go on.
   els.clientUpdateStopRunsField.hidden = backgroundRuns === 0;
   els.clientUpdateStopRuns.checked = false;
   els.clientUpdateStopRunsLabel.textContent = tr('clientUpdate.dialog.stopRuns', { n: backgroundRuns });
-  els.confirmClientUpdateBtn.disabled = backgroundRuns > 0;
+  if (mode === 'restart') els.confirmClientUpdateBtn.disabled = backgroundRuns > 0;
+  else syncReopenConfirm();
   openChildDialog(els.clientUpdateDialog, trigger);
 }
 
@@ -195,6 +223,8 @@ async function confirmClientUpdate() {
   const subject = pending;
   if (!subject) return;
   const stopBackgroundRuns = !els.clientUpdateStopRunsField.hidden && els.clientUpdateStopRuns.checked;
+  const ticked = subject.mode === 'reopen' ? reopenTicked() : [];
+  if (subject.mode === 'reopen' && !ticked.length) return;
   pending = null;
   els.clientUpdateDialog.close();
   if (subject.mode === 'restart') setStatus(tr('clientUpdate.status.restarting', { app: appLabel(subject.appId) }));
@@ -204,7 +234,7 @@ async function confirmClientUpdate() {
   try {
     result = subject.mode === 'restart'
       ? await window.manager.restartClientForUpdate(subject.appId, { stopBackgroundRuns })
-      : await window.manager.reopenClientSet(subject.appId);
+      : await window.manager.reopenClientSet(subject.appId, ticked);
   } catch (_error) {
     result = null;
   } finally {
