@@ -30,9 +30,10 @@ AgentDesk 的文档必须把下面七种状态分开，不能都写成“已完�
 | 产品现在是什么 | [`PRODUCT.md`](PRODUCT.md) | 当前产品事实与边界 |
 | 用户现在能怎么用 | [`SCENARIOS.md`](SCENARIOS.md) | 当前用户场景及每条路径的证据边界 |
 | 每项功能做到哪一步 | [`FUNCTION_AUDIT.md`](FUNCTION_AUDIT.md) | 功能、证据层级和剩余缺口 |
-| 代码如何组织 | [`INTERNAL.md`](INTERNAL.md) | 运行时、数据、IPC、协议与测试结构 |
+| 代码如何组织 | [`INTERNAL.md`](INTERNAL.md) | 按五层逐个说明源码文件，以及进程、数据、IPC、协议与测试结构；分层表与接口清单由脚本生成 |
+| 第一次参与开发 | [`STRUCTURE.md`](STRUCTURE.md) | 目录各管什么、依赖方向、加客户端或命令要改哪里、怎么跑测试与隐藏验收 |
 | 下一步按什么顺序做 | [`ROADMAP.md`](ROADMAP.md) | 已批准实施批次与阶段门禁 |
-| 界面用词怎么统一 | [`WORDING_PLAN.md`](WORDING_PLAN.md) | 草案：全局对象、本机位置与平台登录的叫法，三种语言逐条的改前与改后，以及整理中发现的看得见的其他改动；所有者确认前不改界面文字 |
+| 界面用词怎么统一 | [`WORDING_PLAN.md`](WORDING_PLAN.md) | 已定：账号、位置、登录、账号库、数据目录五个词（所有者 2026-11-24 确认并已改到界面），三种语言逐条的改前与改后，以及整理中发现的看得见的其他改动 |
 | Mesh 的完整决策 | [`PERSONAL_AGENT_MESH_PLAN.md`](PERSONAL_AGENT_MESH_PLAN.md) | 唯一实施权威；涉及设备/P2P/传输时必须全文重读 |
 | Windows 能力与限制 | [`WINDOWS.md`](WINDOWS.md) | Windows 路径、打包与真机矩阵 |
 | 如何发布 | [`RELEASING.md`](RELEASING.md) | 签名、公证、Preview 与稳定版门禁 |

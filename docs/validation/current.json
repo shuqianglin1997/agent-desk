@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T03:28:36.286Z",
-  "baseCommit": "c8c8e276f80149fc7565d86f5d8e3fa17c2f568d",
+  "recordedAt": "2026-11-25T03:35:03.536Z",
+  "baseCommit": "ed30306acfe513e248ef65b83f5f258ddcb66dae",
   "uncommitted": true,
-  "sourceSha256": "3142c1e8be4d6ff4a8c9d1d06a2a1c9df06a2a9b77f8384853b8f7e898f8087b",
+  "sourceSha256": "5d98ffc2379540f034f7d43a2f172be1719080a2725a88f03e4d07b82876e658",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 963,
+      "pass": 961,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after INTERNAL.md was reorganised by the five layers, the contributor guide was added and check:docs started checking the generated layer table and cited paths; digest identical before and after the run",
+      "recordedAt": "2026-11-25T03:35:03.536Z",
+      "sourceSha256": "5d98ffc2379540f034f7d43a2f172be1719080a2725a88f03e4d07b82876e658"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T03:35:03.536Z",
+      "sourceSha256": "5d98ffc2379540f034f7d43a2f172be1719080a2725a88f03e4d07b82876e658"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

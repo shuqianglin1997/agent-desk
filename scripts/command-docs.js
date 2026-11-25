@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 'use strict';
 
-// The IPC list in docs/INTERNAL.md §7, generated from the command table
-// (src/commands/registry.js). scripts/check-docs.js fails when the section is
-// not what this prints.
+// The two generated parts of docs/INTERNAL.md: the IPC list in §7, from the
+// command table (src/commands/registry.js), and the layer table in §2, from
+// scripts/check-layers.js. scripts/check-docs.js fails when either is not what
+// this prints, and when a structure doc cites a repository path that is gone.
 //
-//   node scripts/command-docs.js           print the section
-//   node scripts/command-docs.js --write   replace it in docs/INTERNAL.md
+//   node scripts/command-docs.js           print the command section
+//   node scripts/command-docs.js --write   replace both sections in docs/INTERNAL.md
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -55,14 +56,40 @@ function current(text = fs.readFileSync(DOC, 'utf8')) {
   return text.slice(start, end + END.length);
 }
 
-function write() {
-  const text = fs.readFileSync(DOC, 'utf8');
-  const existing = current(text);
-  if (existing === null) throw new Error('docs/INTERNAL.md has no generated command section');
-  fs.writeFileSync(DOC, text.replace(existing, section()));
+// The layer section as it stands in the document, or null.
+function currentLayers(text = fs.readFileSync(DOC, 'utf8')) {
+  const layers = require('./check-layers');
+  const start = text.indexOf(layers.DOC_START);
+  const end = text.indexOf(layers.DOC_END, start);
+  if (start < 0 || end < 0) return null;
+  return text.slice(start, end + layers.DOC_END.length);
 }
 
-module.exports = { section, current, START, END };
+// The document with both generated sections replaced by what the code gives.
+function rewrite(text) {
+  const commands = current(text);
+  const layerBlock = currentLayers(text);
+  if (commands === null) throw new Error('docs/INTERNAL.md has no generated command section');
+  if (layerBlock === null) throw new Error('docs/INTERNAL.md has no generated layer section');
+  return text.replace(commands, () => section()).replace(layerBlock, () => require('./check-layers').docSection());
+}
+
+function write() {
+  fs.writeFileSync(DOC, rewrite(fs.readFileSync(DOC, 'utf8')));
+}
+
+// Repository paths a structure doc cites in backticks. Placeholders (<id>),
+// wildcards and anything outside these top-level folders are not paths.
+const CITED = /`((?:src|scripts|test|docs|native|services|assets)\/[^`\s*<>{}]+)`/g;
+function citedPaths(text) {
+  return [...new Set([...text.matchAll(CITED)].map((match) => match[1].replace(/[)。，、；：]+$/, '')))];
+}
+
+function missingPaths(text, root = ROOT) {
+  return citedPaths(text).filter((relative) => !fs.existsSync(path.join(root, relative)));
+}
+
+module.exports = { section, current, currentLayers, rewrite, citedPaths, missingPaths, START, END };
 
 if (require.main === module) {
   if (process.argv.includes('--write')) write();

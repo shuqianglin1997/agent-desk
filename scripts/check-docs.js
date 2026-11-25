@@ -191,6 +191,14 @@ try {
   const existing = commandDocs.current(read('docs/INTERNAL.md'));
   if (existing === null) fail('docs/INTERNAL.md', 'missing the generated command section (§7)');
   else if (existing !== commandDocs.section()) fail('docs/INTERNAL.md', 'command section is out of date; run node scripts/command-docs.js --write');
+  // §2's layer table is generated from scripts/check-layers.js.
+  const layerBlock = commandDocs.currentLayers(read('docs/INTERNAL.md'));
+  if (layerBlock === null) fail('docs/INTERNAL.md', 'missing the generated layer section (§2)');
+  else if (layerBlock !== require('./check-layers').docSection()) fail('docs/INTERNAL.md', 'layer section is out of date; run node scripts/command-docs.js --write');
+  // The structure docs cite only paths that exist.
+  for (const doc of ['docs/INTERNAL.md', 'docs/STRUCTURE.md']) {
+    for (const missing of commandDocs.missingPaths(read(doc), ROOT)) fail(doc, `cites a path that does not exist: ${missing}`);
+  }
 } catch (error) {
   fail('src/commands/registry.js', `command table: ${error.message}`);
 }
