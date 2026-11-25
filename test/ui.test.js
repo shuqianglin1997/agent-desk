@@ -72,8 +72,7 @@ test('会话浏览支持只用于明确定位动作的轻量选择，复制主�
   assert.match(renderer, /async function pickRosterAll\(\)[\s\S]*?setSessionScope\('all'\)/);
   // 全 Agent 扫描仍给每条会话保留真实槽位和账号组，供浏览与定位操作使用。
   assert.match(renderer, /state\.ui\.agentScope === 'all'[\s\S]*?identityGroups\(\)/);
-  assert.match(renderer, /_profileId:\s*member\.id/);
-  assert.match(renderer, /_accountKey:\s*accountKey/);
+  // Each row's slot and account group: checked by behaviour in sessions-load-race.test.js.
   const copy = doc.byId('copySessionInfoBtn');
   assert.deepEqual([copy.tag, doc.classes(copy), copy.attrs['data-i18n'], doc.text(copy)], ['button', ['session-copy-info', 'primary'], 'session.copyInfo', '复制会话信息']);
   assert.ok(styleRules('.session-copy-info').some((rule) => rule.decls['min-width'] === '148px' && rule.decls.height === '36px' && rule.decls.background === 'var(--accent)'), 'the copy button keeps its size and accent');
@@ -236,7 +235,7 @@ test('账号为轴：每个 Agent 一张卡片，会话合流并记录归属槽�
   assert.match(renderer, /const orderedCards = groups\.map\(\(group\) =>/);
   assert.match(renderer, /card\.classList\.toggle\('selected', selected\)/);
   // 会话合流：组内所有槽位一起列，每条带归属槽位 id，操作按归属槽位走
-  assert.match(renderer, /record\) => \(\{ \.\.\.record, _profileId: member\.id \}\)/);
+  // Each loaded row carries its own slot: checked by behaviour in sessions-load-race.test.js.
   assert.match(renderer, /function sessionFileActionRefs[\s\S]*?profileId: String\(session\._profileId\)/);
   // 排行榜与账号条也按组聚合
   assert.match(renderer, /for \(const group of identityGroups\(\)\) \{/);

@@ -248,15 +248,18 @@ function renderSessions() {
         : state.ui.agentScope === 'all' ? 'session.empty.noneAll' : 'session.empty.none');
     row.append(cell);
     sessionRowCache = new Map();
+    sessionRowCacheView = null;
     els.sessionRows.replaceChildren(row);
     announceSessionRows();
     return;
   }
 
   // Rows whose drawing would not change are kept; the others are drawn anew.
+  // A row is kept only when the view is the one of the last drawing and the
+  // row's own signature matches.
   const columns = sessionColumns();
   const view = sessionRowsView(columns);
-  const previous = sessionRowCache;
+  const previous = view === sessionRowCacheView ? sessionRowCache : new Map();
   const next = new Map();
   const wanted = [];
   for (const session of state.filteredSessions) {
@@ -267,7 +270,7 @@ function renderSessions() {
       continue;
     }
     const key = sessionKey(session);
-    const signature = sessionRowSignature(session, view, columns);
+    const signature = sessionRowSignature(session, columns);
     const kept = next.has(key) ? null : previous.get(key);
     let row;
     if (kept && kept.signature === signature) {
@@ -283,6 +286,7 @@ function renderSessions() {
     wanted.push(row);
   }
   sessionRowCache = next;
+  sessionRowCacheView = view;
   placeSessionRows(wanted);
   announceSessionRows();
   rowControl?.focus({ preventScroll: true });
@@ -292,6 +296,7 @@ function renderSessions() {
 // plan 11.5): the element and the signature of what it shows. An update draws
 // only the rows whose signature changed (docs/ARCHITECTURE_PLAN.md 5.7).
 let sessionRowCache = new Map();
+let sessionRowCacheView = null;
 
 // What every row's drawing depends on beyond its own session: the columns,
 // the scope and view, the language, the date locale, and today's date
@@ -307,13 +312,13 @@ function sessionRowsView(columns) {
   ]);
 }
 
-// What one session row shows: the view, its key, whether it is checked or
-// focused, every field its cells read, and its title marks.
-function sessionRowSignature(session, view, columns) {
+// What one session row shows within the view: its key, whether it is checked
+// or focused, every field its cells read, and its title marks. (The view is
+// compared once per drawing, not stored in every row's signature.)
+function sessionRowSignature(session, columns) {
   const key = sessionKey(session);
   const replicas = Array.isArray(session.replicas) ? session.replicas : [];
   return JSON.stringify([
-    view,
     key,
     state.ui.checkedConversationIds.has(key),
     key === state.ui.focusedConversationId,

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T04:06:53.175Z",
-  "baseCommit": "87d3d0d64e7944512eb087afda5a7be6f05c341c",
+  "recordedAt": "2026-11-25T04:57:57.122Z",
+  "baseCommit": "247a211222308aa36e5010e1f88ddf28b1453a85",
   "uncommitted": true,
-  "sourceSha256": "0d6e248c16e1f0070be2a3fad7f969e4c4376a827963b34af996b0dd01a61e04",
+  "sourceSha256": "cc6038593af8b4eeefa91ea4d04fe9a9a3b2a337f57c08bb4ed46a7c829b372f",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 971,
+      "pass": 969,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after the session-list refresh did less work on the window thread (same rows, checked against the previous sorts); digest identical before and after the run",
+      "recordedAt": "2026-11-25T04:57:57.122Z",
+      "sourceSha256": "cc6038593af8b4eeefa91ea4d04fe9a9a3b2a337f57c08bb4ed46a7c829b372f"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T04:57:57.122Z",
+      "sourceSha256": "cc6038593af8b4eeefa91ea4d04fe9a9a3b2a337f57c08bb4ed46a7c829b372f"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

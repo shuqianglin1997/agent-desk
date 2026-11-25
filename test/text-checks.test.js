@@ -23,7 +23,6 @@ const TEXT_ONLY = {
   'test/quota-ui.test.js': 'the quota popover and polling wiring in the renderer; quota reasons and IPC checked by behaviour elsewhere',
   'test/recruit-ui.test.js': 'the recruit dialog\'s renderer steps and its drop handling; page and styles parsed',
   // These run extracted renderer functions in a vm: behaviour on extracts.
-  'test/sessions-load-race.test.js': 'runs the session loader extracted from the renderer in a vm',
   'test/sessions-refresh-on-activity.test.js': 'runs the activity-driven refresh extracted from the renderer in a vm',
   'test/simplification.test.js': 'runs renderer functions extracted in a vm and checks retired features stay gone'
 };

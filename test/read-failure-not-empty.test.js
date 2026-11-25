@@ -39,7 +39,8 @@ test('one account whose session scan fails keeps its last rows; the others refre
     },
     currentAgentId: () => null, identityGroups: () => groups, appLabel: (id) => id, tr: (key) => key,
     validateSessionContext() {}, applySessionFilter() {}, renderSessionControls() {}, renderAccounts() {}, setStatus() {},
-    window: { manager: { listSessions: async (member) => {
+    // The page loads src/session-table.js as window.SessionTable.
+    window: { SessionTable: require('../src/session-table'), manager: { listSessions: async (member) => {
       if (member.id === 'a1') throw new Error('EACCES');
       return [{ id: 'b-new', updatedAt: '2026-11-24T10:00:00Z' }];
     } } }

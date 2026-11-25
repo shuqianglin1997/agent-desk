@@ -224,28 +224,30 @@ async function loadLocalSessions(options = {}) {
     const { member, accountKey, accountName } = descriptor;
     try {
       const records = await window.manager.listSessions(member);
-      const owned = (Array.isArray(records) ? records : [])
-        .map((record) => ({ ...record, _profileId: member.id }));
+      // Each row arrives as a fresh copy from Main; the row's own fields come
+      // first, then where it belongs (the same fields, in the same order, as a
+      // spread copy would have).
+      for (const record of (Array.isArray(records) ? records : [])) {
+        record._profileId = member.id;
+        record._accountKey = accountKey;
+        record._accountName = accountName;
+        record._profileName = member.name;
+        record._appLabel = appLabel(record.appId || member.appId);
+        record._agentId = accountKey;
+        record._accountBindingId = member._accountBindingId || null;
+        record._deviceId = member._meshDeviceId || state.mesh.overview?.localDeviceId || null;
+        record._deviceName = member._meshDeviceName || tr('devices.device.local');
+        record._replicaId = member._meshDeviceId
+          ? `${member._meshDeviceId}:${member.id}:${record.address || record.id || record.filePath || ''}`
+          : null;
+        record._remote = false;
+        record._stale = false;
+        record._localFallback = options.source === 'local-fallback';
+      }
       return {
         ok: true,
         profileId: member.id,
-        records: owned.map((record) => ({
-          ...record,
-          _accountKey: accountKey,
-          _accountName: accountName,
-          _profileName: member.name,
-          _appLabel: appLabel(record.appId || member.appId),
-          _agentId: accountKey,
-          _accountBindingId: member._accountBindingId || null,
-          _deviceId: member._meshDeviceId || state.mesh.overview?.localDeviceId || null,
-          _deviceName: member._meshDeviceName || tr('devices.device.local'),
-          _replicaId: member._meshDeviceId
-            ? `${member._meshDeviceId}:${member.id}:${record.address || record.id || record.filePath || ''}`
-            : null,
-          _remote: false,
-          _stale: false,
-          _localFallback: options.source === 'local-fallback'
-        }))
+        records: Array.isArray(records) ? records : []
       };
     } catch (_error) {
       // A failed scan is not "no sessions": keep this account's last rows.
@@ -260,10 +262,7 @@ async function loadLocalSessions(options = {}) {
   if (generation !== sessionsLoadGeneration) return { ok: true, stale: true, count: state.sessions.length };
   const loaded = results.flatMap((result) => result.records);
 
-  state.sessions = loaded
-    .sort((a, b) => (
-      new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime()
-    ));
+  state.sessions = window.SessionTable.byRecent(loaded);
   validateSessionContext();
   applySessionFilter();
   state.mesh.sessionSource = options.source === 'local-fallback' ? 'local-fallback' : 'local';

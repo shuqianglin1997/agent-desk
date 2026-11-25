@@ -206,11 +206,21 @@ function validateUiContext() {
 }
 
 function validateSessionContext() {
+  // Nothing focused, checked or with a chosen replica: nothing can become
+  // invalid, and the context would come back the same.
+  if (!state.ui.focusedConversationId && !state.ui.checkedConversationIds.size
+    && !Object.keys(state.ui.selectedReplicaKeyByConversation || {}).length) return;
   const validConversationIds = state.sessions.map(sessionKey);
-  const validReplicaIdsByConversation = Object.fromEntries(state.sessions.map((session) => [
-    sessionKey(session),
-    (session.replicas || []).map((replica) => replica.replicaId)
-  ]));
+  // Replica ids are only looked up for conversations that have a chosen
+  // replica, so only those are collected (the last row of a key wins, as before).
+  const chosen = new Set(Object.keys(state.ui.selectedReplicaKeyByConversation || {}));
+  const validReplicaIdsByConversation = {};
+  if (chosen.size) {
+    state.sessions.forEach((session, index) => {
+      const key = validConversationIds[index];
+      if (chosen.has(key)) validReplicaIdsByConversation[key] = (session.replicas || []).map((replica) => replica.replicaId);
+    });
+  }
   state.ui = window.UiContext.clearInvalid(state.ui, {
     validConversationIds,
     validReplicaIdsByConversation

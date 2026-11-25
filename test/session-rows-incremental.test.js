@@ -50,8 +50,8 @@ const base = {
 
 test('every field a row shows, its check, its focus and its marks change its signature', () => {
   const ctx = context();
-  const view = ctx.sessionRowsView(COLUMNS);
-  const signature = (session) => ctx.sessionRowSignature(session, view, COLUMNS);
+  // The view is compared once per drawing (below); the row's own signature covers the rest.
+  const signature = (session) => ctx.sessionRowSignature(session, COLUMNS);
   const before = signature(base);
   assert.equal(signature({ ...base }), before, 'a copy of the same session keeps its row');
   assert.equal(signature({ ...base, _internalField: 'x', status: 'whatever' }), before, 'a field no cell reads keeps the row');
@@ -80,6 +80,8 @@ test('the columns, scope, view, language, date locale and day change every row',
   ctx.window.I18N.getLang = () => 'ja'; changed.push(ctx.sessionRowsView(COLUMNS)); ctx.window.I18N.getLang = () => 'zh';
   ctx.dateLocale = () => 'en-US'; changed.push(ctx.sessionRowsView(COLUMNS));
   for (const value of changed) assert.notEqual(value, view);
+  // A row is kept only when the view is the one of the last drawing.
+  assert.match(rendererFunction('renderSessions'), /const previous = view === sessionRowCacheView \? sessionRowCache : new Map\(\);/);
   assert.match(rendererFunction('sessionRowsView'), /new Date\(\)\.toDateString\(\)/, 'a new day draws every date again');
 });
 

@@ -100,7 +100,8 @@
   };
   const isFresh = (session) => { const key = keyOf(session); return Boolean(key && freshAt(key)); };
   const isWriting = (session) => { const key = keyOf(session); return Boolean(key && state.writing.has(key)); };
-  const tagOf = (session) => { const key = keyOf(session); return key ? (Number(state.marks.tags[key]) || 0) : 0; };
+  const tagForKey = (key) => (key ? (Number(state.marks.tags[key]) || 0) : 0);
+  const tagOf = (session) => tagForKey(keyOf(session));
   // 一只猫的新回复条数：它本机各运行位置的探测结果里还没看过、也不在跑的那些。
   function freshCount(activityItems) {
     const keys = new Set();
@@ -196,14 +197,23 @@
     if (!box || box.querySelector('.mark-rename')) return;
     if (!box.querySelector('[data-mark-filter="fresh"]') || box.querySelectorAll('[data-mark-filter]').length !== TAGS.length + 1) buildFilters(box);
     const list = Array.isArray(rows) ? rows : [];
-    const freshN = list.filter(isFresh).length;
+    // One pass, each row's key built once: how many are new replies, and how
+    // many carry each tag.
+    let freshN = 0;
+    const tagCounts = new Map(TAGS.map((tag) => [tag, 0]));
+    for (const session of list) {
+      const key = keyOf(session);
+      if (key && freshAt(key)) freshN += 1;
+      const tag = tagForKey(key);
+      if (tagCounts.has(tag)) tagCounts.set(tag, tagCounts.get(tag) + 1);
+    }
     const freshButton = box.querySelector('[data-mark-filter="fresh"]');
     freshButton.setAttribute('aria-pressed', String(state.filter.fresh));
     freshButton.title = tr('marks.fresh.title', { n: freshN });
     freshButton.querySelector('span').textContent = tr('marks.fresh');
     freshButton.querySelector('b').textContent = String(freshN);
     for (const tag of TAGS) {
-      const n = list.filter((session) => tagOf(session) === tag).length;
+      const n = tagCounts.get(tag);
       const button = box.querySelector(`[data-mark-filter="${tag}"]`);
       button.setAttribute('aria-pressed', String(state.filter.tags.has(tag)));
       button.title = tr('marks.tag.title', { name: fullName(tag), n });
@@ -295,9 +305,9 @@
   function titleSignature(session) {
     const key = keyOf(session);
     if (!key) return '';
-    const tag = tagOf(session);
-    const fresh = isFresh(session);
-    return JSON.stringify([key, tag, tag ? fullName(tag) : null, fresh, isWriting(session), fresh && state.popReady && !state.shown.has(key)]);
+    const tag = tagForKey(key);
+    const fresh = Boolean(freshAt(key));
+    return JSON.stringify([key, tag, tag ? fullName(tag) : null, fresh, state.writing.has(key), fresh && state.popReady && !state.shown.has(key)]);
   }
 
   function decorateTitle(cell, session, title, options = {}) {

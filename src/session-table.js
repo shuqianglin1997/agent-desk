@@ -74,22 +74,37 @@
       sensitivity: 'base'
     });
 
-    return (Array.isArray(records) ? records : [])
-      .map((record, index) => ({ record, index }))
+    // Each row's value is read once, before sorting (not in every
+    // comparison), and the positions are sorted rather than wrapper objects;
+    // the comparison answers as before, so the order is the same.
+    const list = Array.isArray(records) ? records : [];
+    const values = list.map((record) => sortableValue(record, key));
+    return list.map((_record, index) => index)
       .sort((left, right) => {
-        const a = sortableValue(left.record, key);
-        const b = sortableValue(right.record, key);
+        const a = values[left];
+        const b = values[right];
         // Missing values stay at the bottom in both directions.
-        if (a === null && b === null) return left.index - right.index;
+        if (a === null && b === null) return left - right;
         if (a === null) return 1;
         if (b === null) return -1;
 
         const compared = typeof a === 'number' && typeof b === 'number'
           ? a - b
           : collator.compare(String(a), String(b));
-        return compared === 0 ? left.index - right.index : compared * sign;
+        return compared === 0 ? left - right : compared * sign;
       })
-      .map((entry) => entry.record);
+      .map((index) => list[index]);
+  }
+
+  // Rows from several accounts, newest first (updatedAt, else createdAt):
+  // each row's time is read once, then compared as the session list always
+  // compared them, so ties and unreadable times keep the same order.
+  function byRecent(records) {
+    const list = Array.isArray(records) ? records : [];
+    const times = list.map((record) => new Date(record.updatedAt || record.createdAt || 0).getTime());
+    return list.map((_record, index) => index)
+      .sort((a, b) => times[b] - times[a])
+      .map((index) => list[index]);
   }
 
   return {
@@ -98,6 +113,7 @@
     markKeyOf,
     fieldValue,
     defaultDirection,
-    sort
+    sort,
+    byRecent
   };
 });

@@ -231,13 +231,15 @@
   }
 
   function rowsChanged() {
-    const rows = $$('#sessionRows tr[data-session-key]');
-    const signature = rows.map((row) => row.dataset.sessionKey).join('|');
+    // Read once per drawing over every row, so kept cheap: the attribute, not dataset.
+    const rows = document.querySelectorAll('#sessionRows tr[data-session-key]');
+    let signature = '';
+    for (let index = 0; index < rows.length; index += 1) signature += `${index ? '|' : ''}${rows[index].getAttribute('data-session-key')}`;
     const typing = document.activeElement && document.activeElement.id === 'searchInput';
     // 只有用户自己的操作带出来的新行才从左写进来；后台刷新和启动时的行由开灯编排（boot.js）管，这里不演。
     const userCaused = !root.PixelLamp || root.PixelLamp.userCaused();
     if (signature !== rowSignature && !typing && !Fx.reduced() && userCaused) {
-      rows.slice(0, 12).forEach((row, index) => {
+      Array.prototype.slice.call(rows, 0, 12).forEach((row, index) => {
         row.style.setProperty('--i', String(index));
         // The table keeps unchanged rows (src/renderer/views/sessions.js); a
         // kept row starts its write-in again, as a newly drawn one does: the
@@ -250,7 +252,7 @@
     rowSignature = signature;
     placeBand();
     if (stampKey) {
-      const box = rows.find((row) => row.dataset.sessionKey === stampKey)?.querySelector('.session-select-box');
+      const box = Array.prototype.find.call(rows, (row) => row.getAttribute('data-session-key') === stampKey)?.querySelector('.session-select-box');
       stampKey = null;
       if (box && box.checked && !Fx.reduced()) {
         Fx.once(box, 'fx-stamp', 160);
@@ -264,9 +266,15 @@
   function bindSessions() {
     const body = $('#sessionRows');
     if (!body) return;
-    new MutationObserver(rowsChanged).observe(body, { childList: true });
-    // The table announces every drawing, also one that kept every row.
-    body.addEventListener('agentdesk:session-rows', rowsChanged);
+    const observer = new MutationObserver(rowsChanged);
+    observer.observe(body, { childList: true });
+    // The table announces every drawing, also one that kept every row. This
+    // pass covers the row changes made before it, so their pending records are
+    // dropped; changes made afterwards still reach the observer.
+    body.addEventListener('agentdesk:session-rows', () => {
+      observer.takeRecords();
+      rowsChanged();
+    });
     body.addEventListener('change', (event) => {
       const box = event.target.closest('.session-select-box');
       if (box && box.checked) stampKey = box.closest('tr')?.dataset.sessionKey || null;

@@ -34,7 +34,11 @@ function context() {
     renderSessionControls() {},
     renderAccounts() {},
     setStatus() {},
-    window: { manager: { listSessions: (member) => { const step = deferred(); pending.set(member.id, step); return step.promise; } } }
+    window: {
+      // The page loads src/session-table.js as window.SessionTable.
+      SessionTable: require('../src/session-table'),
+      manager: { listSessions: (member) => { const step = deferred(); pending.set(member.id, step); return step.promise; } }
+    }
   });
   const declarations = (renderer.match(/^let sessionsLoad\w* = [^\n]*$/gm) || []).join('\n');
   vm.runInContext(`${declarations}\n${fn('loadSessions')}\n${fn('loadLocalSessions')}`, ctx);
@@ -62,4 +66,7 @@ test('answers arriving in order still fill the list', async () => {
   pending.get('a1').resolve([{ id: 'a-row', updatedAt: '2026-11-24T11:00:00Z' }]);
   await load;
   assert.deepEqual(Array.from(ctx.state.sessions, (row) => row.id), ['a-row']);
+  // Every row carries the slot and account it came from, so actions go back to that slot.
+  const [row] = ctx.state.sessions;
+  assert.deepEqual([row._profileId, row._accountKey, row._accountName, row._profileName], ['a1', 'A', 'Cat A', 'Cat A']);
 });
