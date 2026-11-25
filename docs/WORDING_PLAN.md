@@ -31,16 +31,19 @@
 | `welcome.lead` | 把长期工作的 Agent 放进一份目录，再选择它此刻在哪个设备和客户端工作。登录始终发生在官方客户端。 | 把长期工作的账号放进账号库，再选择它此刻在哪个设备和客户端工作。登录始终发生在官方客户端。 | Keep long-lived accounts in the account catalog, then choose the device and client where each one works now. Sign-in always stays in the official client. | 長く働くアカウントをアカウントカタログに置き、今どのデバイスとクライアントで働くかを選びます。ログインは常に公式クライアント内で行います。 |
 | `hub.tip.run.body` | 你的 Agent 通过 AgentDesk 让这个账号在后台跑的一段对话。这里只显示标题和状态。 | 你的另一个账号通过 AgentDesk 让它在后台跑的一段对话。这里只显示标题和状态。 | A conversation another of your accounts had it run in the background, through AgentDesk. Only the title and state are shown here. | あなたの別のアカウントが AgentDesk を通じて、このアカウントにバックグラウンドで実行させた会話です。ここにはタイトルと状態だけを表示します。 |
 
-合计：需要改的 key 212 条（中文 207、英文 209、日文 209），其中 112 条是按意思逐句改写的，其余按第 1 节的规则替换后逐条读过。
+合计：需要改的 key 213 条（中文 207、英文 210、日文 210），其中 113 条是按意思逐句改写的，其余按第 1 节的规则替换后逐条读过。前面带服务商名字或“服务商那里的”的“账号”指服务商的账号，保留不改。
 
 ## 3. 需要所有者拍板的
 
 1. **第 1 节的五个词。**
-2. **招募里的“接口账号 / 订阅账号 / ChatGPT 账号”**（`recruit.method.provider`、`recruit.signedIn.*`）。按规则它们说的是平台上的登录，应写“接口登录 / 订阅登录 / ChatGPT 登录”；但这几个说法是招募计划里定下的。清单里暂按原样未改。
-3. **会话为空时的提示**（`session.empty.none`）。中文原来说“这只猫还没有会话”，英文、日文说 Agent；清单按“账号”统一了三种语言。如果想保留“猫”，三种语言都改成猫。
-4. **首次使用页的小标题**（`onboarding.existing.kicker`）。原来三种语言都写英文大写的 AGENT LIBRARY；清单按规则各用本语言（账号库 / ACCOUNT CATALOG / アカウントカタログ），也可以三种都写 ACCOUNT CATALOG。
-5. **删除时的安全说明里的“第三方账号”**（`catalog.remove.safety`：“不会注销第三方账号”）。它说的是你在服务商那里的账号本身，不是 AgentDesk 里的对象，清单暂不改；也可以写成“不会注销你在服务商那里的账号”。
-6. **全局对象没有名字时的默认名“Agent”**（`src/mesh/domain/agent-catalog.js`，存进账号库、各设备共用、不随语言变）。可以改成“账号”（只影响以后新建的），也可以不动。
+
+## 3.1 规划会话已定（2026-11-24）
+
+1. **招募里的“接口账号 / 订阅账号 / ChatGPT 账号”不改**（`recruit.method.provider`、`recruit.signedIn.*`）。它们说的是你在服务商那里的账号本身。规则补一句：前面带服务商名字或“服务商那里的”时，“账号”指服务商的账号，可以保留。
+2. **会话为空时的提示**（`session.empty.none`）三种语言都用猫：“这只猫还没有会话”、This cat has no sessions yet、この猫にはまだセッションがありません。画面里的“猫”说法不变。
+3. **首次使用页的小标题**（`onboarding.existing.kicker`）三种语言都写 ACCOUNT CATALOG，保持原来全用英文大写小标题的样式。
+4. **删除时的安全说明**（`catalog.remove.safety`）改成“不会注销你在服务商那里的账号”，英文、日文同义。
+5. **全局对象没有名字时的默认名“Agent”不动**（`src/mesh/domain/agent-catalog.js`）。它存进账号库、各设备共用、不随语言变，改它要碰设备网的领域代码和存盘数据，不值得。记为已知的不一致。
 
 ## 4. 按界面区域的全部改动
 
@@ -269,6 +272,11 @@
 | | 中 | 同时从本机 AgentDesk 删除这个槽位登记（不删除官方客户端数据） | 同时从本机 AgentDesk 删除这个位置登记（不删除官方客户端数据） |
 | | 英 | Also remove this slot registration from local AgentDesk (official client data is not deleted) | Also remove this location registration from local AgentDesk (official client data is not deleted) |
 | | 日 | このスロット登録もローカル AgentDesk から削除する（公式クライアントデータは削除しない） | この場所登録もローカル AgentDesk から削除する（公式クライアントデータは削除しない） |
+| `catalog.remove.safety` | `index.html`、`renderer/views/catalog-dialogs.js` | | |
+| | 中 | 不会注销第三方账号，不会删除官方客户端目录、凭据、项目或云端内容。 | 不会注销你在服务商那里的账号，不会删除官方客户端目录、凭据、项目或云端内容。 |
+| | 英 | This never signs out a third-party account or deletes official client directories, credentials, projects, or cloud content. | This never closes your account with the provider, and never deletes official client directories, credentials, projects, or cloud content. |
+| | 日 | サードパーティアカウントからサインアウトせず、公式クライアントディレクトリ、資格情報、プロジェクト、クラウド内容を削除しません。 | サービス提供元でのあなたのアカウントを解約せず、公式クライアントディレクトリ、資格情報、プロジェクト、クラウド内容を削除しません。 |
+| | 说明 | 规划会话已定：这里说的是你在服务商那里的账号本身 | |
 | `catalog.remove.intro` | `renderer/views/catalog-dialogs.js` | | |
 | | 中 | 当前 Agent：{name}。请明确选择只移除一个位置、一个登录账号，还是整个 Agent。 | 当前账号：{name}。请明确选择只移除一个位置、一个登录，还是整个账号。 |
 | | 英 | Current Agent: {name}. Explicitly choose whether to remove one location, one login account, or the whole Agent. | Current account: {name}. Explicitly choose whether to remove one location, one sign-in, or the whole account. |
@@ -486,10 +494,10 @@
 | key | 出现在 / 语言 | 改前 | 改后（建议） |
 |---|---|---|---|
 | `session.empty.none` | `renderer/views/sessions.js` | | |
-| | 中 | 这只猫还没有会话。点卡片上的「打开」登录官方客户端，用过之后会话会自动出现在这里；读不到时到「档案」里做诊断。 | 这个账号还没有会话。点卡片上的「打开」登录官方客户端，用过之后会话会自动出现在这里；读不到时到「档案」里做诊断。 |
-| | 英 | This Agent has no sessions yet. Click “Open” on its card to sign in to the official app; once you have used it, sessions show up here automatically. If nothing loads, run diagnostics from its “Dossier”. | This account has no sessions yet. Click “Open” on its card to sign in to the official app; once you have used it, sessions show up here automatically. If nothing loads, run diagnostics from its “Dossier”. |
-| | 日 | この Agent にはまだセッションがありません。カードの「開く」で公式アプリにログインし、利用するとここに自動で表示されます。読み込めない場合は「カルテ」から診断を。 | このアカウントにはまだセッションがありません。カードの「開く」で公式アプリにログインし、利用するとここに自動で表示されます。読み込めない場合は「カルテ」から診断を。 |
-| | 说明 | 中文原来说“这只猫”；这里说的是会话归属，按“账号”写 | |
+| | 中 | 这只猫还没有会话。点卡片上的「打开」登录官方客户端，用过之后会话会自动出现在这里；读不到时到「档案」里做诊断。 | （不变） |
+| | 英 | This Agent has no sessions yet. Click “Open” on its card to sign in to the official app; once you have used it, sessions show up here automatically. If nothing loads, run diagnostics from its “Dossier”. | This cat has no sessions yet. Click “Open” on its card to sign in to the official app; once you have used it, sessions show up here automatically. If nothing loads, run diagnostics from its “Dossier”. |
+| | 日 | この Agent にはまだセッションがありません。カードの「開く」で公式アプリにログインし、利用するとここに自動で表示されます。読み込めない場合は「カルテ」から診断を。 | この猫にはまだセッションがありません。カードの「開く」で公式アプリにログインし、利用するとここに自動で表示されます。読み込めない場合は「カルテ」から診断を。 |
+| | 说明 | 规划会话已定：画面里的“猫”说法不变，三种语言都用猫 | |
 
 ### 页脚的状态句
 
@@ -747,10 +755,10 @@
 | | 英 | You can register a runtime manually later from advanced management. | You can register a location manually later from advanced management. |
 | | 日 | 後から詳細管理で実行場所を手動登録できます。 | 後から詳細管理で場所を手動登録できます。 |
 | `onboarding.existing.kicker` | `index.html` | | |
-| | 中 | AGENT LIBRARY | 账号库 |
+| | 中 | AGENT LIBRARY | ACCOUNT CATALOG |
 | | 英 | AGENT LIBRARY | ACCOUNT CATALOG |
-| | 日 | AGENT LIBRARY | アカウントカタログ |
-| | 说明 | 原来三种语言都写英文大写的 AGENT LIBRARY；按规则各用本语言，也可以三种都写 ACCOUNT CATALOG | |
+| | 日 | AGENT LIBRARY | ACCOUNT CATALOG |
+| | 说明 | 规划会话已定：保持原来全用英文大写小标题的样式 | |
 | `onboarding.existing.title` | `index.html` | | |
 | | 中 | 你的 Agent 库已经就绪 | 你的账号库已经就绪 |
 | | 英 | Your Agent catalog is ready | Your account catalog is ready |
