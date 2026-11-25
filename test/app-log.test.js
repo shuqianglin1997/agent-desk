@@ -224,9 +224,10 @@ test('diagnostics：构建、系统、数据目录和日志的位置、日志最
   assert.equal(data.build.commit, 'c'.repeat(40));
   assert.equal(data.system.arch, 'arm64');
   assert.deepEqual(data.paths, {
-    dataFolder: '~/Library/Application Support/AgentDesk',
-    logFolder: '~/Library/Logs/Catshelf',
-    logFile: '~/Library/Logs/Catshelf/catshelf.log'
+    // The harness builds its folders with the host's separators.
+    dataFolder: path.join('~', 'Library', 'Application Support', 'AgentDesk'),
+    logFolder: path.join('~', 'Library', 'Logs', 'Catshelf'),
+    logFile: path.join('~', 'Library', 'Logs', 'Catshelf', 'catshelf.log')
   });
   assert.equal(data.executable, '/Applications/Catshelf.app/Contents/MacOS/Catshelf');
   assert.deepEqual(data.checks.dataFolder, { state: 'ok', files: { 'profiles.json': true, 'settings.json': false } });

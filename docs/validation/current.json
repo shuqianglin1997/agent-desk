@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T12:52:06.698Z",
-  "baseCommit": "b3159e3188a54b39e45c9a45ae14bb19aa5ff59e",
+  "recordedAt": "2026-11-25T12:59:59.295Z",
+  "baseCommit": "8af09c8743b270945ffe7c67dda96e59ac4ef947",
   "uncommitted": true,
-  "sourceSha256": "4d29c23af4df82c12e3c1190a11a4978e915a919dabca3007383b124a896f22e",
+  "sourceSha256": "0b01604b3c035f74b37d1d153a30bb25fa3b7b4717160dcf0c4103bf7e6d2c2b",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1028,
+      "pass": 1026,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after the Windows CI failure on 8af09c8: the diagnostics test in app-log.test.js expected / separators in the reported folders; it now builds them with the host separator, as the harness does. The assertion is unchanged otherwise and no product code changed. Windows itself is checked by GitHub Windows CI, not here.",
+      "recordedAt": "2026-11-25T12:59:59.295Z",
+      "sourceSha256": "0b01604b3c035f74b37d1d153a30bb25fa3b7b4717160dcf0c4103bf7e6d2c2b"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js",
+      "recordedAt": "2026-11-25T12:59:59.295Z",
+      "sourceSha256": "0b01604b3c035f74b37d1d153a30bb25fa3b7b4717160dcf0c4103bf7e6d2c2b"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",
