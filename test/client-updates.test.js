@@ -143,13 +143,15 @@ test('the runtime store keeps each launch version and the open set until the las
   let processes = [];
   const supervisor = new ProfileRuntimeSupervisor({ stateFile, snapshotProcessRecords: () => processes, limits: { terminateGraceMs: 0 } });
   supervisor.updateProfiles([...profiles, other]);
-  supervisor.registerLaunch(profiles[0], { pid: 11, appVersion: '1.2.0', appBundle: '/Applications/Fake.app' });
+  // An absolute bundle path on this platform (on Windows the rooted path gains the current drive).
+  const bundle = path.resolve('/Applications/Fake.app');
+  supervisor.registerLaunch(profiles[0], { pid: 11, appVersion: '1.2.0', appBundle: bundle });
   supervisor.registerLaunch(profiles[1], { pid: 12, appVersion: 'not a version!', appBundle: 'relative.app' });
   supervisor.registerLaunch(other, { pid: 13 });
   processes = [processFor(11, profiles[0].profilePath), processFor(12, profiles[1].profilePath), processFor(13, other.profilePath)];
 
   assert.deepEqual(supervisor.ownedOpenProfiles('claude').map((item) => [item.profile.id, item.appVersion, item.appBundle]),
-    [['a', '1.2.0', '/Applications/Fake.app'], ['b', null, null]]);
+    [['a', '1.2.0', bundle], ['b', null, null]]);
   assert.deepEqual(supervisor.openSet('claude').members.map((member) => member.profileId), ['a', 'b']);
 
   processes = processes.filter((item) => item.pid !== 11);

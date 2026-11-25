@@ -81,7 +81,7 @@ function fixture(t) {
   return { root, home, support, desktopDefaults, env: { CODEX_HOME: envCodex }, envCodex };
 }
 
-const rel = (base, location) => path.relative(base, location.kind === 'desktop' ? location.profilePath : location.sessionRoot);
+const rel = (base, location) => path.relative(base, location.kind === 'desktop' ? location.profilePath : location.sessionRoot).split(path.sep).join('/');
 
 test('discovery finds all seven registered clients across default, environment and home-scan layers', async (t) => {
   const f = fixture(t);

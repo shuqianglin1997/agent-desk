@@ -206,7 +206,7 @@ test('only switched-on accounts appear; names resolve to one exact account or re
 });
 
 test('the working directory must sit inside an allowed folder, including through symbolic links', (t) => {
-  const root = fs.realpathSync(makeTempDir('agentdesk-hub-cwd-'));
+  const root = fs.realpathSync.native(makeTempDir('agentdesk-hub-cwd-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const allowed = path.join(root, 'allowed');
   const nested = path.join(allowed, 'src');
@@ -240,7 +240,7 @@ test('a run is relayed with a fixed argument list, the prompt on stdin and the a
   const report = h.report();
   assert.deepEqual(report.argv, ADAPTERS.codex.args('read'));
   assert.equal(report.stdinHash, sha(PROMPT));
-  assert.equal(fs.realpathSync(report.cwd), fs.realpathSync(h.project));
+  assert.equal(fs.realpathSync.native(report.cwd), fs.realpathSync.native(h.project));
   assert.equal(report.env.CODEX_HOME, h.profiles[0].sessionRoot);
   assert.equal(report.env.CODEX_API_KEY, null);
   assert.equal(report.env.AGENTDESK_HUB_DEPTH, '1');

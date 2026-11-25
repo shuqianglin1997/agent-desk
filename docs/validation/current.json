@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T09:39:11.825Z",
-  "baseCommit": "b017960987ba116c136944dfee5a6afd33914186",
+  "recordedAt": "2026-11-25T11:47:21.387Z",
+  "baseCommit": "797a778c30ff514fde105ecc6b41db46a85f1389",
   "uncommitted": true,
-  "sourceSha256": "68f1fd211e59c0a145af6dae1d199421d0452ab89aa6dbb97979f5ce9b51bc11",
+  "sourceSha256": "5076a046593206c6b4bccd7e122556cf6a9f2128027ec4408f2559c4dccb7cbb",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1017,
+      "pass": 1015,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after the Windows CI test pass on 797a778: ten tests assumed POSIX hosts and now hold on Windows with the same assertions (relative paths compared with / separators in account-credentials, account-discovery, cli-clients and renderer-overlays; launch-environment paths built with the host separator in cli-clients; an absolute bundle path resolved on the host in client-updates; temp folders canonicalised with the native realpath, which expands Windows short names, in agent-hub; the Codex home compared as a directory key, case-folded on Windows, in codex-registration-path). No product code changed. Windows itself is checked by GitHub Windows CI, not here.",
+      "recordedAt": "2026-11-25T11:47:21.387Z",
+      "sourceSha256": "5076a046593206c6b4bccd7e122556cf6a9f2128027ec4408f2559c4dccb7cbb"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js (node --check on 291 listed files)",
+      "recordedAt": "2026-11-25T11:47:21.387Z",
+      "sourceSha256": "5076a046593206c6b4bccd7e122556cf6a9f2128027ec4408f2559c4dccb7cbb"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

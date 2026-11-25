@@ -45,7 +45,7 @@ function filesContaining(root, needle, skip = () => false) {
       const full = path.join(directory, entry.name);
       if (skip(full)) continue;
       if (entry.isDirectory()) walk(full);
-      else if (entry.isFile() && fs.readFileSync(full).includes(needle)) hits.push(path.relative(root, full));
+      else if (entry.isFile() && fs.readFileSync(full).includes(needle)) hits.push(path.relative(root, full).split(path.sep).join('/'));
     }
   };
   walk(root);

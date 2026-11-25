@@ -12,7 +12,7 @@ const { page } = require('./helpers/behaviour');
 const SRC = path.join(__dirname, '..', 'src');
 const files = [...rendererFiles(), ...fs.readdirSync(path.join(SRC, 'renderer')).filter((f) => f.endsWith('.js')).map((f) => path.join(SRC, 'renderer', f))];
 const read = (file) => fs.readFileSync(file, 'utf8');
-const rel = (file) => path.relative(path.join(SRC, '..'), file);
+const rel = (file) => path.relative(path.join(SRC, '..'), file).split(path.sep).join('/');
 
 test('only openDialog shows a modal dialog', () => {
   for (const file of files) {

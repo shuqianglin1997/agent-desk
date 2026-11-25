@@ -41,17 +41,19 @@ test('OpenCode, Gemini CLI and Qwen Code are registered CLI clients with isolate
   const inherited = { PATH: '/usr/bin', XDG_DATA_HOME: '/elsewhere', OPENCODE_CONFIG_DIR: '/x' };
   const inheritedGemini = { PATH: '/usr/bin', GEMINI_CLI_HOME: '/z', GEMINI_API_KEY: 'shell' };
   const inheritedQwen = { PATH: '/usr/bin', QWEN_HOME: '/y', OPENAI_API_KEY: 'shell' };
-  const opencode = managed('opencode', '/P/oc');
-  assert.equal(opencode.sessionRoot, '/P/oc/opencode-data/opencode');
+  // Paths are joined with this platform's separator (on POSIX: /P/oc/opencode-data/opencode).
+  const p = (...parts) => path.join('/P', ...parts);
+  const opencode = managed('opencode', p('oc'));
+  assert.equal(opencode.sessionRoot, p('oc', 'opencode-data', 'opencode'));
   assert.deepEqual(apps.getApp('opencode').launchEnv(opencode, inherited), {
-    PATH: '/usr/bin', XDG_DATA_HOME: '/P/oc/opencode-data', OPENCODE_CONFIG_DIR: '/P/oc/opencode-config', XDG_STATE_HOME: '/P/oc/opencode-state'
+    PATH: '/usr/bin', XDG_DATA_HOME: p('oc', 'opencode-data'), OPENCODE_CONFIG_DIR: p('oc', 'opencode-config'), XDG_STATE_HOME: p('oc', 'opencode-state')
   });
   assert.deepEqual(apps.profileLaunchPlan(opencode).args, ['--standalone']);
-  const gemini = managed('gemini-cli', '/P/gm');
-  assert.equal(gemini.sessionRoot, '/P/gm/gemini-home/.gemini');
-  assert.deepEqual(apps.getApp('gemini-cli').launchEnv(gemini, inheritedGemini), { PATH: '/usr/bin', GEMINI_CLI_HOME: '/P/gm/gemini-home', GEMINI_FORCE_FILE_STORAGE: 'true' });
-  const qwen = managed('qwen-code', '/P/qw');
-  assert.deepEqual(apps.getApp('qwen-code').launchEnv(qwen, inheritedQwen), { PATH: '/usr/bin', QWEN_HOME: '/P/qw/qwen-home' });
+  const gemini = managed('gemini-cli', p('gm'));
+  assert.equal(gemini.sessionRoot, p('gm', 'gemini-home', '.gemini'));
+  assert.deepEqual(apps.getApp('gemini-cli').launchEnv(gemini, inheritedGemini), { PATH: '/usr/bin', GEMINI_CLI_HOME: p('gm', 'gemini-home'), GEMINI_FORCE_FILE_STORAGE: 'true' });
+  const qwen = managed('qwen-code', p('qw'));
+  assert.deepEqual(apps.getApp('qwen-code').launchEnv(qwen, inheritedQwen), { PATH: '/usr/bin', QWEN_HOME: p('qw', 'qwen-home') });
   // The official default homes keep the client's own defaults.
   const defaultGemini = { appId: 'gemini-cli', sessionRoot: path.join(os.homedir(), '.gemini'), profilePathMode: 'custom', sessionRootMode: 'custom' };
   assert.equal(apps.getApp('gemini-cli').launchEnv(defaultGemini, inheritedGemini).GEMINI_CLI_HOME, undefined);
@@ -148,7 +150,7 @@ test('discovery tells the three new homes apart from Claude Code and Codex, and 
   fs.mkdirSync(path.join(home, 'accounts', 'g2', '.gemini', 'tmp'), { recursive: true });
   write(path.join(home, 'accounts', 'q2', 'subscription_credentials.json'), '{}');
   const result = await discovery.discoverLocations({ deep: true, home, env: {}, desktopDefaults: { claude: null, cursor: null, 'kimi-work': null, kimi: null } });
-  const found = result.locations.map((location) => `${location.appId}:${path.relative(home, location.sessionRoot)}`).sort();
+  const found = result.locations.map((location) => `${location.appId}:${path.relative(home, location.sessionRoot).split(path.sep).join('/')}`).sort();
   assert.deepEqual(found, [
     'claude-cli:.claude', 'gemini-cli:.gemini', 'gemini-cli:accounts/g2/.gemini',
     'opencode:.local/share/opencode', 'qwen-code:.qwen', 'qwen-code:accounts/q2'

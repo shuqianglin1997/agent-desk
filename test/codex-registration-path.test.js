@@ -11,7 +11,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const apps = require('../src/apps');
 const { codexHomeKey } = require('../src/clients/codex/account-import');
-const { createLocationRegistrar } = require('../src/main/profile-registration');
+const { createLocationRegistrar, directoryKey } = require('../src/main/profile-registration');
 
 const { mainHandlerSource } = require('./helpers/main-handler-source');
 const { makeTempDir } = require('./helpers/temp');
@@ -71,5 +71,6 @@ test('the registrar finds the same existing Codex Profile and the same default h
   assert.equal(registrar.planExistingLocation({ appId: 'codex', sessionRoot: work }, known).existing.id, 'known');
   assert.equal(registrar.planExistingLocation({ appId: 'codex', sessionRoot: official }, known).isDefault, true);
   assert.equal(registrar.planExistingLocation({ appId: 'codex', sessionRoot: work }, []).isDefault, false);
-  assert.equal(codexHomeKey(work), registrar.planExistingLocation({ appId: 'codex', sessionRoot: work }, []).sessionRoot);
+  // Both sides compare as directory keys (case-folded on Windows, the path itself elsewhere).
+  assert.equal(codexHomeKey(work), directoryKey(registrar.planExistingLocation({ appId: 'codex', sessionRoot: work }, []).sessionRoot));
 });
