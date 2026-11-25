@@ -69,5 +69,6 @@ test('界面记住退出方式、清理前先确认；退出时停下受管客�
   assert.match(rendererFunction('bindAgentManageEvents'), /window\.confirm\(tr\('status\.cleanCrashpadConfirm'/);
   const main = mainHandlerSource();
   assert.match(main, /app\.on\('before-quit'[\s\S]*?stopAll\(\{[\s\S]*?terminateOwned: true/);
-  assert.match(main, /runtimeSupervisor\.registerLaunch\(profile, launched\)/);
+  // A launch is registered as AgentDesk's own, with the app version it started from.
+  assert.match(main, /runtimeSupervisor\.registerLaunch\(profile, \{ \.\.\.launched, \.\.\.from \}\)/);
 });

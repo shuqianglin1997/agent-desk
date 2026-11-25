@@ -25,6 +25,9 @@ module.exports = {
     launchers: [{ bundleName: 'Kimi', executableName: 'Kimi' }]
   },
   profileIsolation: CHROMIUM_PROFILE_ISOLATION,
+  // How the official app updates itself (src/clients/app-update.js): not known
+  // on either system.
+  update: Object.freeze({ mechanism: 'unknown', windows: 'unknown', waiting: null }),
   windows: {
     executableNames: ['Kimi.exe'],
     aliases: ['Kimi.exe'],

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T05:15:56.858Z",
-  "baseCommit": "de4141169812d571edd22dddec0624be529c7897",
+  "recordedAt": "2026-11-25T05:45:17.080Z",
+  "baseCommit": "882a35687b75c6a85b51e48d29a882e05bd1e668",
   "uncommitted": true,
-  "sourceSha256": "5675c987e90de9d60fb6d9577a268cd1307d3a0914f148226e9982d78b2ed14c",
+  "sourceSha256": "89400818bf94d7d21b5781ee0980d9a7d44b01ee70d4e8cc20b96008b38f4106",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 979,
+      "pass": 977,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after orderly-update batch 1: the runtime store (version 2) keeps each launch's app version and bundle and each client's open set, desktop adapters declare how they update, and the update-waiting fact is judged from fake bundles and versions; digest identical before and after the run",
+      "recordedAt": "2026-11-25T05:45:17.080Z",
+      "sourceSha256": "89400818bf94d7d21b5781ee0980d9a7d44b01ee70d4e8cc20b96008b38f4106"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T05:45:17.080Z",
+      "sourceSha256": "89400818bf94d7d21b5781ee0980d9a7d44b01ee70d4e8cc20b96008b38f4106"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

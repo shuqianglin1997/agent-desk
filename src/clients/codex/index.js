@@ -52,6 +52,10 @@ module.exports = {
     ]
   },
   profileIsolation: CHROMIUM_PROFILE_ISOLATION,
+  // How the official app updates itself (src/clients/app-update.js). macOS:
+  // the bundle ships Sparkle (observed, not tested); a downloaded update
+  // cannot be seen before it is installed. Windows: not known.
+  update: Object.freeze({ mechanism: 'sparkle', windows: 'unknown', waiting: null }),
   windows: {
     executableNames: ['Codex.exe'],
     aliases: ['Codex.exe'],

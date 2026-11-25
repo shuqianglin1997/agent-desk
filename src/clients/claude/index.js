@@ -23,6 +23,10 @@ module.exports = {
     launchers: [{ bundleName: 'Claude', executableName: 'Claude' }]
   },
   profileIsolation: CHROMIUM_PROFILE_ISOLATION,
+  // How the official app updates itself and how a waiting update shows
+  // (src/clients/app-update.js). macOS: Squirrel.Mac, read from the bundle
+  // on this machine; Windows: MSIX in the current install docs.
+  update: Object.freeze({ mechanism: 'squirrel', windows: 'msix', waiting: 'squirrel-shipit' }),
   windows: {
     executableNames: ['Claude.exe'],
     aliases: ['Claude.exe'],

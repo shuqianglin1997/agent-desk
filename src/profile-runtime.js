@@ -25,7 +25,33 @@ const {
   findProfileClientProcesses
 } = require('./process');
 
-const RUNTIME_STATE_VERSION = 1;
+// Version 2 (docs/ORDERLY_UPDATE_PLAN.md §4): each record also keeps the app
+// version and bundle a launch started from, and each client keeps its open
+// set (the accounts AgentDesk had open since the set was last empty). A
+// version 1 file loads with those unknown and is written as version 2.
+const RUNTIME_STATE_VERSION = 2;
+const RUNTIME_STATE_VERSIONS = new Set([1, 2]);
+const VERSION_TEXT = /^[0-9A-Za-z.+-]{1,64}$/;
+const launchVersionOf = (value) => (typeof value === 'string' && VERSION_TEXT.test(value) ? value : null);
+const launchBundleOf = (value) => (typeof value === 'string' && path.isAbsolute(value) && value.length <= 1024 ? path.resolve(value) : null);
+const isoOrNull = (value) => (typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null);
+const RUN_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+function normalizeRun(value) {
+  if (!value || typeof value !== 'object' || !Array.isArray(value.members)) return null;
+  const members = [];
+  for (const member of value.members.slice(0, 256)) {
+    if (!member || typeof member.profileId !== 'string' || members.some((item) => item.profileId === member.profileId)) continue;
+    members.push({ profileId: member.profileId, appVersion: launchVersionOf(member.appVersion), appBundle: launchBundleOf(member.appBundle) });
+  }
+  if (!members.length) return null;
+  return {
+    members,
+    startedAt: isoOrNull(value.startedAt),
+    endedAt: isoOrNull(value.endedAt),
+    endReason: typeof value.endReason === 'string' && RUN_ID.test(value.endReason) ? value.endReason : null
+  };
+}
 const DEFAULT_LIMITS = Object.freeze({
   maxFiles: 100,
   maxBytes: 200 * 1024 * 1024,
@@ -380,6 +406,8 @@ class ProfileRuntimeSupervisor {
     this.historyMaintenanceNext = new Map();
     this.profiles = new Map();
     this.records = new Map();
+    // Per client (appId): the open set, { members, startedAt, endedAt, endReason }.
+    this.runs = new Map();
     this.crashpadStatuses = new Map();
     this.timer = null;
     this.tickPromise = null;
@@ -389,7 +417,7 @@ class ProfileRuntimeSupervisor {
   loadState() {
     if (!this.stateFile) return;
     const loaded = readJsonStore(this.stateFile, (value) => (
-      value && value.version === RUNTIME_STATE_VERSION && Array.isArray(value.records)
+      value && RUNTIME_STATE_VERSIONS.has(value.version) && Array.isArray(value.records)
     ));
     let migratedLegacyBurstFuse = false;
     for (const item of loaded?.parsed?.records || []) {
@@ -406,12 +434,21 @@ class ProfileRuntimeSupervisor {
         launchedAt: typeof item.launchedAt === 'string' ? item.launchedAt : null,
         active: item.active === true,
         owned: item.owned === true,
+        appVersion: launchVersionOf(item.appVersion),
+        appBundle: launchBundleOf(item.appBundle),
         fusedAt: legacyBurstFuse ? null : (typeof item.fusedAt === 'string' ? item.fusedAt : null),
         fuseReason: legacyBurstFuse ? null : (typeof item.fuseReason === 'string' ? item.fuseReason : null),
         lastIncident: item.lastIncident && typeof item.lastIncident === 'object'
           ? item.lastIncident
           : null
       });
+    }
+    const runs = loaded?.parsed?.runs;
+    if (runs && typeof runs === 'object' && !Array.isArray(runs)) {
+      for (const [appId, value] of Object.entries(runs)) {
+        const run = RUN_ID.test(appId) ? normalizeRun(value) : null;
+        if (run) this.runs.set(appId, run);
+      }
     }
     if (migratedLegacyBurstFuse) this.saveState();
   }
@@ -422,7 +459,8 @@ class ProfileRuntimeSupervisor {
     try { this.fs.chmodSync(path.dirname(this.stateFile), 0o700); } catch (_error) { /* best effort */ }
     writeJsonStore(this.stateFile, {
       version: RUNTIME_STATE_VERSION,
-      records: [...this.records.values()]
+      records: [...this.records.values()],
+      runs: Object.fromEntries(this.runs)
     }, { skipBackup: true, mode: 0o600 });
   }
 
@@ -566,19 +604,25 @@ class ProfileRuntimeSupervisor {
     return { ok: true, alreadyRunning: false };
   }
 
+  // launch: { pid, appVersion, appBundle } — the app version and bundle this
+  // launch started from, when the launcher could read them (else unknown).
   registerLaunch(profile, launch = {}) {
-    this.records.set(profile.id, {
+    const record = {
       profileId: profile.id,
       profilePath: profile.profilePath,
       launchPid: Number.isInteger(launch.pid) ? launch.pid : null,
       launchedAt: new Date(this.now()).toISOString(),
       active: true,
       owned: true,
+      appVersion: launchVersionOf(launch.appVersion),
+      appBundle: launchBundleOf(launch.appBundle),
       fusedAt: null,
       fuseReason: null,
       lastIncident: this.records.get(profile.id)?.lastIncident || null
-    });
+    };
+    this.records.set(profile.id, record);
     this.updateProfiles([...this.profiles.values(), profile]);
+    this.joinOpenSet(profile, record);
     this.saveState();
     // The list from before this launch cannot show the new client.
     this.lastSnapshot = null;
@@ -671,6 +715,7 @@ class ProfileRuntimeSupervisor {
         stoppedAt: new Date(this.now()).toISOString(),
         stopReason: reason
       });
+      if (record.owned) this.leaveOpenSet(profile, reason);
       this.saveState();
       if (record.owned) void this.maintainStoppedHistory(profile);
       return { ok: true, stopped: 0, remaining: 0 };
@@ -697,6 +742,7 @@ class ProfileRuntimeSupervisor {
       stopReason: reason
     };
     this.records.set(profile.id, next);
+    if (remaining === 0 && record.owned) this.leaveOpenSet(profile, reason);
     this.saveState();
     if (remaining === 0 && record.owned) void this.maintainStoppedHistory(profile);
     return remaining === 0
@@ -706,6 +752,51 @@ class ProfileRuntimeSupervisor {
 
   async stopProfile(profile, reason = 'user-request') {
     return this.terminateProcesses(profile, reason);
+  }
+
+  // The open set of one client: a launch joins it (a new set starts when the
+  // last one had ended); when AgentDesk's last open account of that client has
+  // exited, the set ends with the reason of that last exit. Only AgentDesk's
+  // own launches are members. Callers save the state.
+  joinOpenSet(profile, record) {
+    const appId = typeof profile?.appId === 'string' && RUN_ID.test(profile.appId) ? profile.appId : null;
+    if (!appId) return;
+    const current = this.runs.get(appId);
+    const run = current && !current.endedAt
+      ? current
+      : { members: [], startedAt: record.launchedAt, endedAt: null, endReason: null };
+    run.members = [
+      ...run.members.filter((member) => member.profileId !== profile.id),
+      { profileId: profile.id, appVersion: record.appVersion, appBundle: record.appBundle }
+    ];
+    this.runs.set(appId, run);
+  }
+
+  leaveOpenSet(profile, reason) {
+    const appId = profile?.appId;
+    const run = appId ? this.runs.get(appId) : null;
+    if (!run || run.endedAt) return;
+    if (this.ownedOpenProfiles(appId).some((item) => item.profile.id !== profile.id)) return;
+    run.endedAt = new Date(this.now()).toISOString();
+    run.endReason = RUN_ID.test(String(reason)) ? String(reason) : 'exited';
+  }
+
+  // AgentDesk's own launches of one client that have not been seen to exit,
+  // with the version and bundle each started from. Read-only.
+  ownedOpenProfiles(appId) {
+    const open = [];
+    for (const [profileId, record] of this.records) {
+      const profile = this.profiles.get(profileId);
+      if (!record.owned || !record.active || !profile || profile.appId !== appId) continue;
+      open.push({ profile, appVersion: record.appVersion || null, appBundle: record.appBundle || null, launchedAt: record.launchedAt || null });
+    }
+    return open;
+  }
+
+  // The client's open set as last recorded (a copy), or null.
+  openSet(appId) {
+    const run = this.runs.get(appId);
+    return run ? { ...run, members: run.members.map((member) => ({ ...member })) } : null;
   }
 
   async maintainStoppedHistory(profile, options = {}) {
@@ -848,6 +939,7 @@ class ProfileRuntimeSupervisor {
 
 module.exports = {
   RUNTIME_STATE_VERSION,
+  RUNTIME_STATE_VERSIONS,
   DEFAULT_LIMITS,
   safeAbsoluteProfilePath,
   resolveCrashpadPending,

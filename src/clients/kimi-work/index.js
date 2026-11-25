@@ -29,6 +29,9 @@ module.exports = {
   // Kimi Work 当前会忽略 --user-data-dir。只允许官方默认槽位启动，
   // 不能把多个受管 Profile 假装成隔离账号。
   profileIsolation: OFFICIAL_DEFAULT_ONLY,
+  // How the official app updates itself (src/clients/app-update.js): the same
+  // Kimi app; not known on either system.
+  update: Object.freeze({ mechanism: 'unknown', windows: 'unknown', waiting: null }),
   // Electron userData 目录叫 kimi-desktop，与 App 显示名不同
   profileDirName: 'kimi-desktop',
   windows: {

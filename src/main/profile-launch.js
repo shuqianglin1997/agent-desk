@@ -17,6 +17,7 @@ const { isDefaultWindowsAppRunning, isRunningIn, profileRunningSignal, snapshotP
 const { macApplicationBundlePath, macLaunchServicesArgs } = require('../mac-launch');
 const { openMaintenanceTool } = require('./tools');
 const { prepareManagedProfileHome } = require('../profile-home');
+const { sharedBundleReader } = require('../clients/app-update');
 
 // Main's context (src/main.js mainContext): its services and state, read
 // when used. Bound once at start-up.
@@ -156,9 +157,12 @@ async function launchProfile(profile) {
   const env = app_.launchEnv(runtimeProfile, { ...process.env });
   if (process.platform === 'win32') windowsDiscoveryCache.clear();
   const launcher = findExecutable(profile);
-  const launchOwned = async (command, launchArgs, launchEnv) => {
+  // from: the app version and bundle this launch starts from, when known
+  // (docs/ORDERLY_UPDATE_PLAN.md §4: an update is waiting once the app on
+  // disk is newer than what an open account started from).
+  const launchOwned = async (command, launchArgs, launchEnv, from = {}) => {
     const launched = await spawnDetached(command, launchArgs, launchEnv);
-    const runtime = launchPlan.isolated ? runtimeSupervisor.registerLaunch(profile, launched) : null;
+    const runtime = launchPlan.isolated ? runtimeSupervisor.registerLaunch(profile, { ...launched, ...from }) : null;
     return { launched, runtime };
   };
 
@@ -167,10 +171,12 @@ async function launchProfile(profile) {
       if (launcher.found) {
         const bundlePath = launcher.bundlePath || macApplicationBundlePath(launcher.path);
         if (!bundlePath) throw new Error('mac-launch-bundle-required');
+        const bundle = launchPlan.isolated ? await sharedBundleReader().bundle(bundlePath) : null;
         await launchOwned(
           '/usr/bin/open',
           macLaunchServicesArgs(bundlePath, args, env, process.env),
-          env
+          env,
+          { appVersion: bundle?.version || null, appBundle: bundle ? bundlePath : null }
         );
         return {
           ok: true,

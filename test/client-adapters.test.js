@@ -15,10 +15,10 @@ const OPTIONAL = [
   'sessionKeyOf', 'sessionAddressOf', 'activityRecord', 'contentActivityAt', 'sessionCounts', 'replyState', 'isInternalRecordFile',
   'activityPreference', 'isArchivedRecordFile', 'exportTranscript', 'attachments', 'taskPackage', 'credentials', 'credentialHandoff',
   'credentialImport', 'accountId', 'defaultIdentityKey', 'managedHome', 'standaloneHome', 'runtimeHome', 'historyUpkeep',
-  'sessionsInProfileFolder', 'quota', 'hub', 'hubUnsupported', 'catCoat', 'recruitDefault'
+  'sessionsInProfileFolder', 'quota', 'hub', 'hubUnsupported', 'catCoat', 'recruitDefault', 'update'
 ];
-// Reserved for the queued account-card and orderly-update plans; not declared yet.
-const RESERVED = ['accountCard', 'update'];
+// Reserved for the account-card plan (cancelled 2026-11-24, kept as a record); not declared.
+const RESERVED = ['accountCard'];
 
 test('every adapter folder is registered once, under its own id, in list order', () => {
   const folders = fs.readdirSync(CLIENTS, { withFileTypes: true })

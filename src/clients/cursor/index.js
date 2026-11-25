@@ -23,6 +23,10 @@ module.exports = {
     launchers: [{ bundleName: 'Cursor', executableName: 'Cursor' }]
   },
   profileIsolation: CHROMIUM_PROFILE_ISOLATION,
+  // How the official app updates itself (src/clients/app-update.js): a VS Code
+  // fork; the macOS updater underneath is not verified, and a downloaded
+  // update cannot be seen before it is installed. Windows: not known.
+  update: Object.freeze({ mechanism: 'vscode', windows: 'unknown', waiting: null }),
   windows: {
     executableNames: ['Cursor.exe'],
     aliases: ['Cursor.exe'],
