@@ -18,56 +18,69 @@ const { DAY, CatArt } = require('./draw.js');
 const { ui, FILM } = require('./strings.js');
 
 const W = 960, H = 840;
-const TOP = 58, FOOT_Y = 802, SHELF_Y = 142, PLATE_Y = 154, PLATE_H = 111;
+const TOP = 58, SHELF_Y = 142, PLATE_Y = 154, PLATE_H = 111;
 const ALL = { x: 26, w: 112 };
 const CARD = { first: 140, w: 134, pitch: 134 };   // the article box; the paper is 4px inside on each side
-const LEDGER = { x: 22, y: 290, w: 916, h: 502, toolbar: 40, head: 33 };
+const LEDGER = { x: 22, y: 290, w: 916, h: 502, toolbar: 40, head: 33 };   // in the 960×840 window; ledgerBox() is the one that follows the size
 const NIGHT_DESK = '#140E11';
 
 // The roster scrolls sideways when there are more cats than fit: `scroll` is how far the cards have moved left.
 const cardX = (k, scroll = 0) => CARD.first + CARD.pitch * k - scroll;
 const cardCentre = (k, scroll = 0) => cardX(k, scroll) + CARD.w / 2;
-const ROSTER_LEFT = 138, ROSTER_RIGHT = 952;
+const ROSTER_LEFT = 138;
+
+// The window can be drawn at another size (the README loop's is narrower and shorter, the 3:4 cut's a little taller):
+// what hangs off its right or bottom edge follows the size, as it does when the real window is resized. Z is the size being drawn.
+let Z = { w: W, h: H };
+const footY = () => Z.h - 38;
+const ledgerBox = () => ({ x: 22, y: 290, w: Z.w - 44, h: Z.h - 338, toolbar: 40, head: 33 });
+const rosterRight = () => Z.w - 8;
+// The table's columns as the app lays them out: the tick 44, the title what is left, the project 22% of the table,
+// the date 113, the source 106. Text sits 10 in from its column's edge; the row's tag button ends 10.5 before the project.
+function col() {
+  const table = Z.w - 44, right = 22 + table, project = Math.round((right - 219 - 0.22 * table + 10) * 2) / 2;
+  return { project, date: right - 116, source: right - 96, tag: project - 20.5 };
+}
 const upper = (lang, text) => (lang === 'en' ? text.toUpperCase() : text);
 
 /* ── Desk and lamp ─────────────────────────────────── */
-function ellipse(pen, cx, cy, rx, ry, colour, yMin = 0, yMax = H) {
+function ellipse(pen, cx, cy, rx, ry, colour, yMin = 0, yMax = Z.h) {
   for (let y = Math.max(yMin, Math.floor((cy - ry) / 2) * 2); y < Math.min(yMax, cy + ry); y += 2) {
     const k = 1 - Math.pow((y + 1 - cy) / ry, 2);
     if (k <= 0) continue;
     const half = Math.round(rx * Math.sqrt(k) / 2) * 2;
-    pen.rect(Math.max(0, cx - half), y, Math.min(W, cx + half) - Math.max(0, cx - half), 2, colour);
+    pen.rect(Math.max(0, cx - half), y, Math.min(Z.w, cx + half) - Math.max(0, cx - half), 2, colour);
   }
 }
 
 // The four lamp levels of src/pixel.css: 0 night, 1 a small pool under the lamp, 2 the desk without the core, 3 as usual.
 function desk(pen, lamp) {
-  const P = pen.P;
+  const P = pen.P, { w, h } = Z;
   if (lamp <= 1) {
-    pen.rect(0, 0, W, H, NIGHT_DESK);
-    if (lamp === 1) ellipse(pen, 480, 252, 0.30 * W * 0.62, 0.26 * H * 0.62, P.lamp);
+    pen.rect(0, 0, w, h, NIGHT_DESK);
+    if (lamp === 1) ellipse(pen, w / 2, Math.round(h * 0.3), 0.30 * w * 0.62, 0.26 * h * 0.62, P.lamp);
     return;
   }
-  pen.rect(0, 0, W, H, P.dusk);
-  ellipse(pen, 480, 286, 0.96 * W * 0.74, 0.86 * H * 0.74, P.bg);
-  if (lamp >= 3) ellipse(pen, 480, 252, 0.62 * W * 0.62, 0.54 * H * 0.62, P.lamp);
+  pen.rect(0, 0, w, h, P.dusk);
+  ellipse(pen, w / 2, Math.round(h * 0.34), 0.96 * w * 0.74, 0.86 * h * 0.74, P.bg);
+  if (lamp >= 3) ellipse(pen, w / 2, Math.round(h * 0.3), 0.62 * w * 0.62, 0.54 * h * 0.62, P.lamp);
 }
 
 /* ── Top bar ───────────────────────────────────────── */
 function navLayout(pen, lang) {
   const system = ui(lang, 'topbar.system'), inbox = ui(lang, 'topbar.activity');
   const systemW = 7 + 12 + 5 + pen.width(system) + 7, inboxW = 7 + 12 + 5 + pen.width(inbox) + 7;
-  const systemX = 946 - systemW, inboxX = systemX - 2 - inboxW;
+  const systemX = Z.w - 14 - systemW, inboxX = systemX - 2 - inboxW;
   return { system: { x: systemX, y: 15, w: systemW, h: 28, label: system }, inbox: { x: inboxX, y: 15, w: inboxW, h: 28, label: inbox } };
 }
 
 function topbar(pen, lang, dy = 0) {
   const P = pen.P, y = dy;
-  pen.rect(0, y + TOP + 2, W, 4, P.shade);
-  pen.rect(0, y + TOP, W, 2, P.edge);
-  pen.rect(0, y, W, TOP, P.wood);
-  pen.rect(0, y, W, 2, P.woodHi);
-  pen.rect(0, y + TOP - 4, W, 4, P.woodLo);
+  pen.rect(0, y + TOP + 2, Z.w, 4, P.shade);
+  pen.rect(0, y + TOP, Z.w, 2, P.edge);
+  pen.rect(0, y, Z.w, TOP, P.wood);
+  pen.rect(0, y, Z.w, 2, P.woodHi);
+  pen.rect(0, y + TOP - 4, Z.w, 4, P.woodLo);
   // The window's own controls: macOS draws them over the bar at (15, 22).
   const ctx = pen.ctx;
   [['#FF5F57', '#E0443E'], ['#FEBC2E', '#DEA123'], ['#28C840', '#1AAB29']].forEach(([fill, ring], k) => {
@@ -77,10 +90,11 @@ function topbar(pen, lang, dy = 0) {
   const cat = pen.text('Cat', 82, y + 17, { size: 24, colour: P.onWood });
   pen.text('shelf', 82 + cat, y + 17, { size: 24, colour: P.woodAccent });
   // Device lens: this computer.
-  pen.rect(347, y + 46, 216, 2, P.onWood);
-  pen.icon('device', 353, y + 23, 12, P.onWood);
-  pen.text(ui(lang, 'devices.device.local'), 372, y + 23, { colour: P.onWood });
-  pen.icon('caret', 545, y + 23, 12, P.onWood);
+  const lens = Math.round(Z.w / 2 - 133);
+  pen.rect(lens, y + 46, 216, 2, P.onWood);
+  pen.icon('device', lens + 6, y + 23, 12, P.onWood);
+  pen.text(ui(lang, 'devices.device.local'), lens + 25, y + 23, { colour: P.onWood });
+  pen.icon('caret', lens + 198, y + 23, 12, P.onWood);
   const nav = navLayout(pen, lang);
   pen.icon('inbox', nav.inbox.x + 7, y + 23, 12, P.onWood);
   pen.text(nav.inbox.label, nav.inbox.x + 24, y + 23, { colour: P.onWood });
@@ -90,7 +104,7 @@ function topbar(pen, lang, dy = 0) {
 
 /* ── The row above the shelf: "Accounts ×n", quota overview, recruit ── */
 function headLayout(pen, lang, quotaChip) {
-  const recruit = ui(lang, 'roster.recruit'), recruitW = 6 + 12 + 5 + pen.width(recruit) + 6, recruitX = 940 - recruitW;
+  const recruit = ui(lang, 'roster.recruit'), recruitW = 6 + 12 + 5 + pen.width(recruit) + 6, recruitX = Z.w - 20 - recruitW;
   const quota = ui(lang, 'quotaMap.title'), quotaW = 6 + pen.width(quota) + 6 + 24 + 6;
   return { recruit: { x: recruitX, y: 61, w: recruitW, h: 22, label: recruit }, quota: quotaChip ? { x: recruitX - 2 - quotaW, y: 61, w: quotaW, h: 22, label: quota } : null };
 }
@@ -178,9 +192,9 @@ function cardLayout(pen, lang, k, scroll = 0) {
 function card(pen, lang, k, account, scroll = 0) {
   const P = pen.P, L = cardLayout(pen, lang, k, scroll), dy = account.plateDy || 0, ctx = pen.ctx;
   if (account.plateDy === null || account.plateDy === undefined) return;
-  if (L.x + CARD.w < ROSTER_LEFT || L.x > ROSTER_RIGHT) return;
+  if (L.x + CARD.w < ROSTER_LEFT || L.x > rosterRight()) return;
   ctx.save();
-  ctx.beginPath(); ctx.rect(L.x - 8, SHELF_Y + 8, CARD.w + 16, H); ctx.clip();
+  ctx.beginPath(); ctx.rect(L.x - 8, SHELF_Y + 8, CARD.w + 16, Z.h); ctx.clip();
   plate(pen, L.paper.x, L.paper.w, L.paper.h, dy, account.selected);
   const centre = L.centre;
   pen.text(account.name, centre, 165.5 + dy, { align: 'center' });
@@ -215,7 +229,7 @@ function allCard(pen, lang, roster) {
   const P = pen.P, dy = roster.allDy || 0, ctx = pen.ctx;
   if (roster.allDy === null) return;
   ctx.save();
-  ctx.beginPath(); ctx.rect(ALL.x - 8, SHELF_Y + 8, ALL.w + 16, H); ctx.clip();
+  ctx.beginPath(); ctx.rect(ALL.x - 8, SHELF_Y + 8, ALL.w + 16, Z.h); ctx.clip();
   plate(pen, ALL.x + 4, ALL.w - 8, 45, dy, roster.scope === 'all');
   pen.text(ui(lang, 'roster.all'), ALL.x + ALL.w / 2, 165.5 + dy, { align: 'center' });
   pen.text(roster.allMeta, ALL.x + ALL.w / 2, 183 + dy, { align: 'center', colour: P.ink2 });
@@ -276,14 +290,14 @@ const shownAccount = (a) => (a.plateDy !== null && a.plateDy !== undefined) || B
 function shelfEnd(r) {
   if (r.shelfEnd !== undefined) return r.shelfEnd;
   const last = r.accounts.reduce((n, a, k) => (shownAccount(a) ? k : n), -1);
-  return last < 0 ? ALL.x + ALL.w + 8 : Math.min(ROSTER_RIGHT, cardX(last, r.scroll || 0) + CARD.w + 8);
+  return last < 0 ? ALL.x + ALL.w + 8 : Math.min(rosterRight(), cardX(last, r.scroll || 0) + CARD.w + 8);
 }
 
 function roster(pen, lang, state) {
   const r = state.roster, accounts = r.accounts, scroll = r.scroll || 0, ctx = pen.ctx;
-  ctx.save(); ctx.beginPath(); ctx.rect(ROSTER_LEFT, 0, W - ROSTER_LEFT, H); ctx.clip();
+  ctx.save(); ctx.beginPath(); ctx.rect(ROSTER_LEFT, 0, Z.w - ROSTER_LEFT, Z.h); ctx.clip();
   accounts.forEach((account, k) => card(pen, lang, k, account, scroll));
-  accounts.forEach((account, k) => { const centre = cardCentre(k, scroll); if (centre > ROSTER_LEFT - 44 && centre < W + 44) pitCat(pen, centre, account.cat); });
+  accounts.forEach((account, k) => { const centre = cardCentre(k, scroll); if (centre > ROSTER_LEFT - 44 && centre < Z.w + 44) pitCat(pen, centre, account.cat); });
   accounts.forEach((account, k) => { if (account.mail && account.plateDy === 0) mailBadge(pen, cardX(k, scroll), account.mail); });
   if (scroll > 0) dissolve(pen, state, ROSTER_LEFT, 56);
   ctx.restore();
@@ -351,7 +365,7 @@ function toolbarLayout(pen, lang, ledger) {
   const clear = ledger.filter !== undefined && ledger.filter !== null ? ui(lang, 'marks.clear') : '', clearW = clear ? pen.width(clear) + 12 : 0;
   const selection = picked ? { count: ui(lang, 'session.selection.count', { n: picked }), tag: ui(lang, 'marks.tagChecked') } : null;
   const selectionW = selection ? 14 + pen.width(selection.count) + 6 + pen.width(selection.tag) + 10 + 4 + 23 : 0;
-  const right = 930;
+  const right = Z.w - 30;
   // The app fits a crowded bar in steps: first "New reply" keeps only its bubble and count, then the side actions keep only their icons.
   const widths = (fit) => {
     const freshW = fit >= 1 ? 5 + 12 + 6 + pen.width(freshCount) + 5 : 5 + 12 + 12 + pen.width(fresh) + 4 + pen.width(freshCount) + 5;
@@ -383,7 +397,7 @@ const rowTop = (ledger, n) => LEDGER.y + LEDGER.toolbar + LEDGER.head + Math.rou
 // Where on a row its checkbox, its title and its end sit (for the cursor and for things that land on a row).
 function rowLayout(ledger, n) {
   const top = rowTop(ledger, n), h = rowHeight(ledger);
-  return { top, h, box: { x: 44, y: top + (ledger.twoLine ? 11.5 : 11), w: 14, h: 14 }, title: { x: 108, y: top + (ledger.twoLine ? 4.5 : 11.5) }, end: { x: LEDGER.x + LEDGER.w - 34, y: top + h / 2 } };
+  return { top, h, box: { x: 44, y: top + (ledger.twoLine ? 11.5 : 11), w: 14, h: 14 }, title: { x: 108, y: top + (ledger.twoLine ? 4.5 : 11.5) }, end: { x: Z.w - 56, y: top + h / 2 } };
 }
 
 // The lamp of a background chat: empty while starting, seal red blinking while running, green when done.
@@ -394,7 +408,7 @@ function hubLamp(pen, x, y, state, t) {
 }
 
 function ledgerRow(pen, lang, ledger, row, n, t) {
-  const P = pen.P, { x, w } = LEDGER, ctx = pen.ctx, rh = rowHeight(ledger), top = rowTop(ledger, n), dx = row.dx || 0;
+  const P = pen.P, { x, w } = ledgerBox(), C = col(), ctx = pen.ctx, rh = rowHeight(ledger), top = rowTop(ledger, n), dx = row.dx || 0;
   if (row.checked) pen.rect(x, top, w, rh - 2, P.chk);
   if (row.lit) pen.rect(x, top, w, rh - 2, P.hl);
   else if (row.hover) pen.dither(x, top, w, rh - 2, P.hl, 8);
@@ -407,17 +421,17 @@ function ledgerRow(pen, lang, ledger, row, n, t) {
     pen.rect(76 + dx, top + 21, kindW, 14, P.line); pen.rect(78 + dx, top + 23, kindW - 4, 10, row.lit ? P.hl : P.float);
     pen.text(kind, 80 + dx, top + 22, { colour: P.ink });
     pen.text(row.hub.pair, 76 + dx + kindW + 6, top + 22, { colour: P.ink2 });
-    const mid = top + 12.5, folderW = pen.text(row.project, 527.5 + dx, mid, { colour: P.ink });
-    pen.text(ui(lang, 'hub.access.read'), 527.5 + dx + folderW + 6, mid, { colour: P.ink2 });
+    const mid = top + 12.5, folderW = pen.text(row.project, C.project + dx, mid, { colour: P.ink });
+    pen.text(ui(lang, 'hub.access.read'), C.project + dx + folderW + 6, mid, { colour: P.ink2 });
     if (row.hub.state === 'completed') {
-      pen.text(row.when, 822 + dx, mid, { colour: P.ink, align: 'right' });
-      pen.text(ui(lang, 'hub.state.completed'), 842 + dx, mid, { colour: P.okInk });
+      pen.text(row.when, C.date + dx, mid, { colour: P.ink, align: 'right' });
+      pen.text(ui(lang, 'hub.state.completed'), C.source + dx, mid, { colour: P.okInk });
     } else {
-      pen.text(row.hub.state === 'starting' ? ui(lang, 'hub.state.starting') : ui(lang, 'hub.elapsed.running', { t: row.hub.elapsed }), 822 + dx, mid, { colour: P.ink, align: 'right' });
+      pen.text(row.hub.state === 'starting' ? ui(lang, 'hub.state.starting') : ui(lang, 'hub.elapsed.running', { t: row.hub.elapsed }), C.date + dx, mid, { colour: P.ink, align: 'right' });
       const stop = ui(lang, 'hub.stop'), stopW = 6 + 8 + 4 + pen.width(stop) + 6;
-      pen.rect(842 + dx, top + 7.5, stopW, 22, P.brand); pen.rect(844 + dx, top + 9.5, stopW - 4, 18, row.lit ? P.hl : P.float);
-      pen.icon('x', 848 + dx, top + 14.5, 8, P.brandInk);
-      pen.text(stop, 860 + dx, top + 12.5, { colour: P.brandInk });
+      pen.rect(C.source + dx, top + 7.5, stopW, 22, P.brand); pen.rect(C.source + 2 + dx, top + 9.5, stopW - 4, 18, row.lit ? P.hl : P.float);
+      pen.icon('x', C.source + 6 + dx, top + 14.5, 8, P.brandInk);
+      pen.text(stop, C.source + 18 + dx, top + 12.5, { colour: P.brandInk });
     }
   } else {
     const big = row.stamp === 2 ? 4 : row.stamp === 1 ? -1 : 0;
@@ -436,21 +450,21 @@ function ledgerRow(pen, lang, ledger, row, n, t) {
     } else if (row.running) pen.text(ui(lang, 'marks.row.running'), 112 + dx + titleW, titleTop, { colour: P.okInk });
     if (row.tagButton) {
       const label = ui(lang, 'marks.tagButton'), lw = pen.width(label) + 12;
-      pen.rect(507 - lw, top + (rh - 22) / 2, lw, 20, P.ink2); pen.rect(509 - lw, top + (rh - 22) / 2 + 2, lw - 4, 16, row.lit ? P.hl : P.float);
-      pen.text(label, 513 - lw, top + (rh - 22) / 2 + 4, { colour: P.ink });
+      pen.rect(C.tag - lw, top + (rh - 22) / 2, lw, 20, P.ink2); pen.rect(C.tag + 2 - lw, top + (rh - 22) / 2 + 2, lw - 4, 16, row.lit ? P.hl : P.float);
+      pen.text(label, C.tag + 6 - lw, top + (rh - 22) / 2 + 4, { colour: P.ink });
     }
     if (ledger.twoLine) pen.text(row.owner, 76 + dx, top + 23, { colour: P.ink2 });
     const mid = top + (ledger.twoLine ? 12.5 : 11.5);
-    pen.text(row.project, 527.5 + dx, mid, { colour: P.ink });
-    pen.text(row.when, 822 + dx, mid, { colour: P.ink, align: 'right' });
-    pen.text(row.source, 842 + dx, mid, { colour: P.ink2 });
+    pen.text(row.project, C.project + dx, mid, { colour: P.ink });
+    pen.text(row.when, C.date + dx, mid, { colour: P.ink, align: 'right' });
+    pen.text(row.source, C.source + dx, mid, { colour: P.ink2 });
   }
   ctx.restore();
   dotted(pen, x, x + w, top + rh - 2, P.line);
 }
 
 function ledgerPane(pen, lang, ledger, t = 0) {
-  const P = pen.P, { x, y, w, h } = LEDGER, ctx = pen.ctx;
+  const P = pen.P, { x, y, w, h } = ledgerBox(), K = col(), ctx = pen.ctx;
   const openH = Math.round(h * (ledger.open === undefined ? 1 : ledger.open) / 2) * 2;
   if (openH <= 0) return;
   pen.frame(x, y, w, openH, { lip: true });
@@ -512,10 +526,10 @@ function ledgerPane(pen, lang, ledger, t = 0) {
   pen.rect(x, headY + 29, w, 2, P.line); pen.rect(x, headY + 31, w, 2, P.edge);
   checkbox(pen, 44, headY + 9, false);
   pen.text(ui(lang, 'session.col.title'), 76, headY + 10, { colour: P.ink2 });
-  pen.text(ui(lang, 'session.col.project'), 527.5, headY + 10, { colour: P.ink2 });
-  pen.text(ui(lang, 'session.col.active'), 804, headY + 10, { colour: P.ink2, align: 'right' });
-  pen.text('↓', 813, headY + 10, { colour: P.ink2 });
-  pen.text(ui(lang, 'session.col.source'), 842, headY + 10, { colour: P.ink2 });
+  pen.text(ui(lang, 'session.col.project'), K.project, headY + 10, { colour: P.ink2 });
+  pen.text(ui(lang, 'session.col.active'), K.date - 18, headY + 10, { colour: P.ink2, align: 'right' });
+  pen.text('↓', K.date - 9, headY + 10, { colour: P.ink2 });
+  pen.text(ui(lang, 'session.col.source'), K.source, headY + 10, { colour: P.ink2 });
 
   // Rows.
   const bodyY = headY + LEDGER.head;
@@ -533,10 +547,10 @@ function ledgerPane(pen, lang, ledger, t = 0) {
 
 /* ── Footer ────────────────────────────────────────── */
 function footer(pen, lang, foot) {
-  const P = pen.P, y = FOOT_Y + (foot.dy || 0);
-  pen.rect(0, y, W, H - y + 40, P.wood);
-  pen.rect(0, y, W, 2, P.edge);
-  pen.rect(0, y + 2, W, 2, P.woodHi);
+  const P = pen.P, y = footY() + (foot.dy || 0), right = Z.w - 58;
+  pen.rect(0, y, Z.w, Z.h - y + 40, P.wood);
+  pen.rect(0, y, Z.w, 2, P.edge);
+  pen.rect(0, y + 2, Z.w, 2, P.woodHi);
   if (foot.mascot !== false) {
     const spec = foot.mascotSpec || { pose: 'loaf' };
     pen.cat('orange', spec, 20, y, { cell: 2, collar: '#2f9e8f', accessory: 'none' });
@@ -549,10 +563,10 @@ function footer(pen, lang, foot) {
   }
   if (foot.global !== false) {
     const label = ui(lang, 'footer.localOnly'), lw = pen.width(label);
-    pen.rect(902 - lw - 12, y + 16, 8, 8, P.ok);
-    pen.text(label, 902 - lw, y + 14, { colour: P.onWood });
-    pen.icon('sound', 918, y + 12, 16, P.onWood);
-    if (foot.hub) pen.text(foot.hub, 902 - lw - 26, y + 14, { colour: P.onWood, align: 'right' });
+    pen.rect(right - lw - 12, y + 16, 8, 8, P.ok);
+    pen.text(label, right - lw, y + 14, { colour: P.onWood });
+    pen.icon('sound', right + 16, y + 12, 16, P.onWood);
+    if (foot.hub) pen.text(foot.hub, right - lw - 26, y + 14, { colour: P.onWood, align: 'right' });
   }
 }
 
@@ -577,7 +591,12 @@ function rowSeal(pen, x, y, age) {
 
 /* ── The whole window ──────────────────────────────── */
 function drawWindow(pen, state) {
-  const lang = state.lang;
+  const lang = state.lang, before = Z;
+  Z = state.size || { w: W, h: H };
+  try { drawWindowNow(pen, state, lang); } finally { Z = before; }
+}
+
+function drawWindowNow(pen, state, lang) {
   desk(pen, state.lamp);
   if (state.empty) emptyDesk(pen, lang, state.empty);
   if (state.roster) roster(pen, lang, state);
@@ -588,8 +607,16 @@ function drawWindow(pen, state) {
   footer(pen, lang, state.footer || {});
 }
 
+// Layouts asked for from outside (the cursor's route, things that land on a row) for a window of another size.
+function withSize(size, work) {
+  const before = Z;
+  Z = size || { w: W, h: H };
+  try { return work(); } finally { Z = before; }
+}
+
 module.exports = {
-  W, H, TOP, FOOT_Y, SHELF_Y, PLATE_Y, PLATE_H, ALL, CARD, LEDGER, NIGHT_DESK,
+  withSize, ledgerBox, footY, rosterRight,
+  W, H, TOP, SHELF_Y, PLATE_Y, PLATE_H, ALL, CARD, LEDGER, NIGHT_DESK,
   cardX, cardCentre, cardLayout, headLayout, emptyLayout, toolbarLayout, navLayout, rowTop, rowHeight, rowLayout,
-  drawWindow, desk, topbar, footer, ledge, pitCat, catsAgain, bracket, checkbox, dotted, floatLabel, rowSeal, lampDot, pips, plate, ROSTER_LEFT, ROSTER_RIGHT
+  drawWindow, desk, topbar, footer, ledge, pitCat, catsAgain, bracket, checkbox, dotted, floatLabel, rowSeal, lampDot, pips, plate, ROSTER_LEFT
 };

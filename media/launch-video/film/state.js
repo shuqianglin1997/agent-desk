@@ -171,6 +171,12 @@ function ledgerAt(t, lang) {
 
 /* ── The whole window ──────────────────────────────── */
 function windowState(t, lang, plan) {
+  const state = app.withSize(plan.size, () => windowStateNow(t, lang, plan));
+  if (plan.size) state.size = plan.size;
+  return state;
+}
+
+function windowStateNow(t, lang, plan) {
   const words = FILM[lang], N = T.NIGHT;
   // The lamp: three steps up at 4 s, three steps down at 51 s.
   let lamp = t < T.LAMP[1] ? 1 : t < T.LAMP[2] ? 2 : 3;
@@ -199,7 +205,7 @@ function windowState(t, lang, plan) {
     const ledger = ledgerAt(t, lang);
     const links = CALLEES.map((to, j) => (within(t, callLanded(j), C.back[j]) ? { from: 3, to } : null)).filter(Boolean);
     state.roster = {
-      accounts, scope: ledger.scope, allDy: plateDrop(t, T.LAND[0] - 0.25), photo: t >= T.LAND[0] - 0.25, shelfEnd: Math.min(shelfEnd, app.ROSTER_RIGHT), bracket: t >= T.LAND[0],
+      accounts, scope: ledger.scope, allDy: plateDrop(t, T.LAND[0] - 0.25), photo: t >= T.LAND[0] - 0.25, shelfEnd: Math.min(shelfEnd, app.rosterRight()), bracket: t >= T.LAND[0],
       scroll, links, allMeta: ui(lang, 'roster.allMeta', { agents: landed, n: ledger.total })
     };
     if (ledger.scope !== 'all') accounts[ledger.scope].selected = true;
@@ -223,8 +229,8 @@ function windowState(t, lang, plan) {
       fx.push((pen) => app.rowSeal(pen, R.end.x, R.end.y, t - T.COPY.press));
       // The slip of paper that flies from the row to the cat in the footer: seven held steps.
       const age = t - T.COPY.press - 0.05, steps = Math.floor(age * FPS / 4);
-      if (age >= 0 && steps < 7) fx.push((pen) => { const p = (steps + 1) / 7; pen.frame(Math.round(mix(R.title.x + 30, 40, p) / 2) * 2, Math.round(mix(R.title.y, app.FOOT_Y + 8, p) / 2) * 2, 14, 14, { bevel: false }); });
-      fx.push((pen) => app.floatLabel(pen, 40 + 44, app.FOOT_Y + 4, ui(lang, 'fx.copied', { n: 1 }), 'ok', t - copiedAt));
+      if (age >= 0 && steps < 7) fx.push((pen) => { const p = (steps + 1) / 7; pen.frame(Math.round(mix(R.title.x + 30, 40, p) / 2) * 2, Math.round(mix(R.title.y, app.footY() + 8, p) / 2) * 2, 14, 14, { bevel: false }); });
+      fx.push((pen) => app.floatLabel(pen, 40 + 44, app.footY() + 4, ui(lang, 'fx.copied', { n: 1 }), 'ok', t - copiedAt));
     }
     if (fx.length) state.marks = (pen) => fx.forEach((draw) => draw(pen));
   }

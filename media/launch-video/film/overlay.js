@@ -15,21 +15,19 @@ const HONEY = '#F6D37C', INK = '#3B272C', PAPER = '#FBF2DB', SEAL = '#AE3319';
 const snap = (value, grid = 4) => Math.round(value / grid) * grid;
 
 /* ── Caption: a nameplate that drops on the beat ───── */
-function captionBox(ctx, t, lang) {
-  let shot = 0;
-  SHOTS.forEach((at, i) => { if (t >= at - 1e-9) shot = i; });
-  const raw = FILM[lang].captions[shot];
-  if (!raw) return null;
+// Where a plate sits, in the frame at half size: the middle of the lower third of the 1920×1080 frame.
+const PLACE = { cx: 480, y: 446 };
+
+// One plate: `raw` with [[the word printed in seal red]], `age` seconds after it began to drop.
+function plateBox(ctx, raw, age, place = PLACE) {
   const pen = new Pen(ctx, 2, DAY), parts = raw.split(/\[\[|\]\]/);
-  const frame = Math.floor((t - SHOTS[shot]) * FPS + 1e-6), d = frame < 3 ? -12 : frame < 6 ? -6 : frame < 9 ? 2 : 0;
+  const frame = Math.floor(age * FPS + 1e-6), d = frame < 3 ? -12 : frame < 6 ? -6 : frame < 9 ? 2 : 0;
   const widths = parts.map((part) => pen.width(part, 24, 'film')), total = widths.reduce((a, b) => a + b, 0);
-  const w = Math.ceil((total + 56) / 2) * 2, x = Math.round((480 - w / 2) / 2) * 2, y = 446 + d;
-  return { pen, parts, widths, x, y, w, shot };
+  const w = Math.ceil((total + 56) / 2) * 2, x = Math.round((place.cx - w / 2) / 2) * 2, y = place.y + d;
+  return { pen, parts, widths, x, y, w };
 }
 
-function caption(ctx, t, lang) {
-  const box = captionBox(ctx, t, lang);
-  if (!box) return null;
+function plate(ctx, box) {
   const { pen, parts, widths, x, y, w } = box;
   ctx.setTransform(2, 0, 0, 2, 0, 0);
   pen.rect(x + 4, y + 4, w + 2, 42, '#1B1417');
@@ -39,7 +37,21 @@ function caption(ctx, t, lang) {
   let cx = x + 32;
   parts.forEach((part, k) => { pen.text(part, cx, y + 8, { size: 24, film: true, colour: k % 2 ? SEAL : INK }); cx += widths[k]; });
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  return { x: (x - 2) * 2, y: (y - 2) * 2, w: (w + 8) * 2, h: 96, shot: box.shot };
+  return { x: (x - 2) * 2, y: (y - 2) * 2, w: (w + 8) * 2, h: 96 };
+}
+
+function captionBox(ctx, t, lang) {
+  let shot = 0;
+  SHOTS.forEach((at, i) => { if (t >= at - 1e-9) shot = i; });
+  const raw = FILM[lang].captions[shot];
+  if (!raw) return null;
+  return { ...plateBox(ctx, raw, t - SHOTS[shot]), shot };
+}
+
+function caption(ctx, t, lang) {
+  const box = captionBox(ctx, t, lang);
+  if (!box) return null;
+  return { ...plate(ctx, box), shot: box.shot };
 }
 
 /* ── Cursor ────────────────────────────────────────── */
@@ -232,5 +244,5 @@ function cover(ctx, lang) {
   pen.rect(56, shelfY, W - 112, 16, P.wood); pen.rect(56, shelfY, W - 112, 4, P.woodHi); pen.rect(56, shelfY + 12, W - 112, 4, P.woodLo);
 }
 
-module.exports = { caption, captionBox, cursor, envelope, flight, lock, otherComputer, terminal, endCard, cover, HONEY };
+module.exports = { caption, captionBox, plateBox, plate, cursor, envelope, flight, lock, otherComputer, terminal, endCard, cover, HONEY };
 void clamp; void ease;

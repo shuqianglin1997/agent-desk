@@ -24,8 +24,10 @@ const HOOK = {
 };
 const TRIAD = { C: [72, 76, 79], G: [71, 74, 79], Am: [69, 72, 76], F: [69, 72, 77] };
 
-function compose() {
-  const T = { p1: Array(N).fill(null), p2: Array(N).fill(null), wv: Array(N).fill(null), nz: Array(N).fill(null) };
+// The instruments: every helper writes rows into the four channels of one table of `rows` rows (60 a second).
+function kit(rows) {
+  const T = { p1: Array(rows).fill(null), p2: Array(rows).fill(null), wv: Array(rows).fill(null), nz: Array(rows).fill(null) };
+  const N = rows;
   const bar = (b) => (b - 1) * BAR;
   const tone = (ch, at, len, midi, vol, duty, o = {}) => {
     for (let i = 0; i < len && at + i < N; i += 1) {
@@ -35,7 +37,7 @@ function compose() {
     }
   };
   const low = (at, len, midi, level = 1) => { for (let i = 0; i < len && at + i < N; i += 1) T.wv[at + i] = [midi, i < len * 0.7 ? level : Math.min(3, level + 1)]; };
-  const hit = (at, rows) => rows.forEach((row, i) => { if (at + i < N) T.nz[at + i] = row; });
+  const hit = (at, rows2) => rows2.forEach((row, i) => { if (at + i < N) T.nz[at + i] = row; });
   const kick = (at) => hit(at, [[7, 3, 0, 12], [7, 3, 0, 9], [6, 3, 0, 5], [6, 3, 0, 2]]);
   const snare = (at) => hit(at, [[3, 2, 0, 11], [3, 2, 0, 8], [4, 2, 0, 6], [4, 2, 0, 4], [5, 2, 0, 2]]);
   const hat = (at) => hit(at, [[0, 1, 0, 4], [0, 1, 0, 2]]);
@@ -47,6 +49,16 @@ function compose() {
   const theme = (b, name, o = {}) => { const at = bar(b); if (!o.noDrums) drums(at); if (!o.noBass) bassline(at, name); hook(at, name, o.up || 0); };
   const accent = (at, name) => { crash(at); chord(at, 24, name, 8); };
   const leadIn = (at) => [[60, 79], [75, 81], [90, 83]].forEach(([f, m]) => tone('p1', at + f, f === 90 ? 28 : 13, m, 9, 1));
+  // 回声：主旋律晚 12 帧在第二个声道轻轻再来一遍（第二声道空着的地方才写）
+  const echo = () => {
+    const lead = T.p1.slice();
+    for (let f = 0; f + 12 < N; f += 1) if (lead[f] && !T.p2[f + 12]) T.p2[f + 12] = [lead[f][0], 2, Math.max(1, Math.round(lead[f][2] * 0.35))];
+  };
+  return { T, bar, tone, low, hit, kick, snare, hat, crash, chord, drums, bassline, hook, theme, accent, leadIn, echo };
+}
+
+function compose() {
+  const { T, bar, tone, low, hit, kick, snare, hat, crash, chord, theme, accent, leadIn, echo } = kit(N);
 
   // 1–2：紧张。小调，低音每个八分音符顶一下，旋律半音往下滑；第二小节末尾噪声一路往上扫
   for (let k = 0; k < 16; k += 1) { low(k * 15, 10, 45, 1); tone('p1', k * 15, 12, 76 - (k % 8) + (k >= 8 ? 5 : 0), 6, 0); if (k % 2 || k >= 8) hat(k * 15); }
@@ -95,10 +107,50 @@ function compose() {
   // 30：最后一只猫睁眼的那一下（58.5 秒）
   tone('p1', bar(30) + 60, 10, 96, 9, 0); tone('p1', bar(30) + 70, 24, 100, 9, 0); low(bar(30) + 60, 40, 48, 2);
 
-  // 回声：主旋律晚 12 帧在第二个声道轻轻再来一遍（第二声道空着的地方才写）
-  const lead = T.p1.slice();
-  for (let f = 0; f + 12 < N; f += 1) if (lead[f] && !T.p2[f + 12]) T.p2[f + 12] = [lead[f][0], 2, Math.max(1, Math.round(lead[f][2] * 0.35))];
+  echo();
   return T;
 }
 
-module.exports = { compose, BEAT, BAR, BARS, seconds: BARS * 2 };
+/*
+ * The 15-second cut: the same registers arranged over seven and a half bars (900 rows).
+ *   0–8 s    the theme, C G Am F, a crash on the first beat
+ *   8–10 s   out of energy and the copy: one beat of theme, then the beat at 8.5 s silent but for the falling bass;
+ *            from 9 s half time (long notes), the kick of the seal at 9.5 s
+ *   10–12 s  the theme again (G) as the other cat carries on; three notes up into the end card
+ *   12.5 s   four chords a beat apart, C F G C: the name, how to find it, a breath, the cheer; the last one rings
+ *            down in three steps and the cut ends on silence
+ */
+const SHORT_SECONDS = 15;
+function composeShort() {
+  const { T, bar, tone, low, kick, snare, hat, crash, chord, theme, echo } = kit(SHORT_SECONDS * 60);
+  crash(0);
+  ['C', 'G', 'Am', 'F'].forEach((name, i) => theme(1 + i, name));
+  // Bar 5 (8–10 s).
+  const b5 = bar(5);
+  kick(b5); hat(b5 + 15); low(b5, 12, ROOT.C); low(b5 + 15, 12, ROOT.C + 12); tone('p1', b5, 28, 76, 10, 1);
+  low(b5 + 30, 14, 38, 1); low(b5 + 44, 16, 31, 2);
+  kick(b5 + 60); [75, 105].forEach((f) => hat(b5 + f)); kick(b5 + 90);
+  low(b5 + 60, 56, 45); tone('p1', b5 + 60, 56, 76, 9, 2, { vib: true, flat: true });
+  // Bar 6 (10–12 s), and the half bar that leads in.
+  theme(6, 'G');
+  const b7 = bar(7);
+  [[0, 79], [10, 81], [20, 83]].forEach(([f, m]) => tone('p1', b7 + f, f === 20 ? 9 : 9, m, 9, 1));
+  [0, 8, 15, 22].forEach((f) => snare(b7 + f)); low(b7, 28, ROOT.G);
+  // The end card: C F G a beat apart, then C struck and left to ring down in three steps, so the cut ends on silence.
+  [[b7 + 30, 'C'], [b7 + 60, 'F'], [b7 + 90, 'G']].forEach(([at, name], i) => {
+    if (i === 0) crash(at);
+    kick(at);
+    low(at, 28, ROOT[name], 2); chord(at, 28, name, 6); tone('p1', at, 28, TRIAD[name][2] + 12, 7, 1, { flat: true, vib: true });
+  });
+  const last = b7 + 120;
+  crash(last); kick(last);
+  [[0, 20, 1], [20, 14, 0.55], [34, 8, 0.25]].forEach(([f, len, level], i) => {
+    low(last + f, len, ROOT.C, i + 1);
+    tone('p2', last + f, len, 0, Math.max(1, Math.round(8 * level)), 2, { arp: TRIAD.C, flat: true });
+    tone('p1', last + f, len, TRIAD.C[2] + 12, Math.max(1, Math.round(9 * level)), 1, { flat: true, vib: i === 0 });
+  });
+  echo();
+  return T;
+}
+
+module.exports = { compose, composeShort, kit, BEAT, BAR, BARS, seconds: BARS * 2, SHORT_SECONDS };

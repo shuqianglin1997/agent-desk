@@ -1,6 +1,8 @@
 # 发布短片的制作源文件
 
-脚本和规矩见 [docs/LAUNCH_VIDEO_PLAN.md](../../docs/LAUNCH_VIDEO_PLAN.md)。这个目录只放制作用的东西，不进应用安装包（`package.json` 的 `build.files` 只收 `src/`、`assets/`）。成片、帧和声音都写在 `out/`，不入库。
+脚本和规矩见 [docs/LAUNCH_VIDEO_PLAN.md](../../docs/LAUNCH_VIDEO_PLAN.md)。这个目录只放制作用的东西，不进应用安装包（`package.json` 的 `build.files` 只收 `src/`、`assets/`）。成片、帧和声音都写在 `out/`，不入库；只有 README 用的两张循环动图写到 `docs/media/`，入库。
+
+这里出三样东西：一分钟成片；它的 15 秒短版（16:9 和 3:4 各一种构图）；README 顶部的循环动图。后两样是从成片的画法和状态里重新剪、重新排的（方案第 11 节），没有另一套画风。
 
 ## 怎么出片
 
@@ -13,6 +15,16 @@ node media/launch-video/build.js stills zh 7.5,13.8   # 单帧 → out/stills/
 node media/launch-video/tools/verify.js zh film       # 帧数、切点和镜头移动是否落在拍子上、字幕是否在画内且不超长、音效名是否都是应用里有的
 node media/launch-video/tools/sheet.js zh out/stills/sheet.png 4 4 12 13.5 6   # 一段动作逐帧排成一张，用来看动效
 out/bin/inspect out/catshelf-film-zh.mp4 26.6 out/check.png                    # 把成片读回来：真实帧数、帧率、时长；导出一帧
+
+node media/launch-video/build.js short zh             # 15 秒短版 1920×1080 → out/catshelf-short-zh.mp4（en 同理）
+node media/launch-video/build.js short zh tall        # 15 秒短版 1080×1440（3:4）→ out/catshelf-short-3x4-zh.mp4
+node media/launch-video/build.js cover-tall zh        # 3:4 封面 → out/catshelf-cover-3x4-zh.png
+node media/launch-video/build.js loop zh              # README 循环动图 → docs/media/catshelf-loop-zh.gif（写完自动读回核对两遍，对不上就不留）
+node media/launch-video/build.js stills zh 9.6,13.5 short-tall                 # 短版或动图的单帧（short、short-tall、loop）
+node media/launch-video/tools/verify.js zh short tall                          # 短版同一套验收；动图是 verify.js zh loop
+node media/launch-video/tools/sheet.js frames out/frames/short-3x4-zh out/stills/a.png 8 4 540 633 3   # 已渲染的帧逐帧排开
+node media/launch-video/tools/gif.js docs/media/catshelf-loop-zh.gif           # 把动图读回来：大小、帧数、时长、是否永远循环
+node media/launch-video/tools/fingerprint.js out/frames/film-zh                # 一段帧的指纹：改了画法以后核对成片有没有变
 ```
 
 不显示任何窗口、不启动客户端、不下载。用到的只有仓库里已有的 Electron（`node_modules`）和系统自带的 Swift。
@@ -35,16 +47,24 @@ out/bin/inspect out/catshelf-film-zh.mp4 26.6 out/check.png                    #
 | `film/film.js` | 镜头、光标的路线、桌面上的客户端窗口，把上面这些合成一帧 |
 | `film/strings.js` | 字：界面上的字全部取自 `src/i18n/zh.js`、`src/i18n/en.js`；这里只写应用里没有的（字幕、片尾、编出来的账号名和会话标题、别家窗口里的字） |
 | `film/cues.js` | 每个音效在什么时刻响 |
+| `film/cut.js` | 15 秒短版：取成片的哪几段、接在哪一拍、两种构图各自的镜头位置、字幕、音效 |
+| `film/ending.js` | 短版的片尾（白天的桌面、名字、一句话、“在 GitHub 搜 catshelf”的大名牌、六只猫），静止下来就是 3:4 封面 |
+| `film/loop.js` | README 循环动图：826×690 的窗口里每一刻是什么状态 |
+| `film/pieces.js` | 能出哪几样：成片、短版、3:4 短版、动图，各自的尺寸和帧率 |
 
 猫架窗口照真实窗口量出来的尺寸画：`reference/capture.js` 用不显示的窗口跑真实应用（960×840、两倍像素、成片里的六个账号），存下截图和每个元素的位置、颜色、字体，画的时候逐项对照。它只是对照工具，出片时不用。
 
-镜头只有两个位置：贴近猫架窗口（窗口放大两倍，看到其中 960×540，上下摇），或拉远到整个桌面（窗口按原大放在左上角）。两个位置之间走三格台阶。
+镜头只有两个位置：贴近猫架窗口（窗口放大两倍，看到其中 960×540，上下摇），或拉远到整个桌面（窗口按原大放在左上角）。两个位置之间走三格台阶。3:4 的短版画面窄，只有贴近这一个位置：看窗口的 540×720，上下左右都能移，别家客户端窗口开在猫架窗口上面（`film/film.js` 的 `TALL`）。
+
+猫架窗口可以按别的尺寸画（`film/app.js`，`state.size`）：贴右边和底边的东西跟着走，表格各列照应用的规则分宽度。成片用 960×840，3:4 短版用 960×870，动图用 826×690。
 
 ## 声音和编码
 
 - `audio/bgm.js` 是示意版的配乐寄存器表，`audio/mix.js` 把它和音效一起交给应用的芯片发声器（`src/pixel/chip.js`）渲染，48kHz、峰值 −1 dBFS。整片用同一个增益，所以样片的响度就是成片的响度。
 - `render/` 是不显示窗口的 Electron 页面，逐帧画、逐帧存 PNG；和上一帧一样的帧不重复存，`manifest.txt` 记下每一帧用哪张。
 - `encode/encode.swift` 用 AVFoundation 把帧和 WAV 写成 mp4（H.264 + AAC，60 帧，颜色标成 sRGB）。`encode/inspect.swift` 把成片读回来：真实的帧数、帧率、时长，并能导出任意一帧。
+- 短版的配乐是同一套寄存器表重新编的 15 秒（`audio/bgm.js` 的 `composeShort`），和成片共用一套乐器写法；音效是成片里落在各段内的那些，跟着段搬过去。
+- 动图：`tools/palette.js` 把整段帧归到同一张 255 色的调色板，`encode/gif.js` 写成 GIF（整段一张调色板；第一帧整幅，之后每帧只存变了的像素；画面没变的时刻并成一帧），`tools/gif.js` 和 `encode/gifcheck.swift`（走系统的 ImageIO）各读回一遍，逐像素和来源核对；`tools/gif.js <gif> browser <帧目录>` 再让 Chromium 的解码器（出片用的那个不显示的页面）读一遍。
 
 ## 和方案不一样的地方
 
@@ -74,7 +94,19 @@ out/bin/inspect out/catshelf-film-zh.mp4 26.6 out/check.png                    #
 - **最后一只猫**：58.0 秒睁开一只眼叫一声（落在拍子上），59.0 秒配乐最后一个音时又闭上。示意版写的 58.5 秒不在拍子上。
 - **片尾的地址**：按方案写的是改名后的 `github.com/shuqianglin1997/catshelf`。GitHub 上的仓库现在还叫 `agent-desk`，发布前要先在网页上改名。
 
+短版和动图另外有这几处：
+
+- **短版开头不演“轮流登”**：第一帧就是搁板和猫，五只猫半拍一只跳上来；“轮流登”只在字幕里一句带过。成片片头那张夜里的桌子没有搁板，放在开头就成了慢开场。
+- **3:4 没有桌面**：别家客户端窗口直接开在猫架窗口上面，虚线从名牌下沿垂直连下去；16:9 的短版照成片拉远到桌面。
+- **3:4 的窗口高 870**：比成片高 30px，是把真实窗口拉高一点的样子。
+- **短版片尾不写仓库地址**：只留名字、一句话和“在 GitHub 搜 catshelf · 开源免费”，最后这一行放在大号名牌上，停 2 秒。3:4 里这一行排不下，分成两行。
+- **动图的窗口是 826×690**：真实窗口拉窄以后的样子，对照过真实应用（工具栏收成图标的几档、各列宽度）。和成片一样，名牌画成 126px、标题标签不截断（真实窗口在这个宽度会把“全部会话”截成“全部…”）；所以工具栏右半边几个按钮和真实窗口差 2–4px，搜索框比真实的宽一些。
+- **动图不用 ImageIO 写**：试过，每帧存整幅、各带调色板，10 MB，颜色还有偏差；改成自己写，约 180 KB。ImageIO 只用来读回核对。
+- **动图去掉了边缘的平滑**：GIF 只有 256 色，字的边缘和窗口三个圆钮上的平滑色取了最近的一色（万分之三的像素），变成硬边。
+- **动图里睡着的那只坐第三个**：别的位置上它头上的“Z”会压到“招募”或英文的“Quota overview”。成片里它坐最右边，“Z”偶尔碰到“招募”，没有动。
+
 ## 没验证的
 
-- 声音没有人听过，只核对了数值（时刻、峰值 −1 dBFS、音效名都是应用里有的）。
-- 成片没有在真实播放器里逐一看过；做的是把 mp4 读回来核对帧数（3600）、时长（60.000 秒）、帧率和颜色标记，并从成片里每个镜头导出一帧看过。
+- 声音没有人听过，只核对了数值（时刻、峰值 −1 dBFS、音效名都是应用里有的）；短版另外核对了结尾是衰减到静音的。
+- 成片没有在真实播放器里逐一看过；做的是把 mp4 读回来核对帧数（3600）、时长（60.000 秒）、帧率和颜色标记，并从成片里每个镜头导出一帧看过。短版同样（各 900 帧、15.000 秒，每条解出十帧看过）。
+- 动图没有在浏览器窗口和 GitHub 页面上看过；做的是三个解码器（自己的、ImageIO、Chromium）逐像素读回，和把帧缩到一半（普通屏上的样子）看过。GitHub 的 README 一栏实际多宽、手机上缩成什么样，没有实测。

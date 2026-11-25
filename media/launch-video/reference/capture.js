@@ -14,6 +14,9 @@
  *
  *   node media/launch-video/reference/capture.js <out-dir> [zh|en ...]
  *
+ * FILM_REFERENCE_SIZE=826x690 captures another window size (the README loop's), and
+ * FILM_REFERENCE_STATES=all,checked keeps only those states.
+ *
  * Nothing here is used at render time, and nothing here changes the app.
  */
 
@@ -27,6 +30,8 @@ const { launchElectronApp, closeElectronApp, waitFor, settleDialogMotion, pressE
 const { prepare } = require(path.join(ROOT, 'scripts', 'ui-snapshots.js'));
 
 const FIXED_TIME = new Date('2026-08-12T06:00:00.000Z');
+const [VIEW_W, VIEW_H] = (process.env.FILM_REFERENCE_SIZE || '960x840').split('x').map(Number);
+const ONLY = process.env.FILM_REFERENCE_STATES ? process.env.FILM_REFERENCE_STATES.split(',') : null;
 const NAMES = {
   zh: { work: '工作', personal: '个人', company: '公司接口', team: '团队' },
   en: { work: 'Work', personal: 'Personal', company: 'Company API', team: 'Team' }
@@ -163,9 +168,9 @@ async function captureLanguage(outDir, lang, tempRoot) {
     const { client } = instance;
     const ready = `typeof AgentDeskInspect !== 'undefined' && AgentDeskInspect.state.profiles.length === ${CAST.length} && !document.querySelector('#welcomeDialog').open && document.querySelectorAll('#sessionRows tr:not(.empty-row)').length >= 1`;
     await waitFor(client, ready, 'workspace', 40_000);
-    await client.call('Emulation.setDeviceMetricsOverride', { width: 960, height: 840, deviceScaleFactor: 2, mobile: false });
+    await client.call('Emulation.setDeviceMetricsOverride', { width: VIEW_W, height: VIEW_H, deviceScaleFactor: 2, mobile: false });
     await prepare(client, ready, 'workspace after reload');
-    for (const state of STATES) {
+    for (const state of STATES.filter((entry) => !ONLY || ONLY.includes(entry.name))) {
       try {
         for (const step of state.enter || []) { await client.evaluate(step); await new Promise((resolve) => setTimeout(resolve, 250)); }
         if (state.ready) await waitFor(client, state.ready, `${state.name} ready`);
@@ -194,7 +199,7 @@ async function captureEmpty(outDir, lang, tempRoot) {
     const { client } = instance;
     const ready = `typeof AgentDeskInspect !== 'undefined' && AgentDeskInspect.state.startupStage === 'ready' && Boolean(document.querySelector('#accountRoster .account-roster-empty'))`;
     await waitFor(client, ready, 'empty desk', 40_000);
-    await client.call('Emulation.setDeviceMetricsOverride', { width: 960, height: 840, deviceScaleFactor: 2, mobile: false });
+    await client.call('Emulation.setDeviceMetricsOverride', { width: VIEW_W, height: VIEW_H, deviceScaleFactor: 2, mobile: false });
     await prepare(client, ready, 'empty desk after reload');
     await shot(client, dir, 'empty');
     try {
@@ -217,7 +222,7 @@ async function main() {
   try {
     for (const lang of langs.length ? langs : ['zh', 'en']) {
       if (!process.env.FILM_REFERENCE_EMPTY_ONLY) await captureLanguage(outDir, lang, tempRoot);
-      await captureEmpty(outDir, lang, tempRoot);
+      if (!ONLY || ONLY.includes('empty')) await captureEmpty(outDir, lang, tempRoot);
       process.stdout.write(`captured ${lang}\n`);
     }
   } finally {

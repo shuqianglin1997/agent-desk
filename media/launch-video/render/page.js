@@ -3,10 +3,12 @@
 /*
  * The page that draws the film, one frame at a time, and writes each as a PNG.
  *
- * Frame n is drawn for the time n/60 s by film.render(), a pure function of
- * time and language: there is no clock here, so a frame is the same however
+ * Frame n is drawn for the time n/fps by the piece's render(), a pure function
+ * of time and language: there is no clock here, so a frame is the same however
  * long it took to draw. A frame identical to the one before is not written
  * again; the manifest names, for every frame, the file that holds it.
+ * job.piece picks what is drawn (film/pieces.js): the film, its 15-second cut,
+ * the tall cut, or the README loop.
  */
 
 const fs = require('node:fs');
@@ -36,10 +38,47 @@ function fingerprint(words) {
 
 const toPng = (canvas) => new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? blob.arrayBuffer().then((data) => resolve(Buffer.from(data)), reject) : reject(new Error('no blob'))), 'image/png'));
 
+/*
+ * Reads a GIF with the browser's own decoder (this page is Chromium, as Chrome and Edge are) and compares every
+ * frame, as the browser would show it, with the picture it was made from. Nothing is shown.
+ */
+async function checkGif({ file, dir }) {
+  const decoder = new ImageDecoder({ data: fs.readFileSync(file), type: 'image/gif' });
+  await decoder.tracks.ready;
+  const track = decoder.tracks.selectedTrack, count = track.frameCount;
+  const names = fs.readFileSync(path.join(dir, 'manifest.txt'), 'utf8').trim().split('\n').filter((name, i, all) => i === 0 || name !== all[i - 1]);
+  if (names.length > 1 && names[names.length - 1] === names[0]) names.pop();
+  const result = { frames: count, sources: names.length, loops: track.repetitionCount === Infinity ? 'for ever' : String(track.repetitionCount), seconds: 0, shortest: Infinity, wrongFrames: 0, wrongPixels: 0, worst: 0 };
+  let canvas = null, ctx = null;
+  const pixelsOf = (image, width, height) => { ctx.clearRect(0, 0, width, height); ctx.drawImage(image, 0, 0); return ctx.getImageData(0, 0, width, height).data; };
+  for (let index = 0; index < count; index += 1) {
+    const { image } = await decoder.decode({ frameIndex: index });
+    const width = image.displayWidth, height = image.displayHeight;
+    if (!canvas) { canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; ctx = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' }); result.width = width; result.height = height; }
+    result.seconds += image.duration / 1e6; result.shortest = Math.min(result.shortest, image.duration / 1e6);
+    const shown = Uint8ClampedArray.from(pixelsOf(image, width, height));
+    image.close();
+    if (index >= names.length) continue;
+    const source = await createImageBitmap(new Blob([fs.readFileSync(path.join(dir, names[index]))], { type: 'image/png' }), { colorSpaceConversion: 'none' });
+    const expected = pixelsOf(source, width, height);
+    source.close();
+    let differing = 0;
+    for (let i = 0; i < shown.length; i += 4) {
+      const d = Math.max(Math.abs(shown[i] - expected[i]), Math.abs(shown[i + 1] - expected[i + 1]), Math.abs(shown[i + 2] - expected[i + 2]));
+      if (d) { differing += 1; if (d > result.worst) result.worst = d; }
+    }
+    if (differing) { result.wrongFrames += 1; result.wrongPixels += differing; }
+  }
+  return result;
+}
+
 async function run(job) {
+  if (job.gifCheck) return checkGif(job.gifCheck);
   await loadFonts();
-  const film = require(path.join(__dirname, '..', 'film', 'film.js'));
-  const width = job.width || 1920, height = job.height || 1080;
+  const pieces = require(path.join(__dirname, '..', 'film', 'pieces.js'));
+  const piece = pieces.PIECES[job.piece || 'film'];
+  if (!piece) throw new Error(`no piece called ${job.piece}`);
+  const width = job.width || piece.width, height = job.height || piece.height;
   const canvas = document.createElement('canvas');
   canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true, colorSpace: 'srgb' });
@@ -49,8 +88,8 @@ async function run(job) {
   if (job.stills) {
     // Single frames by time (seconds), or named states for checking the drawing.
     for (const still of job.stills) {
-      if (still.state) { const data = film.renderState(ctx, still.state, job.lang, still); if (data) { result[still.name] = data; continue; } }
-      else film.render(ctx, still.t, job.lang, job.options || {});
+      if (still.state) { const data = pieces.state(ctx, still.state, job.lang, still); if (data) { result[still.name] = data; continue; } }
+      else piece.render(ctx, still.t, job.lang);
       const file = path.join(job.out, `${still.name}.png`);
       fs.writeFileSync(file, await toPng(canvas));
       result.files.push(file);
@@ -62,7 +101,7 @@ async function run(job) {
   let last = '', lastFile = '';
   const started = Date.now();
   for (let n = job.from; n < job.to; n += 1) {
-    film.render(ctx, n / 60, job.lang, job.options || {});
+    piece.render(ctx, n / piece.fps, job.lang);
     const print = fingerprint(new Uint32Array(ctx.getImageData(0, 0, width, height).data.buffer));
     if (print !== last) {
       lastFile = `f${String(n).padStart(5, '0')}.png`;

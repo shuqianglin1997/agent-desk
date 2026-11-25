@@ -28,6 +28,39 @@ const WIDTH = 1920, HEIGHT = 1080;
 const DESK_AT = { x: 16, y: 48 };                  // where the Catshelf window sits on the desktop
 const WAYS_TILT = 56, LEDGER_TILT = 300, PLATES_TILT = 150, SEND_TILT = 250;
 
+/*
+ * A view is one way of composing a frame out of the same drawing.
+ *
+ * WIDE is the film's 1920×1080. TALL is 1080×1440 for a 3:4 feed: the frame is too narrow for the whole window at
+ * twice its size, so it shows 540×720 of it and moves sideways as well as up and down; there is no desktop to pull
+ * back to, and the official clients open over the lower part of the window instead of beside it. The window itself
+ * is 30px taller there (a real window can be), so that the view from under the shelf ends exactly on its footer.
+ */
+const inputPoint = (box) => [box.x + 232 + 16 + 200, box.y + box.h - 38];
+const WIDE = {
+  name: 'wide', width: WIDTH, height: HEIGHT, window: { w: app.W, h: app.H },
+  codex: [0, 1, 2].map((k) => ({ x: 1012, y: 56 + k * 280, w: 884, h: 264 })), claude: { x: 1060, y: 372, w: 836, h: 508 },
+  behindClaude: [1, 2],                              // whose windows Claude's covers once it is up
+  idle: [1380, 760],
+  // A dashed line runs from the cat (behind it) to the left edge of its client.
+  link: (cam, k, box, claude) => [toFrame(cam, app.cardCentre(k), 112), [box.x - 4, box.y + (claude ? 120 : box.h / 2)]],
+  paperFrom: (j) => [260 + ((j * 397) % 1300), 1120 + (j % 3) * 40],
+  caption: { cx: 480, y: 446 }
+};
+const TALL = {
+  name: 'tall', width: 1080, height: 1440, window: { w: app.W, h: 870 }, over: true,
+  // Three windows stepping down to the right, so each one's top edge is clear under its own nameplate.
+  codex: [{ x: 40, y: 612, w: 620, h: 340 }, { x: 250, y: 700, w: 640, h: 340 }, { x: 420, y: 788, w: 620, h: 340 }],
+  claude: { x: 20, y: 580, w: 1040, h: 560 },
+  behindClaude: [0, 1, 2],
+  idle: [540, 1000],
+  // The line drops from under the nameplate straight to the top edge of the client.
+  link: (cam, k, box) => { const from = toFrame(cam, app.cardCentre(k), 272); return [from, [from[0], box.y - 4]]; },
+  paperFrom: (j) => [60 + ((j * 397) % 900), 1480 + (j % 3) * 40],
+  caption: { cx: 270, y: 600 }
+};
+const VIEWS = { wide: WIDE, tall: TALL };
+
 /* ── Camera ────────────────────────────────────────── */
 // [time, desktop (0 close, 1 desktop), tilt (window y at the top of the frame, close-ups only)]
 function cameraMoves(plan) {
@@ -49,24 +82,27 @@ function camera(t, plan) {
   return { d, y, scale, ox: Math.round(mix(0, DESK_AT.x, d) / 2) * 2, oy: Math.round(mix(-2 * y, DESK_AT.y, d) / 2) * 2, moving: p < 1 };
 }
 
-const toFrame = (cam, x, y) => [cam.ox + x * cam.scale, cam.oy + y * cam.scale];
-
-/* ── Clients on the desktop ────────────────────────── */
-const CODEX_BOX = [0, 1, 2].map((k) => ({ x: 1012, y: 56 + k * 280, w: 884, h: 264 }));
-const CLAUDE_BOX = { x: 1060, y: 372, w: 836, h: 508 };
-const inputPoint = (box) => [box.x + 232 + 16 + 200, box.y + box.h - 38];
+function toFrame(cam, x, y) { return [cam.ox + x * cam.scale, cam.oy + y * cam.scale]; }
+// The camera standing still: close on the window with (x, y) of it at the frame's top left, or back at the desktop.
+const closeAt = (x, y, clients = false) => ({ d: 0, y, scale: 2, ox: -2 * x, oy: -2 * y, moving: false, clients });
+const desktopCam = () => ({ d: 1, y: 0, scale: 1, ox: DESK_AT.x, oy: DESK_AT.y, moving: false });
 
 /* ── Things worked out once per language ───────────── */
 const plans = new Map();
-function planFor(lang, ctx) {
-  if (plans.has(lang)) return plans.get(lang);
+function planFor(lang, ctx, view = WIDE) {
+  const key = `${lang}:${view.name}`;
+  if (!plans.has(key)) plans.set(key, app.withSize(view.window, () => planNow(lang, ctx, view)));
+  return plans.get(key);
+}
+
+function planNow(lang, ctx, view) {
   const pen = new Pen(ctx, 2, DAY), words = FILM[lang];
   const dialog = recruit.layout(pen, lang, 0), empty = app.emptyLayout(pen, lang);
   const ways = [0, 1, 2, 3].map((tab) => recruit.layout(pen, lang, tab));
   const cards = CAST.map((_, k) => app.cardLayout(pen, lang, k));
   const head = app.headLayout(pen, lang, true), edit = panels.editLayout(), send = panels.sendDialogLayout(pen, lang), sendMenu = panels.sendMenuLayout();
   // Tilt so that the dialog's seal button sits just above the caption.
-  const plan = { dialog, ways, empty, cards, edit, send, sendMenu, dialogTilt: Math.round((dialog.primary.y + dialog.primary.h - 422) / 2) * 2 };
+  const plan = { view, size: view.window, dialog, ways, empty, cards, edit, send, sendMenu, dialogTilt: Math.round((dialog.primary.y + dialog.primary.h - 422) / 2) * 2 };
   const centre = (box) => [box.x + box.w / 2, box.y + box.h / 2];
   const name = [...words.names.work];
   plan.typed = (t) => (t < T.RECRUIT.type ? '' : name.slice(0, Math.min(name.length, Math.floor((t - T.RECRUIT.type) / (name.length > 2 ? 0.125 : 0.25) + 1e-6) + 1)).join(''));
@@ -83,10 +119,10 @@ function planFor(lang, ctx) {
   // The cursor: [time, x, y, 'w' window or 'f' frame coordinates, click, carrying]
   const first = centre(empty.button), create = centre(dialog.primary), field = [dialog.name.x + 70, dialog.name.y + 20];
   const opens = [0, 1, 2, 3].map((k) => centre(cards[k].launch));
-  const codexInput = inputPoint(CODEX_BOX[0]), claudeInput = inputPoint(CLAUDE_BOX);
+  const codexInput = inputPoint(view.codex[0]), claudeInput = inputPoint(view.claude);
   const plate0 = [app.cardCentre(0), 172];
   const keys = [
-    [5.4, 1380, 760, 'f'], [5.95, 1380, 760, 'f'], [6.4, ...first, 'w'], [T.RECRUIT.click, ...first, 'w', true],
+    [5.4, ...view.idle, 'f'], [5.95, ...view.idle, 'f'], [6.4, ...first, 'w'], [T.RECRUIT.click, ...first, 'w', true],
     [6.95, field[0], field[1] + 22, 'w'], [8.05, field[0], field[1] + 22, 'w'], [8.42, ...create, 'w'], [T.RECRUIT.create, ...create, 'w', true],
     [9.2, ...create, 'w'], [9.7, 330, 330, 'w'], [11.8, 330, 330, 'w'],
     [12.2, ...opens[0], 'w'], [T.OPEN[0], ...opens[0], 'w', true], [12.7, ...opens[1], 'w'], [T.OPEN[1], ...opens[1], 'w', true],
@@ -132,7 +168,6 @@ function planFor(lang, ctx) {
   T.LOOKS.clicks.forEach((time, i) => keys.push([time - 0.03, ...lookClicks[i], 'w'], [time, ...lookClicks[i], 'w', true]));
   keys.push([47.95, ...lookClicks[7], 'w'], [48.2, 700, 420, 'w'], [END, 700, 420, 'w']);
   plan.cursor = keys;
-  plans.set(lang, plan);
   return plan;
 }
 
@@ -180,8 +215,8 @@ function drawWindowAt(ctx, t, lang, plan, scale) {
 }
 
 /* ── The desktop: clients, links, envelopes ────────── */
-function codexWindow(pen, t, lang, k) {
-  const words = FILM[lang], box = CODEX_BOX[k], frame = Math.floor((t - T.UP[k]) * FPS + 1e-6);
+function codexWindow(pen, t, lang, k, view) {
+  const words = FILM[lang], box = view.codex[k], frame = Math.floor((t - T.UP[k]) * FPS + 1e-6);
   let side = [[words.newChat, false], [words.sideCodex[k], false]], lines = [], input = null, focus = false;
   if (k === 0 && t >= T.SYNC.focus) {
     focus = t < T.SYNC.send;
@@ -195,8 +230,8 @@ function codexWindow(pen, t, lang, k) {
   pen.burst(box.x + box.w / 2, box.y + box.h / 2, t - T.UP[k], desk.HONEY, 240, 12);
 }
 
-function claudeWindow(pen, t, lang) {
-  const words = FILM[lang], P = T.PASTE, frame = Math.floor((t - P.up) * FPS + 1e-6), C = T.CALL;
+function claudeWindow(pen, t, lang, view) {
+  const words = FILM[lang], CLAUDE_BOX = view.claude, P = T.PASTE, frame = Math.floor((t - P.up) * FPS + 1e-6), C = T.CALL;
   const pasted = [`${ui(lang, 'session.location.path')}: /Users/me/work/shop-api`, `${ui(lang, 'session.location.coordinate')}: …/sessions/2026/06/18/rollout-7f3c.jsonl#7f3c`];
   const lines = [];
   if (t >= P.sent) lines.push(words.you + pasted[0], pasted[1]);
@@ -213,21 +248,21 @@ function claudeWindow(pen, t, lang) {
 }
 
 // The dashed lines from each open client to its cat; drawn before the cats are drawn again, so they pass behind them.
-function linksAt(ctx, t, lang, cam) {
+function linksAt(ctx, t, lang, cam, view) {
   const pen = new Pen(ctx, 1, DAY), words = FILM[lang], claudeUp = t >= T.PASTE.up + F(6);
   [0, 1, 2].forEach((k) => {
     if (t < T.UP[k] + F(6)) return;
-    if (claudeUp && k > 0) return;                    // their windows are behind Claude's now
-    const box = CODEX_BOX[k];
-    desk.link(pen, toFrame(cam, app.cardCentre(k), 112), [box.x - 4, box.y + box.h / 2], k === 0 && within(t, T.SYNC.send, T.SYNC.calm) ? words.sync : '');
+    if ((claudeUp || (view.over && t >= T.PASTE.up)) && view.behindClaude.includes(k)) return;   // their windows are behind Claude's now
+    desk.link(pen, ...view.link(cam, k, view.codex[k], false), k === 0 && within(t, T.SYNC.send, T.SYNC.calm) ? words.sync : '');
   });
-  if (claudeUp) desk.link(pen, toFrame(cam, app.cardCentre(3), 112), [CLAUDE_BOX.x - 4, CLAUDE_BOX.y + 120], within(t, 30, 32) ? words.sync : '');
+  if (claudeUp) desk.link(pen, ...view.link(cam, 3, view.claude, true), within(t, 30, 32) ? words.sync : '');
 }
 
-function desktopAt(ctx, t, lang, cam) {
-  const pen = new Pen(ctx, 1, DAY), words = FILM[lang];
-  [0, 1, 2].forEach((k) => { if (t >= T.UP[k]) codexWindow(pen, t, lang, k); });
-  if (t >= T.PASTE.up) claudeWindow(pen, t, lang);
+function desktopAt(ctx, t, lang, cam, view) {
+  const pen = new Pen(ctx, 1, DAY), words = FILM[lang], CLAUDE_BOX = view.claude;
+  // Where the clients sit over the window, Claude's covers the others from the moment it starts to rise.
+  [0, 1, 2].forEach((k) => { if (t >= T.UP[k] && !(view.over && t >= T.PASTE.up && view.behindClaude.includes(k))) codexWindow(pen, t, lang, k, view); });
+  if (t >= T.PASTE.up) claudeWindow(pen, t, lang, view);
   // What passes through Catshelf: the call arriving, three jobs out, three results back.
   const C = T.CALL, catAt = (k) => toFrame(cam, app.cardCentre(k), 104);
   over.flight(ctx, t, T.ASK.reply, 0.5, [CLAUDE_BOX.x + 60, CLAUDE_BOX.y + 150], catAt(3), words.tasks, 70);
@@ -264,16 +299,18 @@ function signInWindow(ctx, t, lang) {
 
 /* ── Close-up extras in frame pixels ───────────────── */
 function closeExtras(ctx, t, lang, cam, plan) {
-  signInWindow(ctx, t, lang);
+  const view = plan.view;
+  if (!view.over) signInWindow(ctx, t, lang);
   // 18 s: the papers that were lying about fly up from the floor into their rows.
   const pen = new Pen(ctx, 1, DAY), ledger = story.ledgerAt(T.LEDGER.papers + 1, lang);
   ledger.rows.forEach((row, n) => {
     const j = n - 5, start = T.LEDGER.papers + j * 0.05, age = t - start;
     if (j < 0 || age < 0 || age >= story.PAPER_FLIGHT) return;
-    const p = ease(age / story.PAPER_FLIGHT, 6), to = toFrame(cam, 108, app.rowTop(ledger, n) + 10), from = [260 + ((j * 397) % 1300), 1120 + (j % 3) * 40];
+    const p = ease(age / story.PAPER_FLIGHT, 6), to = toFrame(cam, 108, app.rowTop(ledger, n) + 10), from = view.paperFrom(j);
     const x = Math.round(mix(from[0], to[0], p) / 4) * 4, y = Math.round(mix(from[1], to[1], p) / 4) * 4;
     pen.rect(x - 4, y - 4, 56, 40, '#100A0D'); pen.rect(x, y, 48, 32, '#E9DCC0'); pen.rect(x + 8, y + 8, 28, 4, '#8E7B68'); pen.rect(x + 8, y + 20, 20, 4, '#8E7B68');
   });
+  if (view.over) return;                               // the rest is laid out for the wide frame only
   // 41 s: the session info goes to the other computer.
   if (within(t, T.SEND.item, T.WAYS.open)) {
     const target = over.otherComputer(ctx, t, lang), button = plan.send.send;
@@ -302,53 +339,58 @@ function cursorAt(t, plan, cam) {
   return { x: Math.round(mix(pa[0], pb[0], p) / 2) * 2, y: Math.round(mix(pa[1], pb[1], p) / 2) * 2, click: click ? { at: at(click), age: t - click[0] } : null, carry: Boolean(a[5] && b[5]) };
 }
 
-/* ── One frame ─────────────────────────────────────── */
+/* ── One picture: the window, what is open over or beside it, the cursor ── */
 let layer = null;
+function scene(ctx, t, lang, plan, cam) {
+  const view = plan.view;
+  if (cam.d === 0) {
+    ctx.setTransform(2, 0, 0, 2, cam.ox, cam.oy);
+    drawWindowAt(ctx, t, lang, plan, 2);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (view.over && cam.clients) { linksAt(ctx, t, lang, cam, view); desktopAt(ctx, t, lang, cam, view); }
+    closeExtras(ctx, t, lang, cam, plan);
+    // Lights out in steps: after the lamp's core goes, night comes over the desk as a dither, never as a fade.
+    if (t >= T.NIGHT.dim[1]) new Pen(ctx, 1, NIGHT).dither(0, 0, view.width, view.height, app.NIGHT_DESK, 10, 4);
+    else if (t >= T.NIGHT.dim[0]) new Pen(ctx, 1, NIGHT).dither(0, 0, view.width, view.height, app.NIGHT_DESK, 5, 4);
+  } else {
+    desk.desktop(new Pen(ctx, 1, DAY), lang, { t, hop: 5.25, dock: [{ label: 'Codex', open: t >= T.UP[0] }, { label: 'Claude', open: t >= T.PASTE.up }, { label: 'Kimi Code' }, { label: 'Qwen Code' }, { label: FILM[lang].terminal, dark: true }] });
+    const w = app.W * cam.scale, h = app.H * cam.scale;
+    ctx.fillStyle = '#1E242D'; ctx.fillRect(cam.ox + 8, cam.oy + 10, w + 2, h + 2);
+    ctx.fillStyle = '#0E1116'; ctx.fillRect(cam.ox - 2, cam.oy - 2, w + 4, h + 4);
+    if (cam.d === 1) {
+      ctx.save(); ctx.beginPath(); ctx.rect(cam.ox, cam.oy, w, h); ctx.clip();
+      ctx.setTransform(1, 0, 0, 1, cam.ox, cam.oy);
+      const state = drawWindowAt(ctx, t, lang, plan, 1);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      linksAt(ctx, t, lang, cam, view);
+      ctx.setTransform(1, 0, 0, 1, cam.ox, cam.oy);
+      app.catsAgain(new Pen(ctx, 1, DAY), state);
+      ctx.restore(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      desktopAt(ctx, t, lang, cam, view);
+    } else {
+      // Between the two places: the close-up picture, scaled in whole steps without smoothing.
+      if (!layer) { layer = document.createElement('canvas'); layer.width = app.W * 2; layer.height = app.H * 2; }
+      const lctx = layer.getContext('2d');
+      lctx.setTransform(2, 0, 0, 2, 0, 0);
+      drawWindowAt(lctx, t, lang, plan, 2);
+      ctx.drawImage(layer, cam.ox, cam.oy, w, h);
+    }
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  over.cursor(ctx, cursorAt(t, plan, cam));
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/* ── One frame of the film ─────────────────────────── */
 function render(ctx, time, lang) {
   const t = Math.max(0, Math.min(END - 1 / FPS, time));
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
   const plan = planFor(lang, ctx);
-  let cam = null;
   if (t < T.LAMP[0]) hook.draw(new Pen(ctx, 1, NIGHT), t, lang);
   else if (t >= T.NIGHT.dim[2]) over.endCard(ctx, t, lang);
-  else {
-    cam = camera(t, plan);
-    if (cam.d === 0) {
-      ctx.setTransform(2, 0, 0, 2, 0, cam.oy);
-      drawWindowAt(ctx, t, lang, plan, 2);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      closeExtras(ctx, t, lang, cam, plan);
-      // Lights out in steps: after the lamp's core goes, night comes over the desk as a dither, never as a fade.
-      if (t >= T.NIGHT.dim[1]) new Pen(ctx, 1, NIGHT).dither(0, 0, WIDTH, HEIGHT, app.NIGHT_DESK, 10, 4);
-      else if (t >= T.NIGHT.dim[0]) new Pen(ctx, 1, NIGHT).dither(0, 0, WIDTH, HEIGHT, app.NIGHT_DESK, 5, 4);
-    } else {
-      desk.desktop(new Pen(ctx, 1, DAY), lang, { t, hop: 5.25, dock: [{ label: 'Codex', open: t >= T.UP[0] }, { label: 'Claude', open: t >= T.PASTE.up }, { label: 'Kimi Code' }, { label: 'Qwen Code' }, { label: FILM[lang].terminal, dark: true }] });
-      const w = app.W * cam.scale, h = app.H * cam.scale;
-      ctx.fillStyle = '#1E242D'; ctx.fillRect(cam.ox + 8, cam.oy + 10, w + 2, h + 2);
-      ctx.fillStyle = '#0E1116'; ctx.fillRect(cam.ox - 2, cam.oy - 2, w + 4, h + 4);
-      if (cam.d === 1) {
-        ctx.save(); ctx.beginPath(); ctx.rect(cam.ox, cam.oy, w, h); ctx.clip();
-        ctx.setTransform(1, 0, 0, 1, cam.ox, cam.oy);
-        const state = drawWindowAt(ctx, t, lang, plan, 1);
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        linksAt(ctx, t, lang, cam);
-        ctx.setTransform(1, 0, 0, 1, cam.ox, cam.oy);
-        app.catsAgain(new Pen(ctx, 1, DAY), state);
-        ctx.restore(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-        desktopAt(ctx, t, lang, cam);
-      } else {
-        // Between the two places: the close-up picture, scaled in whole steps without smoothing.
-        if (!layer) { layer = document.createElement('canvas'); layer.width = app.W * 2; layer.height = app.H * 2; }
-        const lctx = layer.getContext('2d');
-        lctx.setTransform(2, 0, 0, 2, 0, 0);
-        drawWindowAt(lctx, t, lang, plan, 2);
-        ctx.drawImage(layer, cam.ox, cam.oy, w, h);
-      }
-    }
-  }
+  else scene(ctx, t, lang, plan, camera(t, plan));
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  if (cam) over.cursor(ctx, cursorAt(t, plan, cam));
   over.caption(ctx, t, lang);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
@@ -367,4 +409,4 @@ function renderState(ctx, name, lang, still = {}) {
   drawWindowAt(ctx, still.t || 0, lang, plan, 2);
 }
 
-module.exports = { render, renderState, FPS, WIDTH, HEIGHT, END, SHOTS, T, camera, cameraMoves, planFor };
+module.exports = { render, renderState, scene, FPS, WIDTH, HEIGHT, END, SHOTS, T, camera, cameraMoves, planFor, toFrame, closeAt, desktopCam, VIEWS, LEDGER_TILT, PLATES_TILT };
