@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T07:28:31.209Z",
+  "recordedAt": "2026-11-25T07:43:19.061Z",
   "baseCommit": "5d6fb8988afaebeb87e88a3796a2fa1a5470c2d0",
   "uncommitted": true,
   "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615",
@@ -17,6 +17,41 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/keychain-name-probe.js",
+      "result": "passed",
+      "scope": "Rename: on Electron 43.3.0 (node_modules), with SecItem calls interposed and the keychain services denied by a sandbox (the real keychain is never reached): as is, product name ProbeNew uses keychain item \"ProbeNew Safe Storage\" and appData/ProbeNew; with keepLegacyIdentity(ProbeOld→ProbeNew) the item stays \"ProbeOld Safe Storage\" (account \"ProbeOld Key\", legacy \"ProbeOld\"), the data folder appData/ProbeOld, the app name ProbeNew and the default menu About/Hide/Quit ProbeNew; run at 45338aa",
+      "recordedAt": "2026-11-25T07:43:19.061Z",
+      "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
+    },
+    {
+      "command": "node scripts/ui-acceptance.js --hidden",
+      "result": "passed",
+      "scope": "Rename: 27 hidden-window task paths (not a visible-window run); the topbar wordmark reads Catshelf; run at 45338aa",
+      "recordedAt": "2026-11-25T07:43:19.061Z",
+      "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
+    },
+    {
+      "command": "node scripts/ui-snapshots.js --compare <baseline from 386c118>",
+      "result": "expected differences",
+      "scope": "Rename: 66 pixel snapshots (two themes, three languages); all 66 differ at the wordmark (AgentDesk → Catshelf); 26 also differ in sentences that name the product: the dossier, the empty desk, the recruit dialog and the System page in all six combinations and the devices page in English; inspected light-zh dossier and System page and dark-ja empty desk; the 66 new images are the new baseline (outside the repository); run at 45338aa",
+      "recordedAt": "2026-11-25T07:43:19.061Z",
+      "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
+    },
+    {
+      "command": "node scripts/ui-text.js --compare <baseline from 386c118>",
+      "result": "passed",
+      "scope": "Rename: 0 new overflowing elements, 0 no longer overflowing, 0 retired words in all six combinations; AgentDesk now counts as a retired name; run at 45338aa",
+      "recordedAt": "2026-11-25T07:43:19.061Z",
+      "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
+    },
+    {
+      "command": "local package (electron-builder --mac dir, electronDist = node_modules/electron/dist copy, HEAD via git archive, output in the session scratchpad)",
+      "result": "passed",
+      "scope": "Rename: the bundle is Catshelf.app (CFBundleName and CFBundleExecutable Catshelf, asar productName Catshelf); CFBundleIdentifier com.hupo.agentdesk; the packaged CLI paths command (temporary home, sandbox without keychain services, no --user-data-dir) reports .../Application Support/AgentDesk and creates only that folder; scripts/verify-electron-package-integrity.js passed; no download lines, Electron cache unchanged; build, tree and Electron copy removed, release/ empty; run at 45338aa",
+      "recordedAt": "2026-11-25T07:43:19.061Z",
+      "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",
