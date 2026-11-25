@@ -50,7 +50,7 @@ test('1.13 固定骨架：一个 Header、一个 Footer 与顶部 Agent/左下�
 test('会话浏览支持只用于明确定位动作的轻量选择，复制主操作突出且不恢复交接编排', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = rendererSource();
-  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
 
   // 选谁看谁：范围开关并进名册，“全部”卡片和点猫共同驱动同一个 agentScope。
   assert.doesNotMatch(html, /id="sessionScopeCurrentBtn"|id="sessionScopeAllBtn"/);
@@ -82,7 +82,7 @@ test('会话浏览支持只用于明确定位动作的轻量选择，复制主�
 test('会话复制保留唯一入口和路径加坐标契约', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
   const renderer = rendererSource();
-  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
 
   assert.match(html, /id="sessionActionDock"[\s\S]*?id="copySessionInfoBtn"[\s\S]*?id="openSessionFileBtn"[\s\S]*?id="exportSessionBtn"/);
   assert.equal(html.match(/id="copySessionInfoBtn"/g).length, 1);
@@ -111,7 +111,7 @@ test('会话详细列表提供完整属性列，精简/详细切换且每个表�
 
 test('右下区域承载隔离远控，额度用浮层，会话操作归列表顶栏', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
-  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
   const detail = html.slice(html.indexOf('id="detailPanel"'), html.indexOf('</main>'));
   const footer = html.slice(html.indexOf('<footer id="statusBar"'), html.indexOf('</footer>'));
   assert.doesNotMatch(detail, /detailSurfaceDevices|detailSurfaceTools|detailSurfaceActivity|detailSurfaceSettings|attentionInbox/);
@@ -259,7 +259,7 @@ test('工具维护台覆盖桌面 App 与 CLI 工具：检查、打开、单项�
   const preload = read('src/preload.js');
   const main = mainHandlerSource();
   const maintenance = read('src/tool-maintenance.js');
-  const styles = read('src/styles.css');
+  const styles = read('src/workspace.css');
 
   assert.match(html, /id="systemDialog"[\s\S]*?id="systemTools"[\s\S]*?data-i18n="system\.tools"/);
   assert.match(html, /id="checkToolsBtn"/);

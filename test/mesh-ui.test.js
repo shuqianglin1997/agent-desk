@@ -9,7 +9,7 @@ const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')
 
 test('设备入口并入设备视角下拉，设备中心使用独立模态弹窗且不改变三面板骨架', () => {
   const html = read('src/index.html');
-  const styles = read('src/styles.css');
+  const styles = read('src/workspace.css');
   const workspaceStyles = read('src/workspace.css');
   const renderer = rendererSource();
   const navStart = html.indexOf('<nav class="topbar-actions"');

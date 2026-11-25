@@ -7,7 +7,7 @@ const { rendererSource, rendererFunction } = require('./helpers/renderer-source'
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
 const renderer = rendererSource();
-const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+const styles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
 const workspaceStyles = fs.readFileSync(path.join(__dirname, '..', 'src', 'workspace.css'), 'utf8');
 
 function between(source, startMarker, endMarker) {

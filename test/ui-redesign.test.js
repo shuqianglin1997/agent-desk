@@ -52,11 +52,13 @@ test('窗口顶栏保留设备视角位置并使用纯文字标题', () => {
 });
 
 test('卡片工作台不加载旧庭院并保留共用像素头像', () => {
-  const legacyStyles = read('src/styles.css');
   const workspaceStyles = read('src/workspace.css');
   const renderer = rendererSource();
 
-  assert.match(legacyStyles, /^@layer legacy, reset, tokens, shell, components, features, themes;/);
+  // One sheet holds the layered styles; the old sheet's rules are its base layer.
+  assert.match(workspaceStyles, /^\/\*[\s\S]*?\*\/\n\n@layer base, reset, tokens, shell, components, features, themes;\n/);
+  assert.doesNotMatch(read('src/index.html'), /styles\.css/);
+  assert.equal(fs.existsSync(path.join(__dirname, '..', 'src', 'styles.css')), false);
   const html = read('src/index.html');
   assert.doesNotMatch(html, /yardStage|yardCanvas|yard\/(?:scene\.js|yard\.css)/);
   assert.doesNotMatch(renderer, /YardScene|applyView|state\.view =/);
@@ -151,8 +153,8 @@ test('普通会话占满下半区，来源与多目录按需打开选择弹窗',
 test('设备中心是独立模态弹窗，采用设备列表加所选详情且不改写底层工作台', () => {
   const html = read('src/index.html');
   const renderer = rendererSource();
-  const styles = read('src/styles.css');
-  const workspaceStyles = read('src/workspace.css');
+  const styles = read('src/workspace.css');
+  const workspaceStyles = styles;
 
   assert.match(renderer, /function openUtilityDialog\(kind\)[\s\S]*?state\.utilityDialog = kind[\s\S]*?openDialog\(dialog\)/);
   assert.match(renderer, /\['devices', els\.deviceCenterBtn, els\.deviceCenterDialog\]/);

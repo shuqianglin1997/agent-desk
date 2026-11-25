@@ -147,7 +147,7 @@ test('成句的文字读得清：词距、行高、行宽，带颜色的字不�
     assert.ok(!textColours.includes(banned), `文字不应直接使用 --px-${banned}`);
   }
   // 旧样式层里带颜色的文字都改走加深过的那一组，填色和边框照旧。
-  for (const file of ['src/workspace.css', 'src/styles.css']) {
+  for (const file of ['src/workspace.css']) {
     const legacy = read(file);
     assert.doesNotMatch(legacy, /(?<![-\w])color:\s*var\(--(accent|success|warn|danger|focus)\)/, `${file} 仍有文字直接使用状态色`);
   }

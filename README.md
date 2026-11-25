@@ -124,7 +124,7 @@ For AI assistants, start with [AI use and customization](docs/AI_INTERFACE.md) a
 - `src/main.js`: trusted filesystem, app launch, diagnostics, quota, updates, and tool maintenance.
 - `src/preload.js`: narrow IPC bridge.
 - `src/renderer.js`, `src/index.html`: UI structure and interaction.
-- `src/workspace.css`: canonical layered fixed-workspace, component, feature, and theme styles; `src/styles.css` remains the low-priority legacy compatibility layer.
+- `src/workspace.css`: the main window's layered styles (base, reset, tokens, shell, components, features, themes); `src/pixel.css` is the desk-lamp skin and `src/cats.css` the cats, both unlayered.
 - `src/ui-context.js`: independent Device Lens, Agent, Slot, conversation, replica, remote-session, and transfer-draft state transitions.
 - `src/onboarding-state.js`, `src/main/profile-store-policy.js`, `src/main/ipc/first-agent-onboarding.js`: versioned first use, authoritative empty Profile storage, and local-only first-Agent initialization.
 - `src/profile-runtime.js`: exact Profile-process ownership, duplicate-launch checks, normal-exit cleanup, bounded Crashpad retention, persistent fuse state, and narrow safe cleanup.
