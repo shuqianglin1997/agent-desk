@@ -74,6 +74,82 @@ function judgeReopen({ set = null, openCount = 0, diskVersion = null, liveIds = 
   return { profileIds: members.map((member) => member.profileId), fromVersion, toVersion: diskVersion, endedAt: set.endedAt };
 }
 
+function backgroundRunsByProfile(runs) {
+  const counts = new Map();
+  for (const run of runs) {
+    const id = String(run?.target?.id || '');
+    if (id) counts.set(id, (counts.get(id) || 0) + 1);
+  }
+  return counts;
+}
+
+function bundlePathOf(open, set) {
+  return [...open, ...(set?.members || [])].map((member) => member.appBundle).find(Boolean) || null;
+}
+
+// One client's status: AgentDesk's open accounts with their start versions
+// and background runs, the version on disk, the waiting fact, the reopen offer.
+async function clientStatusOf({ reader, now }, appId, runtime, liveIds, runCounts) {
+  const update = apps.getApp(appId).update;
+  const open = runtime.ownedOpenProfiles(appId);
+  const set = runtime.openSet(appId);
+  const bundlePath = bundlePathOf(open, set);
+  const disk = bundlePath ? await reader.bundle(bundlePath) : null;
+  const diskVersion = disk?.version || null;
+  const signal = update.waiting || null;
+  const staged = open.length && signal && disk ? await reader.staged(signal, bundlePath, disk.bundleId) : null;
+  return {
+    appId,
+    mechanism: update.mechanism,
+    waitingSignal: signal,
+    diskVersion,
+    open: open.map((member) => ({
+      profileId: member.profile.id,
+      launchVersion: member.appVersion,
+      backgroundRuns: runCounts.get(member.profile.id) || 0
+    })),
+    waiting: judgeWaiting({ open, diskVersion, signal, staged, now: now() }),
+    reopen: judgeReopen({ set, openCount: open.length, diskVersion, liveIds })
+  };
+}
+
+// The existing stop for each, in order; the first that fails stops the rest.
+async function closeEach(runtime, open) {
+  const closed = [];
+  for (const member of open) {
+    const stopped = await runtime.stopProfile(member.profile, 'client-update');
+    if (!stopped?.ok) return { closed, failedId: member.profile.id };
+    closed.push(member.profile.id);
+  }
+  return { closed, failedId: null };
+}
+
+// The version on disk once it is newer than `baseline`, or null at the deadline.
+async function waitForNewVersion({ reader, now, delay, waitMs, pollMs }, bundlePath, baseline) {
+  const deadline = now() + waitMs;
+  for (;;) {
+    const version = (await reader.bundle(bundlePath))?.version || null;
+    if (newer(version, baseline)) return version;
+    if (now() >= deadline) return null;
+    await delay(pollMs);
+  }
+}
+
+// Each opened the usual way, in order; a failure does not stop the others.
+async function openEach(launch, profileIds) {
+  const opened = [];
+  const failed = [];
+  for (const profileId of profileIds) {
+    let result = null;
+    try { result = await launch(profileId); } catch (_error) { result = null; }
+    if (result?.ok) opened.push(profileId);
+    else failed.push({ profileId, reasonCode: REASON.test(String(result?.reasonCode || '')) ? result.reasonCode : 'profile-launch-failed' });
+  }
+  return failed.length
+    ? { ok: false, reasonCode: 'client-reopen-failed', opened, failed }
+    : { ok: true, opened, failed };
+}
+
 // deps:
 //   runtime()        the ProfileRuntimeSupervisor (ownership and open sets)
 //   profiles()       async: the stored profiles
@@ -84,12 +160,14 @@ function judgeReopen({ set = null, openCount = 0, diskVersion = null, liveIds = 
 //   platform, now, delay(ms), waitMs, pollMs
 function createClientUpdates(deps = {}) {
   const platform = deps.platform || process.platform;
-  const now = deps.now || (() => Date.now());
-  const delay = deps.delay || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-  const reader = deps.reader || sharedBundleReader();
+  const timing = {
+    reader: deps.reader || sharedBundleReader(),
+    now: deps.now || (() => Date.now()),
+    delay: deps.delay || ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
+    waitMs: Number.isFinite(deps.waitMs) ? deps.waitMs : WAIT_FOR_UPDATE_MS,
+    pollMs: Number.isFinite(deps.pollMs) ? deps.pollMs : WAIT_POLL_MS
+  };
   const activeRuns = typeof deps.activeRuns === 'function' ? deps.activeRuns : () => [];
-  const waitMs = Number.isFinite(deps.waitMs) ? deps.waitMs : WAIT_FOR_UPDATE_MS;
-  const pollMs = Number.isFinite(deps.pollMs) ? deps.pollMs : WAIT_POLL_MS;
   // One sequence at a time, for any client: { appId, phase, startedAt }.
   let busy = null;
 
@@ -97,48 +175,11 @@ function createClientUpdates(deps = {}) {
     try { return activeRuns() || []; } catch (_error) { return []; }
   }
 
-  function backgroundRunsByProfile(runs) {
-    const counts = new Map();
-    for (const run of runs) {
-      const id = String(run?.target?.id || '');
-      if (id) counts.set(id, (counts.get(id) || 0) + 1);
-    }
-    return counts;
-  }
-
-  function bundlePathOf(open, set) {
-    return [...open, ...(set?.members || [])].map((member) => member.appBundle).find(Boolean) || null;
-  }
-
-  async function clientStatus(appId, runtime, liveIds, runCounts) {
-    const update = apps.getApp(appId).update;
-    const open = runtime.ownedOpenProfiles(appId);
-    const set = runtime.openSet(appId);
-    const bundlePath = bundlePathOf(open, set);
-    const disk = bundlePath ? await reader.bundle(bundlePath) : null;
-    const diskVersion = disk?.version || null;
-    const signal = update.waiting || null;
-    const staged = open.length && signal && disk ? await reader.staged(signal, bundlePath, disk.bundleId) : null;
-    return {
-      appId,
-      mechanism: update.mechanism,
-      waitingSignal: signal,
-      diskVersion,
-      open: open.map((member) => ({
-        profileId: member.profile.id,
-        launchVersion: member.appVersion,
-        backgroundRuns: runCounts.get(member.profile.id) || 0
-      })),
-      waiting: judgeWaiting({ open, diskVersion, signal, staged, now: now() }),
-      reopen: judgeReopen({ set, openCount: open.length, diskVersion, liveIds })
-    };
-  }
-
   async function context() {
     const runtime = deps.runtime();
     const profiles = await deps.profiles();
     runtime.updateProfiles(profiles);
-    return { runtime, profiles, liveIds: new Set(profiles.map((profile) => profile.id)) };
+    return { runtime, liveIds: new Set(profiles.map((profile) => profile.id)) };
   }
 
   // { supported, busy, clients: [...] }. Only macOS is supported.
@@ -149,7 +190,7 @@ function createClientUpdates(deps = {}) {
     const { runtime, liveIds } = await context();
     const runCounts = backgroundRunsByProfile(runsNow());
     const clients = [];
-    for (const appId of updateClientIds()) clients.push(await clientStatus(appId, runtime, liveIds, runCounts));
+    for (const appId of updateClientIds()) clients.push(await clientStatusOf(timing, appId, runtime, liveIds, runCounts));
     return { supported: true, busy: doing, clients };
   }
 
@@ -160,24 +201,12 @@ function createClientUpdates(deps = {}) {
     if (!updateClientIds().includes(input.appId)) return 'client-unknown';
     if (busy) return 'client-update-busy';
     const { runtime, liveIds } = await context();
-    const client = await clientStatus(input.appId, runtime, liveIds, backgroundRunsByProfile(runsNow()));
+    const client = await clientStatusOf(timing, input.appId, runtime, liveIds, backgroundRunsByProfile(runsNow()));
     if (action === 'reopen') return client.reopen ? null : 'nothing-to-reopen';
     if (!client.open.length) return 'nothing-open';
     if (client.waiting.value !== true) return 'no-update-waiting';
     if (client.open.some((member) => member.backgroundRuns > 0) && input.stopBackgroundRuns !== true) return 'background-runs-active';
     return null;
-  }
-
-  async function openEach(profileIds) {
-    const opened = [];
-    const failed = [];
-    for (const profileId of profileIds) {
-      let result = null;
-      try { result = await deps.launch(profileId); } catch (_error) { result = null; }
-      if (result?.ok) opened.push(profileId);
-      else failed.push({ profileId, reasonCode: REASON.test(String(result?.reasonCode || '')) ? result.reasonCode : 'profile-launch-failed' });
-    }
-    return { opened, failed };
   }
 
   // Close every account of this client that AgentDesk opened, wait until the
@@ -189,44 +218,30 @@ function createClientUpdates(deps = {}) {
     const refused = await refusal('restart', input);
     if (refused) return { ok: false, reasonCode: refused };
     if (busy) return { ok: false, reasonCode: 'client-update-busy' };
-    busy = { appId: input.appId, phase: 'closing', startedAt: now() };
+    busy = { appId: input.appId, phase: 'closing', startedAt: timing.now() };
     try {
       const { runtime, liveIds } = await context();
       const runs = runsNow();
-      const client = await clientStatus(input.appId, runtime, liveIds, backgroundRunsByProfile(runs));
+      const client = await clientStatusOf(timing, input.appId, runtime, liveIds, backgroundRunsByProfile(runs));
       const open = runtime.ownedOpenProfiles(input.appId);
-      const bundlePath = bundlePathOf(open, null);
       const ids = new Set(open.map((member) => member.profile.id));
       for (const run of runs.filter((item) => ids.has(String(item?.target?.id || '')))) {
         if (input.stopBackgroundRuns !== true) return { ok: false, reasonCode: 'background-runs-active', closed: [] };
         try { await deps.stopRun(run.id); } catch (_error) { return { ok: false, reasonCode: 'background-run-stop-failed', closed: [] }; }
       }
-      const closed = [];
-      for (const member of open) {
-        const stopped = await runtime.stopProfile(member.profile, 'client-update');
-        if (!stopped?.ok) {
-          return { ok: false, reasonCode: 'client-close-failed', profileId: member.profile.id, closed };
-        }
-        closed.push(member.profile.id);
-      }
+      const { closed, failedId } = await closeEach(runtime, open);
+      if (failedId) return { ok: false, reasonCode: 'client-close-failed', profileId: failedId, closed };
       // Exact: the newer app is on disk already. Inferred: the updater swaps
       // it in now that the accounts are closed; wait for the version to change.
       busy.phase = 'waiting';
       let version = client.diskVersion;
       if (client.waiting.certainty !== CERTAINTY.EXACT) {
-        const deadline = now() + waitMs;
-        for (;;) {
-          version = (await reader.bundle(bundlePath))?.version || null;
-          if (newer(version, client.diskVersion)) break;
-          if (now() >= deadline) return { ok: false, reasonCode: 'update-not-installed', closed, waitedMs: waitMs };
-          await delay(pollMs);
-        }
+        version = await waitForNewVersion(timing, bundlePathOf(open, null), client.diskVersion);
+        if (!version) return { ok: false, reasonCode: 'update-not-installed', closed, waitedMs: timing.waitMs };
       }
       busy.phase = 'opening';
-      const { opened, failed } = await openEach(closed);
-      return failed.length
-        ? { ok: false, reasonCode: 'client-reopen-failed', version, opened, failed }
-        : { ok: true, version, opened, failed };
+      const { ok, reasonCode, opened, failed } = await openEach(deps.launch, closed);
+      return ok ? { ok, version, opened, failed } : { ok, reasonCode, version, opened, failed };
     } finally {
       busy = null;
     }
@@ -237,15 +252,14 @@ function createClientUpdates(deps = {}) {
     const refused = await refusal('reopen', input);
     if (refused) return { ok: false, reasonCode: refused };
     if (busy) return { ok: false, reasonCode: 'client-update-busy' };
-    busy = { appId: input.appId, phase: 'opening', startedAt: now() };
+    busy = { appId: input.appId, phase: 'opening', startedAt: timing.now() };
     try {
       const { runtime, liveIds } = await context();
-      const client = await clientStatus(input.appId, runtime, liveIds, new Map());
+      const client = await clientStatusOf(timing, input.appId, runtime, liveIds, new Map());
       if (!client.reopen) return { ok: false, reasonCode: 'nothing-to-reopen' };
-      const { opened, failed } = await openEach(client.reopen.profileIds);
-      return failed.length
-        ? { ok: false, reasonCode: 'client-reopen-failed', version: client.reopen.toVersion, opened, failed }
-        : { ok: true, version: client.reopen.toVersion, opened, failed };
+      const version = client.reopen.toVersion;
+      const { ok, reasonCode, opened, failed } = await openEach(deps.launch, client.reopen.profileIds);
+      return ok ? { ok, version, opened, failed } : { ok, reasonCode, version, opened, failed };
     } finally {
       busy = null;
     }

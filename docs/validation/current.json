@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T06:00:38.551Z",
-  "baseCommit": "8313be0b4f1bd292f600f1eedfc4cc8c0f91b7a3",
+  "recordedAt": "2026-11-25T06:06:00.483Z",
+  "baseCommit": "6ee76fea2f1e60b510d79ba1517f7d0f14ca58d9",
   "uncommitted": true,
-  "sourceSha256": "9d304e6d0c05cae19c304fa431cf9955ad7dec7f59c63c1e0739daa282f38f56",
+  "sourceSha256": "1edac1ff725b40b6e806560bb67dc7b0baa85a03cf192f84b255115eb85b638c",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 990,
+      "pass": 988,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after the orderly-update service's helpers moved out of createClientUpdates (same behaviour) so no new function exceeds 150 lines; digest identical before and after the run",
+      "recordedAt": "2026-11-25T06:06:00.483Z",
+      "sourceSha256": "1edac1ff725b40b6e806560bb67dc7b0baa85a03cf192f84b255115eb85b638c"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T06:06:00.483Z",
+      "sourceSha256": "1edac1ff725b40b6e806560bb67dc7b0baa85a03cf192f84b255115eb85b638c"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",
