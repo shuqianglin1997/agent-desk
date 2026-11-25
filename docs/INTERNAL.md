@@ -233,7 +233,7 @@ macOS 标准候选由注册表给出并在存在已知 bundle id 时重新读取
 
 Profile 的启动隔离由 `apps.js` 声明，不从显示名推断。每个桌面客户端必须提供官方启动器身份与 `profileIsolation`：支持受管多开的客户端每次生成该 Profile 唯一的 `--user-data-dir`，并叠加 CODEX_HOME、KIMI_CODE_HOME 等客户端专用环境；同一可执行文件可被不同 Profile 复用。Main 只按精确 Profile 路径做重复进程检查。已知不接受独立目录的客户端使用 `official-default-only`，非默认受管槽位在产生副作用前失败关闭。
 
-`profile-runtime.json` 只保存本机 Profile 的受管状态：稳定 `profileId`、Profile 路径、启动 PID/时间、是否仍归 AgentDesk 所有、熔断时间与脱敏事件计数。它不保存 dump 内容、sidecar 内容、会话标题、账号凭据或客户端数据库。Main 每次仍由稳定 `profileId` 重新查 `profiles.json`；Renderer 不能提交路径或 PID。
+`profile-runtime.json` 只保存本机 Profile 的受管状态：稳定 `profileId`、Profile 路径、启动 PID/时间、是否仍归 AgentDesk 所有、熔断时间与脱敏事件计数；第 2 版起另有每次启动时的应用版本与应用包位置（`appVersion`、`appBundle`），以及每个客户端的“开着的集合”（`runs`：成员、起止时间、结束原因，见下面的“有序更新”）。第 1 版的文件照常读，这几项算不知道。它不保存 dump 内容、sidecar 内容、会话标题、账号凭据或客户端数据库。Main 每次仍由稳定 `profileId` 重新查 `profiles.json`；Renderer 不能提交路径或 PID。
 
 每个受管 Profile 的 `Crashpad/pending` 默认限制为 100 个直属文件或 200 MiB，每 2 秒复核；一分钟内 5 个同尺寸 dump 触发持久熔断。普通停止与正常退出只允许终止当前记录为 AgentDesk 所有的进程。事故熔断或容量无法安全收敛时，可以按 profiles.json 中稳定 profileId 重新查得的精确 `user-data-dir` 终止旧版本、强制退出或重启后遗留的匹配进程，但无所有权例外只允许路径落在 AgentDesk 自己的受管 Profiles 根；官方默认目录和任意 custom 目录不进入后台扫描、删除或停机。该边界不能扩展成按应用名或路径前缀清理。终止成功后清除 `owned` 与 `launchPid`。清理只接受普通 `.dmp` 与 `_sidecar.json`，拒绝符号链接、目录逃逸和非普通文件，不触碰 `codex-home`、sessions、archives、配置、SQLite 或 `saved-diagnostic-*`。用户显式选择保留后台时停止监管并在设置中显示风险。强制结束 AgentDesk 不等于系统级持续守护保证；下一次管理器启动后恢复受管根限额与事故熔断。
 
@@ -320,7 +320,16 @@ Codex 适配器只信任 Profile `sessionRoot` 下 `sessions` / `archived_sessio
 - main 重新查目录并生成命令、参数、路径与官方 URL；
 - 自动维护只用于识别到且可写的安装来源；
 - 没有批量更新，更新只从单项的明确点击发起；
-- 不调用 `sudo`，不执行 renderer 文本，不后台下载未知工具。
+- 不调用 `sudo`，不执行 renderer 文本，不后台下载未知工具；
+- 每个工具项带 `clientIds`（桌面应用自己的客户端，或经这个命令行工具跑对话的客户端），窗口据此在更新命令行工具前数一数它的账号有几条对话在跑，有就先问一句。
+
+### 有序更新
+
+`docs/ORDERLY_UPDATE_PLAN.md`，只在 macOS 上提供。AgentDesk 不下载、不安装更新，也不改客户端的更新设置，只管它自己打开的账号。
+
+- `src/clients/app-update.js`（clients 层）异步读应用包的 `Info.plist`（版本与 bundle id），以及 Squirrel.Mac 在 `~/Library/Caches/<bundle id>.ShipIt` 里的状态：`ShipItState.plist` 指向装着的这份应用、下载好的应用包还在缓存里时，返回它的版本。按文件身份缓存，文件不变就不再跑 plutil。适配器的 `update` 声明更新方式和能不能看出有更新在等。
+- `ProfileRuntimeSupervisor` 在 `registerLaunch` 时记下启动版本与应用包，并把这个账号加进它所属客户端的“开着的集合”；AgentDesk 打开的最后一个退出时，集合结束并记下那次退出的原因（`observed-client-exit`、`user-request`、`client-update`、`app-quit` 等）。`ownedOpenProfiles(appId)` 与 `openSet(appId)` 只读。
+- `src/client-updates.js`（services 层）：`judgeWaiting` 给出“有更新在等”的事实（确切：磁盘版本比某个开着的账号启动时新；推断：ShipIt 里有更新的下载；否则不知道），`judgeReopen` 给出补救的重开集合；`createClientUpdates` 提供 `status`、`refusal`（现在能不能做，固定原因码）、`restartAll`（停下人选定的后台对话 → 用现有关闭动作逐个关掉 → 推断时最多等 3 分钟新版本 → 逐个照常打开）、`reopenSet`。同一时间只跑一个顺序，`status().busy` 说它在关、在等还是在开。命令在 `src/commands/client-updates.js`，成品命令行在 `src/commands/cli-desktop.js` 的 `clients …` 三条。
 
 ### 设备网服务
 
@@ -559,8 +568,8 @@ ProvisioningService 把状态观察和外部界面副作用分开。`resumeActiv
 
 ## 8. ui：界面
 
-- `src/index.html` 主窗口页面；`src/renderer.js` 启动；`src/renderer/views/` 界面按视图拆成的原生模块，依赖都写成 import：shared（状态仓库、元素表）、roster、sessions（按行增量更新）、session-actions、detail、dialogs（弹窗、菜单、浮层各一种做法）、main-events（主进程通知进仓库主题）、context、data、settings、common，以及各功能页（first-use、agent-manage、catalog-dialogs、cat-customizer、quota、updates、diagnostics、devices、device-journey、inbox、task-packages、transfers、hub、desk）。
-- `src/renderer/tool-center.js` 拥有工具库存、进度及渲染，主界面只注入窄 manager 和当前账号查询；`src/renderer/recruit.js` 招募弹窗四段的界面控制，只调固定 manager 方法；`src/renderer/session-marks.js` 列表上的记号、筛选条、排序分组、标签选择器与就地改名；`src/renderer/hub.js` 后台对话在账本里的一行、状态灯、搁板上的点线、三个动作与“允许被调用”的说明纸条，只造 DOM。
+- `src/index.html` 主窗口页面；`src/renderer.js` 启动；`src/renderer/views/` 界面按视图拆成的原生模块，依赖都写成 import：shared（状态仓库、元素表）、roster、sessions（按行增量更新）、session-actions、detail、dialogs（弹窗、菜单、浮层各一种做法）、main-events（主进程通知进仓库主题）、context、data、settings、common，以及各功能页（first-use、agent-manage、catalog-dialogs、cat-customizer、quota、updates、diagnostics、devices、device-journey、inbox、task-packages、transfers、hub、desk、client-updates）。
+- `src/renderer/tool-center.js` 拥有工具库存、进度及渲染，主界面只注入窄 manager、当前账号查询，以及有序更新的两个钩子（桌面应用那一行的说明与动作、命令行工具更新前的确认）；`src/renderer/views/client-updates.js` 是有序更新在窗口里的部分：卡片记号、工具那一行、确认对话框 `#clientUpdateDialog`（公共对话框部件）、收件箱里的重开提示和命令行工具更新前的确认，状态每 8 秒从 `client:updateStatus` 读一次，变了才重画；`src/renderer/recruit.js` 招募弹窗四段的界面控制，只调固定 manager 方法；`src/renderer/session-marks.js` 列表上的记号、筛选条、排序分组、标签选择器与就地改名；`src/renderer/hub.js` 后台对话在账本里的一行、状态灯、搁板上的点线、三个动作与“允许被调用”的说明纸条，只造 DOM。
 - `src/ui-context.js` 独立 UI 上下文与无副作用状态迁移（见下）；`src/quota-overview.js` 额度总览的行；`src/device-journey.js` 身份、信任、连接、目录、库存的任务状态投影；`src/agent-workspace.js` 全局员工库在工作环境上的就绪投影；`src/roster-interactions.js` 名册排序、取消与滚轮（顺序由设置归一化持久化）。
 - `src/pixel/`：
   - `src/pixel/icons.js` 8×8 位图图标，启动时生成本地 CSS 蒙版变量（可在 Node 中 require）
