@@ -111,9 +111,37 @@ function beside(a, b, gap = 8) {
   return { width, height, pixels };
 }
 
+// Reduction by a whole factor, averaging each block (for contact sheets).
+function shrink(image, factor) {
+  const width = Math.floor(image.width / factor), height = Math.floor(image.height / factor);
+  const pixels = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const sum = [0, 0, 0, 0];
+    for (let j = 0; j < factor; j += 1) for (let i = 0; i < factor; i += 1) {
+      const from = ((y * factor + j) * image.width + x * factor + i) * 4;
+      for (let c = 0; c < 4; c += 1) sum[c] += image.pixels[from + c];
+    }
+    for (let c = 0; c < 4; c += 1) pixels[(y * width + x) * 4 + c] = Math.round(sum[c] / (factor * factor));
+  }
+  return { width, height, pixels };
+}
+
+// Images laid out in rows of `columns`, for looking at a run of frames at once.
+function grid(images, columns, gap = 6) {
+  const cellW = Math.max(...images.map((image) => image.width)), cellH = Math.max(...images.map((image) => image.height));
+  const rows = Math.ceil(images.length / columns), width = columns * cellW + (columns + 1) * gap, height = rows * cellH + (rows + 1) * gap;
+  const pixels = Buffer.alloc(width * height * 4, 0x30);
+  for (let i = 3; i < pixels.length; i += 4) pixels[i] = 255;
+  images.forEach((image, n) => {
+    const ox = gap + (n % columns) * (cellW + gap), oy = gap + Math.floor(n / columns) * (cellH + gap);
+    for (let y = 0; y < image.height; y += 1) image.pixels.copy(pixels, ((oy + y) * width + ox) * 4, y * image.width * 4, (y + 1) * image.width * 4);
+  });
+  return { width, height, pixels };
+}
+
 const pixelAt = (image, x, y) => { const i = (y * image.width + x) * 4; return [image.pixels[i], image.pixels[i + 1], image.pixels[i + 2], image.pixels[i + 3]]; };
 
-module.exports = { read, write, crop, enlarge, beside, pixelAt };
+module.exports = { read, write, crop, enlarge, beside, shrink, grid, pixelAt };
 
 // node tools/png.js crop <in> <out> x y w h [factor]
 // node tools/png.js beside <a> <b> <out> x y w h [factor]   (same region of both)
