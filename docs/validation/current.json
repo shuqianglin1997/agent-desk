@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T06:08:24.037Z",
-  "baseCommit": "4bf5b94956a3766ad7d47e3448743aeb27a36401",
+  "recordedAt": "2026-11-25T06:28:17.101Z",
+  "baseCommit": "897696c54d0649e67100f58eb1d4227257cca80c",
   "uncommitted": true,
-  "sourceSha256": "ed220ae423ea1fd777f2bead64c920f6f901b8e38e749a5dffa72d0157298aa9",
+  "sourceSha256": "5424940eba7021cb4c08d4ff88f52a75f0fd6424155af71e367a7da4d2f45865",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 990,
+      "pass": 988,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after the update status stopped drawing the tools page's rows while the System page is closed (the style comparison had found three empty-list placeholders inside the closed page); digest identical before and after the run",
+      "recordedAt": "2026-11-25T06:28:17.101Z",
+      "sourceSha256": "5424940eba7021cb4c08d4ff88f52a75f0fd6424155af71e367a7da4d2f45865"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T06:28:17.101Z",
+      "sourceSha256": "5424940eba7021cb4c08d4ff88f52a75f0fd6424155af71e367a7da4d2f45865"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

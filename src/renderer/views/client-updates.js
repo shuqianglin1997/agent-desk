@@ -63,7 +63,8 @@ async function readClientUpdates() {
     signature = next;
     renderAccountRoster();
     renderAttentionInbox();
-    renderToolCenter();
+    // The tools page draws its rows when it opens; while open, it follows.
+    if (els.systemDialog?.open) renderToolCenter();
   } catch (_error) {
     // A failed read keeps what was known; nothing is shown as waiting by guess.
   }
