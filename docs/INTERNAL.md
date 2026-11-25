@@ -227,6 +227,7 @@ scripts/
   hidden-check.js         用上面的入口跑一遍真实界面：17 个读接口返回值的形状对照基准，并数启动时的完整扫描次数
   ui-snapshots.js         同一入口下按两套主题、三种语言、减少动态效果截主窗口各状态，`--compare` 与基准逐像素比较
   ui-styles.js            同样的状态，动态效果开与关：每个元素的全部计算样式、可交互元素强制 :hover/:focus-visible/:active 后的变化、@keyframes 与变量，`--compare` 逐项比较
+  ui-text.js              同样的状态、三种语言两套主题：文字溢出或被截断的元素（与基准比，多出的算失败），以及界面上是否还出现 WORDING_PLAN 第 1 节退役的叫法（种子数据本身的名字和路径不算）
   mesh-bench.js           设备网模式会话清单的计时（进程内配对的合成数据）
   arch-metrics.js         架构整理第 8 节的各项指标（无依赖的估算，列出每个数字的来源）
   check-layers.js         五层依赖表与越层报告（core 与 clients 层越层或用 electron、未登记的文件会失败，其余只报告）

@@ -33,7 +33,7 @@ const IMPORTANT = [
   ['src/pixel.css', '.session-table .title-cell.is-fresh .title-cell-main', ['text-shadow'], '有新回复的标题用 1px 阴影加粗，要压过统一字形规则的 text-shadow: none !important'],
   // workspace.css: the base layer (the old sheet's rules). In the first layer,
   // these !important win over every other !important, the skin's included.
-  ['src/workspace.css', '.quota-message', ['margin', 'color', 'font-size'], '额度提示的边距、颜色与字号。它在第一层，压过皮肤的统一字号，所以是 11.5px 而不是规定的 12px：架构评估记下的偏差，改了会改变显示，等所有者决定'],
+  ['src/workspace.css', '.quota-message', ['margin', 'color'], '额度提示的边距与颜色。在截取到的状态里不起作用，没有证据证明去掉不改显示，所以保留（规划会话 2026-11-24 已定）。字号已去掉 !important，跟统一字号走（12px）'],
   ['src/workspace.css', '.catalog-local-registration', ['grid-template-columns', 'text-transform'], '本机登记行是复选框加文字的两列、不改大小写，压过弹窗里 label 的通用布局与 text-transform'],
   ['src/workspace.css', '.topbar-actions > [hidden]', ['display'], '顶栏按钮带 hidden 时一定隐藏（第一层的 !important 在所有 !important 里最强）'],
   ['src/workspace.css', '.detail-surface[hidden]', ['display'], '右下详情的各个面带 hidden 时一定隐藏（同上）'],
@@ -99,5 +99,5 @@ test('!important appears only where the list gives the reason', () => {
   const listed = IMPORTANT.flatMap(([file, selector, properties]) => properties.map((p) => `${file} | ${selector} | ${p}`)).sort();
   assert.deepEqual(actual, listed);
   for (const [file, selector, , reason] of IMPORTANT) assert.ok(reason.length >= 12, `${file} ${selector} has a reason`);
-  assert.equal(actual.length, 40);
+  assert.equal(actual.length, 39);
 });

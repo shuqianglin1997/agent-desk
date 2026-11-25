@@ -2,9 +2,9 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.36
+> 版本：1.37
 >
-> 日期：2026-09-26
+> 日期：2026-11-24
 >
 > 工作分支：main
 >
@@ -2824,6 +2824,18 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.37 界面用词：账号、位置、登录、账号库、数据目录 — 2026-11-24
+
+所有者确认了界面上的五个词（原话：“按这五个定”），三种语言一起改，逐条的改前改后见 `docs/WORDING_PLAN.md`。本条改写 7.6.1 节“用户界面只称‘员工配置’”和 11.6 节“普通界面只暴露两层：‘Agent’和‘运行位置’”的叫法；领域模型、代码里的标识符、存盘字段、协议消息和安全边界都不变。
+
+- 全局对象（AgentIdentity，一只猫）：账号 / account / アカウント。
+- 本机的运行位置（AgentSlot，代码里的 profile）：位置 / location / 場所；界面上不再出现 Profile、槽位。
+- 平台上的一次登录（AccountBinding）：登录 / sign-in / ログイン。前面带服务商名字或“服务商那里的”时，“账号”指你在服务商那里的账号，保留。
+- 全局 Agent 目录：账号库 / account catalog / アカウントカタログ，不再叫“目录”。
+- 位置在磁盘上的文件夹：数据目录 / data folder / データフォルダー。
+- 不改：AgentDesk、Personal Agent Mesh 这类名字；画面里的“猫”；猫的档案页的“资料”；账号库里全局对象的默认名 “Agent”（存进账号库、各设备共用、不随语言变，改它要动领域代码和存盘数据，记为已知的不一致）。
+- 同一批里，额度提示从 11.5px 改为规定的 12px（旧样式里压过统一字号的那条 `!important` 去掉）。
 
 ### 1.36 暂停新功能，按阶段整理架构 — 2026-11-24
 

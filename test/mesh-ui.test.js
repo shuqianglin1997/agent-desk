@@ -202,7 +202,7 @@ test('局域网配对端口只在用户创建邀请后临时开启，取消邀�
 test('设备中心明确保留账号删到零与不补默认账号的空状态', () => {
   const zh = read('src/i18n/zh.js');
   const renderer = rendererSource();
-  assert.match(zh, /当前没有 Agent。账号槽位可以删到零，不会自动补回默认平台账号/);
+  assert.match(zh, /当前没有账号。位置可以删到零，不会自动补回各平台的默认账号/);
   assert.match(renderer, /if \(!deviceAgents\.length && !unassignedSlots\.length\)[\s\S]*?devices\.agents\.empty/);
   assert.match(renderer, /unassignedSlots[\s\S]*?catalog\.unassigned\.title[\s\S]*?openSlotAssignmentDialog\(slot\)/);
   assert.match(renderer, /overview\.slots\.filter\(\(slot\) => slot\.agentId === agent\.agentId\)/);

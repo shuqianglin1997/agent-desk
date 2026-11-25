@@ -39,7 +39,7 @@
       <main id="mainGrid" class="workspace-board" data-workspace="sessions" data-detail="session">
         <section id="agentPanel" class="workspace-panel agent-panel">
           <header class="presenter-head">
-            <div><h2 data-i18n="presenter.title">Agent</h2><span id="presenterCount">0 个</span></div>
+            <div><h2 data-i18n="presenter.title">账号</h2><span id="presenterCount">0 个</span></div>
             <div class="presenter-tools">
               <button id="quotaChipAll" class="quota-chip" type="button" popovertarget="quotaPopover" aria-controls="quotaPopover" aria-haspopup="dialog" aria-expanded="false" hidden><span data-i18n="quotaMap.title">额度总览</span><b>—</b></button>
               <button id="addProfileBtn" class="roster-add-button" type="button" aria-haspopup="dialog" aria-controls="recruitDialog"><i class="pxi" data-i="plus" aria-hidden="true"></i><span data-i18n="roster.recruit">招募</span></button>
@@ -54,7 +54,7 @@
               <span class="account-card-name" data-i18n="roster.all">全部</span>
               <span id="rosterAllMeta" class="account-card-state"></span>
             </button>
-            <div id="accountRoster" class="account-roster" data-i18n-aria="aria.roster" aria-label="Agent 卡片"></div>
+            <div id="accountRoster" class="account-roster" data-i18n-aria="aria.roster" aria-label="账号卡片"></div>
             <i id="rosterBracket" class="roster-bracket" hidden aria-hidden="true"><i></i><i></i><i></i><i></i></i>
             <div id="hubLinks" class="hub-links" aria-hidden="true"></div>
           </section>
@@ -210,7 +210,7 @@
         <header class="utility-dialog-head utility-dialog-header agent-manage-head">
           <div>
             <h3 id="agentManageTitle" data-i18n="dossier.title">猫的档案</h3>
-            <p id="agentManageSummary" data-i18n="account.manageHint">这只猫的一切都在这一页，按“它是谁、它在哪、它用哪个账号、要不要送走”分四段。</p>
+            <p id="agentManageSummary" data-i18n="account.manageHint">这只猫的一切都在这一页，按“它是谁、它在哪、它用哪个登录、能不能被你的其他账号调用、要不要送走”分段。</p>
           </div>
           <button class="utility-dialog-close" value="cancel" data-i18n="dialog.close">关闭</button>
         </header>
@@ -218,38 +218,38 @@
           <section class="agent-manage-section" data-section="profile">
             <h4><span data-i18n="dossier.profile">资料</span><em id="agentManageName"></em></h4>
             <div id="agentGlobalActions" class="agent-manage-actions">
-              <button id="editProfileBtn" type="button"><span data-i18n="account.editAgent">编辑 Agent</span><small data-i18n="account.editAgentHint">名称、分组、备注与猫咪外观</small></button>
+              <button id="editProfileBtn" type="button"><span data-i18n="account.editAgent">编辑账号</span><small data-i18n="account.editAgentHint">名称、分组、备注与猫咪外观</small></button>
             </div>
           </section>
           <section class="agent-manage-section" data-section="locations">
             <h4><span data-i18n="dossier.locations">位置</span><em id="agentManageRuntimeLabel"></em></h4>
             <div id="agentManageLocations" class="dossier-locations"></div>
             <div id="yardManageActions" class="agent-manage-actions runtime-actions" role="group" data-i18n-aria="dossier.location.actions">
-              <button id="pathConfigBtn" type="button"><span data-i18n="account.path">路径</span><small data-i18n="account.pathHint">账号数据目录与会话根目录</small></button>
+              <button id="pathConfigBtn" type="button"><span data-i18n="account.path">路径</span><small data-i18n="account.pathHint">数据目录与会话根目录</small></button>
               <button id="diagnosticsBtn" type="button"><span data-i18n="account.diagnostics">诊断</span><small data-i18n="account.diagnosticsHint">客户端、目录、会话与启动状态</small></button>
               <button id="refreshBtn" type="button"><span data-i18n="account.refresh">重扫</span><small data-i18n="account.refreshHint">重新读取当前来源的会话与状态</small></button>
-              <button id="stopProfileBtn" type="button"><span data-i18n="account.stopRuntime">关闭客户端</span><small data-i18n="account.stopRuntimeHint">只关闭由 AgentDesk 启动的当前 Profile 进程</small></button>
+              <button id="stopProfileBtn" type="button"><span data-i18n="account.stopRuntime">关闭客户端</span><small data-i18n="account.stopRuntimeHint">只关闭由 AgentDesk 启动的当前位置的进程</small></button>
               <button id="cleanCrashpadBtn" type="button"><span data-i18n="account.cleanCrashpad">清理崩溃报告</span><small data-i18n="account.cleanCrashpadHint">只删除 Crashpad/pending 中的转储和 sidecar</small></button>
-              <button id="profileFolderBtn" type="button"><span data-i18n="account.folder">打开位置</span><small data-i18n="account.folderHint">在本机文件管理器中显示账号目录</small></button>
+              <button id="profileFolderBtn" type="button"><span data-i18n="account.folder">打开位置</span><small data-i18n="account.folderHint">在本机文件管理器中显示数据目录</small></button>
             </div>
             <p id="agentManageNoLocation" class="dossier-note" hidden></p>
             <div class="agent-manage-actions">
-              <button id="addRuntimeLocationBtn" type="button"><span data-i18n="account.addRuntimeAdvanced">导入运行位置</span><small data-i18n="account.addRuntimeAdvancedHint">仅用于登记已有登录或修复位置关系</small></button>
+              <button id="addRuntimeLocationBtn" type="button"><span data-i18n="account.addRuntimeAdvanced">导入位置</span><small data-i18n="account.addRuntimeAdvancedHint">仅用于登记已有登录或修复位置关系</small></button>
             </div>
           </section>
           <section class="agent-manage-section" data-section="accounts">
             <h4><span data-i18n="dossier.accounts">账号</span></h4>
             <div class="agent-manage-actions">
-              <button id="manageAgentRelationsBtn" type="button" hidden><span data-i18n="account.relations">Agent 关系</span><small data-i18n="account.relationsHint">合并 Agent 或拆分登录账号</small></button>
+              <button id="manageAgentRelationsBtn" type="button" hidden><span data-i18n="account.relations">账号关系</span><small data-i18n="account.relationsHint">合并账号或拆分登录</small></button>
             </div>
-            <p id="agentManageAccountsNote" class="dossier-note" data-i18n="dossier.accounts.localNote">合并与拆分登录账号需要先有本机 Agent 目录；招募第一只猫时会自动建立。</p>
+            <p id="agentManageAccountsNote" class="dossier-note" data-i18n="dossier.accounts.localNote">合并与拆分登录需要先有本机账号库；招募第一只猫时会自动建立。</p>
           </section>
           <section id="hubCallingSection" class="agent-manage-section hub-calling" data-section="calling" hidden>
             <h4><span data-i18n="hub.dossier.title">调用</span><em id="hubCallingName"></em></h4>
             <div class="hub-switches">
               <label class="hub-switch" for="hubAllowCall" data-hub-tip="allow">
                 <input id="hubAllowCall" type="checkbox" role="switch">
-                <span><b data-i18n="hub.dossier.allow">允许别的 Agent 调用它</b><small data-i18n="hub.dossier.allow.hint">打开后，你的其他 Agent 可以通过 AgentDesk 让它在后台干活。AgentDesk 自己不会调用它。</small></span>
+                <span><b data-i18n="hub.dossier.allow">允许别的账号调用它</b><small data-i18n="hub.dossier.allow.hint">打开后，你的其他账号可以通过 AgentDesk 让它在后台干活。AgentDesk 自己不会调用它。</small></span>
                 <em id="hubAllowCallState"></em>
               </label>
               <label class="hub-switch" for="hubAllowWrite">
@@ -263,7 +263,7 @@
           <section class="agent-manage-section" data-section="farewell">
             <h4><span data-i18n="dossier.farewell">送走</span></h4>
             <div class="agent-manage-actions">
-              <button id="removeProfileBtn" class="danger-zone-action" type="button"><span data-i18n="account.removeCatalog">从 AgentDesk 移除…</span><small data-i18n="account.removeHint">先预览运行位置、登录账号或整个 Agent 的影响</small></button>
+              <button id="removeProfileBtn" class="danger-zone-action" type="button"><span data-i18n="account.removeCatalog">从 AgentDesk 移除…</span><small data-i18n="account.removeHint">先预览对位置、登录或整个账号的影响</small></button>
             </div>
           </section>
         </div>
@@ -275,10 +275,10 @@
 
     <dialog id="agentCreateDialog" aria-labelledby="agentCreateTitle" aria-describedby="agentCreateLead">
       <form method="dialog" class="dialog-body">
-        <h3 id="agentCreateTitle" data-i18n="dialog.addAgent.title">新增 Agent</h3>
-        <p id="agentCreateLead" class="field-hint" data-i18n="dialog.addAgent.lead">先把员工加入全局员工库；运行位置会在你第一次打开它时自动准备。</p>
+        <h3 id="agentCreateTitle" data-i18n="dialog.addAgent.title">新增账号</h3>
+        <p id="agentCreateLead" class="field-hint" data-i18n="dialog.addAgent.lead">在本机为这个账号新建一个独立的位置，登录在官方客户端完成。已有公司接口环境可从“管理账号 → 导入位置”登记。</p>
         <label>
-          <span data-i18n="dialog.field.agentName">员工名称</span>
+          <span data-i18n="dialog.field.agentName">账号名称</span>
           <input id="newAgentName" type="text" data-i18n-placeholder="dialog.ph.agentName" placeholder="例如：研究助理" />
         </label>
         <label>
@@ -291,7 +291,7 @@
         </label>
         <label>
           <span data-i18n="dialog.field.note">备注</span>
-          <textarea id="newAgentNote" rows="3" data-i18n-placeholder="dialog.ph.agentNote" placeholder="可选，记录这名员工负责什么"></textarea>
+          <textarea id="newAgentNote" rows="3" data-i18n-placeholder="dialog.ph.agentNote" placeholder="可选，记录这个账号负责什么"></textarea>
         </label>
         <div class="dialog-actions">
           <button value="cancel" data-i18n="dialog.cancel">取消</button>
@@ -361,24 +361,24 @@
 
     <dialog id="profileDialog">
       <form method="dialog" class="dialog-body">
-        <h3 id="profileDialogTitle" data-i18n="dialog.addProfile.title">新增账号槽位</h3>
+        <h3 id="profileDialogTitle" data-i18n="dialog.addProfile.title">新增位置</h3>
         <fieldset id="newProfileMeshAssignment" class="catalog-choice" hidden>
           <legend data-i18n="catalog.add.choiceTitle">这个本机位置属于谁？</legend>
           <label>
             <span data-i18n="catalog.add.choice">归属方式</span>
             <select id="newProfileMode">
               <option value="" data-i18n="catalog.assignment.choose">请选择…</option>
-              <option value="new-agent" data-i18n="catalog.assignment.newAgent">新的 Agent</option>
-              <option value="existing-agent" data-i18n="catalog.assignment.existingAgent">已有 Agent 的另一个账号</option>
+              <option value="new-agent" data-i18n="catalog.assignment.newAgent">新的账号</option>
+              <option value="existing-agent" data-i18n="catalog.assignment.existingAgent">已有账号的另一个登录</option>
               <option value="existing-binding" data-i18n="catalog.assignment.existingBinding">已有登录的新位置</option>
             </select>
           </label>
           <label id="newProfileAgentField" hidden>
-            <span data-i18n="catalog.field.agent">Agent</span>
+            <span data-i18n="catalog.field.agent">账号</span>
             <select id="newProfileAgent"></select>
           </label>
           <label id="newProfileBindingField" hidden>
-            <span data-i18n="catalog.field.binding">登录账号</span>
+            <span data-i18n="catalog.field.binding">登录</span>
             <select id="newProfileBinding"></select>
           </label>
           <p id="newProfileAssignmentHint" class="field-hint"></p>
@@ -401,7 +401,7 @@
         </label>
         <label>
           <span data-i18n="dialog.field.note">备注</span>
-          <textarea id="newProfileNote" rows="2" data-i18n-placeholder="dialog.ph.profileNote" placeholder="可选，给这个账号加点说明"></textarea>
+          <textarea id="newProfileNote" rows="2" data-i18n-placeholder="dialog.ph.profileNote" placeholder="可选，给这个位置加点说明"></textarea>
         </label>
         <div class="dialog-actions">
           <button value="cancel" data-i18n="dialog.cancel">取消</button>
@@ -412,7 +412,7 @@
 
     <dialog id="editDialog">
       <form method="dialog" class="dialog-body">
-        <h3 id="editDialogTitle" data-i18n="dialog.editProfile.title">编辑账号槽位</h3>
+        <h3 id="editDialogTitle" data-i18n="dialog.editProfile.title">编辑位置</h3>
         <p id="editAgentHint" class="field-hint" hidden></p>
         <label>
           <span data-i18n="dialog.field.name">名称</span>
@@ -423,13 +423,13 @@
           <input id="editGroup" type="text" list="groupOptions" data-i18n-placeholder="dialog.ph.groupEmpty" placeholder="留空 = 未分组" />
         </label>
         <label id="editIdentityField">
-          <span data-i18n="dialog.field.identity">同账号标识</span>
-          <span class="field-hint" data-i18n="dialog.hint.identity">同一个登录身份的多个客户端槽位填同一个词（如 Kimi Code 与 Kimi Work 同填「Kimi」），列表会用 ⛓ 标出关联。</span>
+          <span data-i18n="dialog.field.identity">同一登录标识</span>
+          <span class="field-hint" data-i18n="dialog.hint.identity">同一个登录的多个位置填同一个词（如 Kimi Code 与 Kimi Work 同填「Kimi」），列表会用 ⛓ 标出关联。</span>
           <input id="editIdentity" type="text" list="identityOptions" data-i18n-placeholder="dialog.ph.identityEmpty" placeholder="留空 = 不关联" />
         </label>
         <label>
           <span data-i18n="dialog.field.note">备注</span>
-          <textarea id="editNote" rows="3" data-i18n-placeholder="dialog.ph.editNote" placeholder="给这个账号加点备注……"></textarea>
+          <textarea id="editNote" rows="3" data-i18n-placeholder="dialog.ph.editNote" placeholder="给这个位置加点备注……"></textarea>
         </label>
         <div class="cat-customizer">
           <div class="cc-preview">
@@ -469,23 +469,23 @@
           <legend data-i18n="catalog.remove.scope">选择作用范围</legend>
           <label>
             <input type="radio" name="catalogRemoveScope" value="slot" checked>
-            <span><b data-i18n="catalog.remove.slot">移除此运行位置</b><small data-i18n="catalog.remove.slotHint">只取消当前设备和客户端位置的目录关系。</small></span>
+            <span><b data-i18n="catalog.remove.slot">移除此位置</b><small data-i18n="catalog.remove.slotHint">只取消当前设备和客户端位置的目录关系。</small></span>
           </label>
           <label>
             <input type="radio" name="catalogRemoveScope" value="account-binding">
-            <span><b data-i18n="catalog.remove.binding">移除此登录账号</b><small data-i18n="catalog.remove.bindingHint">移除这个平台登录及它在所有设备上的位置关系。</small></span>
+            <span><b data-i18n="catalog.remove.binding">移除此登录</b><small data-i18n="catalog.remove.bindingHint">移除这个平台登录及它在所有设备上的位置关系。</small></span>
           </label>
           <label>
             <input type="radio" name="catalogRemoveScope" value="agent">
-            <span><b data-i18n="catalog.remove.agent">删除整个 Agent</b><small data-i18n="catalog.remove.agentHint">删除 Agent、它的账号绑定和所有位置关系。</small></span>
+            <span><b data-i18n="catalog.remove.agent">删除整个账号</b><small data-i18n="catalog.remove.agentHint">删除账号、它的登录和所有位置关系。</small></span>
           </label>
         </fieldset>
         <label id="removeLocalRegistrationField" class="catalog-local-registration" hidden>
           <input id="removeLocalRegistration" type="checkbox">
-          <span data-i18n="catalog.remove.localRegistration">同时从本机 AgentDesk 删除这个槽位登记（不删除官方客户端数据）</span>
+          <span data-i18n="catalog.remove.localRegistration">同时从本机 AgentDesk 删除这个位置登记（不删除官方客户端数据）</span>
         </label>
         <div id="removeCatalogImpact" class="catalog-impact" aria-live="polite"></div>
-        <p class="catalog-data-safety" data-i18n="catalog.remove.safety">不会注销第三方账号，不会删除官方客户端目录、凭据、项目或云端内容。</p>
+        <p class="catalog-data-safety" data-i18n="catalog.remove.safety">不会注销你在服务商那里的账号，不会删除官方客户端目录、凭据、项目或云端内容。</p>
         <div class="dialog-actions">
           <button value="cancel" data-i18n="dialog.cancel">取消</button>
           <button id="confirmRemoveCatalogBtn" type="button" class="danger-button" data-i18n="catalog.remove.confirm">确认移除</button>
@@ -495,11 +495,11 @@
 
     <dialog id="agentRelationsDialog" class="wide-dialog catalog-dialog">
       <form method="dialog" class="dialog-body">
-        <h3 data-i18n="catalog.relations.title">Agent 关系</h3>
+        <h3 data-i18n="catalog.relations.title">账号关系</h3>
         <p id="agentRelationsSummary" class="field-hint"></p>
         <section class="catalog-operation">
-          <h4 data-i18n="catalog.merge.title">合并 Agent</h4>
-          <p data-i18n="catalog.merge.hint">当前 Agent 作为来源；目标 Agent 的名称和猫咪外观保留。只改变 AgentDesk 目录关系。</p>
+          <h4 data-i18n="catalog.merge.title">合并账号</h4>
+          <p data-i18n="catalog.merge.hint">当前账号作为来源；目标账号的名称和猫咪外观保留。只改变账号库里的关系。</p>
           <label>
             <span data-i18n="catalog.merge.target">合并到</span>
             <select id="mergeAgentTarget"></select>
@@ -507,14 +507,14 @@
           <button id="confirmMergeAgentBtn" type="button" data-i18n="catalog.merge.confirm">预览并合并</button>
         </section>
         <section class="catalog-operation">
-          <h4 data-i18n="catalog.split.title">拆分登录账号</h4>
-          <p data-i18n="catalog.split.hint">把选定的平台登录和它的全部运行位置移到一个新 Agent。</p>
+          <h4 data-i18n="catalog.split.title">拆分登录</h4>
+          <p data-i18n="catalog.split.hint">把选定的登录和它的全部位置移到一个新账号。</p>
           <label>
-            <span data-i18n="catalog.field.binding">登录账号</span>
+            <span data-i18n="catalog.field.binding">登录</span>
             <select id="splitAccountBinding"></select>
           </label>
           <label>
-            <span data-i18n="catalog.split.newName">新 Agent 名称</span>
+            <span data-i18n="catalog.split.newName">新账号名称</span>
             <input id="splitAgentName" type="text">
           </label>
           <button id="confirmSplitBindingBtn" type="button" data-i18n="catalog.split.confirm">预览并拆分</button>
@@ -528,23 +528,23 @@
 
     <dialog id="slotAssignmentDialog" class="catalog-dialog">
       <form method="dialog" class="dialog-body">
-        <h3 data-i18n="catalog.assign.title">归属待处理运行位置</h3>
+        <h3 data-i18n="catalog.assign.title">归属待处理位置</h3>
         <p id="slotAssignmentSummary" class="field-hint"></p>
         <label>
           <span data-i18n="catalog.add.choice">归属方式</span>
           <select id="slotAssignmentMode">
             <option value="" data-i18n="catalog.assignment.choose">请选择…</option>
-            <option value="new-agent" data-i18n="catalog.assignment.newAgent">新的 Agent</option>
-            <option value="existing-agent" data-i18n="catalog.assignment.existingAgent">已有 Agent 的另一个账号</option>
+            <option value="new-agent" data-i18n="catalog.assignment.newAgent">新的账号</option>
+            <option value="existing-agent" data-i18n="catalog.assignment.existingAgent">已有账号的另一个登录</option>
             <option value="existing-binding" data-i18n="catalog.assignment.existingBinding">已有登录的新位置</option>
           </select>
         </label>
         <label id="slotAssignmentAgentField" hidden>
-          <span data-i18n="catalog.field.agent">Agent</span>
+          <span data-i18n="catalog.field.agent">账号</span>
           <select id="slotAssignmentAgent"></select>
         </label>
         <label id="slotAssignmentBindingField" hidden>
-          <span data-i18n="catalog.field.binding">登录账号</span>
+          <span data-i18n="catalog.field.binding">登录</span>
           <select id="slotAssignmentBinding"></select>
         </label>
         <label>
@@ -561,7 +561,7 @@
         </label>
         <div id="slotAssignmentStatus" class="catalog-impact" aria-live="polite"></div>
         <div class="dialog-actions">
-          <button id="removeUnassignedSlotBtn" type="button" class="danger-zone-action" hidden data-i18n="catalog.remove.slot">移除此运行位置</button>
+          <button id="removeUnassignedSlotBtn" type="button" class="danger-zone-action" hidden data-i18n="catalog.remove.slot">移除此位置</button>
           <button value="cancel" data-i18n="dialog.cancel">取消</button>
           <button id="confirmSlotAssignmentBtn" type="button" class="primary" data-i18n="catalog.assign.confirm">确认归属</button>
         </div>
@@ -572,7 +572,7 @@
       <form method="dialog" class="dialog-body">
         <h3 data-i18n="dialog.path.title">路径设置</h3>
         <label>
-          <span data-i18n="dialog.field.profileDir">账号数据目录</span>
+          <span data-i18n="dialog.field.profileDir">数据目录</span>
           <div class="path-input-row">
             <input id="profilePathInput" type="text" />
             <button id="pickProfilePathBtn" type="button" data-i18n="dialog.pick">选择</button>
@@ -617,7 +617,7 @@
           <div>
             <span data-i18n="devices.kicker">PERSONAL AGENT MESH</span>
             <h3 id="deviceCenterTitle" data-i18n="devices.title">我的设备</h3>
-            <p id="deviceCenterLead" data-i18n="devices.lead.compact">选择设备查看连接、权限、运行位置与会话概况。</p>
+            <p id="deviceCenterLead" data-i18n="devices.lead.compact">选择设备查看连接、权限、位置与会话概况。</p>
           </div>
           <button id="closeDeviceCenterBtn" class="utility-dialog-close" type="button" data-i18n="dialog.close">关闭</button>
         </header>
@@ -642,7 +642,7 @@
           <section id="meshEmptyState" class="mesh-empty-state">
             <div class="mesh-empty-copy">
               <strong data-i18n="devices.empty.title">先把本机加入你的个人设备网</strong>
-              <p data-i18n="devices.empty.body">会为本机建立独立设备身份，并把当前账号身份组迁移成全局 Agent；不会移动账号目录、会话或登录信息。</p>
+              <p data-i18n="devices.empty.body">会为本机建立独立设备身份，并把现有的身份组迁移成账号；不会移动数据目录、会话或登录信息。</p>
             </div>
             <div id="meshPreviewStats" class="mesh-stat-grid"></div>
             <div class="mesh-empty-actions">
@@ -798,8 +798,8 @@
         </header>
         <div class="utility-dialog-content">
           <div id="devicePermissionList" class="device-permission-list">
-            <label><input type="checkbox" data-capability="inventory.read"><span data-i18n="devices.permission.inventory">查看 Agent 与会话索引</span></label>
-            <label><input type="checkbox" data-capability="catalog.manage"><span data-i18n="devices.permission.catalog">管理全局 Agent 目录</span></label>
+            <label><input type="checkbox" data-capability="inventory.read"><span data-i18n="devices.permission.inventory">查看账号与会话索引</span></label>
+            <label><input type="checkbox" data-capability="catalog.manage"><span data-i18n="devices.permission.catalog">管理账号库</span></label>
             <label><input type="checkbox" data-capability="session.pointer.receive"><span data-i18n="devices.permission.pointer">接收会话信息</span></label>
             <label><input type="checkbox" data-capability="file.receive"><span data-i18n="devices.permission.file">接收文件</span></label>
             <label><input type="checkbox" data-capability="profile.launch"><span data-i18n="devices.permission.launch">打开已登记账号</span></label>
@@ -1031,7 +1031,7 @@
           <div>
             <span data-i18n="taskPackage.import.kicker">RECEIVE TASK</span>
             <h3 id="taskPackageImportTitle" data-i18n="taskPackage.import.title">导入任务包</h3>
-            <p id="taskPackageImportLead" data-i18n="taskPackage.import.lead">先验证文件和密钥，再选择本机 Agent 与运行位置。只有明确支持的适配器才会写入原生客户端会话。</p>
+            <p id="taskPackageImportLead" data-i18n="taskPackage.import.lead">先验证文件和密钥，再选择本机账号与位置。只有明确支持的适配器才会写入原生客户端会话。</p>
           </div>
           <button id="taskPackageImportCloseBtn" type="button" class="utility-dialog-close" data-i18n="dialog.close">关闭</button>
         </header>
@@ -1055,10 +1055,10 @@
           </section>
           <section id="taskPackageImportPreview" class="task-package-import-preview" hidden></section>
           <label id="taskPackageTargetField" class="task-package-field" hidden>
-            <span data-i18n="taskPackage.import.target">接收这项工作的本机 Agent 与运行位置</span>
+            <span data-i18n="taskPackage.import.target">接收这项工作的本机账号与位置</span>
             <select id="taskPackageTargetProfile"></select>
           </label>
-          <label id="taskPackageOpenField" class="task-package-open-option" hidden><input id="taskPackageOpenAfter" type="checkbox" checked><span data-i18n="taskPackage.import.openAfter">导入后打开目标 Agent</span></label>
+          <label id="taskPackageOpenField" class="task-package-open-option" hidden><input id="taskPackageOpenAfter" type="checkbox" checked><span data-i18n="taskPackage.import.openAfter">导入后打开目标账号</span></label>
           <p id="taskPackageImportStatus" class="device-center-status" data-state="idle" aria-live="polite"></p>
         </div>
         <footer class="dialog-actions utility-dialog-footer">
@@ -1131,12 +1131,12 @@
             </label>
             <section id="hubSystem" class="hub-system" aria-labelledby="hubSystemTitle">
               <h4 id="hubSystemTitle"><span data-i18n="hub.system.title">后台对话</span></h4>
-              <p data-i18n="hub.system.lead">AgentDesk 只中转你自己的 Agent 发起的调用，不自己派活。</p>
+              <p data-i18n="hub.system.lead">AgentDesk 只中转你自己的某个账号发起的调用，不自己派活。</p>
               <div class="system-setting-line hub-folders">
                 <b data-i18n="hub.system.folders">允许干活的文件夹</b>
                 <button id="hubAddFolderBtn" type="button"><i class="pxi" data-i="plus" aria-hidden="true"></i><span data-i18n="hub.system.addFolder">添加文件夹…</span></button>
                 <ul id="hubFolderList" class="hub-folder-list"></ul>
-                <small data-i18n="hub.system.foldersHint">被调用的 Agent 只能在这些文件夹里干活。一个都没有时，谁也不能被调用。</small>
+                <small data-i18n="hub.system.foldersHint">被调用的账号只能在这些文件夹里干活。一个都没有时，谁也不能被调用。</small>
               </div>
               <label class="system-setting-line hub-limit" for="hubMaxConcurrent">
                 <b data-i18n="hub.system.limit">同时运行的上限</b>
@@ -1170,25 +1170,25 @@
           <div>
             <span id="welcomeDialogKicker" aria-hidden="true">AGENTDESK GUIDE</span>
             <h3 id="welcomeDialogTitle" data-i18n="welcome.title">AgentDesk 使用说明</h3>
-            <p id="welcomeDialogLead" class="welcome-lead" data-i18n="welcome.lead">管理多个 Claude / Codex 账号，不保存任何密码 —— 登录始终发生在官方 App 里。</p>
+            <p id="welcomeDialogLead" class="welcome-lead" data-i18n="welcome.lead">把长期工作的账号放进账号库，再选择它此刻在哪个设备和客户端工作。登录始终发生在官方客户端。</p>
           </div>
           <button id="welcomeDialogCloseBtn" class="utility-dialog-close" type="button" data-i18n="dialog.close">关闭</button>
         </header>
         <div class="utility-dialog-content welcome-dialog-content">
           <section id="welcomeGuideContent" class="welcome-guide-content">
             <ol class="welcome-steps">
-              <li data-i18n-html="welcome.step1"><b>Agent</b> 是长期工作对象，可以在不同设备和客户端上拥有运行位置。</li>
+              <li data-i18n-html="welcome.step1"><b>账号</b>是长期工作对象，可以在不同设备和客户端上拥有位置。</li>
               <li data-i18n-html="welcome.step2">选定工作环境后点<b>打开账号</b>；第一次会进入受控准备，登录仍在官方客户端完成。</li>
               <li data-i18n-html="welcome.step3">使用后，本地会话会<b>自动出现</b>在会话列表。</li>
               <li data-i18n-html="welcome.step4">聚焦或勾选会话后可<b>复制路径与坐标</b>，也可以显式发送或交接。</li>
             </ol>
-            <p class="welcome-tip" data-i18n-html="welcome.tip">日常只需管理 Agent 和运行位置。手动账号槽位、路径与诊断保留在<b>高级管理</b>中。</p>
+            <p class="welcome-tip" data-i18n-html="welcome.tip">日常只需管理账号和位置。手动位置、路径与诊断保留在<b>高级管理</b>中。</p>
           </section>
 
           <section id="onboardingContent" class="onboarding-content" hidden>
             <ol id="onboardingProgress" class="onboarding-progress" aria-label="首次使用进度" data-i18n-aria="onboarding.progressLabel">
-              <li data-step="migration"><span>1</span><b data-i18n="onboarding.progress.migration">确认现有账号</b></li>
-              <li data-step="agent"><span>2</span><b data-i18n="onboarding.progress.agent">创建 Agent</b></li>
+              <li data-step="migration"><span>1</span><b data-i18n="onboarding.progress.migration">确认现有位置</b></li>
+              <li data-step="agent"><span>2</span><b data-i18n="onboarding.progress.agent">创建账号</b></li>
               <li data-step="preparing"><span>3</span><b data-i18n="onboarding.progress.prepare">首次准备</b></li>
             </ol>
             <button id="onboardingCodexImportBtn" class="onboarding-advanced" type="button" aria-haspopup="dialog" aria-controls="recruitDialog" data-i18n="codexImport.action" hidden>导入 Codex</button>
@@ -1197,24 +1197,24 @@
               <header>
                 <span data-i18n="onboarding.migration.kicker">LOCAL ACCOUNTS</span>
                 <h4 id="onboardingMigrationTitle" data-i18n="onboarding.migration.title">确认已有登录</h4>
-                <p data-i18n="onboarding.migration.lead">选择要放进初始 Agent 库的现有账号。只建立目录关系，不移动账号目录、会话或登录信息。</p>
+                <p data-i18n="onboarding.migration.lead">选择要放进初始账号库的现有位置。只在账号库里建立关系，不移动数据目录、会话或登录信息。</p>
               </header>
               <fieldset class="onboarding-migration-fieldset">
-                <legend data-i18n="onboarding.migration.legend">本机发现的账号</legend>
+                <legend data-i18n="onboarding.migration.legend">本机发现的位置</legend>
                 <div id="onboardingMigrationList" class="onboarding-migration-list"></div>
               </fieldset>
-              <p class="onboarding-safety-note"><span aria-hidden="true">◇</span><span data-i18n="onboarding.migration.safety">没有选中的账号继续留在原处，之后仍可从高级管理导入。</span></p>
+              <p class="onboarding-safety-note"><span aria-hidden="true">◇</span><span data-i18n="onboarding.migration.safety">没有选中的位置继续留在原处，之后仍可从高级管理导入。</span></p>
             </section>
 
             <section id="onboardingAgent" class="onboarding-step" aria-labelledby="onboardingAgentTitle" hidden>
               <header>
                 <span data-i18n="onboarding.agent.kicker">FIRST AGENT</span>
-                <h4 id="onboardingAgentTitle" data-i18n="onboarding.agent.title">创建第一个 Agent</h4>
-                <p data-i18n="onboarding.agent.lead">先确定它是谁、使用哪个受支持客户端。AgentDesk 随后为本机准备运行位置。</p>
+                <h4 id="onboardingAgentTitle" data-i18n="onboarding.agent.title">创建第一个账号</h4>
+                <p data-i18n="onboarding.agent.lead">先确定它是谁、使用哪个受支持客户端。AgentDesk 随后为本机准备位置。</p>
               </header>
               <div class="onboarding-agent-form">
                 <label>
-                  <span data-i18n="onboarding.agent.name">Agent 名称</span>
+                  <span data-i18n="onboarding.agent.name">账号名称</span>
                   <input id="onboardingAgentName" type="text" maxlength="80" autocomplete="off" data-i18n-placeholder="onboarding.agent.namePlaceholder" placeholder="例如：研究助理" />
                 </label>
                 <label>
@@ -1223,13 +1223,13 @@
                 </label>
               </div>
               <p id="onboardingMigrationSummary" class="onboarding-selection-summary"></p>
-              <p class="onboarding-safety-note"><span aria-hidden="true">■</span><span data-i18n="onboarding.agent.localOnly">确认后只建立本机 Agent 目录和设备身份；不会开放端口、发布在线租约、连接其他设备或授予远端权限。</span></p>
+              <p class="onboarding-safety-note"><span aria-hidden="true">■</span><span data-i18n="onboarding.agent.localOnly">确认后只建立本机账号库和设备身份；不会开放端口、发布在线租约、连接其他设备或授予远端权限。</span></p>
             </section>
 
             <section id="onboardingPreparation" class="onboarding-step onboarding-preparation" aria-labelledby="onboardingPreparationTitle" hidden>
               <header>
                 <span data-i18n="onboarding.prepare.kicker">FIRST PREPARATION</span>
-                <h4 id="onboardingPreparationTitle" data-i18n="onboarding.prepare.title">准备本机运行位置</h4>
+                <h4 id="onboardingPreparationTitle" data-i18n="onboarding.prepare.title">准备本机位置</h4>
                 <p data-i18n="onboarding.prepare.lead">AgentDesk 只创建受管目录并打开白名单内的官方客户端。安装、登录、验证码和系统权限仍由你在本机完成。</p>
               </header>
               <div class="onboarding-preparation-card" aria-live="polite">
@@ -1240,9 +1240,9 @@
 
             <section id="onboardingExisting" class="onboarding-step" aria-labelledby="onboardingExistingTitle" hidden>
               <header>
-                <span data-i18n="onboarding.existing.kicker">AGENT LIBRARY</span>
-                <h4 id="onboardingExistingTitle" data-i18n="onboarding.existing.title">你的 Agent 库已经就绪</h4>
-                <p data-i18n="onboarding.existing.lead">这次更新把 Agent 作为长期工作对象；设备是工作环境，客户端槽位只是它在某处的运行位置。</p>
+                <span data-i18n="onboarding.existing.kicker">ACCOUNT CATALOG</span>
+                <h4 id="onboardingExistingTitle" data-i18n="onboarding.existing.title">你的账号库已经就绪</h4>
+                <p data-i18n="onboarding.existing.lead">这次更新把账号作为长期工作对象；设备是工作环境，客户端所在的位置只是它在某处工作的一个地方。</p>
               </header>
               <div id="onboardingExistingAgents" class="onboarding-existing-agents"></div>
               <p class="onboarding-safety-note"><span aria-hidden="true">↳</span><span data-i18n="onboarding.existing.safety">现有账号、会话、路径和登录状态保持原样。</span></p>
@@ -1253,7 +1253,7 @@
               <div>
                 <span data-i18n="onboarding.complete.kicker">READY</span>
                 <h4 id="onboardingCompleteTitle" data-i18n="onboarding.complete.title">可以开始工作了</h4>
-                <p data-i18n="onboarding.complete.lead">主工作台仍按 Agent、会话和详情组织。第一次打开未准备的 Agent 时，可从同一位置继续安装或登录。</p>
+                <p data-i18n="onboarding.complete.lead">主工作台仍按账号、会话和详情组织。第一次打开未准备的账号时，可从同一位置继续安装或登录。</p>
               </div>
             </section>
 
@@ -1261,7 +1261,7 @@
           </section>
         </div>
         <footer id="onboardingFooter" class="utility-dialog-footer onboarding-footer" hidden>
-          <button id="onboardingAdvancedBtn" type="button" class="onboarding-advanced" data-i18n="onboarding.advanced">高级：手动导入运行位置</button>
+          <button id="onboardingAdvancedBtn" type="button" class="onboarding-advanced" data-i18n="onboarding.advanced">高级：手动导入位置</button>
           <span></span>
           <button id="onboardingBackBtn" type="button" data-i18n="dialog.back">返回</button>
           <button id="onboardingSecondaryBtn" type="button" hidden></button>

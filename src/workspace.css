@@ -334,7 +334,6 @@
     margin: 0 !important;
     overflow: hidden;
     color: var(--ink-tertiary) !important;
-    font-size: 11.5px !important;
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;

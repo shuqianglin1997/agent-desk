@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T02:40:01.941Z",
-  "baseCommit": "ec603d8c4b836362f65052f9c6ef340c040eab4e",
+  "recordedAt": "2026-11-25T03:08:32.218Z",
+  "baseCommit": "94ff44071ce8bc3e422ffc4cc5255bd0c671b27a",
   "uncommitted": true,
-  "sourceSha256": "44646dd962b69393bb6473161ef09aa30788125ae18b0ee4adeceb3e950b163c",
+  "sourceSha256": "4c9cb87242bc16165a46f3e2ed40086e9042b0dcbd4b41a7d8360ae85f0c9b74",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,24 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node --test --test-reporter=spec",
+      "result": "passed",
+      "tests": 955,
+      "pass": 953,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after phase 8 batch 6 (wording change); digest identical before and after the run",
+      "recordedAt": "2026-11-25T03:08:32.218Z",
+      "sourceSha256": "4c9cb87242bc16165a46f3e2ed40086e9042b0dcbd4b41a7d8360ae85f0c9b74"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T03:08:32.218Z",
+      "sourceSha256": "4c9cb87242bc16165a46f3e2ed40086e9042b0dcbd4b41a7d8360ae85f0c9b74"
+    },
     {
       "command": "node --test --test-reporter=spec",
       "result": "passed",

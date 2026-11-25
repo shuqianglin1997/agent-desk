@@ -53,7 +53,7 @@ test('a snapshot carries its reason keys, and reason keeps the Chinese text', as
   const snapshot = quotaUnavailable('p1', 'codex', 'signed_out', 'quota.reason.codex.signedOut');
   assert.deepEqual(snapshot.reasonKeys, ['quota.reason.codex.signedOut']);
   assert.equal(snapshot.reason, mt('zh', 'quota.reason.codex.signedOut'));
-  assert.equal(snapshot.reason, 'Codex 账号尚未登录或尚未返回额度');
+  assert.equal(snapshot.reason, 'Codex 尚未登录或尚未返回额度');
 
   const unsupported = await fetchProfileQuota({ id: 'p2', appId: 'claude' });
   assert.deepEqual(unsupported.reasonKeys, ['quota.reason.claude.unsupported']);
