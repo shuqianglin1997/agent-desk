@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T07:43:19.061Z",
-  "baseCommit": "5d6fb8988afaebeb87e88a3796a2fa1a5470c2d0",
+  "recordedAt": "2026-11-25T07:54:32.681Z",
+  "baseCommit": "36cac1df3b36e8dcb8f02fa1eef99b937fbda66b",
   "uncommitted": true,
-  "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615",
+  "sourceSha256": "4dd599aebdce67321a603432341d38db676429c30393369d540bce31725c8d49",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,31 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1003,
+      "pass": 1001,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite, run through scripts/run-tests.js, after the state line of an account card and the footer status stopped clipping the 2px outline of their lamp bead (overflow: clip with a 2px clip margin, in src/workspace.css where both selectors live)",
+      "recordedAt": "2026-11-25T07:54:32.681Z",
+      "sourceSha256": "4dd599aebdce67321a603432341d38db676429c30393369d540bce31725c8d49"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Syntax check",
+      "recordedAt": "2026-11-25T07:54:32.681Z",
+      "sourceSha256": "4dd599aebdce67321a603432341d38db676429c30393369d540bce31725c8d49"
+    },
+    {
+      "command": "node media/launch-video/reference/capture.js <dir> (hidden window, 960×840 at 2×, six fixture accounts)",
+      "result": "passed",
+      "scope": "Lamp bead outline: before the change the card state bead and the footer bead showed the outline on three sides (the left 2px were clipped); after it both show all four sides, and the boxes of the state line, the bead and the label are unchanged ([225,181.59 38×15.59], [225,185.39 8×8]); zh and en captured; not a visible-window run",
+      "recordedAt": "2026-11-25T07:54:32.681Z",
+      "sourceSha256": "4dd599aebdce67321a603432341d38db676429c30393369d540bce31725c8d49"
+    },
     {
       "command": "node scripts/keychain-name-probe.js",
       "result": "passed",

@@ -2973,6 +2973,9 @@
     /* 卡片高度是定死的（Agent 区 222px），多一行就会把按钮挤出搁板下沿，所以“N 条新回复”接在名牌状态那一行的后半段 */
     max-width: 100%;
     min-width: 0;
+    /* 状态灯的 2px 描边画在盒子外面：裁过长的字时给它留出这 2px，不然贴着左边的那一条被裁掉，灯珠缺一边 */
+    overflow: clip;
+    overflow-clip-margin: 2px;
   }
 
   .agent-panel .account-card-fact-value {
@@ -3305,7 +3308,9 @@
 
   /* Footer ------------------------------------------------------------- */
   .footer-status {
-    overflow: hidden;
+    /* 页脚状态灯的 2px 描边同样画在盒子外面，裁字时留出这 2px */
+    overflow: clip;
+    overflow-clip-margin: 2px;
     flex: 1;
     display: flex;
     align-items: center;
