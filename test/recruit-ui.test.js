@@ -8,28 +8,34 @@ const { rendererSource } = require('./helpers/renderer-source');
 
 const root = path.join(__dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
+const { page, declared, loadPreload } = require('./helpers/behaviour');
 
 test('one Recruit entry opens one dialog with four sections and one primary button', () => {
-  const html = read('src/index.html');
-  const dialog = html.slice(html.indexOf('<dialog id="recruitDialog"'), html.indexOf('</dialog>', html.indexOf('<dialog id="recruitDialog"')));
-  assert.match(html, /id="addProfileBtn"[^>]*aria-controls="recruitDialog"/);
-  assert.doesNotMatch(html, /id="windowAddMenu"|id="codexImportBtn"/);
-  assert.match(dialog, /aria-labelledby="recruitTitle"[^>]*aria-describedby="recruitSummary"/);
-  const tabs = [...dialog.matchAll(/role="tab" id="(recruitTab\w+)" data-section="(\w+)"/g)].map((match) => match[2]);
-  assert.deepEqual(tabs, ['new', 'existing', 'drop', 'ai']);
+  const doc = page();
+  const dialog = doc.byId('recruitDialog');
+  const inDialog = (pred) => doc.all((el) => doc.within(el, dialog) && pred(el));
+  assert.equal(doc.byId('addProfileBtn').attrs['aria-controls'], 'recruitDialog');
+  assert.equal(doc.byId('windowAddMenu'), null);
+  assert.equal(doc.byId('codexImportBtn'), null);
+  assert.deepEqual([dialog.attrs['aria-labelledby'], dialog.attrs['aria-describedby']], ['recruitTitle', 'recruitSummary']);
+  assert.deepEqual(inDialog((el) => el.attrs.role === 'tab').map((el) => el.attrs['data-section']), ['new', 'existing', 'drop', 'ai']);
   for (const section of ['recruitNew', 'recruitExisting', 'recruitDrop', 'recruitAi']) {
-    assert.match(dialog, new RegExp(`<section id="${section}" role="tabpanel"`));
+    const panel = doc.byId(section);
+    assert.deepEqual([panel.tag, panel.attrs.role, doc.within(panel, dialog)], ['section', 'tabpanel', true]);
   }
-  assert.equal((dialog.match(/class="primary"/g) || []).length, 1, 'one filled primary button, in the footer');
-  assert.match(dialog, /<footer class="utility-dialog-footer recruit-footer">[\s\S]*?id="recruitPrimaryBtn" class="primary"/);
+  const primaries = inDialog((el) => doc.hasClass(el, 'primary'));
+  assert.equal(primaries.length, 1, 'one filled primary button, in the footer');
+  const footer = inDialog((el) => el.tag === 'footer')[0];
+  assert.ok(doc.hasClass(footer, 'recruit-footer') && primaries[0].attrs.id === 'recruitPrimaryBtn' && doc.within(primaries[0], footer));
   // First use opens the matching sections of the same dialog.
-  assert.match(html, /id="onboardingCodexImportBtn"[^>]*aria-controls="recruitDialog"/);
+  assert.equal(doc.byId('onboardingCodexImportBtn').attrs['aria-controls'], 'recruitDialog');
   const renderer = rendererSource();
   assert.match(renderer, /onboardingCodexImportBtn\?\.addEventListener\('click'[\s\S]*?recruitDialog\.open\('drop'\)/);
   assert.match(renderer, /onboardingAdvancedBtn\?\.addEventListener\('click'[\s\S]*?recruitDialog\.open\('existing'\)/);
   assert.match(renderer, /if \(els\.recruitDialog\?\.open\) recruitDialog\.render\(\);/);
   // The controller loads before the renderer that creates it.
-  assert.ok(html.indexOf('./renderer/recruit.js') < html.indexOf('./renderer.js'));
+  const scripts = doc.all((el) => el.tag === 'script' && el.attrs.src).map((el) => el.attrs.src);
+  assert.ok(scripts.indexOf('./renderer/recruit.js') >= 0 && scripts.indexOf('./renderer/recruit.js') < scripts.indexOf('./renderer.js'));
 });
 
 test('the dialog never handles a raw path and clears a pasted key right after reading it', () => {
@@ -42,9 +48,16 @@ test('the dialog never handles a raw path and clears a pasted key right after re
   assert.match(recruit, /request\.secret = secretInput\?\.value \|\| '';\s*\/\/ The key goes once to Main; the field never keeps it\.\s*if \(secretInput\) secretInput\.value = '';/);
   assert.doesNotMatch(recruit, /localStorage|sessionStorage|console\.(log|info|debug)/);
   assert.doesNotMatch(recruit, /\.path\b|filePath|getPathForFile/);
-  const preload = read('src/preload.js');
-  assert.match(preload, /function inspectRecruitItem\(file\)[\s\S]*?webUtils\.getPathForFile\(file\)[\s\S]*?invoke\('recruit:inspectItem', selectedPath\)/);
-  assert.match(preload, /importRecruitItem: \(selectionId\) => ipcRenderer\.invoke\('recruit:importItem', \{ selectionId: String\(selectionId \|\| ''\)\.slice\(0, 128\) \}\)/);
+  const file = {};
+  const { api, calls } = loadPreload({ getPathForFile: (item) => (item === file ? '/dropped/auth.json' : '') });
+  api.inspectRecruitItem(file);
+  api.importRecruitItem('x'.repeat(200));
+  api.importRecruitItem(undefined);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [
+    ['invoke', 'recruit:inspectItem', '/dropped/auth.json'],
+    ['invoke', 'recruit:importItem', { selectionId: 'x'.repeat(128) }],
+    ['invoke', 'recruit:importItem', { selectionId: '' }]
+  ]);
   const main = mainHandlerSource();
   assert.match(main, /ipcMain\.handle\('recruit:importItem'[\s\S]*?resolveEntry\(selectionId, 'recruit-item'\)[\s\S]*?executeRecruitItem\(itemPath, meta\?\.action\)/);
   assert.match(read('src/main/recruit-items.js'), /if \(planned\.action !== expectedAction\) throw new RecruitItemError\('location-changed'\);/);
@@ -87,10 +100,8 @@ test('recruit copy exists in all three languages and the dialog styles stay insi
   for (const section of ['tab.new', 'method.browser', 'note.plaintext', 'drop.move', 'ai.human']) {
     assert.ok(tables.en[`recruit.${section}`] && tables.en[`recruit.${section}`] !== tables.zh[`recruit.${section}`]);
   }
-  const css = read('src/pixel.css');
-  assert.match(css, /══ 招募 ══/);
   // A global `table { min-width: 720px }` once pushed the table out of the dialog.
-  assert.match(css, /\.recruit-accepts \{ width: 100%; min-width: 0;/);
-  assert.match(css, /\.recruit-content > section \{ display: grid; grid-template-columns: minmax\(0, 1fr\);/);
-  assert.match(css, /\.recruit-choice, \.recruit-home \{[^}]*text-transform: none;/);
+  assert.deepEqual([declared('.recruit-accepts', 'width'), declared('.recruit-accepts', 'min-width')], ['100%', '0']);
+  assert.deepEqual([declared('.recruit-content > section', 'display'), declared('.recruit-content > section', 'grid-template-columns')], ['grid', 'minmax(0, 1fr)']);
+  for (const selector of ['.recruit-choice', '.recruit-home']) assert.equal(declared(selector, 'text-transform'), 'none');
 });

@@ -27,7 +27,7 @@ function loadPreload(options = {}) {
       on: (channel, fn) => { listeners.push([channel, fn]); },
       removeListener: () => {}
     },
-    webUtils: { getPathForFile: () => '' }
+    webUtils: { getPathForFile: options.getPathForFile || (() => '') }
   };
   const source = fs.readFileSync(path.join(ROOT, 'src', 'preload.js'), 'utf8');
   vm.runInNewContext(source, { require: () => electron, console, setTimeout, clearTimeout, Promise });
