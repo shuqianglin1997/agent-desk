@@ -24,8 +24,10 @@ const CARD = { first: 140, w: 134, pitch: 134 };   // the article box; the paper
 const LEDGER = { x: 22, y: 290, w: 916, h: 502, toolbar: 40, head: 33 };
 const NIGHT_DESK = '#140E11';
 
-const cardX = (k) => CARD.first + CARD.pitch * k;
-const cardCentre = (k) => cardX(k) + CARD.w / 2;
+// The roster scrolls sideways when there are more cats than fit: `scroll` is how far the cards have moved left.
+const cardX = (k, scroll = 0) => CARD.first + CARD.pitch * k - scroll;
+const cardCentre = (k, scroll = 0) => cardX(k, scroll) + CARD.w / 2;
+const ROSTER_LEFT = 138, ROSTER_RIGHT = 952;
 const upper = (lang, text) => (lang === 'en' ? text.toUpperCase() : text);
 
 /* ── Desk and lamp ─────────────────────────────────── */
@@ -160,8 +162,8 @@ function pips(pen, x, y, count, level) {
   }
 }
 
-function cardLayout(pen, lang, k) {
-  const x = cardX(k), centre = x + CARD.w / 2;
+function cardLayout(pen, lang, k, scroll = 0) {
+  const x = cardX(k, scroll), centre = x + CARD.w / 2;
   const open = ui(lang, 'account.open'), manage = ui(lang, 'account.manageShort');
   const openW = 8 + 10 + 5 + pen.width(open) + 8, manageW = 8 + pen.width(manage) + 8, total = openW + 2 + manageW;
   const left = Math.round(centre - total / 2);
@@ -173,9 +175,10 @@ function cardLayout(pen, lang, k) {
   };
 }
 
-function card(pen, lang, k, account) {
-  const P = pen.P, L = cardLayout(pen, lang, k), dy = account.plateDy || 0, ctx = pen.ctx;
+function card(pen, lang, k, account, scroll = 0) {
+  const P = pen.P, L = cardLayout(pen, lang, k, scroll), dy = account.plateDy || 0, ctx = pen.ctx;
   if (account.plateDy === null || account.plateDy === undefined) return;
+  if (L.x + CARD.w < ROSTER_LEFT || L.x > ROSTER_RIGHT) return;
   ctx.save();
   ctx.beginPath(); ctx.rect(L.x - 8, SHELF_Y + 8, CARD.w + 16, H); ctx.clip();
   plate(pen, L.paper.x, L.paper.w, L.paper.h, dy, account.selected);
@@ -184,7 +187,7 @@ function card(pen, lang, k, account) {
   // What it is doing: one lamp bead and one line.
   const label = account.state.label, labelW = pen.width(label), stateX = Math.round(centre - (8 + 6 + labelW) / 2);
   lampDot(pen, stateX, 185.5 + dy, P[DOT[account.state.dot]] || P.mute);
-  pen.text(label, stateX + 14, 183 + dy, { colour: account.state.alert ? P.badInk : P.ink2 });
+  pen.text(label, stateX + 14, 183 + dy, { colour: P.ink2 });
   // How much energy is left.
   const quota = account.quota, quotaW = 58 + 6 + pen.width(quota.text), quotaX = Math.round(centre - quotaW / 2);
   pips(pen, quotaX, 203 + dy, quota.pips, quota.level);
@@ -235,27 +238,73 @@ function bracket(pen, x, y, w, h) {
   }
 }
 
+// Cards sliding out under "All" melt into the desk in an ordered dither instead of being cut (the app's dissolve strip).
+function dissolve(pen, state, x0, width) {
+  const ctx = pen.ctx, BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+  ctx.save();
+  ctx.beginPath();
+  for (let y = 56; y < 276; y += 2) for (let x = x0; x < x0 + width; x += 2) {
+    const solid = 1 - (x - x0 + 1) / width;
+    if (solid > (BAYER[(y / 2) & 3][((x - x0) / 2) & 3] + 0.5) / 16) ctx.rect(x, y, 2, 2);
+  }
+  ctx.clip();
+  desk(pen, state.lamp);
+  ctx.restore();
+}
+
+// A call in progress: short dashes along the middle of the plank, flowing toward the cat that was called.
+function hubLinks(pen, r, t) {
+  const scroll = r.scroll || 0;
+  for (const link of r.links || []) {
+    const from = cardCentre(link.from, scroll), to = cardCentre(link.to, scroll), left = Math.min(from, to), right = Math.max(from, to);
+    const shift = (Math.floor(t * 6) % 3) * 12 * (to > from ? 1 : -1);
+    for (let x = left - 36 + ((shift % 36) + 36) % 36; x < right; x += 36) {
+      const a = Math.max(left, x), b = Math.min(right, x + 6);
+      if (b > a && a >= ROSTER_LEFT) pen.rect(a, SHELF_Y + 3, b - a, 2, pen.P.woodAccent);
+    }
+  }
+}
+
+function mailBadge(pen, x, count) {
+  const P = pen.P, w = 3 + 12 + 3 + pen.width(String(count)) + 4;
+  pen.frame(x + 6, 80, w, 18, { bevel: false });
+  pen.icon('mail', x + 9, 83, 12, P.brandInk);
+  pen.text(String(count), x + 24, 83, { colour: P.brandInk });
+}
+
+const shownAccount = (a) => (a.plateDy !== null && a.plateDy !== undefined) || Boolean(a.cat);
+function shelfEnd(r) {
+  if (r.shelfEnd !== undefined) return r.shelfEnd;
+  const last = r.accounts.reduce((n, a, k) => (shownAccount(a) ? k : n), -1);
+  return last < 0 ? ALL.x + ALL.w + 8 : Math.min(ROSTER_RIGHT, cardX(last, r.scroll || 0) + CARD.w + 8);
+}
+
 function roster(pen, lang, state) {
-  const r = state.roster, accounts = r.accounts;
-  const shown = accounts.filter((a) => a.plateDy !== null && a.plateDy !== undefined || a.cat);
+  const r = state.roster, accounts = r.accounts, scroll = r.scroll || 0, ctx = pen.ctx;
+  ctx.save(); ctx.beginPath(); ctx.rect(ROSTER_LEFT, 0, W - ROSTER_LEFT, H); ctx.clip();
+  accounts.forEach((account, k) => card(pen, lang, k, account, scroll));
+  accounts.forEach((account, k) => { const centre = cardCentre(k, scroll); if (centre > ROSTER_LEFT - 44 && centre < W + 44) pitCat(pen, centre, account.cat); });
+  accounts.forEach((account, k) => { if (account.mail && account.plateDy === 0) mailBadge(pen, cardX(k, scroll), account.mail); });
+  if (scroll > 0) dissolve(pen, state, ROSTER_LEFT, 56);
+  ctx.restore();
   allCard(pen, lang, r);
-  accounts.forEach((account, k) => card(pen, lang, k, account));
   if (r.photo !== false) groupPhoto(pen);
-  accounts.forEach((account, k) => pitCat(pen, cardCentre(k), account.cat));
-  ledge(pen, 18, r.shelfEnd !== undefined ? r.shelfEnd : (shown.length ? cardX(accounts.length - 1) + CARD.w + 8 : ALL.x + ALL.w + 8));
+  ledge(pen, 18, shelfEnd(r));
+  hubLinks(pen, r, state.t || 0);
   if (r.bracket !== false) {
     if (r.scope === 'all') bracket(pen, ALL.x - 6, 68, ALL.w + 12, 139);
-    else if (Number.isInteger(r.scope) && accounts[r.scope] && accounts[r.scope].plateDy === 0) bracket(pen, cardX(r.scope) - 6, 68, CARD.w + 12, 205);
+    else if (Number.isInteger(r.scope) && accounts[r.scope] && accounts[r.scope].plateDy === 0) bracket(pen, cardX(r.scope, scroll) - 6, 68, CARD.w + 12, 205);
   }
 }
 
 // The cats and the shelf once more, over anything drawn across the window since (the links to the clients pass behind the cats).
 function catsAgain(pen, state) {
   if (!state.roster) return;
-  const r = state.roster, shown = r.accounts.filter((a) => a.cat);
+  const r = state.roster, scroll = r.scroll || 0;
   if (r.photo !== false) groupPhoto(pen);
-  r.accounts.forEach((account, k) => pitCat(pen, cardCentre(k), account.cat));
-  ledge(pen, 18, r.shelfEnd !== undefined ? r.shelfEnd : (shown.length ? cardX(r.accounts.length - 1) + CARD.w + 8 : ALL.x + ALL.w + 8));
+  r.accounts.forEach((account, k) => pitCat(pen, cardCentre(k, scroll), account.cat));
+  ledge(pen, 18, shelfEnd(r));
+  hubLinks(pen, r, state.t || 0);
 }
 
 /* ── The desk before the first cat ─────────────────── */
@@ -293,83 +342,170 @@ function dotted(pen, x0, x1, y, colour) {
 function toolbarLayout(pen, lang, ledger) {
   const title = ledger.title, chipW = pen.width(title) + 18;
   const count = String(ledger.count), countX = 34 + chipW + 16;
-  const filtersX = Math.max(143, countX + pen.width(count) + 14);
-  const fresh = ui(lang, 'marks.fresh'), freshW = 5 + 12 + 12 + pen.width(fresh) + 4 + pen.width(String(ledger.fresh || 0)) + 5;
-  const tagsX = filtersX + freshW + 12;
-  const clear = ledger.filter ? ui(lang, 'marks.clear') : '', clearW = clear ? pen.width(clear) + 12 : 0;
-  const copyLabel = ui(lang, 'session.copyInfo') + (ledger.checked ? ' · ' + ledger.checked : '');
+  const picked = ledger.checked || 0;
+  const fresh = ui(lang, 'marks.fresh'), freshCount = String(ledger.fresh || 0);
+  const copyLabel = picked > 1 ? ui(lang, 'session.copyInfoCount', { n: picked }) : ui(lang, 'session.copyInfo');
   const copyW = 10 + 12 + 13 + pen.width(copyLabel) + 10;
-  const send = ui(lang, 'session.actions.send'), sendW = 7 + 12 + 13 + pen.width(send) + 6 + 10 + 7;
-  const open = ui(lang, 'session.actions.openDirectory'), exportLabel = ui(lang, 'session.actions.export');
+  const send = ui(lang, 'session.actions.send'), open = ui(lang, 'session.actions.openDirectory'), exportLabel = ui(lang, 'session.actions.export');
   const view = ui(lang, 'session.view.compact'), viewW = Math.max(74, pen.width(view) + 50);
-  const right = 930, tagsEnd = tagsX + 5 * 26 + clearW;
-  // Fit as the app does when the bar is crowded: the two side actions fall back to their icons.
-  let openW = 7 + 12 + 5 + pen.width(open) + 7, exportW = 7 + 12 + 5 + pen.width(exportLabel) + 7, icons = false;
-  const need = () => tagsEnd + 18 + 80 + 4 + viewW + 10 + copyW + 4 + openW + 2 + exportW + 2 + sendW;
-  if (need() > right) { icons = true; openW = 26; exportW = 26; }
-  const sendX = right - sendW, exportX = sendX - 2 - exportW, openX = exportX - 2 - openW, copyX = openX - 4 - copyW;
-  const viewX = copyX - 10 - viewW, searchX = tagsEnd + 18, searchW = Math.max(60, Math.min(170, viewX - 4 - searchX));
+  const clear = ledger.filter !== undefined && ledger.filter !== null ? ui(lang, 'marks.clear') : '', clearW = clear ? pen.width(clear) + 12 : 0;
+  const selection = picked ? { count: ui(lang, 'session.selection.count', { n: picked }), tag: ui(lang, 'marks.tagChecked') } : null;
+  const selectionW = selection ? 14 + pen.width(selection.count) + 6 + pen.width(selection.tag) + 10 + 4 + 23 : 0;
+  const right = 930;
+  // The app fits a crowded bar in steps: first "New reply" keeps only its bubble and count, then the side actions keep only their icons.
+  const widths = (fit) => {
+    const freshW = fit >= 1 ? 5 + 12 + 6 + pen.width(freshCount) + 5 : 5 + 12 + 12 + pen.width(fresh) + 4 + pen.width(freshCount) + 5;
+    const openW = fit >= 2 ? 26 : 7 + 12 + 5 + pen.width(open) + 7, exportW = fit >= 2 ? 26 : 7 + 12 + 5 + pen.width(exportLabel) + 7;
+    const sendW = fit >= 2 ? 7 + 12 + 6 + 10 + 7 : 7 + 12 + 13 + pen.width(send) + 6 + 10 + 7;
+    return { freshW, openW, exportW, sendW };
+  };
+  let fit = 0, w = widths(0);
+  const filtersX = Math.max(143, countX + pen.width(count) + 14);
+  const need = (v) => filtersX + v.freshW + 12 + 5 * 26 + clearW + 14 + 70 + 4 + viewW + 8 + (selection ? selectionW + 4 : 0) + copyW + 4 + v.openW + 2 + v.exportW + 2 + v.sendW;
+  while (fit < 2 && need(w) > right) { fit += 1; w = widths(fit); }
+  const tagsX = filtersX + w.freshW + 12, tagsEnd = tagsX + 5 * 26 + clearW;
+  const sendX = right - w.sendW, exportX = sendX - 2 - w.exportW, openX = exportX - 2 - w.openW, copyX = openX - 4 - copyW;
+  const selectionX = selection ? copyX - 4 - selectionW : copyX;
+  const viewX = selectionX - 8 - viewW, searchX = tagsEnd + 14, searchW = Math.max(60, Math.min(170, viewX - 4 - searchX));
   return {
-    chip: { x: 34, y: 299.5, w: chipW, h: 23 }, countX, fresh: { x: filtersX, y: 298, w: freshW, h: 26, label: fresh }, sepX: filtersX + freshW + 5,
+    fit, chip: { x: 34, y: 299.5, w: chipW, h: 23 }, countX,
+    fresh: { x: filtersX, y: 298, w: w.freshW, h: 26, label: fresh, count: freshCount }, sepX: filtersX + w.freshW + 5,
     tags: [0, 1, 2, 3, 4].map((k) => ({ x: tagsX + k * 26, y: 298, w: 24, h: 26 })), clear: clear ? { x: tagsX + 5 * 26 + 2, y: 298, w: clearW, h: 26, label: clear } : null,
     search: { x: searchX, y: 297, w: searchW, h: 28 }, view: { x: viewX, y: 298, w: viewW, h: 26, label: view },
-    copy: { x: copyX, y: 299, w: copyW, h: 24, label: copyLabel }, open: { x: openX, y: 298, w: openW, h: 26, label: open },
-    export: { x: exportX, y: 298, w: exportW, h: 26, label: exportLabel }, send: { x: sendX, y: 298, w: sendW, h: 26, label: send }, icons
+    selection: selection ? { x: selectionX, y: 300, w: selectionW, h: 22, ...selection } : null,
+    copy: { x: copyX, y: 299, w: copyW, h: 24, label: copyLabel }, open: { x: openX, y: 298, w: w.openW, h: 26, label: open },
+    export: { x: exportX, y: 298, w: w.exportW, h: 26, label: exportLabel }, send: { x: sendX, y: 298, w: w.sendW, h: 26, label: send }
   };
 }
 
 const rowHeight = (ledger) => (ledger.twoLine ? 37.5 : 36);
 const rowTop = (ledger, n) => LEDGER.y + LEDGER.toolbar + LEDGER.head + Math.round(n * rowHeight(ledger) * 2) / 2;
+// Where on a row its checkbox, its title and its end sit (for the cursor and for things that land on a row).
+function rowLayout(ledger, n) {
+  const top = rowTop(ledger, n), h = rowHeight(ledger);
+  return { top, h, box: { x: 44, y: top + (ledger.twoLine ? 11.5 : 11), w: 14, h: 14 }, title: { x: 108, y: top + (ledger.twoLine ? 4.5 : 11.5) }, end: { x: LEDGER.x + LEDGER.w - 34, y: top + h / 2 } };
+}
 
-function ledgerPane(pen, lang, ledger) {
+// The lamp of a background chat: empty while starting, seal red blinking while running, green when done.
+function hubLamp(pen, x, y, state, t) {
+  const P = pen.P;
+  pen.rect(x - 2, y - 2, 14, 14, P.edge);
+  pen.rect(x, y, 10, 10, state === 'completed' ? P.ok : state === 'running' ? (Math.floor(t * 4) % 2 ? P.line : P.brand) : P.float);
+}
+
+function ledgerRow(pen, lang, ledger, row, n, t) {
+  const P = pen.P, { x, w } = LEDGER, ctx = pen.ctx, rh = rowHeight(ledger), top = rowTop(ledger, n), dx = row.dx || 0;
+  if (row.checked) pen.rect(x, top, w, rh - 2, P.chk);
+  if (row.lit) pen.rect(x, top, w, rh - 2, P.hl);
+  else if (row.hover) pen.dither(x, top, w, rh - 2, P.hl, 8);
+  ctx.save(); ctx.beginPath(); ctx.rect(x, top, w, rh); ctx.clip();
+  const L = rowLayout(ledger, n), titleTop = L.title.y;
+  if (row.hub) {
+    hubLamp(pen, 110 + dx, titleTop + 1, row.hub.state, t);
+    pen.text(row.title, 128 + dx, titleTop, { colour: P.ink });
+    const kind = ui(lang, 'hub.kind'), kindW = pen.width(kind) + 8;
+    pen.rect(76 + dx, top + 21, kindW, 14, P.line); pen.rect(78 + dx, top + 23, kindW - 4, 10, row.lit ? P.hl : P.float);
+    pen.text(kind, 80 + dx, top + 22, { colour: P.ink });
+    pen.text(row.hub.pair, 76 + dx + kindW + 6, top + 22, { colour: P.ink2 });
+    const mid = top + 12.5, folderW = pen.text(row.project, 527.5 + dx, mid, { colour: P.ink });
+    pen.text(ui(lang, 'hub.access.read'), 527.5 + dx + folderW + 6, mid, { colour: P.ink2 });
+    if (row.hub.state === 'completed') {
+      pen.text(row.when, 822 + dx, mid, { colour: P.ink, align: 'right' });
+      pen.text(ui(lang, 'hub.state.completed'), 842 + dx, mid, { colour: P.okInk });
+    } else {
+      pen.text(row.hub.state === 'starting' ? ui(lang, 'hub.state.starting') : ui(lang, 'hub.elapsed.running', { t: row.hub.elapsed }), 822 + dx, mid, { colour: P.ink, align: 'right' });
+      const stop = ui(lang, 'hub.stop'), stopW = 6 + 8 + 4 + pen.width(stop) + 6;
+      pen.rect(842 + dx, top + 7.5, stopW, 22, P.brand); pen.rect(844 + dx, top + 9.5, stopW - 4, 18, row.lit ? P.hl : P.float);
+      pen.icon('x', 848 + dx, top + 14.5, 8, P.brandInk);
+      pen.text(stop, 860 + dx, top + 12.5, { colour: P.brandInk });
+    }
+  } else {
+    const big = row.stamp === 2 ? 4 : row.stamp === 1 ? -1 : 0;
+    pen.frame(L.box.x + dx - big, L.box.y - big, 14 + big * 2, 14 + big * 2, { fill: row.checked ? P.brand : P.float, bevel: !row.checked });
+    if (row.checked) pen.icon('check', L.box.x + dx + 1 - big, L.box.y + 1 - big, 12 + big * 2, P.onBrand);
+    if (row.tag !== undefined && row.tag !== null) pen.icon('tag' + (row.tag + 1), 76 + dx, titleTop - 0.5, 12, P.tag[row.tag]);
+    if (row.fresh) pen.icon('reply', 92 + dx, titleTop - 0.5 - (row.pop || 0), 12, P.brand);
+    // Still writing: three dots that come on one after another (mark-dot, 0.9 s a round).
+    else if (row.running) for (let d = 0; d < 3; d += 1) { if ((((t - d * 0.3) % 0.9) + 0.9) % 0.9 >= 0.3) pen.rect(93 + dx + d * 4, titleTop + 8, 2, 2, P.okInk); }
+    const titleW = pen.text(row.title, 108 + dx, titleTop, { colour: P.ink });
+    if (row.fresh) {
+      pen.text(row.title, 108.5 + dx, titleTop, { colour: P.ink });
+      const label = ui(lang, 'marks.row.fresh'), lw = pen.width(label);
+      pen.rect(112 + dx + titleW, titleTop - 2, lw + 8, 16, P.brand);
+      pen.text(label, 116 + dx + titleW, titleTop, { colour: P.onBrand });
+    } else if (row.running) pen.text(ui(lang, 'marks.row.running'), 112 + dx + titleW, titleTop, { colour: P.okInk });
+    if (row.tagButton) {
+      const label = ui(lang, 'marks.tagButton'), lw = pen.width(label) + 12;
+      pen.rect(507 - lw, top + (rh - 22) / 2, lw, 20, P.ink2); pen.rect(509 - lw, top + (rh - 22) / 2 + 2, lw - 4, 16, row.lit ? P.hl : P.float);
+      pen.text(label, 513 - lw, top + (rh - 22) / 2 + 4, { colour: P.ink });
+    }
+    if (ledger.twoLine) pen.text(row.owner, 76 + dx, top + 23, { colour: P.ink2 });
+    const mid = top + (ledger.twoLine ? 12.5 : 11.5);
+    pen.text(row.project, 527.5 + dx, mid, { colour: P.ink });
+    pen.text(row.when, 822 + dx, mid, { colour: P.ink, align: 'right' });
+    pen.text(row.source, 842 + dx, mid, { colour: P.ink2 });
+  }
+  ctx.restore();
+  dotted(pen, x, x + w, top + rh - 2, P.line);
+}
+
+function ledgerPane(pen, lang, ledger, t = 0) {
   const P = pen.P, { x, y, w, h } = LEDGER, ctx = pen.ctx;
   const openH = Math.round(h * (ledger.open === undefined ? 1 : ledger.open) / 2) * 2;
   if (openH <= 0) return;
   pen.frame(x, y, w, openH, { lip: true });
   ctx.save();
   ctx.beginPath(); ctx.rect(x, y, w, openH); ctx.clip();
-  const T = toolbarLayout(pen, lang, ledger), active = ledger.rows.some((row) => row.checked) || ledger.focused;
+  const T = toolbarLayout(pen, lang, ledger), active = (ledger.checked || 0) > 0;
   // Bookmark: what is listed, and how many.
   pen.rect(T.chip.x, T.chip.y, T.chip.w, T.chip.h, P.edge);
   pen.text(ledger.title, T.chip.x + 9, 305.5, { colour: P.float });
   pen.text(String(ledger.count), T.countX, 305.5, { colour: P.brandDeep });
-  // Marks: new replies and the five tags.
-  if (ledger.filter === 'fresh') pen.rect(T.fresh.x, T.fresh.y, T.fresh.w, T.fresh.h, P.hl);
-  pen.icon('reply', T.fresh.x + 5, 305, 12, P.brand);
-  const freshW = pen.text(T.fresh.label, T.fresh.x + 29, 305, { colour: P.ink2 });
-  pen.text(String(ledger.fresh || 0), T.fresh.x + 33 + freshW, 305, { colour: P.brandDeep });
+  // Marks: new replies and the five tags. A pressed filter is a filled band with an ink ring.
+  const pressed = (box) => { pen.rect(box.x, box.y, box.w, box.h, P.ink); pen.rect(box.x + 2, box.y + 2, box.w - 4, box.h - 4, P.chk); };
+  if (ledger.filter === 'fresh') pressed(T.fresh);
+  pen.icon('reply', T.fresh.x + 5, 305 - (ledger.freshPop || 0), 12, P.brand);
+  if (T.fit >= 1) pen.text(T.fresh.count, T.fresh.x + 23, 305, { colour: P.brandDeep });
+  else { const fw = pen.text(T.fresh.label, T.fresh.x + 29, 305, { colour: P.ink2 }); pen.text(T.fresh.count, T.fresh.x + 33 + fw, 305, { colour: P.brandDeep }); }
   pen.rect(T.sepX, 303, 2, 16, P.line);
   T.tags.forEach((tag, k) => {
-    if (ledger.filter === k) pen.rect(tag.x, tag.y, tag.w, tag.h, P.hl);
+    if (ledger.filter === k) pressed(tag);
+    else if (ledger.hover === 'tag' + k) pen.dither(tag.x, tag.y, tag.w, tag.h, P.hl, 8);
     pen.icon('tag' + (k + 1), tag.x + 6, 305, 12, P.tag[k]);
   });
-  if (T.clear) pen.text(T.clear.label, T.clear.x + 6, 305, { colour: P.brandInk });
+  if (T.clear) { pen.text(T.clear.label, T.clear.x + 6, 305, { colour: P.brandInk }); pen.rect(T.clear.x + 6, 319, T.clear.w - 12, 1, P.brandInk); }
   // Search.
   const S = T.search, query = ledger.query || '';
   pen.rect(S.x, S.y + 26, S.w, 2, ledger.searching ? P.focus : P.ink2);
   pen.icon('search', S.x + 4, 305, 12, P.ink2);
   ctx.save(); ctx.beginPath(); ctx.rect(S.x + 22, S.y, S.w - 26, S.h); ctx.clip();
-  if (query) pen.read(query + (ledger.caret ? '|' : ''), S.x + 22, 301, { lineHeight: 20 });
+  if (query || ledger.searching) pen.read(query + (ledger.caret ? '|' : ''), S.x + 22, 301, { lineHeight: 20 });
   else pen.text(ui(lang, 'session.search'), S.x + 22, 305, { colour: P.ink2 });
   ctx.restore();
   pen.text(T.view.label, T.view.x + 25, 305, { colour: P.ink });
+  if (T.selection) {
+    const X = T.selection, cw = pen.text(X.count, X.x + 14, 305, { colour: P.ink2 });
+    const tw = pen.text(X.tag, X.x + 20 + cw, 305, { colour: P.ink });
+    pen.rect(X.x + 20 + cw, 319, tw, 1, P.ink);
+    pen.text('×', X.x + X.w - 16, 305, { colour: P.ink });
+  }
   // Actions: copy is the one seal of this region; it lights up when a row is picked.
-  const C = T.copy;
+  const C = T.copy, sink = ledger.copyPressed ? 2 : 0;
   if (active) {
     pen.seal(C.x, C.y, C.w, C.h, ledger.copyPressed);
-    pen.icon('copy', C.x + 10, C.y + 5 + (ledger.copyPressed ? 2 : 0), 12, P.onBrand);
-    pen.text(C.label, C.x + 35, C.y + 5 + (ledger.copyPressed ? 2 : 0), { colour: P.onBrand });
+    pen.icon('copy', C.x + 10, C.y + 5 + sink, 12, P.onBrand);
+    pen.text(C.label, C.x + 35, C.y + 5 + sink, { colour: P.onBrand });
   } else {
     pen.icon('copy', C.x + 10, C.y + 6, 12, P.off);
     pen.text(C.label, C.x + 35, C.y + 6, { colour: P.off });
   }
   const side = active ? P.ink : P.off;
-  pen.icon('folder', T.open.x + 7, 305, 12, side); if (!T.icons) pen.text(T.open.label, T.open.x + 24, 305, { colour: side });
-  pen.icon('box', T.export.x + 7, 305, 12, side); if (!T.icons) pen.text(T.export.label, T.export.x + 24, 305, { colour: side });
+  pen.icon('folder', T.open.x + 7, 305, 12, side); if (T.fit < 2) pen.text(T.open.label, T.open.x + 24, 305, { colour: side });
+  pen.icon('box', T.export.x + 7, 305, 12, side); if (T.fit < 2) pen.text(T.export.label, T.export.x + 24, 305, { colour: side });
   if (ledger.sendOpen) pen.dither(T.send.x, T.send.y, T.send.w, T.send.h, P.hl, 8);
-  pen.icon('send', T.send.x + 7, 305, 12, active ? P.ink : P.off);
-  pen.text(T.send.label, T.send.x + 32, 305, { colour: active ? P.ink : P.ink2 });
-  pen.icon('caret', T.send.x + T.send.w - 17, 306, 10, active ? P.ink : P.off);
+  pen.icon('send', T.send.x + 7, 305, 12, side);
+  if (T.fit < 2) pen.text(T.send.label, T.send.x + 32, 305, { colour: active ? P.ink : P.ink2 });
+  pen.icon('caret', T.send.x + T.send.w - 17, 306, 10, side);
 
   // Column heads.
   const headY = y + LEDGER.toolbar;
@@ -377,40 +513,13 @@ function ledgerPane(pen, lang, ledger) {
   checkbox(pen, 44, headY + 9, false);
   pen.text(ui(lang, 'session.col.title'), 76, headY + 10, { colour: P.ink2 });
   pen.text(ui(lang, 'session.col.project'), 527.5, headY + 10, { colour: P.ink2 });
-  const activeW = pen.text(ui(lang, 'session.col.active'), 804, headY + 10, { colour: P.ink2, align: 'right' });
+  pen.text(ui(lang, 'session.col.active'), 804, headY + 10, { colour: P.ink2, align: 'right' });
   pen.text('↓', 813, headY + 10, { colour: P.ink2 });
   pen.text(ui(lang, 'session.col.source'), 842, headY + 10, { colour: P.ink2 });
-  void activeW;
 
   // Rows.
-  const bodyY = headY + LEDGER.head, rh = rowHeight(ledger);
-  ledger.rows.forEach((row, n) => {
-    const top = rowTop(ledger, n) + (row.dx ? 0 : 0), dx = row.dx || 0;
-    if (row.hidden) return;
-    if (row.checked) pen.rect(x, top, w, rh - 2, P.chk);
-    if (row.focused) pen.rect(x, top, w, rh - 2, P.hl);
-    else if (row.lit) pen.rect(x, top, w, rh - 2, P.hl);
-    ctx.save(); ctx.beginPath(); ctx.rect(x, top, w, rh); ctx.clip();
-    checkbox(pen, 44 + dx, top + (ledger.twoLine ? 11.5 : 11), row.checked);
-    const titleTop = top + (ledger.twoLine ? 4.5 : 11.5);
-    if (row.tag !== undefined && row.tag !== null) pen.icon('tag' + (row.tag + 1), 76 + dx, titleTop - 0.5, 12, P.tag[row.tag]);
-    if (row.lamp) { pen.rect(92 + dx, titleTop + 1, 10, 10, P.edge); pen.rect(94 + dx, titleTop + 3, 6, 6, row.lamp === 'done' ? P.ok : row.lamp === 'on' ? P.brand : P.float); }
-    else if (row.fresh) pen.icon('reply', 92 + dx, titleTop - 0.5, 12, P.brand);
-    else if (row.running) pen.icon('dots', 92 + dx, titleTop - 0.5, 12, P.ok);
-    const titleW = pen.text(row.title, 108 + dx, titleTop, { colour: P.ink });
-    if (row.fresh) {
-      const label = ui(lang, 'marks.row.fresh'), lw = pen.width(label);
-      pen.rect(116 + dx + titleW, titleTop - 1, lw + 8, 14, P.brand);
-      pen.text(label, 120 + dx + titleW, titleTop, { colour: P.onBrand });
-    }
-    if (ledger.twoLine) pen.text(row.owner, 76 + dx, top + 23, { colour: P.ink2 });
-    const mid = top + (ledger.twoLine ? 12.5 : 11.5);
-    pen.text(row.project, 527.5 + dx, mid, { colour: P.ink });
-    pen.text(row.when, 822 + dx, mid, { colour: P.ink, align: 'right' });
-    pen.text(row.source, 842 + dx, mid, { colour: P.ink2 });
-    ctx.restore();
-    dotted(pen, x, x + w, top + rh - 2, P.line);
-  });
+  const bodyY = headY + LEDGER.head;
+  ledger.rows.forEach((row, n) => ledgerRow(pen, lang, ledger, row, n, t));
   if (!ledger.rows.length && ledger.emptyText) {
     const lines = pen.wrap(ledger.emptyText, 620, 13);
     lines.forEach((line, i) => pen.read(line, x + w / 2 + 22, bodyY + 46 + i * 20, { align: 'center' }));
@@ -428,11 +537,14 @@ function footer(pen, lang, foot) {
   pen.rect(0, y, W, H - y + 40, P.wood);
   pen.rect(0, y, W, 2, P.edge);
   pen.rect(0, y + 2, W, 2, P.woodHi);
-  if (foot.mascot !== false) pen.cat('orange', foot.mascotSpec || { pose: 'loaf' }, 20, y, { cell: 2, collar: '#2f9e8f', accessory: 'none' });
+  if (foot.mascot !== false) {
+    const spec = foot.mascotSpec || { pose: 'loaf' };
+    pen.cat('orange', spec, 20, y, { cell: 2, collar: '#2f9e8f', accessory: 'none' });
+  }
   if (foot.text !== null && foot.text !== undefined) {
     lampDot(pen, 70, y + 16, foot.tone === 'ok' ? P.ok : foot.tone === 'warn' ? P.warn : P.mute);
     const shown = foot.typed === undefined ? foot.text : [...foot.text].slice(0, foot.typed).join('');
-    const w = pen.text(shown, 86, y + 13.5, { colour: foot.honey ? P.woodAccent : P.onWood });
+    const w = pen.text(shown, 86, y + 13.5, { colour: P.onWood });
     if (foot.typed === undefined || foot.typed >= [...foot.text].length) pen.text('▼', 86 + w + 8, y + 13.5, { colour: P.onWood });
   }
   if (foot.global !== false) {
@@ -440,7 +552,27 @@ function footer(pen, lang, foot) {
     pen.rect(902 - lw - 12, y + 16, 8, 8, P.ok);
     pen.text(label, 902 - lw, y + 14, { colour: P.onWood });
     pen.icon('sound', 918, y + 12, 16, P.onWood);
+    if (foot.hub) pen.text(foot.hub, 902 - lw - 26, y + 14, { colour: P.onWood, align: 'right' });
   }
+}
+
+// A label that rises for a moment where something happened (the app's fx-float): nine held steps.
+function floatLabel(pen, x, y, label, tone, age) {
+  if (age < 0 || age >= 0.9) return;
+  const P = pen.P, step = Math.floor(age / 0.1), w = pen.width(label) + 12, top = y - 18 - step * 2;
+  const fill = tone === 'ok' ? P.ok : tone === 'warn' ? P.warn : P.float;
+  pen.frame(Math.round(x - w / 2), top, w, 18, { fill, bevel: false });
+  pen.text(label, Math.round(x - w / 2) + 6, top + 3, { colour: tone ? P.bg : P.ink });
+}
+
+// The small red seal that lands at the end of a copied row (fx-seal): drops, presses, stays, goes.
+function rowSeal(pen, x, y, age) {
+  if (age < 0 || age >= 0.8) return;
+  const P = pen.P, frame = Math.floor(age * 60 + 1e-6), dy = frame < 4 ? -12 : frame < 8 ? -4 : frame < 12 ? 0 : frame < 16 ? 2 : 0, big = frame < 4 ? 6 : frame < 8 ? 2 : 0;
+  const s = 22 + big * 2, left = x - s / 2, top = y - s / 2 + dy;
+  pen.rect(left, top - 2, s, 2, P.brandDeep); pen.rect(left, top + s, s, 2, P.brandDeep); pen.rect(left - 2, top, 2, s, P.brandDeep); pen.rect(left + s, top, 2, s, P.brandDeep);
+  pen.rect(left, top, s, s, P.brand); pen.rect(left + 2, top + 2, s - 4, s - 4, P.brandHi); pen.rect(left + 4, top + 4, s - 8, s - 8, P.brand);
+  pen.icon('check', left + 6, top + 6, s - 12, P.onBrand);
 }
 
 /* ── The whole window ──────────────────────────────── */
@@ -450,7 +582,7 @@ function drawWindow(pen, state) {
   if (state.empty) emptyDesk(pen, lang, state.empty);
   if (state.roster) roster(pen, lang, state);
   if (state.head) presenterHead(pen, lang, state.head.count, state.head.quota, state.head.hover);
-  if (state.ledger) ledgerPane(pen, lang, state.ledger);
+  if (state.ledger) ledgerPane(pen, lang, state.ledger, state.t || 0);
   if (state.marks) state.marks(pen);
   topbar(pen, lang, state.topbarDy || 0);
   footer(pen, lang, state.footer || {});
@@ -458,6 +590,6 @@ function drawWindow(pen, state) {
 
 module.exports = {
   W, H, TOP, FOOT_Y, SHELF_Y, PLATE_Y, PLATE_H, ALL, CARD, LEDGER, NIGHT_DESK,
-  cardX, cardCentre, cardLayout, headLayout, emptyLayout, toolbarLayout, navLayout, rowTop, rowHeight,
-  drawWindow, desk, topbar, footer, ledge, pitCat, catsAgain, bracket, checkbox, dotted
+  cardX, cardCentre, cardLayout, headLayout, emptyLayout, toolbarLayout, navLayout, rowTop, rowHeight, rowLayout,
+  drawWindow, desk, topbar, footer, ledge, pitCat, catsAgain, bracket, checkbox, dotted, floatLabel, rowSeal, lampDot, pips, plate, ROSTER_LEFT, ROSTER_RIGHT
 };

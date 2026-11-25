@@ -25,15 +25,15 @@ function ui(lang, key, params) {
 const FILM = {
   zh: {
     product: '猫架',
-    names: { work: '工作', personal: '个人', company: '公司接口', team: '团队', writing: '写作', home: '家里', term: '终端', editor: '编辑器' },
+    names: { work: '工作', personal: '个人', company: '公司接口', team: '团队', open: '开源', writing: '写作' },
     login: '正在登录：',
     same: '同一家，三个账号',
     desktop: '电脑桌面', clock: '上午 10:24', terminal: '终端',
     signed: '已登录 ✓', placeholder: '在这里和它对话', sync: '同步', tasks: '分活', result: '结果',
     signin: { title: '登录', waiting: '正在登录…', done: '已经登录', keep: '下次打开还是登着的', account: '账号' },
     newChat: '新对话',
-    sideCodex: ['重构登录页', '对账脚本', '写部署文档'],
-    codexMany: ['首页骨架屏', '接口超时', '补登录测试', '升级依赖', '写部署文档'],
+    sideCodex: ['重构登录页', '对账脚本', '查内存泄漏'],
+    codexMany: ['首页骨架屏', '退款接口超时', '补登录测试', '升级依赖', '写部署文档'],
     codexTyped: '首页加个骨架屏', codexLines: ['你：首页加个骨架屏', 'Codex：在改，先看组件结构……'],
     you: '你：', path: '路径', coord: '坐标',
     claudeSide: '接手：订单表', claudeRead: 'Claude：读到了上一段对话。', claudeGo: 'Claude：从第 3 步接着写……', claudeOk: 'Claude：好，通过猫架叫三只猫',
@@ -42,6 +42,9 @@ const FILM = {
     rows: [['给首页加骨架屏', '2 分钟前'], ['修复退款接口超时', '5 分钟前'], ['整理部署脚本', '12 分钟前'], ['调研缓存方案', '半小时前'], ['补登录页测试', '1 小时前'],
       ['迁移订单表字段', '1 小时前'], ['查内存泄漏', '2 小时前'], ['写周报提纲', '昨天'], ['升级依赖', '昨天'], ['改写导出为 Markdown', '3 天前']],
     query: '退款',
+    device: '书房电脑', thisDevice: '这台电脑', when: ['6/18 10:24', '6/18 10:23', '6/18 10:21', '6/18 09:48', '6/18 09:30', '6/17 21:05', '6/17 18:40', '6/16 16:22'],
+    takeover: '接手：订单表', pasted: ['路径: /Users/me/work/shop-api', '坐标: …/sessions/2026/06/18/rollout-7f3c.jsonl#7f3c'],
+    terminal2: '终端 · AI 在用', found: ['work@example.com', 'home@example.com'], sessionsFound: [12, 5],
     end: ['猫架', '每个 AI 账号，都是架子上的一只猫', 'github.com/shuqianglin1997/catshelf', '在 GitHub 搜 catshelf · 开源免费'],
     // One caption per shot, in the order of timeline.SHOTS; [[ ]] marks the word printed in seal red.
     captions: ['账号一多，只能[[轮流登]]', '对话[[散了一地]]', '[[猫架]]：管住所有 AI 客户端', '官方窗口[[登一次]]，一直在', '[[一只猫]]，一个账号', '同一平台，[[各登各的]]',
@@ -51,15 +54,15 @@ const FILM = {
   },
   en: {
     product: 'Catshelf',
-    names: { work: 'Work', personal: 'Personal', company: 'Company API', team: 'Team', writing: 'Writing', home: 'Home', term: 'Terminal', editor: 'Editor' },
+    names: { work: 'Work', personal: 'Personal', company: 'Company API', team: 'Team', open: 'Open source', writing: 'Writing' },
     login: 'Signing in: ',
     same: 'One platform, three accounts',
     desktop: 'Desktop', clock: '10:24 AM', terminal: 'Terminal',
     signed: 'Signed in ✓', placeholder: 'Message it here', sync: 'Sync', tasks: 'Tasks', result: 'Result',
     signin: { title: 'Sign in', waiting: 'Signing in…', done: 'Signed in', keep: 'Still signed in next time', account: 'Account' },
     newChat: 'New chat',
-    sideCodex: ['Login refactor', 'Reconcile script', 'Deploy docs'],
-    codexMany: ['Home skeleton', 'API timeout', 'Login tests', 'Bump deps', 'Deploy docs'],
+    sideCodex: ['Login refactor', 'Reconcile script', 'Find a memory leak'],
+    codexMany: ['Home page skeleton', 'Refund API timeout', 'Login page tests', 'Bump dependencies', 'Deploy docs'],
     codexTyped: 'Add a skeleton to home', codexLines: ['You: Add a skeleton to home', 'Codex: On it, reading the components…'],
     you: 'You: ', path: 'Path', coord: 'Coordinate',
     claudeSide: 'Take over: orders', claudeRead: 'Claude: Read the earlier session.', claudeGo: 'Claude: Continuing from step 3…', claudeOk: 'Claude: OK, calling three cats via Catshelf',
@@ -68,6 +71,9 @@ const FILM = {
     rows: [['Skeleton for the home page', '2 min ago'], ['Fix refund API timeout', '5 min ago'], ['Tidy deploy scripts', '12 min ago'], ['Look into caching', '30 min ago'], ['Login page tests', '1 hr ago'],
       ['Migrate order fields', '1 hr ago'], ['Find a memory leak', '2 hr ago'], ['Weekly report outline', 'Yesterday'], ['Bump dependencies', 'Yesterday'], ['Export as Markdown', '3 days ago']],
     query: 'refund',
+    device: 'Study PC', thisDevice: 'This computer', when: ['6/18, 10:24 AM', '6/18, 10:23 AM', '6/18, 10:21 AM', '6/18, 9:48 AM', '6/18, 9:30 AM', '6/17, 9:05 PM', '6/17, 6:40 PM', '6/16, 4:22 PM'],
+    takeover: 'Take over: orders', pasted: ['Path: /Users/me/work/shop-api', 'Coordinate: …/sessions/2026/06/18/rollout-7f3c.jsonl#7f3c'],
+    terminal2: 'Terminal · the AI at work', found: ['work@example.com', 'home@example.com'], sessionsFound: [12, 5],
     end: ['Catshelf', 'Every AI account, a cat on your shelf.', 'github.com/shuqianglin1997/catshelf', 'Search catshelf on GitHub · Free & open source'],
     captions: ['Many accounts. [[One seat]].', 'Chats [[everywhere]].', '[[Catshelf]] keeps every client in view.', 'Sign in [[once]]. Stay in.', '[[One cat]], one account.', 'Same platform, [[many accounts]].',
       'All [[open at once]].', 'Work in the client. [[Synced]] here.', 'Who\'s [[out]], who\'s asleep.', 'Every chat, [[one ledger]].', '[[New replies]] and tags stand out.', 'Search. [[Found]].',
@@ -87,7 +93,35 @@ const CAST = [
   { app: 'codex', client: 'Codex', name: 'company', look: 'codex', collar: '#3d6aa8' },
   { app: 'claude', client: 'Claude', name: 'personal', look: 'orange', collar: '#2f9e8f' },
   { app: 'kimi', client: 'Kimi Code', name: 'team', look: 'tabby', collar: '#c94f2e' },
-  { app: 'qwen-code', client: 'Qwen Code', name: 'personal', look: 'qwen', collar: null }
+  { app: 'qwen-code', client: 'Qwen Code', name: 'open', look: 'qwen', collar: null }
 ];
 
-module.exports = { ui, FILM, CAST, LOCALES };
+// The cats that join in "four ways to add a cat": a new one, two brought back, one dropped in, one registered by an AI.
+const JOINED = [
+  { app: 'codex', client: 'Codex', name: 'writing', look: 'codex', collar: '#8a6bb8' },
+  { app: 'claude-cli', client: 'Claude CLI', label: 'Claude CLI', look: 'cream', collar: '#6d9440' },
+  { app: 'claude-cli', client: 'Claude CLI', label: 'Claude CLI 2', look: 'silver', collar: '#c94f2e' },
+  { app: 'claude', client: 'Claude', label: 'Claude', look: 'calico', collar: '#3d6aa8' },
+  { app: 'codex', client: 'Codex', label: 'Codex', look: 'codex', collar: '#6d9440' }
+];
+
+/*
+ * The conversations in the ledger. Titles of the first five are the ones the
+ * "Codex · Work" window lists, since the ledger shows what the client has.
+ * owner is an index into CAST; when is an index into FILM[lang].when.
+ */
+const SESSIONS = [
+  { id: 'skeleton', owner: 0, project: 'shop-web', when: 0, zh: '首页骨架屏', en: 'Home page skeleton' },
+  { id: 'refund', owner: 0, project: 'shop-api', when: 0, zh: '退款接口超时', en: 'Refund API timeout', tag: 0 },
+  { id: 'login', owner: 0, project: 'shop-web', when: 1, zh: '补登录测试', en: 'Login page tests' },
+  { id: 'deps', owner: 0, project: 'shop-web', when: 1, zh: '升级依赖', en: 'Bump dependencies' },
+  { id: 'deploy', owner: 0, project: 'infra', when: 1, zh: '写部署文档', en: 'Deploy docs' },
+  { id: 'orders', owner: 1, project: 'shop-api', when: 2, zh: '迁移订单表字段', en: 'Migrate order fields' },
+  { id: 'leak', owner: 2, project: 'shop-api', when: 3, zh: '查内存泄漏', en: 'Find a memory leak' },
+  { id: 'cache', owner: 3, project: 'notes', when: 4, zh: '调研缓存方案', en: 'Look into caching' },
+  { id: 'report', owner: 4, project: 'notes', when: 5, zh: '写周报提纲', en: 'Weekly report outline' },
+  { id: 'export', owner: 5, project: 'tools', when: 6, zh: '导出改成 Markdown', en: 'Export as Markdown' },
+  { id: 'scripts', owner: 2, project: 'infra', when: 7, zh: '整理部署脚本', en: 'Tidy deploy scripts' }
+];
+
+module.exports = { ui, FILM, CAST, JOINED, SESSIONS, LOCALES };

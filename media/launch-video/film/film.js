@@ -5,7 +5,7 @@
  *
  * It is a pure function of time and language. 120 beats a minute: a beat is
  * half a second, a bar two seconds, and every shot, camera move, caption and
- * click starts on a beat or a clean fraction of one.
+ * click starts on a beat or a clean fraction of one (times.js).
  *
  * The camera has two places to stand: close on the Catshelf window (the
  * window at twice its size, 960×540 of it in view, tilting up and down), or
@@ -13,32 +13,27 @@
  * official clients beside it). It moves between them in three held steps.
  */
 
-const { Pen, DAY, NIGHT, CatArt, clamp, mix, ease, glide, loop, once, within } = require('./draw.js');
+const { Pen, DAY, NIGHT, mix, ease, within } = require('./draw.js');
 const app = require('./app.js');
 const recruit = require('./recruit.js');
+const panels = require('./panels.js');
 const hook = require('./hook.js');
 const desk = require('./desktop.js');
+const over = require('./overlay.js');
+const story = require('./state.js');
 const { ui, FILM, CAST } = require('./strings.js');
+const { FPS, END, SHOTS, T, F } = require('./times.js');
 
-const FPS = 60, WIDTH = 1920, HEIGHT = 1080, END = 60;
-// Where each shot begins; captions follow FILM[lang].captions in the same order.
-const SHOTS = [0, 2, 4, 6, 9.5, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 46, 48, 50, 58];
-const F = (frames) => frames / FPS;
-
-/* ── Times of the first fourteen seconds ───────────── */
-const LAMP = [4, 4.15, 4.3];                       // the lamp's three steps
-const RECRUIT = { click: 6.5, type: 7, create: 8.5, signed: 9, close: 9.25 };
-const LAND = [9.5, 10, 10.25, 10.5, 10.75, 11];    // each cat's feet touch the shelf
-const SAME = [11.25, 12];                          // "one platform, three accounts"
-const OPEN = [12.25, 12.75, 13.25];                // clicks on "Open"; the client is up a quarter second later
-const UP = OPEN.map((t) => t + 0.25);
-const QUOTA = [92, 81, 100, 78, 34, 88];
+const WIDTH = 1920, HEIGHT = 1080;
 const DESK_AT = { x: 16, y: 48 };                  // where the Catshelf window sits on the desktop
+const WAYS_TILT = 56, LEDGER_TILT = 300, PLATES_TILT = 150, SEND_TILT = 250;
 
 /* ── Camera ────────────────────────────────────────── */
 // [time, desktop (0 close, 1 desktop), tilt (window y at the top of the frame, close-ups only)]
 function cameraMoves(plan) {
-  return [[0, 0, 0], [5, 1, 0], [6, 0, 0], [RECRUIT.click, 0, plan.dialogTilt], [RECRUIT.close, 0, 0], [12, 1, 0]];
+  return [[0, 0, 0], [5, 1, 0], [6, 0, 0], [T.RECRUIT.click, 0, plan.dialogTilt], [T.RECRUIT.close, 0, 0], [12, 1, 0],
+    [16, 0, 0], [18, 0, LEDGER_TILT], [19, 0, PLATES_TILT], [24, 0, 0], [26, 0, LEDGER_TILT], [28, 1, 0],
+    [36, 0, PLATES_TILT], [38, 1, 0], [40, 0, SEND_TILT], [42, 0, WAYS_TILT], [46, 0, LEDGER_TILT], [48, 0, 0]];
 }
 
 function camera(t, plan) {
@@ -47,156 +42,207 @@ function camera(t, plan) {
   moves.forEach((move, i) => { if (t >= move[0] - 1e-9) index = i; });
   const to = moves[index], from = moves[Math.max(0, index - 1)];
   const frame = Math.floor((t - to[0]) * FPS + 1e-6), p = index === 0 ? 1 : frame < 4 ? 0.55 : frame < 8 ? 0.85 : 1;
-  const d = mix(from[1], to[1], p), y = Math.round(mix(from[2], to[2], p) / 2) * 2;
+  // Coming from or going to the desktop the tilt is the close-up's own; between two close-ups it glides.
+  const tiltFrom = from[1] ? to[2] : from[2], tiltTo = to[1] ? from[2] : to[2];
+  const d = mix(from[1], to[1], p), y = Math.round(mix(tiltFrom, tiltTo, p) / 2) * 2;
   const scale = 2 - d;
   return { d, y, scale, ox: Math.round(mix(0, DESK_AT.x, d) / 2) * 2, oy: Math.round(mix(-2 * y, DESK_AT.y, d) / 2) * 2, moving: p < 1 };
 }
 
 const toFrame = (cam, x, y) => [cam.ox + x * cam.scale, cam.oy + y * cam.scale];
 
+/* ── Clients on the desktop ────────────────────────── */
+const CODEX_BOX = [0, 1, 2].map((k) => ({ x: 1012, y: 56 + k * 280, w: 884, h: 264 }));
+const CLAUDE_BOX = { x: 1060, y: 372, w: 836, h: 508 };
+const inputPoint = (box) => [box.x + 232 + 16 + 200, box.y + box.h - 38];
+
 /* ── Things worked out once per language ───────────── */
 const plans = new Map();
 function planFor(lang, ctx) {
   if (plans.has(lang)) return plans.get(lang);
-  const pen = new Pen(ctx, 2, DAY);
-  const dialog = recruit.layout(pen, lang), empty = app.emptyLayout(pen, lang);
+  const pen = new Pen(ctx, 2, DAY), words = FILM[lang];
+  const dialog = recruit.layout(pen, lang, 0), empty = app.emptyLayout(pen, lang);
+  const ways = [0, 1, 2, 3].map((tab) => recruit.layout(pen, lang, tab));
   const cards = CAST.map((_, k) => app.cardLayout(pen, lang, k));
+  const head = app.headLayout(pen, lang, true), edit = panels.editLayout(), send = panels.sendDialogLayout(pen, lang), sendMenu = panels.sendMenuLayout();
   // Tilt so that the dialog's seal button sits just above the caption.
-  const plan = { dialog, empty, cards, dialogTilt: Math.round((dialog.primary.y + dialog.primary.h - 422) / 2) * 2 };
+  const plan = { dialog, ways, empty, cards, edit, send, sendMenu, dialogTilt: Math.round((dialog.primary.y + dialog.primary.h - 422) / 2) * 2 };
   const centre = (box) => [box.x + box.w / 2, box.y + box.h / 2];
-  const name = [...FILM[lang].names.work];
-  plan.typed = (t) => (t < RECRUIT.type ? '' : name.slice(0, Math.min(name.length, Math.floor((t - RECRUIT.type) / (name.length > 2 ? 0.125 : 0.25) + 1e-6) + 1)).join(''));
-  plan.keys = name.map((_, i) => RECRUIT.type + i * (name.length > 2 ? 0.125 : 0.25));
-  // The cursor: [time, x, y, 'w' window or 'f' frame coordinates, click]
+  const name = [...words.names.work];
+  plan.typed = (t) => (t < T.RECRUIT.type ? '' : name.slice(0, Math.min(name.length, Math.floor((t - T.RECRUIT.type) / (name.length > 2 ? 0.125 : 0.25) + 1e-6) + 1)).join(''));
+  // Ledger layouts at the moments the cursor needs them.
+  const at = (time) => story.ledgerAt(time, lang);
+  const rowOf = (time, id) => { const ledger = at(time); return app.rowLayout(ledger, ledger.rows.findIndex((row) => row.id === id)); };
+  const bar = (time) => app.toolbarLayout(pen, lang, at(time));
+  const L = T.LEDGER, loginRow = rowOf(L.menu, 'skeleton'), menu = panels.tagMenuLayout(300, loginRow.top + 18);
+  plan.tagMenu = menu;
+  const orders = rowOf(T.COPY.check - 0.01, 'orders');
+  const looks = ['maneki', 'qinghua', 'panda', 'tiger', 'koi'], wears = ['scarf', 'shades', 'straw'];
+  plan.looks = looks; plan.wears = wears;
+  const lookClicks = looks.map((id) => centre(edit.looks[id])).concat(wears.map((id) => centre(edit.accessories[id])));
+  // The cursor: [time, x, y, 'w' window or 'f' frame coordinates, click, carrying]
   const first = centre(empty.button), create = centre(dialog.primary), field = [dialog.name.x + 70, dialog.name.y + 20];
-  const opens = [0, 1, 2].map((k) => centre(cards[k].launch));
-  plan.cursor = [
-    [5.4, 1380, 760, 'f'], [5.95, 1380, 760, 'f'], [6.4, first[0], first[1], 'w'], [RECRUIT.click, first[0], first[1], 'w', true],
-    [6.95, field[0], field[1] + 22, 'w'], [8.05, field[0], field[1] + 22, 'w'], [8.42, create[0], create[1], 'w'], [RECRUIT.create, create[0], create[1], 'w', true],
-    [9.2, create[0], create[1], 'w'], [9.7, 330, 330, 'w'], [11.8, 330, 330, 'w'],
-    [12.2, opens[0][0], opens[0][1], 'w'], [OPEN[0], opens[0][0], opens[0][1], 'w', true],
-    [12.7, opens[1][0], opens[1][1], 'w'], [OPEN[1], opens[1][0], opens[1][1], 'w', true],
-    [13.2, opens[2][0], opens[2][1], 'w'], [OPEN[2], opens[2][0], opens[2][1], 'w', true],
-    [13.9, 1480, 268, 'f'], [60, 1480, 268, 'f']
+  const opens = [0, 1, 2, 3].map((k) => centre(cards[k].launch));
+  const codexInput = inputPoint(CODEX_BOX[0]), claudeInput = inputPoint(CLAUDE_BOX);
+  const plate0 = [app.cardCentre(0), 172];
+  const keys = [
+    [5.4, 1380, 760, 'f'], [5.95, 1380, 760, 'f'], [6.4, ...first, 'w'], [T.RECRUIT.click, ...first, 'w', true],
+    [6.95, field[0], field[1] + 22, 'w'], [8.05, field[0], field[1] + 22, 'w'], [8.42, ...create, 'w'], [T.RECRUIT.create, ...create, 'w', true],
+    [9.2, ...create, 'w'], [9.7, 330, 330, 'w'], [11.8, 330, 330, 'w'],
+    [12.2, ...opens[0], 'w'], [T.OPEN[0], ...opens[0], 'w', true], [12.7, ...opens[1], 'w'], [T.OPEN[1], ...opens[1], 'w', true],
+    [13.2, ...opens[2], 'w'], [T.OPEN[2], ...opens[2], 'w', true],
+    // 14: into the Codex window, type, send.
+    [13.9, ...codexInput, 'f'], [T.SYNC.focus, ...codexInput, 'f', true], [15.9, ...codexInput, 'f'],
+    // 16–18: watch the shelf.
+    [16.4, 560, 330, 'w'], [17.9, 560, 330, 'w'],
+    // 18–24: the ledger.
+    [18.9, 420, 250, 'w'], [L.pick - 0.05, ...plate0, 'w'], [L.pick, ...plate0, 'w', true],
+    [L.menu - 0.05, 300, loginRow.top + 18, 'w'], [L.menu, 300, loginRow.top + 18, 'w', true],
+    [L.tag - 0.03, ...centre(menu.items[0]), 'w'], [L.tag, ...centre(menu.items[0]), 'w', true],
+    [L.filter - 0.05, ...centre(bar(L.filter - 0.01).tags[0]), 'w'], [L.filter, ...centre(bar(L.filter - 0.01).tags[0]), 'w', true],
+    [L.clear - 0.05, ...centre(bar(L.clear - 0.01).clear), 'w'], [L.clear, ...centre(bar(L.clear - 0.01).clear), 'w', true],
+    [L.search - 0.08, ...centre(bar(L.clear + 0.01).search), 'w'], [L.search - 0.07, ...centre(bar(L.clear + 0.01).search), 'w', true],
+    [23.9, bar(L.clear + 0.01).search.x + 60, 345, 'w'],
+    // 24–28: it runs out; copy where its chat lives.
+    [24.4, 560, 330, 'w'], [25.8, 560, 330, 'w'],
+    [T.COPY.check - 0.03, ...centre(orders.box), 'w'], [T.COPY.check, ...centre(orders.box), 'w', true],
+    [T.COPY.press - 0.03, ...centre(bar(T.COPY.check + 0.01).copy), 'w'], [T.COPY.press, ...centre(bar(T.COPY.check + 0.01).copy), 'w', true],
+    [27.9, ...centre(bar(T.COPY.check + 0.01).copy), 'w'],
+    // 28–36: open Claude, paste, ask.
+    [T.PASTE.open - 0.03, ...opens[3], 'w'], [T.PASTE.open, ...opens[3], 'w', true],
+    [T.PASTE.paste - 0.05, ...claudeInput, 'f'], [T.PASTE.paste, ...claudeInput, 'f', true], [35.9, ...claudeInput, 'f'],
+    // 36–40: watch.
+    [36.4, 620, 560, 'w'], [39.9, 620, 560, 'w']
   ];
+  // 40–42: Send → Send to device → Send session info.
+  const sendBar = bar(40.1);
+  keys.push([T.SEND.menu - 0.03, ...centre(sendBar.send), 'w'], [T.SEND.menu, ...centre(sendBar.send), 'w', true],
+    [T.SEND.item - 0.03, ...centre(sendMenu.device), 'w'], [T.SEND.item, ...centre(sendMenu.device), 'w', true],
+    [T.SEND.press - 0.03, ...centre(send.send), 'w'], [T.SEND.press, ...centre(send.send), 'w', true], [41.9, ...centre(send.send), 'w']);
+  // 42–46: four ways. The recruit button, the name field, two ticks, a folder dragged in, the fourth tab.
+  const W = T.WAYS, tabs = ways.map((layout, k) => centre(layout.tabs[k]));
+  keys.push([W.open - 0.03, ...centre(head.recruit), 'w'], [W.open, ...centre(head.recruit), 'w', true],
+    [W.type, ways[0].name.x + 80, ways[0].name.y + 40, 'w'], [W.tab[1] - 0.05, ...tabs[1], 'w'], [W.tab[1], ...tabs[1], 'w', true],
+    [W.ticks[0] - 0.03, ways[1].homes[0].x + 10, ways[1].homes[0].y + 17, 'w'], [W.ticks[0], ways[1].homes[0].x + 10, ways[1].homes[0].y + 17, 'w', true],
+    [W.ticks[1] - 0.03, ways[1].homes[1].x + 10, ways[1].homes[1].y + 17, 'w'], [W.ticks[1], ways[1].homes[1].x + 10, ways[1].homes[1].y + 17, 'w', true],
+    [W.tab[2] - 0.05, ...tabs[2], 'w'], [W.tab[2], ...tabs[2], 'w', true],
+    [W.drag, 900, 400, 'w', false, true], [W.drop, ...centre(ways[2].zone), 'w', false, true], [W.drop + 0.02, ...centre(ways[2].zone), 'w'],
+    [W.tab[3] - 0.05, ...tabs[3], 'w'], [W.tab[3], ...tabs[3], 'w', true], [45.9, tabs[3][0] + 40, tabs[3][1] + 60, 'w']);
+  // 46–48: a coat or an accessory every half beat.
+  T.LOOKS.clicks.forEach((time, i) => keys.push([time - 0.03, ...lookClicks[i], 'w'], [time, ...lookClicks[i], 'w', true]));
+  keys.push([47.95, ...lookClicks[7], 'w'], [48.2, 700, 420, 'w'], [END, 700, 420, 'w']);
+  plan.cursor = keys;
   plans.set(lang, plan);
   return plan;
 }
 
-/* ── The Catshelf window at time t ─────────────────── */
-function stepsOver(t, start, frames, steps) { return Math.round(clamp((t - start) * FPS / frames) * steps) / steps; }
-// A nameplate dropping from behind the shelf: fast, 4px past, back.
-function plateDrop(t, start) {
-  const frame = Math.floor((t - start) * FPS + 1e-6);
-  if (frame < 0) return null;
-  return [-112, -112, -52, -52, -18, -18, -4, -4, 4, 4][frame] ?? 0;
+/* ── The Catshelf window with whatever is open over it ── */
+function typedOver(text, t, start, duration) {
+  const letters = [...text];
+  return t < start ? '' : letters.slice(0, Math.min(letters.length, Math.floor((t - start) / duration * letters.length + 1e-6) + 1)).join('');
 }
 
-function accountAt(t, lang, k) {
-  const who = CAST[k], words = FILM[lang], land = LAND[k];
-  if (t < land - 1 / 3) return { name: words.names[who.name], client: who.client, plateDy: null, cat: null, state: { label: '', dot: '' }, quota: { pips: 0, level: 'fresh', text: '' } };
-  let action = 'play', label = ui(lang, 'state.play'), dot = 'play', spec = null, pressed = false, hover = null;
-  if (k < 3 && t >= OPEN[k]) {
-    if (t < UP[k]) { action = 'arriving'; label = ui(lang, 'state.arriving'); dot = 'arriving'; pressed = t < OPEN[k] + F(5); hover = 'launch'; }
-    else { action = 'onduty'; label = ui(lang, 'state.onduty'); dot = 'onduty'; spec = once('cheer', t - UP[k]); }
+function drawWindowAt(ctx, t, lang, plan, scale) {
+  const pen = new Pen(ctx, scale, DAY), state = story.windowState(t, lang, plan), words = FILM[lang];
+  app.drawWindow(pen, state);
+  if (state.dialog) recruit.draw(pen, lang, state.dialog, plan.dialog);
+  // 20.5: the tag menu on a row.
+  if (within(t, T.LEDGER.menu, T.LEDGER.tag)) panels.tagMenu(pen, lang, plan.tagMenu, { hover: t >= T.LEDGER.tag - 0.1 ? 0 : 5 });
+  // 40.25: the Send menu, then the dialog.
+  if (within(t, T.SEND.menu, T.SEND.item)) panels.sendMenu(pen, lang, { hover: t >= T.SEND.item - 0.1 ? 'device' : null });
+  if (within(t, T.SEND.item, T.WAYS.open)) {
+    const frame = Math.floor((t - T.SEND.item) * FPS + 1e-6);
+    panels.sendDialog(pen, lang, plan.send, {
+      rise: Math.min(3, Math.floor(frame / 3)), device: words.device, pressed: within(t, T.SEND.press, T.SEND.press + F(6)),
+      status: t < T.SEND.press ? ui(lang, 'transfers.ready', { n: 1 }) : t < T.SEND.land ? ui(lang, 'transfers.sending') : ui(lang, 'transfers.sent', { n: 1 }), tone: t >= T.SEND.land ? 'ok' : ''
+    });
   }
-  spec = spec || once('arrive', t - (land - 1 / 3)) || loop(action, t + k * 0.37);
-  const pct = QUOTA[k];
-  return {
-    name: words.names[who.name], client: who.client, plateDy: plateDrop(t, land - 0.25), pressed, hover,
-    cat: { look: who.look, collar: who.collar, spec, accessory: 'none' },
-    state: { label, dot }, quota: { pips: Math.max(1, Math.round(pct / 20)), level: pct < 10 ? 'exhausted' : pct < 30 ? 'tired' : pct < 60 ? 'steady' : 'fresh', text: pct + '%' }
-  };
-}
-
-function windowState(t, lang, plan) {
-  const lamp = t < LAMP[1] ? 1 : t < LAMP[2] ? 2 : 3, words = FILM[lang];
-  const landed = LAND.filter((at) => t >= at).length;
-  const state = {
-    lang, lamp, topbarDy: glide(-66, 0, t, LAMP[0], 8, 4),
-    head: t >= LAMP[2] ? { count: landed, quota: landed > 0 } : null,
-    footer: { dy: glide(40, 0, t, LAMP[0], 8, 4), mascot: t >= LAMP[2], global: t >= 4.9, text: null }
-  };
-  const rosterAt = LAND[0] - 1 / 3;
-  if (t < rosterAt) {
-    const status = ui(lang, 'roster.empty.status');
-    state.empty = {
-      seat: stepsOver(t, LAMP[2], 6, 3), words: t >= 4.6, pressed: within(t, RECRUIT.click, RECRUIT.click + F(5)),
-      cat: t >= 4.4 ? { look: 'orange', collar: '#2f9e8f', accessory: 'none', spec: once('arrive', t - 4.4) || loop('rest', t) } : null
-    };
-    state.ledger = t >= 4.7 ? { open: stepsOver(t, 4.7, 6, 3), title: ui(lang, 'session.titleAll'), count: 0, fresh: 0, rows: [], emptyText: t >= 4.8 ? ui(lang, 'session.empty.noAgents') : '' } : null;
-    if (t >= 4.9) { state.footer.text = status; state.footer.typed = Math.floor((t - 4.9) * 45); }
-  } else {
-    const accounts = CAST.map((_, k) => accountAt(t, lang, k));
-    const reach = (k) => app.cardX(k) + app.CARD.w + 8;
-    let shelfEnd = app.ALL.x + app.ALL.w + 8;
-    LAND.forEach((land, k) => { shelfEnd = Math.max(shelfEnd, Math.round(mix(k ? reach(k - 1) : 18, reach(k), stepsOver(t, land - 1 / 3, 6, 3)) / 2) * 2); });
-    state.roster = {
-      accounts, scope: 'all', allDy: plateDrop(t, LAND[0] - 0.25), photo: t >= LAND[0] - 0.25, shelfEnd, bracket: t >= LAND[0],
-      allMeta: ui(lang, 'roster.allMeta', { agents: landed, n: 0 })
-    };
-    state.ledger = { title: ui(lang, 'session.titleAll'), count: 0, fresh: 0, rows: [], emptyText: ui(lang, 'session.empty.noneAll') };
-    state.footer.text = t >= LAND[0] ? ui(lang, 'status.ready') : ui(lang, 'roster.empty.status');
-    if (within(t, SAME[0], SAME[1])) {
-      // Film annotation, in the "pointing" colour: the three Codex accounts are one platform.
-      const x0 = app.cardX(0) + 4, x1 = app.cardX(2) + app.CARD.w - 4, label = words.same, d = [-10, -4, 2, 0][Math.min(3, Math.floor((t - SAME[0]) * FPS / 3))];
-      state.marks = (pen) => {
-        const w = pen.width(label) + 20, cx = (x0 + x1) / 2, y = 274 + d;
-        pen.rect(x0, y, x1 - x0, 4, '#3B272C'); pen.rect(x0, y - 8, 4, 8, '#3B272C'); pen.rect(x1 - 4, y - 8, 4, 8, '#3B272C');
-        pen.rect(x0 + 2, y, x1 - x0 - 4, 2, desk.HONEY); pen.rect(x0 + 2, y - 8, 2, 8, desk.HONEY); pen.rect(x1 - 4, y - 8, 2, 8, desk.HONEY);
-        pen.rect(cx - w / 2 - 2, y - 10, w + 4, 24, '#3B272C'); pen.rect(cx - w / 2, y - 8, w, 20, desk.HONEY);
-        pen.text(label, cx, y - 4, { colour: '#3B272C', align: 'center' });
-      };
-    }
+  // 42–46: the four ways.
+  const W = T.WAYS;
+  if (within(t, W.open, T.LOOKS.open)) {
+    const tab = W.tab.filter((time) => t >= time).length - 1, frame = Math.floor((t - W.open) * FPS + 1e-6);
+    recruit.draw(pen, lang, {
+      tab, rise: Math.min(3, Math.floor(frame / 3)), focus: tab === 0 ? 'name' : '', caret: Math.floor(t * 2) % 2 === 0,
+      name: typedOver(words.names.writing, t, W.type, 0.3), pressed: tab === 0 && within(t, W.create, W.create + F(6)),
+      status: tab === 0 && t >= W.create + 0.1 ? ui(lang, 'recruit.new.done', { client: 'Codex' }) : tab === 1 && t >= W.register ? ui(lang, 'recruit.existing.registered.done', { n: 2 }) : tab === 2 && t >= W.drop ? ui(lang, 'recruit.drop.recognized', { client: 'Claude' }) : '',
+      homes: [0, 1].map((k) => ({ identity: words.found[k], detail: ui(lang, 'recruit.existing.sessions', { n: words.sessionsFound[k] }) + ' · ' + ui(lang, k ? 'recruit.existing.source.home-scan' : 'recruit.existing.source.default'), path: k ? '/Users/me/work/.claude' : '/Users/me/.claude', checked: t >= W.ticks[k] })),
+      primaryOff: tab === 1 && t < W.ticks[0], dragging: tab === 2 && within(t, W.drag + 0.2, W.drop + 0.2)
+    }, plan.ways[tab]);
   }
-  // The recruit dialog.
-  const closing = t - RECRUIT.close;
-  if (t >= RECRUIT.click && closing < F(4)) {
-    const frame = Math.floor((t - RECRUIT.click) * FPS + 1e-6);
-    state.dialog = {
-      rise: closing >= 0 ? (closing < F(2) ? 2 : 1) : Math.min(3, Math.floor(frame / 3)),
-      name: plan.typed(t), caret: Math.floor(t * 2) % 2 === 0, focus: 'name',
-      pressed: within(t, RECRUIT.create, RECRUIT.create + F(6)), busy: within(t, RECRUIT.create, RECRUIT.create + 0.2),
-      status: t >= RECRUIT.create + 0.2 ? ui(lang, 'recruit.new.done', { client: 'Codex' }) : ''
-    };
+  // 46–48: the appearance of a cat.
+  if (within(t, T.LOOKS.open, T.LOCK.shut)) {
+    const done = T.LOOKS.clicks.filter((time) => t >= time).length, frame = Math.floor((t - T.LOOKS.open) * FPS + 1e-6);
+    const look = done ? plan.looks[Math.min(done, plan.looks.length) - 1] : 'codex';
+    const wear = done > plan.looks.length ? plan.wears[done - plan.looks.length - 1] : 'none';
+    panels.editDialog(pen, lang, plan.edit, { rise: Math.min(3, Math.floor(frame / 3)), look, collar: null, accessory: wear, changed: done ? t - T.LOOKS.clicks[done - 1] : -1, t });
   }
   return state;
 }
 
-function drawWindowAt(ctx, state, plan, scale, palette) {
-  const pen = new Pen(ctx, scale, palette || DAY);
-  app.drawWindow(pen, state);
-  if (state.dialog) recruit.draw(pen, state.lang, state.dialog, plan.dialog);
+/* ── The desktop: clients, links, envelopes ────────── */
+function codexWindow(pen, t, lang, k) {
+  const words = FILM[lang], box = CODEX_BOX[k], frame = Math.floor((t - T.UP[k]) * FPS + 1e-6);
+  let side = [[words.newChat, false], [words.sideCodex[k], false]], lines = [], input = null, focus = false;
+  if (k === 0 && t >= T.SYNC.focus) {
+    focus = t < T.SYNC.send;
+    const n = t < T.SYNC.send ? 0 : t < T.SYNC.three ? 1 : t < T.SYNC.five ? 3 : 5;
+    const running = (i) => (t < T.SYNC.calm ? true : t < T.LEDGER.fresh ? i === 0 || i === 2 : false);
+    if (n) side = words.codexMany.slice(0, n).map((label, i) => [label, running(i)]);
+    if (within(t, T.SYNC.type, T.SYNC.send)) input = [typedOver(words.codexTyped, t, T.SYNC.type, 0.4)];
+    if (t >= T.SYNC.send) lines = words.codexLines;
+  }
+  desk.client(pen, box, { lang, t, title: 'Codex · ' + words.names[CAST[k].name], badge: words.signed, side, lines, input, focus, rise: Math.min(3, Math.floor(frame / 3)) });
+  pen.burst(box.x + box.w / 2, box.y + box.h / 2, t - T.UP[k], desk.HONEY, 240, 12);
 }
 
-/* ── Clients on the desktop ────────────────────────── */
-const CODEX_BOX = [0, 1, 2].map((k) => ({ x: 1012, y: 56 + k * 280, w: 884, h: 264 }));
+function claudeWindow(pen, t, lang) {
+  const words = FILM[lang], P = T.PASTE, frame = Math.floor((t - P.up) * FPS + 1e-6), C = T.CALL;
+  const pasted = [`${ui(lang, 'session.location.path')}: /Users/me/work/shop-api`, `${ui(lang, 'session.location.coordinate')}: …/sessions/2026/06/18/rollout-7f3c.jsonl#7f3c`];
+  const lines = [];
+  if (t >= P.sent) lines.push(words.you + pasted[0], pasted[1]);
+  if (t >= P.read) lines.push(words.claudeRead);
+  if (t >= P.go) lines.push(words.claudeGo);
+  if (t >= T.ASK.sent) lines.push(words.you + words.ask);
+  if (t >= T.ASK.reply) lines.push(words.claudeOk);
+  C.back.forEach((back, j) => { if (t >= back + 0.5) lines.push(words.jobs[j] + words.jobDone); });
+  let input = null;
+  if (within(t, P.paste, P.sent)) input = pasted;
+  if (within(t, T.ASK.type, T.ASK.sent)) input = [typedOver(words.ask, t, T.ASK.type, 1.2)];
+  desk.client(pen, CLAUDE_BOX, { lang, t, title: 'Claude · ' + words.names[CAST[3].name], badge: words.signed, side: [[words.takeover, story.runningAt(t, 3) > 0], [words.newChat, false]], lines, input, focus: within(t, P.paste, P.sent) || within(t, T.ASK.type - 0.2, T.ASK.sent), rise: Math.min(3, Math.floor(frame / 3)) });
+  pen.burst(CLAUDE_BOX.x + CLAUDE_BOX.w / 2, CLAUDE_BOX.y + 200, t - P.up, desk.HONEY, 260, 12);
+}
 
 // The dashed lines from each open client to its cat; drawn before the cats are drawn again, so they pass behind them.
-function linksAt(ctx, t, cam) {
-  const pen = new Pen(ctx, 1, DAY);
+function linksAt(ctx, t, lang, cam) {
+  const pen = new Pen(ctx, 1, DAY), words = FILM[lang], claudeUp = t >= T.PASTE.up + F(6);
   [0, 1, 2].forEach((k) => {
-    if (t < UP[k] + F(6)) return;
+    if (t < T.UP[k] + F(6)) return;
+    if (claudeUp && k > 0) return;                    // their windows are behind Claude's now
     const box = CODEX_BOX[k];
-    desk.link(pen, toFrame(cam, app.cardCentre(k), 112), [box.x - 4, box.y + box.h / 2]);
+    desk.link(pen, toFrame(cam, app.cardCentre(k), 112), [box.x - 4, box.y + box.h / 2], k === 0 && within(t, T.SYNC.send, T.SYNC.calm) ? words.sync : '');
   });
+  if (claudeUp) desk.link(pen, toFrame(cam, app.cardCentre(3), 112), [CLAUDE_BOX.x - 4, CLAUDE_BOX.y + 120], within(t, 30, 32) ? words.sync : '');
 }
 
-function clientsAt(ctx, t, lang, cam) {
+function desktopAt(ctx, t, lang, cam) {
   const pen = new Pen(ctx, 1, DAY), words = FILM[lang];
-  [0, 1, 2].forEach((k) => {
-    if (t < UP[k]) return;
-    const box = CODEX_BOX[k], frame = Math.floor((t - UP[k]) * FPS + 1e-6);
-    desk.client(pen, box, { lang, t, title: 'Codex · ' + words.names[CAST[k].name], badge: words.signed, side: [[words.newChat, false], [words.sideCodex[k], false]], lines: [], rise: Math.min(3, Math.floor(frame / 3)) });
-    pen.burst(box.x + box.w / 2, box.y + box.h / 2, t - UP[k], desk.HONEY, 240, 12);
+  [0, 1, 2].forEach((k) => { if (t >= T.UP[k]) codexWindow(pen, t, lang, k); });
+  if (t >= T.PASTE.up) claudeWindow(pen, t, lang);
+  // What passes through Catshelf: the call arriving, three jobs out, three results back.
+  const C = T.CALL, catAt = (k) => toFrame(cam, app.cardCentre(k), 104);
+  over.flight(ctx, t, T.ASK.reply, 0.5, [CLAUDE_BOX.x + 60, CLAUDE_BOX.y + 150], catAt(3), words.tasks, 70);
+  story.CALLEES.forEach((callee, j) => {
+    over.flight(ctx, t, C.out[j], 0.5, catAt(3), catAt(callee), words.jobs[j], 36);
+    over.flight(ctx, t, C.back[j], 0.5, catAt(callee), catAt(3), words.result, 36);
   });
 }
 
 // The official sign-in window that opens over Catshelf when "Create and sign in" is pressed.
 function signInWindow(ctx, t, lang) {
-  if (t < RECRUIT.create + F(4) || t >= RECRUIT.close) return;
+  const R = T.RECRUIT;
+  if (t < R.create + F(4) || t >= R.close) return;
   const pen = new Pen(ctx, 1, DAY), words = FILM[lang].signin, box = { x: 1132, y: 72, w: 728, h: 316 };
-  const frame = Math.floor((t - RECRUIT.create - F(4)) * FPS + 1e-6), done = t >= RECRUIT.signed;
+  const frame = Math.floor((t - R.create - F(4)) * FPS + 1e-6), done = t >= R.signed;
   desk.client(pen, box, {
     lang, t, title: 'Codex · ' + words.title, rise: Math.min(3, Math.floor(frame / 3)),
     panel: (c, x, y, w, h) => {
@@ -206,62 +252,54 @@ function signInWindow(ctx, t, lang) {
         for (let d = 0; d < 3; d += 1) pen.rect(cx - 26 + d * 22, y + h / 2 + 28, 10, 10, Math.floor(t * 6) % 3 === d ? '#1B1F24' : '#C9C9C4');
         return;
       }
-      const pop = t - RECRUIT.signed < F(4) ? 6 : 0;
+      const pop = t - R.signed < F(4) ? 6 : 0;
       pen.rect(cx - 36 - pop, y + 36 - pop, 72 + pop * 2, 72 + pop * 2, '#2F7D3B');
       c.strokeStyle = '#FFFFFF'; c.lineWidth = 10; c.lineCap = 'square'; c.beginPath(); c.moveTo(cx - 18, y + 74); c.lineTo(cx - 4, y + 88); c.lineTo(cx + 20, y + 58); c.stroke();
       desk.sys(c, words.done, cx, y + 160, 34, '#1B1F24', { weight: 700, align: 'center' });
       desk.sys(c, words.keep, cx, y + 206, 24, '#5A616B', { align: 'center' });
     }
   });
-  pen.burst(box.x + box.w / 2, box.y + 140, t - RECRUIT.signed, '#2F7D3B', 220, 12);
+  pen.burst(box.x + box.w / 2, box.y + 140, t - R.signed, '#2F7D3B', 220, 12);
 }
 
-/* ── Caption: a nameplate that drops on the beat ───── */
-function caption(ctx, t, lang) {
-  let shot = 0;
-  SHOTS.forEach((at, i) => { if (t >= at - 1e-9) shot = i; });
-  const raw = FILM[lang].captions[shot];
-  if (!raw) return null;
-  const pen = new Pen(ctx, 2, DAY), parts = raw.split(/\[\[|\]\]/);
-  const frame = Math.floor((t - SHOTS[shot]) * FPS + 1e-6), d = frame < 3 ? -12 : frame < 6 ? -6 : frame < 9 ? 2 : 0;
-  const widths = parts.map((part) => pen.width(part, 24, 'film')), total = widths.reduce((a, b) => a + b, 0);
-  const w = Math.ceil((total + 56) / 2) * 2, x = Math.round((480 - w / 2) / 2) * 2, y = 446 + d;
-  pen.rect(x + 4, y + 4, w + 2, 42, '#1B1417');
-  pen.rect(x - 2, y - 2, w + 4, 44, '#3B272C');
-  pen.rect(x, y, w, 40, '#FBF2DB');
-  pen.rect(x, y, 8, 40, '#AE3319');
-  let cx = x + 32;
-  parts.forEach((part, k) => { pen.text(part, cx, y + 8, { size: 24, film: true, colour: k % 2 ? '#AE3319' : '#3B272C' }); cx += widths[k]; });
-  return { x: x * 2, y: y * 2, w: w * 2, h: 80, shot };
+/* ── Close-up extras in frame pixels ───────────────── */
+function closeExtras(ctx, t, lang, cam, plan) {
+  signInWindow(ctx, t, lang);
+  // 18 s: the papers that were lying about fly up from the floor into their rows.
+  const pen = new Pen(ctx, 1, DAY), ledger = story.ledgerAt(T.LEDGER.papers + 1, lang);
+  ledger.rows.forEach((row, n) => {
+    const j = n - 5, start = T.LEDGER.papers + j * 0.05, age = t - start;
+    if (j < 0 || age < 0 || age >= story.PAPER_FLIGHT) return;
+    const p = ease(age / story.PAPER_FLIGHT, 6), to = toFrame(cam, 108, app.rowTop(ledger, n) + 10), from = [260 + ((j * 397) % 1300), 1120 + (j % 3) * 40];
+    const x = Math.round(mix(from[0], to[0], p) / 4) * 4, y = Math.round(mix(from[1], to[1], p) / 4) * 4;
+    pen.rect(x - 4, y - 4, 56, 40, '#100A0D'); pen.rect(x, y, 48, 32, '#E9DCC0'); pen.rect(x + 8, y + 8, 28, 4, '#8E7B68'); pen.rect(x + 8, y + 20, 20, 4, '#8E7B68');
+  });
+  // 41 s: the session info goes to the other computer.
+  if (within(t, T.SEND.item, T.WAYS.open)) {
+    const target = over.otherComputer(ctx, t, lang), button = plan.send.send;
+    over.flight(ctx, t, T.SEND.press, 0.5, toFrame(cam, button.x + button.w / 2, button.y + button.h / 2), target, '', 110);
+  }
+  // 45 s: the AI at its terminal.
+  const W = T.WAYS;
+  if (within(t, W.command - 0.1, T.LOOKS.open)) {
+    const first = '$ "$catshelf" --cli profiles discover --scan home', second = '$ "$catshelf" --cli profiles register --app codex --session-root "$HOME/.codex"';
+    const lines = [{ text: typedOver(first, t, W.command, 0.3) }];
+    if (t >= W.command + 0.35) lines.push({ text: typedOver(second, t, W.command + 0.35, 0.4) });
+    over.terminal(ctx, t, lang, lines);
+  }
+  if (within(t, T.LOCK.shut, T.NIGHT.settle)) over.lock(ctx, t, lang);
 }
 
-/* ── Cursor ────────────────────────────────────────── */
-const ARROW = ['#..........', '##.........', '#o#........', '#oo#.......', '#ooo#......', '#oooo#.....', '#ooooo#....', '#oooooo#...', '#ooooooo#..', '#oooooooo#.', '#ooooo#####', '#oo#oo#....', '#o#.#oo#...', '##..#oo#...', '#....#oo#..', '.....###...'];
-
+/* ── Cursor position ───────────────────────────────── */
 function cursorAt(t, plan, cam) {
   const keys = plan.cursor;
-  if (t < keys[0][0]) return null;
+  if (t < keys[0][0] || t >= T.NIGHT.settle) return null;
   let a = keys[0], b = keys[0];
   for (let i = 0; i < keys.length; i += 1) { if (keys[i][0] <= t + 1e-9) { a = keys[i]; b = keys[Math.min(keys.length - 1, i + 1)]; } }
   const at = (key) => (key[3] === 'w' ? toFrame(cam, key[1], key[2]) : [key[1], key[2]]);
   const p = b === a || b[0] === a[0] ? 1 : ease((t - a[0]) / (b[0] - a[0]), 8), pa = at(a), pb = at(b);
   const click = keys.find((key) => key[4] && t >= key[0] - 1e-9 && t < key[0] + 0.16);
-  return { x: Math.round(mix(pa[0], pb[0], p) / 2) * 2, y: Math.round(mix(pa[1], pb[1], p) / 2) * 2, click: click ? { at: at(click), age: t - click[0] } : null };
-}
-
-function drawCursor(ctx, cursor) {
-  if (!cursor) return;
-  if (cursor.click) {
-    const [x, y] = cursor.click.at.map((value) => Math.round(value / 2) * 2), r = cursor.click.age < F(4) ? 16 : 26;
-    ctx.fillStyle = '#AE3319';
-    for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.fillRect(x + sx * r - (sx > 0 ? 12 : 0), y + sy * r - (sy > 0 ? 4 : 0), 12, 4); ctx.fillRect(x + sx * r - (sx > 0 ? 4 : 0), y + sy * r - (sy > 0 ? 12 : 0), 4, 12); }
-  }
-  const cell = 3;
-  ARROW.forEach((row, j) => [...row].forEach((ch, i) => {
-    if (ch === '.') return;
-    ctx.fillStyle = ch === '#' ? '#FFF8E8' : '#1B1417';
-    ctx.fillRect(cursor.x + i * cell, cursor.y + j * cell, cell, cell);
-  }));
+  return { x: Math.round(mix(pa[0], pb[0], p) / 2) * 2, y: Math.round(mix(pa[1], pb[1], p) / 2) * 2, click: click ? { at: at(click), age: t - click[0] } : null, carry: Boolean(a[5] && b[5]) };
 }
 
 /* ── One frame ─────────────────────────────────────── */
@@ -272,54 +310,61 @@ function render(ctx, time, lang) {
   ctx.imageSmoothingEnabled = false;
   const plan = planFor(lang, ctx);
   let cam = null;
-  if (t < LAMP[0]) hook.draw(new Pen(ctx, 1, NIGHT), t, lang);
+  if (t < T.LAMP[0]) hook.draw(new Pen(ctx, 1, NIGHT), t, lang);
+  else if (t >= T.NIGHT.dim[2]) over.endCard(ctx, t, lang);
   else {
     cam = camera(t, plan);
-    const state = windowState(t, lang, plan);
     if (cam.d === 0) {
       ctx.setTransform(2, 0, 0, 2, 0, cam.oy);
-      drawWindowAt(ctx, state, plan, 2);
+      drawWindowAt(ctx, t, lang, plan, 2);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      signInWindow(ctx, t, lang);
+      closeExtras(ctx, t, lang, cam, plan);
+      // Lights out in steps: after the lamp's core goes, night comes over the desk as a dither, never as a fade.
+      if (t >= T.NIGHT.dim[1]) new Pen(ctx, 1, NIGHT).dither(0, 0, WIDTH, HEIGHT, app.NIGHT_DESK, 10, 4);
+      else if (t >= T.NIGHT.dim[0]) new Pen(ctx, 1, NIGHT).dither(0, 0, WIDTH, HEIGHT, app.NIGHT_DESK, 5, 4);
     } else {
-      desk.desktop(new Pen(ctx, 1, DAY), lang, { t, hop: 5.25, dock: [{ label: 'Codex', open: t >= UP[0] }, { label: 'Claude' }, { label: 'Kimi Code' }, { label: 'Qwen Code' }, { label: FILM[lang].terminal, dark: true }] });
+      desk.desktop(new Pen(ctx, 1, DAY), lang, { t, hop: 5.25, dock: [{ label: 'Codex', open: t >= T.UP[0] }, { label: 'Claude', open: t >= T.PASTE.up }, { label: 'Kimi Code' }, { label: 'Qwen Code' }, { label: FILM[lang].terminal, dark: true }] });
       const w = app.W * cam.scale, h = app.H * cam.scale;
       ctx.fillStyle = '#1E242D'; ctx.fillRect(cam.ox + 8, cam.oy + 10, w + 2, h + 2);
       ctx.fillStyle = '#0E1116'; ctx.fillRect(cam.ox - 2, cam.oy - 2, w + 4, h + 4);
       if (cam.d === 1) {
         ctx.save(); ctx.beginPath(); ctx.rect(cam.ox, cam.oy, w, h); ctx.clip();
         ctx.setTransform(1, 0, 0, 1, cam.ox, cam.oy);
-        drawWindowAt(ctx, state, plan, 1);
+        const state = drawWindowAt(ctx, t, lang, plan, 1);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        linksAt(ctx, t, cam);
+        linksAt(ctx, t, lang, cam);
         ctx.setTransform(1, 0, 0, 1, cam.ox, cam.oy);
         app.catsAgain(new Pen(ctx, 1, DAY), state);
         ctx.restore(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-        clientsAt(ctx, t, lang, cam);
+        desktopAt(ctx, t, lang, cam);
       } else {
         // Between the two places: the close-up picture, scaled in whole steps without smoothing.
         if (!layer) { layer = document.createElement('canvas'); layer.width = app.W * 2; layer.height = app.H * 2; }
         const lctx = layer.getContext('2d');
         lctx.setTransform(2, 0, 0, 2, 0, 0);
-        drawWindowAt(lctx, state, plan, 2);
+        drawWindowAt(lctx, t, lang, plan, 2);
         ctx.drawImage(layer, cam.ox, cam.oy, w, h);
       }
     }
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  if (cam) drawCursor(ctx, cursorAt(t, plan, cam));
-  ctx.setTransform(2, 0, 0, 2, 0, 0);
-  caption(ctx, t, lang);
+  if (cam) over.cursor(ctx, cursorAt(t, plan, cam));
+  over.caption(ctx, t, lang);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
-// Named stills of the window alone, for matching the drawing to the app.
+// Named pictures that are not frames of the film: the cover, the caption boxes, and the Catshelf window alone and
+// whole (1920×1680) at a time t, for matching the drawing to the app.
 function renderState(ctx, name, lang, still = {}) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  if (name === 'cover') { over.cover(ctx, lang); return null; }
+  if (name === 'captions') {
+    return SHOTS.map((at) => { const box = over.captionBox(ctx, at + 0.5, lang); return box ? { at, x: box.x * 2, y: box.y * 2, w: box.w * 2, h: 80, text: box.parts.join('') } : { at, text: '' }; });
+  }
   const plan = planFor(lang, ctx);
   ctx.setTransform(2, 0, 0, 2, 0, 0);
-  drawWindowAt(ctx, windowState(still.t || 0, lang, plan), plan, 2);
+  drawWindowAt(ctx, still.t || 0, lang, plan, 2);
 }
 
-module.exports = { render, renderState, FPS, WIDTH, HEIGHT, END, SHOTS, LAMP, RECRUIT, LAND, SAME, OPEN, UP, camera, cameraMoves, planFor };
-void CatArt;
+module.exports = { render, renderState, FPS, WIDTH, HEIGHT, END, SHOTS, T, camera, cameraMoves, planFor };
