@@ -16,14 +16,17 @@
  *   8.0  this one runs out → tick its chat, copy → paste to another cat → it carries on
  *  12.5  the end card
  *
- * Two framings of the same thing: wide (1920×1080) uses the film's camera
- * places; tall (1080×1440) is composed again for a 3:4 feed (film.js, TALL).
+ * Three framings of the same thing: wide (1920×1080) uses the film's camera
+ * places; tall (1080×1440) is composed again for a 3:4 feed (film.js, TALL);
+ * reel (1080×1920) is the tall picture between two bands, for a 9:16 player
+ * (film.js, REEL): the name and the one line above, how to find it below.
  */
 
+const { Pen, DAY } = require('./draw.js');
 const film = require('./film.js');
 const over = require('./overlay.js');
 const ending = require('./ending.js');
-const { SHORT } = require('./strings.js');
+const { FILM, SHORT } = require('./strings.js');
 const { cues: filmCues } = require('./cues.js');
 
 const FPS = 60, END = 15, CARD = 12.5;
@@ -72,12 +75,12 @@ function cameraFor(stretch, source, view) {
   stretch.tall.forEach((key, i) => { if (source >= frames(key[0])) index = i; });
   const to = stretch.tall[index], from = stretch.tall[Math.max(0, index - 1)];
   const since = source - frames(to[0]), p = index === 0 || to[3] === 'cut' ? 1 : since < 4 ? 0.55 : since < 8 ? 0.85 : 1;
-  const place = (a, b) => Math.round((a + (b - a) * p) / 2) * 2;
-  return { ...film.closeAt(place(from[1], to[1]), place(from[2], to[2]), Boolean(stretch.clients)), moving: p < 1 };
+  const place = (a, b) => Math.round((a + (b - a) * p) / 2) * 2, lift = (y) => Math.max(y, view.lift || 0);
+  return { ...film.closeAt(place(from[1], to[1]), place(lift(from[2]), lift(to[2])), Boolean(stretch.clients), view.picture ? view.picture.y : 0), moving: p < 1 };
 }
 
 // Every camera move of the tall framing, in this cut's own seconds; and the cuts it makes inside a stretch.
-const tallKeys = (viewName, cuts) => (viewName !== 'tall' ? [] : STRETCHES.flatMap((stretch) => stretch.tall.slice(1).filter((key) => (key[3] === 'cut') === cuts).map((key) => stretch.at + key[0] - stretch.src)));
+const tallKeys = (viewName, cuts) => (!film.VIEWS[viewName].over ? [] : STRETCHES.flatMap((stretch) => stretch.tall.slice(1).filter((key) => (key[3] === 'cut') === cuts).map((key) => stretch.at + key[0] - stretch.src)));
 const moves = (viewName) => tallKeys(viewName, false);
 const jumps = (viewName) => tallKeys(viewName, true);
 
@@ -85,6 +88,35 @@ function captionAt(frame, lang) {
   let hit = null;
   SHORT[lang].captions.forEach((entry) => { if (frame >= frames(entry[0])) hit = entry; });
   return hit && hit[1] ? { raw: hit[1], age: (frame - frames(hit[0])) / FPS, at: hit[0] } : null;
+}
+
+/*
+ * The two bands of the 9:16 framing, drawn over the picture.
+ * Above: the window's top bar made tall — its wood, its lip, the name in the two tones the app writes it in there —
+ * and the one line. Below: the edge of the desk as on the covers, with how to find it.
+ */
+function bands(ctx, lang, view) {
+  const pen = new Pen(ctx, 1, DAY), P = DAY, W = view.width, H = view.height, top = view.picture.y, foot = top + view.picture.h, words = FILM[lang];
+  const centred = (parts, y, size, colours) => {
+    const widths = parts.map((part) => pen.width(part, size, 'film'));
+    let x = Math.round((W - widths.reduce((a, b) => a + b, 0)) / 8) * 4;
+    parts.forEach((part, k) => { pen.text(part, x, y, { size, film: true, colour: colours[k] }); x += widths[k]; });
+  };
+  pen.rect(0, 0, W, top, P.wood); pen.rect(0, 0, W, 4, P.woodHi); pen.rect(0, top - 8, W, 8, P.woodLo);
+  pen.rect(0, top, W, 4, P.edge); pen.rect(0, top + 4, W, 8, P.shade);
+  const name = words.end[0], brand = /^Cat(shelf)$/.test(name) ? ['Cat', 'shelf'] : [name];
+  centred(brand, 24, 96, [P.onWood, P.woodAccent]);
+  centred([words.end[1]], 136, 36, [P.onWood]);
+  pen.rect(0, foot, W, H - foot, P.wood); pen.rect(0, foot - 4, W, 4, P.edge); pen.rect(0, foot, W, 4, P.woodHi);
+  // One line where it fits, otherwise the search on one line and the rest under it.
+  const find = words.end[3], word = SHORT[lang].keyword, parted = (text) => { const at = text.indexOf(word); return at < 0 ? [text] : [text.slice(0, at), word, text.slice(at + word.length)]; };
+  const tones = (parts) => parts.map((part) => (part === word ? P.woodAccent : P.onWood));
+  if (pen.width(find, 48, 'film') <= W - 96) centred(parted(find), foot + 36, 48, tones(parted(find)));
+  else {
+    const [first, ...rest] = find.split(' · ');
+    centred(parted(first), foot + 36, 48, tones(parted(first)));
+    centred([rest.join(' · ')], foot + 100, 36, [P.onWood]);
+  }
 }
 
 function render(ctx, time, lang, viewName = 'wide') {
@@ -95,6 +127,7 @@ function render(ctx, time, lang, viewName = 'wide') {
   else {
     const stretch = stretchAt(frame), source = sourceFrame(frame);
     film.scene(ctx, source / FPS, lang, film.planFor(lang, ctx, view), cameraFor(stretch, source, view));
+    if (view.picture) bands(ctx, lang, view);
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const caption = captionAt(frame, lang);

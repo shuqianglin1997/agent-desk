@@ -18,12 +18,14 @@ out/bin/inspect out/catshelf-film-zh.mp4 26.6 out/check.png                    #
 
 node media/launch-video/build.js short zh             # 15 秒短版 1920×1080 → out/catshelf-short-zh.mp4（en 同理）
 node media/launch-video/build.js short zh tall        # 15 秒短版 1080×1440（3:4）→ out/catshelf-short-3x4-zh.mp4
+node media/launch-video/build.js short en reel        # 15 秒短版 1080×1920（9:16）→ out/catshelf-short-9x16-en.mp4
 node media/launch-video/build.js cover-tall zh        # 3:4 封面 → out/catshelf-cover-3x4-zh.png
 node media/launch-video/build.js poster bilibili zh   # 别处的封面 → out/cover-bilibili-zh.png（还有 youtube、wechat、wechat-square）
 node media/launch-video/build.js print wechat zh      # 公众号正文配图五张 → out/stills-wechat/
+node media/launch-video/build.js social               # 仓库链接的分享预览图 1280×640 → out/social-preview.png
 node media/launch-video/build.js loop zh              # README 循环动图 → docs/media/catshelf-loop-zh.gif（写完自动读回核对两遍，对不上就不留）
 node media/launch-video/build.js stills zh 9.6,13.5 short-tall                 # 短版或动图的单帧（short、short-tall、loop）
-node media/launch-video/tools/verify.js zh short tall                          # 短版同一套验收；动图是 verify.js zh loop
+node media/launch-video/tools/verify.js zh short tall                          # 短版同一套验收（wide、tall、reel）；动图是 verify.js zh loop；分享预览图是 verify.js en social
 node media/launch-video/tools/verify.js zh cover                               # 3:4 封面：字都在画内、在 4px 格上、字号是 12 的整数倍、互不压住
 node media/launch-video/tools/verify.js en cover youtube                       # 别的封面同理；要裁的两张（bilibili、wechat）还核对裁剩的那块里该有的都在
 node media/launch-video/tools/thumbs.js                                        # 各张封面缩到实际显示的大小，排成 out/covers-as-seen.png
@@ -52,16 +54,16 @@ node media/launch-video/tools/fingerprint.js out/frames/film-zh                #
 | `film/film.js` | 镜头、光标的路线、桌面上的客户端窗口，把上面这些合成一帧 |
 | `film/strings.js` | 字：界面上的字全部取自 `src/i18n/zh.js`、`src/i18n/en.js`；这里只写应用里没有的（字幕、片尾、编出来的账号名和会话标题、别家窗口里的字） |
 | `film/cues.js` | 每个音效在什么时刻响 |
-| `film/cut.js` | 15 秒短版：取成片的哪几段、接在哪一拍、两种构图各自的镜头位置、字幕、音效 |
+| `film/cut.js` | 15 秒短版：取成片的哪几段、接在哪一拍、三种构图各自的镜头位置、字幕、音效；9:16 上下那两条也在这里画 |
 | `film/ending.js` | 短版的片尾（白天的桌面、名字、一句话、“在 GitHub 搜 catshelf”的大名牌、六只猫） |
-| `film/poster.js` | 封面：两行大字、搁板上四只猫各带一枚小标、桌沿上一行“在 GitHub 搜 catshelf · 开源免费”；同一个构图按小红书、B 站、YouTube、公众号各自的尺寸排（`FORMATS`） |
+| `film/poster.js` | 仓库链接的分享预览图（`social`）；封面：两行大字、搁板上四只猫各带一枚小标、桌沿上一行“在 GitHub 搜 catshelf · 开源免费”；同一个构图按小红书、B 站、YouTube、公众号各自的尺寸排（`FORMATS`） |
 | `film/stills.js` | 给文章用的静帧：取成片的第几秒、镜头站哪、带不带字幕和光标 |
 | `film/loop.js` | README 循环动图：826×690 的窗口里每一刻是什么状态 |
 | `film/pieces.js` | 能出哪几样：成片、短版、3:4 短版、动图，各自的尺寸和帧率 |
 
 猫架窗口照真实窗口量出来的尺寸画：`reference/capture.js` 用不显示的窗口跑真实应用（960×840、两倍像素、成片里的六个账号），存下截图和每个元素的位置、颜色、字体，画的时候逐项对照。它只是对照工具，出片时不用。
 
-镜头只有两个位置：贴近猫架窗口（窗口放大两倍，看到其中 960×540，上下摇），或拉远到整个桌面（窗口按原大放在左上角）。两个位置之间走三格台阶。3:4 的短版画面窄，只有贴近这一个位置：看窗口的 540×720，上下左右都能移，别家客户端窗口开在猫架窗口上面（`film/film.js` 的 `TALL`）。
+镜头只有两个位置：贴近猫架窗口（窗口放大两倍，看到其中 960×540，上下摇），或拉远到整个桌面（窗口按原大放在左上角）。两个位置之间走三格台阶。3:4 的短版画面窄，只有贴近这一个位置：看窗口的 540×720，上下左右都能移，别家客户端窗口开在猫架窗口上面（`film/film.js` 的 `TALL`）。9:16 的短版是这幅 3:4 的画面夹在上下两条之间（`REEL`）：上面一条站在窗口顶栏的位置上写名字和一句话，下面一条是桌沿，写怎么找到它。
 
 猫架窗口可以按别的尺寸画（`film/app.js`，`state.size`）：贴右边和底边的东西跟着走，表格各列照应用的规则分宽度。成片用 960×840，3:4 短版用 960×870，动图用 826×690。
 
@@ -114,6 +116,9 @@ node media/launch-video/tools/fingerprint.js out/frames/film-zh                #
 - **YouTube 封面的猫一格是 10px**：720 高里要放两行 108px 的字、小标、猫和桌沿，12px 一格的猫放不下。
 - **公众号横图的两行字只有 84px**：要落在转发时裁出的正方形里。
 - **文章配图有两张镜头另站**：`03-copy` 比成片高 4px（成片那一帧工具栏顶上被切掉 2px），`05-recruit` 对着整个弹窗（成片只看上半截，字幕还压在上面，这张不带字幕）。五张里除了点着按钮的 `03-copy` 都不画光标。
+- **9:16 的字幕没有放到最下面那一条**：Shorts 的界面压在片子底部，字幕留在画面里它压不到的高度。压住多少没有官方数字，是按第三方整理的数估的。
+- **9:16 最下面那句“Search catshelf on GitHub”大半会被 Shorts 的界面压住**：所以片尾仍然在画面中间把这句停 2 秒。
+- **9:16 看不到窗口自己的顶栏**：上面那一条站在它的位置上；灯泡、收件箱、系统这几样这一条里没有。
 - **英文 3:4 短版没有按英文另调镜头**：和中文那条同一组位置。“贴给另一只”那一段右上角的“Quota overview”被画面边切掉后半个词（中文那条同一处切的是“额”）。
 - **封面最下面一行写在桌沿上**：和 16:9 封面写地址的位置一样，不用名牌。底色是木头，朱红在上面看不清，所以 catshelf 用的是应用顶栏里“shelf”那个黄色，其余是顶栏的米白。
 - **动图的窗口是 826×690**：真实窗口拉窄以后的样子，对照过真实应用（工具栏收成图标的几档、各列宽度）。和成片一样，名牌画成 126px、标题标签不截断（真实窗口在这个宽度会把“全部会话”截成“全部…”）；所以工具栏右半边几个按钮和真实窗口差 2–4px，搜索框比真实的宽一些。
@@ -128,13 +133,14 @@ node media/launch-video/tools/fingerprint.js out/frames/film-zh                #
 | 哪一条 | 帧数 | 指纹（sha256 开头） | `out/` 里的 mp4 是不是这一版 |
 |---|---|---|---|
 | 成片 中文 | 3600 | `c69710a3b1e51bf4` | 是 |
-| 成片 英文 | 3600 | `7dfa91515929850b` | **不是**，是 `447629ee8a39ada1` 那一版，见下 |
+| 成片 英文 | 3600 | `7dfa91515929850b` | 是（2026-11-26 重出，给 YouTube；README 里嵌的是 `447629ee8a39ada1` 那一版，见下） |
 | 短版 16:9 中文 | 900 | `9f17ca0a19673efc` | 是 |
 | 短版 16:9 英文 | 900 | `ace832656b4be670` | 是（2026-11-26 重出；之前是 `4b6a3ab6b3cf89b6`） |
 | 短版 3:4 中文 | 900 | `397af2d1ba47e9e6` | 是（2026-11-26 重出；之前是 `0d4396269d74c676`） |
 | 短版 3:4 英文 | 900 | `10fd7fe9732d0a9c` | 是（2026-11-26 新出） |
+| 短版 9:16 英文 | 900 | `4003eed36b3ffbf2` | 是（2026-11-26 新出） |
 
-**已知差异：一分钟英文成片。** `out/catshelf-film-en.mp4` 是 2026-11-25 出的，README 里放的是它上传的那一版，不重出。26 日应用的英文字表改了单复数（提交 d4a0e17），片子上的界面字取自应用，所以现在的源码画出来有 90 帧和它不同，别的 3510 帧一样：
+**已知差异：README 里嵌的一分钟英文成片。** 它是 2026-11-25 上传的那一版（指纹 `447629ee8a39ada1`），不换。26 日应用的英文字表改了单复数（提交 d4a0e17），片子上的界面字取自应用，所以现在的源码画出来有 90 帧和它不同，别的 3510 帧一样。`out/catshelf-film-en.mp4` 26 日按现在的源码重出了（给 YouTube 整条上传），和 README 里那一版差的就是下面这三处：
 
 | 秒 | 帧 | 那一版写的 | 现在画的 |
 |---|---|---|---|

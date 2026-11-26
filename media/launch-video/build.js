@@ -7,10 +7,11 @@
  *   node media/launch-video/build.js stills <zh|en> <t,t,…> [piece]  single frames into out/stills/
  *   node media/launch-video/build.js film <zh|en> [from] [to] [name] frames, sound and mp4 into out/
  *   node media/launch-video/build.js cover <zh|en>                   the 1280×720 cover into out/
- *   node media/launch-video/build.js short <zh|en> [wide|tall]       the 15-second cut, 1920×1080 or 1080×1440
+ *   node media/launch-video/build.js short <zh|en> [wide|tall|reel]  the 15-second cut, 1920×1080, 1080×1440 or 1080×1920
  *   node media/launch-video/build.js cover-tall <zh|en>              the 1080×1440 cover into out/
  *   node media/launch-video/build.js poster <format> <zh|en>         a cover at another place's size (film/poster.js) into out/
  *   node media/launch-video/build.js print <set> <zh|en>             stills for an article (film/stills.js) into out/stills-<set>/
+ *   node media/launch-video/build.js social                          the picture a link to the repository shows, 1280×640, into out/
  *   node media/launch-video/build.js loop <zh|en>                    the README loop into docs/media/
  *
  * Frames are drawn by a hidden Electron page (render/), sound by audio/mix.js,
@@ -41,7 +42,7 @@ function electron(job) {
 }
 
 // What each piece is (the sizes and rates are the ones film/pieces.js draws at).
-const PIECES = { film: { fps: 60, seconds: 60 }, short: { fps: 60, seconds: 15 }, 'short-tall': { fps: 60, seconds: 15 }, loop: { fps: 50, seconds: 8 } };
+const PIECES = { film: { fps: 60, seconds: 60 }, short: { fps: 60, seconds: 15 }, 'short-tall': { fps: 60, seconds: 15 }, 'short-reel': { fps: 60, seconds: 15 }, loop: { fps: 50, seconds: 8 } };
 
 function stills(lang, times, piece = 'film') {
   const out = path.join(OUT, 'stills'), tag = piece === 'film' ? lang : `${piece}-${lang}`;
@@ -61,6 +62,13 @@ function poster(format, lang) {
   if (!spec) throw new Error(`no cover called ${format}`);
   electron({ lang, width: spec.w, height: spec.h, out: OUT, stills: [{ state: `poster:${format}`, name: spec.file(lang) }] });
   return path.join(OUT, `${spec.file(lang)}.png`);
+}
+
+// The picture a link to the repository shows (film/poster.js, social): one picture for both languages.
+function social() {
+  const spec = require('./film/poster.js').SOCIAL;
+  electron({ lang: 'en', width: spec.w, height: spec.h, out: OUT, stills: [{ state: 'social', name: spec.file }] });
+  return path.join(OUT, `${spec.file}.png`);
 }
 
 // The 3:4 cover for a feed, 1080×1440.
@@ -96,7 +104,7 @@ function frames(lang, from, to, name, piece = 'film') {
   return { dir: out, report: result };
 }
 
-module.exports = { electron, stills, frames, cover, coverTall, poster, print, captions, PIECES, OUT, HERE, ROOT };
+module.exports = { electron, stills, frames, cover, coverTall, poster, social, print, captions, PIECES, OUT, HERE, ROOT };
 
 if (require.main === module) {
   const [command, lang, ...rest] = process.argv.slice(2);
@@ -109,6 +117,8 @@ if (require.main === module) {
     process.stdout.write(`${coverTall(lang)}\n`);
   } else if (command === 'poster') {
     process.stdout.write(`${poster(lang, rest[0])}\n`);
+  } else if (command === 'social') {
+    process.stdout.write(`${social()}\n`);
   } else if (command === 'print') {
     for (const file of print(lang, rest[0])) process.stdout.write(`${file}\n`);
   } else if (command === 'loop') {
@@ -119,7 +129,7 @@ if (require.main === module) {
     const [from = '0', to = '60', name = 'film'] = rest;
     require('./assemble.js').film(lang, Number(from), Number(to), name);
   } else {
-    process.stderr.write('usage: build.js stills <lang> <t,…> [piece] | film <lang> [from] [to] [name] | cover <lang> | short <lang> [wide|tall] | cover-tall <lang> | poster <format> <lang> | print <set> <lang> | loop <lang>\n');
+    process.stderr.write('usage: build.js stills <lang> <t,…> [piece] | film <lang> [from] [to] [name] | cover <lang> | short <lang> [wide|tall|reel] | cover-tall <lang> | poster <format> <lang> | print <set> <lang> | social | loop <lang>\n');
     process.exitCode = 1;
   }
 }

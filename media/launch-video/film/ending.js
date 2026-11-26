@@ -68,7 +68,8 @@ function board(pen, W, shelfY, thick = 24, inset = 84) {
 
 /*
  * age: seconds since the card appeared. still: draw it finished and at rest.
- * view: { width, height } — 1920×1080, or 1080×1440 with the cats on two shelves.
+ * view: { width, height } — 1920×1080, or 1080×1440 with the cats on two shelves, or 1080×1920: the same two
+ * shelves set lower, clear of what a 9:16 player lays over the top and the bottom of the picture.
  */
 function draw(ctx, age, lang, view, still = false) {
   const pen = new Pen(ctx, 1, DAY), words = FILM[lang], P = DAY, W = view.width, H = view.height, tall = H > W;
@@ -76,7 +77,8 @@ function draw(ctx, age, lang, view, still = false) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   desk(pen, W, H);
 
-  const top = tall ? 164 : 128, cx = W / 2 - 60;
+  const lower = H >= 1900 ? 160 : 0;
+  const top = (tall ? 164 : 128) + lower, cx = W / 2 - 60;
   // The name, a small cat hopping up beside it, a seal-red rule under both.
   const nameD = dropAt(t, AT.name);
   if (nameD !== null) {
@@ -91,7 +93,7 @@ function draw(ctx, age, lang, view, still = false) {
 
   // The shelves: six cats, each doing something different, hopping on one after another.
   const cell = 12, catW = 20 * cell, catH = 18 * cell, perShelf = tall ? 3 : 6, pitch = tall ? 300 : 276;
-  const x0 = Math.round((W - ((perShelf - 1) * pitch + catW)) / 8) * 4, shelves = tall ? [716, 1004] : [656];
+  const x0 = Math.round((W - ((perShelf - 1) * pitch + catW)) / 8) * 4, shelves = tall ? [716 + lower, 1004 + lower] : [656];
   CAST.forEach((cat, i) => {
     const [action, frame] = DOING[i], shelfY = shelves[Math.floor(i / perShelf)], x = x0 + (i % perShelf) * pitch, since = t - i * 0.05;
     if (since < 0) return;
@@ -104,7 +106,7 @@ function draw(ctx, age, lang, view, still = false) {
   // How to find it: the plate of the captions, larger, the word to type in seal red.
   const findD = dropAt(t, AT.find);
   if (findD !== null) {
-    const L = findLayout(pen, lang, W - 160), x = Math.round((W - L.w) / 8) * 4, y = (tall ? 1112 : 772) + findD;
+    const L = findLayout(pen, lang, W - 160), x = Math.round((W - L.w) / 8) * 4, y = (tall ? 1112 + lower : 772) + findD;
     pen.rect(x + 8, y + 8, L.w + 4, L.h + 4, '#1B1417');
     pen.rect(x - 4, y - 4, L.w + 8, L.h + 8, INK);
     pen.rect(x, y, L.w, L.h, PAPER);

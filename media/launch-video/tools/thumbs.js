@@ -8,12 +8,12 @@
 //
 // Widths are what the places show: 小红书 a third of a phone's width; B 站's list about 320px, and its 4:3 crop of
 // the middle; YouTube's list on a phone about 170px; 公众号 about 100px high, and the square it is cropped to when
-// shared. A cover that has not been rendered is left out.
+// shared; the picture a link to the repository shows, about 400px wide. One that has not been rendered is left out.
 
 const fs = require('node:fs');
 const path = require('node:path');
 const png = require('./png.js');
-const { FORMATS } = require('../film/poster.js');
+const { FORMATS, SOCIAL } = require('../film/poster.js');
 
 const OUT = path.join(__dirname, '..', 'out');
 // [cover, language, width it is seen at, cropped to its safe middle first]
@@ -28,6 +28,9 @@ for (const [name, lang, width, cropped] of SEEN) {
   shown.push(small);
   process.stdout.write(`${spec.file(lang)}.png${cropped ? ` cropped to ${spec.safe[0]}…${spec.safe[1]}` : ''} → ${small.width}×${small.height}\n`);
 }
+// The picture a link to the repository shows: about 400px wide in a card.
+const socialFile = path.join(OUT, `${SOCIAL.file}.png`);
+if (fs.existsSync(socialFile)) { const small = png.fit(png.read(socialFile), 400); shown.push(small); process.stdout.write(`${SOCIAL.file}.png → ${small.width}×${small.height}\n`); }
 const target = path.resolve(process.argv[2] || path.join(OUT, 'covers-as-seen.png'));
 // One row, each at its own size, on the grey of a contact sheet.
 const gap = 12, width = shown.reduce((sum, image) => sum + image.width + gap, gap), height = Math.max(...shown.map((image) => image.height)) + gap * 2;

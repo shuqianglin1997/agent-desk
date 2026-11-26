@@ -158,4 +158,53 @@ function boxes(ctx, lang, name = 'xiaohongshu') {
   return { width: L.width, height: L.height, safe: L.F.safe || null, safeHolds: L.F.safeHolds || null, head: L.head.map(box), tags: L.cats.map((cat) => cat.box), cats: L.cats.map((cat) => cat.grid), find: box(L.find) };
 }
 
-module.exports = { draw, boxes, FORMATS };
+/*
+ * The picture a link to the repository shows when it is pasted somewhere (GitHub's "social preview"): 1280×640,
+ * read by people of both languages, so it carries the name in both and the one line in English, and the cats say
+ * the rest: six on one shelf, each doing something else, as on the 16:9 cover. Places that show it may trim its
+ * edges, so nothing written and no cat comes within 40px of one.
+ */
+const SOCIAL = { w: 1280, h: 640, top: 56, foot: 52, nameY: 84, lineY: 272, shelfY: 532, cell: 8, pitch: 184, file: 'social-preview' };
+const SOCIAL_DOING = [['working', 0], ['onduty', 0], ['busy', 1], ['play', 2], ['spent', 0], ['nap', 1]];
+
+function socialLayout(ctx) {
+  const pen = new Pen(ctx, 1, DAY), S = SOCIAL, parts = [`${FILM.en.end[0]} `, FILM.zh.end[0]];
+  const widths = parts.map((part) => pen.width(part, 144, 'film')), nameW = widths[0] + widths[1], catW = 20 * 6;
+  // The name with the small cat beside it, the two together centred.
+  const nameX = snap((S.w - (nameW + 24 + catW)) / 2);
+  const line = FILM.en.end[1], lineW = pen.width(line, 48, 'film');
+  const cellW = 20 * S.cell, cellH = 18 * S.cell, x0 = snap((S.w - (5 * S.pitch + cellW)) / 2);
+  return {
+    S, parts, widths,
+    name: { x: nameX, y: S.nameY, w: nameW, h: 144, size: 144, text: parts.join('') },
+    mascot: { x: snap(nameX + nameW + 24), y: S.nameY + 144 - 108, w: catW, h: 108, text: 'the small cat' },
+    line: { x: snap((S.w - lineW) / 2), y: S.lineY, w: lineW, h: 48, size: 48, text: line },
+    cats: CAST.map((who, i) => ({ who, doing: SOCIAL_DOING[i], x: x0 + i * S.pitch, y: S.shelfY - cellH, w: cellW, h: cellH, text: SOCIAL_DOING[i][0] }))
+  };
+}
+
+function social(ctx) {
+  const pen = new Pen(ctx, 1, DAY), P = DAY, L = socialLayout(ctx), S = L.S;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ending.desk(pen, S.w, S.h, S.foot, S.top);
+  // The name in both languages, the Chinese one in seal red; the small cat; a seal-red rule under them.
+  pen.text(L.parts[0], L.name.x, L.name.y, { size: 144, film: true, colour: P.ink });
+  pen.text(L.parts[1], L.name.x + L.widths[0], L.name.y, { size: 144, film: true, colour: SEAL });
+  pen.cat('orange', CatArt.ACTIONS.onduty.frames[1], L.mascot.x, L.mascot.y, { cell: 6, collar: '#2f9e8f', accessory: 'none' });
+  pen.rect(L.name.x, L.name.y + 156, snap(L.mascot.x + L.mascot.w - L.name.x), 8, SEAL);
+  pen.text(L.line.text, L.line.x, L.line.y, { size: 48, film: true, colour: P.ink2 });
+  // One shelf, six cats, each doing something else.
+  L.cats.forEach((cat) => {
+    const [action, frame] = cat.doing;
+    pen.cat(cat.who.look, CatArt.ACTIONS[action].frames[frame], cat.x, cat.y, { cell: S.cell, collar: cat.who.collar, accessory: 'none', papers: action === 'busy' ? 3 : 0 });
+  });
+  ending.board(pen, S.w, S.shelfY, 16, 56);
+}
+
+function socialBoxes(ctx) {
+  const L = socialLayout(ctx), box = ({ x, y, w, h, text, size }) => ({ x, y, w, h, text, size });
+  return { width: L.S.w, height: L.S.h, written: [box(L.name), box(L.line)], cats: [box(L.mascot)].concat(L.cats.map(box)) };
+}
+
+module.exports = { draw, boxes, social, socialBoxes, FORMATS, SOCIAL };

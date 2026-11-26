@@ -59,7 +59,20 @@ const TALL = {
   paperFrom: (j) => [60 + ((j * 397) % 900), 1480 + (j % 3) * 40],
   caption: { cx: 270, y: 600 }
 };
-const VIEWS = { wide: WIDE, tall: TALL };
+/*
+ * REEL is 1080×1920 for a 9:16 player (Shorts). It is the tall picture, 1080×1440, with a band above and a band
+ * below it (cut.js draws them): the band above stands where the window's own top bar would be, so the camera never
+ * stands higher than just under that bar (lift); the band below is the edge of the desk. Such a player lays its own
+ * controls over the bottom of the picture, so the picture sits high: its caption and the window's footer stay clear.
+ */
+const REEL = {
+  ...TALL, name: 'reel', height: 1920, picture: { y: 200, h: 1440 }, lift: 58,
+  codex: TALL.codex.map((box) => ({ ...box, y: box.y + 100 })), claude: { ...TALL.claude, y: TALL.claude.y + 100 },
+  idle: [540, 1100],
+  paperFrom: (j) => [60 + ((j * 397) % 900), 1680 + (j % 3) * 40],
+  caption: { cx: 270, y: 700 }
+};
+const VIEWS = { wide: WIDE, tall: TALL, reel: REEL };
 
 /* ── Camera ────────────────────────────────────────── */
 // [time, desktop (0 close, 1 desktop), tilt (window y at the top of the frame, close-ups only)]
@@ -84,7 +97,8 @@ function camera(t, plan) {
 
 function toFrame(cam, x, y) { return [cam.ox + x * cam.scale, cam.oy + y * cam.scale]; }
 // The camera standing still: close on the window with (x, y) of it at the frame's top left, or back at the desktop.
-const closeAt = (x, y, clients = false) => ({ d: 0, y, scale: 2, ox: -2 * x, oy: -2 * y, moving: false, clients });
+// top: where the picture begins in the frame when it does not begin at the frame's own top (REEL).
+const closeAt = (x, y, clients = false, top = 0) => ({ d: 0, y, scale: 2, ox: -2 * x, oy: -2 * y + top, moving: false, clients });
 const desktopCam = () => ({ d: 1, y: 0, scale: 1, ox: DESK_AT.x, oy: DESK_AT.y, moving: false });
 
 /* ── Things worked out once per language ───────────── */

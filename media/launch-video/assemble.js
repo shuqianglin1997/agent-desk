@@ -44,14 +44,16 @@ function film(lang, from, to, name) {
   return out;
 }
 
-// The 15-second cut: 'wide' is 1920×1080, 'tall' 1080×1440. Both carry the same sound.
+// The 15-second cut: 'wide' is 1920×1080, 'tall' 1080×1440, 'reel' 1080×1920. All carry the same sound.
+const FRAMINGS = { wide: ['short', 'short', null], tall: ['short-3x4', 'short-tall', { width: 1080, height: 1440 }], reel: ['short-9x16', 'short-reel', { width: 1080, height: 1920 }] };
 function short(lang, framing = 'wide') {
-  const started = Date.now(), tall = framing === 'tall', name = tall ? 'short-3x4' : 'short';
-  const { dir, report } = build.frames(lang, 0, 15, name, tall ? 'short-tall' : 'short');
+  if (!FRAMINGS[framing]) throw new Error(`no framing called ${framing}`);
+  const started = Date.now(), [name, piece, size] = FRAMINGS[framing];
+  const { dir, report } = build.frames(lang, 0, 15, name, piece);
   const wav = path.join(build.OUT, 'audio', `short-${lang}.wav`);
   audio.writeWav(wav, audio.mixShort(lang).pcm);
   const out = path.join(build.OUT, `catshelf-${name}-${lang}.mp4`);
-  const said = encode(dir, wav, out, tall ? { width: 1080, height: 1440 } : null);
+  const said = encode(dir, wav, out, size);
   process.stdout.write(`${said}\n  ${report.frames} frames drawn, ${report.written} distinct, ${((Date.now() - started) / 1000).toFixed(0)} s in all\n`);
   return out;
 }

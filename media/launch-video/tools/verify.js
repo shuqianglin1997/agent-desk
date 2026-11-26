@@ -13,7 +13,7 @@
  *
  * The 15-second cut and the README loop are held to the same list:
  *
- *   node media/launch-video/tools/verify.js <zh|en> short [wide|tall]
+ *   node media/launch-video/tools/verify.js <zh|en> short [wide|tall|reel]
  *   node media/launch-video/tools/verify.js <zh|en> loop
  *
  * And the 3:4 cover, which has no time: everything written on it lies inside the frame with room to spare, on the
@@ -22,6 +22,10 @@
  *   node media/launch-video/tools/verify.js <zh|en> cover [xiaohongshu|bilibili|youtube|wechat|wechat-square]
  *
  * For a cover that some places crop to its middle, also that the part kept holds what it must.
+ *
+ * And the picture a link to the repository shows: its size, under 1 MB, and nothing written and no cat within 40px of an edge.
+ *
+ *   node media/launch-video/tools/verify.js en social
  */
 
 const fs = require('node:fs');
@@ -51,14 +55,15 @@ function checkCaptions(boxes, width, height, problems) {
   });
 }
 
-if (name === 'short') verifyShort(from === 'tall' ? 'tall' : 'wide');
+if (name === 'short') verifyShort(['tall', 'reel'].includes(from) ? from : 'wide');
 else if (name === 'loop') verifyLoop();
+else if (name === 'social') verifySocial();
 else if (name === 'cover') verifyCover(from === '0' ? 'xiaohongshu' : from);
 else verifyFilm();
 
 function verifyShort(framing) {
   const cut = require('../film/cut.js'), view = film.VIEWS[framing];
-  const manifest = read(`${framing === 'tall' ? 'short-3x4' : 'short'}-${lang}`), problems = [];
+  const manifest = read(`${{ wide: 'short', tall: 'short-3x4', reel: 'short-9x16' }[framing]}-${lang}`), problems = [];
   if (manifest.length !== cut.END * 60) problems.push(`expected ${cut.END * 60} frames, found ${manifest.length}`);
   const onBeat = (label, seconds, grid) => { if (Math.abs(seconds * grid - Math.round(seconds * grid)) > 1e-9) problems.push(`${label} at ${seconds} s is not on ${grid === 2 ? 'a beat' : 'a beat, a half or a quarter of one'}`); };
   const fresh = (label, seconds) => { const frame = Math.round(seconds * 60); if (frame > 0 && manifest[frame] === manifest[frame - 1]) problems.push(`${label} at ${seconds} s: frame ${frame} is the same picture as the one before`); };
@@ -110,6 +115,27 @@ function verifyCover(format) {
   }
   report(`${lang} cover ${format}: ${boxes.width}×${boxes.height}, ${bytes} bytes; ${boxes.head.length} lines at ${boxes.head[0].size}px (${boxes.head.map((box) => Math.ceil(box.w)).join(' and ')}px wide), ${boxes.tags.length} tags (${boxes.tags.map((box) => box.text).join(', ')}), the line at the bottom at ${boxes.find.size}px${kept}`,
     problems, 'everything written is inside the frame, on the 4px grid, in whole multiples of 12, and nothing lies over anything else');
+}
+
+function verifySocial() {
+  const spec = require('../film/poster.js').SOCIAL, boxes = build.captions('en', 'social-boxes'), problems = [], MARGIN = 40;
+  const file = path.join(__dirname, '..', 'out', `${spec.file}.png`);
+  let bytes = 0;
+  if (!fs.existsSync(file)) problems.push('the picture has not been rendered (build.js social)');
+  else {
+    const image = require('./png.js').read(file);
+    bytes = fs.statSync(file).size;
+    if (image.width !== boxes.width || image.height !== boxes.height) problems.push(`the picture is ${image.width}×${image.height}, not ${boxes.width}×${boxes.height}`);
+    if (bytes >= 1024 * 1024) problems.push(`the picture is ${bytes} bytes; it must be under 1 MB`);
+  }
+  boxes.written.map((box) => ['line', box]).concat(boxes.cats.map((box) => ['cat', box])).forEach(([kind, box]) => {
+    if (box.x < MARGIN || box.x + box.w > boxes.width - MARGIN || box.y < MARGIN || box.y + box.h > boxes.height - MARGIN) problems.push(`${kind} “${box.text}” comes within ${MARGIN}px of an edge (${box.x}…${Math.ceil(box.x + box.w)}, ${box.y}…${box.y + box.h})`);
+    if (box.x % 4 || box.y % 4) problems.push(`${kind} “${box.text}” is off the 4px grid (${box.x}, ${box.y})`);
+    if (box.size && box.size % 12) problems.push(`${kind} “${box.text}” is set at ${box.size}px, not a whole multiple of 12`);
+  });
+  const reach = (list) => `${Math.min(...list.map((box) => box.x))}…${Math.ceil(Math.max(...list.map((box) => box.x + box.w)))} across, ${Math.min(...list.map((box) => box.y))}…${Math.max(...list.map((box) => box.y + box.h))} down`;
+  report(`social preview: ${boxes.width}×${boxes.height}, ${bytes} bytes; “${boxes.written[0].text}” at ${boxes.written[0].size}px, “${boxes.written[1].text}” at ${boxes.written[1].size}px, ${boxes.cats.length - 1} cats on the shelf; what is written reaches ${reach(boxes.written)}, the cats ${reach(boxes.cats)}`,
+    problems, 'nothing written and no cat comes within 40px of an edge; everything is on the 4px grid, in whole multiples of 12');
 }
 
 function verifyLoop() {

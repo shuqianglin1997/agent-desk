@@ -16,6 +16,7 @@ const PIECES = {
   film: { width: 1920, height: 1080, fps: 60, seconds: 60, render: (ctx, t, lang) => film.render(ctx, t, lang) },
   short: { width: 1920, height: 1080, fps: 60, seconds: 15, render: (ctx, t, lang) => cut.render(ctx, t, lang, 'wide') },
   'short-tall': { width: 1080, height: 1440, fps: 60, seconds: 15, render: (ctx, t, lang) => cut.render(ctx, t, lang, 'tall') },
+  'short-reel': { width: 1080, height: 1920, fps: 60, seconds: 15, render: (ctx, t, lang) => cut.render(ctx, t, lang, 'reel') },
   loop: { width: loop.WIDTH, height: loop.HEIGHT, fps: loop.FPS, seconds: loop.SECONDS, render: (ctx, t, lang) => loop.render(ctx, t, lang) }
 };
 
@@ -24,8 +25,10 @@ function state(ctx, name, lang, still) {
   const [kind, which, index] = name.split(':');
   if (kind === 'poster') { poster.draw(ctx, lang, which); return null; }
   if (kind === 'poster-boxes') return poster.boxes(ctx, lang, which);
+  if (kind === 'social') { poster.social(ctx); return null; }
+  if (kind === 'social-boxes') return poster.socialBoxes(ctx);
   if (kind === 'still') { film.still(ctx, lang, stills.SETS[which][Number(index)]); return null; }
-  if (name === 'short-captions') return { wide: cut.captionBoxes(ctx, lang, 'wide'), tall: cut.captionBoxes(ctx, lang, 'tall') };
+  if (name === 'short-captions') return { wide: cut.captionBoxes(ctx, lang, 'wide'), tall: cut.captionBoxes(ctx, lang, 'tall'), reel: cut.captionBoxes(ctx, lang, 'reel') };
   if (name === 'loop-captions') return loop.captionBoxes(ctx, lang);
   return film.renderState(ctx, name, lang, still);
 }
