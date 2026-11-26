@@ -9,6 +9,8 @@
  *   node media/launch-video/build.js cover <zh|en>                   the 1280×720 cover into out/
  *   node media/launch-video/build.js short <zh|en> [wide|tall]       the 15-second cut, 1920×1080 or 1080×1440
  *   node media/launch-video/build.js cover-tall <zh|en>              the 1080×1440 cover into out/
+ *   node media/launch-video/build.js poster <format> <zh|en>         a cover at another place's size (film/poster.js) into out/
+ *   node media/launch-video/build.js print <set> <zh|en>             stills for an article (film/stills.js) into out/stills-<set>/
  *   node media/launch-video/build.js loop <zh|en>                    the README loop into docs/media/
  *
  * Frames are drawn by a hidden Electron page (render/), sound by audio/mix.js,
@@ -53,10 +55,26 @@ function cover(lang) {
   return path.join(OUT, `catshelf-cover-${lang}.png`);
 }
 
-// The 3:4 cover for a feed (film/poster.js), 1080×1440.
-function coverTall(lang) {
-  electron({ lang, width: 1080, height: 1440, out: OUT, stills: [{ state: 'cover-tall', name: `catshelf-cover-3x4-${lang}` }] });
-  return path.join(OUT, `catshelf-cover-3x4-${lang}.png`);
+// One cover (film/poster.js) at the size of the place it is for → out/<its name>.png
+function poster(format, lang) {
+  const spec = require('./film/poster.js').FORMATS[format];
+  if (!spec) throw new Error(`no cover called ${format}`);
+  electron({ lang, width: spec.w, height: spec.h, out: OUT, stills: [{ state: `poster:${format}`, name: spec.file(lang) }] });
+  return path.join(OUT, `${spec.file(lang)}.png`);
+}
+
+// The 3:4 cover for a feed, 1080×1440.
+const coverTall = (lang) => poster('xiaohongshu', lang);
+
+// Stills for an article (film/stills.js) → out/stills-<set>/. One job a picture, so each is drawn on a fresh page.
+function print(set, lang) {
+  const shots = require('./film/stills.js').SETS[set];
+  if (!shots) throw new Error(`no set of stills called ${set}`);
+  const out = path.join(OUT, `stills-${set}`);
+  return shots.map((shot, i) => {
+    electron({ lang, out, stills: [{ state: `still:${set}:${i}`, name: `${shot.name}-${lang}` }] });
+    return path.join(out, `${shot.name}-${lang}.png`);
+  });
 }
 
 // Where each caption sits (frame pixels), measured with the real font. `state` names which captions.
@@ -78,7 +96,7 @@ function frames(lang, from, to, name, piece = 'film') {
   return { dir: out, report: result };
 }
 
-module.exports = { electron, stills, frames, cover, coverTall, captions, PIECES, OUT, HERE, ROOT };
+module.exports = { electron, stills, frames, cover, coverTall, poster, print, captions, PIECES, OUT, HERE, ROOT };
 
 if (require.main === module) {
   const [command, lang, ...rest] = process.argv.slice(2);
@@ -89,6 +107,10 @@ if (require.main === module) {
     process.stdout.write(`${require('./assemble.js').short(lang, rest[0] || 'wide')}\n`);
   } else if (command === 'cover-tall') {
     process.stdout.write(`${coverTall(lang)}\n`);
+  } else if (command === 'poster') {
+    process.stdout.write(`${poster(lang, rest[0])}\n`);
+  } else if (command === 'print') {
+    for (const file of print(lang, rest[0])) process.stdout.write(`${file}\n`);
   } else if (command === 'loop') {
     process.stdout.write(`${require('./assemble.js').loop(lang)}\n`);
   } else if (command === 'cover') {
@@ -97,7 +119,7 @@ if (require.main === module) {
     const [from = '0', to = '60', name = 'film'] = rest;
     require('./assemble.js').film(lang, Number(from), Number(to), name);
   } else {
-    process.stderr.write('usage: build.js stills <lang> <t,…> [piece] | film <lang> [from] [to] [name] | cover <lang> | short <lang> [wide|tall] | cover-tall <lang> | loop <lang>\n');
+    process.stderr.write('usage: build.js stills <lang> <t,…> [piece] | film <lang> [from] [to] [name] | cover <lang> | short <lang> [wide|tall] | cover-tall <lang> | poster <format> <lang> | print <set> <lang> | loop <lang>\n');
     process.exitCode = 1;
   }
 }

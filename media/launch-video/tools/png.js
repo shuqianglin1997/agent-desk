@@ -127,6 +127,23 @@ function shrink(image, factor) {
 }
 
 // Images laid out in rows of `columns`, for looking at a run of frames at once.
+// Reduced to `width` px wide as a page shows a large picture small: each output pixel is the average of the part
+// of the picture that falls in it. crop: [left, right] keeps only that part of the picture first.
+function fit(image, width, crop) {
+  const left = crop ? crop[0] : 0, right = crop ? crop[1] : image.width, scale = (right - left) / width, height = Math.round(image.height / scale);
+  const pixels = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const x0 = left + x * scale, x1 = left + (x + 1) * scale, y0 = y * scale, y1 = Math.min(image.height, (y + 1) * scale), sum = [0, 0, 0, 0];
+    let area = 0;
+    for (let j = Math.floor(y0); j < Math.ceil(y1); j += 1) for (let i = Math.floor(x0); i < Math.ceil(x1); i += 1) {
+      const weight = (Math.min(i + 1, x1) - Math.max(i, x0)) * (Math.min(j + 1, y1) - Math.max(j, y0)), from = (j * image.width + i) * 4;
+      for (let c = 0; c < 4; c += 1) sum[c] += image.pixels[from + c] * weight;
+      area += weight;
+    }
+    for (let c = 0; c < 4; c += 1) pixels[(y * width + x) * 4 + c] = Math.round(sum[c] / area);
+  }
+  return { width, height, pixels };
+}
 function grid(images, columns, gap = 6) {
   const cellW = Math.max(...images.map((image) => image.width)), cellH = Math.max(...images.map((image) => image.height));
   const rows = Math.ceil(images.length / columns), width = columns * cellW + (columns + 1) * gap, height = rows * cellH + (rows + 1) * gap;
@@ -141,7 +158,7 @@ function grid(images, columns, gap = 6) {
 
 const pixelAt = (image, x, y) => { const i = (y * image.width + x) * 4; return [image.pixels[i], image.pixels[i + 1], image.pixels[i + 2], image.pixels[i + 3]]; };
 
-module.exports = { read, write, crop, enlarge, beside, shrink, grid, pixelAt };
+module.exports = { read, write, crop, enlarge, beside, shrink, grid, pixelAt, fit };
 
 // node tools/png.js crop <in> <out> x y w h [factor]
 // node tools/png.js beside <a> <b> <out> x y w h [factor]   (same region of both)

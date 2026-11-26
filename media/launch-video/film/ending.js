@@ -45,23 +45,25 @@ function findLayout(pen, lang, room) {
   return null;
 }
 
-// The desk under the lamp, in the app's three hard steps, and its top and bottom edges. foot: how tall the bottom edge is.
-function desk(pen, W, H, foot = 80) {
+// The desk under the lamp, in the app's three hard steps, and its top and bottom edges.
+// foot, head: how tall the bottom and top edges are (84 at the top of a 1080-high frame, 56 of a 720-high one as on the 16:9 cover).
+function desk(pen, W, H, foot = 80, head = 84) {
   const P = DAY, tall = H > W;
   pen.rect(0, 0, W, H, P.dusk);
   const pool = (cx, cy, rx, ry, colour) => { for (let y = 0; y < H; y += 4) { const k = 1 - Math.pow((y + 2 - cy) / ry, 2); if (k > 0) { const half = Math.round(rx * Math.sqrt(k) / 4) * 4; pen.rect(Math.max(0, cx - half), y, Math.min(W, cx + half) - Math.max(0, cx - half), 4, colour); } } };
   pool(W / 2, snap(H * 0.42), snap(W * (tall ? 0.9 : 0.69)), snap(H * 0.78), P.bg);
   pool(W / 2, snap(H * 0.39), snap(W * (tall ? 0.6 : 0.39)), snap(H * 0.42), P.lamp);
-  pen.rect(0, 0, W, 84, P.wood); pen.rect(0, 0, W, 4, P.woodHi); pen.rect(0, 72, W, 12, P.woodLo); pen.rect(0, 84, W, 4, P.edge); pen.rect(0, 88, W, 12, P.shade);
+  const lo = head >= 84 ? 12 : 8;
+  pen.rect(0, 0, W, head, P.wood); pen.rect(0, 0, W, 4, P.woodHi); pen.rect(0, head - lo, W, lo, P.woodLo); pen.rect(0, head, W, 4, P.edge); pen.rect(0, head + 4, W, lo, P.shade);
   pen.rect(0, H - foot, W, foot, P.wood); pen.rect(0, H - foot - 4, W, 4, P.edge); pen.rect(0, H - foot, W, 4, P.woodHi);
 }
 
-// One board of the shelf across the frame, its top at shelfY.
-function board(pen, W, shelfY) {
-  const P = DAY;
-  pen.rect(84, shelfY + 28, W - 168, 12, P.shade);
-  pen.rect(84, shelfY - 4, W - 168, 4, P.edge); pen.rect(84, shelfY + 24, W - 168, 4, P.edge);
-  pen.rect(84, shelfY, W - 168, 24, P.wood); pen.rect(84, shelfY, W - 168, 4, P.woodHi); pen.rect(84, shelfY + 20, W - 168, 4, P.woodLo);
+// One board of the shelf across the frame, its top at shelfY. thick: 24, or 16 as on the 16:9 cover; inset: how far it stops from each side.
+function board(pen, W, shelfY, thick = 24, inset = 84) {
+  const P = DAY, w = W - inset * 2;
+  pen.rect(inset, shelfY + thick + 4, w, 12, P.shade);
+  pen.rect(inset, shelfY - 4, w, 4, P.edge); pen.rect(inset, shelfY + thick, w, 4, P.edge);
+  pen.rect(inset, shelfY, w, thick, P.wood); pen.rect(inset, shelfY, w, 4, P.woodHi); pen.rect(inset, shelfY + thick - 4, w, 4, P.woodLo);
 }
 
 /*

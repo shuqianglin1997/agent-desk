@@ -19,10 +19,14 @@ out/bin/inspect out/catshelf-film-zh.mp4 26.6 out/check.png                    #
 node media/launch-video/build.js short zh             # 15 秒短版 1920×1080 → out/catshelf-short-zh.mp4（en 同理）
 node media/launch-video/build.js short zh tall        # 15 秒短版 1080×1440（3:4）→ out/catshelf-short-3x4-zh.mp4
 node media/launch-video/build.js cover-tall zh        # 3:4 封面 → out/catshelf-cover-3x4-zh.png
+node media/launch-video/build.js poster bilibili zh   # 别处的封面 → out/cover-bilibili-zh.png（还有 youtube、wechat、wechat-square）
+node media/launch-video/build.js print wechat zh      # 公众号正文配图五张 → out/stills-wechat/
 node media/launch-video/build.js loop zh              # README 循环动图 → docs/media/catshelf-loop-zh.gif（写完自动读回核对两遍，对不上就不留）
 node media/launch-video/build.js stills zh 9.6,13.5 short-tall                 # 短版或动图的单帧（short、short-tall、loop）
 node media/launch-video/tools/verify.js zh short tall                          # 短版同一套验收；动图是 verify.js zh loop
 node media/launch-video/tools/verify.js zh cover                               # 3:4 封面：字都在画内、在 4px 格上、字号是 12 的整数倍、互不压住
+node media/launch-video/tools/verify.js en cover youtube                       # 别的封面同理；要裁的两张（bilibili、wechat）还核对裁剩的那块里该有的都在
+node media/launch-video/tools/thumbs.js                                        # 各张封面缩到实际显示的大小，排成 out/covers-as-seen.png
 node media/launch-video/tools/sheet.js frames out/frames/short-3x4-zh out/stills/a.png 8 4 540 633 3   # 已渲染的帧逐帧排开
 node media/launch-video/tools/gif.js docs/media/catshelf-loop-zh.gif           # 把动图读回来：大小、帧数、时长、是否永远循环
 node media/launch-video/tools/fingerprint.js out/frames/film-zh                # 一段帧的指纹：改了画法以后核对成片有没有变
@@ -50,7 +54,8 @@ node media/launch-video/tools/fingerprint.js out/frames/film-zh                #
 | `film/cues.js` | 每个音效在什么时刻响 |
 | `film/cut.js` | 15 秒短版：取成片的哪几段、接在哪一拍、两种构图各自的镜头位置、字幕、音效 |
 | `film/ending.js` | 短版的片尾（白天的桌面、名字、一句话、“在 GitHub 搜 catshelf”的大名牌、六只猫） |
-| `film/poster.js` | 3:4 封面：两行大字、两层搁板上四只猫各带一枚小标、桌沿上一行“在 GitHub 搜 catshelf · 开源免费” |
+| `film/poster.js` | 封面：两行大字、搁板上四只猫各带一枚小标、桌沿上一行“在 GitHub 搜 catshelf · 开源免费”；同一个构图按小红书、B 站、YouTube、公众号各自的尺寸排（`FORMATS`） |
+| `film/stills.js` | 给文章用的静帧：取成片的第几秒、镜头站哪、带不带字幕和光标 |
 | `film/loop.js` | README 循环动图：826×690 的窗口里每一刻是什么状态 |
 | `film/pieces.js` | 能出哪几样：成片、短版、3:4 短版、动图，各自的尺寸和帧率 |
 
@@ -105,6 +110,11 @@ node media/launch-video/tools/fingerprint.js out/frames/film-zh                #
 - **3:4“复制”那一段有一个段内的切**：勾选在 9.25 秒，按“复制会话信息”在 9.5 秒，两处在窗口里隔着近 790px，画面只看得到 540px。三格台阶的移动第一格只走到一半多：从按下那一拍开始移，按下的那一帧按钮还有一半在画外；从勾选那一拍开始移，勾的那一帧行已经出画。所以 9.5 秒那一拍直接切到按钮（短版别的切点也都是直接切），9.75 秒再照常三格台阶移回那一行。16:9 的短版这一段画面放得下整个窗口，不动。
 - **3:4 封面不是片尾的静帧**：另画的一张（`film/poster.js`），东西都是现成的：桌面和搁板是短版片尾的，猫是 `cat-art.js` 里那一帧，小标是成片 25 秒“快没电”那一枚放大到四倍（字 48px，和字幕一样大）。
 - **封面小标写的是应用自己的话**：敲键盘的“1 条在跑”、摞纸冒汗的“3 条在跑”是名牌上那一行，“快没电”是额度状态，“打盹”是猫的状态。应用里这些字在名牌上，不在猫头顶。
+- **有三张封面的小标是三倍大**：YouTube、公众号横图和方图放不下四倍大的小标，用三倍（字 36px）。三倍大的小标边线是 6px，不是 4 的整数倍；它的左上角还是放在 4px 格上。
+- **YouTube 封面的猫一格是 10px**：720 高里要放两行 108px 的字、小标、猫和桌沿，12px 一格的猫放不下。
+- **公众号横图的两行字只有 84px**：要落在转发时裁出的正方形里。
+- **文章配图有两张镜头另站**：`03-copy` 比成片高 4px（成片那一帧工具栏顶上被切掉 2px），`05-recruit` 对着整个弹窗（成片只看上半截，字幕还压在上面，这张不带字幕）。五张里除了点着按钮的 `03-copy` 都不画光标。
+- **英文 3:4 短版没有按英文另调镜头**：和中文那条同一组位置。“贴给另一只”那一段右上角的“Quota overview”被画面边切掉后半个词（中文那条同一处切的是“额”）。
 - **封面最下面一行写在桌沿上**：和 16:9 封面写地址的位置一样，不用名牌。底色是木头，朱红在上面看不清，所以 catshelf 用的是应用顶栏里“shelf”那个黄色，其余是顶栏的米白。
 - **动图的窗口是 826×690**：真实窗口拉窄以后的样子，对照过真实应用（工具栏收成图标的几档、各列宽度）。和成片一样，名牌画成 126px、标题标签不截断（真实窗口在这个宽度会把“全部会话”截成“全部…”）；所以工具栏右半边几个按钮和真实窗口差 2–4px，搜索框比真实的宽一些。
 - **动图不用 ImageIO 写**：试过，每帧存整幅、各带调色板，10 MB，颜色还有偏差；改成自己写，约 180 KB。ImageIO 只用来读回核对。
@@ -122,6 +132,7 @@ node media/launch-video/tools/fingerprint.js out/frames/film-zh                #
 | 短版 16:9 中文 | 900 | `9f17ca0a19673efc` | 是 |
 | 短版 16:9 英文 | 900 | `ace832656b4be670` | 是（2026-11-26 重出；之前是 `4b6a3ab6b3cf89b6`） |
 | 短版 3:4 中文 | 900 | `397af2d1ba47e9e6` | 是（2026-11-26 重出；之前是 `0d4396269d74c676`） |
+| 短版 3:4 英文 | 900 | `10fd7fe9732d0a9c` | 是（2026-11-26 新出） |
 
 **已知差异：一分钟英文成片。** `out/catshelf-film-en.mp4` 是 2026-11-25 出的，README 里放的是它上传的那一版，不重出。26 日应用的英文字表改了单复数（提交 d4a0e17），片子上的界面字取自应用，所以现在的源码画出来有 90 帧和它不同，别的 3510 帧一样：
 
@@ -136,6 +147,6 @@ node media/launch-video/tools/fingerprint.js out/frames/film-zh                #
 ## 没验证的
 
 - 声音没有人听过，只核对了数值（时刻、峰值 −1 dBFS、音效名都是应用里有的）；短版另外核对了结尾是衰减到静音的。
-- 3:4 封面没有在小红书的信息流里看过；做的是把它缩到三分之一、四分之一、六分之一看两行大字还读不读得出。
+- 各张封面没有在小红书、B 站、YouTube、公众号真实的页面和 App 里看过；做的是缩到各处实际显示的大小看两行大字还读不读得出（`tools/thumbs.js`），裁切的位置按居中算。
 - 成片没有在真实播放器里逐一看过；做的是把 mp4 读回来核对帧数（3600）、时长（60.000 秒）、帧率和颜色标记，并从成片里每个镜头导出一帧看过。短版同样（各 900 帧、15.000 秒，每条解出十帧看过）。
 - 动图没有在浏览器窗口和 GitHub 页面上看过；做的是三个解码器（自己的、ImageIO、Chromium）逐像素读回，和把帧缩到一半（普通屏上的样子）看过。GitHub 的 README 一栏实际多宽、手机上缩成什么样，没有实测。

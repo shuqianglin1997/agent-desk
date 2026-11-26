@@ -341,7 +341,7 @@ function cursorAt(t, plan, cam) {
 
 /* ── One picture: the window, what is open over or beside it, the cursor ── */
 let layer = null;
-function scene(ctx, t, lang, plan, cam) {
+function scene(ctx, t, lang, plan, cam, options = {}) {
   const view = plan.view;
   if (cam.d === 0) {
     ctx.setTransform(2, 0, 0, 2, cam.ox, cam.oy);
@@ -377,7 +377,21 @@ function scene(ctx, t, lang, plan, cam) {
     }
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  over.cursor(ctx, cursorAt(t, plan, cam));
+  if (options.cursor !== false) over.cursor(ctx, cursorAt(t, plan, cam));
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/*
+ * One picture of the film taken out of its running order, for print: what the film shows at shot.t, from where the
+ * film's camera stands then or close on the window at shot.tilt, with or without the caption and the cursor.
+ */
+function still(ctx, lang, shot) {
+  const plan = planFor(lang, ctx);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  scene(ctx, shot.t, lang, plan, shot.tilt === undefined ? camera(shot.t, plan) : closeAt(0, shot.tilt), { cursor: shot.cursor !== false });
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (shot.caption !== false) over.caption(ctx, shot.t, lang);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
@@ -409,4 +423,4 @@ function renderState(ctx, name, lang, still = {}) {
   drawWindowAt(ctx, still.t || 0, lang, plan, 2);
 }
 
-module.exports = { render, renderState, scene, FPS, WIDTH, HEIGHT, END, SHOTS, T, camera, cameraMoves, planFor, toFrame, closeAt, desktopCam, VIEWS, LEDGER_TILT, PLATES_TILT };
+module.exports = { render, renderState, scene, still, FPS, WIDTH, HEIGHT, END, SHOTS, T, camera, cameraMoves, planFor, toFrame, closeAt, desktopCam, VIEWS, LEDGER_TILT, PLATES_TILT };

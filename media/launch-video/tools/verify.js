@@ -19,7 +19,9 @@
  * And the 3:4 cover, which has no time: everything written on it lies inside the frame with room to spare, on the
  * 4px grid, in sizes that are whole multiples of 12, and nothing written lies over anything else written.
  *
- *   node media/launch-video/tools/verify.js <zh|en> cover
+ *   node media/launch-video/tools/verify.js <zh|en> cover [xiaohongshu|bilibili|youtube|wechat|wechat-square]
+ *
+ * For a cover that some places crop to its middle, also that the part kept holds what it must.
  */
 
 const fs = require('node:fs');
@@ -51,7 +53,7 @@ function checkCaptions(boxes, width, height, problems) {
 
 if (name === 'short') verifyShort(from === 'tall' ? 'tall' : 'wide');
 else if (name === 'loop') verifyLoop();
-else if (name === 'cover') verifyCover();
+else if (name === 'cover') verifyCover(from === '0' ? 'xiaohongshu' : from);
 else verifyFilm();
 
 function verifyShort(framing) {
@@ -74,21 +76,39 @@ function verifyShort(framing) {
     problems, 'every cut is on a beat and every camera move on a clean part of one, each with a new picture; every caption is inside the lower third and within length');
 }
 
-function verifyCover() {
-  const boxes = build.captions(lang, 'cover-tall-boxes'), problems = [], MARGIN = 40;
-  const file = path.join(__dirname, '..', 'out', `catshelf-cover-3x4-${lang}.png`);
-  if (!fs.existsSync(file)) problems.push('the cover has not been rendered (build.js cover-tall)');
-  else { const image = require('./png.js').read(file); if (image.width !== boxes.width || image.height !== boxes.height) problems.push(`the cover is ${image.width}×${image.height}, not ${boxes.width}×${boxes.height}`); }
-  const all = boxes.head.map((box) => ['line', box]).concat(boxes.tags.map((box) => ['tag', box]), [['the line at the bottom', boxes.find]]);
-  all.forEach(([kind, box]) => {
-    if (box.x < MARGIN || box.x + box.w > boxes.width - MARGIN || box.y < MARGIN || box.y + box.h > boxes.height - 24) problems.push(`${kind} “${box.text}” is too close to the edge (${box.x}…${Math.ceil(box.x + box.w)}, ${box.y}…${box.y + box.h})`);
+function verifyCover(format) {
+  const spec = require('../film/poster.js').FORMATS[format];
+  if (!spec) { process.stdout.write(`no cover called ${format}\n`); process.exitCode = 1; return; }
+  const boxes = build.captions(lang, `poster-boxes:${format}`), problems = [], MARGIN = 40;
+  const file = path.join(__dirname, '..', 'out', `${spec.file(lang)}.png`);
+  let bytes = 0;
+  if (!fs.existsSync(file)) problems.push(`the cover has not been rendered (build.js poster ${format} ${lang})`);
+  else {
+    const image = require('./png.js').read(file);
+    bytes = fs.statSync(file).size;
+    if (image.width !== boxes.width || image.height !== boxes.height) problems.push(`the cover is ${image.width}×${image.height}, not ${boxes.width}×${boxes.height}`);
+    if (bytes >= 2 * 1024 * 1024) problems.push(`the cover is ${bytes} bytes; the places it goes take less than 2 MB`);
+  }
+  const written = boxes.head.map((box) => ['line', box]).concat(boxes.tags.map((box) => ['tag', box]), [['the line at the bottom', boxes.find]]);
+  written.forEach(([kind, box]) => {
+    if (box.x < MARGIN || box.x + box.w > boxes.width - MARGIN || box.y < MARGIN || box.y + box.h > boxes.height - 16) problems.push(`${kind} “${box.text}” is too close to the edge (${box.x}…${Math.ceil(box.x + box.w)}, ${box.y}…${box.y + box.h})`);
     if (box.x % 4 || box.y % 4) problems.push(`${kind} “${box.text}” is off the 4px grid (${box.x}, ${box.y})`);
     if (box.size && box.size % 12) problems.push(`${kind} “${box.text}” is set at ${box.size}px, not a whole multiple of 12`);
   });
-  all.forEach(([kind, a], i) => all.slice(i + 1).forEach(([, b]) => {
+  written.forEach(([kind, a], i) => written.slice(i + 1).forEach(([, b]) => {
     if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) problems.push(`${kind} “${a.text}” lies over “${b.text}”`);
   }));
-  report(`${lang} cover: ${boxes.width}×${boxes.height}; ${boxes.head.length} lines at ${boxes.head[0].size}px (${boxes.head.map((box) => Math.ceil(box.w)).join(' and ')}px wide), ${boxes.tags.length} tags (${boxes.tags.map((box) => box.text).join(', ')}), the line at the bottom at ${boxes.find.size}px`,
+  // What a crop to the middle must keep.
+  let kept = '';
+  if (boxes.safe) {
+    const [left, right] = boxes.safe, inside = (box) => box.x >= left && box.x + box.w <= right;
+    const must = boxes.safeHolds === 'all' ? written.concat(boxes.cats.map((box) => ['cat', box])) : boxes.head.map((box) => ['line', box]);
+    must.forEach(([kind, box]) => { if (!inside(box)) problems.push(`${kind} “${box.text}” reaches outside the part that is kept (${left}…${right}): ${box.x}…${Math.ceil(box.x + box.w)}`); });
+    const whole = boxes.cats.filter((cat, i) => inside(cat) && inside(boxes.tags[i]));
+    if (!whole.length) problems.push(`no cat with its tag lies inside the part that is kept (${left}…${right})`);
+    kept = `; cropped to ${left}…${right} it keeps the two lines and ${whole.length} of the cats with their tags`;
+  }
+  report(`${lang} cover ${format}: ${boxes.width}×${boxes.height}, ${bytes} bytes; ${boxes.head.length} lines at ${boxes.head[0].size}px (${boxes.head.map((box) => Math.ceil(box.w)).join(' and ')}px wide), ${boxes.tags.length} tags (${boxes.tags.map((box) => box.text).join(', ')}), the line at the bottom at ${boxes.find.size}px${kept}`,
     problems, 'everything written is inside the frame, on the 4px grid, in whole multiples of 12, and nothing lies over anything else');
 }
 
