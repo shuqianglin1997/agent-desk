@@ -14,9 +14,9 @@
 
 <p align="center"><a href="#catshelf猫架中文说明">中文说明</a></p>
 
-https://github.com/user-attachments/assets/3f651fb3-d9c0-4092-bec9-6f85c5f69fac
-
-<p align="center"><sub>Catshelf launch film, about one minute · <a href="https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e">中文</a></sub></p>
+<p align="center">
+  <img src="docs/media/catshelf-loop-en.gif" width="826" alt="The Catshelf window: five accounts as five pixel cats on a shelf, one typing, one with papers piling up, one asleep, one out of quota; below them one ledger of every account's sessions, where new replies light up." />
+</p>
 
 <p align="center">
   <a href="https://github.com/shuqianglin1997/catshelf/releases/latest/download/Catshelf-unsigned-universal.dmg"><strong>Download for macOS</strong></a> · Apple silicon and Intel, <code>.dmg</code>
@@ -25,6 +25,10 @@ https://github.com/user-attachments/assets/3f651fb3-d9c0-4092-bec9-6f85c5f69fac
   <br />
   <sub>The newest unsigned test build · checksums: <a href="https://github.com/shuqianglin1997/catshelf/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a> · <a href="https://github.com/shuqianglin1997/catshelf/releases">all releases</a></sub>
 </p>
+
+https://github.com/user-attachments/assets/3f651fb3-d9c0-4092-bec9-6f85c5f69fac
+
+<p align="center"><sub>Catshelf launch film, about one minute · <a href="https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e">中文</a></sub></p>
 
 The first time you open it, the system stops it because it is not signed yet. **macOS:** after the warning, open System Settings → Privacy & Security and click **Open Anyway** next to the message about Catshelf. **Windows:** at the SmartScreen prompt choose **More info**, then **Run anyway**. Do not use other workarounds.
 
@@ -120,9 +124,9 @@ Start at the [documentation map](docs/README.md). Product facts: [docs/PRODUCT.m
 
 # Catshelf（猫架）中文说明
 
-https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e
-
-<p align="center"><sub>猫架发布短片，约一分钟 · <a href="https://github.com/user-attachments/assets/3f651fb3-d9c0-4092-bec9-6f85c5f69fac">English</a></sub></p>
+<p align="center">
+  <img src="docs/media/catshelf-loop-zh.gif" width="826" alt="猫架窗口：五个账号是架子上的五只像素猫，一只在敲键盘，一只摞着纸，一只睡着，一只没电了；下面是所有账号对话的一本账，有新回复的行会亮起来。" />
+</p>
 
 <p align="center">
   <a href="https://github.com/shuqianglin1997/catshelf/releases/latest/download/Catshelf-unsigned-universal.dmg"><strong>下载 macOS 版</strong></a> · Apple 芯片与 Intel 通用，<code>.dmg</code>
@@ -131,6 +135,10 @@ https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e
   <br />
   <sub>最新的未签名测试版 · 校验和：<a href="https://github.com/shuqianglin1997/catshelf/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a> · <a href="https://github.com/shuqianglin1997/catshelf/releases">全部发布</a></sub>
 </p>
+
+https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e
+
+<p align="center"><sub>猫架发布短片，约一分钟 · <a href="https://github.com/user-attachments/assets/3f651fb3-d9c0-4092-bec9-6f85c5f69fac">English</a></sub></p>
 
 第一次打开时，因为还没有签名，系统会把它拦下。**macOS：**看到提示后，打开“系统设置 → 隐私与安全性”，在关于 Catshelf 的那条提示旁点“仍要打开”。**Windows：**SmartScreen 提示时点“更多信息”，再点“仍要运行”。不要用别的办法绕过。
 
