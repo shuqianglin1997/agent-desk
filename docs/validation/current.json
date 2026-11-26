@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-26T17:03:49.720Z",
-  "baseCommit": "3328928c110173cdb6bbf625daac6fd482936517",
+  "recordedAt": "2026-11-26T18:04:27.039Z",
+  "baseCommit": "ae60a1b6e484553fc293c8457501f7bf72f620c9",
   "uncommitted": true,
-  "sourceSha256": "416f3f6cdec90676d494ad84e75dd1ca51da1b1cac57a153a2b294b7d18401a2",
+  "sourceSha256": "d3a48068a0ecc286f6ca63d5ff7347729bd61f83e4861a5ac33def08cd4ad65d",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,31 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1061,
+      "pass": 1059,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite with one-click updates (Mesh plan 1.42): a test-* Latest counts as an update, ordered by commit (the tag resolved through GitHub, cross-checked with target_commitish and the short commit in the tag name; GitHub compare per_page=1&page=2 decides newer, older, diverged; unknown own commit says cannot tell); v* releases by version. macOS installs into /Applications/Catshelf.app only: digest-checked DMG, hdiutil attach -nobrowse -readonly, bundle id, codesign --verify --deep --strict, commit from app.asar build-info.json, ditto --noqtn to a hidden staged name, detached /bin/sh swap with rollback; release page with a fixed reason code otherwise. Read-only `updates check` on the packaged CLI. test/updater.test.js (21) and new test/update-mac.test.js (7) use injected fakes, no network: decisions, the three real test-build file names, capability fallbacks (translocation, outside /Applications, not writable, dev mode, Windows portable), every mount/check/stage refusal, the script order and sh -n, digest and size mismatch on a fake Electron net, and a sentence for each of the 47 reason codes in zh/en/ja.",
+      "recordedAt": "2026-11-26T18:04:27.039Z",
+      "sourceSha256": "d3a48068a0ecc286f6ca63d5ff7347729bd61f83e4861a5ac33def08cd4ad65d"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js (294 files)",
+      "recordedAt": "2026-11-26T18:04:27.039Z",
+      "sourceSha256": "d3a48068a0ecc286f6ca63d5ff7347729bd61f83e4861a5ac33def08cd4ad65d"
+    },
+    {
+      "command": "package.json scripts.check:docs",
+      "result": "passed",
+      "scope": "Current-state documents and this record after one-click updates: RELEASING In-app updates, AI_INTERFACE updates check, Mesh plan 1.42 and its references",
+      "recordedAt": "2026-11-26T18:04:27.039Z",
+      "sourceSha256": "d3a48068a0ecc286f6ca63d5ff7347729bd61f83e4861a5ac33def08cd4ad65d"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

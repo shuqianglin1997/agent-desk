@@ -290,15 +290,136 @@ below and does not satisfy any of its gates.
   notes name the version, the commit and the way to open it (macOS: System
   Settings → Privacy & Security → Open Anyway; Windows: More info → Run
   anyway). It never signs and reads no signing secret.
-- The in-app update check (`src/updater.js` `isTestBuildRelease`) treats a
-  Latest whose tag starts with `test-` as “no official release yet”: it never
-  offers, downloads or installs a test build. Test builds made before this
-  rule have no such check; their update check reports an invalid version and
-  installs nothing.
+- Owner decision 2026-11-26 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.42): the
+  in-app update counts a test build as an update, ordered by commit (see
+  [In-app updates](#in-app-updates)). Test builds published before that
+  decision skip a `test-` Latest (before 2026-11-25 they reported an invalid
+  version), so whoever runs one downloads the next build by hand once; from
+  then on the app updates itself.
+- The workflow does not pass `--target`, so the release's `target_commitish`
+  is the branch name; the app takes the commit GitHub resolves the tag to.
+  Keep the short commit in the tag name (`test-YYYYMMDD-<short commit>`): the
+  app refuses a Latest whose name and resolved commit disagree.
 - Earlier test builds stay on the Releases page with their versioned file
   names (`Catshelf-<version>-unsigned-…`); only the newest one is Latest.
 - Not covered: signing, notarization, the Draft native redownload and the
   anonymous public redownload.
+
+## In-app updates
+
+System › Settings › “Update” (`src/renderer/views/updates.js`) checks GitHub's
+Latest release of this repository; Main decides and installs
+(`src/main/updates.js`), the decision and the Windows replacer are in
+`src/updater.js`, the macOS steps in `src/update-mac.js`. Owner decision
+2026-11-26 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.42).
+
+**Newer or not.** A `v*` Latest is ordered by version, as before. Test builds
+all carry the same package version, so a `test-*` Latest is ordered by
+commit:
+
+1. The release's commit is the one GitHub resolves the tag to
+   (`/commits/refs/tags/<tag>`). `target_commitish`, when it is a commit, and
+   the short commit at the end of the tag name must agree with it; the
+   release notes are never read for this.
+2. This copy's commit is the one the package records (`build-info.json`,
+   [FIX_AND_REBUILD.md](FIX_AND_REBUILD.md)). The same commit is up to date.
+3. Otherwise GitHub's comparison `<this commit>...<release commit>` (second
+   page of one commit: status and counts without the file list) decides:
+   `ahead` is newer and offered; `behind` is older and never offered (no
+   downgrade); `diverged` is not offered; `identical` is up to date.
+4. A copy without a recorded commit (built from a source download), or whose
+   commit GitHub does not know (local changes), says it cannot tell
+   (`current-commit-unknown`, `current-commit-not-on-github`) and offers the
+   release page.
+
+One check is at most three anonymous GitHub API calls (GitHub allows 60 an
+hour). The result is reused for ten minutes, the button reuses one younger
+than a minute, the tag's commit and each comparison are kept for the life of
+the process, and a rate limit is waited out until GitHub's reset time. There
+is no check at start-up or on a timer. `updates check` on the packaged
+command line runs the same check read-only ([AI_INTERFACE.md](AI_INTERFACE.md)).
+
+**Files.** macOS takes the universal DMG, Windows x64 the portable exe
+(`Catshelf-unsigned-universal.dmg`, `Catshelf-unsigned-portable-x64.exe`; the
+versioned names of a `v*` release are recognized too). `SHA256SUMS.txt` is
+never an installer. A file without GitHub's `sha256:` asset digest is not
+installed automatically.
+
+**macOS, “Update and restart”.** Only `/Applications/Catshelf.app` replaces
+itself.
+
+1. Download the DMG over HTTPS from the fixed repository (redirects only to
+   GitHub's download hosts) and check its size and SHA-256 against the asset
+   digest.
+2. `hdiutil attach -nobrowse -readonly -noautoopen -mountpoint <fresh temp
+   folder>`.
+3. Check the `Catshelf.app` inside: bundle id `com.hupo.agentdesk`,
+   `codesign --verify --deep --strict` (test builds are ad-hoc signed), the
+   commit in its `app.asar`'s `build-info.json` equals the release's commit
+   (a `v*` release: `CFBundleShortVersionString` equals the release version),
+   and its version is not older than this copy's.
+4. `ditto --noqtn` it next to the target as `/Applications/.Catshelf.update-<token>.app`
+   and check that copy the same way; detach the DMG (a folder that may still be
+   a mount point is never removed) and delete the download. Copies left by an
+   interrupted update are removed first.
+5. Back up `profiles.json` and `settings.json` (as on Windows).
+6. Start a small detached `/bin/sh` script (`macUpdaterScript`), then quit
+   the way the menu does except that the AI clients Catshelf opened stay
+   open; background hub runs end, and the window asks before that.
+7. The script waits for Catshelf to exit and for no process to run from the
+   bundle (helpers, a `--cli` run, another user), checks the staged copy,
+   renames the old bundle to `.Catshelf.rollback-<pid>.app`, renames the new
+   one into place, checks it, writes its result, reopens it with `open` and
+   removes the old bundle. On any failure it puts the old bundle back and
+   reopens that. The next check shows a failed attempt with its reason code
+   (`quit-timeout`, `bundle-in-use`, `swap-failed`, `installed-invalid`).
+
+Falls back to the release page, with a fixed reason code and a sentence:
+not running from `/Applications` (`not-in-applications`), running under App
+Translocation (`app-translocation`), no write permission on `/Applications`
+or the bundle (`not-writable`), development mode (`dev-mode`), no file for
+this system (`no-asset`) or no digest (`no-digest`). Every refusal of steps
+1–4 (`digest-mismatch`, `size-mismatch`, `mount-failed`, `app-missing`,
+`bundle-id-mismatch`, `signature-invalid`, `build-info-unreadable`,
+`commit-mismatch`, `version-mismatch`, `staging-failed`) leaves
+`/Applications` untouched.
+
+Trust: an ad-hoc signature proves the bundle is intact, not who built it. For
+test builds the origin rests on the fixed repository over HTTPS, GitHub's
+asset digest and the commit check. When signed releases exist, the check
+should also require the same Developer ID team; that is not done yet.
+
+Ad-hoc signatures change with every build, so macOS may ask once more whether
+Catshelf may use “AgentDesk Safe Storage” in the keychain (the window tells
+the person to click “Always Allow”), and Accessibility or Screen Recording
+permissions given for remote control may need to be switched on again.
+
+**Windows.** Unchanged portable flow: download and check the digest, back up
+the configuration, a PowerShell script waits for the process to exit,
+replaces the portable exe (old one kept as `.old` until the new one starts)
+and restarts it; it now also accepts test builds and uses the decision above.
+Falls back to the release page when not started from the portable exe
+(`not-portable`), in development mode or without write permission.
+
+**Real-machine check (macOS).** `scripts/update-dry-run-macos.js` runs steps
+1–4 above with the same code on the real Latest and stops before the swap:
+it stages into a scratch folder instead of `/Applications`, starts no script,
+quits nothing and removes everything it made. The scratch target is a
+parameter of that script only; the app has no such switch.
+
+```bash
+node scripts/update-dry-run-macos.js
+```
+
+It reads the commit of the installed `/Applications/Catshelf.app` without
+running it; to pretend to be another build pass
+`--current-commit <40-character commit>`, and `--keep` keeps the scratch
+folder. It downloads one DMG and makes up to three API calls. It prints the
+decision, what the installed app would do (install itself or open the release
+page, and why), each step, and ends with “Dry run passed.” or the reason code.
+
+Not verified on a real machine yet: the swap, the reopen, the keychain and
+permission prompts after it, and the Windows replacement of a test build.
 
 ## Personal Mesh evidence and release classes
 

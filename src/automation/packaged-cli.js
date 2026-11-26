@@ -59,7 +59,7 @@ async function packagedRead(parsed, options) {
   if (command === 'paths') return { platform: process.platform, userData: options.userData, confirmed: true };
   const packagedOnly = cliCommand(command, 'packaged');
   if (packagedOnly) {
-    return packagedOnly.exec({ discover: options.discover, status: options.status, diagnostics: options.diagnostics, userData: options.userData, InterfaceError }, input);
+    return packagedOnly.exec({ discover: options.discover, status: options.status, diagnostics: options.diagnostics, updateCheck: options.updateCheck, userData: options.userData, InterfaceError }, input);
   }
   if (command === 'apps') {
     const result = execute(command, input);

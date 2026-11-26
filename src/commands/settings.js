@@ -55,10 +55,13 @@ const COMMANDS = [
     id: 'updates.install',
     channel: 'updates:install',
     preload: ['installUpdate'],
-    async exec(deps, _input, context = {}) {
+    // Only the window installs: { stopRuns: true } once the person agreed
+    // that running background runs end with the restart.
+    input: (raw) => ({ stopRuns: raw?.stopRuns === true }),
+    async exec(deps, input, context = {}) {
       const { installLatestUpdate } = deps;
       const event = context.event;
-      return installLatestUpdate(event.sender);
+      return installLatestUpdate(event.sender, input);
     }
   }
 ];

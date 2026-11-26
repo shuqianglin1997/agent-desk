@@ -30,6 +30,7 @@ pbpaste | "$catshelf" --cli profiles set-key --profile "exact-profile-id"
 "$catshelf" --cli runs status --run "run-…"
 "$catshelf" --cli runs output --run "run-…"
 "$catshelf" --cli clients update-status
+"$catshelf" --cli updates check
 ```
 
 本机安装脚本（`scripts/install-local-macos.js`）另在 `~/.local/bin` 写了 `catshelf` 和旧名 `agentdesk` 两个命令，等于上面的 `"$catshelf" --cli`：`catshelf capabilities`、`agentdesk --cli capabilities` 都可以。改名前的路径 `/Applications/AgentDesk.app/Contents/MacOS/AgentDesk` 已随旧应用删除，记着它的调用方改用 `catshelf`。`--cli`、命令、参数、输出字段和退出码都没有变。
@@ -216,6 +217,20 @@ Catshelf background chats (only when I ask you to have one of my other accounts 
 |---|---|---|
 | `clients update-status` | 每个桌面客户端：有没有更新在等（`waiting` 是事实：`exact`、`inferred` 或 `unknown`，不知道时 `value` 为 null）、Catshelf 开着的账号和各自启动时的版本、能不能原样重开（`reopen`） | 只读；不含路径或秘密 |
 | `clients restart-all`、`clients reopen` | 只限窗口：一起重开、原样重开由人在 Catshelf 里点 | 一律返回 `window-only`（退出码 5），不转给桌面 |
+
+## Catshelf 自己的更新：只读检查
+
+`updates check`（只成品有）回答“GitHub 上的 Latest 比这份猫架新吗”，规矩和窗口里的“检查更新”相同（[RELEASING.md](RELEASING.md) “In-app updates”）。`v` 开头的正式版按版本号比；未签名测试版（`test-` 开头的标签）版本号都一样，按提交比：Latest 的提交是 GitHub 把标签解析出的提交，再用 GitHub 的比较接口看这份的提交在它之前、之后还是分叉。
+
+| 字段 | 含义 |
+|---|---|
+| `current` | 这份的 `version`、`commit`（源码打包时为 null）、`dirty`、`packaged` |
+| `latest` | Latest 的 `kind`（`test` 或 `version`）、`tag`、`version`、`commit`、`publishedAt`、`releaseUrl`，以及本系统的安装包 `asset`（文件名、大小、GitHub 给的 SHA-256） |
+| `state` | `newer`（只有它会提示更新）、`current`、`older`（不降级）、`diverged`（不在同一条提交线上，不当作新版）、`unknown`（带 `reasonCode` 和 `reason`，例如 `current-commit-unknown`） |
+| `windowInstall` | 在窗口里点“更新并重启”时会怎样：`windows-portable`、`macos-app`、`release-page`（原因在 `manualReasonCode`）或 `none` |
+| `install` | 固定为 `window-only`：下载、替换和重启只能由人在窗口里点 |
+
+每次调用最多三次匿名 GitHub API 请求（GitHub 每小时给 60 次），不下载安装包、不写任何文件。失败时退出码 5，`error.code` 是固定原因码（如 `rate-limited`、`github-unreachable`、`no-release`）。
 
 ## 精确选择本机数据
 

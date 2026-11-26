@@ -44,7 +44,7 @@ core       纯函数与基础件
 | ui | 界面：视图、对话框、动效、声音，以及独立沙箱里的远控与连接页 | `src/renderer.js` `src/renderer/` `src/pixel/` `src/i18n/i18n.js` `src/i18n/zh.js` `src/i18n/en.js` `src/i18n/ja.js` `src/roster-interactions.js` `src/ui-context.js` `src/quota-overview.js` `src/device-journey.js` `src/agent-workspace.js` `src/yard/sprites.js` `src/remote/console.js` `src/remote/host.js` `src/mesh/peer/peer.js` `src/mesh/peer/e2e-runner.js` `src/mesh/probe/probe.js` `src/mesh/probe/runner.js` |
 | bridge | preload 与 Main 一侧的窗口通道、主窗口的安全策略 | `src/preload.js` `src/main/ipc/` `src/main/window-lamp.js` `src/main/window-chrome.js` `src/remote/console-preload.js` `src/remote/host-preload.js` `src/mesh/peer/preload.js` `src/mesh/probe/preload.js` |
 | commands | 命令：每个用户可见的操作一条，以及只为命令服务的 Main 模块 | `src/commands/` `src/automation/service.js` `src/automation/packaged-cli.js` `src/automation/local-locations.js` `src/automation/diagnostics.js` `src/main/session-actions.js` `src/main/recruit-items.js` `src/main/recruit-discovery.js` `src/main/accounts.js` `src/main/session-files.js` `src/main/hub-wiring.js` `src/main/profile-registration.js` |
-| services | 领域服务：会话索引、活动、额度、运行监管、调度中枢、设备网、任务包 | `src/activity.js` `src/process-snapshots.js` `src/session-index.js` `src/scan-host.js` `src/scan-worker.js` `src/activity-files.js` `src/quota-service.js` `src/profile-runtime.js` `src/client-updates.js` `src/session-marks.js` `src/updater.js` `src/hub/` `src/main/agent-hub.js` `src/main/owner.js` `src/main/app-log.js` `src/main/updates.js` `src/main/tools.js` `src/main/profile-launch.js` `src/main/stores.js` `src/main/mesh-wiring.js` `src/main/support.js` `src/task-package/service.js` `src/mesh/main/` `src/mesh/storage/` `src/mesh/network/` `src/mesh/platform/` `src/terminal-launcher.js` |
+| services | 领域服务：会话索引、活动、额度、运行监管、调度中枢、设备网、任务包 | `src/activity.js` `src/process-snapshots.js` `src/session-index.js` `src/scan-host.js` `src/scan-worker.js` `src/activity-files.js` `src/quota-service.js` `src/profile-runtime.js` `src/client-updates.js` `src/session-marks.js` `src/updater.js` `src/update-mac.js` `src/hub/` `src/main/agent-hub.js` `src/main/owner.js` `src/main/app-log.js` `src/main/updates.js` `src/main/tools.js` `src/main/profile-launch.js` `src/main/stores.js` `src/main/mesh-wiring.js` `src/main/support.js` `src/task-package/service.js` `src/mesh/main/` `src/mesh/storage/` `src/mesh/network/` `src/mesh/platform/` `src/terminal-launcher.js` |
 | clients | 客户端适配器与只认客户端的工具：每家客户端的全部知识 | `src/apps.js` `src/clients/` `src/session-export.js` `src/identity.js` `src/account-discovery.js` `src/account-credentials.js` `src/credential-import.js` `src/cli-discovery.js` `src/tool-maintenance.js` `src/hub/adapters.js` `src/profile-home.js` `src/mesh/main/provisioning-adapters.js` `src/mac-application-activator.js` |
 | core | 纯函数与基础件：路径、结果与事实、存盘、设置、协议与领域模型 | `src/core/` `src/json-store.js` `src/path-utils.js` `src/windows.js` `src/settings.js` `src/quota.js` `src/session-table.js` `src/session-location.js` `src/identity-groups.js` `src/onboarding-state.js` `src/yard/` `src/mesh/domain/` `src/mesh/protocol/` `src/main/profile-store-policy.js` `src/main/network-enrollment.js` `src/i18n/main-i18n.js` `src/process.js` `src/mac-launch.js` `src/task-package/format.js` |
 | entry | 启动入口：按顺序把各层接起来，可以引用任何一层 | `src/main.js` `src/automation/cli.js` |
@@ -242,7 +242,7 @@ Profile 的启动隔离由 `apps.js` 声明，不从显示名推断。每个桌�
 
 ### 周期任务与资源
 
-`src/main/owner.js` 是 Main 的周期任务与资源的唯一归属：任务登记间隔、窗口隐藏时停不停；资源登记怎么停；退出时先停任务，再按登记顺序逐个开始停资源（不等慢的），包括还在回答额度的 codex app-server 子进程和扫描工作线程；运行监管每 2 秒一次的检查由它调度，窗口隐藏时照常跑 `src/main/support.js` 放几个共用的小工具：有界文本、界面语言、新猫的默认外观、经工作线程的活动探测、首次用到时创建的运行监管（由 owner 调度）、目录与路径。`src/main/updates.js` 查 Catshelf 的最新版本、能否自更新、可信下载并交给平台安装程序，`src/updater.js` 解析与校验 Release。
+`src/main/owner.js` 是 Main 的周期任务与资源的唯一归属：任务登记间隔、窗口隐藏时停不停；资源登记怎么停；退出时先停任务，再按登记顺序逐个开始停资源（不等慢的），包括还在回答额度的 codex app-server 子进程和扫描工作线程；运行监管每 2 秒一次的检查由它调度，窗口隐藏时照常跑 `src/main/support.js` 放几个共用的小工具：有界文本、界面语言、新猫的默认外观、经工作线程的活动探测、首次用到时创建的运行监管（由 owner 调度）、目录与路径。`src/main/updates.js` 查 Catshelf 的最新版本、能否自更新、可信下载并交给平台安装程序，`src/updater.js` 解析与校验 Release、判断新旧（正式版按版本号，测试版按提交）和能否自己替换，`src/update-mac.js` 是 macOS 的挂载、核对、暂放与替换脚本（`docs/RELEASING.md` “In-app updates”）。
 
 ### 会话索引与扫描
 
@@ -516,6 +516,7 @@ ProvisioningService 把状态观察和外部界面副作用分开。`resumeActiv
 | `capabilities` | cli | read-only | `src/commands/cli-local.js` |
 | `paths` | cli | read-only | `src/commands/cli-local.js` |
 | `diagnostics` | packaged | read-only | `src/commands/cli-local.js` |
+| `updates check` | packaged | read-only | `src/commands/cli-local.js` |
 | `apps` | cli | read-only | `src/commands/cli-local.js` |
 | `tools` | cli | read-only | `src/commands/cli-local.js` |
 | `profiles list` | cli | read-only | `src/commands/cli-local.js` |

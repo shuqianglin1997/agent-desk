@@ -50,7 +50,7 @@ function collectAttentionItems() {
   if (state.updateInfo?.updateAvailable) {
     items.push({
       kind: 'info',
-      title: tr('attention.update.title', { version: state.updateInfo.latestVersion }),
+      title: tr('attention.update.title', { label: state.updateInfo.latestLabel }),
       detail: tr('attention.update.detail'),
       action: 'update'
     });

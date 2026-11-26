@@ -73,6 +73,20 @@ const CLI_LOCAL = [
     }
   },
   {
+    name: 'updates check',
+    runs: 'packaged',
+    description: 'Whether GitHub\'s Latest release is newer than this copy: v* releases by version, unsigned test builds (test-* tags, all with the same version) by commit through GitHub\'s comparison. Reports this copy\'s version and commit, Latest\'s tag, commit, date and file, and state newer, current, older (never offered: no downgrade), diverged (not on the same line of commits) or unknown (with a reason code, for example a copy built without git). Read-only: up to three anonymous GitHub API requests (GitHub allows 60 an hour), nothing downloaded or written. Installing is window-only.',
+    parameters: {},
+    effects: 'read-only',
+    async exec({ updateCheck, InterfaceError }) {
+      if (typeof updateCheck !== 'function') throw new InterfaceError('updates-unavailable', 'Checking for updates needs the packaged app.', 5);
+      const result = await updateCheck();
+      if (!result.ok) throw new InterfaceError(result.reasonCode, result.reason, 5);
+      const { ok: _ok, ...report } = result;
+      return report;
+    }
+  },
+  {
     name: 'apps',
     runs: 'cli',
     description: 'List registered client capabilities, not installed or authenticated state.',

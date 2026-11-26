@@ -2,7 +2,7 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.41
+> 版本：1.42
 >
 > 日期：2026-11-26
 >
@@ -112,8 +112,8 @@ Catshelf Personal Agent Mesh 是服务于单个使用者的多设备 Agent 控�
 26. 一次整项工作需要由另一个 Agent、另一台设备或另一个人接手时，使用用户显式生成的 TaskPackage：它固定人工填写的阶段检查点、会话内容、Git 基线与已跟踪差异和明确附件；来源副本始终保留，接收方先验证再导入。TaskPackage 不改变全局 Agent 目录权威，不自动同步或合并两端，也不把 Personal Mesh 扩展为团队成员系统。
 27. 第一次点击“创建第一个 Agent”可以同时显式建立本机 Agent 目录和本机设备身份，使普通首次使用不必先理解或进入设备中心；该动作不得开放局域网端口、发布公网租约、连接其他设备或授予任何远端权限。已有 Profile 时先预览无损迁移，不能用首次向导绕过既有目录与身份规则。
 28. 同一 Personal Mesh 内可以直接发送 TaskPackage，但必须使用独立 `task.package.receive` 能力和显式接收确认。包格式、不可变语义、来源保留和逐项校验不变；一次性解锁码只允许进入绑定目标设备与 transferId 的加密 envelope，明文不得进入 Renderer、包、历史、日志或持久化存储。旧端不支持该协议时退回便携加密文件。
-29. 未关闭真实公网 NAT/TURN、长连接恢复与 macOS/Windows 权限矩阵前，只允许发布签名、公证并明确标记的 Preview，不得称为稳定 Personal Mesh。当前开发基线 0.10.0 不补发为稳定版本；成熟化批次建议使用 `v0.10.1-preview.1`，完整门禁关闭后再发布 `v0.10.1`。1.39 起另允许在 GitHub 发布明确标为“未签名测试版”的包（`test-` 开头的标签），见第 33 节 1.39；1.40 起签名版出现以前，最新的未签名测试版标为 GitHub 的 Latest，见第 33 节 1.40。
-30. Catshelf 启动的官方桌面客户端属于受管本机资源，不等于 Agent 对话执行器。默认退出 Catshelf 时必须关闭这些客户端及同一 Profile 的 Crashpad 进程；用户可显式选择保留后台运行，但界面必须说明 Catshelf 退出后不再监控。每个受管 Profile 的 `Crashpad/pending` 默认最多保留 100 个文件或 200 MiB，任一上限先到即按完整事件清理最旧报告；一分钟内出现 5 个同尺寸 dump 视为崩溃风暴并熔断该 Profile。普通关闭与正常退出仍只处理当前 Catshelf 明确拥有的进程；只有路径位于 Catshelf 自己的受管 Profiles 根、且已确认崩溃风暴或容量无法安全收敛时，磁盘保护才可按精确 `user-data-dir` 停止旧版本、强制退出或重启后遗留的匹配进程。没有当前所有权记录的官方默认目录或任意 custom 目录不得被后台清理或停机。安全清理只允许删除 `Crashpad/pending` 直属的 `.dmp` 与 `_sidecar.json`，绝不触碰会话、归档、配置、SQLite、`codex-home` 或留存样本。
+29. 未关闭真实公网 NAT/TURN、长连接恢复与 macOS/Windows 权限矩阵前，只允许发布签名、公证并明确标记的 Preview，不得称为稳定 Personal Mesh。当前开发基线 0.10.0 不补发为稳定版本；成熟化批次建议使用 `v0.10.1-preview.1`，完整门禁关闭后再发布 `v0.10.1`。1.39 起另允许在 GitHub 发布明确标为“未签名测试版”的包（`test-` 开头的标签），见第 33 节 1.39；1.40 起签名版出现以前，最新的未签名测试版标为 GitHub 的 Latest，见第 33 节 1.40；1.42 起应用内的检查更新也把测试版当作更新（按提交比新旧），并能一键下载、校验、替换、重启，见第 33 节 1.42。
+30. Catshelf 启动的官方桌面客户端属于受管本机资源，不等于 Agent 对话执行器。默认退出 Catshelf 时必须关闭这些客户端及同一 Profile 的 Crashpad 进程；用户可显式选择保留后台运行，但界面必须说明 Catshelf 退出后不再监控。每个受管 Profile 的 `Crashpad/pending` 默认最多保留 100 个文件或 200 MiB，任一上限先到即按完整事件清理最旧报告；一分钟内出现 5 个同尺寸 dump 视为崩溃风暴并熔断该 Profile。普通关闭与正常退出仍只处理当前 Catshelf 明确拥有的进程；只有路径位于 Catshelf 自己的受管 Profiles 根、且已确认崩溃风暴或容量无法安全收敛时，磁盘保护才可按精确 `user-data-dir` 停止旧版本、强制退出或重启后遗留的匹配进程。没有当前所有权记录的官方默认目录或任意 custom 目录不得被后台清理或停机。应用内更新的重启是例外：为替换自身而退出时保留这些客户端，新版本启动后按持久记录继续监管（第 33 节 1.42）。安全清理只允许删除 `Crashpad/pending` 直属的 `.dmp` 与 `_sidecar.json`，绝不触碰会话、归档、配置、SQLite、`codex-home` 或留存样本。
 31. Mesh 会话聚合、系统密钥保护或远端库存暂不可用时，健康的本地 Profile 会话必须继续由本机只读扫描器展示，不能被空远端结果覆盖；界面要明确标记“仅本机会话”，并暂停远端会话与跨设备动作。Device Lens、Agent 与 Slot 的明确选择需写入稳定设置并在重启后恢复；旧安装没有选择记忆时，只允许在“本机所有 linked Profile 唯一归属于同一个 Agent”这一可证明无歧义的情况下恢复该 Agent，多个候选时仍保持未选择，绝不取列表第一项。
 32. 本地 ad-hoc 打包的 macOS 开发版可能因重签名后 Keychain ACL 不再匹配而阻塞密钥解密。对精确识别为 `Signature=adhoc`、无 Authority、无 TeamIdentifier 的已打包 macOS 开发版，普通启动只读持久 Mesh 快照并标记 `keyState=deferred`，先展示本地最新会话、暂停跨设备动作；只有用户显式打开设备功能时才请求密钥访问并恢复联网与准备任务。Developer ID 签名包、Windows 和开发源码态不走该延后路径；检测失败必须回到原安全路径，不能为了可用性普遍绕过系统密钥保护。
 33. 桌面客户端的产品显示名、macOS 包名、可执行文件名和账号数据目录是四个独立事实，必须由客户端注册表显式声明，不能互相猜测。同一个受信任官方可执行文件可以由多个 Profile 复用，但每次启动必须携带该 Profile 独立的数据目录与客户端专用会话环境；同一 Profile 阻止重复启动，不同 Profile 允许并行。已知不接受独立数据目录的客户端只能打开官方默认槽位，受管多 Profile 必须失败关闭，不能伪装隔离后串用账号数据。
@@ -2824,6 +2824,19 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.42 测试版也算更新：应用里一键更新 — 2026-11-26
+
+所有者 2026-11-26 原话：“然后工具安装完之后，如果我GitHub更新了发布包，那个工具里面有没有对应的一键更新的按钮？能直接从GitHub上获取到更新，然后能更新的。这一套完整的功能我也希望有，就是能检查更新，然后也能直接检查完之后就有更新也能直接更新。”本条推翻 1.40 条“应用里的检查更新遇到 `test-` 开头的 Latest，当作‘还没有正式发布的版本’，从不提供、下载或安装测试版”，并给第 3 节第 30 条加一个例外。签名 Preview 的门禁、`release.yml` 与 `test-build.yml` 的发布方式、稳定版的门槛都不变。做法见 `docs/RELEASING.md` 的 “In-app updates”。
+
+- 新旧怎么比：`v` 开头的 Latest 照旧按版本号。测试版的版本号都一样，按提交比：Latest 的提交以 GitHub 把标签解析出的提交为准，`target_commitish`（是提交时）和标签名末尾的短提交号都必须与它一致，发布说明的文字不读；再用 GitHub 的比较接口看这份的提交与它的先后。只有 Latest 在这份之后才提示；相同是最新，更旧不降级，分叉不当作新版；这份没有记下提交（从源码打包）或提交不在 GitHub 上时显示“无法判断”并给出发布页。
+- 查询克制：一次检查最多三次匿名 API 调用，结果用十分钟，按钮一分钟内重复点用同一份；标签的提交和每次比较在进程内记住；被限流时等到 GitHub 给的恢复时间。原来没有启动时的自动检查，现在也不加定时轮询。
+- macOS 一键更新：只替换 `/Applications/Catshelf.app`。下载通用 DMG，按 GitHub 的资产摘要核对 SHA-256；只读、不显示地挂到临时目录；核对里面的 Catshelf.app（bundle id `com.hupo.agentdesk`、`codesign --verify --deep --strict`、包里记下的提交等于 Latest 的提交、版本不更旧）；用 `ditto --noqtn` 先以隐藏的新名字放进 `/Applications` 再核对一次，卸载并删除 DMG；备份 profiles 与 settings；然后由一个独立的小脚本在猫架退出、且没有任何进程从包里运行之后，用改名对换新旧两个包、核对、重新打开，任何一步失败就放回原来的并重新打开，结果留给下一次检查显示。不在 `/Applications`、在 App Translocation 下运行、没有写权限、开发模式时退回发布页并说明原因。
+- Windows：沿用便携版的替换流程，只是认测试版、用上面的新旧判断。
+- 信任的边界：测试版是 ad-hoc 签名，`codesign` 只证明包完整，不证明是谁打的；来源靠固定仓库的 HTTPS 地址、GitHub 的资产摘要和提交号核对。签名版出现后应再要求同一个 Developer ID 团队，现在没有做。
+- 退出：为更新而退出时，猫架打开的 AI 客户端照常运行（与本机安装脚本 `scripts/install-local-macos.js` 相同），新版本起来后按持久记录接着监管；后台调用照常随退出结束，窗口先说明有几个会被中断并请人确认。普通退出的规则不变。
+- 命令行只多一个只读的 `updates check`，安装只能在窗口里点，不另造执行层。真机检查用 `scripts/update-dry-run-macos.js`：用真实 Latest 跑到“准备替换”为止，放进临时目录而不是 `/Applications`。
+- 已知：在这之前发出的测试版不认测试版更新，装着它们的人要手动下载一次新版，此后才能一键更新。ad-hoc 签名每次不同，换了程序后 macOS 可能再问一次能否读取“AgentDesk Safe Storage”，更新提示里写了点“始终允许”；用过远控的人可能还要重新打开“辅助功能”“屏幕录制”权限。真机上的对换、重新打开和 Windows 替换测试版尚未实测。
 
 ### 1.41 接入 Antigravity：一台电脑一个账号 — 2026-11-26
 

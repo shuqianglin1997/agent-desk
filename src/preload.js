@@ -151,7 +151,7 @@ contextBridge.exposeInMainWorld('manager', {
   getSettings: (legacySettings) => ipcRenderer.invoke('settings:get', legacySettings),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
   checkForUpdates: () => ipcRenderer.invoke('updates:check'),
-  installUpdate: () => ipcRenderer.invoke('updates:install'),
+  installUpdate: (options) => ipcRenderer.invoke('updates:install', options),
   onUpdateProgress: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('updates:progress', listener);

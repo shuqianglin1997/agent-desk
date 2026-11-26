@@ -1348,6 +1348,7 @@ dialog button.danger-zone-action > small { color: var(--px-bad-ink); }
 }
 .system-setting-line > b { font-weight: 700; }
 .system-setting-line > small { grid-column: 1 / -1; color: var(--px-ink-2); font-size: 11.5px; line-height: 1.5; }
+.system-setting-line > small.update-info { white-space: pre-line; }
 .system-setting-line.settings-runtime-policy { grid-template-columns: minmax(0, 1fr); }
 .system-setting-line > select { width: 100%; min-width: 0; }
 .system-setting-actions { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; }

@@ -7,8 +7,9 @@ name: Unsigned test build
 # signs, reads no signing secret and writes only in the last job. Until a
 # signed release exists, each test build is GitHub's Latest release with
 # fixed file names, so the README's releases/latest/download/... links always
-# reach the newest one (docs/RELEASING.md). The in-app update check ignores a
-# Latest whose tag starts with test-. The packaged first-use smoke is not run
+# reach the newest one (docs/RELEASING.md). Since 2026-11-26 (1.42) the in-app
+# update counts a test-* Latest as an update, ordered by the commit the tag
+# resolves to; keep the short commit in the tag name. The packaged first-use smoke is not run
 # here for now (see the Windows job); macOS CI runs it on main once repaired.
 
 on:

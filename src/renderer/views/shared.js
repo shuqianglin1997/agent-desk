@@ -254,6 +254,7 @@ const els = {
   themeToggle: document.querySelector('#themeToggle'),
   profileQuitBehavior: document.querySelector('#profileQuitBehavior'),
   updateBtn: document.querySelector('#updateBtn'),
+  updateInfoLine: document.querySelector('#updateInfoLine'),
   helpBtn: document.querySelector('#helpBtn'),
   addProfileBtn: document.querySelector('#addProfileBtn'),
   editProfileBtn: document.querySelector('#editProfileBtn'),

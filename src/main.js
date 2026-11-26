@@ -164,6 +164,7 @@ function mainContext() {
     get provisioningService() { return provisioningService; }, set provisioningService(value) { provisioningService = value; },
     get publicNetworkRuntime() { return publicNetworkRuntime; },
     get publicProvisioningResult() { return publicProvisioningResult; },
+    get quitForUpdate() { return quitForUpdate; },
     get quotaService() { return quotaService; },
     get recruitHandlers() { return recruitHandlers; }, set recruitHandlers(value) { recruitHandlers = value; },
     get recruitSelectionRegistry() { return recruitSelectionRegistry; },
@@ -215,7 +216,7 @@ function mainContext() {
 }
 // main context:end
 // moved modules:start — functions moved out of this file, bound to mainContext
-const { checkForUpdates, latestUpdateInfo, fetchLatestGitHubRelease, updateCapability, publicUpdateInfo, installLatestUpdate, downloadReleaseAsset, createTrustedDownloadRequest, launchWindowsPortableUpdater, sendUpdateProgress, updateErrorMessage } = require('./main/updates');
+const { checkForUpdates, checkForUpdatesFromCli, installLatestUpdate } = require('./main/updates');
 require('./main/updates').bind(mainContext());
 const { maintenanceManagerLauncher, maintenanceNpmRoots, baseMaintenanceLauncher, probeMaintenanceVersion, desktopBundleVersion, maintenanceDesktopRecord, maintenanceCliRecord, maintenanceTerminalRecord, scanMaintenanceTools, mapWithConcurrency, fetchMaintenanceLatest, publicMaintenanceInventory, maintenanceErrorMessage, maintenanceRecord, openMaintenanceTool, openMaintenanceOfficialPage, maintenanceLauncherFile, cliMaintenanceProfileContext, openMaintenanceCliInTerminal, openSystemTerminal, linuxTerminalLauncher, spawnVisibleDetached, maintenanceCommand, updateMaintenanceTool, runMaintenanceCommand, cleanMaintenanceOutput, sendToolProgress } = require('./main/tools');
 require('./main/tools').bind(mainContext());
@@ -406,6 +407,13 @@ let hubQuitInProgress = false;
 let hubQuitDone = false;
 // 开灯与关灯：退出和关窗先让窗口关一下灯，等不到回话按硬上限继续（src/main/window-lamp.js）。
 let appQuitting = false;
+// An update quits like the menu does, except that the AI clients Catshelf
+// opened keep running (src/main/updates.js); background runs still end.
+let keepClientsOnQuit = false;
+function quitForUpdate() {
+  keepClientsOnQuit = true;
+  app.quit();
+}
 const windowLamp = createWindowLamp({ getWindow: () => mainWindow });
 const quotaService = new QuotaService();
 // Orderly client updates (docs/ORDERLY_UPDATE_PLAN.md): only AgentDesk's own
@@ -546,7 +554,7 @@ function syncWindowControlTheme(preferences) {
 if (cliLaunchArgs !== null) {
   void runPackagedCli(cliLaunchArgs, {
     app, userData: cliUserData, broker: cliBroker, version: app.getVersion(), discover: discoverLocalProfileLocations, status: profileSignInStatus,
-    diagnostics: cliDiagnostics
+    diagnostics: cliDiagnostics, updateCheck: checkForUpdatesFromCli
   }).then((exitCode) => app.exit(exitCode), () => app.exit(1));
 } else if (!app.requestSingleInstanceLock()) {
   // Another Catshelf has the data folder: it comes to the front instead.
@@ -611,7 +619,7 @@ if (cliLaunchArgs !== null) {
       return;
     }
     const quitBehavior = loadSettings().profileQuitBehavior;
-    if (!profileQuitApproved && quitBehavior !== 'keep') {
+    if (!profileQuitApproved && !keepClientsOnQuit && quitBehavior !== 'keep') {
       event.preventDefault();
       if (profileQuitInProgress) return;
       profileQuitInProgress = true;
