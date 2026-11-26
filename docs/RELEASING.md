@@ -418,6 +418,14 @@ folder. It downloads one DMG and makes up to three API calls. It prints the
 decision, what the installed app would do (install itself or open the release
 page, and why), each step, and ends with “Dry run passed.” or the reason code.
 
+Run on 2026-11-26 on the owner's Mac (Apple silicon), pretending to be the
+build of `8af09c8` against Latest `test-20261126-bebb532`: decision “newer”,
+`Catshelf-unsigned-universal.dmg` (219,210,590 bytes) downloaded and matched
+GitHub's digest, mounted, the app inside checked (bundle id, signature,
+commit `bebb532…`), staged into the scratch folder and checked again, then
+stopped before the swap. `/Applications` was untouched; the scratch folder
+was removed and no Catshelf image stayed mounted. About 48 seconds.
+
 Not verified on a real machine yet: the swap, the reopen, the keychain and
 permission prompts after it, and the Windows replacement of a test build.
 
