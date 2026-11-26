@@ -15,6 +15,11 @@
  *
  *   node media/launch-video/tools/verify.js <zh|en> short [wide|tall]
  *   node media/launch-video/tools/verify.js <zh|en> loop
+ *
+ * And the 3:4 cover, which has no time: everything written on it lies inside the frame with room to spare, on the
+ * 4px grid, in sizes that are whole multiples of 12, and nothing written lies over anything else written.
+ *
+ *   node media/launch-video/tools/verify.js <zh|en> cover
  */
 
 const fs = require('node:fs');
@@ -46,6 +51,7 @@ function checkCaptions(boxes, width, height, problems) {
 
 if (name === 'short') verifyShort(from === 'tall' ? 'tall' : 'wide');
 else if (name === 'loop') verifyLoop();
+else if (name === 'cover') verifyCover();
 else verifyFilm();
 
 function verifyShort(framing) {
@@ -56,6 +62,7 @@ function verifyShort(framing) {
   const fresh = (label, seconds) => { const frame = Math.round(seconds * 60); if (frame > 0 && manifest[frame] === manifest[frame - 1]) problems.push(`${label} at ${seconds} s: frame ${frame} is the same picture as the one before`); };
   cut.CUTS.forEach((at, i) => { onBeat(`cut ${i + 1}`, at, 2); fresh(`cut ${i + 1}`, at); });
   cut.moves(framing).forEach((at) => { onBeat('camera move', at, 4); fresh('camera move', at); });
+  cut.jumps(framing).forEach((at) => { onBeat('cut inside a stretch', at, 2); fresh('cut inside a stretch', at); });
   const SHORT = require('../film/strings.js').SHORT[lang];
   SHORT.captions.forEach(([at, text]) => { onBeat('caption', at, 2); if (text) fresh('caption', at); });
   const boxes = build.captions(lang, 'short-captions')[framing];
@@ -63,8 +70,26 @@ function verifyShort(framing) {
   const list = cut.cues(lang), unknown = list.filter(([, sound]) => !Chip.names.includes(sound));
   if (unknown.length) problems.push(`unknown sounds: ${unknown.map((cue) => cue[1]).join(', ')}`);
   list.forEach(([at, sound]) => { if (at < 0 || at >= cut.END) problems.push(`sound ${sound} at ${at} s is outside the cut`); });
-  report(`${lang} short ${framing}: ${manifest.length} frames (${(manifest.length / 60).toFixed(3)} s) at ${view.width}×${view.height}, ${new Set(manifest).size} distinct pictures, ${cut.CUTS.length} cuts, ${cut.moves(framing).length} camera moves, ${boxes.length} captions, ${list.length} sound cues`,
+  report(`${lang} short ${framing}: ${manifest.length} frames (${(manifest.length / 60).toFixed(3)} s) at ${view.width}×${view.height}, ${new Set(manifest).size} distinct pictures, ${cut.CUTS.length + cut.jumps(framing).length} cuts, ${cut.moves(framing).length} camera moves, ${boxes.length} captions, ${list.length} sound cues`,
     problems, 'every cut is on a beat and every camera move on a clean part of one, each with a new picture; every caption is inside the lower third and within length');
+}
+
+function verifyCover() {
+  const boxes = build.captions(lang, 'cover-tall-boxes'), problems = [], MARGIN = 40;
+  const file = path.join(__dirname, '..', 'out', `catshelf-cover-3x4-${lang}.png`);
+  if (!fs.existsSync(file)) problems.push('the cover has not been rendered (build.js cover-tall)');
+  else { const image = require('./png.js').read(file); if (image.width !== boxes.width || image.height !== boxes.height) problems.push(`the cover is ${image.width}×${image.height}, not ${boxes.width}×${boxes.height}`); }
+  const all = boxes.head.map((box) => ['line', box]).concat(boxes.tags.map((box) => ['tag', box]), [['the line at the bottom', boxes.find]]);
+  all.forEach(([kind, box]) => {
+    if (box.x < MARGIN || box.x + box.w > boxes.width - MARGIN || box.y < MARGIN || box.y + box.h > boxes.height - 24) problems.push(`${kind} “${box.text}” is too close to the edge (${box.x}…${Math.ceil(box.x + box.w)}, ${box.y}…${box.y + box.h})`);
+    if (box.x % 4 || box.y % 4) problems.push(`${kind} “${box.text}” is off the 4px grid (${box.x}, ${box.y})`);
+    if (box.size && box.size % 12) problems.push(`${kind} “${box.text}” is set at ${box.size}px, not a whole multiple of 12`);
+  });
+  all.forEach(([kind, a], i) => all.slice(i + 1).forEach(([, b]) => {
+    if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) problems.push(`${kind} “${a.text}” lies over “${b.text}”`);
+  }));
+  report(`${lang} cover: ${boxes.width}×${boxes.height}; ${boxes.head.length} lines at ${boxes.head[0].size}px (${boxes.head.map((box) => Math.ceil(box.w)).join(' and ')}px wide), ${boxes.tags.length} tags (${boxes.tags.map((box) => box.text).join(', ')}), the line at the bottom at ${boxes.find.size}px`,
+    problems, 'everything written is inside the frame, on the 4px grid, in whole multiples of 12, and nothing lies over anything else');
 }
 
 function verifyLoop() {

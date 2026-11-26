@@ -53,7 +53,7 @@ function cover(lang) {
   return path.join(OUT, `catshelf-cover-${lang}.png`);
 }
 
-// The 3:4 cover: the 15-second cut's end card at rest, 1080×1440.
+// The 3:4 cover for a feed (film/poster.js), 1080×1440.
 function coverTall(lang) {
   electron({ lang, width: 1080, height: 1440, out: OUT, stills: [{ state: 'cover-tall', name: `catshelf-cover-3x4-${lang}` }] });
   return path.join(OUT, `catshelf-cover-3x4-${lang}.png`);

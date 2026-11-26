@@ -30,19 +30,26 @@ const FPS = 60, END = 15, CARD = 12.5;
 /*
  * at: where the stretch begins here; src: where it begins in the film.
  * wide: [desktop, tilt], one camera place for the whole stretch.
- * tall: [[film time, x, y, clients over the window]…]: the first is where the stretch opens, the rest are moves
- * (three held steps, like every camera move in the film) that begin on a beat or a clean part of one.
+ * tall: [[film time, x, y]…]: the first is where the stretch opens, the rest are moves (three held steps, like
+ * every camera move in the film) that begin on a beat or a clean part of one. A key marked 'cut' is not a move: the
+ * camera is simply there from that frame, and it is on a beat like every other cut of this piece.
+ * clients: in the tall framing the official clients' windows are drawn over the Catshelf window in this stretch.
+ *
+ * Copying (9.0–10.5), tall: the row is ticked a quarter second before the button is pressed, and the two are further
+ * apart in the window than the frame is wide. A move that begins on the press has the button half outside the frame
+ * on its first step, so the camera cuts: on the row while it is ticked (its title and its tick in view), on the button
+ * as it is pressed at 9.5, and a quarter second later it moves back to the row, where the slip lands in the footer.
  */
 const STRETCHES = [
   { at: 0, src: 9.75, wide: [0, 0], tall: [[9.75, 0, 0], [10.5, 406, 0]] },
-  { at: 1.5, src: 12, wide: [1, 0], tall: [[12, 0, 0, true]] },
+  { at: 1.5, src: 12, wide: [1, 0], tall: [[12, 0, 0]], clients: true },
   { at: 3.5, src: 16, wide: [0, 0], tall: [[16, 0, 0], [16.75, 406, 0]] },
   { at: 5, src: 18, wide: [0, film.LEDGER_TILT], tall: [[18, 0, 150]] },
   { at: 6, src: 19.5, wide: [0, film.PLATES_TILT], tall: [[19.5, 0, 150]] },
   { at: 7, src: 22, wide: [0, film.PLATES_TILT], tall: [[22, 0, 150]] },
   { at: 8, src: 24.5, wide: [0, 0], tall: [[24.5, 0, 0]] },
-  { at: 9, src: 26, wide: [0, film.LEDGER_TILT], tall: [[26, 0, 150], [26.5, 420, 150], [27, 0, 150]] },
-  { at: 10.5, src: 28.5, wide: [1, 0], tall: [[28.5, 270, 0, true]] }
+  { at: 9, src: 26, wide: [0, film.LEDGER_TILT], tall: [[26, 0, 150], [26.5, 420, 150, 'cut'], [26.75, 0, 150]] },
+  { at: 10.5, src: 28.5, wide: [1, 0], tall: [[28.5, 270, 0]], clients: true }
 ];
 const CUTS = STRETCHES.map((stretch) => stretch.at).concat([CARD]);
 const frames = (seconds) => Math.round(seconds * FPS);
@@ -64,16 +71,15 @@ function cameraFor(stretch, source, view) {
   let index = 0;
   stretch.tall.forEach((key, i) => { if (source >= frames(key[0])) index = i; });
   const to = stretch.tall[index], from = stretch.tall[Math.max(0, index - 1)];
-  const since = source - frames(to[0]), p = index === 0 ? 1 : since < 4 ? 0.55 : since < 8 ? 0.85 : 1;
+  const since = source - frames(to[0]), p = index === 0 || to[3] === 'cut' ? 1 : since < 4 ? 0.55 : since < 8 ? 0.85 : 1;
   const place = (a, b) => Math.round((a + (b - a) * p) / 2) * 2;
-  return { ...film.closeAt(place(from[1], to[1]), place(from[2], to[2]), Boolean(stretch.tall[0][3])), moving: p < 1 };
+  return { ...film.closeAt(place(from[1], to[1]), place(from[2], to[2]), Boolean(stretch.clients)), moving: p < 1 };
 }
 
-// Every camera move of the tall framing, in this cut's own seconds.
-function moves(viewName) {
-  if (viewName !== 'tall') return [];
-  return STRETCHES.flatMap((stretch) => stretch.tall.slice(1).map((key) => stretch.at + key[0] - stretch.src));
-}
+// Every camera move of the tall framing, in this cut's own seconds; and the cuts it makes inside a stretch.
+const tallKeys = (viewName, cuts) => (viewName !== 'tall' ? [] : STRETCHES.flatMap((stretch) => stretch.tall.slice(1).filter((key) => (key[3] === 'cut') === cuts).map((key) => stretch.at + key[0] - stretch.src)));
+const moves = (viewName) => tallKeys(viewName, false);
+const jumps = (viewName) => tallKeys(viewName, true);
 
 function captionAt(frame, lang) {
   let hit = null;
@@ -120,4 +126,4 @@ function cues(lang) {
   return list.sort((a, b) => a[0] - b[0]);
 }
 
-module.exports = { render, cues, captionBoxes, moves, sourceFrame, STRETCHES, CUTS, FPS, END, CARD };
+module.exports = { render, cues, captionBoxes, moves, jumps, sourceFrame, STRETCHES, CUTS, FPS, END, CARD };

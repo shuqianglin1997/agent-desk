@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * The end card of the 15-second cut, and the same card held still as a cover.
+ * The end card of the 15-second cut.
  *
  * It is the film's cover design in motion: the desk under the lamp, the name
  * with a small cat beside it, the one line, the six cats on a shelf each doing
@@ -45,22 +45,34 @@ function findLayout(pen, lang, room) {
   return null;
 }
 
+// The desk under the lamp, in the app's three hard steps, and its top and bottom edges. foot: how tall the bottom edge is.
+function desk(pen, W, H, foot = 80) {
+  const P = DAY, tall = H > W;
+  pen.rect(0, 0, W, H, P.dusk);
+  const pool = (cx, cy, rx, ry, colour) => { for (let y = 0; y < H; y += 4) { const k = 1 - Math.pow((y + 2 - cy) / ry, 2); if (k > 0) { const half = Math.round(rx * Math.sqrt(k) / 4) * 4; pen.rect(Math.max(0, cx - half), y, Math.min(W, cx + half) - Math.max(0, cx - half), 4, colour); } } };
+  pool(W / 2, snap(H * 0.42), snap(W * (tall ? 0.9 : 0.69)), snap(H * 0.78), P.bg);
+  pool(W / 2, snap(H * 0.39), snap(W * (tall ? 0.6 : 0.39)), snap(H * 0.42), P.lamp);
+  pen.rect(0, 0, W, 84, P.wood); pen.rect(0, 0, W, 4, P.woodHi); pen.rect(0, 72, W, 12, P.woodLo); pen.rect(0, 84, W, 4, P.edge); pen.rect(0, 88, W, 12, P.shade);
+  pen.rect(0, H - foot, W, foot, P.wood); pen.rect(0, H - foot - 4, W, 4, P.edge); pen.rect(0, H - foot, W, 4, P.woodHi);
+}
+
+// One board of the shelf across the frame, its top at shelfY.
+function board(pen, W, shelfY) {
+  const P = DAY;
+  pen.rect(84, shelfY + 28, W - 168, 12, P.shade);
+  pen.rect(84, shelfY - 4, W - 168, 4, P.edge); pen.rect(84, shelfY + 24, W - 168, 4, P.edge);
+  pen.rect(84, shelfY, W - 168, 24, P.wood); pen.rect(84, shelfY, W - 168, 4, P.woodHi); pen.rect(84, shelfY + 20, W - 168, 4, P.woodLo);
+}
+
 /*
- * age: seconds since the card appeared. still: draw it finished and at rest (the cover).
+ * age: seconds since the card appeared. still: draw it finished and at rest.
  * view: { width, height } — 1920×1080, or 1080×1440 with the cats on two shelves.
  */
 function draw(ctx, age, lang, view, still = false) {
   const pen = new Pen(ctx, 1, DAY), words = FILM[lang], P = DAY, W = view.width, H = view.height, tall = H > W;
   const t = still ? 60 : age;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  // The desk under the lamp, in the app's three hard steps.
-  pen.rect(0, 0, W, H, P.dusk);
-  const pool = (cx, cy, rx, ry, colour) => { for (let y = 0; y < H; y += 4) { const k = 1 - Math.pow((y + 2 - cy) / ry, 2); if (k > 0) { const half = Math.round(rx * Math.sqrt(k) / 4) * 4; pen.rect(Math.max(0, cx - half), y, Math.min(W, cx + half) - Math.max(0, cx - half), 4, colour); } } };
-  pool(W / 2, snap(H * 0.42), snap(W * (tall ? 0.9 : 0.69)), snap(H * 0.78), P.bg);
-  pool(W / 2, snap(H * 0.39), snap(W * (tall ? 0.6 : 0.39)), snap(H * 0.42), P.lamp);
-  // Top and bottom edges of the desk.
-  pen.rect(0, 0, W, 84, P.wood); pen.rect(0, 0, W, 4, P.woodHi); pen.rect(0, 72, W, 12, P.woodLo); pen.rect(0, 84, W, 4, P.edge); pen.rect(0, 88, W, 12, P.shade);
-  pen.rect(0, H - 80, W, 80, P.wood); pen.rect(0, H - 84, W, 4, P.edge); pen.rect(0, H - 80, W, 4, P.woodHi);
+  desk(pen, W, H);
 
   const top = tall ? 164 : 128, cx = W / 2 - 60;
   // The name, a small cat hopping up beside it, a seal-red rule under both.
@@ -85,11 +97,7 @@ function draw(ctx, age, lang, view, still = false) {
     if (!still && AWAKE.includes(i)) spec = once('cheer', t - AT.cheer - i * 0.04) || spec;
     pen.cat(cat.look, spec, x, shelfY - catH, { cell, collar: cat.collar, accessory: 'none', papers: action === 'busy' ? 3 : 0 });
   });
-  shelves.forEach((shelfY) => {
-    pen.rect(84, shelfY + 28, W - 168, 12, P.shade);
-    pen.rect(84, shelfY - 4, W - 168, 4, P.edge); pen.rect(84, shelfY + 24, W - 168, 4, P.edge);
-    pen.rect(84, shelfY, W - 168, 24, P.wood); pen.rect(84, shelfY, W - 168, 4, P.woodHi); pen.rect(84, shelfY + 20, W - 168, 4, P.woodLo);
-  });
+  shelves.forEach((shelfY) => board(pen, W, shelfY));
 
   // How to find it: the plate of the captions, larger, the word to type in seal red.
   const findD = dropAt(t, AT.find);
@@ -109,4 +117,4 @@ function draw(ctx, age, lang, view, still = false) {
   }
 }
 
-module.exports = { draw, findLayout, AT };
+module.exports = { draw, desk, board, findLayout, AT };

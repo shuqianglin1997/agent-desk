@@ -8,7 +8,7 @@
 
 const film = require('./film.js');
 const cut = require('./cut.js');
-const ending = require('./ending.js');
+const poster = require('./poster.js');
 const loop = require('./loop.js');
 
 const PIECES = {
@@ -20,7 +20,8 @@ const PIECES = {
 
 // Named pictures that are not frames: covers, measured caption boxes, the window alone.
 function state(ctx, name, lang, still) {
-  if (name === 'cover-tall') { ending.draw(ctx, 0, lang, { width: 1080, height: 1440 }, true); return null; }
+  if (name === 'cover-tall') { poster.draw(ctx, lang); return null; }
+  if (name === 'cover-tall-boxes') return poster.boxes(ctx, lang);
   if (name === 'short-captions') return { wide: cut.captionBoxes(ctx, lang, 'wide'), tall: cut.captionBoxes(ctx, lang, 'tall') };
   if (name === 'loop-captions') return loop.captionBoxes(ctx, lang);
   return film.renderState(ctx, name, lang, still);
