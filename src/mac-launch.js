@@ -23,10 +23,13 @@ function changedLaunchEnvironment(launchEnv = {}, baseEnv = {}) {
   return changes;
 }
 
-function macLaunchServicesArgs(application, appArgs = [], launchEnv = {}, baseEnv = {}) {
+// newInstance (default true): an isolated Profile always starts its own copy
+// of the app (`open -n`). A launch of the app's single official location
+// (not isolated) opens or brings forward the copy that is already running.
+function macLaunchServicesArgs(application, appArgs = [], launchEnv = {}, baseEnv = {}, options = {}) {
   const target = String(application || '').trim();
   if (!target || target.includes('\0')) throw new Error('mac-launch-application-invalid');
-  const result = ['-n', '-a', target];
+  const result = options.newInstance === false ? ['-a', target] : ['-n', '-a', target];
   for (const variable of changedLaunchEnvironment(launchEnv, baseEnv)) {
     result.push('--env', variable);
   }

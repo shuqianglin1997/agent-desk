@@ -75,6 +75,7 @@
 | Gemini CLI | `GEMINI_CLI_HOME` | `.gemini/oauth_creds.json` 或 `.gemini/settings.json` | 有刷新令牌，或 `.gemini/.env` 里有密钥 | 整个目录；`oauth_creds.json`（未证实） | 写进 `.gemini/.env` 的 `GEMINI_API_KEY` | Vertex 相关变量，先不做 |
 | Qwen Code | `QWEN_HOME` | `subscription_credentials.json`、`oauth_creds.json` 或 `settings.json` | 有登录文件，或设置里有 provider | 整个目录 | 设置文件的 `modelProviders` 加 `.env` | 同左 |
 | Copilot CLI | 登录在系统钥匙串里，全机共用，换目录隔不开 | `~/.copilot` | 无可靠办法 | 无 | 见第 8 节 | 不做 |
+| Antigravity | 隔不开：登录在系统钥匙串里，全机共用；只登记官方默认位置 | 数据目录 `Local State` 加 `app_storage.json`，且 `~/.gemini/antigravity` 存在 | 无可靠办法（不读钥匙串） | 无 | 不支持 | 不支持 |
 
 几条必须照做的细节：
 
@@ -109,7 +110,7 @@
 ## 8. 拿不准、要先讨论的
 
 1. **Copilot CLI。** 它的登录在系统钥匙串里全机共用，要分开只能每次启动时带上各自的令牌，这要求 AgentDesk 自己保存令牌，和“不保存任何密钥”冲突。备选：只支持默认的那一个账号；或者把令牌放进系统钥匙串里 AgentDesk 自己的条目。
-2. **Antigravity。** 所有者的 Mac 上装了它，个人版 Gemini 的登录也已移到它那里，但这次没有查。要不要加、排在哪一批。
+2. **Antigravity。** 已定（所有者 2026-11-26：“你现在开发呀，你现在把这事情解决好”）：加，只支持这台电脑上登录的那一个账号。它的登录在系统钥匙串里、全机共用，分不出第二个；把令牌存下来轮流换进去的切换工具违反 AGENTS.md，不做。做法见第 9 节“Antigravity”一条。
 3. **Cursor 的命令行（`agent`）。** 分开配置目录后登录是否跟着分开没有官方答复，是否值得加。
 4. **Claude 的令牌明文写进 `settings.json`。** 已定（所有者 2026-11-24：“反正 AI 能操作也就行”）：保留这种写法。令牌写进该账号目录的 `settings.json`（权限只有本人可读），界面事先说明是明文；人和 AI 都可以通过招募弹窗或 `profiles set-key` 用它。
 5. **旧的 Kimi 目录 `~/.kimi`。** 官方不迁移登录。应用是只提示，还是提供一键重新登录。
@@ -131,6 +132,19 @@
 - Qwen Code：`QWEN_HOME` 就是状态目录本身（下面没有 `.qwen`）。`qwen auth` 命令已移除，免费的 Qwen OAuth 已于 2026-04-15 停止，所以“粘贴密钥”不提供，只提供接口账号：写该账号 `.env` 的 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL` 并设 `selectedType = "openai"`。即使改了 `QWEN_HOME`，Qwen 仍会用 `~/.qwen/.env` 和 `~/.env` 补齐没设的变量，这一点 AgentDesk 隔离不了。只接受拖入整个目录。
 - 会话：OpenCode 读 `opencode.db`（`session_v2`，兼容 v1 的 `session` 表和更早的 `storage/session/*.json`），子会话（有 `parent_id`）不出现；Gemini 读 `.gemini/tmp/<项目>/chats/session-*.jsonl` 和旧的整文件 `.json`，`kind: "subagent"` 不出现；Qwen 读 `projects/<目录>/chats/*.jsonl` 与 `chats/archive/`，带 `parent_session` 的子会话和 `isSidechain` 记录不出现。三家都能导出正文（Markdown，只留用户和助手的文字，工具调用只留名字，思考过程不导出）。DSH 读 `sessions/--<目录>--/<编号>/` 下最新一代日志（`session.vN.jsonl`，或多个独立 zstd 帧组成的 `.zstd`；Node 自带的解压只解第一帧，所以按帧头切开逐帧解，写了一半的最后一帧跳过），标题取最新的 `session/title` 事件，带 `parentSession` 或 `delegationDepth` 的子会话不出现；DSH 的正文格式没有公开说明，暂不导出正文。
 
+Antigravity（2026-11-26，Google 的 Agent 桌面应用 2.x；结构按所有者 Mac 上的 2.34.0 只读核对，表是空的）：
+
+- 只支持这台电脑上登录的那一个账号：适配器用现有的 `official-default-only`（与 Kimi Work 相同），受管的第二个位置在新建、登记和启动三处都被拒绝（`client-default-only`、`profile-isolation-unsupported`）。“把已有的领回来”在默认位置找到它；“新来一只”里它只有一种做法“用这台电脑上登录的那一个”，在 Main 里按同一套发现找到官方位置后原地登记，不建目录、不打开窗口、不碰登录，已登记的就说已在台面上，没装就给固定原因 `client-default-missing`。这条路径对所有只有一个账号的客户端通用，Kimi Work 在“新来一只”里也随之可选。三种语言在客户端下拉、这种做法的说明和“拖进来”的表里都写明“只能用这台电脑上登录的那一个账号”。
+- 位置：数据目录是官方默认的 `~/Library/Application Support/Antigravity`（Windows 按现有规则找 `%APPDATA%\Antigravity` 等），会话根总是 `~/.gemini/antigravity`（Windows 为 `%USERPROFILE%\.gemini\antigravity`），不跟着数据目录走。两处都在才算找到。macOS 打开时认 `com.google.antigravity`，而且不带 `open -n`，已经开着就带到前面（只有一个位置的客户端都这样，Kimi Work 同）。Windows 按 `%LOCALAPPDATA%\Programs\Antigravity\Antigravity.exe` 等现有候选找，没在 Windows 上核对过。
+- 会话：用 `src/clients/sqlite.js` 只读查 `conversation_summaries.db` 的 `conversation_summaries`，先查表结构，只取认得的列；标题取 `title`，没有就取 `preview` 的第一行；项目取 `workspace_uris` 里第一个本机文件夹；时间取 `last_modified_time` 与 `last_user_input_time` 较晚的一个（Go 的零时间不算）；没有创建时间，所以不写。`parent_conversation_id` 不为空、`nesting_depth` 大于 0、或在 `conversation_parents` 里的子对话不进账本。`killed` 是被停掉的运行，对话照常列出、不算在跑；`status` 里带 archived 的标为已归档。库不存在是没有会话；库读不出、表不存在或缺列，返回固定原因 `session-store-unreadable`，不崩溃、不当成空。
+- 在跑：`not_fully_idle` 为真、没有 `killed`、不是子对话的，按“在跑”计入卡片的条数，并带上会话地址，列表上的“在跑”与卡片一致（`src/activity-files.js` 新认 `sessionCounts` 返回的 `writingAddresses`）。
+- 复制会话信息：路径是工作区文件夹；坐标是这条对话自己的位置加编号——有 `brain/<编号>/`（Agent 写的 Markdown 产物）就用它，否则 `conversations/<编号>.pb`，再没有就用 `conversation_summaries.db`。正文 `.pb` 是没有公开格式的 protobuf，猫架不读。
+- 不支持、如实标出：额度（没有官方接口，不拿登录令牌去查）；后台调用（只能开窗口，它的命令行 `agy` 还没接入，原因码 `desktop-only-no-cli`）；Markdown 导出与任务包正文（正文是 protobuf）；粘贴密钥、接口账号、拖入登录文件。成品命令行 `apps` 的每个客户端新增 `quota` 与 `backgroundRuns` 两项，照实写支持与否和原因。
+- 和 Gemini CLI 互不误认：`~/.gemini` 也是 Gemini CLI 的家。Antigravity 只从默认位置找，不参与主目录扫描；Gemini CLI 的特征新增 `excludedBy`（`conversation_summaries.db`、`antigravity_state.pbtxt`），即使 Antigravity 以后在自己目录里放 `settings.json` 也不会被认成 Gemini CLI。两个方向都有测试（`test/antigravity.test.js`）。
+- 设备网：`providerNamespace` 定为 `antigravity`，`clientForm` 为 `desktop`，依据写在 `docs/PERSONAL_AGENT_MESH_PLAN.md` 第 33 节 1.41。
+- 以后可以考虑：命令行版 `agy`（数据在 `~/.gemini/antigravity-cli/`，同样一机一个登录；所有者机器上没装）；“工具”里的桌面应用清单。
+- 没有验证的：真实对话（所有者机器上的表还是空的，值的格式按防御写法读）；`brain/` 里到底有什么；Windows；`not_fully_idle` 在 Antigravity 意外退出后会不会留成真。
+
 ## 10. 来源
 
 - Codex：learn.chatgpt.com/docs/auth.md、/docs/auth/ci-cd-auth.md、/docs/config-file/config-reference.md、/docs/app-server.md；github.com/openai/codex
@@ -142,3 +156,4 @@
 - Gemini CLI：geminicli.com/docs；github.com/google-gemini/gemini-cli
 - Qwen Code：qwenlm.github.io/qwen-code-docs；github.com/QwenLM/qwen-code
 - Copilot CLI：docs.github.com/en/copilot/how-tos/copilot-cli
+- Antigravity：所有者 Mac 上 `/Applications/Antigravity.app` 2.34.0 的包结构与 `conversation_summaries.db` 的表结构（只读，不读内容）；discuss.ai.google.dev 上关于对话存成 `conversations/<编号>.pb`、Windows 安装位置的用户帖子（未证实）

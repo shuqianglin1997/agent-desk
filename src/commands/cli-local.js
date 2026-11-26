@@ -79,9 +79,18 @@ const CLI_LOCAL = [
     parameters: {},
     exec: ({ apps, provisioningAdapterDescriptor }) => ({ apps: apps.listApps().map((item) => {
       const descriptor = provisioningAdapterDescriptor(item.id);
+      const client = apps.getApp(item.id);
       return {
         ...item,
-        canScanSessions: apps.getApp(item.id).sessionScanSupported !== false,
+        canScanSessions: client.sessionScanSupported !== false,
+        // What the adapter says it cannot do, as the desktop shows it: quota
+        // (a reason key when there is no reader) and hub background runs.
+        quota: typeof client.quota?.read === 'function'
+          ? { supported: true, reason: null }
+          : { supported: false, reason: client.quota?.unsupportedReason || 'quota.reason.unsupported' },
+        backgroundRuns: client.hub
+          ? { supported: true, reason: null }
+          : { supported: false, reason: typeof client.hubUnsupported === 'string' ? client.hubUnsupported : 'not-verified-yet' },
         configurationOwner: 'external-client',
         desktopPreparation: {
           supportedOnThisPlatform: Boolean(descriptor?.supportedPlatforms.includes(process.platform)),

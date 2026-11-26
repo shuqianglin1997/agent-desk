@@ -110,7 +110,7 @@ node src/automation/cli.js tools
 
 `Profile` 是本机运行位置，不等于全局 `Agent`、登录身份或远端 `Slot`。CLI 不读取/解密 Mesh 数据库，因此看不到零 Slot 的全局员工或远端目录；不能根据 Profile 数量推断用户共有多少 Agent。
 
-`apps` 的 `canLaunch` 是启动适配器能力，`supportsManagedProfiles` 是独立桌面数据目录能力，`desktopPreparation.supportedOnThisPlatform` 才是首次准备适配器能力；三者不等价。后者复用现有 descriptor，目前仅 Claude/Codex 桌面，`portableSettingKeys` 为空，不代表能自动迁移技能、工具、项目或公司 API 配置。
+`apps` 的 `quota` 与 `backgroundRuns` 照实写每个客户端能不能查额度、能不能被调度中枢调用，不能时给原因（额度是界面词表的 key，调用是原因码，例如 Antigravity 的 `quota.reason.antigravity.unsupported` 与 `desktop-only-no-cli`）。`canLaunch` 是启动适配器能力，`supportsManagedProfiles` 是独立桌面数据目录能力，`desktopPreparation.supportedOnThisPlatform` 才是首次准备适配器能力；三者不等价。后者复用现有 descriptor，目前仅 Claude/Codex 桌面，`portableSettingKeys` 为空，不代表能自动迁移技能、工具、项目或公司 API 配置。
 
 ## 添加账号（招募）
 
@@ -120,7 +120,7 @@ node src/automation/cli.js tools
 |---|---|---|
 | `profiles discover [--app <id>] [--scan defaults\|home] [--folder <绝对路径>]` | 找每个已登记客户端的已有目录：默认位置和环境变量；`--scan home` 再在主目录里按特征文件查最多四层；`--folder` 在指定文件夹里查 | 只读目录名和特征文件。跳过 `Library`、`Desktop`、`Documents`、`Downloads`、云盘、`node_modules`、`.git` 等，不跟随符号链接，有目录数、条目数和五秒时间上限，超限时 `scan.truncated=true`。输出身份只含邮箱或套餐名，不含令牌。每项给出 `registeredProfileId` 或可直接用的 `registerArguments` |
 | `profiles register --app <id> --session-root <目录> [--profile-path <目录>]` | 原地登记一个已有目录；重复登记返回原 Profile | 不复制、不移动登录 |
-| `profiles create --app <id> [--name <名字>]` | 新建一个独立环境，返回编号、`profilePath` 与 `sessionRoot` | 不登录、不打开客户端；Kimi Work 只能用官方默认目录，返回 `client-default-only` |
+| `profiles create --app <id> [--name <名字>]` | 新建一个独立环境，返回编号、`profilePath` 与 `sessionRoot` | 不登录、不打开客户端；Kimi Work 与 Antigravity 只能用这台电脑上登录的那一个账号，返回 `client-default-only`，改用 `profiles discover --app <id>` 找到的默认位置 `profiles register` |
 | `profiles set-key --profile <编号> [--method key\|provider] [--provider-id] [--base-url] [--model] [--catalog-provider]` | 从标准输入读一个密钥或令牌，交给这个账号自己的客户端 | 不接受作为参数；标准输入是终端时直接拒绝。见下表 |
 | `profiles status --profile <编号> [--check files\|official]` | 按各家成功判据报告是否已登录、用什么方式 | 不输出任何秘密；`official` 才运行客户端自己的状态命令（无窗口） |
 | `profiles import-auth --app <id> --file <绝对路径>` | 导入登录文件：Codex `auth.json`、DSH `.credentials.yaml`、Kimi Code `credentials/kimi-code.json`（连同配置里对应的那一段）、Windows/Linux 的 Claude CLI `.credentials.json`、OpenCode 旧版 `auth.json` 或 `auth export` 导出的文件（后者交给 `opencode --standalone auth import` 在新目录里导入）、Gemini CLI `oauth_creds.json` | 来自默认或环境变量目录的文件改为原地登记该目录；其余复制进新的独立目录（0700 目录、0600 文件），输出 `copied=true` 并警告原处可能掉线 |
@@ -172,7 +172,7 @@ node src/automation/cli.js tools
 | Gemini CLI | `gemini -p "<固定的一句话>" --output-format json --approval-mode <模式> --session-id <Catshelf 生成>`，`-p` 的文字接在标准输入后面 | `plan` / `auto_edit`；Gemini 不信任的文件夹里它自己退回默认模式，无界面时需要批准的调用一律拒绝 | 进程退出（0 成功，1、42、53 失败）；JSON 的 `response` | [headless](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/headless.md)、[config.ts](https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/config/config.ts) |
 | Qwen Code | `qwen -p "<固定的一句话>" --output-format json --approval-mode <模式> --session-id <Catshelf 生成>`，`-p` 的文字接在标准输入后面 | `plan`（只分析，不改文件、不执行命令）/ `auto-edit` | 进程退出；JSON 数组里最后一个 `type: "result"` 的 `result` | [headless](https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/headless.md)、[审批模式](https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/approval-mode.md)、[参数](https://github.com/QwenLM/qwen-code/blob/main/packages/cli/src/config/top-level-options.ts) |
 
-Claude 官方文档只写了“管道送进内容 + 一个查询参数”的用法（`cat file | claude -p "query"`），没有写只用管道，所以查询参数是一句固定、不含内容的引导语，提示词本身走标准输入、不改写。Claude 桌面版、Codex 桌面窗口、Cursor 编辑器和 Kimi Work 只能打开窗口，不能被调用（`desktop-only`）。另外三个按官方文档核对后暂不支持：Kimi Code 的 `-p` 只收命令行参数里的提示词，而且总是自动批准，没有只读（`prompt-argument-only`）；OpenCode 的 `run` 靠参数做不到只读，plan 代理仍可执行命令，权限只能写在配置文件里（`no-read-only-mode`）；DSH 的 headless 没有公开的只读权限预设，`--json` 的事件格式也没有文档（`no-read-only-mode`）。这些账号的“允许被调用”开关打不开，`agents list` 不会列出它们。
+Claude 官方文档只写了“管道送进内容 + 一个查询参数”的用法（`cat file | claude -p "query"`），没有写只用管道，所以查询参数是一句固定、不含内容的引导语，提示词本身走标准输入、不改写。Claude 桌面版、Codex 桌面窗口、Cursor 编辑器和 Kimi Work 只能打开窗口，不能被调用（`desktop-only`）；Antigravity 也只能打开窗口，它的命令行 `agy` 还没接入（`desktop-only-no-cli`）。另外三个按官方文档核对后暂不支持：Kimi Code 的 `-p` 只收命令行参数里的提示词，而且总是自动批准，没有只读（`prompt-argument-only`）；OpenCode 的 `run` 靠参数做不到只读，plan 代理仍可执行命令，权限只能写在配置文件里（`no-read-only-mode`）；DSH 的 headless 没有公开的只读权限预设，`--json` 的事件格式也没有文档（`no-read-only-mode`）。这些账号的“允许被调用”开关打不开，`agents list` 不会列出它们。
 
 ### 给 Agent 的使用说明
 
@@ -251,7 +251,7 @@ node src/automation/cli.js sessions locate --user-data "/absolute/AgentDesk" --p
 - 定位只返回 JSON 中的路径、坐标和共用格式 `text`；不打开文件、不启动客户端、不写剪贴板、不增加交接提示词。
 - 扫描器是有界、尽力读取，不是完整性审计。缺失根报错；子目录损坏、适配器上限、SQLite/格式异常可能被既有扫描器跳过。`totalInScan` 不是历史绝对总数，空列表不证明无会话或数据库健康。`status` 和标题是显示文本，不作为稳定控制枚举。
 - DSH 会话按 `sessions/` 下每个会话最新一代日志列出（含 zstd 压缩），但没有正文解析，`sessions read` 返回 `transcript-unsupported`。OpenCode、Gemini CLI、Qwen Code 可以列出并读正文；OpenCode 用 Node 自带的只读 SQLite 打开 `opencode.db`。
-- Cursor / Kimi Work 可能调用系统 `sqlite3` 做固定只读查询；无网络，不运行 Agent CLI 或自定义 shell 命令。
+- Cursor / Kimi Work / Antigravity 可能调用系统 `sqlite3` 做固定只读查询；无网络，不运行 Agent CLI 或自定义 shell 命令。Antigravity 只读 `conversation_summaries.db` 的摘要表（不读 `raw_summary`、全文索引和 `.pb` 正文），子对话不列出，`sessions read` 返回 `transcript-unsupported`；库读不出或表结构认不出时返回 `session-store-unreadable`。
 
 ## 公司 API 环境：AI 如何定制
 
@@ -280,6 +280,7 @@ node src/automation/cli.js sessions locate --user-data "/absolute/AgentDesk" --p
 | Codex | 独立桌面目录 + `CODEX_HOME=sessionRoot` | 配置归客户端/外部工具；macOS 运行时可用指向规范根的短别名，不创建第二份配置 |
 | DSH | `DSH_HOME=sessionRoot`，固定 CLI `--profile web` | 不用桌面专属 `desktop` 模板，不复制默认根；其他认证环境不承诺全部清理；真实 API/登录另验 |
 | Kimi Work | 只支持官方默认目录启动 | 不把自定义根伪装成受支持的多账号隔离 |
+| Antigravity | 只登记官方默认位置：数据目录加 `~/.gemini/antigravity`（Windows `%USERPROFILE%\.gemini\antigravity`） | 登录在系统钥匙串里、全机共用，只有一个账号；不存令牌、不轮换登录。`~/.gemini` 同时是 Gemini CLI 的家，两者互不误认 |
 
 这些是仓库实现，不替代客户端当前配置文档。Catshelf 不直接调用模型 API，本批未更改真实公司/个人配置。
 

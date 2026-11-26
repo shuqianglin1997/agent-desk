@@ -166,7 +166,7 @@ Renderer 会附加所属 profile 和账号组信息，但不会修改原始会�
 
 `apps.js` 是唯一客户端目录：它按固定顺序收集 `src/clients/<id>/index.js` 的适配器。每家客户端的知识都在自己的目录里，其他代码只问适配器“会不会、结果是什么”，不写按客户端名字的判断（`scripts/arch-metrics.js` 的“适配器之外按客户端名字的判断”保持 0，`scripts/check-layers.js` 强制 clients 层不引用上层、不用 electron）。
 
-当前十家：Claude 桌面（claude）、Claude 命令行（claude-cli）、DSH（dsh-cli）、Codex（codex）、Kimi Code（kimi）、Kimi Work（kimi-work）、OpenCode（opencode）、Gemini CLI（gemini-cli）、Qwen Code（qwen-code）、Cursor（cursor）。
+当前十一家：Claude 桌面（claude）、Claude 命令行（claude-cli）、DSH（dsh-cli）、Codex（codex）、Kimi Code（kimi）、Kimi Work（kimi-work）、OpenCode（opencode）、Gemini CLI（gemini-cli）、Qwen Code（qwen-code）、Cursor（cursor）、Antigravity（antigravity）。Kimi Work 与 Antigravity 只有官方默认的那一个位置（`profileIsolation` 为 `official-default-only`）：招募“新来一只”对它们改为原地登记这台电脑上登录的那一个（`recruit:createAccount` 的 `signIn: default`，Main 里 `recruitHandlers.registerDefault`），macOS 打开时不带 `open -n`。
 
 除 `src/apps.js` 与 `src/clients/` 以外，属于这一层、只认客户端的模块：
 
@@ -178,7 +178,7 @@ Renderer 会附加所属 profile 和账号组信息，但不会修改原始会�
 - `src/hub/adapters.js` 从注册表汇总能被调度中枢调用的客户端（适配器的 `hub`，即 `clients/<id>/hub.js`：固定无界面运行参数、只读/可写写法、结束判断、回答与会话记录来源）和不能被调用的原因（`hubUnsupported`）；共用的输出解析与有界读取在 `src/clients/hub-io.js`。
 - `src/profile-home.js` 只创建独立目录，不播种凭据；`src/session-export.js` 会话导出的入口；`src/mesh/main/provisioning-adapters.js` 首次准备按客户端的做法；`src/mac-application-activator.js` macOS 上把官方应用带到前台。
 
-`src/clients/<id>/` 的分工：每个客户端一个适配器目录（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor），集中它的名称、可执行文件、数据目录、扫描区域、发现特征与密钥交接方式；clients/shared.js 放几个适配器共用、不点名任何客户端的小工具，clients/scan.js 放各家扫描器共用的有界遍历、读文件头尾、日期与标题；clients/file-memo.js 是扫描器共用的逐文件记忆：同一路径、大小、修改时间（以及 inode、变更时间）不变的文件不再重读，读失败不记，列表与活动探测共用同一次读（每个线程各有一份）；各家会话扫描在自己目录的 sessions.js（十家都在：OpenCode 只读打开 opencode.db、DSH 按帧解 zstd、Cursor 与 Kimi Work 经 clients/sqlite.js 用系统 sqlite3 只读查询），命令行几家共用的有界读取在 clients/cli-scan.js；主进程里各家的特例也由适配器声明：managedHome（受管目录的官方默认与初始化）、standaloneHome（Codex 目录不依附桌面数据目录）、runtimeHome（macOS 上 Codex 的短别名）、taskPackage（任务包的原生格式）、historyUpkeep（Codex 历史维护）、defaultIdentityKey（Kimi 两种形态同机同登录）、sessionsInProfileFolder（Claude 桌面的会话在数据目录里）；Codex 独有的模块也在它的目录里：quota.js（本机官方 RPC 额度与会话日志里的缓存额度）、account-import.js、runtime-home.js、history-retention.js、task-package.js（任务包里根会话与内部子记录的一致捕获与事务导入）；导出正文在各家目录的 transcript.js，共用的成段、日期与文件名在 clients/transcript.js；导出附件由适配器的 attachments 声明（哪个记录文件、哪一行是消息、Codex 另有生成的图片），记录里内嵌附件的解码在 clients/media.js；clients/claude-cli/records.js 读 Claude 命令行的记录、clients/kimi/wire.js 读 Kimi 的 wire 记录（Kimi Work 同一格式）；活动探测通过适配器的 replyState（谁最后说话、这一轮回完没有）、isInternalRecordFile（子代理文件）、activityPreference 与 isArchivedRecordFile 取各家差异；每种记录格式只有一个读取者，例如 clients/codex/rollout.js 读 Codex 的 rollout（session_meta 分类出用户根会话与内部子分支、用户与助手消息、额度、首行可超过 64KB），扫描、导出与附件、调度中枢的最终回答、缓存额度和任务包都用它；clients/gemini-cli/parts.js 读 Gemini 的 parts 文字（Qwen Code 沿用同一格式），clients/gemini-cli/records.js 与 clients/qwen-code/records.js 读两家的会话记录，标题、导出和调度回答共用
+`src/clients/<id>/` 的分工：每个客户端一个适配器目录（claude、claude-cli、dsh-cli、codex、kimi、kimi-work、opencode、gemini-cli、qwen-code、cursor、antigravity），集中它的名称、可执行文件、数据目录、扫描区域、发现特征与密钥交接方式；clients/shared.js 放几个适配器共用、不点名任何客户端的小工具，clients/scan.js 放各家扫描器共用的有界遍历、读文件头尾、日期与标题；clients/file-memo.js 是扫描器共用的逐文件记忆：同一路径、大小、修改时间（以及 inode、变更时间）不变的文件不再重读，读失败不记，列表与活动探测共用同一次读（每个线程各有一份）；各家会话扫描在自己目录的 sessions.js（十一家都在：OpenCode 只读打开 opencode.db、DSH 按帧解 zstd、Cursor、Kimi Work 与 Antigravity 经 clients/sqlite.js 用系统 sqlite3 只读查询；Antigravity 先查表结构、只取认得的列，子对话不列出，`sessionCounts` 另给在跑的会话地址 `writingAddresses`），命令行几家共用的有界读取在 clients/cli-scan.js；主进程里各家的特例也由适配器声明：managedHome（受管目录的官方默认与初始化）、standaloneHome（Codex 目录不依附桌面数据目录）、runtimeHome（macOS 上 Codex 的短别名）、taskPackage（任务包的原生格式）、historyUpkeep（Codex 历史维护）、defaultIdentityKey（Kimi 两种形态同机同登录）、sessionsInProfileFolder（Claude 桌面的会话在数据目录里）；Codex 独有的模块也在它的目录里：quota.js（本机官方 RPC 额度与会话日志里的缓存额度）、account-import.js、runtime-home.js、history-retention.js、task-package.js（任务包里根会话与内部子记录的一致捕获与事务导入）；导出正文在各家目录的 transcript.js，共用的成段、日期与文件名在 clients/transcript.js；导出附件由适配器的 attachments 声明（哪个记录文件、哪一行是消息、Codex 另有生成的图片），记录里内嵌附件的解码在 clients/media.js；clients/claude-cli/records.js 读 Claude 命令行的记录、clients/kimi/wire.js 读 Kimi 的 wire 记录（Kimi Work 同一格式）；活动探测通过适配器的 replyState（谁最后说话、这一轮回完没有）、isInternalRecordFile（子代理文件）、activityPreference 与 isArchivedRecordFile 取各家差异；每种记录格式只有一个读取者，例如 clients/codex/rollout.js 读 Codex 的 rollout（session_meta 分类出用户根会话与内部子分支、用户与助手消息、额度、首行可超过 64KB），扫描、导出与附件、调度中枢的最终回答、缓存额度和任务包都用它；clients/gemini-cli/parts.js 读 Gemini 的 parts 文字（Qwen Code 沿用同一格式），clients/gemini-cli/records.js 与 clients/qwen-code/records.js 读两家的会话记录，标题、导出和调度回答共用
 
 ### 新增一个客户端的清单
 
@@ -188,7 +188,7 @@ Renderer 会附加所属 profile 和账号组信息，但不会修改原始会�
 
 - `id`、`label`、`tagColor`、`appName`：标识、显示名、配色、官方 App 名；
 - `providerNamespace`、`clientForm`：设备网目录里属于哪套登录、什么形态——会存进账号关联键并同步，定下以后不能改；
-- `profileIsolation`、`windows`、`defaultSessionRoot`、`launchEnv`：隔离方式、Windows 安装与目录特征、默认会话根、启动环境；
+- `profileIsolation`、`windows`、`defaultSessionRoot`、`launchEnv`：隔离方式、Windows 安装与目录特征、默认会话根（`(profilePath, isDefault, { home })`，招募时传入要找的主目录）、启动环境；
 - `scanAreas`、`diagnosticAreas`、`scan`、`discovery`：扫描与诊断位置、会话扫描器（`./sessions.js`）、招募时怎么认出已有目录。
 
 按需：

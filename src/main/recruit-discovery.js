@@ -156,18 +156,7 @@ function createRecruitHandlers(deps) {
       return { selectionId: item.selectionId, ...outcome };
     });
     selections.consume(valid.map((item) => item.selectionId));
-    // With a mesh, the registered locations no account owns go onto the desk.
-    const before = placement();
-    const offDesk = before
-      ? results.filter((item) => item.ok && !before.has(String(item.profileId))).map((item) => item.profileId)
-      : [];
-    let deskReasonCode;
-    if (offDesk.length && bringToDesk) {
-      const placed = bringToDesk(offDesk);
-      if (!placed?.ok) deskReasonCode = placed?.reasonCode || 'mesh-operation-failed';
-    }
-    const onDesk = offDesk.length ? placement() : before;
-    for (const item of results) if (item.ok) item.onDesk = onDeskOf(item.profileId, onDesk);
+    const deskReasonCode = placeOnDesk(results);
     const added = results.filter((item) => item.ok && !item.existing).length;
     return {
       ok: results.some((item) => item.ok),
@@ -179,7 +168,52 @@ function createRecruitHandlers(deps) {
     };
   }
 
-  return { discover, discoverFolder, cancel, register };
+  // With a mesh, the registered locations no account owns go onto the desk.
+  // Sets onDesk on each result; returns a reason code when placing failed.
+  function placeOnDesk(results) {
+    const before = placement();
+    const offDesk = before
+      ? results.filter((item) => item.ok && !before.has(String(item.profileId))).map((item) => item.profileId)
+      : [];
+    let deskReasonCode;
+    if (offDesk.length && bringToDesk) {
+      const placed = bringToDesk(offDesk);
+      if (!placed?.ok) deskReasonCode = placed?.reasonCode || 'mesh-operation-failed';
+    }
+    const onDesk = offDesk.length ? placement() : before;
+    for (const item of results) if (item.ok) item.onDesk = onDeskOf(item.profileId, onDesk);
+    return deskReasonCode;
+  }
+
+  // "New account" for a client that has only one account per computer: find
+  // its official default location now and register that one (the same
+  // registration as "bring existing ones back"). No folder is created and no
+  // sign-in is read; a client that is not set up here yet is a fixed reason.
+  async function registerDefault(input = {}) {
+    const appId = String(input?.appId || '').trim();
+    const found = await discovery.discoverLocations({ appId, env, home });
+    const location = found.locations.find((item) => item.appId === appId && item.source === 'default' && item.isDefault === true);
+    if (!location) return { ok: false, reasonCode: 'client-default-missing' };
+    const name = String(input?.name || '').replace(/[\x00-\x1f\x7f]/g, ' ').trim().slice(0, 80);
+    const [outcome] = registerLocations([{
+      appId,
+      sessionRoot: location.sessionRoot,
+      profilePath: location.kind === 'desktop' ? location.profilePath : null,
+      ...(name ? { name } : {})
+    }]);
+    if (!outcome?.ok) return { ok: false, reasonCode: outcome?.reasonCode || 'location-invalid' };
+    const result = { ...outcome };
+    const deskReasonCode = placeOnDesk([result]);
+    return {
+      ok: true,
+      profileId: result.profileId,
+      existing: result.existing === true,
+      onDesk: result.onDesk,
+      ...(deskReasonCode ? { deskReasonCode } : {})
+    };
+  }
+
+  return { discover, discoverFolder, cancel, register, registerDefault };
 }
 
 module.exports = { createRecruitHandlers, publicLocation, shortPath };

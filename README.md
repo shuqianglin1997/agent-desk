@@ -32,7 +32,7 @@ https://github.com/user-attachments/assets/3f651fb3-d9c0-4092-bec9-6f85c5f69fac
 
 The first time you open it, the system stops it because it is not signed yet. **macOS:** after the warning, open System Settings → Privacy & Security and click **Open Anyway** next to the message about Catshelf. **Windows:** at the SmartScreen prompt choose **More info**, then **Run anyway**. Do not use other workarounds.
 
-Catshelf (Chinese 猫架; formerly AgentDesk) is a desktop app for macOS and Windows. It keeps the AI coding clients you already use (Claude, Claude CLI, Codex, Cursor, Kimi Code, Kimi Work, DSH, OpenCode, Gemini CLI, Qwen Code), each of your accounts on them, and their local session history in one window. It opens the official client for the account you pick. It does not run agents itself, and it never stores passwords or tokens.
+Catshelf (Chinese 猫架; formerly AgentDesk) is a desktop app for macOS and Windows. It keeps the AI coding clients you already use (Claude, Claude CLI, Codex, Cursor, Kimi Code, Kimi Work, DSH, OpenCode, Gemini CLI, Qwen Code, Antigravity — only the one account signed in on the computer), each of your accounts on them, and their local session history in one window. It opens the official client for the account you pick. It does not run agents itself, and it never stores passwords or tokens.
 
 ## Status
 
@@ -142,7 +142,7 @@ https://github.com/user-attachments/assets/e5493d17-6f91-427a-b89d-bc2af3a7787e
 
 第一次打开时，因为还没有签名，系统会把它拦下。**macOS：**看到提示后，打开“系统设置 → 隐私与安全性”，在关于 Catshelf 的那条提示旁点“仍要打开”。**Windows：**SmartScreen 提示时点“更多信息”，再点“仍要运行”。不要用别的办法绕过。
 
-猫架（Catshelf，原名 AgentDesk）是 macOS 和 Windows 上的桌面应用：把你已经在用的 AI 编程客户端（Claude、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work、DSH、OpenCode、Gemini CLI、Qwen Code）、你在它们上面的每个账号，以及本机的会话记录放进同一个窗口。选一个账号就打开它的官方客户端。猫架自己不跑 Agent，也不保存密码和令牌。
+猫架（Catshelf，原名 AgentDesk）是 macOS 和 Windows 上的桌面应用：把你已经在用的 AI 编程客户端（Claude、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work、DSH、OpenCode、Gemini CLI、Qwen Code、Antigravity——只能用这台电脑上登录的那一个账号）、你在它们上面的每个账号，以及本机的会话记录放进同一个窗口。选一个账号就打开它的官方客户端。猫架自己不跑 Agent，也不保存密码和令牌。
 
 ## 现在的状态
 

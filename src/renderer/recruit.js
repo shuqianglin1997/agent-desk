@@ -99,12 +99,19 @@
   }
 
   // ---------- 新来一只 ----------
+  // A client with one account per computer (defaultOnly) has no new folder to
+  // make: "new" registers the one signed in on this computer.
   function availableClients() {
     return apps().map((item) => {
       const methods = item.signIn || {};
-      const usable = methods.browser || methods.key || methods.provider;
+      const usable = methods.browser || methods.key || methods.provider || item.defaultOnly === true;
       return { ...item, usable: Boolean(usable) };
     });
+  }
+
+  // Whether the chosen way of signing in takes a pasted key or account.
+  function needsSecret() {
+    return state.method === 'key' || state.method === 'provider';
   }
 
   function renderClientSelect() {
@@ -115,7 +122,7 @@
     els.client.replaceChildren(...clients.map((item) => el('option', {
       value: item.id,
       disabled: !item.usable,
-      text: item.usable ? item.label : tr('recruit.new.defaultOnly', { client: item.label })
+      text: item.defaultOnly ? tr('recruit.new.defaultOnly', { client: item.label }) : item.label
     })));
     if (state.clientId) els.client.value = state.clientId;
   }
@@ -123,6 +130,9 @@
   function methodsFor(appId) {
     const methods = signIn(appId);
     const list = [];
+    if (app(appId)?.defaultOnly) {
+      list.push({ value: 'default', title: tr('recruit.method.default'), hint: tr('recruit.method.default.hint', { client: app(appId).label }) });
+    }
     if (methods.browser) {
       list.push({ value: 'browser', title: tr('recruit.method.browser'), hint: translated(`recruit.method.browser.${appId}`, 'recruit.method.browser.hint') });
     }
@@ -155,7 +165,7 @@
     const kept = Object.fromEntries([...els.secretFields.querySelectorAll('input')]
       .filter((input) => input.id !== 'recruitSecret').map((input) => [input.id, input.value]));
     const fields = [];
-    if (state.method !== 'browser') {
+    if (needsSecret()) {
       fields.push(field('recruit.field.secret', el('input', {
         id: 'recruitSecret', type: 'password', autocomplete: 'off', spellcheck: 'false', maxlength: '4096', oninput: updatePrimary
       })));
@@ -188,8 +198,8 @@
     // The client's adapter says which note fits (src/clients/<id>/index.js credentials).
     const methods = signIn(state.clientId);
     const notes = methods.notes || {};
-    if (state.method !== 'browser' && notes[state.method]) text = tr(notes[state.method]);
-    else if (state.method !== 'browser') {
+    if (needsSecret() && notes[state.method]) text = tr(notes[state.method]);
+    else if (needsSecret()) {
       const token = methods.keyIsToken && state.method === 'key';
       text = tr('recruit.note.plaintext', { what: tr(token ? 'recruit.note.token' : 'recruit.note.key'), file: methods.plaintextFile || '' });
     }
@@ -214,6 +224,10 @@
     if (!client) return;
     const name = els.name.value.trim();
     stopWatch();
+    if (state.method === 'default') {
+      await registerDefault(client, name);
+      return;
+    }
     if (state.method === 'browser' && isMeshReady() && client.canProvision) {
       setBusy(true);
       try {
@@ -226,7 +240,7 @@
       return;
     }
     const request = { appId: client.id, name, signIn: state.method };
-    if (state.method !== 'browser') {
+    if (needsSecret()) {
       const secretInput = document.getElementById('recruitSecret');
       request.secret = secretInput?.value || '';
       // The key goes once to Main; the field never keeps it.
@@ -266,6 +280,35 @@
       setStatus(status.signedIn
         ? tr('recruit.new.doneKey', { method: methodText(status.method) })
         : tr('recruit.new.doneKeyUnverified'));
+    }
+    updatePrimary();
+  }
+
+  // The one account signed in on this computer: Main finds the client's
+  // official location and registers it in place. Nothing is created, opened
+  // or signed in here; the card's "Open" opens the official window.
+  async function registerDefault(client, name) {
+    setBusy(true);
+    setStatus(tr('recruit.working'));
+    let result;
+    try {
+      result = await manager.recruitCreateAccount({ appId: client.id, name, signIn: 'default' });
+    } catch (_error) {
+      result = { ok: false, reasonCode: 'generic' };
+    } finally {
+      setBusy(false);
+    }
+    if (!result?.ok) {
+      setStatus(reasonText(result?.reasonCode), 'error');
+      updatePrimary();
+      return;
+    }
+    els.name.value = '';
+    await afterAccountChange(result.profileId);
+    if (result.onDesk === false) {
+      setStatus(tr(result.deskReasonCode === 'mesh-keys-unavailable' ? 'recruit.existing.notPlacedKeys' : 'recruit.existing.notPlaced', { n: 1, missing: 1 }), 'error');
+    } else {
+      setStatus(tr(result.existing ? 'recruit.new.defaultExisting' : 'recruit.new.defaultDone', { client: client.label }));
     }
     updatePrimary();
   }
@@ -583,7 +626,8 @@
   function renderFooter() {
     els.secondary.hidden = true;
     if (state.section === 'new') {
-      els.primary.textContent = tr(state.method === 'browser' ? 'recruit.new.create' : 'recruit.new.createWithKey');
+      els.primary.textContent = tr(state.method === 'default' ? 'recruit.new.registerDefault'
+        : (state.method === 'browser' ? 'recruit.new.create' : 'recruit.new.createWithKey'));
     } else if (state.section === 'existing') {
       els.primary.textContent = state.checked.size ? tr('recruit.existing.registerN', { n: state.checked.size }) : tr('recruit.existing.register');
     } else if (state.section === 'drop') {
@@ -604,7 +648,7 @@
     if (state.section === 'existing') disabled ||= !state.checked.size;
     if (state.section === 'new') {
       if (!state.clientId) disabled = true;
-      if (state.method !== 'browser') {
+      if (needsSecret()) {
         disabled ||= !inputValue('recruitSecret');
         const url = document.getElementById('recruitProvider-baseUrl');
         if (url) disabled ||= !url.value.trim();

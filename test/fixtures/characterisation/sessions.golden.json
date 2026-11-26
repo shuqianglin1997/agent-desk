@@ -361,6 +361,47 @@
         "filePath": "<root>/kimi-work/agents/main/sessions/hosted-logical/conversations.sqlite",
         "address": "99999999-8888-7777-6666-555544443333"
       }
+    ],
+    "antigravity": [
+      {
+        "id": "ag-root-1",
+        "appId": "antigravity",
+        "title": "Plan the release",
+        "createdAt": null,
+        "updatedAt": "2026-11-24T11:59:00.000Z",
+        "projectPath": "/work/release",
+        "source": "Antigravity",
+        "status": "可用",
+        "model": null,
+        "filePath": "<root>/antigravity/brain/ag-root-1",
+        "address": "ag-root-1"
+      },
+      {
+        "id": "ag-root-2",
+        "appId": "antigravity",
+        "title": "Why is the build red?",
+        "createdAt": null,
+        "updatedAt": "2026-11-24T11:20:00.000Z",
+        "projectPath": null,
+        "source": "Antigravity",
+        "status": "可用",
+        "model": null,
+        "filePath": "<root>/antigravity/conversations/ag-root-2.pb",
+        "address": "ag-root-2"
+      },
+      {
+        "id": "ag-root-3",
+        "appId": "antigravity",
+        "title": "Antigravity 会话 ag-root-",
+        "createdAt": null,
+        "updatedAt": "2026-11-18T06:00:00.000Z",
+        "projectPath": null,
+        "source": "Antigravity",
+        "status": "已归档",
+        "model": null,
+        "filePath": "<root>/antigravity/conversation_summaries.db",
+        "address": "ag-root-3"
+      }
     ]
   },
   "activity": {
@@ -543,6 +584,26 @@
       "writingNow": 0,
       "truncated": false,
       "writingKeys": [],
+      "freshReplies": null,
+      "freshKeys": []
+    },
+    "char-antigravity": {
+      "profileId": "char-antigravity",
+      "sourceKey": "<sha256 of the real data root>",
+      "sessionCount": 3,
+      "rootExists": true,
+      "rootReadable": true,
+      "latestMtime": 1795521540000,
+      "contentActiveAt": 1795521540000,
+      "fileCount": 1,
+      "activeToday": 2,
+      "createdToday": 1,
+      "activeNow": 1,
+      "writingNow": 1,
+      "truncated": false,
+      "writingKeys": [
+        "char-antigravity::ag-root-1"
+      ],
       "freshReplies": null,
       "freshKeys": []
     }

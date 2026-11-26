@@ -65,14 +65,14 @@ Personal Agent Mesh 稳定区分全局 AgentIdentity、实际登录 AccountBindi
 - 客户端显示名、官方包名和可执行文件名分别由注册表声明；Codex 在 macOS 上识别当前 `ChatGPT.app`，不会因产品标签仍叫 Codex 而误判未安装。Claude、Codex、Kimi Code 与 Cursor 的每个受管 Profile 都使用独立 `user-data-dir` 和客户端专用会话环境，同一官方程序可并行承载多个 Profile；已知不接受独立目录的 Kimi Work 只允许官方默认槽位，不伪造隔离多开；
 - 启动前精确检查同一 `user-data-dir`，不重复拉起；Catshelf 正常退出默认关闭自己启动的 Profile，显式选择保留时说明退出期间不再监管；
 - 每个受管 Profile 的 `Crashpad/pending` 受 100 文件/200 MiB 双上限和一分钟 5 个同尺寸 dump 的风暴熔断保护；普通关闭只处理 Catshelf owned 进程，已确认磁盘事故可按精确 Profile 路径停止 Catshelf 自己 Profiles 根内的升级/异常退出遗留进程，无所有权的官方默认/custom 目录不被后台清理或停机；安全清理只删除直属 dump/sidecar，不触碰 Agent 数据；
-- 添加账号是 Agent 标题行的一个“招募”弹窗，分四段：新来一只、把已有的领回来、拖进来、交给 AI；首次使用的“导入 Codex”和“高级：手动导入运行位置”打开它的对应段。客户端在原有七种之外加了 OpenCode、Gemini CLI、Qwen Code（会话扫描、终端启动与账号隔离）。已登记客户端都能在默认位置、环境变量目录、主目录（最多四层、跳过隐私授权目录和云盘、有时间与数量上限、可取消）和用户指定的文件夹里被认出，多选后一次登记，只登记目录、不复制登录，已登记的标为已在台面上（建了设备网时，没有账号认领的标为“已登记，不在台面上”，可以再勾选放回台面）；Codex、Claude CLI、Kimi Code、DSH 可以粘贴密钥或令牌、或填接口账号（地址、密钥、模型），密钥只交给该账号自己的官方客户端，Catshelf 不保存；DSH、Kimi Code、Codex 与 Windows/Linux 的 Claude CLI 登录文件可以导入到新的独立目录，复制前提示原处可能掉线；成品命令行提供同源的 `profiles discover`、`create`、`set-key`（只读标准输入）、`status` 与 `import-auth`；
+- 添加账号是 Agent 标题行的一个“招募”弹窗，分四段：新来一只、把已有的领回来、拖进来、交给 AI；首次使用的“导入 Codex”和“高级：手动导入运行位置”打开它的对应段。客户端在原有七种之外加了 OpenCode、Gemini CLI、Qwen Code（会话扫描、终端启动与账号隔离），以及 Antigravity（只能用这台电脑上登录的那一个账号：“新来一只”和“把已有的领回来”都原地登记它的官方位置，不建第二个）。已登记客户端都能在默认位置、环境变量目录、主目录（最多四层、跳过隐私授权目录和云盘、有时间与数量上限、可取消）和用户指定的文件夹里被认出，多选后一次登记，只登记目录、不复制登录，已登记的标为已在台面上（建了设备网时，没有账号认领的标为“已登记，不在台面上”，可以再勾选放回台面）；Codex、Claude CLI、Kimi Code、DSH 可以粘贴密钥或令牌、或填接口账号（地址、密钥、模型），密钥只交给该账号自己的官方客户端，Catshelf 不保存；DSH、Kimi Code、Codex 与 Windows/Linux 的 Claude CLI 登录文件可以导入到新的独立目录，复制前提示原处可能掉线；成品命令行提供同源的 `profiles discover`、`create`、`set-key`（只读标准输入）、`status` 与 `import-auth`；
 - 同一登录可通过手动 identityKey 或本地指纹归组；
 - Windows 支持传统安装与 Store/MSIX 路径；
 - 配置使用本地 JSON、原子写入和备份。
 
 ### 会话历史
 
-- 支持 Claude Desktop、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work、DSH、OpenCode、Gemini CLI、Qwen Code；DSH 只列会话，不导出正文；
+- 支持 Claude Desktop、Claude CLI、Codex、Cursor、Kimi Code、Kimi Work、DSH、OpenCode、Gemini CLI、Qwen Code、Antigravity；DSH 与 Antigravity 只列会话，不导出正文（Antigravity 的正文是没有公开格式的 protobuf）；Antigravity 只能用这台电脑上登录的那一个账号，“在跑”取它自己的未空闲标记，子对话不出现；
 - 支持与 Device Lens 正交的当前 Agent/全部 Agent 范围（由名册上选一只猫或选“全部”决定）、精简/详细列、搜索和排序；
 - 支持只服务定位动作的临时多选；复制与 SessionPointer 发送使用同一确切副本集合，不产生持续任务状态或自动交接编排；
 - Codex 按用户根 thread 形成逻辑会话；上下文压缩不增加列表行，guardian/subagent 等内部 rollout 默认隐藏；
@@ -100,7 +100,7 @@ Personal Agent Mesh 稳定区分全局 AgentIdentity、实际登录 AccountBindi
 
 - 你对自己的 Agent 说一句话（“用我的 Codex 工作号检查一下这份改动”），那个 Agent 通过成品命令行让另一个账号在后台跑一段对话，再取回结果。Catshelf 只中转这一次调用并记账：它自己从不发起、不排队、不重试、不定时、不替人挑账号，也不把一段对话的结果交给另一个账号。
 - 只有在猫的档案里打开“允许别的 Agent 调用它”的账号才能被叫，默认关；“允许它改文件”另开，默认只读。工作目录必须在系统页里允许过的文件夹里；同一只猫一次只跑一段，同时运行有上限（到了就拒绝，不排队），层层转叫最多两层，额度见底的账号不接。开关、文件夹和上限只能在桌面上改。两个开关在猫的档案的“调用”一段（跟着展开的那个本机位置走），文件夹和上限在系统页“设置”栏的“后台对话”一块；客户端不能被调用时档案里写明原因。复制会话信息、发送到设备、交接任务、账本里的“后台对话”和“允许被调用”各有一张说明纸条，写清谁做、对话动不动、离不离开这台电脑。
-- 能被叫的：Codex（同一账号目录里的 Codex 命令行）、Claude CLI、Gemini CLI、Qwen Code。桌面版客户端只能开窗口；Kimi Code、OpenCode、DSH 的无界面方式按官方文档做不到“提示词只走标准输入”或“只读”，暂不支持。
+- 能被叫的：Codex（同一账号目录里的 Codex 命令行）、Claude CLI、Gemini CLI、Qwen Code。桌面版客户端只能开窗口（Antigravity 的命令行 `agy` 还没接入）；Kimi Code、OpenCode、DSH 的无界面方式按官方文档做不到“提示词只走标准输入”或“只读”，暂不支持。
 - 账本里一段后台对话只占一行：标题是调用方给的，副行写“后台对话 · 谁叫的谁”，前面一盏灯（启动中空、运行中朱红一闪一闪、已完成绿、失败暗红带叉、已停止灰），旁边是用时和“停止”。不显示内容；被叫账号自己的会话找到以后，这一行就是那条会话，可以点开阅读、复制会话信息。
 - 桌上：信封从发起的那只猫沿搁板飞到被叫的那只，它醒来开工；在跑时两只之间的木板上有一条慢慢流动的点线；结束时结果飞回去，被叫的那只跳一下；失败是墨色封印的信封飞回、它摇头；你叫停时点线断开、它收起电脑。发起方只有在 Catshelf 确实知道是哪只猫时（它中转的上一段对话，或发起的进程就在那个账号的目录里）才从那只猫飞出，否则从桌子边缘进来，自报的名字只当标签显示。
 - Catshelf 只存界面显示的东西（标题、调用方标签、目标、状态、时间）和会话记录在哪；提示词和回答不写进它的任何存储。退出 Catshelf 时在跑的后台对话一并停下。

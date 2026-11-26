@@ -174,7 +174,7 @@ async function launchProfile(profile) {
         const bundle = launchPlan.isolated ? await sharedBundleReader().bundle(bundlePath) : null;
         await launchOwned(
           '/usr/bin/open',
-          macLaunchServicesArgs(bundlePath, args, env, process.env),
+          macLaunchServicesArgs(bundlePath, args, env, process.env, { newInstance: launchPlan.isolated }),
           env,
           { appVersion: bundle?.version || null, appBundle: bundle ? bundlePath : null }
         );
@@ -203,7 +203,7 @@ async function launchProfile(profile) {
       const launchAppName = apps.macLaunchAppName(profile.appId);
       await launchOwned(
         '/usr/bin/open',
-        macLaunchServicesArgs(launchAppName, args, env, process.env),
+        macLaunchServicesArgs(launchAppName, args, env, process.env, { newInstance: launchPlan.isolated }),
         env
       );
       return { ok: true, command: `open -a ${launchAppName}`, warning: main.t('main.launch.launchServices') };

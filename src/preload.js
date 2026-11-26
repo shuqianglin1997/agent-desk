@@ -291,7 +291,7 @@ contextBridge.exposeInMainWorld('manager', {
   recruitCreateAccount: (input = {}) => ipcRenderer.invoke('recruit:createAccount', credentialPayload(input, {
     appId: String(input?.appId || '').slice(0, 80),
     name: String(input?.name || '').slice(0, 80),
-    signIn: ['key', 'provider'].includes(input?.signIn) ? input.signIn : 'browser'
+    signIn: ['key', 'provider', 'default'].includes(input?.signIn) ? input.signIn : 'browser'
   })),
   applyProfileCredential: (input = {}) => ipcRenderer.invoke('credentials:apply', credentialPayload(input, {
     profileId: String(input?.profileId || '').slice(0, 128),

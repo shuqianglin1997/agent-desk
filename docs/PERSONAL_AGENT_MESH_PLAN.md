@@ -2,9 +2,9 @@
 
 > 状态：OWNER APPROVED — IMPLEMENTATION AUTHORIZED
 >
-> 版本：1.40
+> 版本：1.41
 >
-> 日期：2026-11-25
+> 日期：2026-11-26
 >
 > 工作分支：main
 >
@@ -2824,6 +2824,14 @@ TaskPackage 内容不写入 `mesh.db`。`task-package-history.json` 只记录本
 - Windows SendInput：https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-sendinput
 
 ## 33. 变更记录
+
+### 1.41 接入 Antigravity：一台电脑一个账号 — 2026-11-26
+
+所有者要求接入 Google 的 Antigravity（原话：“你现在开发呀，你现在把这事情解决好”），实施细化见 `docs/ADD_ACCOUNT_PLAN.md` 第 8 节第 2 条与第 9 节。本条只定写进账号库、永远不能再改的两个值，并记下一处通用的启动变化；领域模型、存盘字段、协议消息和安全边界不变。
+
+- `providerNamespace = antigravity`，`clientForm = desktop`。依据第 7.8 节“属于同一实际登录体系的 Desktop/CLI 适配器必须共享 providerNamespace”：Antigravity 的登录体系是它自己的——登录存在系统钥匙串里，全机共用，由 Antigravity 应用自己的登录流程写入；Gemini CLI 的登录是另一套——OAuth 令牌在它自己目录的 `oauth_creds.json`（或系统钥匙串的 Gemini CLI 条目），身份在 `google_accounts.json`，也可以只是 `.gemini/.env` 里的接口密钥、根本没有 Google 账号，并且每个 `GEMINI_CLI_HOME` 一份。在一个里登录不会让另一个登录，退出也互不影响，所以不是同一套登录，不共用 Gemini CLI 已定的 `gemini-cli`。两者即使用同一个 Google 账号，也只是“邮箱相同”，第 7.8 节不许按邮箱归并；要放进同一只猫，由人显式合并。同一套登录的命令行形态是 Antigravity 自己的 `agy`（数据在 `~/.gemini/antigravity-cli/`），以后接入时用同一个 `antigravity`、`clientForm = cli`。另外，不认识这个客户端的旧版本推断出的也是 `antigravity` 与 `desktop`（第 3 阶段的规则：未知编号取编号本身，不以 `-cli` 结尾就是 `desktop`），新旧设备对同一位置得出相同的值。Antigravity 目前没有可靠的账号编号（登录在钥匙串里，不读），所以没有 `accountId`，不会自动跨设备归并。
+- 一台电脑只有一个账号：用已有的 `official-default-only`，与第 3 节第 33 条“已知不接受独立数据目录的客户端只能打开官方默认槽位，受管多 Profile 必须失败关闭”一致。把令牌存下来轮流换进去的切换工具不用。
+- macOS 上只有一个官方位置的客户端（`official-default-only`，即 Antigravity 与 Kimi Work）打开时不再带 `open -n`：已经开着就带到前面，不开第二份。独立数据目录的位置仍带 `-n`，同一位置防重复的规则不变。
 
 ### 1.40 下载链接总指向最新的测试版 — 2026-11-25
 

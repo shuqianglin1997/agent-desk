@@ -39,7 +39,7 @@ function capabilities() {
       scope: 'local persisted Profiles, not the global Mesh Agent catalog',
       network: false, writes: false, launchesClients: false, readsCredentials: false,
       sessionContents: 'Session lists contain metadata. Only explicit sessions read returns a local transcript.',
-      sqlite: 'Cursor and Kimi Work adapters may run the fixed sqlite3 read-only query.',
+      sqlite: 'Cursor, Kimi Work and Antigravity adapters may run the fixed sqlite3 read-only query.',
       notAvailable: ['profile mutations', 'provider configuration writes', 'launch', 'live quota', 'remote actions', 'Mesh writes', 'generic execution', 'HTTP server', 'MCP server']
     },
     guide: 'docs/AI_INTERFACE.md',

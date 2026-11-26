@@ -31,7 +31,8 @@ const ADAPTERS = [
   require('./clients/opencode'),
   require('./clients/gemini-cli'),
   require('./clients/qwen-code'),
-  require('./clients/cursor')
+  require('./clients/cursor'),
+  require('./clients/antigravity')
 ];
 
 const APPS = Object.fromEntries(ADAPTERS.map((adapter) => [adapter.id, adapter]));

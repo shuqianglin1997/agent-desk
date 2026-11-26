@@ -7,7 +7,7 @@ const path = require('node:path');
 const apps = require('../src/apps');
 
 const CLIENTS = path.join(__dirname, '../src/clients');
-const ORDER = ['claude', 'claude-cli', 'dsh-cli', 'codex', 'kimi', 'kimi-work', 'opencode', 'gemini-cli', 'qwen-code', 'cursor'];
+const ORDER = ['claude', 'claude-cli', 'dsh-cli', 'codex', 'kimi', 'kimi-work', 'opencode', 'gemini-cli', 'qwen-code', 'cursor', 'antigravity'];
 const REQUIRED = ['id', 'label', 'tagColor', 'appName', 'providerNamespace', 'clientForm', 'profileIsolation', 'windows', 'defaultSessionRoot', 'launchEnv', 'scanAreas', 'diagnosticAreas', 'scan', 'discovery'];
 // The checklist in docs/INTERNAL.md §5: a new capability is documented there first.
 const OPTIONAL = [

@@ -66,7 +66,10 @@ module.exports = {
     defaultHome: '.gemini',
     homeScan: true,
     markerSets: [['google_accounts.json'], ['projects.json', 'tmp/'], ['settings.json', 'tmp/'], ['oauth_creds.json', 'settings.json'], ['installation_id', 'settings.json']],
-    exclusive: ['google_accounts.json', 'projects.json', 'history/']
+    exclusive: ['google_accounts.json', 'projects.json', 'history/'],
+    // Antigravity keeps its agent data in ~/.gemini/antigravity, with an
+    // installation_id of its own; that folder is never a Gemini CLI home.
+    excludedBy: ['conversation_summaries.db', 'antigravity_state.pbtxt']
   }),
   credentials: Object.freeze({
     // What the recruit dialog tells the person (src/renderer/recruit.js).

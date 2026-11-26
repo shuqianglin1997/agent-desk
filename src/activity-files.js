@@ -176,6 +176,13 @@ function probeActivity(profile, now = Date.now(), options = {}) {
       // 数据库型客户端按文件数不准；适配器没给“在跑”就是不知道，不显示 0 条。
       result.writingNow = Number.isFinite(counts.writingNow) ? counts.writingNow : null;
       writingAddresses.length = 0;
+      // 适配器能说出是哪几条在跑（会话地址）时，带上它们，列表上的“在跑”与卡片一致。
+      if (result.writingNow !== null && Array.isArray(counts.writingAddresses)) {
+        for (const address of counts.writingAddresses) {
+          if (writingAddresses.length >= WRITING_KEYS_LIMIT) break;
+          if (typeof address === 'string' && address) writingAddresses.push(address);
+        }
+      }
     } catch (_error) {
       // 退回上面按文件数算的结果；读不出数据库时“在跑”是不知道，不是文件数。
       result.writingNow = null;

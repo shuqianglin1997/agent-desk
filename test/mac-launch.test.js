@@ -38,7 +38,9 @@ test('macOS 受管桌面客户端通过 LaunchServices 启动并保留 Profile �
   ]);
 
   const main = mainHandlerSource();
-  assert.match(main, /macLaunchServicesArgs\(bundlePath, args, env, process\.env\)/);
+  assert.match(main, /macLaunchServicesArgs\(bundlePath, args, env, process\.env, \{ newInstance: launchPlan\.isolated \}\)/);
+  // The single official location of a one-account client opens the running copy.
+  assert.deepEqual(macLaunchServicesArgs('/Applications/Kimi.app', [], {}, {}, { newInstance: false }), ['-a', '/Applications/Kimi.app', '--args']);
   assert.doesNotMatch(main, /if \(launcher\.found\) \{\s*await launchOwned\(launcher\.path, args, env\)/);
 });
 

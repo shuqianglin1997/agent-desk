@@ -184,6 +184,29 @@ INSERT INTO conversations VALUES ('main','agent:main:main:conversation:11111111-
 INSERT INTO conversations VALUES ('main','agent:main:main:conversation:99999999-8888-7777-6666-555544443333','s','c2','kimi-code','${esc(path.join(dir, 'gone'))}','','client','/work/other','Old conversation','generated','${at(9000)}',${NOW - 540000000},'${at(8990)}',${NOW - 539400000});
 ` });
     return true;
+  },
+  // Antigravity: summary rows in conversation_summaries.db (sessionRoot is
+  // ~/.gemini/antigravity); one running root, one stopped, one archived, two
+  // sub-conversations that never show.
+  antigravity(dir) {
+    if (!haveSqlite3) return false;
+    const go = (minutes) => at(minutes).replace('T', ' ').replace('Z', '+00:00');
+    fs.mkdirSync(path.join(dir, 'brain', 'ag-root-1'), { recursive: true });
+    write(path.join(dir, 'conversations', 'ag-root-2.pb'), '\n\u0000', 30);
+    execFileSync(sqlite3Bin(), [path.join(dir, 'conversation_summaries.db')], { input: `
+CREATE TABLE \`conversation_summaries\` (\`conversation_id\` text,\`title\` text NOT NULL DEFAULT "",\`preview\` text NOT NULL DEFAULT "",\`step_count\` integer NOT NULL DEFAULT 0,\`last_modified_time\` datetime NOT NULL,\`workspace_uris\` text NOT NULL,\`status\` text NOT NULL DEFAULT "",\`source\` text NOT NULL DEFAULT "",\`project_id\` text NOT NULL DEFAULT "",\`agent_name\` text NOT NULL DEFAULT "",\`parent_conversation_id\` text NOT NULL DEFAULT "",\`nesting_depth\` integer NOT NULL DEFAULT 0,\`battle_id\` text NOT NULL DEFAULT "",\`winning_conversation_id\` text NOT NULL DEFAULT "",\`not_fully_idle\` numeric NOT NULL DEFAULT false,\`killed\` numeric NOT NULL DEFAULT false,\`last_user_input_time\` datetime NOT NULL,\`last_user_input_step_index\` integer NOT NULL DEFAULT -1,\`app_data_dir\` text NOT NULL DEFAULT "",\`raw_summary\` blob,\`group_id\` text NOT NULL DEFAULT "",PRIMARY KEY (\`conversation_id\`));
+CREATE TABLE conversation_parents (conversation_id TEXT PRIMARY KEY, parent_id TEXT NOT NULL) WITHOUT ROWID;
+INSERT INTO conversation_summaries (conversation_id, title, preview, last_modified_time, workspace_uris, not_fully_idle, last_user_input_time) VALUES ('ag-root-1', 'Plan the release', 'draft a plan', '${go(1)}', '["file:///work/release"]', 1, '${go(3)}');
+INSERT INTO conversation_summaries (conversation_id, title, preview, last_modified_time, workspace_uris, not_fully_idle, killed, last_user_input_time) VALUES ('ag-root-2', '', 'Why is the build red?
+log follows', '${go(40)}', '', 1, 1, '${go(45)}');
+INSERT INTO conversation_summaries (conversation_id, status, last_modified_time, workspace_uris, last_user_input_time) VALUES ('ag-root-3', 'archived', '${go(9000)}', '', '0001-01-01 00:00:00+00:00');
+INSERT INTO conversation_summaries (conversation_id, title, last_modified_time, workspace_uris, parent_conversation_id, nesting_depth, not_fully_idle, last_user_input_time) VALUES ('ag-sub-1', 'Sub-agent', '${go(0)}', '', 'ag-root-1', 1, 1, '${go(0)}');
+INSERT INTO conversation_summaries (conversation_id, title, last_modified_time, workspace_uris, not_fully_idle, last_user_input_time) VALUES ('ag-sub-2', 'Listed child', '${go(0)}', '', 1, '${go(0)}');
+INSERT INTO conversation_parents VALUES ('ag-sub-2', 'ag-root-1');
+` });
+    const seconds = (NOW - 60000) / 1000;
+    fs.utimesSync(path.join(dir, 'conversation_summaries.db'), seconds, seconds);
+    return true;
   }
 };
 

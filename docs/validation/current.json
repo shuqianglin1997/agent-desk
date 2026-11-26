@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-26T16:37:24.140Z",
-  "baseCommit": "8c4e665920693486115bbb8efa7d5e5e386ed341",
+  "recordedAt": "2026-11-26T17:03:49.720Z",
+  "baseCommit": "3328928c110173cdb6bbf625daac6fd482936517",
   "uncommitted": true,
-  "sourceSha256": "ab0aad38a245888dd5cc63e0a350761674ffd60173b6e4e275fcc7845ce6f0d9",
+  "sourceSha256": "416f3f6cdec90676d494ad84e75dd1ca51da1b1cac57a153a2b294b7d18401a2",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,31 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1043,
+      "pass": 1041,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite. Antigravity joins as one cat with the one account signed in on this computer: src/clients/antigravity/ reads conversation_summaries.db through the read-only sqlite3 (structure checked on Antigravity 2.34.0, empty table), lists root conversations only, counts not_fully_idle as running, reports unreadable or unknown stores as session-store-unreadable; recruit \"new\" registers the official default location (signIn default) for one-account clients; macOS opens a one-location client without open -n; Gemini CLI discovery excludes Antigravity's folder; apps adds quota and backgroundRuns. New test/antigravity.test.js (11) on fake data with the real table structure; goldens gain the Antigravity rows and the two apps fields.",
+      "recordedAt": "2026-11-26T17:03:49.720Z",
+      "sourceSha256": "416f3f6cdec90676d494ad84e75dd1ca51da1b1cac57a153a2b294b7d18401a2"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js (294 files)",
+      "recordedAt": "2026-11-26T17:03:49.720Z",
+      "sourceSha256": "416f3f6cdec90676d494ad84e75dd1ca51da1b1cac57a153a2b294b7d18401a2"
+    },
+    {
+      "command": "package.json scripts.check:docs",
+      "result": "passed",
+      "scope": "Current-state documents and this record after adding Antigravity",
+      "recordedAt": "2026-11-26T17:03:49.720Z",
+      "sourceSha256": "416f3f6cdec90676d494ad84e75dd1ca51da1b1cac57a153a2b294b7d18401a2"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

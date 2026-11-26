@@ -41,9 +41,21 @@ const COMMANDS = [
     channel: 'recruit:createAccount',
     preload: ['recruitCreateAccount'],
     exec(deps, input = {}) {
-      const { accountResult, createAccountWithSecret, createLocalAccount } = deps;
+      const { accountResult, apps, createAccountWithSecret, createLocalAccount, recruitHandlers } = deps;
       return accountResult(async () => {
-      const signIn = ['key', 'provider'].includes(input?.signIn) ? input.signIn : 'browser';
+      const signIn = ['key', 'provider', 'default'].includes(input?.signIn) ? input.signIn : 'browser';
+      // A client with one account per computer: register its official default
+      // location instead of making a new folder (docs/ADD_ACCOUNT_PLAN.md §8.2).
+      if (signIn === 'default') {
+        const appId = String(input?.appId || '').slice(0, 80);
+        if (!apps.isKnownApp(appId) || apps.getApp(appId).profileIsolation?.mode !== 'official-default-only') {
+          throw Object.assign(new Error('credential-method-unsupported'), { code: 'credential-method-unsupported' });
+        }
+        const registered = await recruitHandlers.registerDefault({ appId, name: input?.name });
+        if (!registered?.ok) throw Object.assign(new Error(registered?.reasonCode || 'location-invalid'), { code: registered?.reasonCode || 'location-invalid' });
+        if (!registered.existing) deps.quotaService?.invalidate();
+        return { ...registered, created: !registered.existing, signIn };
+      }
       if (signIn === 'browser') return { ...createLocalAccount(input), created: true, signIn };
       return { ...(await createAccountWithSecret({ ...input, method: signIn })), signIn };
     }, 'account-create-failed');

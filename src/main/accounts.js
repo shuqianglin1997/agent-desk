@@ -32,7 +32,8 @@ const ACCOUNT_REASON_CODES = new Set([
   'credential-method-unsupported', 'official-client-missing', 'official-command-failed', 'official-command-timeout',
   'config-unreadable', 'config-too-large', 'config-format-unsupported', 'config-write-failed',
   'credentials-format-unsupported', 'home-invalid', 'unknown-client', 'client-default-only', 'profile-not-found',
-  'client-directory-invalid', 'location-unrecognized', 'location-ambiguous', 'location-changed', 'location-invalid'
+  'client-directory-invalid', 'location-unrecognized', 'location-ambiguous', 'location-changed', 'location-invalid',
+  'client-default-missing'
 ]);
 
 function accountReasonCode(error, fallback) {

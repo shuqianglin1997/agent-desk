@@ -248,7 +248,7 @@ test('status: macOS only, AgentDesk accounts with their start versions, no paths
 
 test('only desktop adapters declare how they update, with known mechanisms', () => {
   const { MECHANISMS, WINDOWS_MECHANISMS, WAITING_SIGNALS } = require('../src/clients/app-update');
-  assert.deepEqual(updateClientIds(), ['claude', 'codex', 'kimi', 'kimi-work', 'cursor']);
+  assert.deepEqual(updateClientIds(), ['claude', 'codex', 'kimi', 'kimi-work', 'cursor', 'antigravity']);
   for (const appId of updateClientIds()) {
     const update = apps.getApp(appId).update;
     assert.ok(MECHANISMS.includes(update.mechanism), appId);

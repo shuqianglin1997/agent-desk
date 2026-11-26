@@ -204,7 +204,7 @@
           "launchesClients": false,
           "readsCredentials": false,
           "sessionContents": "Session lists contain metadata. Only explicit sessions read returns a local transcript.",
-          "sqlite": "Cursor and Kimi Work adapters may run the fixed sqlite3 read-only query.",
+          "sqlite": "Cursor, Kimi Work and Antigravity adapters may run the fixed sqlite3 read-only query.",
           "notAvailable": [
             "profile mutations",
             "provider configuration writes",
@@ -295,6 +295,14 @@
             "discoveryKind": "desktop",
             "defaultOnly": false,
             "canScanSessions": true,
+            "quota": {
+              "supported": false,
+              "reason": "quota.reason.claude.unsupported"
+            },
+            "backgroundRuns": {
+              "supported": false,
+              "reason": "desktop-only"
+            },
             "configurationOwner": "external-client",
             "desktopPreparation": {
               "supportedOnThisPlatform": true,
@@ -331,6 +339,14 @@
             "discoveryKind": "home",
             "defaultOnly": false,
             "canScanSessions": true,
+            "quota": {
+              "supported": false,
+              "reason": "quota.reason.unsupported"
+            },
+            "backgroundRuns": {
+              "supported": true,
+              "reason": null
+            },
             "configurationOwner": "external-client",
             "desktopPreparation": {
               "supportedOnThisPlatform": false,
@@ -366,6 +382,14 @@
             "discoveryKind": "home",
             "defaultOnly": false,
             "canScanSessions": true,
+            "quota": {
+              "supported": false,
+              "reason": "quota.reason.unsupported"
+            },
+            "backgroundRuns": {
+              "supported": false,
+              "reason": "no-read-only-mode"
+            },
             "configurationOwner": "external-client",
             "desktopPreparation": {
               "supportedOnThisPlatform": false,
@@ -403,6 +427,14 @@
             "discoveryKind": "home",
             "defaultOnly": false,
             "canScanSessions": true,
+            "quota": {
+              "supported": true,
+              "reason": null
+            },
+            "backgroundRuns": {
+              "supported": true,
+              "reason": null
+            },
             "configurationOwner": "external-client",
             "desktopPreparation": {
               "supportedOnThisPlatform": true,
@@ -440,6 +472,14 @@
             "discoveryKind": "home",
             "defaultOnly": false,
             "canScanSessions": true,
+            "quota": {
+              "supported": false,
+              "reason": "quota.reason.unsupported"
+            },
+            "backgroundRuns": {
+              "supported": false,
+              "reason": "prompt-argument-only"
+            },
             "configurationOwner": "external-client",
             "desktopPreparation": {
               "supportedOnThisPlatform": false,
@@ -469,6 +509,14 @@
             "discoveryKind": "desktop",
             "defaultOnly": true,
             "canScanSessions": true,
+            "quota": {
+              "supported": false,
+              "reason": "quota.reason.unsupported"
+            },
+            "backgroundRuns": {
+              "supported": false,
+              "reason": "desktop-only"
+            },
             "configurationOwner": "external-client",
             "desktopPreparation": {
               "supportedOnThisPlatform": false,
@@ -502,6 +550,14 @@
             "discoveryKind": "home",
             "defaultOnly": false,
             "canScanSessions": true,
+            "quota": {
+              "supported": false,
+              "reason": "quota.reason.unsupported"
+            },
+            "backgroundRuns": {
+              "supported": false,
+              "reason": "no-read-only-mode"
+            },
             "configurationOwner": "external-client",
             "desktopPreparation": {
               "supportedOnThisPlatform": false,
@@ -535,6 +591,14 @@
             "discoveryKind": "home",
             "defaultOnly": false,
             "canScanSessions": true,
+            "quota": {
+              "supported": false,
+              "reason": "quota.reason.unsupported"
+            },
+            "backgroundRuns": {
+              "supported": true,
+              "reason": null
+            },
             "configurationOwner": "external-client",
             "desktopPreparation": {
               "supportedOnThisPlatform": false,
@@ -567,6 +631,14 @@
             "discoveryKind": "home",
             "defaultOnly": false,
             "canScanSessions": true,
+            "quota": {
+              "supported": false,
+              "reason": "quota.reason.unsupported"
+            },
+            "backgroundRuns": {
+              "supported": true,
+              "reason": null
+            },
             "configurationOwner": "external-client",
             "desktopPreparation": {
               "supportedOnThisPlatform": false,
@@ -596,6 +668,51 @@
             "discoveryKind": "desktop",
             "defaultOnly": false,
             "canScanSessions": true,
+            "quota": {
+              "supported": false,
+              "reason": "quota.reason.cursor.unsupported"
+            },
+            "backgroundRuns": {
+              "supported": false,
+              "reason": "desktop-only"
+            },
+            "configurationOwner": "external-client",
+            "desktopPreparation": {
+              "supportedOnThisPlatform": false,
+              "portableSettingKeys": []
+            }
+          },
+          {
+            "id": "antigravity",
+            "label": "Antigravity",
+            "tagColor": "#4a7bd8",
+            "canExportTranscript": false,
+            "taskPackageMode": "unsupported",
+            "canLaunch": true,
+            "supportsManagedProfiles": false,
+            "signIn": {
+              "browser": false,
+              "key": false,
+              "keyKinds": [],
+              "keyNeedsCatalogProvider": false,
+              "keyCatalogDefault": null,
+              "provider": false,
+              "providerFields": [],
+              "providerOptionalFields": [],
+              "storesInPlaintext": false,
+              "importFiles": []
+            },
+            "discoveryKind": "desktop",
+            "defaultOnly": true,
+            "canScanSessions": true,
+            "quota": {
+              "supported": false,
+              "reason": "quota.reason.antigravity.unsupported"
+            },
+            "backgroundRuns": {
+              "supported": false,
+              "reason": "desktop-only-no-cli"
+            },
             "configurationOwner": "external-client",
             "desktopPreparation": {
               "supportedOnThisPlatform": false,

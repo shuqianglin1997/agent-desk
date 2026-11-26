@@ -241,7 +241,8 @@ function locationFor(appId, directory, options = {}) {
   if (discovery.kind === 'desktop') {
     const official = officialDesktopPath(appId, options.desktopDefaults);
     const isDefault = Boolean(official) && pathKey(official) === pathKey(directory);
-    return { appId, kind: 'desktop', profilePath: directory, sessionRoot: client.defaultSessionRoot(directory, isDefault), isDefault };
+    const sessionRoot = client.defaultSessionRoot(directory, isDefault, { home: options.home || os.homedir() });
+    return { appId, kind: 'desktop', profilePath: directory, sessionRoot, isDefault };
   }
   const isDefault = pathKey(officialHome(appId, options.home || os.homedir())) === pathKey(directory);
   return {

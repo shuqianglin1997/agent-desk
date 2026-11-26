@@ -53,7 +53,8 @@ test('provider namespaces and client forms keep their stored values', () => {
   const expected = {
     claude: ['claude', 'desktop'], 'claude-cli': ['claude', 'cli'], 'dsh-cli': ['dsh-cli', 'cli'], codex: ['codex', 'desktop'],
     kimi: ['kimi', 'desktop'], 'kimi-work': ['kimi', 'desktop-work'], opencode: ['opencode', 'desktop'],
-    'gemini-cli': ['gemini-cli', 'cli'], 'qwen-code': ['qwen-code', 'desktop'], cursor: ['cursor', 'desktop']
+    'gemini-cli': ['gemini-cli', 'cli'], 'qwen-code': ['qwen-code', 'desktop'], cursor: ['cursor', 'desktop'],
+    antigravity: ['antigravity', 'desktop']
   };
   assert.deepEqual(Object.fromEntries(apps.appIds().map((id) => [id, [providerNamespace(id), clientForm(id)]])), expected);
   // An id this build does not know (a remote client) keeps its own name; its form comes from the id.

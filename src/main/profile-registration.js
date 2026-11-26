@@ -61,7 +61,7 @@ function createLocationRegistrar(deps) {
       profilePath = null;
       isDefault = homeKey === directoryKey(path.join(home, client.standaloneHome.officialName));
     } else {
-      const officialHomeKey = directoryKey(client.defaultSessionRoot(officialPath, true));
+      const officialHomeKey = directoryKey(client.defaultSessionRoot(officialPath, true, { home }));
       profilePath = client.cliDiscoveryId ? sessionRoot
         : input.profilePath ? requireDirectory(input.profilePath)
           : (homeKey === officialHomeKey ? canonicalDirectory(officialPath) : null);

@@ -47,6 +47,7 @@ function hubNameKey(value) {
 
 const HUB_UNSUPPORTED_NOTES = {
   'desktop-only': 'hub.dossier.desktopOnly',
+  'desktop-only-no-cli': 'hub.dossier.desktopNoCli',
   'prompt-argument-only': 'hub.dossier.promptArgOnly',
   'no-read-only-mode': 'hub.dossier.noReadOnly'
 };
