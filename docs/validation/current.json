@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-25T12:59:59.295Z",
-  "baseCommit": "8af09c8743b270945ffe7c67dda96e59ac4ef947",
+  "recordedAt": "2026-11-26T16:37:24.140Z",
+  "baseCommit": "8c4e665920693486115bbb8efa7d5e5e386ed341",
   "uncommitted": true,
-  "sourceSha256": "0b01604b3c035f74b37d1d153a30bb25fa3b7b4717160dcf0c4103bf7e6d2c2b",
+  "sourceSha256": "ab0aad38a245888dd5cc63e0a350761674ffd60173b6e4e275fcc7845ce6f0d9",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,31 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1031,
+      "pass": 1029,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite with English singular forms: the language tables may write {n|cat|cats}, which the renderer t(), the main-process mt() and the launch film ui() resolve to the singular when that count is 1; the status-sound patterns treat the token as a placeholder. 56 English count strings use it (\"1 cat · 0\" instead of \"1 cats · 0\"); Chinese and Japanese are unchanged. New test/i18n-plural.test.js covers both translate functions and that every brace in the three tables is a well-formed placeholder.",
+      "recordedAt": "2026-11-26T16:37:24.140Z",
+      "sourceSha256": "ab0aad38a245888dd5cc63e0a350761674ffd60173b6e4e275fcc7845ce6f0d9"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js",
+      "recordedAt": "2026-11-26T16:37:24.140Z",
+      "sourceSha256": "ab0aad38a245888dd5cc63e0a350761674ffd60173b6e4e275fcc7845ce6f0d9"
+    },
+    {
+      "command": "package.json scripts.check:docs",
+      "result": "passed",
+      "scope": "Current-state documents and this record after the English singular forms",
+      "recordedAt": "2026-11-26T16:37:24.140Z",
+      "sourceSha256": "ab0aad38a245888dd5cc63e0a350761674ffd60173b6e4e275fcc7845ce6f0d9"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

@@ -118,7 +118,7 @@
   // 把一条带 {占位} 的词条变成整句匹配的正则。没有一点固定文字的词条不参与匹配，免得什么都算。
   function statusPattern(template) {
     const text = String(template || '');
-    const parts = text.split(/\{\w+\}/);
+    const parts = text.split(/\{\w+(?:\|[^{}|]*\|[^{}|]*)?\}/);
     if (parts.join('').trim().length < 2) return null;
     const escape = (part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`^${parts.map(escape).join('[\\s\\S]*?')}$`);

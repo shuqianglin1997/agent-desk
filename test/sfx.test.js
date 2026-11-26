@@ -196,7 +196,7 @@ test('状态句子表：三种语言都有这些词条、每条都能整句匹�
     new Function('self', read(`src/i18n/${lang}.js`))(window);
   }
   const locales = window.AgentDeskLocales;
-  const fill = (template) => String(template).replace(/\{(\w+)\}/g, (_match, key) => (key === 'n' ? '3' : `“示例${key}”`));
+  const fill = (template) => String(template).replace(/\{(\w+)(?:\|([^{}|]*)\|([^{}|]*))?\}/g, (_match, key, one, other) => (one !== undefined ? other : (key === 'n' ? '3' : `“示例${key}”`)));
   for (const lang of ['zh', 'en', 'ja']) {
     const dictionary = locales[lang];
     const matchers = Sfx.statusMatchers(dictionary, locales.zh);

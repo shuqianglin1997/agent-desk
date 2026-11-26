@@ -8,7 +8,8 @@
  * 用法：
  *   静态文案 —— HTML 元素加 data-i18n="key"（或 data-i18n-title / -placeholder / -aria / -html），
  *              I18N.apply() 会按当前语言替换。
- *   动态文案 —— JS 里用 I18N.t('key', { name: '…' })，占位符写成 {name}。
+ *   动态文案 —— JS 里用 I18N.t('key', { name: '…' })，占位符写成 {name}；
+ *              英文的单复数写成 {n|cat|cats}（n 为 1 取前者）。
  *   缺 key 时逐级回退：当前语言 → FALLBACK(zh) → key 本身（永不抛错、永不显示空白）。
  */
 (function (root) {
@@ -29,12 +30,18 @@
     return FALLBACK;
   }
 
-  // 取翻译：当前 → 回退 → key；{param} 占位用 params 替换
+  // 取翻译：当前 → 回退 → key；{param} 占位用 params 替换。
+  // {param|单数|复数} 按 params[param] 是不是 1 取一种写法（英文的 1 cat / 2 cats），
+  // 不输出数字本身；没给这个参数时取复数。
+  const PLACEHOLDER = /\{(\w+)(?:\|([^{}|]*)\|([^{}|]*))?\}/g;
   function t(key, params) {
     const d = dict(current);
-    let s = hasKey(d, key) ? d[key] : (hasKey(dict(FALLBACK), key) ? dict(FALLBACK)[key] : key);
-    if (params) s = String(s).replace(/\{(\w+)\}/g, (m, k) => (k in params ? String(params[k]) : m));
-    return s;
+    const s = hasKey(d, key) ? d[key] : (hasKey(dict(FALLBACK), key) ? dict(FALLBACK)[key] : key);
+    return String(s).replace(PLACEHOLDER, (m, k, one, other) => {
+      const given = Boolean(params) && k in params;
+      if (one !== undefined) return given && Number(params[k]) === 1 ? one : other;
+      return given ? String(params[k]) : m;
+    });
   }
 
   // 替换 DOM 里的 data-i18n（文本）/ -title / -placeholder / -aria / -html

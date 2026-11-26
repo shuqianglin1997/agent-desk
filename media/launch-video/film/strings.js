@@ -15,11 +15,16 @@ const enModule = require('../../../src/i18n/en.js');
 const shared = typeof self !== 'undefined' && self.AgentDeskLocales ? self.AgentDeskLocales : {};
 const LOCALES = { zh: shared.zh || (zhModule.AgentDeskLocales || {}).zh, en: shared.en || (enModule.AgentDeskLocales || {}).en };
 
-// The app's own string for `key`, with {placeholders} filled in.
+// The app's own string for `key`, with {placeholders} filled in. {name|one|other}
+// picks the singular when params[name] is 1, as the app's own t() does.
 function ui(lang, key, params) {
   const table = LOCALES[lang];
   if (!table || typeof table[key] !== 'string') throw new Error(`launch film: the app has no ${lang} string for "${key}"`);
-  return table[key].replace(/\{(\w+)\}/g, (_match, name) => (params && params[name] !== undefined ? String(params[name]) : `{${name}}`));
+  return table[key].replace(/\{(\w+)(?:\|([^{}|]*)\|([^{}|]*))?\}/g, (_match, name, one, other) => {
+    const given = Boolean(params) && params[name] !== undefined;
+    if (one !== undefined) return given && Number(params[name]) === 1 ? one : other;
+    return given ? String(params[name]) : `{${name}}`;
+  });
 }
 
 const FILM = {

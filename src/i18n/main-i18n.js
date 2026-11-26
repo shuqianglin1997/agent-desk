@@ -20,10 +20,12 @@ function mt(lang, key, params) {
   let value = table[key];
   if (value == null) value = (LOCALES[FALLBACK] || {})[key];
   if (value == null) return key; // 兜底回 key，永不返回 undefined
-  if (params) {
-    value = String(value).replace(/\{(\w+)\}/g, (m, k) => (params[k] != null ? String(params[k]) : m));
-  }
-  return value;
+  // {param|单数|复数}：和 src/i18n/i18n.js 的 t() 同一条规则。
+  return String(value).replace(/\{(\w+)(?:\|([^{}|]*)\|([^{}|]*))?\}/g, (m, k, one, other) => {
+    const given = Boolean(params) && params[k] != null;
+    if (one !== undefined) return given && Number(params[k]) === 1 ? one : other;
+    return given ? String(params[k]) : m;
+  });
 }
 
 module.exports = { mt, LOCALES, LANGS, FALLBACK };
