@@ -1,0 +1,28 @@
+name: 想接一个新客户端 / Support another client
+description: 你在用的 AI 编程客户端还不在架子上 / An AI coding client you use is not on the shelf yet
+labels: ["client request"]
+body:
+  - type: input
+    id: client
+    attributes:
+      label: 客户端 / Client
+      description: 名字和官网 / Name and official site
+    validations:
+      required: true
+  - type: dropdown
+    id: form
+    attributes:
+      label: 形态 / Form
+      options:
+        - 桌面 App / Desktop app
+        - 命令行 / Command line
+        - 编辑器插件 / Editor extension
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: 你知道的情况 / What you know
+      description: |
+        怎么登录（浏览器、API 密钥），对话存在哪个文件夹，能不能同时登多个账号。不知道的留空就行。
+        How it signs in (browser, API key), which folder keeps its chats, whether several accounts can be signed in at once. Leave out what you don't know.

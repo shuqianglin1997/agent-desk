@@ -1,0 +1,46 @@
+name: 出了问题 / Something went wrong
+description: Catshelf 打不开、认不出账号、对话没进账本等 / Catshelf does not open, misses an account, a chat is missing from the ledger, and so on
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请不要贴密码、令牌、API 密钥或邮箱。下面的诊断信息本身不含这些。
+        Please do not paste passwords, tokens, API keys or e-mail addresses. The diagnostics below contain none of them.
+  - type: textarea
+    id: what
+    attributes:
+      label: 出了什么问题 / What happened
+      description: 你做了什么，期望看到什么，实际看到什么 / What you did, what you expected, what you saw
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: 系统 / System
+      options:
+        - macOS (Apple silicon)
+        - macOS (Intel)
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: clients
+    attributes:
+      label: 涉及哪个客户端 / Which client
+      description: 例如 Codex、Claude、Cursor、Antigravity；和客户端无关就留空 / For example Codex, Claude, Cursor, Antigravity; leave empty if none
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 诊断信息 / Diagnostics
+      description: |
+        macOS：在终端运行 / in Terminal run `/Applications/Catshelf.app/Contents/MacOS/Catshelf --cli diagnostics`
+        Windows：按 / follow [docs/FIX_AND_REBUILD.md](https://github.com/shuqianglin1997/catshelf/blob/main/docs/FIX_AND_REBUILD.md) 用 `--output` 写到文件 / write it to a file with `--output`
+        把输出整段贴在这里。它带版本、提交号、系统、日志末尾几行，家目录显示为 `~`，不含密钥、会话内容和账号名。
+        Paste the whole output here. It has the version, commit, system and the last log lines; your home folder shows as `~`; no keys, session contents or account names.
+      render: json
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: 截图（可选）/ Screenshot (optional)
+      description: 发之前请遮住邮箱和账号名 / Cover e-mail addresses and account names first

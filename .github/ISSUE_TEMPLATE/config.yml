@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 让你的 AI 帮你修 / Let your AI assistant fix it
+    url: https://github.com/shuqianglin1997/catshelf/blob/main/docs/FIX_AND_REBUILD.md
+    about: 把诊断信息交给你的 AI，它可以拉源码、修好、在你电脑上重新打包 / Give the diagnostics to your AI; it can fetch the source, fix it and build a new copy on your computer
