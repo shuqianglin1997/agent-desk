@@ -542,6 +542,16 @@ download were left, and `profiles.json` and `settings.json` were backed up
 as `*.pre-update.bak`. Before it, one check was refused with `rate-limited`:
 the network's 60 anonymous API calls an hour had been spent on testing.
 
+Second real update, the same day: from `e56c8aa` (installed by the first
+update) to Latest `test-20261127-f53abdc`, the first release with
+`update-manifest.json` (17,519 bytes, 352 commits of history). `e56c8aa`
+predates the manifest, so it decided through the API, after waiting for the
+network's anonymous limit to reset once more (other software on the same
+network had spent it this time). Quit 04:42:58 UTC, new copy started
+04:43:07; `f53abdc`, universal, signature valid, nothing left in
+`/Applications` or the update folder. Its own check then read the manifest
+(`source: manifest`) and reported itself current without an API call.
+
 Not verified on a real machine yet: whether the keychain prompt appears
 after the swap, the Accessibility and Screen Recording permissions after it,
 and the Windows replacement of a test build.
