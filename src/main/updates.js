@@ -522,9 +522,11 @@ function createTrustedDownloadRequest(url, headers) {
     request.once('abort', () => {
       finish(reject, failure || new updater.UpdateError('download-interrupted'));
     });
-    request.once('close', () => {
-      finish(reject, failure || new updater.UpdateError('download-interrupted'));
-    });
+    // No 'close' handler: Electron's ClientRequest is a writable stream and
+    // emits 'close' as soon as the request itself is sent (before 'redirect'
+    // and 'response'), so treating it as an interruption failed every
+    // download. A request that never answers ends in 'error', or in 'abort'
+    // from the download timeout.
     request.end();
   });
   return { request, response };

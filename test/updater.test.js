@@ -426,3 +426,49 @@ test('PowerShell 替换器包含等待、备份、回滚与重启', () => {
   assert.match(script, /Move-Item -LiteralPath \$Backup -Destination \$Target/);
   assert.match(script, /Start-Process -FilePath \$Target/);
 });
+
+// Electron 43's ClientRequest emits 'finish' and 'close' as soon as the
+// request is sent, before 'redirect' and 'response' (seen on a real download
+// on 2026-11-26). An early 'close' is not an interruption.
+function fakeNet(script) {
+  const { EventEmitter } = require('node:events');
+  return {
+    request: (options) => {
+      const request = new EventEmitter();
+      request.options = options;
+      request.followRedirect = () => { request.followed = (request.followed || 0) + 1; };
+      request.abort = () => { request.aborted = true; request.emit('abort'); };
+      request.end = () => {
+        request.emit('finish');
+        request.emit('close');
+        setImmediate(() => script(request));
+      };
+      return request;
+    }
+  };
+}
+
+test('下载请求：Electron 先发 close 再跳转、再响应，照样下载；跳到不信任的主机就拒绝', async () => {
+  const { Readable } = require('node:stream');
+  const assetUrl = `https://github.com/shuqianglin1997/catshelf/releases/download/${TAG}/Catshelf-unsigned-universal.dmg`;
+  const { updates } = bindUpdates(testRelease(), {
+    net: fakeNet((request) => {
+      request.emit('redirect', 302, 'GET', 'https://release-assets.githubusercontent.com/github-production-release-asset/1?sig=x');
+      request.emit('response', Object.assign(Readable.from([Buffer.from('dmg')]), { statusCode: 200 }));
+    })
+  });
+  const download = updates.createTrustedDownloadRequest(assetUrl, {});
+  const { response, finalUrl } = await download.response;
+  assert.equal(response.statusCode, 200);
+  assert.equal(new URL(finalUrl).hostname, 'release-assets.githubusercontent.com');
+  assert.equal(download.request.followed, 1);
+  assert.equal(download.request.options.redirect, 'manual');
+  assert.equal(download.request.options.credentials, 'omit');
+
+  const { updates: untrusted } = bindUpdates(testRelease(), {
+    net: fakeNet((request) => request.emit('redirect', 302, 'GET', 'https://example.com/file.dmg'))
+  });
+  const refused = untrusted.createTrustedDownloadRequest(assetUrl, {});
+  await assert.rejects(refused.response, (error) => error.code === 'download-untrusted' || /download-untrusted/.test(String(error.reasonCode || error.message)));
+  assert.equal(refused.request.aborted, true);
+});

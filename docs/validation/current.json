@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-26T18:04:27.039Z",
-  "baseCommit": "ae60a1b6e484553fc293c8457501f7bf72f620c9",
+  "recordedAt": "2026-11-27T02:38:14.447Z",
+  "baseCommit": "51d795bb53fb9f85756051dbc2047903f0035ce3",
   "uncommitted": true,
-  "sourceSha256": "d3a48068a0ecc286f6ca63d5ff7347729bd61f83e4861a5ac33def08cd4ad65d",
+  "sourceSha256": "190b54d6dbd08052d723e4355e738cc10e1a968385decb98215f7c675a68993c",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,31 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1062,
+      "pass": 1060,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after the first real in-app update failed with download-interrupted within seconds: Electron 43 ClientRequest emits finish and close as soon as the request is sent, before redirect and response (reproduced headless against the real Latest DMG: close 0.01 s, redirect 302 to release-assets.githubusercontent.com 0.28 s, response 200 0.64 s). createTrustedDownloadRequest no longer treats close as an interruption; error, abort and the download timeout still end it. New test in test/updater.test.js replays that event order and an untrusted redirect.",
+      "recordedAt": "2026-11-27T02:38:14.447Z",
+      "sourceSha256": "190b54d6dbd08052d723e4355e738cc10e1a968385decb98215f7c675a68993c"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js",
+      "recordedAt": "2026-11-27T02:38:14.447Z",
+      "sourceSha256": "190b54d6dbd08052d723e4355e738cc10e1a968385decb98215f7c675a68993c"
+    },
+    {
+      "command": "package.json scripts.check:docs",
+      "result": "passed",
+      "scope": "Current-state documents and this record after the download fix",
+      "recordedAt": "2026-11-27T02:38:14.447Z",
+      "sourceSha256": "190b54d6dbd08052d723e4355e738cc10e1a968385decb98215f7c675a68993c"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",
