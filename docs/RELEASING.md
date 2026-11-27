@@ -441,8 +441,21 @@ hit the 30-minute total limit. Since `f4cd2de` a download stops only after
 two minutes without data (six-hour cap). Builds before it can still update
 themselves when GitHub is fast enough to finish within 30 minutes.
 
-Not verified on a real machine yet: the swap, the reopen, the keychain and
-permission prompts after it, and the Windows replacement of a test build.
+First real update, 2026-11-27 on the owner's Mac (Apple silicon): a local
+arm64 build of `f4cd2de` in `/Applications`, “Update and restart” to Latest
+`test-20261127-e56c8aa`. It downloaded the universal DMG, quit, swapped and
+reopened: the old copy quit at 03:50:51 UTC and the new one started at
+03:51:12. Afterwards `/Applications/Catshelf.app` reports commit `e56c8aa`,
+is universal (x86_64 and arm64), passes `codesign --verify --deep --strict`,
+carries no quarantine attribute, the result file says
+`{"ok":true,"code":"installed"}`, no staged or rollback bundle and no
+download were left, and `profiles.json` and `settings.json` were backed up
+as `*.pre-update.bak`. Before it, one check was refused with `rate-limited`:
+the network's 60 anonymous API calls an hour had been spent on testing.
+
+Not verified on a real machine yet: whether the keychain prompt appears
+after the swap, the Accessibility and Screen Recording permissions after it,
+and the Windows replacement of a test build.
 
 ## Personal Mesh evidence and release classes
 
