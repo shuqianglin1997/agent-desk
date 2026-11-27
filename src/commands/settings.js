@@ -46,9 +46,13 @@ const COMMANDS = [
     id: 'updates.check',
     channel: 'updates:check',
     preload: ['checkForUpdates'],
-    async exec(deps) {
+    // The button asks GitHub again (a result younger than a minute is
+    // reused); the window's own check after start-up and once a day,
+    // { automatic: true }, takes a result younger than ten minutes.
+    input: (raw) => ({ force: raw?.automatic !== true }),
+    async exec(deps, input) {
       const { checkForUpdates } = deps;
-      return checkForUpdates({ force: true });
+      return checkForUpdates({ force: input?.force !== false });
     }
   },
   {

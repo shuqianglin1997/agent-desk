@@ -862,9 +862,10 @@ test('安装文档不再建议用 xattr 绕过 Gatekeeper', () => {
 // unsigned test build may be published, clearly labelled. It must stay a
 // separate path: only test-* tags start it, it never signs or reads signing
 // secrets, only its last job may write, and the release holds exactly the two
-// packages and SHA256SUMS.txt. Until a signed release exists it is GitHub's
-// Latest, with fixed file names, so the README's links always reach it.
-test('未签名测试版只由 test- 标签发起，标为 Latest，文件名固定，不碰签名，只发三个文件', () => {
+// packages, SHA256SUMS.txt and (1.43) update-manifest.json for the app's check
+// for updates. Until a signed release exists it is GitHub's Latest, with fixed
+// file names, so the README's links always reach it.
+test('未签名测试版只由 test- 标签发起，标为 Latest，文件名固定，不碰签名，只发四个文件（含更新清单）', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'test-build.yml'), 'utf8').replace(/\r\n/g, '\n');
   const release = fs.readFileSync(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8');
   const trigger = workflow.slice(workflow.indexOf('\non:'), workflow.indexOf('\npermissions:'));
@@ -891,7 +892,7 @@ test('未签名测试版只由 test- 标签发起，标为 Latest，文件名固
     'npm run verify:win-portable-package -- -PortablePath "$env:PACKAGED_PORTABLE"'
   ]) assert.ok(workflow.includes(step), step);
   assert.doesNotMatch(workflow, /mock-keychain/);
-  // A labelled Latest release of exactly three files with fixed names.
+  // A labelled Latest release of exactly four files with fixed names.
   const create = workflow.split('\n').find((line) => line.includes('gh release create'));
   assert.match(create, /gh release create "\$TAG" [^\n]*--verify-tag [^\n]*--latest /);
   assert.doesNotMatch(create, /--prerelease|--draft/);
@@ -899,7 +900,20 @@ test('未签名测试版只由 test- 标签发起，标为 Latest，文件名固
   assert.match(workflow, /未签名测试版 \/ Unsigned test build/);
   assert.match(workflow, /cp "\$\{portables\[0\]\}" dist\/Catshelf-unsigned-portable-x64\.exe\n/);
   assert.match(workflow, /cp "\$\{dmgs\[0\]\}" dist\/Catshelf-unsigned-universal\.dmg\n/);
-  assert.match(workflow, /Expected exactly three release files/);
+  assert.match(workflow, /Expected exactly four release files/);
+  assert.doesNotMatch(workflow, /Expected exactly three release files/);
+  // The manifest the app reads instead of the API: written from the run's own
+  // tag and commit, only for a test-YYYYMMDD-<short commit> tag of that commit,
+  // with the history GitHub lists from that commit, into dist/ before publishing.
+  const manifestStep = workflow.slice(workflow.indexOf('- name: Write the update manifest'), workflow.indexOf('- name: Publish as the Latest release'));
+  assert.ok(manifestStep.length > 0 && workflow.indexOf('- name: Write the update manifest') > workflow.indexOf('- name: Stage the release files'));
+  assert.match(manifestStep, /TAG: \$\{\{ github\.ref_name \}\}/);
+  assert.match(manifestStep, /COMMIT: \$\{\{ github\.sha \}\}/);
+  assert.match(manifestStep, /\^test-\[0-9\]\{8\}-\[0-9a-f\]\{7,40\}\$/);
+  assert.match(manifestStep, /\$COMMIT" != "\$short"\*/);
+  assert.match(manifestStep, /gh api "repos\/\$\{REPOSITORY\}\/commits\?sha=\$\{COMMIT\}&per_page=100&page=\$\{page\}"/);
+  assert.match(manifestStep, /schema: 1, repository: \$repository, tag: \$tag, kind: "test", commit: \$commit/);
+  assert.match(manifestStep, /> dist\/update-manifest\.json/);
   // The README's download links are the same fixed names on the Latest release.
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
   const latest = `${packageJson.repository.url.replace(/\.git$/, '')}/releases/latest/download/`;

@@ -340,18 +340,38 @@ function bindUpdates(release, overrides = {}) {
     APP_NAME: 'Catshelf',
     app: { getVersion: () => '0.10.1-preview.1', isPackaged: false, getPath: () => path.join(__dirname, 'no-such-folder') },
     t: (key, params) => (params ? `${key} ${JSON.stringify(params)}` : key),
+    // Latest without update-manifest.json unless a test gives one.
     net: {
-      fetch: async (url) => {
+      ...(overrides.net || {}),
+      fetch: overrides.net?.fetch || (async (url) => {
         if (url.includes('/releases/latest')) return { status: 200, headers: new Map(), text: async () => JSON.stringify(release) };
         if (url.includes('/commits/refs/tags/')) return { status: 200, headers: new Map(), text: async () => LATEST };
         throw new Error(`unexpected ${url}`);
-      }
+      }),
+      request: overrides.net?.request || manifestNet(null).request
     },
     shell: { openExternal: async (url) => { opened.push(url); } },
     agentHub: { activeCount: () => 0 },
-    ...overrides
+    ...Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== 'net'))
   });
   return { updates, opened };
+}
+
+// Electron's net.request for the manifest: GitHub's redirect to its download
+// host, then the file (404 when `manifest` is null).
+function manifestNet(manifest, seen = []) {
+  const { Readable } = require('node:stream');
+  return fakeNet((request) => {
+    seen.push(request.options.url);
+    if (manifest === null) {
+      request.emit('response', Object.assign(Readable.from([]), { statusCode: 404 }));
+      return;
+    }
+    request.emit('redirect', 302, 'GET', `https://github.com/shuqianglin1997/catshelf/releases/download/${TAG}/update-manifest.json`);
+    request.emit('redirect', 302, 'GET', 'https://release-assets.githubusercontent.com/github-production-release-asset/2?sig=x');
+    const text = typeof manifest === 'string' ? manifest : JSON.stringify(manifest);
+    request.emit('response', Object.assign(Readable.from([Buffer.from(text)]), { statusCode: 200 }));
+  });
 }
 
 // A source checkout records no commit (scripts/build-info.js), so a test build
@@ -533,4 +553,280 @@ test('下载很慢但一直有数据，超过 30 分钟也照样下完；停两�
   t.mock.timers.tick(2_000);
   await assert.rejects(failing, (error) => error.code === 'download-timeout' || /download-timeout/.test(String(error.reasonCode || error.message)));
   assert.equal(stuck.aborted(), true);
+});
+
+// update-manifest.json (written by .github/workflows/test-build.yml): the check
+// reads it with an ordinary download instead of GitHub's 60 anonymous API calls
+// an hour. Same rules as before: never a downgrade, another line of commits is
+// not newer, an unknown own commit is "cannot tell".
+const DMG_SHA = 'd'.repeat(64);
+const EXE_SHA = 'e'.repeat(64);
+const PARENT = `9${'1'.repeat(39)}`;
+
+function manifest(overrides = {}) {
+  return {
+    schema: 1,
+    repository: 'shuqianglin1997/catshelf',
+    tag: TAG,
+    kind: 'test',
+    commit: LATEST,
+    version: '0.10.1-preview.1',
+    publishedAt: '2026-11-27T03:40:00Z',
+    assets: [
+      { name: 'Catshelf-unsigned-universal.dmg', size: 219210590, sha256: DMG_SHA },
+      { name: 'Catshelf-unsigned-portable-x64.exe', size: 98765432, sha256: EXE_SHA }
+    ],
+    history: [LATEST, PARENT, OWN],
+    ...overrides
+  };
+}
+
+const served = (value, status = 200) => async () => ({ status, text: typeof value === 'string' ? value : JSON.stringify(value) });
+
+test('更新清单：格式不对就拒绝；不认识的新格式交给 API；标签里的短提交号必须对得上', () => {
+  const parsed = updater.parseManifest(JSON.stringify(manifest()));
+  assert.equal(parsed.kind, 'test');
+  assert.equal(parsed.commit, LATEST);
+  assert.deepEqual(parsed.history, [LATEST, PARENT, OWN]);
+  assert.equal(updater.parseManifest(JSON.stringify(manifest({ schema: 2, anything: true }))), null);
+  const invalid = (value) => assert.throws(() => updater.parseManifest(typeof value === 'string' ? value : JSON.stringify(value)), (error) => error.code === 'manifest-invalid');
+  invalid('not json');
+  invalid('[]');
+  invalid(manifest({ repository: 'someone/else' }));
+  invalid(manifest({ kind: 'version' }));
+  invalid(manifest({ commit: 'abc' }));
+  invalid(manifest({ version: 'soon' }));
+  invalid(manifest({ history: [PARENT, LATEST] }));
+  invalid(manifest({ history: [LATEST, 'not-a-commit'] }));
+  invalid(manifest({ history: Array.from({ length: 1001 }, () => LATEST) }));
+  invalid(manifest({ assets: [] }));
+  invalid(manifest({ assets: [{ name: '../Catshelf.dmg', size: 1, sha256: DMG_SHA }] }));
+  invalid(manifest({ assets: [{ name: 'Catshelf-unsigned-universal.dmg', size: 0, sha256: DMG_SHA }] }));
+  invalid(manifest({ assets: [{ name: 'Catshelf-unsigned-universal.dmg', size: 1, sha256: 'sha256:abc' }] }));
+  invalid(manifest({ assets: [manifest().assets[0], manifest().assets[0]] }));
+  invalid(`{"schema":1,"pad":"${'x'.repeat(updater.MANIFEST_MAX_BYTES)}"}`);
+  assert.throws(() => updater.parseManifest(JSON.stringify(manifest({ tag: 'test-20261127-abcdef1' }))), (error) => error.code === 'release-commit-mismatch');
+});
+
+test('更新清单：相同提交是最新、自己的提交在 Latest 的历史里就是新版，都不花一次 API；文件和摘要来自清单', async () => {
+  for (const [platform, arch, name, sha] of [['darwin', 'arm64', 'Catshelf-unsigned-universal.dmg', DMG_SHA], ['darwin', 'x64', 'Catshelf-unsigned-universal.dmg', DMG_SHA], ['win32', 'x64', 'Catshelf-unsigned-portable-x64.exe', EXE_SHA]]) {
+    const github = fakeGitHub([]);
+    const newer = await updater.checkLatestRelease({ current: { version: '0.10.1-preview.1', commit: OWN }, platform, arch, fetchManifest: served(manifest()), request: github.request });
+    assert.equal(newer.source, 'manifest');
+    assert.equal(newer.state, 'newer');
+    assert.equal(newer.updateAvailable, true);
+    assert.equal(newer.tag, TAG);
+    assert.equal(newer.commit, LATEST);
+    assert.equal(newer.publishedAt, '2026-11-27T03:40:00Z');
+    assert.equal(newer.releaseUrl, `https://github.com/shuqianglin1997/catshelf/releases/tag/${TAG}`);
+    assert.equal(newer.asset.name, name);
+    assert.equal(newer.asset.sha256, sha);
+    assert.equal(newer.asset.url, `https://github.com/shuqianglin1997/catshelf/releases/download/${TAG}/${name}`);
+    assert.ok(updater.trustedGitHubUrl(newer.asset.url, 'asset'));
+    assert.deepEqual(github.calls, []);
+  }
+  const github = fakeGitHub([]);
+  const same = await updater.checkLatestRelease({ current: { version: '0.10.1-preview.1', commit: LATEST }, platform: 'darwin', arch: 'arm64', fetchManifest: served(manifest()), request: github.request });
+  assert.equal(same.state, 'current');
+  assert.equal(same.updateAvailable, false);
+  const unknown = await updater.checkLatestRelease({ current: { version: '0.10.1-preview.1', commit: null }, platform: 'darwin', arch: 'arm64', fetchManifest: served(manifest()), request: github.request });
+  assert.equal(unknown.state, 'unknown');
+  assert.equal(unknown.reasonCode, 'current-commit-unknown');
+  assert.deepEqual(github.calls, []);
+});
+
+test('更新清单：自己的提交不在历史里时只问一次比较；更旧不降级、分叉不算新、问不到就如实说无法判断', async () => {
+  const ahead = 'f'.repeat(40);
+  const ask = async (answer) => {
+    const github = fakeGitHub([['/compare/', answer]]);
+    const memo = { tags: new Map(), comparisons: new Map() };
+    const result = await updater.checkLatestRelease({ current: { version: '0.10.1-preview.1', commit: ahead }, platform: 'darwin', arch: 'arm64', fetchManifest: served(manifest()), request: github.request, memo });
+    return { result, github };
+  };
+  const older = await ask(comparison('behind', 0, 3));
+  assert.equal(older.result.state, 'older');
+  assert.equal(older.result.updateAvailable, false);
+  assert.equal(older.github.calls.length, 1);
+  assert.match(older.github.calls[0].url, new RegExp(`/compare/${ahead}\\.\\.\\.${LATEST}\\?per_page=1&page=2$`));
+  assert.equal((await ask(comparison('diverged', 2, 3))).result.state, 'diverged');
+  assert.equal((await ask(comparison('ahead', 4, 0))).result.state, 'newer');
+  const notOnGitHub = await ask({ status: 404, body: {} });
+  assert.equal(notOnGitHub.result.reasonCode, 'current-commit-not-on-github');
+  const limited = await ask({ status: 403, headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1900000000' }, body: {} });
+  assert.equal(limited.result.state, 'unknown');
+  assert.equal(limited.result.reasonCode, 'rate-limited');
+  assert.equal(limited.result.reasonDetails.resetAt, 1900000000 * 1000);
+  const failed = await ask({ status: 500, body: {} });
+  assert.equal(failed.result.state, 'unknown');
+  assert.equal(failed.result.reasonCode, 'comparison-unavailable');
+});
+
+test('更新清单：没有清单（404）或格式更新的旧 release 照旧走 API；清单读失败带原因码；正式版的清单按版本号比', async () => {
+  const routes = [
+    ['/releases/latest', { body: testRelease() }],
+    ['/commits/refs/tags/', { body: LATEST }],
+    ['/compare/', comparison('ahead', 1, 0)]
+  ];
+  for (const fetchManifest of [served('', 404), served(manifest({ schema: 2 }))]) {
+    const github = fakeGitHub(routes);
+    const result = await updater.checkLatestRelease({ current: { version: '0.10.1-preview.1', commit: OWN }, platform: 'darwin', arch: 'arm64', fetchManifest, request: github.request });
+    assert.equal(result.source, 'api');
+    assert.equal(result.state, 'newer');
+    assert.equal(github.calls.length, 3);
+  }
+  await assert.rejects(
+    updater.checkLatestRelease({ current: { version: '0.10.1-preview.1', commit: OWN }, platform: 'darwin', arch: 'arm64', fetchManifest: served('', 500), request: fakeGitHub([]).request }),
+    (error) => error.code === 'manifest-failed' && error.details.status === 500
+  );
+  await assert.rejects(
+    updater.checkLatestRelease({ current: { version: '0.10.1-preview.1', commit: OWN }, platform: 'darwin', arch: 'arm64', fetchManifest: served('{"schema":1}'), request: fakeGitHub([]).request }),
+    (error) => error.code === 'manifest-invalid'
+  );
+  const formal = manifest({ tag: 'v0.10.1', kind: 'version', version: '0.10.1', commit: null, history: [] });
+  const upgrade = await updater.checkLatestRelease({ current: { version: '0.10.1-preview.1', commit: OWN }, platform: 'darwin', arch: 'arm64', fetchManifest: served(formal), request: fakeGitHub([]).request });
+  assert.equal(upgrade.kind, 'version');
+  assert.equal(upgrade.state, 'newer');
+  const downgrade = await updater.checkLatestRelease({ current: { version: '0.11.0', commit: OWN }, platform: 'darwin', arch: 'arm64', fetchManifest: served(formal), request: fakeGitHub([]).request });
+  assert.equal(downgrade.state, 'older');
+});
+
+test('更新清单的下载只跟着 GitHub 自己的跳转走，最多五次', async () => {
+  const hops = (locations) => {
+    const seen = [];
+    const get = async (url) => {
+      seen.push(url);
+      const next = locations.shift();
+      return next ? { status: 302, headers: { get: (name) => (name === 'location' ? next : null) }, text: '' } : { status: 200, headers: { get: () => null }, text: '{}' };
+    };
+    return { seen, get };
+  };
+  const good = hops([`https://github.com/shuqianglin1997/catshelf/releases/download/${TAG}/update-manifest.json`, 'https://release-assets.githubusercontent.com/x?sig=1']);
+  const response = await updater.fetchWithTrustedRedirects(good.get, updater.LATEST_MANIFEST_URL);
+  assert.equal(response.status, 200);
+  assert.equal(good.seen.length, 3);
+  assert.equal(good.seen[0], 'https://github.com/shuqianglin1997/catshelf/releases/latest/download/update-manifest.json');
+  const away = hops(['https://example.com/update-manifest.json']);
+  await assert.rejects(updater.fetchWithTrustedRedirects(away.get, updater.LATEST_MANIFEST_URL), (error) => error.code === 'download-untrusted');
+  assert.equal(away.seen.length, 1);
+  const loop = hops(Array.from({ length: 6 }, () => 'https://github.com/shuqianglin1997/catshelf/releases/latest/download/update-manifest.json'));
+  await assert.rejects(updater.fetchWithTrustedRedirects(loop.get, updater.LATEST_MANIFEST_URL), (error) => error.code === 'download-untrusted');
+});
+
+test('窗口里的检查读清单：不调 GitHub API；之前被限流也不挡清单；按钮和自动检查的缓存规则不变', async () => {
+  const seen = [];
+  const apiCalls = [];
+  const { updates } = bindUpdates(testRelease(), {
+    net: {
+      request: manifestNet(manifest(), seen).request,
+      fetch: async (url) => { apiCalls.push(url); return { status: 403, headers: new Map([['x-ratelimit-remaining', '0']]), text: async () => '{}' }; }
+    }
+  });
+  const result = await updates.checkForUpdates({ force: true });
+  assert.equal(result.ok, true);
+  assert.equal(result.source, 'manifest');
+  assert.equal(result.latest.commit, LATEST);
+  // A source checkout knows no commit of its own: cannot tell, honestly.
+  assert.equal(result.reasonCode, 'current-commit-unknown');
+  assert.deepEqual(apiCalls, []);
+  assert.deepEqual(seen, ['https://github.com/shuqianglin1997/catshelf/releases/latest/download/update-manifest.json']);
+  // The cached result is reused (ten minutes; the button one minute).
+  await updates.checkForUpdates({ force: false });
+  await updates.checkForUpdates({ force: true });
+  assert.equal(seen.length, 1);
+
+  // Rate-limited earlier by the API (a release without a manifest), the next
+  // manifest read still goes through.
+  const limitedSeen = [];
+  const { updates: limited } = bindUpdates(testRelease(), {
+    net: {
+      request: (options) => (limitedSeen.length === 0 ? manifestNet(null, limitedSeen) : manifestNet(manifest(), limitedSeen)).request(options),
+      fetch: async () => ({ status: 403, headers: new Map([['x-ratelimit-remaining', '0'], ['x-ratelimit-reset', String(Math.floor(Date.now() / 1000) + 3600)]]), text: async () => '{}' })
+    }
+  });
+  assert.equal((await limited.checkForUpdates({ force: true })).reasonCode, 'rate-limited');
+  const after = await limited.checkForUpdates({ force: true });
+  assert.equal(after.ok, true);
+  assert.equal(after.source, 'manifest');
+  assert.equal(after.latest.tag, TAG);
+  assert.equal(limitedSeen.length, 2);
+});
+
+test('按钮总是重新查一次（一分钟内的结果除外）；窗口自己的自动检查用十分钟内的结果', () => {
+  const { COMMANDS } = require('../src/commands/settings');
+  const check = COMMANDS.find((command) => command.id === 'updates.check');
+  assert.deepEqual(check.input(undefined), { force: true });
+  assert.deepEqual(check.input({}), { force: true });
+  assert.deepEqual(check.input({ automatic: true }), { force: false });
+});
+
+test('开始下载前清掉以前的下载：.partial、用过的安装包、旧脚本和空的挂载目录；只留上次的结果和日志', (t) => {
+  const fs = require('node:fs');
+  const { makeTempDir } = require('./helpers/temp');
+  const updates = require('../src/main/updates');
+  const directory = makeTempDir(t, 'catshelf-update-dir-');
+  const files = [
+    'test-20261126-51d795b-Catshelf-unsigned-universal.dmg.partial',
+    'test-20261127-e56c8aa-Catshelf-unsigned-universal.dmg',
+    '0.10.1-Catshelf-unsigned-portable-x64.exe',
+    'apply-update-1764200000000.sh',
+    'mac-update-result.json',
+    'mac-update-result.json.log',
+    'update-error.log'
+  ];
+  for (const name of files) fs.writeFileSync(path.join(directory, name), 'x');
+  fs.mkdirSync(path.join(directory, 'mount-1-empty'));
+  fs.mkdirSync(path.join(directory, 'mount-2-busy'));
+  fs.writeFileSync(path.join(directory, 'mount-2-busy', 'Catshelf.app'), 'still mounted');
+  fs.mkdirSync(path.join(directory, 'something-else'));
+
+  const removed = updates.clearUpdateDirectory(directory).sort();
+  assert.deepEqual(removed, [
+    '0.10.1-Catshelf-unsigned-portable-x64.exe',
+    'apply-update-1764200000000.sh',
+    'mount-1-empty',
+    'test-20261126-51d795b-Catshelf-unsigned-universal.dmg.partial',
+    'test-20261127-e56c8aa-Catshelf-unsigned-universal.dmg'
+  ]);
+  assert.deepEqual(fs.readdirSync(directory).sort(), ['mac-update-result.json', 'mac-update-result.json.log', 'mount-2-busy', 'something-else', 'update-error.log']);
+  assert.ok(fs.existsSync(path.join(directory, 'mount-2-busy', 'Catshelf.app')));
+  assert.deepEqual(updates.clearUpdateDirectory(path.join(directory, 'missing')), []);
+});
+
+test('窗口：检查更新在设置最上面，有新版的标记和“系统”上的点；确认框是窗口自己的对话框，按钮跟着界面语言', async () => {
+  const fs = require('node:fs');
+  const { page, loadPreload, runCommand, declared } = require('./helpers/behaviour');
+  const doc = page();
+  const settings = doc.byId('systemSettings');
+  const lines = doc.all((el) => el.tag === 'div' && /\bsystem-setting-line\b/.test(el.attrs.class || '') && doc.within(el, settings));
+  assert.ok(doc.within(doc.byId('updateBtn'), lines[0]), 'the update line is the first setting');
+  assert.ok(doc.within(doc.byId('updateAvailableBadge'), lines[0]));
+  assert.ok('hidden' in doc.byId('updateAvailableBadge').attrs);
+  assert.equal(doc.byId('updateAvailableBadge').attrs['data-i18n'], 'update.badge.available');
+
+  const dialog = doc.byId('updateConfirmDialog');
+  assert.equal(dialog.tag, 'dialog');
+  const buttons = doc.all((el) => el.tag === 'button' && doc.within(el, dialog));
+  assert.deepEqual(buttons.map((el) => el.attrs.value), ['cancel', 'confirm'], 'Cancel comes first, so Enter is no');
+  assert.equal(buttons[0].attrs['data-i18n'], 'dialog.cancel');
+  assert.equal(buttons[1].attrs.id, 'updateConfirmBtn');
+
+  const view = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'views', 'updates.js'), 'utf8');
+  assert.doesNotMatch(view, /window\.confirm\(/);
+  assert.match(view, /toLocaleDateString\(dateLocale\(\)\)/);
+  assert.ok(declared('.topbar-actions .topbar-nav-button.has-update::after', 'background'));
+  for (const lang of ['zh', 'en', 'ja']) {
+    const table = require(`../src/i18n/${lang}.js`).AgentDeskLocales[lang];
+    for (const key of ['dialog.cancel', 'update.confirm.title', 'update.confirm.unknownTitle', 'update.confirm.hubRunsTitle', 'update.confirm.restart', 'update.confirm.openPage', 'update.confirm.restartAnyway', 'update.badge.available', 'topbar.system.titleUpdate']) {
+      assert.ok(table[key], `${lang} has ${key}`);
+    }
+  }
+
+  // The window's own check passes { automatic: true } through the preload.
+  const { api, calls } = loadPreload();
+  await api.checkForUpdates({ automatic: true });
+  assert.deepEqual(calls.at(-1), ['invoke', 'updates:check', { automatic: true }]);
+  const forced = [];
+  await runCommand('updates:check', { checkForUpdates: async (options) => { forced.push(options); return { ok: true }; } }, { automatic: true });
+  await runCommand('updates:check', { checkForUpdates: async (options) => { forced.push(options); return { ok: true }; } }, undefined);
+  assert.deepEqual(forced, [{ force: false }, { force: true }]);
 });

@@ -23,9 +23,11 @@ const { pipeline } = require('node:stream/promises');
 let main = null;
 function bind(context) { main = context; }
 
-// One check costs up to three GitHub API calls, and GitHub allows 60
-// unauthenticated calls an hour. A result is reused for ten minutes; even the
-// button reuses one younger than a minute. A rate limit is waited out.
+// A check reads Latest's update-manifest.json, an ordinary download. A
+// release without one costs up to three GitHub API calls, and GitHub allows
+// 60 unauthenticated calls an hour, so a result is reused for ten minutes,
+// even the button reuses one younger than a minute, and a rate limit is
+// waited out before the next API call.
 const UPDATE_CACHE_TTL = 10 * 60_000;
 const UPDATE_FORCE_FLOOR = 60_000;
 const UPDATE_CHECK_TIMEOUT = 15_000;
@@ -79,35 +81,110 @@ function failure(error, lang = null) {
 }
 
 // GitHub API reads through `fetchImpl`: Electron's net.fetch in the desktop,
-// Node's fetch in the command line (which never waits for app-ready).
-function githubRequester(fetchImpl, extra = {}) {
+// Node's fetch in the command line (which never waits for app-ready). With
+// `limit` (the desktop), a call waits out a rate limit GitHub reported
+// earlier, and a response that reports one is remembered.
+function githubRequester(fetchImpl, extra = {}, limit = null) {
   return async (url, accept) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), UPDATE_CHECK_TIMEOUT);
-    try {
-      const response = await fetchImpl(url, {
-        method: 'GET',
-        redirect: 'error',
-        credentials: 'omit',
-        signal: controller.signal,
-        headers: {
-          Accept: accept,
-          'User-Agent': `${main.APP_NAME}/${currentBuild().version}`,
-          'X-GitHub-Api-Version': updater.GITHUB_API_VERSION
-        },
-        ...extra
-      });
-      const text = await response.text();
-      if (text.length > 4 * 1024 * 1024) throw new updater.UpdateError('response-too-large');
-      return { status: response.status, headers: response.headers, text };
-    } catch (error) {
-      if (error instanceof updater.UpdateError) throw error;
-      if (error?.name === 'AbortError') throw new updater.UpdateError('github-timeout');
-      throw new updater.UpdateError('github-unreachable');
-    } finally {
-      clearTimeout(timer);
-    }
+    if (limit && rateLimitedUntil > Date.now()) throw new updater.UpdateError('rate-limited', { resetAt: rateLimitedUntil });
+    const response = await githubRequest(fetchImpl, extra, url, accept);
+    const limited = limit ? updater.rateLimitFrom(response) : null;
+    if (limited) rateLimitedUntil = Number(limited.resetAt) || Date.now() + 10 * 60_000;
+    return response;
   };
+}
+
+async function githubRequest(fetchImpl, extra, url, accept) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPDATE_CHECK_TIMEOUT);
+  try {
+    const response = await fetchImpl(url, {
+      method: 'GET',
+      redirect: 'error',
+      credentials: 'omit',
+      signal: controller.signal,
+      headers: {
+        Accept: accept,
+        'User-Agent': `${main.APP_NAME}/${currentBuild().version}`,
+        'X-GitHub-Api-Version': updater.GITHUB_API_VERSION
+      },
+      ...extra
+    });
+    const text = await response.text();
+    if (text.length > 4 * 1024 * 1024) throw new updater.UpdateError('response-too-large');
+    return { status: response.status, headers: response.headers, text };
+  } catch (error) {
+    if (error instanceof updater.UpdateError) throw error;
+    if (error?.name === 'AbortError') throw new updater.UpdateError('github-timeout');
+    throw new updater.UpdateError('github-unreachable');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Latest's update-manifest.json through Electron's net, the same trusted
+// request as the package download (redirects only to GitHub's download
+// hosts), at most MANIFEST_MAX_BYTES.
+async function fetchManifestWithNet() {
+  const download = createTrustedDownloadRequest(updater.LATEST_MANIFEST_URL, {
+    Accept: 'application/json, application/octet-stream',
+    'User-Agent': `${main.APP_NAME}/${currentBuild().version}`
+  });
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    download.request?.abort();
+  }, UPDATE_CHECK_TIMEOUT);
+  try {
+    const { response } = await download.response;
+    const status = Number(response.statusCode);
+    if (status < 200 || status >= 300) {
+      response.resume();
+      return { status, text: '' };
+    }
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of response) {
+      size += chunk.length;
+      if (size > updater.MANIFEST_MAX_BYTES) {
+        download.request?.abort();
+        throw new updater.UpdateError('manifest-invalid');
+      }
+      chunks.push(Buffer.from(chunk));
+    }
+    return { status, text: Buffer.concat(chunks).toString('utf8') };
+  } catch (error) {
+    if (timedOut) throw new updater.UpdateError('github-timeout');
+    if (error instanceof updater.UpdateError) throw error;
+    throw new updater.UpdateError('github-unreachable');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// The same for the command line, with Node's fetch (redirects followed one
+// at a time, each checked).
+async function fetchManifestWithNode() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPDATE_CHECK_TIMEOUT);
+  try {
+    const response = await updater.fetchWithTrustedRedirects(async (url) => {
+      const reply = await globalThis.fetch(url, {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: { Accept: 'application/json, application/octet-stream', 'User-Agent': `${main.APP_NAME}/${currentBuild().version}` }
+      });
+      const text = reply.status >= 200 && reply.status < 300 ? await reply.text() : '';
+      return { status: reply.status, headers: reply.headers, text };
+    }, updater.LATEST_MANIFEST_URL);
+    return { status: response.status, text: response.text };
+  } catch (error) {
+    if (error instanceof updater.UpdateError) throw error;
+    if (error?.name === 'AbortError') throw new updater.UpdateError('github-timeout');
+    throw new updater.UpdateError('github-unreachable');
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function writable(file) {
@@ -135,20 +212,14 @@ async function latestUpdateInfo(force = false) {
   if (latestUpdateCache && now - latestUpdateCache.at < (force ? UPDATE_FORCE_FLOOR : UPDATE_CACHE_TTL)) {
     return latestUpdateCache.value;
   }
-  if (rateLimitedUntil > now) throw new updater.UpdateError('rate-limited', { resetAt: rateLimitedUntil });
-  let resolved;
-  try {
-    resolved = await updater.checkLatestRelease({
-      current: currentBuild(),
-      platform: process.platform,
-      arch: process.arch,
-      request: githubRequester((url, init) => main.net.fetch(url, init), { bypassCustomProtocolHandlers: true }),
-      memo: lookupMemo
-    });
-  } catch (error) {
-    if (error?.code === 'rate-limited') rateLimitedUntil = Number(error.details?.resetAt) || now + 10 * 60_000;
-    throw error;
-  }
+  const resolved = await updater.checkLatestRelease({
+    current: currentBuild(),
+    platform: process.platform,
+    arch: process.arch,
+    fetchManifest: fetchManifestWithNet,
+    request: githubRequester((url, init) => main.net.fetch(url, init), { bypassCustomProtocolHandlers: true }, true),
+    memo: lookupMemo
+  });
   const value = { resolved, capability: updateCapability(resolved) };
   latestUpdateCache = { at: Date.now(), value };
   return value;
@@ -172,8 +243,9 @@ function publicUpdateInfo(update) {
     ok: true,
     state: resolved.state,
     reasonCode: resolved.reasonCode,
-    reason: resolved.reasonCode ? reasonText(resolved.reasonCode) : null,
+    reason: resolved.reasonCode ? reasonText(resolved.reasonCode, resolved.reasonDetails || {}) : null,
     updateAvailable: resolved.updateAvailable,
+    source: resolved.source,
     current: resolved.current,
     currentVersion: resolved.current.version,
     latest: {
@@ -199,6 +271,38 @@ function publicUpdateInfo(update) {
     packaged: main.app.isPackaged,
     activeHubRuns: activeHubRuns()
   };
+}
+
+// The last attempt's result and its log are what a later check reports; they
+// stay. Everything else in the folder is from an earlier download (an
+// interrupted *.partial, a package already used, an old script) and goes
+// before a new download starts.
+const KEPT_UPDATE_FILES = new Set([MAC_RESULT_FILE, `${MAC_RESULT_FILE}.log`, WINDOWS_ERROR_LOG]);
+
+function clearUpdateDirectory(directory, fsImpl = fs) {
+  let entries = [];
+  try {
+    entries = fsImpl.readdirSync(directory, { withFileTypes: true });
+  } catch (_error) {
+    return [];
+  }
+  const removed = [];
+  for (const entry of entries) {
+    if (KEPT_UPDATE_FILES.has(entry.name)) continue;
+    const file = path.join(directory, entry.name);
+    try {
+      if (entry.isFile() || entry.isSymbolicLink()) {
+        fsImpl.rmSync(file, { force: true });
+        removed.push(entry.name);
+      } else if (entry.isDirectory() && /^mount-/.test(entry.name)) {
+        // An empty leftover mount folder only: rmdir refuses a folder that is
+        // still a mount point or has anything in it.
+        fsImpl.rmdirSync(file);
+        removed.push(entry.name);
+      }
+    } catch (_error) { /* in use or still mounted: left alone */ }
+  }
+  return removed;
 }
 
 function updateDirectory() {
@@ -261,6 +365,7 @@ async function checkForUpdatesFromCli() {
       current,
       platform: process.platform,
       arch: process.arch,
+      fetchManifest: fetchManifestWithNode,
       request: githubRequester((url, init) => globalThis.fetch(url, init)),
       memo: { tags: new Map(), comparisons: new Map() }
     });
@@ -280,10 +385,11 @@ async function checkForUpdatesFromCli() {
       releaseUrl: resolved.releaseUrl,
       asset: resolved.asset ? { name: resolved.asset.name, size: resolved.asset.size, sha256: resolved.asset.sha256 } : null
     },
+    source: resolved.source,
     state: resolved.state,
     updateAvailable: resolved.updateAvailable,
     reasonCode: resolved.reasonCode,
-    reason: resolved.reasonCode ? reasonText(resolved.reasonCode, {}, 'en') : null,
+    reason: resolved.reasonCode ? reasonText(resolved.reasonCode, resolved.reasonDetails || {}, 'en') : null,
     windowInstall: capability.installSupported ? capability.mode : (capability.mode === 'none' ? 'none' : 'release-page'),
     manualReasonCode: capability.reasonCode,
     install: 'window-only'
@@ -399,12 +505,11 @@ async function downloadReleaseAsset(resolved, webContents) {
   if (!asset?.url || !asset.sha256) throw new updater.UpdateError('no-digest');
 
   const updateDir = updateDirectory();
+  clearUpdateDirectory(updateDir);
   const safeName = path.basename(asset.name).replace(/[^a-z0-9._ -]+/gi, '-');
   const safeLabel = String(resolved.version || resolved.tag).replace(/[^a-z0-9._-]+/gi, '-');
   const finalPath = path.join(updateDir, `${safeLabel}-${safeName}`);
   const partialPath = `${finalPath}.partial`;
-  try { fs.rmSync(partialPath, { force: true }); } catch (_error) { /* best effort */ }
-  try { fs.rmSync(finalPath, { force: true }); } catch (_error) { /* best effort */ }
 
   let timedOut = false;
   let received = 0;
@@ -609,4 +714,4 @@ function sendUpdateProgress(webContents, payload) {
   }
 }
 
-module.exports = { bind, checkForUpdates, checkForUpdatesFromCli, latestUpdateInfo, updateCapability, publicUpdateInfo, installLatestUpdate, downloadReleaseAsset, createTrustedDownloadRequest, launchMacUpdater, launchWindowsPortableUpdater, sendUpdateProgress, takeLastAttempt, reasonText };
+module.exports = { bind, checkForUpdates, checkForUpdatesFromCli, latestUpdateInfo, clearUpdateDirectory, fetchManifestWithNet, fetchManifestWithNode, updateCapability, publicUpdateInfo, installLatestUpdate, downloadReleaseAsset, createTrustedDownloadRequest, launchMacUpdater, launchWindowsPortableUpdater, sendUpdateProgress, takeLastAttempt, reasonText };

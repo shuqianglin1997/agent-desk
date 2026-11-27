@@ -18,8 +18,10 @@
  *   node scripts/update-dry-run-macos.js [--current-commit <40 hex>] [--keep]
  *
  * Without --current-commit it reads the commit and version recorded by the
- * installed /Applications/Catshelf.app (without running it). It downloads one
- * DMG and makes up to three of GitHub's 60 anonymous API calls an hour.
+ * installed /Applications/Catshelf.app (without running it). It reads
+ * Latest's update-manifest.json (a download, no API call) and downloads one
+ * DMG; only a Latest without a manifest, or a commit the manifest cannot
+ * place, costs GitHub API calls (up to three of the 60 anonymous ones an hour).
  */
 
 const crypto = require('node:crypto');
@@ -70,6 +72,26 @@ async function request(url, accept) {
     });
     return { status: response.status, headers: response.headers, text: await response.text() };
   } catch (error) {
+    if (error?.name === 'AbortError') throw new updater.UpdateError('github-timeout');
+    throw new updater.UpdateError('github-unreachable');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Latest's update-manifest.json as the app reads it: redirects followed one
+// at a time, each only to GitHub's download hosts.
+async function fetchManifest() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT);
+  try {
+    const response = await updater.fetchWithTrustedRedirects(async (url) => {
+      const reply = await fetch(url, { redirect: 'manual', signal: controller.signal, headers: { 'User-Agent': 'Catshelf-update-dry-run' } });
+      return { status: reply.status, headers: reply.headers, text: reply.status >= 200 && reply.status < 300 ? await reply.text() : '' };
+    }, updater.LATEST_MANIFEST_URL);
+    return { status: response.status, text: response.text };
+  } catch (error) {
+    if (error instanceof updater.UpdateError) throw error;
     if (error?.name === 'AbortError') throw new updater.UpdateError('github-timeout');
     throw new updater.UpdateError('github-unreachable');
   } finally {
@@ -154,8 +176,8 @@ async function main() {
   };
   process.stdout.write(`1. This copy: ${current.version} commit ${current.commit || 'unknown'} (${options.currentCommit ? '--current-commit' : installed ? INSTALLED : 'nothing installed'})\n`);
 
-  const resolved = await updater.checkLatestRelease({ current, platform: 'darwin', arch: process.arch, request });
-  process.stdout.write(`2. Latest: ${resolved.tag} (${resolved.kind}) commit ${resolved.commit || '-'} published ${resolved.publishedAt || '-'}\n`);
+  const resolved = await updater.checkLatestRelease({ current, platform: 'darwin', arch: process.arch, fetchManifest, request });
+  process.stdout.write(`2. Latest: ${resolved.tag} (${resolved.kind}, read from ${resolved.source === 'manifest' ? 'update-manifest.json' : 'the GitHub API'}) commit ${resolved.commit || '-'} published ${resolved.publishedAt || '-'}\n`);
   process.stdout.write(`   decision: ${resolved.state}${resolved.reasonCode ? ` [${resolved.reasonCode}]` : ''}; file ${resolved.asset?.name || '-'} ${resolved.asset?.size || '-'} bytes sha256 ${resolved.asset?.sha256 || '-'}\n`);
   const capability = updater.installCapability({ ...resolved, updateAvailable: true }, {
     platform: 'darwin',
@@ -174,7 +196,7 @@ async function main() {
     const dmgPath = path.join(scratch, path.basename(resolved.asset.name));
     process.stdout.write(`3. Downloading to ${dmgPath}\n`);
     await download(resolved.asset, dmgPath);
-    process.stdout.write('   size and SHA-256 match GitHub\'s digest\n');
+    process.stdout.write(`   size and SHA-256 match ${resolved.source === 'manifest' ? 'the manifest' : 'GitHub\'s digest'}\n`);
 
     const prepared = await updateMac.prepareMacUpdate({
       dmgPath,

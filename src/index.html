@@ -509,6 +509,17 @@
       </form>
     </dialog>
 
+    <dialog id="updateConfirmDialog" class="catalog-dialog" aria-labelledby="updateConfirmTitle" aria-describedby="updateConfirmBody">
+      <form method="dialog" class="dialog-body">
+        <h3 id="updateConfirmTitle"></h3>
+        <div id="updateConfirmBody" class="update-confirm-body"></div>
+        <div class="dialog-actions">
+          <button value="cancel" data-i18n="dialog.cancel">取消</button>
+          <button id="updateConfirmBtn" value="confirm" class="primary"></button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="agentRelationsDialog" class="wide-dialog catalog-dialog">
       <form method="dialog" class="dialog-body">
         <h3 data-i18n="catalog.relations.title">账号关系</h3>
@@ -1119,6 +1130,14 @@
           </section>
           <section id="systemSettings" class="system-settings" aria-labelledby="systemSettingsTitle">
             <h4 id="systemSettingsTitle"><span data-i18n="system.settings">设置</span></h4>
+            <div class="system-setting-line system-update-line">
+              <b><span data-i18n="system.updates">更新与使用说明</span> <em id="updateAvailableBadge" class="update-available-badge" data-i18n="update.badge.available" hidden>有新版</em></b>
+              <span class="system-setting-actions">
+                <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">检查更新</span></button>
+                <button id="helpBtn" type="button" data-i18n-title="topbar.help.title">? <span data-i18n="topbar.help">使用说明</span></button>
+              </span>
+              <small id="updateInfoLine" class="update-info" aria-live="polite" hidden></small>
+            </div>
             <div class="system-setting-line">
               <b data-i18n="topbar.theme">外观</b>
               <button id="themeToggle" type="button" data-i18n-title="topbar.theme.title">◐ <span data-i18n="topbar.theme">外观</span></button>
@@ -1165,14 +1184,6 @@
                 <small data-i18n="hub.system.limitHint">到了上限，新的调用直接被拒绝，不会排队。同一只猫一次只跑一段；层层转叫最多两层。</small>
               </label>
             </section>
-            <div class="system-setting-line">
-              <b data-i18n="system.updates">更新与使用说明</b>
-              <span class="system-setting-actions">
-                <button id="updateBtn" type="button" data-i18n-title="topbar.update.title">↻ <span data-i18n="topbar.update">检查更新</span></button>
-                <button id="helpBtn" type="button" data-i18n-title="topbar.help.title">? <span data-i18n="topbar.help">使用说明</span></button>
-              </span>
-              <small id="updateInfoLine" class="update-info" aria-live="polite" hidden></small>
-            </div>
           </section>
         </div>
         <footer class="utility-dialog-footer tool-center-footer">

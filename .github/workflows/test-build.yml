@@ -8,8 +8,9 @@ name: Unsigned test build
 # signed release exists, each test build is GitHub's Latest release with
 # fixed file names, so the README's releases/latest/download/... links always
 # reach the newest one (docs/RELEASING.md). Since 2026-11-26 (1.42) the in-app
-# update counts a test-* Latest as an update, ordered by the commit the tag
-# resolves to; keep the short commit in the tag name. The packaged first-use smoke is not run
+# update counts a test-* Latest as an update, ordered by commit; since 1.43 it
+# reads update-manifest.json, written here, instead of GitHub's API. The tag
+# must be test-YYYYMMDD-<short commit>. The packaged first-use smoke is not run
 # here for now (see the Windows job); macOS CI runs it on main once repaired.
 
 on:
@@ -204,13 +205,60 @@ jobs:
           cp "${portables[0]}" dist/Catshelf-unsigned-portable-x64.exe
           cp "${dmgs[0]}" dist/Catshelf-unsigned-universal.dmg
           (cd dist && sha256sum -- Catshelf-unsigned-universal.dmg Catshelf-unsigned-portable-x64.exe > SHA256SUMS.txt)
-          count="$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')"
-          if [ "$count" -ne 3 ]; then
-            echo "::error::Expected exactly three release files; found $count."
-            exit 1
-          fi
           ls -l dist
           cat dist/SHA256SUMS.txt
+
+      # The app's check for updates downloads this file from
+      # releases/latest/download/update-manifest.json, an ordinary download
+      # rather than one of GitHub's 60 anonymous API calls an hour, and decides
+      # newer or not from it (docs/RELEASING.md, "In-app updates"): the tag,
+      # the commit, the version, each package's name, size and SHA-256, and up
+      # to 500 commits the release contains, newest first.
+      - name: Write the update manifest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          short="${TAG##*-}"
+          if ! [[ "$TAG" =~ ^test-[0-9]{8}-[0-9a-f]{7,40}$ ]] || [[ "$COMMIT" != "$short"* ]]; then
+            echo "::error::The tag must be test-YYYYMMDD-<short commit>, and that commit must be $COMMIT; got $TAG."
+            exit 1
+          fi
+          : > history.txt
+          for page in 1 2 3 4 5; do
+            gh api "repos/${REPOSITORY}/commits?sha=${COMMIT}&per_page=100&page=${page}" --jq '.[].sha' >> history.txt
+          done
+          grep -E '^[0-9a-f]{40}$' history.txt | awk '!seen[$0]++' > history.clean
+          if [ "$(head -n 1 history.clean)" != "$COMMIT" ]; then
+            echo "::error::The commit list does not start with the release's own commit."
+            exit 1
+          fi
+          version="$(cat version.txt)"
+          asset() {
+            jq -n --arg name "$1" --argjson size "$(stat -c %s "dist/$1")" \
+              --arg sha256 "$(sha256sum -- "dist/$1" | cut -d ' ' -f 1)" \
+              '{name: $name, size: $size, sha256: $sha256}'
+          }
+          jq -n \
+            --arg repository "$REPOSITORY" --arg tag "$TAG" --arg commit "$COMMIT" \
+            --arg version "$version" --arg publishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson dmg "$(asset Catshelf-unsigned-universal.dmg)" \
+            --argjson exe "$(asset Catshelf-unsigned-portable-x64.exe)" \
+            --rawfile history history.clean \
+            '{schema: 1, repository: $repository, tag: $tag, kind: "test", commit: $commit, version: $version,
+              publishedAt: $publishedAt, assets: [$dmg, $exe],
+              history: ($history | split("\n") | map(select(length > 0)))}' \
+            > dist/update-manifest.json
+          count="$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          if [ "$count" -ne 4 ]; then
+            echo "::error::Expected exactly four release files; found $count."
+            exit 1
+          fi
+          jq '{tag, commit, version, assets, history: (.history | length)}' dist/update-manifest.json
 
       - name: Publish as the Latest release
         shell: bash
@@ -227,7 +275,7 @@ jobs:
           - 版本 @VERSION@，打包用的提交：@COMMIT@
           - macOS（Apple 芯片与 Intel 通用）：打开 `Catshelf-unsigned-universal.dmg`，把 Catshelf 拖进“应用程序”。第一次打开会被系统拦下：到“系统设置 → 隐私与安全性”，在下方点“仍要打开”。不要用别的办法绕过系统保护；旧的 v0.9.0 已被苹果吊销，不要安装。
           - Windows：直接运行 `Catshelf-unsigned-portable-x64.exe`。SmartScreen 提示时点“更多信息 → 仍要运行”。
-          - 校验和见 `SHA256SUMS.txt`。
+          - 校验和见 `SHA256SUMS.txt`。`update-manifest.json` 是给应用里“检查更新”读的，不用下载。
           - 账号、设置和设备网的钥匙在数据目录 `AgentDesk` 里（macOS `~/Library/Application Support/AgentDesk`，Windows `%APPDATA%\AgentDesk`），换新版本不会动它们。
           - 出了问题：程序的 `--cli diagnostics` 会写出版本、提交号、日志位置和日志最后几行；把这些和发生了什么交给你的 AI 助手，按仓库里的 `docs/FIX_AND_REBUILD.md` 处理。
 
@@ -236,7 +284,7 @@ jobs:
           - Version @VERSION@, built from commit @COMMIT@.
           - macOS (Apple silicon and Intel): open `Catshelf-unsigned-universal.dmg` and drag Catshelf to Applications. The first launch is blocked: open System Settings → Privacy & Security and click "Open Anyway". Do not use other workarounds, and do not install the revoked v0.9.0.
           - Windows: run `Catshelf-unsigned-portable-x64.exe`. At the SmartScreen prompt choose "More info", then "Run anyway".
-          - Checksums: `SHA256SUMS.txt`.
+          - Checksums: `SHA256SUMS.txt`. `update-manifest.json` is read by the app's check for updates; you do not need it.
           - Your accounts, settings and device keys stay in the `AgentDesk` data folder; a new version does not touch them.
           - If something goes wrong: the app's `--cli diagnostics` reports its version, commit, log location and the end of its log; give that and what happened to your AI assistant and follow `docs/FIX_AND_REBUILD.md` in the repository.
           NOTES

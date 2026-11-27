@@ -193,8 +193,8 @@ test('1.14 全局弹窗统一固定 Shell，关闭不伪装主操作，次级流
   }
 
   assert.match(dialogSlice('deviceCenterDialog'), /utility-dialog-commandbar device-center-commandbar/);
-  // 系统页把工具和设置放在同一个内容区的两栏里；收件箱没有命令条，三段都在内容区。
-  assert.match(dialogSlice('systemDialog'), /utility-dialog-content system-dialog-content[\s\S]*?id="systemTools"[\s\S]*?id="checkToolsBtn"[\s\S]*?id="systemSettings"[\s\S]*?id="themeToggle"[\s\S]*?id="langToggle"[\s\S]*?id="profileQuitBehavior"[\s\S]*?id="updateBtn"[\s\S]*?id="helpBtn"[\s\S]*?utility-dialog-footer tool-center-footer/);
+  // 系统页把工具和设置放在同一个内容区的两栏里，检查更新在设置的最上面；收件箱没有命令条，三段都在内容区。
+  assert.match(dialogSlice('systemDialog'), /utility-dialog-content system-dialog-content[\s\S]*?id="systemTools"[\s\S]*?id="checkToolsBtn"[\s\S]*?id="systemSettings"[\s\S]*?id="updateBtn"[\s\S]*?id="helpBtn"[\s\S]*?id="themeToggle"[\s\S]*?id="langToggle"[\s\S]*?id="profileQuitBehavior"[\s\S]*?utility-dialog-footer tool-center-footer/);
   assert.doesNotMatch(dialogSlice('activityCenterDialog'), /utility-dialog-commandbar/);
   assert.doesNotMatch(html, /id="toolCenterDialog"|id="settingsDialog"/);
 

@@ -13,6 +13,7 @@ import { renderQuotaSummary } from './quota.js';
 import { renderAccountHeader, renderAccounts } from './roster.js';
 import { renderSessions } from './sessions.js';
 import { els, handleToolProgress, recruitDialog, refreshToolInventory, renderToolCenter, state } from './shared.js';
+import { rerenderUpdateTexts } from './updates.js';
 
 // localStorage keys an older build may still hold. The yard view, reminder,
 // scene and ledger keys belong to retired features and are no longer read.
@@ -162,6 +163,7 @@ function rerenderLocalizedText() {
   renderToolCenter();
   renderDeviceCenter();
   renderHubSystem();
+  rerenderUpdateTexts();
   if (els.recruitDialog?.open) recruitDialog.render();
   if (els.welcomeDialog?.open) {
     if (state.firstUse.mode === 'onboarding') renderFirstUse();

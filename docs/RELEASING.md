@@ -283,8 +283,10 @@ below and does not satisfy any of its gates.
   job, and macOS CI runs it on `main`.
 - The last job, the only one with `contents: write`, copies the two packages
   to fixed names without the version — `Catshelf-unsigned-universal.dmg` and
-  `Catshelf-unsigned-portable-x64.exe` — writes `SHA256SUMS.txt` for them,
-  refuses anything but exactly three files, and creates a release titled
+  `Catshelf-unsigned-portable-x64.exe` — writes `SHA256SUMS.txt` for them
+  and `update-manifest.json` for the app's check for updates (see [In-app
+  updates](#in-app-updates)), refuses anything but exactly these four files,
+  and creates a release titled
   “未签名测试版 / Unsigned test build `<tag>`” with `--latest` and without
   `--prerelease`, then reads back that the Latest release is this tag. Its
   notes name the version, the commit and the way to open it (macOS: System
@@ -297,9 +299,10 @@ below and does not satisfy any of its gates.
   version), so whoever runs one downloads the next build by hand once; from
   then on the app updates itself.
 - The workflow does not pass `--target`, so the release's `target_commitish`
-  is the branch name; the app takes the commit GitHub resolves the tag to.
-  Keep the short commit in the tag name (`test-YYYYMMDD-<short commit>`): the
-  app refuses a Latest whose name and resolved commit disagree.
+  is the branch name. The tag must be `test-YYYYMMDD-<short commit>`, the
+  short commit being the start of the tagged commit: the workflow stops before
+  publishing otherwise, and the app refuses a Latest whose name and commit
+  disagree.
 - Earlier test builds stay on the Releases page with their versioned file
   names (`Catshelf-<version>-unsigned-…`); only the newest one is Latest.
 - Not covered: signing, notarization, the Draft native redownload and the
@@ -310,47 +313,122 @@ below and does not satisfy any of its gates.
 System › Settings › “Update” (`src/renderer/views/updates.js`) checks GitHub's
 Latest release of this repository; Main decides and installs
 (`src/main/updates.js`), the decision and the Windows replacer are in
-`src/updater.js`, the macOS steps in `src/update-mac.js`. Owner decision
-2026-11-26 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.42).
+`src/updater.js`, the macOS steps in `src/update-mac.js`. Owner decisions
+2026-11-26 (docs/PERSONAL_AGENT_MESH_PLAN.md 1.42, 1.43).
+
+**Where Latest is read from (1.43).** Since this decision every test build
+carries `update-manifest.json`, written by the release job of
+`test-build.yml`. The app downloads it from
+`https://github.com/shuqianglin1997/catshelf/releases/latest/download/update-manifest.json`,
+an ordinary download (redirects followed one at a time, only to GitHub's
+download hosts, at most 256 KB) and not one of GitHub's 60 anonymous API
+calls an hour, which everyone behind the same address shares. A release
+without that file (404: every test build before it, and the signed `v*`
+releases, which `release.yml` publishes with exactly three files) is read
+through the API as before. Schema 1:
+
+```json
+{
+  "schema": 1,
+  "repository": "shuqianglin1997/catshelf",
+  "tag": "test-20261127-e56c8aa",
+  "kind": "test",
+  "commit": "<the 40-character commit the tag points to>",
+  "version": "0.10.1-preview.1",
+  "publishedAt": "2026-11-27T03:40:00Z",
+  "assets": [
+    { "name": "Catshelf-unsigned-universal.dmg", "size": 219210590, "sha256": "<64 hex>" },
+    { "name": "Catshelf-unsigned-portable-x64.exe", "size": 98765432, "sha256": "<64 hex>" }
+  ],
+  "history": ["<commit>", "<its parent>", "…"]
+}
+```
+
+`history` is up to 500 commits the release contains, newest first, starting
+with its own commit (GitHub's commit list from that commit, read by the
+workflow with its own token). `publishedAt` is when the release job wrote the
+file, just before it publishes. A file of another `schema` (a newer format)
+is left to the API; a schema-1 file that breaks these rules (another
+repository, a commit that is not 40 hex characters, a short commit in the tag
+that does not start the commit, a history that does not start with the
+commit, a file name with a path, a bad size or SHA-256) is refused with
+`manifest-invalid`.
 
 **Newer or not.** A `v*` Latest is ordered by version, as before. Test builds
 all carry the same package version, so a `test-*` Latest is ordered by
-commit:
+commit. This copy's commit is the one the package records (`build-info.json`,
+[FIX_AND_REBUILD.md](FIX_AND_REBUILD.md)).
+
+With a manifest:
+
+1. The release's commit is the manifest's `commit`.
+2. The same commit is up to date.
+3. This commit in the manifest's `history` means Latest contains it: newer,
+   and offered. No API call for either of these, which are the cases of
+   everyone running a published build.
+4. Otherwise (a local build ahead of Latest, a build from another line of
+   commits, one more than 500 commits behind) one comparison is asked of the
+   API, as below; `behind` is older and never offered, `diverged` is not
+   offered. When the API cannot answer (rate-limited, offline) the state is
+   “cannot tell” (`rate-limited`, `comparison-unavailable`), never a guess.
+
+Without a manifest (the API, as since 1.42):
 
 1. The release's commit is the one GitHub resolves the tag to
    (`/commits/refs/tags/<tag>`). `target_commitish`, when it is a commit, and
    the short commit at the end of the tag name must agree with it; the
    release notes are never read for this.
-2. This copy's commit is the one the package records (`build-info.json`,
-   [FIX_AND_REBUILD.md](FIX_AND_REBUILD.md)). The same commit is up to date.
+2. The same commit is up to date.
 3. Otherwise GitHub's comparison `<this commit>...<release commit>` (second
    page of one commit: status and counts without the file list) decides:
    `ahead` is newer and offered; `behind` is older and never offered (no
    downgrade); `diverged` is not offered; `identical` is up to date.
-4. A copy without a recorded commit (built from a source download), or whose
-   commit GitHub does not know (local changes), says it cannot tell
-   (`current-commit-unknown`, `current-commit-not-on-github`) and offers the
-   release page.
 
-One check is at most three anonymous GitHub API calls (GitHub allows 60 an
-hour). The result is reused for ten minutes, the button reuses one younger
-than a minute, the tag's commit and each comparison are kept for the life of
-the process, and a rate limit is waited out until GitHub's reset time. There
-is no check at start-up or on a timer. `updates check` on the packaged
-command line runs the same check read-only ([AI_INTERFACE.md](AI_INTERFACE.md)).
+Either way, a copy without a recorded commit (built from a source download),
+or whose commit GitHub does not know (local changes), says it cannot tell
+(`current-commit-unknown`, `current-commit-not-on-github`) and offers the
+release page.
+
+**When it checks.** The window checks by itself about eight seconds after it
+opens and, while it stays open, at most once more a day (an hourly look at
+the time since the last automatic check). A newer Latest only shows: a small
+dot on 系统 in the top bar, 有新版 on the update line, “Update and restart”
+on the button and an item in the inbox. Nothing is downloaded or installed
+until the person clicks “Update and restart” and confirms. An automatic check
+that fails says so only on the update line; an update that did not finish
+last time is also said in the status bar. The button asks again each time.
+
+API calls stay rationed: one check is at most three anonymous calls, a result
+is reused for ten minutes (the automatic check) or one minute (the button),
+the tag's commit and each comparison are kept for the life of the process,
+and after GitHub reports the limit no API call is made until its reset time
+(the manifest is still read). `updates check` on the packaged command line
+runs the same check read-only ([AI_INTERFACE.md](AI_INTERFACE.md)).
 
 **Files.** macOS takes the universal DMG, Windows x64 the portable exe
 (`Catshelf-unsigned-universal.dmg`, `Catshelf-unsigned-portable-x64.exe`; the
-versioned names of a `v*` release are recognized too). `SHA256SUMS.txt` is
-never an installer. A file without GitHub's `sha256:` asset digest is not
-installed automatically.
+versioned names of a `v*` release are recognized too). `SHA256SUMS.txt` and
+`update-manifest.json` are never installers. From a manifest the address is
+`releases/download/<tag>/<name>` in the same release, and the size and
+SHA-256 are the manifest's; from the API they are the asset's, and a file
+without GitHub's `sha256:` asset digest is not installed automatically.
+Either way the downloaded package is checked against that size and SHA-256
+before anything else happens.
+
+**The download folder.** Downloads go to `$TMPDIR/AgentDesk-updates/`
+(Windows: `%TEMP%\AgentDesk-updates\`). Before a new download starts,
+everything an earlier one left there is removed (an interrupted `*.partial`,
+packages already used, old scripts, an empty leftover mount folder); only the
+last attempt's result (`mac-update-result.json`, its `.log`, and
+`update-error.log` on Windows) stays for the next check to report. A folder
+that is not empty, which may still be a mounted image, is left alone.
 
 **macOS, “Update and restart”.** Only `/Applications/Catshelf.app` replaces
 itself.
 
 1. Download the DMG over HTTPS from the fixed repository (redirects only to
-   GitHub's download hosts) and check its size and SHA-256 against the asset
-   digest.
+   GitHub's download hosts) and check its size and SHA-256 against the
+   manifest (or, without one, the asset digest).
 2. `hdiutil attach -nobrowse -readonly -noautoopen -mountpoint <fresh temp
    folder>`.
 3. Check the `Catshelf.app` inside: bundle id `com.hupo.agentdesk`,
@@ -385,9 +463,18 @@ this system (`no-asset`) or no digest (`no-digest`). Every refusal of steps
 `/Applications` untouched.
 
 Trust: an ad-hoc signature proves the bundle is intact, not who built it. For
-test builds the origin rests on the fixed repository over HTTPS, GitHub's
-asset digest and the commit check. When signed releases exist, the check
-should also require the same Developer ID team; that is not done yet.
+test builds the origin rests on the fixed repository over HTTPS, the SHA-256
+and the commit check. Since 1.43 the SHA-256 and the commit of a release
+with a manifest come from that file, which the workflow writes and uploads
+into the same release, read over the same HTTPS from the same repository,
+instead of from GitHub's own asset digest and tag resolution. So they are
+exactly as trustworthy as the release's files themselves: whoever can
+publish a release in this repository can write both the package and its
+manifest, just as they could before; a manifest does not add a second,
+independent witness. The package's SHA-256 is still checked after the
+download, and on macOS the commit recorded inside the app must still equal
+the manifest's. When signed releases exist, the check should also require the
+same Developer ID team; that is not done yet.
 
 Ad-hoc signatures change with every build, so macOS may ask once more whether
 Catshelf may use “AgentDesk Safe Storage” in the keychain (the window tells
@@ -414,7 +501,9 @@ node scripts/update-dry-run-macos.js
 It reads the commit of the installed `/Applications/Catshelf.app` without
 running it; to pretend to be another build pass
 `--current-commit <40-character commit>`, and `--keep` keeps the scratch
-folder. It downloads one DMG and makes up to three API calls. It prints the
+folder. It reads the manifest, downloads one DMG and makes API calls only
+for a Latest without a manifest or a commit the manifest cannot place. It
+prints whether Latest came from the manifest or the API, the
 decision, what the installed app would do (install itself or open the release
 page, and why), each step, and ends with “Dry run passed.” or the reason code.
 

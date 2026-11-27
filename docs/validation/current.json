@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-27T02:52:07.170Z",
-  "baseCommit": "ff4cc73bb1252e082930d93aa5cc29d86bc0618a",
+  "recordedAt": "2026-11-27T04:16:09.310Z",
+  "baseCommit": "86485a002ebe6de12a433e6acc98c4c6a8364c41",
   "uncommitted": true,
-  "sourceSha256": "c3bb665a119793b79ed8d0dea8c90b5e51dac5da810e139a53f7b4f98b235f6f",
+  "sourceSha256": "03747c2fca25ed8f75c410f590c8877a6d832ee0b9a8ca3af04431b39fb6e438",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,31 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1072,
+      "pass": 1070,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite. Pre-release update batch on top of 86485a0 (uncommitted, owner via the parent session: \"发布前做\"): test builds carry update-manifest.json (test-build.yml writes it, exactly four release files, tag must be test-YYYYMMDD-<short commit>); the check reads it from releases/latest/download/ instead of the anonymous API (same commit current, own commit in its history newer, otherwise one API comparison, unanswered = unknown; no manifest = API as before); confirm dialog in the window language; dates in the window language; the update line first in Settings, checked once after start-up and at most once a day, dot on 系统 and 有新版, never downloads or installs by itself; earlier downloads removed before a new one. New tests: manifest rules, manifest decisions with no API call, one comparison otherwise (older, diverged, newer, not on GitHub, rate-limited, failed), old releases and unknown schemas through the API, trusted redirects, the window check reading the manifest after a rate limit, automatic vs button caching, download-folder cleanup, the dialog and badge structure, and the four-file workflow with its manifest step.",
+      "recordedAt": "2026-11-27T04:16:09.310Z",
+      "sourceSha256": "03747c2fca25ed8f75c410f590c8877a6d832ee0b9a8ca3af04431b39fb6e438"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js (294 files)",
+      "recordedAt": "2026-11-27T04:16:09.310Z",
+      "sourceSha256": "03747c2fca25ed8f75c410f590c8877a6d832ee0b9a8ca3af04431b39fb6e438"
+    },
+    {
+      "command": "package.json scripts.check:docs",
+      "result": "passed",
+      "scope": "Documentation check after Mesh plan 1.43, docs/RELEASING.md \"In-app updates\", docs/AI_INTERFACE.md and the regenerated docs/INTERNAL.md",
+      "recordedAt": "2026-11-27T04:16:09.310Z",
+      "sourceSha256": "03747c2fca25ed8f75c410f590c8877a6d832ee0b9a8ca3af04431b39fb6e438"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

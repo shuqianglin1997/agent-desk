@@ -21,6 +21,13 @@ const REPOSITORY_PATH = `/${REPOSITORY.owner}/${REPOSITORY.name}`;
 const RELEASES_URL = `https://github.com${REPOSITORY_PATH}/releases`;
 const LATEST_RELEASE_API = `https://api.github.com/repos/${REPOSITORY.owner}/${REPOSITORY.name}/releases/latest`;
 const GITHUB_API_VERSION = '2026-03-10';
+// Each unsigned test build carries this file (written by
+// .github/workflows/test-build.yml). Reading it through releases/latest/download/
+// is an ordinary download, not one of GitHub's 60 anonymous API calls an hour.
+const MANIFEST_NAME = 'update-manifest.json';
+const LATEST_MANIFEST_URL = `${RELEASES_URL}/latest/download/${MANIFEST_NAME}`;
+const MANIFEST_MAX_BYTES = 256 * 1024;
+const MANIFEST_HISTORY_MAX = 1000;
 
 function parseVersion(value) {
   const input = String(value || '').trim().replace(/^v/i, '');
@@ -291,13 +298,22 @@ function decideUpdate({ kind, current, latest, comparison }) {
   return { state: 'unknown', reasonCode: 'comparison-unavailable' };
 }
 
-function failedResponse(response) {
+// GitHub's API limit: { resetAt } (ms, or null when GitHub gave no time) when
+// this response says the anonymous calls are used up, otherwise null.
+function rateLimitFrom(response) {
   const status = Number(response?.status);
   const remaining = response?.headers?.get?.('x-ratelimit-remaining');
-  if ((status === 403 || status === 429) && (remaining === '0' || status === 429)) {
-    const reset = Number(response.headers.get('x-ratelimit-reset'));
-    return new UpdateError('rate-limited', { resetAt: Number.isFinite(reset) && reset > 0 ? reset * 1000 : null });
+  if (status === 429 || (status === 403 && remaining === '0')) {
+    const reset = Number(response.headers?.get?.('x-ratelimit-reset'));
+    return { resetAt: Number.isFinite(reset) && reset > 0 ? reset * 1000 : null };
   }
+  return null;
+}
+
+function failedResponse(response) {
+  const limited = rateLimitFrom(response);
+  if (limited) return new UpdateError('rate-limited', limited);
+  const status = Number(response?.status);
   return new UpdateError('query-failed', { status: Number.isInteger(status) ? status : null });
 }
 
@@ -309,21 +325,210 @@ function parseResponseJson(text) {
   }
 }
 
+const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
+
 /**
- * The whole check, network through `request(url, accept)`, which resolves to
- * { status, headers: { get(name) }, text }. At most three GitHub API calls
- * (Latest, the tag's commit, one comparison); `memo` keeps the tag's commit
- * and each comparison for the life of the process, so a repeated check with
- * the same Latest costs one call. GitHub allows 60 unauthenticated calls an
- * hour.
+ * A GET that follows at most five redirects itself, each only to GitHub's
+ * download hosts. `get(url)` must not follow redirects and resolves to
+ * { status, headers: { get(name) }, text }.
+ */
+async function fetchWithTrustedRedirects(get, url) {
+  let current = url;
+  for (let hop = 0; hop <= 5; hop += 1) {
+    if (!isTrustedDownloadResponseUrl(current)) throw new UpdateError('download-untrusted');
+    const response = await get(current);
+    if (!REDIRECT_STATUSES.includes(Number(response?.status))) return { ...response, url: current };
+    const location = response.headers?.get?.('location');
+    if (!location) throw new UpdateError('manifest-failed', { status: response.status });
+    current = new URL(location, current).toString();
+  }
+  throw new UpdateError('download-untrusted');
+}
+
+function releaseDownloadUrl(tag, name) {
+  return `https://github.com${REPOSITORY_PATH}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`;
+}
+
+/**
+ * update-manifest.json, schema 1 (docs/RELEASING.md, "In-app updates"):
+ *   { schema: 1, repository: "<owner>/<name>", tag, kind: "test"|"version",
+ *     commit, version, publishedAt,
+ *     assets: [{ name, size, sha256 }],
+ *     history: [<commit>, <its parent>, …] }   (newest first, up to 1000)
+ * null for another schema (a newer format this copy cannot read: the caller
+ * asks the API instead); UpdateError('manifest-invalid') for a schema-1 file
+ * that breaks its own rules.
+ */
+function parseManifest(text) {
+  if (String(text).length > MANIFEST_MAX_BYTES) throw new UpdateError('manifest-invalid');
+  let value;
+  try {
+    value = JSON.parse(String(text));
+  } catch (_error) {
+    throw new UpdateError('manifest-invalid');
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new UpdateError('manifest-invalid');
+  if (value.schema !== 1) return null;
+  const invalid = () => new UpdateError('manifest-invalid');
+  if (String(value.repository || '').toLowerCase() !== `${REPOSITORY.owner}/${REPOSITORY.name}`.toLowerCase()) throw invalid();
+  const tag = String(value.tag || '');
+  if (!/^[0-9A-Za-z._-]{1,100}$/.test(tag)) throw invalid();
+  const kind = /^test-/i.test(tag) ? 'test' : 'version';
+  if (value.kind !== kind) throw invalid();
+  const version = parseVersion(value.version)?.text || null;
+  if (!version) throw invalid();
+  if (kind === 'version' && parseVersion(tag)?.text !== version) throw invalid();
+  const commit = value.commit == null ? null : commitOrNull(value.commit);
+  if (value.commit != null && !commit) throw invalid();
+  if (kind === 'test') {
+    if (!commit) throw invalid();
+    const hint = tagCommitHint(tag);
+    if (hint && !commit.startsWith(hint)) throw new UpdateError('release-commit-mismatch');
+  }
+  const publishedAt = typeof value.publishedAt === 'string' && !Number.isNaN(Date.parse(value.publishedAt)) ? value.publishedAt : null;
+  if (!Array.isArray(value.assets) || value.assets.length < 1 || value.assets.length > 10) throw invalid();
+  const names = new Set();
+  const assets = value.assets.map((asset) => {
+    const name = String(asset?.name || '');
+    const size = asset?.size;
+    const sha256 = String(asset?.sha256 || '').toLowerCase();
+    if (!/^[A-Za-z0-9._-]{1,120}$/.test(name) || names.has(name.toLowerCase())) throw invalid();
+    if (!Number.isSafeInteger(size) || size <= 0 || !/^[0-9a-f]{64}$/.test(sha256)) throw invalid();
+    names.add(name.toLowerCase());
+    return { name, size, sha256 };
+  });
+  if (!Array.isArray(value.history) || value.history.length > MANIFEST_HISTORY_MAX) throw invalid();
+  const history = value.history.map(commitOrNull);
+  if (history.some((entry) => !entry)) throw invalid();
+  if (kind === 'test' && history[0] !== commit) throw invalid();
+  return { kind, tag, version, commit, publishedAt, assets, history };
+}
+
+// The manifest in the shape describeRelease gives: this system's file, its
+// download address in the same release, the release page.
+function describeManifest(manifest, options = {}) {
+  const release = {
+    assets: manifest.assets.map((asset) => ({
+      name: asset.name,
+      size: asset.size,
+      state: 'uploaded',
+      browser_download_url: releaseDownloadUrl(manifest.tag, asset.name),
+      digest: `sha256:${asset.sha256}`
+    }))
+  };
+  const asset = selectReleaseAsset(release, options.platform, options.arch);
+  return {
+    kind: manifest.kind,
+    tag: manifest.tag,
+    version: manifest.kind === 'version' ? manifest.version : null,
+    releaseUrl: `${RELEASES_URL}/tag/${encodeURIComponent(manifest.tag)}`,
+    publishedAt: manifest.publishedAt,
+    notes: '',
+    asset: asset ? {
+      id: null,
+      name: asset.name,
+      url: asset.browser_download_url,
+      size: Number(asset.size),
+      sha256: sha256FromDigest(asset.digest)
+    } : null
+  };
+}
+
+// What the manifest's history alone settles: this commit is in Latest's
+// history (Latest is ahead), or nothing (ask GitHub).
+function historyComparison(own, history) {
+  return own && history.includes(own) ? 'ahead' : null;
+}
+
+async function compareCommits(request, memo, own, commit) {
+  const key = `${own}...${commit}`;
+  let comparison = memo.comparisons.get(key) || null;
+  if (comparison) return comparison;
+  const response = await request(compareUrl(own, commit), 'application/vnd.github+json');
+  if (response.status === 404 || response.status === 422) comparison = 'not-found';
+  else if (response.status < 200 || response.status >= 300) throw failedResponse(response);
+  else comparison = parseComparison(parseResponseJson(response.text)) || 'invalid';
+  if (comparison !== 'invalid') memo.comparisons.set(key, comparison);
+  return comparison;
+}
+
+function resultOf(described, commit, current, decision, source) {
+  return {
+    ...described,
+    commit,
+    source,
+    current: {
+      version: String(current.version || ''),
+      commit: commitOrNull(current.commit),
+      dirty: typeof current.dirty === 'boolean' ? current.dirty : null
+    },
+    state: decision.state,
+    reasonCode: decision.reasonCode,
+    reasonDetails: decision.reasonDetails || null,
+    updateAvailable: decision.state === 'newer'
+  };
+}
+
+// Latest from its update-manifest.json. The common cases (the same commit, or
+// this commit in Latest's history) need no API call. Otherwise (a local
+// build ahead of Latest, another line of commits, a commit more than the
+// history back) one comparison is asked of the API, kept like before; when
+// the API cannot answer the state is "unknown", never a guess.
+async function checkFromManifest(manifest, options, memo) {
+  const { current, platform, arch, request } = options;
+  const described = describeManifest(manifest, { platform, arch });
+  const commit = manifest.kind === 'test' ? manifest.commit : null;
+  let comparison = null;
+  let reasonDetails = null;
+  let unavailable = null;
+  const own = commitOrNull(current.commit);
+  if (manifest.kind === 'test' && own && own !== commit) {
+    comparison = historyComparison(own, manifest.history);
+    if (!comparison && request) {
+      try {
+        comparison = await compareCommits(request, memo, own, commit);
+      } catch (error) {
+        unavailable = error?.code === 'rate-limited' ? 'rate-limited' : 'comparison-unavailable';
+        reasonDetails = error?.code === 'rate-limited' ? error.details : null;
+      }
+    }
+  }
+  let decision = decideUpdate({ kind: manifest.kind, current, latest: { version: described.version, commit }, comparison });
+  if (unavailable && decision.state === 'unknown') decision = { state: 'unknown', reasonCode: unavailable, reasonDetails };
+  return resultOf(described, commit, current, decision, 'manifest');
+}
+
+/**
+ * The whole check. With `fetchManifest()` (resolving to { status, text } for
+ * LATEST_MANIFEST_URL, redirects already followed to GitHub's hosts only) the
+ * Latest release's update-manifest.json is read first; a release without one
+ * (404, or a manifest schema this copy does not know) is read through the
+ * API as before. API calls go through `request(url, accept)`, which resolves
+ * to { status, headers: { get(name) }, text }: at most three (Latest, the
+ * tag's commit, one comparison); `memo` keeps the tag's commit and each
+ * comparison for the life of the process, so a repeated check with the same
+ * Latest costs one call. GitHub allows 60 unauthenticated calls an hour.
  * @param {{ current: { version: string, commit: string|null, dirty?: boolean|null },
  *   platform: string, arch: string,
- *   request: (url: string, accept: string) => Promise<{ status: number, headers: { get(name: string): string|null }, text: string }>,
+ *   request?: (url: string, accept: string) => Promise<{ status: number, headers: { get(name: string): string|null }, text: string }>,
+ *   fetchManifest?: () => Promise<{ status: number, text: string }>,
  *   memo?: { tags: Map<string, string>, comparisons: Map<string, string> } }} options
  */
 async function checkLatestRelease(options) {
   const { current, platform, arch, request } = options;
   const memo = options.memo || { tags: new Map(), comparisons: new Map() };
+  if (options.fetchManifest) {
+    const response = await options.fetchManifest();
+    const status = Number(response?.status);
+    if (status >= 200 && status < 300) {
+      const manifest = parseManifest(response.text);
+      if (manifest) return checkFromManifest(manifest, options, memo);
+    } else if (status !== 404) {
+      throw new UpdateError('manifest-failed', { status: Number.isInteger(status) ? status : '-' });
+    }
+  }
+  if (!request) throw new UpdateError('no-release');
+
   const latestResponse = await request(LATEST_RELEASE_API, 'application/vnd.github+json');
   if (latestResponse.status === 404) throw new UpdateError('no-release');
   if (latestResponse.status < 200 || latestResponse.status >= 300) throw failedResponse(latestResponse);
@@ -342,17 +547,7 @@ async function checkLatestRelease(options) {
       memo.tags.set(described.tag, commit);
     }
     const own = commitOrNull(current.commit);
-    if (own && own !== commit) {
-      const key = `${own}...${commit}`;
-      comparison = memo.comparisons.get(key) || null;
-      if (!comparison) {
-        const response = await request(compareUrl(own, commit), 'application/vnd.github+json');
-        if (response.status === 404 || response.status === 422) comparison = 'not-found';
-        else if (response.status < 200 || response.status >= 300) throw failedResponse(response);
-        else comparison = parseComparison(parseResponseJson(response.text)) || 'invalid';
-        if (comparison !== 'invalid') memo.comparisons.set(key, comparison);
-      }
-    }
+    if (own && own !== commit) comparison = await compareCommits(request, memo, own, commit);
   }
 
   const decision = decideUpdate({
@@ -361,18 +556,7 @@ async function checkLatestRelease(options) {
     latest: { version: described.version, commit },
     comparison
   });
-  return {
-    ...described,
-    commit,
-    current: {
-      version: String(current.version || ''),
-      commit: commitOrNull(current.commit),
-      dirty: typeof current.dirty === 'boolean' ? current.dirty : null
-    },
-    state: decision.state,
-    reasonCode: decision.reasonCode,
-    updateAvailable: decision.state === 'newer'
-  };
+  return resultOf(described, commit, current, decision, 'api');
 }
 
 function portableExecutablePath(env = process.env) {
@@ -488,8 +672,11 @@ function windowsUpdaterScript() {
 
 module.exports = {
   GITHUB_API_VERSION,
+  LATEST_MANIFEST_URL,
   LATEST_RELEASE_API,
   MAC_APPLICATIONS_BUNDLE,
+  MANIFEST_MAX_BYTES,
+  MANIFEST_NAME,
   RELEASES_URL,
   REPOSITORY,
   UpdateError,
@@ -498,14 +685,19 @@ module.exports = {
   compareVersions,
   confirmReleaseCommit,
   decideUpdate,
+  describeManifest,
   describeRelease,
+  fetchWithTrustedRedirects,
   installCapability,
   isTestBuildRelease,
   isTrustedDownloadResponseUrl,
   macBundleLocation,
   parseComparison,
+  parseManifest,
   parseVersion,
   portableExecutablePath,
+  rateLimitFrom,
+  releaseDownloadUrl,
   releaseTargetCommit,
   selectReleaseAsset,
   sha256FromDigest,

@@ -24,7 +24,7 @@ import { bindSettingsEvents, bindSystemEvents, initTheme, loadUserSettings, rere
 import { ACTIVITY_POLL_INTERVAL, QUOTA_REFRESH_INTERVAL, els, sessionMarks, setStartupStage, state } from './renderer/views/shared.js';
 import { bindTaskPackageEvents, loadTaskPackageHistory, renderIncomingTaskPackages } from './renderer/views/task-packages.js';
 import { bindTransferChangeEvents, bindTransferDialogEvents, bindTransferEvents, openFileSendDialog, openTransferCenter } from './renderer/views/transfers.js';
-import { bindUpdateEvents } from './renderer/views/updates.js';
+import { bindUpdateEvents, startAutomaticUpdateChecks } from './renderer/views/updates.js';
 
 window.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.dataset.windowPlatform = window.manager.windowPlatform || 'browser';
@@ -46,6 +46,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadActivity();
   loadClientUpdates();
   loadQuotas();
+  // 打开后自动检查一次猫架自己的更新，开着的话每天最多再查一次；只提醒，不下载。
+  startAutomaticUpdateChecks();
   // 卡片中的活动和最近活跃在可见时定时刷新。
   // 8 秒一轮：干活/在岗要跟得上会话节奏，60 秒太钝会漏掉短生成；应用在后台时不扫。
   setInterval(() => {

@@ -3,16 +3,27 @@
 // says which version and commit this copy is and what Latest is. When Latest
 // is newer the button becomes "update and restart"; when it cannot be judged
 // the release page is offered. Main decides and installs (src/main/updates.js).
+// The window also checks once after it opens and, while it stays open, at most
+// once a day; a newer Latest only shows a dot on 系统 and 有新版 on this line.
+// Nothing is downloaded or installed until the person clicks.
 
 import { formatBytes, setStatus } from './common.js';
+import { openChildDialog } from './dialogs.js';
 import { renderAttentionInbox } from './inbox.js';
 import { offersMainEvent, onMainEvent } from './main-events.js';
-import { tr } from './settings.js';
+import { dateLocale, tr } from './settings.js';
 import { els, state } from './shared.js';
 
 let updateBusy = false;
 
 let updateButtonTimer = null;
+
+// The automatic check: a few seconds after start-up, then at most once a day.
+const AUTO_CHECK_DELAY = 8_000;
+const AUTO_CHECK_EVERY = 24 * 60 * 60_000;
+const AUTO_CHECK_TICK = 60 * 60_000;
+let lastAutomaticCheck = 0;
+let lastShownInfo = null;
 
 const shortCommit = (commit) => (typeof commit === 'string' && commit ? commit.slice(0, 7) : '');
 
@@ -33,7 +44,7 @@ function currentText(current) {
 
 function dateText(value) {
   const date = new Date(value);
-  return value && !Number.isNaN(date.getTime()) ? date.toLocaleDateString() : '';
+  return value && !Number.isNaN(date.getTime()) ? date.toLocaleDateString(dateLocale()) : '';
 }
 
 // Latest's tag (or v<version>), date and short commit.
@@ -42,7 +53,39 @@ function latestText(info) {
   return [info?.latestLabel, dateText(latest.publishedAt), shortCommit(latest.commit)].filter(Boolean).join(' · ');
 }
 
+// The update's own confirmation in the window's language (window.confirm's
+// buttons are the system's "Cancel / OK"). Yes only for the confirm button;
+// Cancel, Escape and Enter (the first button is Cancel) are no.
+function askUpdate({ title, lines, confirmLabel }) {
+  const dialog = els.updateConfirmDialog;
+  if (!dialog || dialog.open) return Promise.resolve(false);
+  els.updateConfirmTitle.textContent = title;
+  els.updateConfirmBody.replaceChildren(...lines.filter(Boolean).map((line) => {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = line;
+    return paragraph;
+  }));
+  els.updateConfirmBtn.textContent = confirmLabel;
+  dialog.returnValue = '';
+  return new Promise((resolve) => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'confirm'), { once: true });
+    openChildDialog(dialog, els.updateBtn);
+  });
+}
+
+// A dot on 系统 and 有新版 on the update line while Latest is newer.
+function renderUpdateIndicators() {
+  const info = state.updateInfo;
+  const available = Boolean(info?.ok && info.updateAvailable);
+  if (els.systemBtn) {
+    els.systemBtn.classList.toggle('has-update', available);
+    els.systemBtn.title = available ? tr('topbar.system.titleUpdate', { label: info.latestLabel }) : tr('topbar.system.title');
+  }
+  if (els.updateAvailableBadge) els.updateAvailableBadge.hidden = !available;
+}
+
 function renderUpdateInfo(info) {
+  lastShownInfo = info;
   const line = els.updateInfoLine;
   if (!line) return;
   const pieces = [];
@@ -84,6 +127,15 @@ async function handleUpdateClick() {
   await checkNow();
 }
 
+// A check's result becomes the window's state: the line, the dot, the inbox.
+function takeCheckResult(result) {
+  renderUpdateInfo(result);
+  if (!result.ok) return;
+  state.updateInfo = result;
+  renderAttentionInbox();
+  renderUpdateIndicators();
+}
+
 async function checkNow() {
   updateBusy = true;
   clearTimeout(updateButtonTimer);
@@ -94,15 +146,13 @@ async function checkNow() {
   setStatus(tr('status.checkingUpdate'));
 
   const result = await window.manager.checkForUpdates();
-  renderUpdateInfo(result);
+  takeCheckResult(result);
   if (!result.ok) {
     setStatus(withCode(result.reason || tr('status.checkFail'), result.reasonCode));
     finishUpdateButton(tr('update.btn.retry'), tr('update.title.checkFailRetry'), 'update-error');
     return;
   }
 
-  state.updateInfo = result;
-  renderAttentionInbox();
   if (result.updateAvailable) {
     setStatus(tr('status.newVersion', { label: result.latestLabel }));
     showAvailable(result);
@@ -112,11 +162,15 @@ async function checkNow() {
   }
   if (result.state === 'unknown') {
     setStatus(tr('update.info.unknown', { reason: withCode(result.reason, result.reasonCode) }));
-    const open = window.confirm([
-      tr('update.info.unknown', { reason: withCode(result.reason, result.reasonCode) }),
-      currentText(result.current),
-      tr('update.confirm.openRelease')
-    ].join('\n\n'));
+    const open = await askUpdate({
+      title: tr('update.confirm.unknownTitle'),
+      lines: [
+        tr('update.info.unknown', { reason: withCode(result.reason, result.reasonCode) }),
+        currentText(result.current),
+        tr('update.confirm.openRelease')
+      ],
+      confirmLabel: tr('update.confirm.openPage')
+    });
     if (open) {
       const opened = await window.manager.installUpdate({});
       setStatus(opened.ok ? (opened.message || tr('status.openedRelease')) : withCode(opened.reason, opened.reasonCode));
@@ -132,6 +186,41 @@ async function checkNow() {
   finishUpdateButton(tr('update.btn.latest'), currentText(result.current), '');
 }
 
+// The check after start-up and the daily one: quiet. A failure only shows
+// on the update line; a newer Latest shows the dot, the badge and the
+// button's "update and restart"; an update that did not finish last time is
+// also said in the status bar. Never downloads or installs anything.
+async function automaticCheck() {
+  if (updateBusy) return;
+  lastAutomaticCheck = Date.now();
+  let result;
+  try {
+    result = await window.manager.checkForUpdates({ automatic: true });
+  } catch (_error) {
+    return;
+  }
+  if (updateBusy || !result) return;
+  takeCheckResult(result);
+  if (result.lastAttempt) {
+    setStatus(tr('update.info.lastFailed', { reason: withCode(result.lastAttempt.reason, result.lastAttempt.reasonCode) }));
+  }
+  if (result.ok && result.updateAvailable) showAvailable(result);
+}
+
+function startAutomaticUpdateChecks() {
+  setTimeout(() => void automaticCheck(), AUTO_CHECK_DELAY);
+  setInterval(() => {
+    if (Date.now() - lastAutomaticCheck >= AUTO_CHECK_EVERY) void automaticCheck();
+  }, AUTO_CHECK_TICK);
+}
+
+// After the language changes: the line, the dot's title, the button.
+function rerenderUpdateTexts() {
+  if (lastShownInfo) renderUpdateInfo(lastShownInfo);
+  renderUpdateIndicators();
+  if (!updateBusy && state.updateInfo?.ok && state.updateInfo.updateAvailable) showAvailable(state.updateInfo);
+}
+
 async function installFromInfo(info) {
   updateBusy = true;
   clearTimeout(updateButtonTimer);
@@ -144,7 +233,12 @@ async function installFromInfo(info) {
   if (info.installSupported && info.activeHubRuns > 0) lines.push(tr('update.confirm.hubRuns', { n: info.activeHubRuns }));
   if (info.installSupported && info.installMode === 'macos-app') lines.push(tr('update.confirm.keychain'));
   lines.push(tr('update.confirm.question'));
-  if (!window.confirm(lines.join('\n\n'))) {
+  const confirmed = await askUpdate({
+    title: tr('update.confirm.title'),
+    lines,
+    confirmLabel: info.installSupported ? tr('update.confirm.restart') : tr('update.confirm.openPage')
+  });
+  if (!confirmed) {
     updateBusy = false;
     els.updateBtn.disabled = false;
     setStatus(tr('status.newVersion', { label: info.latestLabel }));
@@ -156,7 +250,12 @@ async function installFromInfo(info) {
   let installed = await window.manager.installUpdate({ stopRuns: info.activeHubRuns > 0 });
   // Background runs started after the check: ask about them now.
   if (!installed.ok && installed.reasonCode === 'hub-runs-active') {
-    if (!window.confirm(tr('update.confirm.hubRunsNow', { n: installed.activeHubRuns || 1 }))) {
+    const stopRuns = await askUpdate({
+      title: tr('update.confirm.hubRunsTitle'),
+      lines: [tr('update.confirm.hubRunsNow', { n: installed.activeHubRuns || 1 })],
+      confirmLabel: tr('update.confirm.restartAnyway')
+    });
+    if (!stopRuns) {
       updateBusy = false;
       els.updateBtn.disabled = false;
       showAvailable(info);
@@ -253,4 +352,4 @@ function bindUpdateEvents() {
   });
 }
 
-export { handleUpdateClick, handleUpdateProgress, finishUpdateButton, bindUpdateEvents, renderUpdateInfo };
+export { handleUpdateClick, handleUpdateProgress, finishUpdateButton, bindUpdateEvents, renderUpdateInfo, renderUpdateIndicators, rerenderUpdateTexts, startAutomaticUpdateChecks };

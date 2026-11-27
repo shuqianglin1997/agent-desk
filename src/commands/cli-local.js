@@ -75,7 +75,7 @@ const CLI_LOCAL = [
   {
     name: 'updates check',
     runs: 'packaged',
-    description: 'Whether GitHub\'s Latest release is newer than this copy: v* releases by version, unsigned test builds (test-* tags, all with the same version) by commit through GitHub\'s comparison. Reports this copy\'s version and commit, Latest\'s tag, commit, date and file, and state newer, current, older (never offered: no downgrade), diverged (not on the same line of commits) or unknown (with a reason code, for example a copy built without git). Read-only: up to three anonymous GitHub API requests (GitHub allows 60 an hour), nothing downloaded or written. Installing is window-only.',
+    description: 'Whether GitHub\'s Latest release is newer than this copy: v* releases by version, unsigned test builds (test-* tags, all with the same version) by commit. Reads Latest\'s update-manifest.json (an ordinary download, not an API call): the same commit is current, this commit in its history is newer; otherwise, or for a release without a manifest, GitHub\'s API decides (up to three anonymous requests; GitHub allows 60 an hour). Reports where Latest was read from (source), this copy\'s version and commit, Latest\'s tag, commit, date and file, and state newer, current, older (never offered: no downgrade), diverged (not on the same line of commits) or unknown (with a reason code, for example a copy built without git). Read-only: no package downloaded, nothing written. Installing is window-only.',
     parameters: {},
     effects: 'read-only',
     async exec({ updateCheck, InterfaceError }) {

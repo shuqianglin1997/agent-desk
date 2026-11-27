@@ -220,13 +220,14 @@ Catshelf background chats (only when I ask you to have one of my other accounts 
 
 ## Catshelf 自己的更新：只读检查
 
-`updates check`（只成品有）回答“GitHub 上的 Latest 比这份猫架新吗”，规矩和窗口里的“检查更新”相同（[RELEASING.md](RELEASING.md) “In-app updates”）。`v` 开头的正式版按版本号比；未签名测试版（`test-` 开头的标签）版本号都一样，按提交比：Latest 的提交是 GitHub 把标签解析出的提交，再用 GitHub 的比较接口看这份的提交在它之前、之后还是分叉。
+`updates check`（只成品有）回答“GitHub 上的 Latest 比这份猫架新吗”，规矩和窗口里的“检查更新”相同（[RELEASING.md](RELEASING.md) “In-app updates”）。先下载 Latest 里的 `update-manifest.json`（普通下载，不占 GitHub 每小时 60 次的匿名 API）；没有这个文件的旧 release 照旧走 API。`v` 开头的正式版按版本号比；未签名测试版（`test-` 开头的标签）版本号都一样，按提交比：同一个提交是最新，这份的提交在清单的 `history` 里就是新版；都不是时（比如本机打的包比 Latest 还新）才问一次 GitHub 的比较接口，看在它之前、之后还是分叉，问不到就是 `unknown`。
 
 | 字段 | 含义 |
 |---|---|
 | `current` | 这份的 `version`、`commit`（源码打包时为 null）、`dirty`、`packaged` |
-| `latest` | Latest 的 `kind`（`test` 或 `version`）、`tag`、`version`、`commit`、`publishedAt`、`releaseUrl`，以及本系统的安装包 `asset`（文件名、大小、GitHub 给的 SHA-256） |
-| `state` | `newer`（只有它会提示更新）、`current`、`older`（不降级）、`diverged`（不在同一条提交线上，不当作新版）、`unknown`（带 `reasonCode` 和 `reason`，例如 `current-commit-unknown`） |
+| `source` | Latest 从哪里读到的：`manifest`（`update-manifest.json`）或 `api` |
+| `latest` | Latest 的 `kind`（`test` 或 `version`）、`tag`、`version`、`commit`、`publishedAt`、`releaseUrl`，以及本系统的安装包 `asset`（文件名、大小、SHA-256：有清单时是清单里记的，没有时是 GitHub 给的摘要） |
+| `state` | `newer`（只有它会提示更新）、`current`、`older`（不降级）、`diverged`（不在同一条提交线上，不当作新版）、`unknown`（带 `reasonCode` 和 `reason`，例如 `current-commit-unknown`、`rate-limited`、`comparison-unavailable`） |
 | `windowInstall` | 在窗口里点“更新并重启”时会怎样：`windows-portable`、`macos-app`、`release-page`（原因在 `manualReasonCode`）或 `none` |
 | `install` | 固定为 `window-only`：下载、替换和重启只能由人在窗口里点 |
 
