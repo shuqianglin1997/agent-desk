@@ -1681,7 +1681,7 @@
     'main.upd.code.in-progress': '已经在更新了。',
     'main.upd.code.hub-runs-active': '有 {n} 个后台调用正在运行，重启会中断它们，需要先确认。',
     'main.upd.code.download-failed': '下载安装包失败（HTTP {status}）。',
-    'main.upd.code.download-timeout': '下载安装包超时，请检查网络后重试。',
+    'main.upd.code.download-timeout': '下载停了两分钟没有进展，请检查网络后重试。',
     'main.upd.code.download-interrupted': '下载安装包时连接中断了。',
     'main.upd.code.download-untrusted': '安装包被转到了 GitHub 以外的地址，已停止。',
     'main.upd.code.size-mismatch': '安装包大小不对（应为 {expected}，收到 {received}）。',

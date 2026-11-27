@@ -472,3 +472,65 @@ test('下载请求：Electron 先发 close 再跳转、再响应，照样下载�
   await assert.rejects(refused.response, (error) => error.code === 'download-untrusted' || /download-untrusted/.test(String(error.reasonCode || error.message)));
   assert.equal(refused.request.aborted, true);
 });
+
+// Slow is fine, stuck is not: a download that keeps bringing data runs past
+// the old 30-minute limit (about 100 KB/s from GitHub was seen on 2026-11-27);
+// two minutes without any data stop it with download-timeout.
+function streamingDownload(t) {
+  const fs = require('node:fs');
+  const crypto = require('node:crypto');
+  const { Readable } = require('node:stream');
+  const { makeTempDir } = require('./helpers/temp');
+  const temp = makeTempDir(t, 'agentdesk-update-download-');
+  const body = new Readable({ read() {} });
+  let request;
+  const { updates } = bindUpdates(testRelease(), {
+    app: { getVersion: () => '0.10.1-preview.1', isPackaged: true, getPath: () => temp },
+    ensureDir: (dir) => fs.mkdirSync(dir, { recursive: true }),
+    net: fakeNet((r) => {
+      request = r;
+      r.abort = () => { r.aborted = true; body.destroy(new Error('aborted')); r.emit('abort'); };
+      r.emit('response', Object.assign(body, { statusCode: 200 }));
+    })
+  });
+  const chunks = Array.from({ length: 41 }, (_, i) => Buffer.from(`chunk-${i};`));
+  const all = Buffer.concat(chunks);
+  const resolved = {
+    tag: TAG,
+    version: null,
+    asset: { name: 'Catshelf-unsigned-universal.dmg', url: `https://github.com/shuqianglin1997/catshelf/releases/download/${TAG}/Catshelf-unsigned-universal.dmg`, size: all.length, sha256: crypto.createHash('sha256').update(all).digest('hex') }
+  };
+  return { updates, body, chunks, resolved, aborted: () => Boolean(request?.aborted) };
+}
+
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+test('下载很慢但一直有数据，超过 30 分钟也照样下完；停两分钟没有数据才算超时', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const slow = streamingDownload(t);
+  const done = slow.updates.downloadReleaseAsset(slow.resolved, null);
+  await settle();
+  for (const chunk of slow.chunks.slice(0, -1)) {
+    slow.body.push(chunk);
+    await settle();
+    t.mock.timers.tick(60_000);
+    await settle();
+  }
+  assert.equal(slow.aborted(), false, 'forty minutes of steady data is not a timeout');
+  slow.body.push(slow.chunks.at(-1));
+  slow.body.push(null);
+  const file = await done;
+  assert.equal(require('node:fs').readFileSync(file).length, slow.resolved.asset.size);
+
+  const stuck = streamingDownload(t);
+  const failing = stuck.updates.downloadReleaseAsset(stuck.resolved, null);
+  await settle();
+  stuck.body.push(stuck.chunks[0]);
+  await settle();
+  t.mock.timers.tick(119_000);
+  await settle();
+  assert.equal(stuck.aborted(), false);
+  t.mock.timers.tick(2_000);
+  await assert.rejects(failing, (error) => error.code === 'download-timeout' || /download-timeout/.test(String(error.reasonCode || error.message)));
+  assert.equal(stuck.aborted(), true);
+});

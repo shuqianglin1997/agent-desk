@@ -1681,7 +1681,7 @@
     'main.upd.code.in-progress': 'An update is already in progress.',
     'main.upd.code.hub-runs-active': '{n} background {n|run is|runs are} running; restarting stops {n|it|them}, so confirm first.',
     'main.upd.code.download-failed': 'Downloading the package failed (HTTP {status}).',
-    'main.upd.code.download-timeout': 'Downloading the package timed out. Check your network and try again.',
+    'main.upd.code.download-timeout': 'The download made no progress for two minutes. Check your network and try again.',
     'main.upd.code.download-interrupted': 'The connection broke while downloading the package.',
     'main.upd.code.download-untrusted': 'The package was redirected to an address outside GitHub; stopped.',
     'main.upd.code.size-mismatch': 'The package has the wrong size (expected {expected}, got {received}).',

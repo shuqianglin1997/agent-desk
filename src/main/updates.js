@@ -29,7 +29,12 @@ function bind(context) { main = context; }
 const UPDATE_CACHE_TTL = 10 * 60_000;
 const UPDATE_FORCE_FLOOR = 60_000;
 const UPDATE_CHECK_TIMEOUT = 15_000;
-const UPDATE_DOWNLOAD_TIMEOUT = 30 * 60_000;
+// A download ends when no data has arrived for two minutes. Slow is fine:
+// GitHub can be slow from some networks (about 100 KB/s seen on the owner's
+// Mac on 2026-11-27, a 30-minute total limit would have failed a 209 MB
+// package). The total limit only stops a trickle that never finishes.
+const UPDATE_DOWNLOAD_STALL = 2 * 60_000;
+const UPDATE_DOWNLOAD_TIMEOUT = 6 * 60 * 60_000;
 const TOOL_TIMEOUT = 5 * 60_000;
 const LAST_ATTEMPT_MAX_AGE = 7 * 24 * 60 * 60_000;
 const UPDATE_DIRECTORY = 'AgentDesk-updates';
@@ -410,13 +415,20 @@ async function downloadReleaseAsset(resolved, webContents) {
     Accept: 'application/octet-stream',
     'User-Agent': `${main.APP_NAME}/${currentBuild().version}`
   });
-  const timer = setTimeout(() => {
+  const stop = () => {
     timedOut = true;
     download.request?.abort();
-  }, UPDATE_DOWNLOAD_TIMEOUT);
+  };
+  const timer = setTimeout(stop, UPDATE_DOWNLOAD_TIMEOUT);
+  let stall = setTimeout(stop, UPDATE_DOWNLOAD_STALL);
+  const progressed = () => {
+    clearTimeout(stall);
+    stall = setTimeout(stop, UPDATE_DOWNLOAD_STALL);
+  };
 
   try {
     const { response } = await download.response;
+    progressed();
     const statusCode = Number(response.statusCode);
     if (!Number.isInteger(statusCode) || statusCode < 200 || statusCode >= 300) {
       response.resume();
@@ -426,6 +438,7 @@ async function downloadReleaseAsset(resolved, webContents) {
     const meter = new Transform({
       transform(chunk, _encoding, callback) {
         const buffer = Buffer.from(chunk);
+        progressed();
         received += buffer.length;
         hash.update(buffer);
         const percent = asset.size > 0
@@ -469,6 +482,7 @@ async function downloadReleaseAsset(resolved, webContents) {
     throw new updater.UpdateError('download-interrupted');
   } finally {
     clearTimeout(timer);
+    clearTimeout(stall);
   }
 }
 

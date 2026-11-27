@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-27T02:38:14.447Z",
-  "baseCommit": "51d795bb53fb9f85756051dbc2047903f0035ce3",
+  "recordedAt": "2026-11-27T02:52:07.170Z",
+  "baseCommit": "ff4cc73bb1252e082930d93aa5cc29d86bc0618a",
   "uncommitted": true,
-  "sourceSha256": "190b54d6dbd08052d723e4355e738cc10e1a968385decb98215f7c675a68993c",
+  "sourceSha256": "c3bb665a119793b79ed8d0dea8c90b5e51dac5da810e139a53f7b4f98b235f6f",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -17,6 +17,31 @@
     "pr3Scope": "roster order, horizontal wheel, refresh scroll preservation only"
   },
   "checks": [
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1063,
+      "pass": 1061,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite after the second real in-app update ran at about 70-110 KB/s from GitHub (curl alongside: about 300 KB/s), on course to pass the 30-minute total download limit with a 209 MB package. The download now stops only after two minutes without data (download-timeout, message reworded in zh/en/ja), with a six-hour cap against a trickle. New test with mock timers: forty minutes of steady data completes and matches the digest; two minutes of silence aborts.",
+      "recordedAt": "2026-11-27T02:52:07.170Z",
+      "sourceSha256": "c3bb665a119793b79ed8d0dea8c90b5e51dac5da810e139a53f7b4f98b235f6f"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js",
+      "recordedAt": "2026-11-27T02:52:07.170Z",
+      "sourceSha256": "c3bb665a119793b79ed8d0dea8c90b5e51dac5da810e139a53f7b4f98b235f6f"
+    },
+    {
+      "command": "package.json scripts.check:docs",
+      "result": "passed",
+      "scope": "Current-state documents and this record after the stall limit",
+      "recordedAt": "2026-11-27T02:52:07.170Z",
+      "sourceSha256": "c3bb665a119793b79ed8d0dea8c90b5e51dac5da810e139a53f7b4f98b235f6f"
+    },
     {
       "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
       "result": "passed",

@@ -1681,7 +1681,7 @@
     'main.upd.code.in-progress': 'すでに更新中です。',
     'main.upd.code.hub-runs-active': 'バックグラウンド実行が {n} 件動いています。再起動すると中断されるため、先に確認が必要です。',
     'main.upd.code.download-failed': 'パッケージのダウンロードに失敗しました（HTTP {status}）。',
-    'main.upd.code.download-timeout': 'パッケージのダウンロードがタイムアウトしました。ネットワークを確認して再試行してください。',
+    'main.upd.code.download-timeout': 'ダウンロードが 2 分間進まなかったため止めました。ネットワークを確認して再試行してください。',
     'main.upd.code.download-interrupted': 'パッケージのダウンロード中に接続が切れました。',
     'main.upd.code.download-untrusted': 'パッケージが GitHub 以外のアドレスにリダイレクトされたため中止しました。',
     'main.upd.code.size-mismatch': 'パッケージのサイズが違います（期待値 {expected}、受信 {received}）。',
