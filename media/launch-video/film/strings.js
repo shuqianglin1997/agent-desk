@@ -139,14 +139,14 @@ const SHORT = {
     captions: [[0, '你的账号，[[不用轮流登]]'], [1.5, '同一平台，[[同时开着]]'], [3.5, '谁在忙，谁[[没电]]，谁在睡'], [5, '所有对话，[[一本账]]'], [7, '一搜就到'],
       [8, '这只[[没电]]了'], [9, '[[复制]]它的对话位置'], [10.5, '[[贴给]]另一只'], [11.5, '它自己读，[[接着干]]'], [12.5, '']],
     loop: [[0, '谁在忙，谁[[没电]]，一眼看到'], [4, '你所有账号的对话，[[一本账]]']],
-    cover: ['AI 账号[[太多]]？', '给每个都养[[一只猫]]'],
+    cover: ['AI 账号[[太多]]？', '每个都变成[[一只猫]]'],
     keyword: 'catshelf'
   },
   en: {
     captions: [[0, 'Your accounts, [[all signed in]].'], [1.5, 'Same platform, [[open at once]].'], [3.5, 'Who\'s busy, [[out]], or asleep.'], [5, 'Every chat, [[one ledger]].'], [7, 'Search. [[Found]].'],
       [8, 'This one is [[out of quota]].'], [9, '[[Copy]] where the chat lives.'], [10.5, '[[Paste]] it to another cat.'], [11.5, 'It reads on and [[keeps going]].'], [12.5, '']],
     loop: [[0, 'Who\'s busy, who\'s [[out]]: one glance.'], [4, 'All your accounts\' chats, [[one ledger]].']],
-    cover: ['Too many [[AI accounts]]?', 'Give each one [[a cat]].'],
+    cover: ['Too many [[AI accounts]]?', 'Turn each into [[a cat]].'],
     keyword: 'catshelf'
   }
 };
