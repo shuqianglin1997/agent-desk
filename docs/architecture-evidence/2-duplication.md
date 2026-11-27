@@ -1,6 +1,6 @@
 # AgentDesk duplication and generation audit
 
-Read-only. Read against the working tree at 24fdb32. Another session has uncommitted edits in `activity.js`, `sessions.js`, `apps.js`, `identity-groups.js`, `session-table.js`, `yard/cats.js` and a new untracked `session-marks.js`. Line numbers in those files can move, and `session-marks.js` is excluded from the dead-code findings.
+Read-only. Read against the working tree at f40e3ae. Another session has uncommitted edits in `activity.js`, `sessions.js`, `apps.js`, `identity-groups.js`, `session-table.js`, `yard/cats.js` and a new untracked `session-marks.js`. Line numbers in those files can move, and `session-marks.js` is excluded from the dead-code findings.
 
 Ranked by maintenance risk (highest first).
 

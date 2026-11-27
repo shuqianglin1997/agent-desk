@@ -508,33 +508,33 @@ decision, what the installed app would do (install itself or open the release
 page, and why), each step, and ends with “Dry run passed.” or the reason code.
 
 Run on 2026-11-26 on the owner's Mac (Apple silicon), pretending to be the
-build of `8af09c8` against Latest `test-20261126-bebb532`: decision “newer”,
+build of `81bb9b0` against Latest `test-20261126-bebb532`: decision “newer”,
 `Catshelf-unsigned-universal.dmg` (219,210,590 bytes) downloaded and matched
 GitHub's digest, mounted, the app inside checked (bundle id, signature,
-commit `bebb532…`), staged into the scratch folder and checked again, then
+commit `1c8b027…`), staged into the scratch folder and checked again, then
 stopped before the swap. `/Applications` was untouched; the scratch folder
 was removed and no Catshelf image stayed mounted. About 48 seconds.
 
 The dry run downloads with Node, not with Electron's `net`, so it missed
 one fault: the first real “Update and restart” the same day (from a local
-build of `a90d9a3`) stopped within seconds with `download-interrupted`.
+build of `69df4d0`) stopped within seconds with `download-interrupted`.
 Electron 43 emits `close` on the request as soon as it is sent, before the
 redirect and the response, and the download treated that as an
-interruption. Fixed in `8127a32`. Builds of `a90d9a3` and `51d795b`
+interruption. Fixed in `aba3629`. Builds of `69df4d0` and `908d491`
 (Latest `test-20261126-51d795b`) therefore cannot update themselves;
 anyone running one downloads the next build by hand once.
 
-The second real attempt (from `8127a32`) downloaded at about 70-110 KB/s
+The second real attempt (from `aba3629`) downloaded at about 70-110 KB/s
 from GitHub, so the 209 MB package needed close to an hour and would have
-hit the 30-minute total limit. Since `f4cd2de` a download stops only after
+hit the 30-minute total limit. Since `a87aa70` a download stops only after
 two minutes without data (six-hour cap). Builds before it can still update
 themselves when GitHub is fast enough to finish within 30 minutes.
 
 First real update, 2026-11-27 on the owner's Mac (Apple silicon): a local
-arm64 build of `f4cd2de` in `/Applications`, “Update and restart” to Latest
+arm64 build of `a87aa70` in `/Applications`, “Update and restart” to Latest
 `test-20261127-e56c8aa`. It downloaded the universal DMG, quit, swapped and
 reopened: the old copy quit at 03:50:51 UTC and the new one started at
-03:51:12. Afterwards `/Applications/Catshelf.app` reports commit `e56c8aa`,
+03:51:12. Afterwards `/Applications/Catshelf.app` reports commit `f767beb`,
 is universal (x86_64 and arm64), passes `codesign --verify --deep --strict`,
 carries no quarantine attribute, the result file says
 `{"ok":true,"code":"installed"}`, no staged or rollback bundle and no
@@ -542,15 +542,25 @@ download were left, and `profiles.json` and `settings.json` were backed up
 as `*.pre-update.bak`. Before it, one check was refused with `rate-limited`:
 the network's 60 anonymous API calls an hour had been spent on testing.
 
-Second real update, the same day: from `e56c8aa` (installed by the first
+Second real update, the same day: from `f767beb` (installed by the first
 update) to Latest `test-20261127-f53abdc`, the first release with
-`update-manifest.json` (17,519 bytes, 352 commits of history). `e56c8aa`
+`update-manifest.json` (17,519 bytes, 352 commits of history). `f767beb`
 predates the manifest, so it decided through the API, after waiting for the
 network's anonymous limit to reset once more (other software on the same
 network had spent it this time). Quit 04:42:58 UTC, new copy started
-04:43:07; `f53abdc`, universal, signature valid, nothing left in
+04:43:07; `c3bd079`, universal, signature valid, nothing left in
 `/Applications` or the update folder. Its own check then read the manifest
 (`source: manifest`) and reported itself current without an API call.
+
+**History rewritten on 2026-11-27.** Before the public launch the owner had
+personal details removed from the repository's history: every commit now
+carries the GitHub no-reply identity, and local folder paths in old files read
+`/Users/me/...`. Every commit ID changed; the IDs cited in these documents
+were mapped to the new ones, release tag names were kept as they were. All
+earlier releases and tags were deleted. A copy built before the rewrite
+records a commit GitHub no longer has, so its check says it cannot tell
+(`current-commit-not-on-github`) and offers the release page: download the
+newest build by hand once, and later builds update themselves again.
 
 Not verified on a real machine yet: whether the keychain prompt appears
 after the swap, the Accessibility and Screen Recording permissions after it,

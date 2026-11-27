@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-11-27T04:16:09.310Z",
-  "baseCommit": "86485a002ebe6de12a433e6acc98c4c6a8364c41",
+  "recordedAt": "2026-11-27T06:13:17.737Z",
+  "baseCommit": "648dfc29316ab47eab38cf5d2ebb8b3f488eba5a",
   "uncommitted": true,
-  "sourceSha256": "03747c2fca25ed8f75c410f590c8877a6d832ee0b9a8ca3af04431b39fb6e438",
+  "sourceSha256": "2e24c7b3d77b41f9bed5ac50a44355aeaa4e85b84b5ddf4625af26fcfc684273",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
@@ -24,7 +24,32 @@
       "pass": 1070,
       "fail": 0,
       "skipped": 2,
-      "scope": "Full Node suite. Pre-release update batch on top of 86485a0 (uncommitted, owner via the parent session: \"发布前做\"): test builds carry update-manifest.json (test-build.yml writes it, exactly four release files, tag must be test-YYYYMMDD-<short commit>); the check reads it from releases/latest/download/ instead of the anonymous API (same commit current, own commit in its history newer, otherwise one API comparison, unanswered = unknown; no manifest = API as before); confirm dialog in the window language; dates in the window language; the update line first in Settings, checked once after start-up and at most once a day, dot on 系统 and 有新版, never downloads or installs by itself; earlier downloads removed before a new one. New tests: manifest rules, manifest decisions with no API call, one comparison otherwise (older, diverged, newer, not on GitHub, rate-limited, failed), old releases and unknown schemas through the API, trusted redirects, the window check reading the manifest after a rate limit, automatic vs button caching, download-folder cleanup, the dialog and badge structure, and the four-file workflow with its manifest step.",
+      "scope": "Full Node suite on the rewritten history (2026-11-27): every commit carries the GitHub no-reply identity, personal folder paths in old files were replaced (the only change to the current tree is test/process.test.js using /Users/me instead of a real home folder), and commit IDs cited in documents were mapped to the new commits.",
+      "recordedAt": "2026-11-27T06:13:17.737Z",
+      "sourceSha256": "2e24c7b3d77b41f9bed5ac50a44355aeaa4e85b84b5ddf4625af26fcfc684273"
+    },
+    {
+      "command": "package.json scripts.check",
+      "result": "passed",
+      "scope": "Type check, then node scripts/check-syntax.js",
+      "recordedAt": "2026-11-27T06:13:17.737Z",
+      "sourceSha256": "2e24c7b3d77b41f9bed5ac50a44355aeaa4e85b84b5ddf4625af26fcfc684273"
+    },
+    {
+      "command": "package.json scripts.check:docs",
+      "result": "passed",
+      "scope": "Current-state documents and this record after the history rewrite",
+      "recordedAt": "2026-11-27T06:13:17.737Z",
+      "sourceSha256": "2e24c7b3d77b41f9bed5ac50a44355aeaa4e85b84b5ddf4625af26fcfc684273"
+    },
+    {
+      "command": "node scripts/run-tests.js --test-reporter=spec (npm test)",
+      "result": "passed",
+      "tests": 1072,
+      "pass": 1070,
+      "fail": 0,
+      "skipped": 2,
+      "scope": "Full Node suite. Pre-release update batch on top of 14e7139 (uncommitted, owner via the parent session: \"发布前做\"): test builds carry update-manifest.json (test-build.yml writes it, exactly four release files, tag must be test-YYYYMMDD-<short commit>); the check reads it from releases/latest/download/ instead of the anonymous API (same commit current, own commit in its history newer, otherwise one API comparison, unanswered = unknown; no manifest = API as before); confirm dialog in the window language; dates in the window language; the update line first in Settings, checked once after start-up and at most once a day, dot on 系统 and 有新版, never downloads or installs by itself; earlier downloads removed before a new one. New tests: manifest rules, manifest decisions with no API call, one comparison otherwise (older, diverged, newer, not on GitHub, rate-limited, failed), old releases and unknown schemas through the API, trusted redirects, the window check reading the manifest after a rate limit, automatic vs button caching, download-folder cleanup, the dialog and badge structure, and the four-file workflow with its manifest step.",
       "recordedAt": "2026-11-27T04:16:09.310Z",
       "sourceSha256": "03747c2fca25ed8f75c410f590c8877a6d832ee0b9a8ca3af04431b39fb6e438"
     },
@@ -174,7 +199,7 @@
       "pass": 1026,
       "fail": 0,
       "skipped": 2,
-      "scope": "Full Node suite after the Windows CI failure on 8af09c8: the diagnostics test in app-log.test.js expected / separators in the reported folders; it now builds them with the host separator, as the harness does. The assertion is unchanged otherwise and no product code changed. Windows itself is checked by GitHub Windows CI, not here.",
+      "scope": "Full Node suite after the Windows CI failure on 81bb9b0: the diagnostics test in app-log.test.js expected / separators in the reported folders; it now builds them with the host separator, as the harness does. The assertion is unchanged otherwise and no product code changed. Windows itself is checked by GitHub Windows CI, not here.",
       "recordedAt": "2026-11-25T12:59:59.295Z",
       "sourceSha256": "0b01604b3c035f74b37d1d153a30bb25fa3b7b4717160dcf0c4103bf7e6d2c2b"
     },
@@ -228,7 +253,7 @@
       "pass": 1015,
       "fail": 0,
       "skipped": 2,
-      "scope": "Full Node suite after the Windows CI test pass on 797a778: ten tests assumed POSIX hosts and now hold on Windows with the same assertions (relative paths compared with / separators in account-credentials, account-discovery, cli-clients and renderer-overlays; launch-environment paths built with the host separator in cli-clients; an absolute bundle path resolved on the host in client-updates; temp folders canonicalised with the native realpath, which expands Windows short names, in agent-hub; the Codex home compared as a directory key, case-folded on Windows, in codex-registration-path). No product code changed. Windows itself is checked by GitHub Windows CI, not here.",
+      "scope": "Full Node suite after the Windows CI test pass on e8d0a15: ten tests assumed POSIX hosts and now hold on Windows with the same assertions (relative paths compared with / separators in account-credentials, account-discovery, cli-clients and renderer-overlays; launch-environment paths built with the host separator in cli-clients; an absolute bundle path resolved on the host in client-updates; temp folders canonicalised with the native realpath, which expands Windows short names, in agent-hub; the Codex home compared as a directory key, case-folded on Windows, in codex-registration-path). No product code changed. Windows itself is checked by GitHub Windows CI, not here.",
       "recordedAt": "2026-11-25T11:47:21.387Z",
       "sourceSha256": "5076a046593206c6b4bccd7e122556cf6a9f2128027ec4408f2559c4dccb7cbb"
     },
@@ -246,7 +271,7 @@
       "pass": 1015,
       "fail": 0,
       "skipped": 2,
-      "scope": "Full Node suite after bringing CI up to date with the app: the packaged first-use smoke reads renderer state through window.AgentDeskInspect (the renderer is ES modules) and enters first use from the empty desk recruit button (a fresh install opens no dialog by itself); the per-file node --check list moved from package.json into scripts/check-syntax.js (the inline chain was over the 8,191-character cmd.exe limit on Windows CI), with a test that every npm script stays short; three tests no longer assume the host path separator or a canonical temp path (Windows CI on 07628ce failed them); .gitattributes checks text out with LF everywhere. The packaged smoke itself was not run locally (it opens app windows); CI runs it",
+      "scope": "Full Node suite after bringing CI up to date with the app: the packaged first-use smoke reads renderer state through window.AgentDeskInspect (the renderer is ES modules) and enters first use from the empty desk recruit button (a fresh install opens no dialog by itself); the per-file node --check list moved from package.json into scripts/check-syntax.js (the inline chain was over the 8,191-character cmd.exe limit on Windows CI), with a test that every npm script stays short; three tests no longer assume the host path separator or a canonical temp path (Windows CI on 842aa30 failed them); .gitattributes checks text out with LF everywhere. The packaged smoke itself was not run locally (it opens app windows); CI runs it",
       "recordedAt": "2026-11-25T09:39:11.825Z",
       "sourceSha256": "68f1fd211e59c0a145af6dae1d199421d0452ab89aa6dbb97979f5ce9b51bc11"
     },
@@ -282,7 +307,7 @@
       "pass": 1014,
       "fail": 0,
       "skipped": 2,
-      "scope": "Full Node suite after the packaged first-use smoke stopped requiring an exact profiles import-auth response (the CLI may add fields; it now checks profileId and existing). macOS CI on 3dec1e0 failed at that assertion; the packaged smoke itself was not run locally",
+      "scope": "Full Node suite after the packaged first-use smoke stopped requiring an exact profiles import-auth response (the CLI may add fields; it now checks profileId and existing). macOS CI on f2c6e0f failed at that assertion; the packaged smoke itself was not run locally",
       "recordedAt": "2026-11-25T08:46:42.761Z",
       "sourceSha256": "e50b3d681a9c54989359148899a84a6cd1eddf5f9c50830ac074169c495d518d"
     },
@@ -436,35 +461,35 @@
     {
       "command": "node scripts/keychain-name-probe.js",
       "result": "passed",
-      "scope": "Rename: on Electron 43.3.0 (node_modules), with SecItem calls interposed and the keychain services denied by a sandbox (the real keychain is never reached): as is, product name ProbeNew uses keychain item \"ProbeNew Safe Storage\" and appData/ProbeNew; with keepLegacyIdentity(ProbeOld→ProbeNew) the item stays \"ProbeOld Safe Storage\" (account \"ProbeOld Key\", legacy \"ProbeOld\"), the data folder appData/ProbeOld, the app name ProbeNew and the default menu About/Hide/Quit ProbeNew; run at 45338aa",
+      "scope": "Rename: on Electron 43.3.0 (node_modules), with SecItem calls interposed and the keychain services denied by a sandbox (the real keychain is never reached): as is, product name ProbeNew uses keychain item \"ProbeNew Safe Storage\" and appData/ProbeNew; with keepLegacyIdentity(ProbeOld→ProbeNew) the item stays \"ProbeOld Safe Storage\" (account \"ProbeOld Key\", legacy \"ProbeOld\"), the data folder appData/ProbeOld, the app name ProbeNew and the default menu About/Hide/Quit ProbeNew; run at ccd3ded",
       "recordedAt": "2026-11-25T07:43:19.061Z",
       "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
     },
     {
       "command": "node scripts/ui-acceptance.js --hidden",
       "result": "passed",
-      "scope": "Rename: 27 hidden-window task paths (not a visible-window run); the topbar wordmark reads Catshelf; run at 45338aa",
+      "scope": "Rename: 27 hidden-window task paths (not a visible-window run); the topbar wordmark reads Catshelf; run at ccd3ded",
       "recordedAt": "2026-11-25T07:43:19.061Z",
       "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
     },
     {
-      "command": "node scripts/ui-snapshots.js --compare <baseline from 386c118>",
+      "command": "node scripts/ui-snapshots.js --compare <baseline from 35c0e46>",
       "result": "expected differences",
-      "scope": "Rename: 66 pixel snapshots (two themes, three languages); all 66 differ at the wordmark (AgentDesk → Catshelf); 26 also differ in sentences that name the product: the dossier, the empty desk, the recruit dialog and the System page in all six combinations and the devices page in English; inspected light-zh dossier and System page and dark-ja empty desk; the 66 new images are the new baseline (outside the repository); run at 45338aa",
+      "scope": "Rename: 66 pixel snapshots (two themes, three languages); all 66 differ at the wordmark (AgentDesk → Catshelf); 26 also differ in sentences that name the product: the dossier, the empty desk, the recruit dialog and the System page in all six combinations and the devices page in English; inspected light-zh dossier and System page and dark-ja empty desk; the 66 new images are the new baseline (outside the repository); run at ccd3ded",
       "recordedAt": "2026-11-25T07:43:19.061Z",
       "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
     },
     {
-      "command": "node scripts/ui-text.js --compare <baseline from 386c118>",
+      "command": "node scripts/ui-text.js --compare <baseline from 35c0e46>",
       "result": "passed",
-      "scope": "Rename: 0 new overflowing elements, 0 no longer overflowing, 0 retired words in all six combinations; AgentDesk now counts as a retired name; run at 45338aa",
+      "scope": "Rename: 0 new overflowing elements, 0 no longer overflowing, 0 retired words in all six combinations; AgentDesk now counts as a retired name; run at ccd3ded",
       "recordedAt": "2026-11-25T07:43:19.061Z",
       "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
     },
     {
       "command": "local package (electron-builder --mac dir, electronDist = node_modules/electron/dist copy, HEAD via git archive, output in the session scratchpad)",
       "result": "passed",
-      "scope": "Rename: the bundle is Catshelf.app (CFBundleName and CFBundleExecutable Catshelf, asar productName Catshelf); CFBundleIdentifier com.hupo.agentdesk; the packaged CLI paths command (temporary home, sandbox without keychain services, no --user-data-dir) reports .../Application Support/AgentDesk and creates only that folder; scripts/verify-electron-package-integrity.js passed; no download lines, Electron cache unchanged; build, tree and Electron copy removed, release/ empty; run at 45338aa",
+      "scope": "Rename: the bundle is Catshelf.app (CFBundleName and CFBundleExecutable Catshelf, asar productName Catshelf); CFBundleIdentifier com.hupo.agentdesk; the packaged CLI paths command (temporary home, sandbox without keychain services, no --user-data-dir) reports .../Application Support/AgentDesk and creates only that folder; scripts/verify-electron-package-integrity.js passed; no download lines, Electron cache unchanged; build, tree and Electron copy removed, release/ empty; run at ccd3ded",
       "recordedAt": "2026-11-25T07:43:19.061Z",
       "sourceSha256": "7bc693761f8d00d70c97d1258dd1250e5ce20378a37b54abbab4a5fbe58ff615"
     },
@@ -577,45 +602,45 @@
       "sourceSha256": "4b2e1b929f1373c8306682125cb92e549b9ab650c51b30d3d3c4be5bf5fda504"
     },
     {
-      "command": "node scripts/ui-snapshots.js --compare <baseline from 8313be0>",
+      "command": "node scripts/ui-snapshots.js --compare <baseline from 5648743>",
       "result": "passed",
-      "scope": "Orderly update: 66 pixel snapshots (two themes, three languages, every listed state) against a baseline captured from the commit before the interface change; 0 differing, no retries; run at 897696c",
+      "scope": "Orderly update: 66 pixel snapshots (two themes, three languages, every listed state) against a baseline captured from the commit before the interface change; 0 differing, no retries; run at 8d69b85",
       "recordedAt": "2026-11-25T06:39:21.691Z"
     },
     {
-      "command": "node scripts/ui-styles.js --compare <baseline from 8313be0>",
+      "command": "node scripts/ui-styles.js --compare <baseline from 5648743>",
       "result": "passed-after-index-remap",
-      "scope": "Orderly update: after dropping the new closed #clientUpdateDialog and shifting later body-child indices by one, all 32,572 elements per combination, every forced hover/focus/active state and the sheets are identical in all six combinations; run at ff03d8d (the first run found three empty-list placeholders inside the closed System page, fixed in ff03d8d)",
+      "scope": "Orderly update: after dropping the new closed #clientUpdateDialog and shifting later body-child indices by one, all 32,572 elements per combination, every forced hover/focus/active state and the sheets are identical in all six combinations; run at e203f3f (the first run found three empty-list placeholders inside the closed System page, fixed in e203f3f)",
       "recordedAt": "2026-11-25T06:39:21.691Z"
     },
     {
-      "command": "node scripts/ui-text.js --compare <baseline from 8313be0>",
+      "command": "node scripts/ui-text.js --compare <baseline from 5648743>",
       "result": "passed-after-index-remap",
-      "scope": "Orderly update: the 42 reported new overflows are elements that already overflowed in the baseline under their previous index; retired words 0; run at 897696c",
+      "scope": "Orderly update: the 42 reported new overflows are elements that already overflowed in the baseline under their previous index; retired words 0; run at 8d69b85",
       "recordedAt": "2026-11-25T06:39:21.691Z"
     },
     {
       "command": "node scripts/ui-acceptance.js --hidden",
       "result": "passed",
-      "scope": "Orderly update: 27 hidden-window task paths; run at ff03d8d",
+      "scope": "Orderly update: 27 hidden-window task paths; run at e203f3f",
       "recordedAt": "2026-11-25T06:39:21.691Z"
     },
     {
       "command": "node scripts/hidden-check.js",
       "result": "passed",
-      "scope": "Orderly update: read payload shapes match, one full scan at start-up, 21 scans until the probe all on the worker, 0 synchronous main-thread calls on the steady refresh path, no serious log lines; run at 897696c",
+      "scope": "Orderly update: read payload shapes match, one full scan at start-up, 21 scans until the probe all on the worker, 0 synchronous main-thread calls on the steady refresh path, no serious log lines; run at 8d69b85",
       "recordedAt": "2026-11-25T06:39:21.691Z"
     },
     {
       "command": "node scripts/hidden-check.js --packaged",
       "result": "passed",
-      "scope": "Orderly update: self-built test package, removed afterwards; same results as the unpacked check, no download lines, release/ empty; run at 897696c",
+      "scope": "Orderly update: self-built test package, removed afterwards; same results as the unpacked check, no download lines, release/ empty; run at 8d69b85",
       "recordedAt": "2026-11-25T06:39:21.691Z"
     },
     {
       "command": "one-off hidden-window screenshots with an injected update status (scratch script, not in the repository)",
       "result": "passed",
-      "scope": "Orderly update: card mark, tools row (exact and inferred), confirmation dialog (confirm disabled until background runs are ticked; Main refuses with nothing-open), inbox reopen entry and reopen dialog in light zh/en/ja and dark zh; no new text cut off after 99c6897; the real status read in the same window: nothing waiting for the five desktop clients",
+      "scope": "Orderly update: card mark, tools row (exact and inferred), confirmation dialog (confirm disabled until background runs are ticked; Main refuses with nothing-open), inbox reopen entry and reopen dialog in light zh/en/ja and dark zh; no new text cut off after feafa1e; the real status read in the same window: nothing waiting for the five desktop clients",
       "recordedAt": "2026-11-25T06:39:21.691Z"
     },
     {
@@ -3866,7 +3891,7 @@
     "Windows: closing the window now enters the quit flow first (window stays while clients close); not run on Windows",
     "macOS red-button close and Dock reopen in a visible window (only a hidden close plus activate was exercised)"
   ],
-  "scope": "2026-11-24 lamp on / lamp off motion and the continuous shelf (uncommitted working tree, base 07628ce, shared with the add-account and sound sessions): one shelf from the All card to the last cat; start-up as the lamp coming on (dark first paint, three lamp levels, shelf, tags, cats on data arrival, ledger, rows, footer line); loading state with blank tags, dithered silhouettes, dotted empty ledger and a truthful footer after two seconds; cats joining and leaving, user-caused rows, folder dialogs; shut-down as the lamp going off tied to the real quit flow with a hard Main time limit; reduced motion and input skip. Checks ran on a byte copy of the working tree at this digest; the live tree had the same digest before and after. Not built or installed.",
+  "scope": "2026-11-24 lamp on / lamp off motion and the continuous shelf (uncommitted working tree, base 842aa30, shared with the add-account and sound sessions): one shelf from the All card to the last cat; start-up as the lamp coming on (dark first paint, three lamp levels, shelf, tags, cats on data arrival, ledger, rows, footer line); loading state with blank tags, dithered silhouettes, dotted empty ledger and a truthful footer after two seconds; cats joining and leaving, user-caused rows, folder dialogs; shut-down as the lamp going off tied to the real quit flow with a hard Main time limit; reduced motion and input skip. Checks ran on a byte copy of the working tree at this digest; the live tree had the same digest before and after. Not built or installed.",
   "previousArtifactChecks": [
     {
       "command": "electron-builder --mac dir --arm64 --publish never (ad-hoc local configuration)",
@@ -4010,7 +4035,7 @@
   },
   "previousConsolidation": {
     "recordedAt": "2026-11-24T06:02:16.169409Z",
-    "baseCommit": "760dace0aa318100981399f4de47e06b05a0f302",
+    "baseCommit": "1bdf6c22b72903396bb032f457d27138a7aade91",
     "sourceSha256": "d1debc204ac28e655c053c6f1205f394bd5c7c8bda1b1fb12c233e18f51763db",
     "environment": {
       "platform": "darwin",
@@ -4045,62 +4070,62 @@
     "recordedAt": "2026-11-24T08:12:44Z",
     "path": "/Applications/AgentDesk.app",
     "version": "0.10.1-preview.1",
-    "sourceCommit": "07628ce2389f218a00534ce8639c0bd2aa465ddc",
+    "sourceCommit": "842aa30ec5b6c562f1371315a7936b69061c6ea3",
     "asarSha256": "4e09cdf145c2c74722a0b1ee3e68b8d56d377cf640a38b4ee3a80226f9257273",
     "installed": true,
     "launched": true,
     "matchesCurrentSource": false,
-    "scope": "Owner-requested local reinstall on 2026-11-23 of an arm64 build made from commit 07628ce before the interface restructure; at that time the ad-hoc signature verified, packaged src matched the checkout and the package integrity verifier passed 134 files. The ASAR digest was read back from the installed bundle on 2026-11-24. The current working tree has not been built or installed."
+    "scope": "Owner-requested local reinstall on 2026-11-23 of an arm64 build made from commit 842aa30 before the interface restructure; at that time the ad-hoc signature verified, packaged src matched the checkout and the package integrity verifier passed 134 files. The ASAR digest was read back from the installed bundle on 2026-11-24. The current working tree has not been built or installed."
   },
   "previousPixelFirstBatch": {
     "recordedAt": "2026-11-24T08:20:26Z",
     "sourceSha256": "942102bccd5eeb93b16de22e01c5ccce2caa41e88ee39695ae5b1e264db0543e",
-    "scope": "2026-11-23/24 interface restructure and pixel skin on top of 07628ce (uncommitted working tree): background Node regression, syntax and documentation checks, hidden-window renderer checks on disposable fixture data, then an owner-requested local arm64 build, package verification and install on this Mac. No real-window acceptance run, no inspection of the visible window, no real client launch and no physical-platform validation."
+    "scope": "2026-11-23/24 interface restructure and pixel skin on top of 842aa30 (uncommitted working tree): background Node regression, syntax and documentation checks, hidden-window renderer checks on disposable fixture data, then an owner-requested local arm64 build, package verification and install on this Mac. No real-window acceptance run, no inspection of the visible window, no real client launch and no physical-platform validation."
   },
   "previousPixelSecondBatch": {
     "recordedAt": "2026-11-24T09:40:12Z",
     "sourceSha256": "25284d25536ad99299d86ee7af4841b2d801156cc63c2bb50b1d32e85f9e2e80",
-    "scope": "2026-11-24 second batch on top of 07628ce (uncommitted working tree): four object pages, action context separated from the viewed Agent, first use from the empty desk, content-sized dialogs, bundled pixel font and the deletion list. Background Node regression, syntax and documentation checks, the real-window acceptance script run through a non-showing entry, and hidden-window renderer checks on fixture data."
+    "scope": "2026-11-24 second batch on top of 842aa30 (uncommitted working tree): four object pages, action context separated from the viewed Agent, first use from the empty desk, content-sized dialogs, bundled pixel font and the deletion list. Background Node regression, syntax and documentation checks, the real-window acceptance script run through a non-showing entry, and hidden-window renderer checks on fixture data."
   },
   "previousDeskSkin": {
     "recordedAt": "2026-11-24T10:03:47Z",
     "sourceSha256": "c65d2b0444d856a31d580425da032ea7418d35947e8c298fcdbb50fbd1d2def7",
-    "scope": "2026-11-24 \"desk under a lamp\" skin on top of the second batch (uncommitted working tree, base 07628ce): warm normal and night palettes, pixel font for all text, perch-and-tag cards, ledger sessions, seal button, folder dialogs and the copy seal. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks on fixture data."
+    "scope": "2026-11-24 \"desk under a lamp\" skin on top of the second batch (uncommitted working tree, base 842aa30): warm normal and night palettes, pixel font for all text, perch-and-tag cards, ledger sessions, seal button, folder dialogs and the copy seal. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks on fixture data."
   },
   "previousReadabilityPass": {
     "recordedAt": "2026-11-24T10:58:32Z",
     "sourceSha256": "fc8cf52223319e0569c419d381ef8f10268473dc8976d1b1506c713432c11d41",
-    "scope": "2026-11-24 readability pass on the desk skin after the owner reported that text was hard to read (uncommitted working tree, base 07628ce): deeper secondary, seal and wood colours, text-safe state colours, tighter word spacing, 20px line height and a capped line length for sentences. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks."
+    "scope": "2026-11-24 readability pass on the desk skin after the owner reported that text was hard to read (uncommitted working tree, base 842aa30): deeper secondary, seal and wood colours, text-safe state colours, tighter word spacing, 20px line height and a capped line length for sentences. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks."
   },
   "previousEdgeDissolve": {
     "recordedAt": "2026-11-24T11:08:51Z",
     "sourceSha256": "675bf7998f24bc6c4030770a20d20927877ef665d76c14fdb8594177941bdd48",
-    "scope": "2026-11-24 roster edge dissolve on top of the readability pass (uncommitted working tree, base 07628ce): where the roster still has cards out of view, the last 64px dissolve into the desk through an ordered dither instead of being clipped. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks."
+    "scope": "2026-11-24 roster edge dissolve on top of the readability pass (uncommitted working tree, base 842aa30): where the roster still has cards out of view, the last 64px dissolve into the desk through an ordered dither instead of being clipped. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks."
   },
   "previousTypeRoles": {
     "recordedAt": "2026-11-24T11:21:32Z",
     "sourceSha256": "570ad1e321e3400a118a750a410fc9c536f13034307a052839409f0a89df48c9",
-    "scope": "2026-11-24 two type roles after the owner reported that text was still not clear (uncommitted working tree, base 07628ce): sentences, hints, empty-state text and input content use the system text face at 13px; titles, buttons, labels, names, numbers, the table and the footer stay in the pixel font. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks."
+    "scope": "2026-11-24 two type roles after the owner reported that text was still not clear (uncommitted working tree, base 842aa30): sentences, hints, empty-state text and input content use the system text face at 13px; titles, buttons, labels, names, numbers, the table and the footer stay in the pixel font. Background Node regression, syntax and documentation checks, the acceptance script through a non-showing entry, and hidden-window renderer checks."
   },
   "previousAddAccountBackend": {
     "recordedAt": "2026-11-24T12:19:45Z",
     "sourceSha256": "58cd1c453e1aedad0d691558b2cc89c2b15f751abac29e8491262b78de86b52e",
-    "scope": "2026-11-24 add-account batches 1 and 3 backend on top of the type-roles pass (uncommitted working tree, base 07628ce): per-client discovery descriptors in the registry, default/environment/bounded home/folder discovery with limits and cancellation, one-save idempotent batch registration through Main-issued selection IDs, packaged CLI profiles discover/create/set-key/status/import-auth, keys handed to each account's own client (stdin, one documented variable to that child, or its documented file) and credential-file import for DSH, Kimi Code and Claude CLI. The recruit dialog UI is a published prototype awaiting the owner; the app UI is unchanged. Not installed: /Applications/AgentDesk.app still holds the previous build."
+    "scope": "2026-11-24 add-account batches 1 and 3 backend on top of the type-roles pass (uncommitted working tree, base 842aa30): per-client discovery descriptors in the registry, default/environment/bounded home/folder discovery with limits and cancellation, one-save idempotent batch registration through Main-issued selection IDs, packaged CLI profiles discover/create/set-key/status/import-auth, keys handed to each account's own client (stdin, one documented variable to that child, or its documented file) and credential-file import for DSH, Kimi Code and Claude CLI. The recruit dialog UI is a published prototype awaiting the owner; the app UI is unchanged. Not installed: /Applications/AgentDesk.app still holds the previous build."
   },
   "previousAddAccountRecruitDialog": {
     "recordedAt": "2026-11-24T12:47:14Z",
     "sourceSha256": "a0eafa3d860d1a9db8303e27a6a6c6214b06b94f05bba9f3ff18db41eee3602d",
-    "scope": "2026-11-24 add-account batches 2 and 4 on top of batches 1 and 3 (uncommitted working tree, base 07628ce, shared with a concurrent sound-effects session): the owner-approved Recruit dialog in the app (one entry, four sections, inspect-then-confirm for copied sign-in files, first-use entries rerouted, three languages), and OpenCode, Gemini CLI and Qwen Code as registered clients (session scanners, terminal launch with per-account homes, discovery, sign-in status, keys or API accounts, importers). Not built or installed: /Applications/AgentDesk.app still holds the earlier build. The final full Node run and syntax checks were repeated after the concurrent session's latest edits, with the same source digest before and after the run."
+    "scope": "2026-11-24 add-account batches 2 and 4 on top of batches 1 and 3 (uncommitted working tree, base 842aa30, shared with a concurrent sound-effects session): the owner-approved Recruit dialog in the app (one entry, four sections, inspect-then-confirm for copied sign-in files, first-use entries rerouted, three languages), and OpenCode, Gemini CLI and Qwen Code as registered clients (session scanners, terminal launch with per-account homes, discovery, sign-in status, keys or API accounts, importers). Not built or installed: /Applications/AgentDesk.app still holds the earlier build. The final full Node run and syntax checks were repeated after the concurrent session's latest edits, with the same source digest before and after the run."
   },
   "previousAddAccountBatches24": {
     "recordedAt": "2026-11-24T12:52:46Z",
     "sourceSha256": "e49a84d88b2a9f63064b5176b6ccdce880ef97d1574af2869624238bae3bf461",
-    "scope": "2026-11-24 chip sound set on top of the add-account backend (uncommitted working tree, base 07628ce): the owner-approved engine and 22 register tables (src/pixel/chip.js, byte-identical to the audition copy), the player (src/pixel/sfx.js: three levels with key as default, volume, focus rule, one voice at a time, stamp and text throttles, per-cat voice, AudioContext created on the first real gesture), hooks in src/pixel/ui.js, the level and volume in the System page, a one-click mute in the footer, and settings persistence. The add-account work of another session is in the same tree and in this digest. Another session kept saving files during every full run, so the final checks ran in a byte copy of the working tree taken at this digest (it matched the live tree when taken); the live tree has moved since. Sound quality itself was not judged; only the owner can listen."
+    "scope": "2026-11-24 chip sound set on top of the add-account backend (uncommitted working tree, base 842aa30): the owner-approved engine and 22 register tables (src/pixel/chip.js, byte-identical to the audition copy), the player (src/pixel/sfx.js: three levels with key as default, volume, focus rule, one voice at a time, stamp and text throttles, per-cat voice, AudioContext created on the first real gesture), hooks in src/pixel/ui.js, the level and volume in the System page, a one-click mute in the footer, and settings persistence. The add-account work of another session is in the same tree and in this digest. Another session kept saving files during every full run, so the final checks ran in a byte copy of the working tree taken at this digest (it matched the live tree when taken); the live tree has moved since. Sound quality itself was not judged; only the owner can listen."
   },
   "previousAddAccountFollowups": {
     "recordedAt": "2026-11-24T12:59:13Z",
     "sourceSha256": "881c68d20a1ac6ffb8cbd63819c4d097b5135ceee3f02d72b3a03b2e77a980c1",
-    "scope": "2026-11-24 add-account follow-ups on top of batches 1 to 4 (uncommitted working tree, base 07628ce, shared with concurrent sessions): the owner kept the plain-text Claude CLI token in settings.json; OpenCode auth export files are imported through `opencode --standalone auth import` in a new home with rollback; transcript export for OpenCode, Gemini CLI and Qwen Code; a DSH session scanner (latest log generation per session, zstd decoded frame by frame, child sessions hidden). Not built or installed."
+    "scope": "2026-11-24 add-account follow-ups on top of batches 1 to 4 (uncommitted working tree, base 842aa30, shared with concurrent sessions): the owner kept the plain-text Claude CLI token in settings.json; OpenCode auth export files are imported through `opencode --standalone auth import` in a new home with rollback; transcript export for OpenCode, Gemini CLI and Qwen Code; a DSH session scanner (latest log generation per session, zstd decoded frame by frame, child sessions hidden). Not built or installed."
   },
   "previousHubBatches12": {
     "recordedAt": "2026-11-24T14:13:06.274Z",

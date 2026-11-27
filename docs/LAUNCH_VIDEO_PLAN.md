@@ -256,7 +256,7 @@
 - 两张 GIF 读回：128 帧、8.00 秒、永远循环、每帧最短停 0.02 秒；每一帧每个像素和来源一致。三个解码器各核对一遍：自己的（`tools/gif.js`）、macOS 的 ImageIO（`encode/gifcheck.swift`）、Chromium 的（`tools/gif.js … browser`，用出片的那个不显示的页面）。
 - 画面里的账号名、会话标题、路径都是编的，没有真实账号、邮箱、个人路径。
 - 重构以后一分钟成片重新渲染，两种语言 3600 帧逐帧和之前一样（`tools/fingerprint.js`），声音逐样本一样。
-- 2026-11-26 应用的英文字表改了单复数（提交 d4a0e17：“1 cats”改成“1 cat”，“1 sessions”改成“1 session”，“1 session references”改成“1 session reference”）。片子上的界面字取自应用，所以英文的画面跟着变；中文表没动，中文成片 3600 帧、中文两条短版和两张动图都和之前一样（动图两种语言都拿现在的源码重新渲染对过，逐像素一致）。
+- 2026-11-26 应用的英文字表改了单复数（提交 ec1b42d：“1 cats”改成“1 cat”，“1 sessions”改成“1 session”，“1 session references”改成“1 session reference”）。片子上的界面字取自应用，所以英文的画面跟着变；中文表没动，中文成片 3600 帧、中文两条短版和两张动图都和之前一样（动图两种语言都拿现在的源码重新渲染对过，逐像素一致）。
   - 16:9 英文短版当天重出：开头写的是“1 cat”。和改之前比只有开头 0.25 秒 15 帧不同，声音逐样本一样；`verify.js en short wide` 通过，mp4 读回 900 帧、15.000 秒，解出十帧看过。
   - **README 里嵌的一分钟英文成片是已知差异**：那是 25 日上传的一版，不换。`out/catshelf-film-en.mp4` 26 日晚些时候按现在的源码重出了，给 YouTube 整条上传用（见 11.6）。现在的源码渲染出来和上传的那一版有 90 帧不同，别的 3510 帧一样（拿那次提交之前的源码渲染对照过）：9.5–10.0 秒“全部”名牌上那一版写“1 cats · 0”，现在是“1 cat · 0”；40.5–41.0 秒发送弹窗里那一版写“1 sessions selected.”，现在是“1 session selected.”；41.5–42.0 秒弹窗和另一台电脑上那一版写“1 session references”，现在是“1 session reference”。各条的指纹记在 `media/launch-video/README.md`“指纹”一节。
 

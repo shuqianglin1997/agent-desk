@@ -1,7 +1,7 @@
 # AgentDesk 功能精简评估与实施建议
 
 日期：2026-09-14  
-评估基线：`main` / `3a4919a14c05e4db1c828cccad3ec9e024023efe` / `0.10.1-preview.1`  
+评估基线：`main` / `51800924a8bdebc392fc7791392fecb519df1b23` / `0.10.1-preview.1`  
 状态：**所有者已批准，本轮本地实施完成；不推送。实施基准已同步至 Personal Agent Mesh 1.34。**
 
 下文第 1–7 节保留精简前的评估与后续分期；代码量、缺陷复现及源码链接均指评估基线。当前结果见第 8 节及 [验证记录](VALIDATION.md)。
@@ -63,7 +63,7 @@ Mesh/远控目录约占 `src` 的 32%，且尚未计入 Main、Renderer 中对�
 
 ### A. 会话列表与活跃统计使用了不同口径
 
-[会话分类器](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/mesh/domain/session-identity.js#L24) 已排除 internal-child；[活动扫描](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/activity.js#L57) 则按扫描文件计数。Codex 注册项没有提供会话根去重的 `sessionKeyOf` 或 `sessionCounts`，组内 [mergeActivity](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/identity-groups.js#L95) 继续相加。
+[会话分类器](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/mesh/domain/session-identity.js#L24) 已排除 internal-child；[活动扫描](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/activity.js#L57) 则按扫描文件计数。Codex 注册项没有提供会话根去重的 `sessionKeyOf` 或 `sessionCounts`，组内 [mergeActivity](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/identity-groups.js#L95) 继续相加。
 
 临时目录构造 1 条根会话、2 条指向它的内部子记录，直接调用当前源码，结果如下：
 
@@ -78,7 +78,7 @@ Mesh/远控目录约占 `src` 的 32%，且尚未计入 Main、Renderer 中对�
 
 ### B. 账本计算的是运行位置累计时长和静默事件
 
-[companion.tick](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/yard/companion.js#L38) 对每个 working ID 累加时长，静默超过 GRACE 后 completed 加一；[Renderer](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/renderer.js#L6082) 传入的是 Profile ID。
+[companion.tick](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/yard/companion.js#L38) 对每个 working ID 累加时长，静默超过 GRACE 后 completed 加一；[Renderer](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/renderer.js#L6082) 传入的是 Profile ID。
 
 隔离输入两个槽位同时工作一分钟，得到 2 分钟；之后静默超过十分钟，completed 得到 2。过程中没有任何任务完成证据。
 
@@ -86,7 +86,7 @@ Mesh/远控目录约占 `src` 的 32%，且尚未计入 Main、Renderer 中对�
 
 ### C. 庭院业务拖放存在失效调用
 
-[executeYardIntent](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/renderer.js#L5943) 在找到会话后调用 `setActiveSession(profileSession)`。全 `src` 搜索只有这一处引用，没有定义；现有会话入口已经改用 `focusSession` 和独立 UI Context。
+[executeYardIntent](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/renderer.js#L5943) 在找到会话后调用 `setActiveSession(profileSession)`。全 `src` 搜索只有这一处引用，没有定义；现有会话入口已经改用 `focusSession` 和独立 UI Context。
 
 用 Node VM 执行原函数，并替换选择/读取依赖为无副作用桩，得到：`ReferenceError: setActiveSession is not defined`。复现条件是业务拖放后解析到已有会话。它不能被描述成整套庭院都不可用；普通点击和摆放是不同路径。
 
@@ -94,23 +94,23 @@ Mesh/远控目录约占 `src` 的 32%，且尚未计入 Main、Renderer 中对�
 
 ### D. 旧 UI 已经退出产品，但代码仍在
 
-- [Renderer DOM 表](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/renderer.js#L197)：`globalMoreMenu` 没有对应 HTML，也没有 `els` 使用。
-- 同一表中的 `meshJoinPanel`、`cancelJoinMeshBtn`、`confirmJoinMeshBtn` 没有对应 HTML；[事件绑定](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/renderer.js#L1542) 仍在。
-- [createDeviceInvitation](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/renderer.js#L5040) 在 `src` JS/HTML 中只有定义；现有入口使用设备任务向导。
-- [account-legacy](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/index.html#L103) 被父容器永久隐藏，而 [renderAccountHeader](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/renderer.js#L7073) 继续更新其字段。
+- [Renderer DOM 表](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/renderer.js#L197)：`globalMoreMenu` 没有对应 HTML，也没有 `els` 使用。
+- 同一表中的 `meshJoinPanel`、`cancelJoinMeshBtn`、`confirmJoinMeshBtn` 没有对应 HTML；[事件绑定](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/renderer.js#L1542) 仍在。
+- [createDeviceInvitation](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/renderer.js#L5040) 在 `src` JS/HTML 中只有定义；现有入口使用设备任务向导。
+- [account-legacy](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/index.html#L103) 被父容器永久隐藏，而 [renderAccountHeader](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/renderer.js#L7073) 继续更新其字段。
 - `appColor` 在 `src` JS/HTML 中也只剩定义，可与上述内容一起核对后清理。
 
 没有 Renderer 直接调用的 Preload 方法不自动等于无用：还可能服务调试、恢复和其他受控调用。这轮不把它们整批列为可删接口。
 
 ### E. CSS 是“降优先级”，尚未完成退休
 
-[styles.css](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/styles.css#L1) 有 4,556 行，包含 v2、v3 和后续布局覆盖；[workspace.css](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/workspace.css#L1) 又定义当前布局和组件，旧庭院样式还有 1,104 行。三者都被主 HTML 加载。
+[styles.css](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/styles.css#L1) 有 4,556 行，包含 v2、v3 和后续布局覆盖；[workspace.css](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/workspace.css#L1) 又定义当前布局和组件，旧庭院样式还有 1,104 行。三者都被主 HTML 加载。
 
 应逐组件确定唯一规则来源，迁移仍在使用的旧规则后删除覆盖链。**不能直接删除 styles.css 或根据一次 CSS coverage 清空未命中规则**：隐藏弹窗、另一主题、其他语言和错误状态仍可能依赖它们。
 
 ### F. 文档检查强化了重复和陈旧信息
 
-[check-docs.js](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/scripts/check-docs.js#L31) 把 527/526、21/21 等结果写成常量，并要求七份文档分别出现这些数字和同一份物理库存证据。本次基线上一轮实际全量测试已经是 549 项、548 通过、1 跳过，文档检查仍认可旧数字。
+[check-docs.js](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/scripts/check-docs.js#L31) 把 527/526、21/21 等结果写成常量，并要求七份文档分别出现这些数字和同一份物理库存证据。本次基线上一轮实际全量测试已经是 549 项、548 通过、1 跳过，文档检查仍认可旧数字。
 
 建议把结果统一放在带提交号、时间和环境的证据记录中；产品/场景/路线只链接记录。保留发布边界和链接检查，删除“多份文档必须复制某个历史数字”的检查。历史证据可以保留，但必须标为历史，不能继续称为当前总数。
 
@@ -136,9 +136,9 @@ Mesh/远控目录约占 `src` 的 32%，且尚未计入 Main、Renderer 中对�
 
 第一步应是“登记/选择已经配置好的独立环境”，让 AgentDesk 能告诉配置工具确切目标目录；需要 AgentDock 支持自定义目录时，提供可核对的路径和能力契约。一个环境的配置只有一个明确写入者，不能两个管理器各改一半。
 
-现有 [配置所有权测试](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/test/codex-config-ownership.test.js#L8) 明确不让 AgentDesk 接管 Codex config。上一次在本机建立“公司 API”账号是一次配置操作，**不等于仓库已有通用的公司接口账号向导**。如果以后要求在 AgentDesk 内直接输入接口和密钥，应单独批准一个限于目标 Profile 的配置适配器，修改该边界；不用新增全局代理、自动路由或云端密钥库。
+现有 [配置所有权测试](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/test/codex-config-ownership.test.js#L8) 明确不让 AgentDesk 接管 Codex config。上一次在本机建立“公司 API”账号是一次配置操作，**不等于仓库已有通用的公司接口账号向导**。如果以后要求在 AgentDesk 内直接输入接口和密钥，应单独批准一个限于目标 Profile 的配置适配器，修改该边界；不用新增全局代理、自动路由或云端密钥库。
 
-OAuth 账号和 API key 环境还需分别表达身份可信度。当前 [Codex 身份读取](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/identity.js#L64) 只取 `tokens.account_id`，API key 环境不会自然得到同样的稳定身份；不能拿接口域名、账号名字或密钥内容推定同一个人。公司额度未知也不能显示为个人订阅剩余额度。
+OAuth 账号和 API key 环境还需分别表达身份可信度。当前 [Codex 身份读取](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/identity.js#L64) 只取 `tokens.account_id`，API key 环境不会自然得到同样的稳定身份；不能拿接口域名、账号名字或密钥内容推定同一个人。公司额度未知也不能显示为个人订阅剩余额度。
 
 ### 工具维护：缩为当前使用的工具
 
@@ -163,7 +163,7 @@ OAuth 账号和 API key 环境还需分别表达身份可信度。当前 [Codex 
 | `origin/develop` 工作流编排 | 不合入 main，保留历史分支 | 若确有自动执行产品目标，另立范围和架构决策，不与本轮精简混合 |
 | 无人值守、GPU 自动分发、云端邮箱 | 继续不做 | 另行形成明确需求和批准范围 |
 
-Blueprint 当前仅声明 Claude/Codex 桌面准备适配器，`portableSettingKeys` 为空，非空技能/工具/项目要求均返回 unsupported，见 [provisioning-adapters.js](https://github.com/shuqianglin1997/agent-desk/blob/3a4919a14c05e4db1c828cccad3ec9e024023efe/src/mesh/main/provisioning-adapters.js#L1)。先修正文档的能力承诺，不应为了“填满模型”扩展功能。
+Blueprint 当前仅声明 Claude/Codex 桌面准备适配器，`portableSettingKeys` 为空，非空技能/工具/项目要求均返回 unsupported，见 [provisioning-adapters.js](https://github.com/shuqianglin1997/agent-desk/blob/51800924a8bdebc392fc7791392fecb519df1b23/src/mesh/main/provisioning-adapters.js#L1)。先修正文档的能力承诺，不应为了“填满模型”扩展功能。
 
 SessionPointer、普通文件、Markdown 导出与 TaskPackage 用途不同：分别传坐标、传选中文件、导出可读正文、交付固定工作快照。它们可共享传输与接收展示组件，但不能合成一个语义不明的“同步”按钮。保留独立权限和不可变包格式；安全校验、来源保留与防重放账本不是冗余。
 

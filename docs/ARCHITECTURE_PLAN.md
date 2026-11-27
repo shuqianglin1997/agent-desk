@@ -2,7 +2,7 @@
 
 > 状态：所有者已于 2026-11-24 批准方向和九个阶段的顺序，并说明不必逐阶段等他同意：等“猫有多忙、新回复、颜色标签”做完并推送后，按阶段依次进行，由一个开发会话执行。
 >
-> 评估对象：提交 `24fdb32`（2026-11-24）的代码，并假设“猫有多忙、新回复、颜色标签”已按 `docs/SESSION_MARKS_PLAN.md` 做完。
+> 评估对象：提交 `f40e3ae`（2026-11-24）的代码，并假设“猫有多忙、新回复、颜色标签”已按 `docs/SESSION_MARKS_PLAN.md` 做完。
 >
 > 本文不覆盖 `docs/PERSONAL_AGENT_MESH_PLAN.md`。整理期间界面、行为和安全边界都不变；产品模型以那份基准为准。
 >
@@ -229,7 +229,7 @@ core       纯函数与基础件：路径、标识、时间窗、结果与事实
 
 “现在”一栏由 `node scripts/arch-metrics.js --summary` 与 `node scripts/arch-bench.js`（10 × 500 合成数据，取五次的中位数）、`node scripts/mesh-bench.js`（设备网模式的会话清单）、`node scripts/hidden-check.js`（启动时的完整扫描）在每个阶段结束时重新量出；函数长度与名字判断仍是估算，脚本会列出每个数字的来源位置。最后一行的目标在第 0 阶段实测后定为“单次不超过 50 毫秒”。
 
-| 指标 | 评估时（`24fdb32`，估算） | 现在（实测，见 9.1 最近一段） | 目标 |
+| 指标 | 评估时（`f40e3ae`，估算） | 现在（实测，见 9.1 最近一段） | 目标 |
 |---|---|---|---|
 | `main.js` 行数 | 5184 | 680（其中生成的 `mainContext` 约 170 行） | 只剩启动，约几百行 |
 | `renderer.js` 行数 | 9681 | 161（只剩启动；界面在 `src/renderer/views/` 的 26 个原生模块里） | 拆完后不存在，或只剩启动 |
@@ -243,7 +243,7 @@ core       纯函数与基础件：路径、标识、时间窗、结果与事实
 | 跨表重复的选择器 | 184 | 0（主窗口三张表；`test/style-structure.test.js` 看住，见 9.1 第 7 阶段） | 0 |
 | `!important` | 40 | 39，全部在 `test/style-structure.test.js` 的清单里，逐条写明原因（额度提示那条随用词一起去掉） | 只剩清单内的 |
 | 只做文字比对的测试文件 | 15 | 8（另有 2 个在 vm 里运行抽出的源码，属行为测试）；每个都列在 `test/text-checks.test.js` 并写明理由：2 个安全与发布不变式、1 个样式结构、5 个窗口里的接线（Node 测试没有 DOM） | 只剩安全不变式 |
-| 主线程单次阻塞（10 × 500） | 估计数百毫秒到数秒 | 经会话索引与工作线程：全部账号第一次刷新主线程最长挡 2.5 毫秒（工作线程上共约 840 毫秒），之后每次最长 1.0 毫秒（共约 63 毫秒，读 1.5 MB，原来 642 MB）；活动探测 0.8 毫秒，进程列表 1.4 毫秒；调度中枢收尾的查找已在工作线程上。设备网模式的会话清单（`node scripts/mesh-bench.js`）没变时远端 5000 条 11 毫秒，本机有变时 26 毫秒（原来每次约 54 毫秒）。还没达标的：启动后第一次的清单在本机或远端 5000 条时 51～64 毫秒，远端库存落库在远端 5000 条时约 140 毫秒（见 9.1 第 5 阶段补一批）。界面线程：5000 行的会话表一次更新中位 26～30 毫秒、最慢 48 毫秒（原来约 480～510 毫秒，见 9.1 第 6 阶段）；列表跟着 8 秒探测刷新时，一个会话在写、10 个账号共 5000 行，每次刷新工作线程重扫 10 个账号（每个中位 21 毫秒），主线程没有超过 6 毫秒的占用；界面线程上的工作在 `de41411` 减少（结果逐行相同），在另一个项目批量运行、负载 20～30 的同一时段交替量，每次刷新中位从约 88 毫秒降到约 58 毫秒，机器空闲时是否稳定在 50 毫秒以内还没量，留到最后统一检查（见 9.1 第 8 阶段的收尾两批）；空闲时不重扫、不刷新 | 单次不超过 50 毫秒 |
+| 主线程单次阻塞（10 × 500） | 估计数百毫秒到数秒 | 经会话索引与工作线程：全部账号第一次刷新主线程最长挡 2.5 毫秒（工作线程上共约 840 毫秒），之后每次最长 1.0 毫秒（共约 63 毫秒，读 1.5 MB，原来 642 MB）；活动探测 0.8 毫秒，进程列表 1.4 毫秒；调度中枢收尾的查找已在工作线程上。设备网模式的会话清单（`node scripts/mesh-bench.js`）没变时远端 5000 条 11 毫秒，本机有变时 26 毫秒（原来每次约 54 毫秒）。还没达标的：启动后第一次的清单在本机或远端 5000 条时 51～64 毫秒，远端库存落库在远端 5000 条时约 140 毫秒（见 9.1 第 5 阶段补一批）。界面线程：5000 行的会话表一次更新中位 26～30 毫秒、最慢 48 毫秒（原来约 480～510 毫秒，见 9.1 第 6 阶段）；列表跟着 8 秒探测刷新时，一个会话在写、10 个账号共 5000 行，每次刷新工作线程重扫 10 个账号（每个中位 21 毫秒），主线程没有超过 6 毫秒的占用；界面线程上的工作在 `fa66aba` 减少（结果逐行相同），在另一个项目批量运行、负载 20～30 的同一时段交替量，每次刷新中位从约 88 毫秒降到约 58 毫秒，机器空闲时是否稳定在 50 毫秒以内还没量，留到最后统一检查（见 9.1 第 8 阶段的收尾两批）；空闲时不重扫、不刷新 | 单次不超过 50 毫秒 |
 
 ## 9. 已定的事
 
@@ -265,16 +265,16 @@ core       纯函数与基础件：路径、标识、时间窗、结果与事实
 
 ### 第 0 阶段：尺子与安全网（2026-11-24 完成）
 
-从 `pre-architecture-cleanup`（`67638b3`）开始。应用代码只动了一处：`src/codex-history-retention.js` 的进程检查改为可注入（见第 5 批），线上行为不变。
+从 `pre-architecture-cleanup`（`9c5412c`）开始。应用代码只动了一处：`src/codex-history-retention.js` 的进程检查改为可注入（见第 5 批），线上行为不变。
 
 做了什么（每批一次提交，三项检查都通过）：
 
-1. `f72f0ad` 指标与分层检查。`scripts/arch-metrics.js` 读出第 8 节的每一项，不依赖任何包：用能跳过注释、字符串、模板和正则的分词加括号匹配估算函数长度，每个数字都列出来源位置，便于人工核对。`scripts/check-layers.js` 把现有 141 个源文件逐个归到五层（另有两个启动入口），报告向上的依赖；目前只报告不拦，后面的阶段逐步收紧。它现在报出两处：`settings.js`（core）依赖 `yard/interactions.js`（ui，庭院遗留）和 `mesh/network/ice-config.js`（services）。
-2. `488ab47` 合成数据与计时。`scripts/arch-fixtures.js` 只在系统临时目录里造 10 个账号 × 500 条会话（命令行 Claude 3、Codex 3、Claude 桌面、Kimi Code、Gemini CLI、Qwen Code，文件大小按真实的读取上限造，约 780 MB，用完删除）；`scripts/arch-bench.js` 把 HOME 指向空的临时目录后再加载扫描器，计时主进程里的同步工作，取五次的中位数，结果在 `docs/validation/architecture-baseline.json`。
-3. `22350ae` 会话扫描与活动的“行为不变”基准。十种客户端各一份固定样例（子代理、归档、标题先后、坏文件），扫描结果和活动探测结果逐字段记成 `test/fixtures/characterisation/sessions.golden.json`；有意改动时用 `AGENTDESK_UPDATE_GOLDEN=1` 重新生成，差异在提交里看得见。
-4. `56d70ea`、`f18b062` 命令行与接口。源码态命令行每个只读命令和五种出错码的 JSON 记成基准。`scripts/hidden-electron-entry.js` 让真实主进程和界面在不显示、不聚焦窗口的方式下运行：模拟钥匙串、临时数据与主目录；打开账号、首次准备、额度（会启动 `codex app-server`）、登录状态、工具打开与更新、安装更新、连接自检都由记录用的替身回答；原生对话框按取消，显示文件、打开路径、剪贴板、联网都被拦下；任何官方客户端或命令行、`open`、`osascript` 都不会被启动（换成不存在的路径，调用方看到的是“没装”）。`scripts/hidden-check.js` 用它核对 17 个读接口返回值的形状（`test/fixtures/characterisation/ipc-shapes.json`），并数启动时的完整扫描次数。
-5. `191683b` 让 `test/codex-history-retention.test.js` 稳定。三处 `lsof` 原样收进 `LSOF_PROCESS_CHECK`，维护、归档压缩和命令行 worker（改为导出的 `runCli`）都能接收注入的检查；测试注入假的检查。单独连跑五次、在完整测试并发压力下再跑三次，全部通过。原先保留的一项真实 `lsof` 测试在阶段收尾的完整回归里超时失败——本机 `lsof` 单次要八到十几秒，会超过它自己的 10 秒上限，这正是原来时好时坏的原因——所以改为手动开启（`AGENTDESK_LSOF_INTEGRATION=1`），默认跳过。同一原因意味着线上的历史维护在这台电脑上经常因为检查超时而推迟，归档压缩给每个文件只有 2 秒，几乎总会跳过；这是安全的一侧（不确定就不动），记下留给第 4、5 阶段统一进程检查时处理。
-6. `3b63211` 验收脚本。`scripts/ui-acceptance.js` 的档案一步按所有者批准的五段（资料、位置、账号、调用、送走）核对，并确认“调用”一段跟着展开的本机位置出现；新增 `--hidden`，经上面的入口不显示窗口跑同一套 24 条路径。
+1. `3aabff1` 指标与分层检查。`scripts/arch-metrics.js` 读出第 8 节的每一项，不依赖任何包：用能跳过注释、字符串、模板和正则的分词加括号匹配估算函数长度，每个数字都列出来源位置，便于人工核对。`scripts/check-layers.js` 把现有 141 个源文件逐个归到五层（另有两个启动入口），报告向上的依赖；目前只报告不拦，后面的阶段逐步收紧。它现在报出两处：`settings.js`（core）依赖 `yard/interactions.js`（ui，庭院遗留）和 `mesh/network/ice-config.js`（services）。
+2. `9bd3970` 合成数据与计时。`scripts/arch-fixtures.js` 只在系统临时目录里造 10 个账号 × 500 条会话（命令行 Claude 3、Codex 3、Claude 桌面、Kimi Code、Gemini CLI、Qwen Code，文件大小按真实的读取上限造，约 780 MB，用完删除）；`scripts/arch-bench.js` 把 HOME 指向空的临时目录后再加载扫描器，计时主进程里的同步工作，取五次的中位数，结果在 `docs/validation/architecture-baseline.json`。
+3. `a170279` 会话扫描与活动的“行为不变”基准。十种客户端各一份固定样例（子代理、归档、标题先后、坏文件），扫描结果和活动探测结果逐字段记成 `test/fixtures/characterisation/sessions.golden.json`；有意改动时用 `AGENTDESK_UPDATE_GOLDEN=1` 重新生成，差异在提交里看得见。
+4. `a7104a2`、`e48a7b9` 命令行与接口。源码态命令行每个只读命令和五种出错码的 JSON 记成基准。`scripts/hidden-electron-entry.js` 让真实主进程和界面在不显示、不聚焦窗口的方式下运行：模拟钥匙串、临时数据与主目录；打开账号、首次准备、额度（会启动 `codex app-server`）、登录状态、工具打开与更新、安装更新、连接自检都由记录用的替身回答；原生对话框按取消，显示文件、打开路径、剪贴板、联网都被拦下；任何官方客户端或命令行、`open`、`osascript` 都不会被启动（换成不存在的路径，调用方看到的是“没装”）。`scripts/hidden-check.js` 用它核对 17 个读接口返回值的形状（`test/fixtures/characterisation/ipc-shapes.json`），并数启动时的完整扫描次数。
+5. `0fdbb9d` 让 `test/codex-history-retention.test.js` 稳定。三处 `lsof` 原样收进 `LSOF_PROCESS_CHECK`，维护、归档压缩和命令行 worker（改为导出的 `runCli`）都能接收注入的检查；测试注入假的检查。单独连跑五次、在完整测试并发压力下再跑三次，全部通过。原先保留的一项真实 `lsof` 测试在阶段收尾的完整回归里超时失败——本机 `lsof` 单次要八到十几秒，会超过它自己的 10 秒上限，这正是原来时好时坏的原因——所以改为手动开启（`AGENTDESK_LSOF_INTEGRATION=1`），默认跳过。同一原因意味着线上的历史维护在这台电脑上经常因为检查超时而推迟，归档压缩给每个文件只有 2 秒，几乎总会跳过；这是安全的一侧（不确定就不动），记下留给第 4、5 阶段统一进程检查时处理。
+6. `eaef691` 验收脚本。`scripts/ui-acceptance.js` 的档案一步按所有者批准的五段（资料、位置、账号、调用、送走）核对，并确认“调用”一段跟着展开的本机位置出现；新增 `--hidden`，经上面的入口不显示窗口跑同一套 24 条路径。
 7. 界面模块的小试验（只在临时目录里做，没有改源码），结论见下。
 8. 阶段收尾（本段所在的提交）：真实 `lsof` 测试改为手动开启（见第 5 条）；指标脚本只把“在 readFileSync 里读 src 路径、或把 src/… 路径交给读取函数”的测试算作读源码，运行源码的不算；记下 `docs/validation/architecture-metrics.json`；更新第 8 节与本段。
 
@@ -296,19 +296,19 @@ core       纯函数与基础件：路径、标识、时间窗、结果与事实
 
 ### 第 1 阶段：止血（2026-11-24 完成）
 
-从 `a192fa4` 开始（第 0 阶段之后只多了规划会话的文档提交）。逐条按现在的代码复核第 3.1 节，每条先写一个在修改前失败的行为测试，再改，再过三项检查，一条一提交。没有改结构。
+从 `3a0f1a7` 开始（第 0 阶段之后只多了规划会话的文档提交）。逐条按现在的代码复核第 3.1 节，每条先写一个在修改前失败的行为测试，再改，再过三项检查，一条一提交。没有改结构。
 
 | 第 3.1 节 | 提交 | 做了什么 | 新测试 |
 |---|---|---|---|
-| 第 6 条 `profiles.json` 被写空 | `c89fcc3` | 文件在、但它和备份都读不出来时，这一次按空显示，不再写回空清单 | `main-ipc-security.test.js` 1 项 |
-| 第 9 条 `..` 开头的文件夹 | `4ae479e` | 五处包含判断只把真正的 `..` 一步算作出去（`path-utils`、`main.js`、`windows.js` 两处、任务包 Codex 适配器）；其余几处本来就对 | `path-containment.test.js` 3 项、`windows.test.js` 1 项 |
-| 两条小的：Codex 首行超过 64KB、句柄不关 | `3602f78` | 按 64KB 一段读到第一行结束（最多 8MB），`finally` 关闭 | `codex-first-line.test.js` 2 项 |
-| 第 7 条 DSH 绑定选不到 | `2a5dec3` | 界面跟主进程用同一个客户端名（主进程的名字参与生成存下来的账号关联键，所以不改它） | `catalog-provider-namespace.test.js` 2 项 |
-| 第 8 条“立即刷新额度”不起作用 | `b2e2867` | 界面和额度服务都在当前请求结束后再强制取一次，连点只排一次 | `quota-force-refresh.test.js` 2 项 |
-| 第 1 条快速切换时列表是上一只猫的 | `f9b00fa` | 每次读取列表取一个编号，只有最新的那次能写进列表（本机、设备网、退回本机三条路都一样） | `sessions-load-race.test.js` 2 项 |
-| 第 2 条命令行与默认位置永远不显示“干活” | `b85945a` | 看不见 `--user-data-dir` 的位置给“不知道”而不是“没开”：命令行客户端、官方默认目录（从程序坞打开时没有这个参数）；只有活动探测用到这个值 | `running-signal.test.js` 4 项 |
-| 第 4 条读失败等于没有 | `a1dd904` | 活动探测失败不再让猫全部变空闲；单个账号扫描失败保留它上一次的行；Codex 标题索引读不出不再清空整张表；设备网发布库存时扫描失败沿用上一次成功的会话，不再给配对设备发空清单 | `read-failure-not-empty.test.js` 4 项 |
-| 第 3 条卡片在更新、列表不更新 | `7e12e3f` | 活动探测看到列表范围里的账号有新写入时刷新列表，最多 30 秒一次；启动后第一轮只记起点；窗口在后台、范围外的账号不触发 | `sessions-refresh-on-activity.test.js` 2 项 |
+| 第 6 条 `profiles.json` 被写空 | `aab5d0d` | 文件在、但它和备份都读不出来时，这一次按空显示，不再写回空清单 | `main-ipc-security.test.js` 1 项 |
+| 第 9 条 `..` 开头的文件夹 | `8a088e7` | 五处包含判断只把真正的 `..` 一步算作出去（`path-utils`、`main.js`、`windows.js` 两处、任务包 Codex 适配器）；其余几处本来就对 | `path-containment.test.js` 3 项、`windows.test.js` 1 项 |
+| 两条小的：Codex 首行超过 64KB、句柄不关 | `5d0ba3a` | 按 64KB 一段读到第一行结束（最多 8MB），`finally` 关闭 | `codex-first-line.test.js` 2 项 |
+| 第 7 条 DSH 绑定选不到 | `c9f5941` | 界面跟主进程用同一个客户端名（主进程的名字参与生成存下来的账号关联键，所以不改它） | `catalog-provider-namespace.test.js` 2 项 |
+| 第 8 条“立即刷新额度”不起作用 | `03b66be` | 界面和额度服务都在当前请求结束后再强制取一次，连点只排一次 | `quota-force-refresh.test.js` 2 项 |
+| 第 1 条快速切换时列表是上一只猫的 | `81c7871` | 每次读取列表取一个编号，只有最新的那次能写进列表（本机、设备网、退回本机三条路都一样） | `sessions-load-race.test.js` 2 项 |
+| 第 2 条命令行与默认位置永远不显示“干活” | `bcc07e0` | 看不见 `--user-data-dir` 的位置给“不知道”而不是“没开”：命令行客户端、官方默认目录（从程序坞打开时没有这个参数）；只有活动探测用到这个值 | `running-signal.test.js` 4 项 |
+| 第 4 条读失败等于没有 | `0917ad7` | 活动探测失败不再让猫全部变空闲；单个账号扫描失败保留它上一次的行；Codex 标题索引读不出不再清空整张表；设备网发布库存时扫描失败沿用上一次成功的会话，不再给配对设备发空清单 | `read-failure-not-empty.test.js` 4 项 |
+| 第 3 条卡片在更新、列表不更新 | `2176880` | 活动探测看到列表范围里的账号有新写入时刷新列表，最多 30 秒一次；启动后第一轮只记起点；窗口在后台、范围外的账号不触发 | `sessions-refresh-on-activity.test.js` 2 项 |
 | 第 5 条会话数三处三种数法、截断不声不响 | 不改代码 | 复核：活动探测自己数的会话数现在已经没有地方显示（“×N”已换成“N 条在跑”），设备页和列表用的都是扫描结果，屏幕上没有互相矛盾的数；差异（命令行 Claude 的子代理、坏文件、子会话）由会话扫描基准记着。让截断显出来要第 2 阶段的结果类型和第 4 阶段的统一索引 | 无 |
 | “忙”的时间窗（复核项） | 不改代码 | 已由“猫有多忙”统一：猫的状态和名牌“N 条在跑”都用同一个 90 秒常量；旧的 5 分钟 `activeNow` 只剩重画判断在用，额度新鲜度的几份常量留到第 2 阶段的公共时间窗 | 无 |
 
@@ -328,18 +328,18 @@ core       纯函数与基础件：路径、标识、时间窗、结果与事实
 
 ### 第 2 阶段：公共底座（2026-11-24 完成）
 
-从 `be6d4bf`（第 1 阶段收尾）开始。建 `src/core/`，把第 3.2 节里同一件事的几份实现换成一份；删旧的 Codex 导入和庭院遗留；设置把退休字段收起来。每批先有行为测试（能在改之前跑的，改之前就跑过），再改，再过三项检查，一批一提交。
+从 `f44e41b`（第 1 阶段收尾）开始。建 `src/core/`，把第 3.2 节里同一件事的几份实现换成一份；删旧的 Codex 导入和庭院遗留；设置把退休字段收起来。每批先有行为测试（能在改之前跑的，改之前就跑过），再改，再过三项检查，一批一提交。
 
 | 批 | 提交 | 做了什么 | 新测试 |
 |---|---|---|---|
-| 结果、事实与时间窗 | `d41f814` | `core/result.js`：读的结果是“值”或“固定原因码”，失败不再冒充空；事实是“值、确切 / 推断 / 不知道、取得时间、来源”，不知道时值为空。`core/time-windows.js`：“在跑”90 秒、“活跃”5 分钟、“额度新鲜”15 分钟各定义一次，活动探测、猫的状态、能量格、额度总览和界面都读它，数值不变 | `core-result-time-windows.test.js` 4 项 |
-| 路径判断 | `a43ff7f` | “同一路径”“在某个文件夹里面”原来写了 12 份，对解析、大小写、符号链接和 Windows `\\?\` 前缀各有取舍；`core/paths.js` 一份，原来每处的取舍写成选项，结果不变 | `core-paths.test.js` 5 项 |
-| 读 JSON、原子写入、带版本的小存储 | `d2afcd8` | `core/json-file.js`：读 JSON 给出值或“不存在 / 不是文件 / 太大 / 读不出 / 不是 JSON / 形状不对”；原子写入（新文件从第一个字节起只有本人可读，刷盘再改名）；带版本号、按序迁移、不覆盖更新版本写的文件的小存储（留给导入账本和“哪些账号开着”的记录）。六份读 JSON 和五处手写的原子写入改为调用它 | `core-json-file.test.js` 4 项 |
-| `profiles.json` 一个读取入口 | `4887267` | `core/profile-file.js` 只读、不修复、不写；桌面的恢复与保存、命令行的严格只读、`profiles discover` 的宽松列表各自的策略留在上层 | `profile-file-readers.test.js` 3 项（改之前就通过） |
-| 退休的设置字段 | `b0802e2` | 设置版本 5 把庭院视图、提醒、场景时间与天气、完成账本、猫位置六个字段原样收进 `retired`，不再规整、不再读取；已在 `retired` 里的值优先。用上一版的规整代码（存为测试夹具）读新文件：不出错，其他字段不变。一并删除 `yard/interactions.js`、没人读的 `YardSprites.APP_TAG` 写入和这些键的本地存储读取 | `settings-retired-fields.test.js` 3 项；删除 `interactions.test.js` 1 项 |
-| 旧的 Codex 导入 | `dca56cf` | 已经没有按钮的旧导入对话框、5 个接口与 preload 方法、界面代码、样式和每种语言 23 条文案删除；首次使用的“导入 Codex”照旧打开招募的拖入段。招募和成品命令行登记已有 Codex 目录改走 `main/profile-registration.js`，与其他客户端相同（命令行仍先检查 Codex 特征） | `codex-registration-path.test.js` 2 项（先写，证明两条路造出同一个 Profile） |
-| 读不出与截断 | `f5a99c5` | Cursor、Kimi Work 的 sqlite3 查询返回结果：数据库不存在仍是没有会话，存在但读不出时扫描失败（桌面沿用上一次的行，命令行返回 `session-store-unreadable`，退出码 4；活动的“在跑”为不知道）。目录遍历在 12000 项处停下、还有目录没读时，`apps.scanResult()` 带 `truncated: true`，活动结果多一个 `truncated` 字段 | `scan-failure-and-truncation.test.js` 4 项（改之前全部失败） |
-| 分层与最后一处原子写入 | `d46b27f` | 设置（core）为规整 STUN 地址引用网络层，是唯一往上的依赖；两个纯函数移到 `mesh/protocol/ice-urls.js`，`ice-config.js` 照旧导出。分层检查改为“core 强制”：core 引用上层、core 里用 electron、未登记层的文件会让测试和命令失败，其余层只报告。会话导出改用 `core/json-file.js` 新增的异步原子写入（照旧不刷盘、0600、失败不留临时文件） | `ice-urls.test.js` 2 项、`session-export-write.test.js` 2 项（改动前后的 `main.js` 都通过）、`core-json-file.test.js` 加 1 项 |
+| 结果、事实与时间窗 | `0775796` | `core/result.js`：读的结果是“值”或“固定原因码”，失败不再冒充空；事实是“值、确切 / 推断 / 不知道、取得时间、来源”，不知道时值为空。`core/time-windows.js`：“在跑”90 秒、“活跃”5 分钟、“额度新鲜”15 分钟各定义一次，活动探测、猫的状态、能量格、额度总览和界面都读它，数值不变 | `core-result-time-windows.test.js` 4 项 |
+| 路径判断 | `1b2daf7` | “同一路径”“在某个文件夹里面”原来写了 12 份，对解析、大小写、符号链接和 Windows `\\?\` 前缀各有取舍；`core/paths.js` 一份，原来每处的取舍写成选项，结果不变 | `core-paths.test.js` 5 项 |
+| 读 JSON、原子写入、带版本的小存储 | `bfc0402` | `core/json-file.js`：读 JSON 给出值或“不存在 / 不是文件 / 太大 / 读不出 / 不是 JSON / 形状不对”；原子写入（新文件从第一个字节起只有本人可读，刷盘再改名）；带版本号、按序迁移、不覆盖更新版本写的文件的小存储（留给导入账本和“哪些账号开着”的记录）。六份读 JSON 和五处手写的原子写入改为调用它 | `core-json-file.test.js` 4 项 |
+| `profiles.json` 一个读取入口 | `ee6cd7b` | `core/profile-file.js` 只读、不修复、不写；桌面的恢复与保存、命令行的严格只读、`profiles discover` 的宽松列表各自的策略留在上层 | `profile-file-readers.test.js` 3 项（改之前就通过） |
+| 退休的设置字段 | `7b18b54` | 设置版本 5 把庭院视图、提醒、场景时间与天气、完成账本、猫位置六个字段原样收进 `retired`，不再规整、不再读取；已在 `retired` 里的值优先。用上一版的规整代码（存为测试夹具）读新文件：不出错，其他字段不变。一并删除 `yard/interactions.js`、没人读的 `YardSprites.APP_TAG` 写入和这些键的本地存储读取 | `settings-retired-fields.test.js` 3 项；删除 `interactions.test.js` 1 项 |
+| 旧的 Codex 导入 | `0dd667d` | 已经没有按钮的旧导入对话框、5 个接口与 preload 方法、界面代码、样式和每种语言 23 条文案删除；首次使用的“导入 Codex”照旧打开招募的拖入段。招募和成品命令行登记已有 Codex 目录改走 `main/profile-registration.js`，与其他客户端相同（命令行仍先检查 Codex 特征） | `codex-registration-path.test.js` 2 项（先写，证明两条路造出同一个 Profile） |
+| 读不出与截断 | `fd49c85` | Cursor、Kimi Work 的 sqlite3 查询返回结果：数据库不存在仍是没有会话，存在但读不出时扫描失败（桌面沿用上一次的行，命令行返回 `session-store-unreadable`，退出码 4；活动的“在跑”为不知道）。目录遍历在 12000 项处停下、还有目录没读时，`apps.scanResult()` 带 `truncated: true`，活动结果多一个 `truncated` 字段 | `scan-failure-and-truncation.test.js` 4 项（改之前全部失败） |
+| 分层与最后一处原子写入 | `20bbe8c` | 设置（core）为规整 STUN 地址引用网络层，是唯一往上的依赖；两个纯函数移到 `mesh/protocol/ice-urls.js`，`ice-config.js` 照旧导出。分层检查改为“core 强制”：core 引用上层、core 里用 electron、未登记层的文件会让测试和命令失败，其余层只报告。会话导出改用 `core/json-file.js` 新增的异步原子写入（照旧不刷盘、0600、失败不留临时文件） | `ice-urls.test.js` 2 项、`session-export-write.test.js` 2 项（改动前后的 `main.js` 都通过）、`core-json-file.test.js` 加 1 项 |
 
 做完的标志：路径判断 1 份（指标脚本在 `src/core/paths.js` 之外找不到）；读 `profiles.json` 1 份（`readProfileFile`，所有读取都经过它）；原子写入 1 份（`core/json-file.js` 里同一套做法的同步与异步两个版本）；多出的接口与文案已删除。
 
@@ -361,21 +361,21 @@ core       纯函数与基础件：路径、标识、时间窗、结果与事实
 
 ### 第 3 阶段：客户端适配器（2026-11-24 完成）
 
-从 `67c182a`（第 2 阶段收尾）开始。每家客户端一个目录 `src/clients/<id>/`，它的全部知识都在里面；`src/apps.js` 只按固定顺序收集适配器。每批先有行为测试，再改，再过三项检查，一批一提交。
+从 `cd60258`（第 2 阶段收尾）开始。每家客户端一个目录 `src/clients/<id>/`，它的全部知识都在里面；`src/apps.js` 只按固定顺序收集适配器。每批先有行为测试，再改，再过三项检查，一批一提交。
 
 | 批 | 提交 | 做了什么 |
 |---|---|---|
-| 一家一个目录 | `a992aa8` | `apps.js` 的十个条目逐字搬进 `src/clients/<id>/index.js`，共用小工具进 `clients/shared.js`；顺序、每个字段（函数按去空白的源码）、`listApps()` 与导出逐项比对相同 |
-| Codex 记录只有一个读取者 | `4a9d781` | `clients/codex/rollout.js`：session_meta 分类（`mesh/domain/session-identity.js` 并入后删除）、首行读到行尾、用户与助手消息、附件要的原始消息、额度；扫描、导出、附件、调度中枢的回答、缓存额度、任务包都用它 |
-| Gemini parts 只有一个读取者 | `b9c7b8a` | `clients/gemini-cli/parts.js`（Qwen Code 沿用），两家的记录读取在各自的 `records.js`；原来三份 `partsText` 各不相同 |
-| 扫描器进各家目录 | `440ca2c`、`dc382af` | `sessions.js`、`cursor-sessions.js`、`kimi-work-sessions.js`、`cli-client-sessions.js` 拆进十个目录后删除；共用的读法在 `clients/scan.js`、`clients/cli-scan.js`、`clients/sqlite.js`；活动探测改问适配器的 `replyState`、`isInternalRecordFile`、`activityPreference`、`isArchivedRecordFile`；只给测试用、按名字分派的 `scanSessions` 删除，测试改走注册表 |
-| 导出正文与附件 | `eb2973b` | `transcripts.js` 拆进各家 `transcript.js`；Claude 命令行记录（`claude-cli/records.js`）与 Kimi wire（`kimi/wire.js`）各一个读取者；附件由适配器的 `attachments` 声明 |
-| Codex 独有的模块 | `629ee83` | 额度、账号导入、运行目录别名、历史维护、任务包五个模块搬进 `clients/codex/`；发布安全测试里允许 `ELECTRON_RUN_AS_NODE` 的仍是三个文件，只换路径 |
-| 密钥交接、拖入导入、调度中枢 | `1564cba`、`1635203`、`8c14f70` | 三张按客户端的表拆进各家的 `credentials.js`、`import.js`、`hub.js`（`credentialHandoff`、`credentialImport`、`hub`/`hubUnsupported`）；共用部分在 `clients/credential-files.js`、`clients/import-files.js`、`clients/hub-io.js`；“拖进来的文件归哪家”改为各家报文件名、同名按内容区分的通用规则 |
-| 身份、命令行查找、额度 | `75996dc` | `accountId`、`cliLauncher`、`quota` |
-| 主进程里的特例 | `9fec937` | `managedHome`、`standaloneHome`、`runtimeHome`、`taskPackage`、`historyUpkeep`、`defaultIdentityKey`、`sessionsInProfileFolder` |
-| 判断归零 | `420164f` | 设备网目录的 `providerNamespace`、`clientForm` 由适配器声明，领域函数必须由调用方传入 `clientFacts`（缺了就报错）；界面读 `listApps({ uiHints: true })` 给的提示；新猫的毛色 `catCoat`；额度两处判断改为通用写法 |
-| 分层与清单 | `dbcfb9f` | clients 层加入强制；`docs/INTERNAL.md` 第 5 节写明“新增一个客户端的清单”，测试只允许清单里的字段 |
+| 一家一个目录 | `a1c53d6` | `apps.js` 的十个条目逐字搬进 `src/clients/<id>/index.js`，共用小工具进 `clients/shared.js`；顺序、每个字段（函数按去空白的源码）、`listApps()` 与导出逐项比对相同 |
+| Codex 记录只有一个读取者 | `623e806` | `clients/codex/rollout.js`：session_meta 分类（`mesh/domain/session-identity.js` 并入后删除）、首行读到行尾、用户与助手消息、附件要的原始消息、额度；扫描、导出、附件、调度中枢的回答、缓存额度、任务包都用它 |
+| Gemini parts 只有一个读取者 | `c00a966` | `clients/gemini-cli/parts.js`（Qwen Code 沿用），两家的记录读取在各自的 `records.js`；原来三份 `partsText` 各不相同 |
+| 扫描器进各家目录 | `a90bcd6`、`f024af5` | `sessions.js`、`cursor-sessions.js`、`kimi-work-sessions.js`、`cli-client-sessions.js` 拆进十个目录后删除；共用的读法在 `clients/scan.js`、`clients/cli-scan.js`、`clients/sqlite.js`；活动探测改问适配器的 `replyState`、`isInternalRecordFile`、`activityPreference`、`isArchivedRecordFile`；只给测试用、按名字分派的 `scanSessions` 删除，测试改走注册表 |
+| 导出正文与附件 | `e449eec` | `transcripts.js` 拆进各家 `transcript.js`；Claude 命令行记录（`claude-cli/records.js`）与 Kimi wire（`kimi/wire.js`）各一个读取者；附件由适配器的 `attachments` 声明 |
+| Codex 独有的模块 | `5e3f13e` | 额度、账号导入、运行目录别名、历史维护、任务包五个模块搬进 `clients/codex/`；发布安全测试里允许 `ELECTRON_RUN_AS_NODE` 的仍是三个文件，只换路径 |
+| 密钥交接、拖入导入、调度中枢 | `ac5cfb7`、`a6f645d`、`e657ec5` | 三张按客户端的表拆进各家的 `credentials.js`、`import.js`、`hub.js`（`credentialHandoff`、`credentialImport`、`hub`/`hubUnsupported`）；共用部分在 `clients/credential-files.js`、`clients/import-files.js`、`clients/hub-io.js`；“拖进来的文件归哪家”改为各家报文件名、同名按内容区分的通用规则 |
+| 身份、命令行查找、额度 | `5c0faa4` | `accountId`、`cliLauncher`、`quota` |
+| 主进程里的特例 | `7220cf6` | `managedHome`、`standaloneHome`、`runtimeHome`、`taskPackage`、`historyUpkeep`、`defaultIdentityKey`、`sessionsInProfileFolder` |
+| 判断归零 | `32df00d` | 设备网目录的 `providerNamespace`、`clientForm` 由适配器声明，领域函数必须由调用方传入 `clientFacts`（缺了就报错）；界面读 `listApps({ uiHints: true })` 给的提示；新猫的毛色 `catCoat`；额度两处判断改为通用写法 |
+| 分层与清单 | `e51dfec` | clients 层加入强制；`docs/INTERNAL.md` 第 5 节写明“新增一个客户端的清单”，测试只允许清单里的字段 |
 
 做完的标志：适配器之外按客户端名字的判断 67 → 0（指标脚本）；新增客户端就是新增一个目录，清单写在 `docs/INTERNAL.md` 第 5 节并由 `test/client-adapters.test.js` 看住；每种记录格式一个读取者；分层检查强制 core 与 clients 两层，0 处违规。指标脚本另报的“按客户端分的表”从 6 张降到 2 张，剩下两张不是客户端知识：`cli-discovery.js` 的官方命令行工具目录（按工具标识，其中三个不是 AgentDesk 管理的客户端，适配器用 `cliDiscoveryId` 指向它），`yard/cat-art.js` 的毛色图案（毛色的名字恰好和客户端同名）。
 
@@ -403,16 +403,16 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 ### 第 4 阶段：会话索引（2026-11-24 完成，留一处待定）
 
-从 `2cdc058`（第 3 阶段收尾后的文档提交）开始；中间规划会话装了只在开发时用的 TypeScript（`6fc92f7`）。主进程读会话清单的地方都经过一个会话索引，扫描和活动探测的文件工作放进一个工作线程，每个会话文件读过一次就记住，没变不再读。每批先有行为测试，再改，再过三项检查，一批一提交。
+从 `afa64de`（第 3 阶段收尾后的文档提交）开始；中间规划会话装了只在开发时用的 TypeScript（`afb50a1`）。主进程读会话清单的地方都经过一个会话索引，扫描和活动探测的文件工作放进一个工作线程，每个会话文件读过一次就记住，没变不再读。每批先有行为测试，再改，再过三项检查，一批一提交。
 
 | 批 | 提交 | 做了什么 | 新测试 |
 |---|---|---|---|
-| 进程列表全应用一份 | `5e84bd3` | `src/process-snapshots.js`：异步 `ps`，同时到的请求共用一次，一秒内的结果复用；运行监管每 2 秒、每个账号一次的同步 `ps` 换成这一份，只在 AgentDesk 有自己启动且在运行的客户端时才查；窗口的“在运行”也用它 | `process-snapshots.test.js` 3 项 |
-| 会话索引 | `3282cc4` | `src/session-index.js`：列表、设备页的数、发给别的设备的库存、按标识找会话都经过它；同一账号正在扫或 3 秒内扫过的请求共用一次；结果带第 2 阶段的结果类型，重扫失败保留上次的好结果并标为旧的；按标识找会话 5 种写法合成 `findSession`；启动时的完整扫描 4 → 1 | `session-index.test.js` 5 项 |
-| 工作线程 | `d32914a` | `src/scan-host.js`、`src/scan-worker.js`：扫描和活动探测在工作线程里，主进程只交账号记录和时间，线程只读文件、传回数据；线程起不来或出错时在主进程里做；活动探测里两个不给窗口看的字段打包过线程再还原；启动先把索引扫热再恢复“首次准备”任务 | `scan-host.test.js` 3 项 |
-| 逐文件记忆 | `286b6b7` | `src/clients/file-memo.js`：路径、大小、修改时间（以及 inode、变更时间）不变的文件不再重读，返回副本，读失败不记；命令行 Claude、Codex、Gemini CLI、Qwen Code 经过它，列表与活动探测共用一次尾部读取，原来三个各自的小缓存并入；打开所在文件夹、导出、任务包、诊断先等一次在请求之后开始、在工作线程里跑的扫描，索引不会把请求之前开始的扫描交给要新结果的请求 | `file-memo.test.js` 5 项、`session-index.test.js` 1 项 |
-| 量出来，清掉刷新时的同步读写 | `c88d110` | 计时脚本加 `mainThreadNow`（按主进程现在的做法刷新，记下主线程事件循环最长一次转不动多久）；隐藏窗口检查加 `syncOnRefresh`（主线程处理刷新时的同步文件与子进程调用，按行统计）。量出每次刷新都同步读 `profiles.json`，而且主文件能读也把两份备份一起读了；改成读到能用的就停，刷新用的账号清单先异步看一眼文件，没变就不读。活动探测的文件工作拆到 `src/activity-files.js`（工作线程），`src/activity.js` 只留主线程上的最后一步 | `profile-snapshot.test.js` 2 项 |
-| 会话数一处来源 | `4f52a1d` | 活动探测报的会话数取索引的数（它自己遍历时把命令行 Claude 的子代理记录也算进去）；账号文件夹改了以后，旧文件夹迟到的扫描结果不写进索引，条目带代数；隐藏窗口检查加 `--sessions N` 做计时 | `session-index.test.js` 1 项、`activity.test.js` 1 项 |
+| 进程列表全应用一份 | `19801c0` | `src/process-snapshots.js`：异步 `ps`，同时到的请求共用一次，一秒内的结果复用；运行监管每 2 秒、每个账号一次的同步 `ps` 换成这一份，只在 AgentDesk 有自己启动且在运行的客户端时才查；窗口的“在运行”也用它 | `process-snapshots.test.js` 3 项 |
+| 会话索引 | `795a005` | `src/session-index.js`：列表、设备页的数、发给别的设备的库存、按标识找会话都经过它；同一账号正在扫或 3 秒内扫过的请求共用一次；结果带第 2 阶段的结果类型，重扫失败保留上次的好结果并标为旧的；按标识找会话 5 种写法合成 `findSession`；启动时的完整扫描 4 → 1 | `session-index.test.js` 5 项 |
+| 工作线程 | `8cf3f8a` | `src/scan-host.js`、`src/scan-worker.js`：扫描和活动探测在工作线程里，主进程只交账号记录和时间，线程只读文件、传回数据；线程起不来或出错时在主进程里做；活动探测里两个不给窗口看的字段打包过线程再还原；启动先把索引扫热再恢复“首次准备”任务 | `scan-host.test.js` 3 项 |
+| 逐文件记忆 | `db2320b` | `src/clients/file-memo.js`：路径、大小、修改时间（以及 inode、变更时间）不变的文件不再重读，返回副本，读失败不记；命令行 Claude、Codex、Gemini CLI、Qwen Code 经过它，列表与活动探测共用一次尾部读取，原来三个各自的小缓存并入；打开所在文件夹、导出、任务包、诊断先等一次在请求之后开始、在工作线程里跑的扫描，索引不会把请求之前开始的扫描交给要新结果的请求 | `file-memo.test.js` 5 项、`session-index.test.js` 1 项 |
+| 量出来，清掉刷新时的同步读写 | `7428731` | 计时脚本加 `mainThreadNow`（按主进程现在的做法刷新，记下主线程事件循环最长一次转不动多久）；隐藏窗口检查加 `syncOnRefresh`（主线程处理刷新时的同步文件与子进程调用，按行统计）。量出每次刷新都同步读 `profiles.json`，而且主文件能读也把两份备份一起读了；改成读到能用的就停，刷新用的账号清单先异步看一眼文件，没变就不读。活动探测的文件工作拆到 `src/activity-files.js`（工作线程），`src/activity.js` 只留主线程上的最后一步 | `profile-snapshot.test.js` 2 项 |
+| 会话数一处来源 | `688d78d` | 活动探测报的会话数取索引的数（它自己遍历时把命令行 Claude 的子代理记录也算进去）；账号文件夹改了以后，旧文件夹迟到的扫描结果不写进索引，条目带代数；隐藏窗口检查加 `--sessions N` 做计时 | `session-index.test.js` 1 项、`activity.test.js` 1 项 |
 
 做完的标志：
 
@@ -439,26 +439,26 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 - 新文件（`process-snapshots.js`、`session-index.js`、`scan-host.js`、`scan-worker.js`、`activity-files.js`、`clients/file-memo.js`）收尾后随类型检查一批加进了 `npm run check` 的逐文件语法检查清单（清单在 `package.json`，规划会话放行后才改）。
 - 第 9 节第 6 条：第 4 阶段结束，可以装上实看了；仍然只在所有者说“装上”时进行。
 
-只在开发时用的类型检查（收尾后的一批）：开发依赖 `typescript` 6.0.3，精确版本，由规划会话在所有者同意后安装并提交（`6fc92f7`），它本身没有依赖；生产依赖仍为空，打包的文件清单不含它。为什么要：`src/core/` 是各层共用的底座，结果类型、路径判断、原子写入的参数形状写成 JSDoc 后由编译器核对，调用方传错形状会在 `npm run check` 里报出来，而不是在运行时。做法：根目录 `tsconfig.json` 只查 `src/core/**`（`allowJs`、`checkJs`、`noEmit`、`strict`，`catch` 里的错误按旧规则当作任意类型）；`npm run typecheck` 运行它，`npm run check` 先跑它。Node 的类型用 `node_modules` 里已有的 `@types/node` 24.13.3（electron 与 electron-builder 带进来的），没有另装任何包；它不是直接依赖，将来 electron 不再带它时类型检查会报找不到，到时再问。`src/core` 的五个文件只加了 JSDoc 注释和两处写在注释里的类型断言，代码行为不变；`time-windows.js` 在界面里挂到 `self` 上，为此在 `types/agentdesk-globals.d.ts` 里声明了这一个全局（只给检查用，不打包）。验证用的源码摘要（`scripts/validation-source.js`）也把 `tsconfig.json` 和 `types/` 算进去。
+只在开发时用的类型检查（收尾后的一批）：开发依赖 `typescript` 6.0.3，精确版本，由规划会话在所有者同意后安装并提交（`afb50a1`），它本身没有依赖；生产依赖仍为空，打包的文件清单不含它。为什么要：`src/core/` 是各层共用的底座，结果类型、路径判断、原子写入的参数形状写成 JSDoc 后由编译器核对，调用方传错形状会在 `npm run check` 里报出来，而不是在运行时。做法：根目录 `tsconfig.json` 只查 `src/core/**`（`allowJs`、`checkJs`、`noEmit`、`strict`，`catch` 里的错误按旧规则当作任意类型）；`npm run typecheck` 运行它，`npm run check` 先跑它。Node 的类型用 `node_modules` 里已有的 `@types/node` 24.13.3（electron 与 electron-builder 带进来的），没有另装任何包；它不是直接依赖，将来 electron 不再带它时类型检查会报找不到，到时再问。`src/core` 的五个文件只加了 JSDoc 注释和两处写在注释里的类型断言，代码行为不变；`time-windows.js` 在界面里挂到 `self` 上，为此在 `types/agentdesk-globals.d.ts` 里声明了这一个全局（只给检查用，不打包）。验证用的源码摘要（`scripts/validation-source.js`）也把 `tsconfig.json` 和 `types/` 算进去。
 
 没有验证的：可见窗口；打包后的应用能否从 asar 里起工作线程（起不来时自动在主进程里做，慢一些、答案一样）；设备网模式；真实账号与真实客户端；Windows。
 
 ### 第 5 阶段：命令层与主进程（2026-11-24 完成）
 
-从 `4af5022`（第 4 阶段之后的类型检查一批）开始。窗口能向主进程要的每件事、两个命令行的每条命令都是 `src/commands/` 命令表里的一条；主进程的周期任务和要在退出时停下的东西有一个归属者；`main.js` 里的功能逐组原样搬进 `src/main/` 下按功能分的模块。每批先有行为测试，再改，再过三项检查，一批一提交。
+从 `981c188`（第 4 阶段之后的类型检查一批）开始。窗口能向主进程要的每件事、两个命令行的每条命令都是 `src/commands/` 命令表里的一条；主进程的周期任务和要在退出时停下的东西有一个归属者；`main.js` 里的功能逐组原样搬进 `src/main/` 下按功能分的模块。每批先有行为测试，再改，再过三项检查，一批一提交。
 
 | 批 | 提交 | 做了什么 | 新测试 |
 |---|---|---|---|
-| 打包后的工作线程 | `be3ece1` | `scripts/hidden-package.js` 用 `package.json` 自己的打包配置（fuses、asar 完整性、文件清单）做一个只给检查用的包，唯一的不同是 `app.asar` 里多了隐藏检查的入口；Electron 用本地 `node_modules/electron/dist` 的副本（去掉开发用的 `default_app.asar`），包必须通过发布用的完整性校验。`hidden-check` 加 `--packaged <可执行文件>`，报告每个扫描宿主是否在用工作线程。macOS arm64、Electron 43.3.0：237 个文件都在 `app.asar` 里，工作线程从里面起来，21 次扫描全在工作线程上，不需要 `asarUnpack` | — |
-| 调度中枢收尾的查找 | `82351b2` | 所有者批准的时序调整：进程退出时先定下怎么结束、何时结束（`endedAt` 取退出的时刻）；再经会话索引在工作线程上找它刚写的会话，找到后记“已结束”。最多等 2 秒；超时、出错或没找到也记“已结束”，不带会话链接，之后由迟到的答案或索引下次留下含这个会话的扫描补上（只补一次、只补这次运行自己的会话；最多挂 64 条，30 分钟后忘掉）。状态顺序不变；停止、退出、客户端没起来、没有会话标识的运行都不等查找 | `hub-run-end.test.js` 5 项（改之前 4 项失败）、`session-index.test.js` 1 项 |
-| 命令表 | `172695e` | `src/commands/registry.js` 汇总并校验（标识、通道、preload 方法各不重复；原因码格式固定），`events.js` 列出主进程发给窗口的 16 个事件；命令不引用 Electron，主进程把要用的服务交给它；`src/main/ipc/command-shell.js` 经主进程受信的登记器登记。第一批是 7 个本地读取。`docs/INTERNAL.md` 第 7 节改由 `scripts/command-docs.js` 生成（手写的清单已经和代码对不上），`check:docs` 核对 | `command-table.test.js` |
-| 第一组搬出 | `90fc784` | 客户端清单、设置与更新、工具、会话标记、本机账号与诊断、系统选择框与剪贴板：27 条，处理函数正文不变；`main.js` 里登记的接口 111 → 79。约三十个钉住 `ipcMain.handle('<通道>'` 之后源码文字的测试改读 `test/helpers/main-handler-source.js`（`main.js` 加上每条命令按登记形状拼出的副本），断言不变 | — |
-| 全部窗口接口 | `749ffca` | 设备与设备网、智能体目录、远程控制与远端库存、转移、任务包、调度中枢设置、招募与密钥交接（`ipc/recruit.js` 的发现逻辑搬到 `src/main/recruit-discovery.js`）、窗口灯的两个调用：91 条。几个设备处理函数原来直接改 `main.js` 的变量，改成调用同样语句、同样顺序的小函数，没有命令直接改主进程状态。118 个通道全在表里，只由外壳登记，过渡用的 `legacy.js` 删除 | `command-table.test.js` 加项 |
-| 命令行与调度中枢 | `8f44c73` | 命令行的 23 条进表：12 条在命令行进程里跑（`cli-local.js`），11 条转给正在运行的桌面（`cli-desktop.js`，含调度中枢的 `agents list`、`run`、`runs list/status/output/stop`）。名字、说明、参数、作用逐字搬；`service.js`、`packaged-cli.js` 和主进程的转发都按名字查表。改动前后命令行的输出（`capabilities`、23 条描述、读取、报错）逐字节相同 | `command-table.test.js` 加项 |
-| 一个归属者 | `e348420` | `src/main/owner.js`：周期任务登记间隔和“窗口隐藏时是否暂停”；资源登记怎么停。退出时先取消所有任务，再按登记顺序逐个开始停，不等慢的、不因一个失败而停，和原来退出路径上那串调用一样。原来写在退出路径里的 14 个停止按原顺序登记，后面加上原来没人管的两个：还在回答额度请求的 `codex app-server` 子进程（关标准输入，250 毫秒后还在就结束它，等着的查询得到 `CODEX_RPC_STOPPED`）和扫描工作线程。运行监管每 2 秒一次由它排，窗口隐藏时照常跑 | `main-owner.test.js` 5 项 |
-| 设备网钥匙只解密一次 | `7e4a084` | `EncryptedKeyVault.load()` 原来每次都重读钥匙文件、请系统钥匙串解密三把钥匙，设备网服务约十五处调用它，每次总览都要。现在解密结果留到本钥匙库新建或删除钥匙为止（主进程是唯一写入者）；失败不留，钥匙保护不可用时照样拒绝，调用方拿到副本 | `mesh-key-vault-once.test.js` 2 项 |
-| 一个上下文；更新搬出 | `b0bca40` | `main.js` 开头的 `mainContext()` 由 `scripts/main-context.js` 生成：外面用到的每个主进程服务和状态一个读取器（用时才读，与启动顺序无关），主进程的 `let` 状态另有写入器。命令拿它当 `deps`，搬出的模块拿它当 `main`；测试核对它是最新的。搬出的规矩：函数原样搬，用到的 `main.js` 名字改成 `main.<名字>`，读写仍落在主进程的变量上；只有这组用的常量和状态一起搬。第一组是应用更新（`src/main/updates.js`） | — |
-| 继续搬出 | `09e4af0`、`63e21ee`、`398f652`、`dba0766`、`065aca9`、`93288b8` | 工具维护 `tools.js`；打开账号与找官方客户端 `profile-launch.js`；建账号、登记、拖入判断、密钥交接 `accounts.js`；显示、打开所在文件夹、导出会话 `session-files.js`；`profiles.json` 与 `settings.json` 的读写和会话标记 `stores.js`；调度中枢在主进程这一侧 `hub-wiring.js`；设备网各服务的创建、信令、临时配对端点、网络设置与诊断 `mesh-wiring.js`（服务的状态仍在 `main.js`，启动和退出要用）；最后八个公用小函数 `support.js`。正文不变。`network-enrollment.js` 从 `src/main/ipc/` 移到 `src/main/`，归 core 层；分层检查 0 处向上依赖 | — |
+| 打包后的工作线程 | `e4f1594` | `scripts/hidden-package.js` 用 `package.json` 自己的打包配置（fuses、asar 完整性、文件清单）做一个只给检查用的包，唯一的不同是 `app.asar` 里多了隐藏检查的入口；Electron 用本地 `node_modules/electron/dist` 的副本（去掉开发用的 `default_app.asar`），包必须通过发布用的完整性校验。`hidden-check` 加 `--packaged <可执行文件>`，报告每个扫描宿主是否在用工作线程。macOS arm64、Electron 43.3.0：237 个文件都在 `app.asar` 里，工作线程从里面起来，21 次扫描全在工作线程上，不需要 `asarUnpack` | — |
+| 调度中枢收尾的查找 | `4938e33` | 所有者批准的时序调整：进程退出时先定下怎么结束、何时结束（`endedAt` 取退出的时刻）；再经会话索引在工作线程上找它刚写的会话，找到后记“已结束”。最多等 2 秒；超时、出错或没找到也记“已结束”，不带会话链接，之后由迟到的答案或索引下次留下含这个会话的扫描补上（只补一次、只补这次运行自己的会话；最多挂 64 条，30 分钟后忘掉）。状态顺序不变；停止、退出、客户端没起来、没有会话标识的运行都不等查找 | `hub-run-end.test.js` 5 项（改之前 4 项失败）、`session-index.test.js` 1 项 |
+| 命令表 | `b52a107` | `src/commands/registry.js` 汇总并校验（标识、通道、preload 方法各不重复；原因码格式固定），`events.js` 列出主进程发给窗口的 16 个事件；命令不引用 Electron，主进程把要用的服务交给它；`src/main/ipc/command-shell.js` 经主进程受信的登记器登记。第一批是 7 个本地读取。`docs/INTERNAL.md` 第 7 节改由 `scripts/command-docs.js` 生成（手写的清单已经和代码对不上），`check:docs` 核对 | `command-table.test.js` |
+| 第一组搬出 | `a87e22c` | 客户端清单、设置与更新、工具、会话标记、本机账号与诊断、系统选择框与剪贴板：27 条，处理函数正文不变；`main.js` 里登记的接口 111 → 79。约三十个钉住 `ipcMain.handle('<通道>'` 之后源码文字的测试改读 `test/helpers/main-handler-source.js`（`main.js` 加上每条命令按登记形状拼出的副本），断言不变 | — |
+| 全部窗口接口 | `af12191` | 设备与设备网、智能体目录、远程控制与远端库存、转移、任务包、调度中枢设置、招募与密钥交接（`ipc/recruit.js` 的发现逻辑搬到 `src/main/recruit-discovery.js`）、窗口灯的两个调用：91 条。几个设备处理函数原来直接改 `main.js` 的变量，改成调用同样语句、同样顺序的小函数，没有命令直接改主进程状态。118 个通道全在表里，只由外壳登记，过渡用的 `legacy.js` 删除 | `command-table.test.js` 加项 |
+| 命令行与调度中枢 | `f2e0762` | 命令行的 23 条进表：12 条在命令行进程里跑（`cli-local.js`），11 条转给正在运行的桌面（`cli-desktop.js`，含调度中枢的 `agents list`、`run`、`runs list/status/output/stop`）。名字、说明、参数、作用逐字搬；`service.js`、`packaged-cli.js` 和主进程的转发都按名字查表。改动前后命令行的输出（`capabilities`、23 条描述、读取、报错）逐字节相同 | `command-table.test.js` 加项 |
+| 一个归属者 | `ae0425c` | `src/main/owner.js`：周期任务登记间隔和“窗口隐藏时是否暂停”；资源登记怎么停。退出时先取消所有任务，再按登记顺序逐个开始停，不等慢的、不因一个失败而停，和原来退出路径上那串调用一样。原来写在退出路径里的 14 个停止按原顺序登记，后面加上原来没人管的两个：还在回答额度请求的 `codex app-server` 子进程（关标准输入，250 毫秒后还在就结束它，等着的查询得到 `CODEX_RPC_STOPPED`）和扫描工作线程。运行监管每 2 秒一次由它排，窗口隐藏时照常跑 | `main-owner.test.js` 5 项 |
+| 设备网钥匙只解密一次 | `33b816b` | `EncryptedKeyVault.load()` 原来每次都重读钥匙文件、请系统钥匙串解密三把钥匙，设备网服务约十五处调用它，每次总览都要。现在解密结果留到本钥匙库新建或删除钥匙为止（主进程是唯一写入者）；失败不留，钥匙保护不可用时照样拒绝，调用方拿到副本 | `mesh-key-vault-once.test.js` 2 项 |
+| 一个上下文；更新搬出 | `59b633b` | `main.js` 开头的 `mainContext()` 由 `scripts/main-context.js` 生成：外面用到的每个主进程服务和状态一个读取器（用时才读，与启动顺序无关），主进程的 `let` 状态另有写入器。命令拿它当 `deps`，搬出的模块拿它当 `main`；测试核对它是最新的。搬出的规矩：函数原样搬，用到的 `main.js` 名字改成 `main.<名字>`，读写仍落在主进程的变量上；只有这组用的常量和状态一起搬。第一组是应用更新（`src/main/updates.js`） | — |
+| 继续搬出 | `3e7e78a`、`74c0499`、`2cad162`、`0adfe99`、`bd7335b`、`35bef8f` | 工具维护 `tools.js`；打开账号与找官方客户端 `profile-launch.js`；建账号、登记、拖入判断、密钥交接 `accounts.js`；显示、打开所在文件夹、导出会话 `session-files.js`；`profiles.json` 与 `settings.json` 的读写和会话标记 `stores.js`；调度中枢在主进程这一侧 `hub-wiring.js`；设备网各服务的创建、信令、临时配对端点、网络设置与诊断 `mesh-wiring.js`（服务的状态仍在 `main.js`，启动和退出要用）；最后八个公用小函数 `support.js`。正文不变。`network-enrollment.js` 从 `src/main/ipc/` 移到 `src/main/`，归 core 层；分层检查 0 处向上依赖 | — |
 
 做完的标志：
 
@@ -495,7 +495,7 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 | 批 | 提交 | 做了什么 | 新测试 |
 |---|---|---|---|
-| 会话清单记住算过的 | `1760696` | 先只记住逐条算出的会话键，量下来不够，再加整份结果的缓存，详见下文 | `mesh-unified-sessions-memo.test.js` 5 项 |
+| 会话清单记住算过的 | `285702e` | 先只记住逐条算出的会话键，量下来不够，再加整份结果的缓存，详见下文 | `mesh-unified-sessions-memo.test.js` 5 项 |
 
 **第一步：只记住会话键。** 会话键和副本键是关联钥匙对规范输入算的 HMAC，是纯函数，所以记在一张表里。表绑定一把关联钥匙（存钥匙的 SHA-256 指纹，不存钥匙），钥匙字节或版本一变整张丢掉，最多留 60,000 条，最旧的先丢。`inventory.js` 只多了一个可选参数；交进来的表不是为这把钥匙做的，就照旧直接算。远端 5000 条的情况只从约 53 毫秒降到 49 毫秒（最慢 52 毫秒），因为大头不在这里。剖析显示，算键只占约 9 毫秒；约 40 毫秒花在逐条校验和规整上（日期、文本、整份大小），同一份库存要过三遍。所以做了第二步。
 
@@ -544,11 +544,11 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 ### 第 6 阶段：界面层（2026-11-24 完成，留一处待定）
 
-从 `1760696`（第 5 阶段补一批）开始。`renderer.js` 原样拆成 26 个原生模块（`src/renderer/views/`），依赖都写成 `import`，`renderer.js` 只剩启动。每批先有行为测试，再改，再过三项检查，一批一提交；每批都在隐藏窗口里对照基准截图逐像素比较。
+从 `285702e`（第 5 阶段补一批）开始。`renderer.js` 原样拆成 26 个原生模块（`src/renderer/views/`），依赖都写成 `import`，`renderer.js` 只剩启动。每批先有行为测试，再改，再过三项检查，一批一提交；每批都在隐藏窗口里对照基准截图逐像素比较。
 
 **看得见的东西不变怎么核对。**
 
-- 截图：开工前在 `1760696` 用 `scripts/ui-snapshots.js` 截了基准。条件是隐藏窗口、减少动态效果、两套主题 × 三种语言，每套 11 个状态：名册与卡片、会话表精简与详细、聚焦与勾选（动作坞）、档案、设备、收件箱、系统、招募、额度浮层、空台面，共 66 张。同一份代码连截两次，0 处不同。之后 12 批每批都逐像素相同。只有一次第一遍截图在日文系统字里差了 9 个像素，重截两次都相同；对比脚本现在遇到差异会自动重截一次，并在报告里写明。
+- 截图：开工前在 `285702e` 用 `scripts/ui-snapshots.js` 截了基准。条件是隐藏窗口、减少动态效果、两套主题 × 三种语言，每套 11 个状态：名册与卡片、会话表精简与详细、聚焦与勾选（动作坞）、档案、设备、收件箱、系统、招募、额度浮层、空台面，共 66 张。同一份代码连截两次，0 处不同。之后 12 批每批都逐像素相同。只有一次第一遍截图在日文系统字里差了 9 个像素，重截两次都相同；对比脚本现在遇到差异会自动重截一次，并在报告里写明。
 - DOM 结构、类名和看得见的文字没有改。
 
 **界面契约。** `test/ui-contracts.test.js` 把设备网计划的七条界面契约逐条对到守住它的测试，测试改名或删掉就失败。七条是：
@@ -568,18 +568,18 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 | 批 | 提交 | 做了什么 |
 |---|---|---|
-| 出口与基准 | `993e9dd` | 验收、隐藏检查、截图脚本只经 `window.AgentDeskInspect`（34 个函数、`state`、只允许替换首次准备一步的 `replace`）读写界面；读界面源码的测试改经 `test/helpers/renderer-source.js`；截图脚本与基准；契约索引；指标脚本把经读源码帮助函数的测试也算进去 |
-| 状态仓库 | `41d9a08` | `UiContext.createStore`：一个 `state` 对象，按主题订阅，可整体重置 |
-| 名册 | `8c3ffc6` | 第一个原生模块；确认打包后能从 asar 加载 |
-| 会话表 | `832c177` | 原样拆出 |
-| 会话表按行更新 | `61d9e4c` | 见下文 |
-| 动作坞与详情 | `026a7ce` | 原样拆出 |
-| 对话框、菜单、浮层 | `01f3089` | 弹窗只经 `openDialog` 显示（原来 12 处直接 `showModal()`）；菜单只经 `closeContextMenu` 关，三条规则一处登记；浮层本来就都是浏览器 popover |
-| 变化通知 | `f8b7008` | 主进程发给窗口的 15 种事件进仓库主题 `main:<preload 方法>`，原来直接挂在 `window.manager.on…` 上的处理改成订阅 |
-| 九块功能 | `371021d` | 首次使用、档案、目录弹窗、更新、额度、换装、诊断、调度中枢、台面 |
-| 其余功能 | `73d1b83` | 添加设备、设备中心、收件箱、任务包、传输、数据读取、选择上下文、设置、公共小函数 |
-| 拆 `bindEvents` | `31cd4aa` | 918 行按原顺序切成 22 段 `bind…Events`，各进自己的视图；`bindEvents` 按原顺序调用，监听器登记的先后不变 |
-| 只剩启动 | `addc829` | 共用的仓库、元素表、工厂移到 `shared.js`；26 个模块全部改为 `import`，不再往 window 上挂函数 |
+| 出口与基准 | `026c7ad` | 验收、隐藏检查、截图脚本只经 `window.AgentDeskInspect`（34 个函数、`state`、只允许替换首次准备一步的 `replace`）读写界面；读界面源码的测试改经 `test/helpers/renderer-source.js`；截图脚本与基准；契约索引；指标脚本把经读源码帮助函数的测试也算进去 |
+| 状态仓库 | `1f5f17e` | `UiContext.createStore`：一个 `state` 对象，按主题订阅，可整体重置 |
+| 名册 | `fc2d650` | 第一个原生模块；确认打包后能从 asar 加载 |
+| 会话表 | `64b58a6` | 原样拆出 |
+| 会话表按行更新 | `bd2f78f` | 见下文 |
+| 动作坞与详情 | `24c4f8d` | 原样拆出 |
+| 对话框、菜单、浮层 | `ffe2de5` | 弹窗只经 `openDialog` 显示（原来 12 处直接 `showModal()`）；菜单只经 `closeContextMenu` 关，三条规则一处登记；浮层本来就都是浏览器 popover |
+| 变化通知 | `a06cc9a` | 主进程发给窗口的 15 种事件进仓库主题 `main:<preload 方法>`，原来直接挂在 `window.manager.on…` 上的处理改成订阅 |
+| 九块功能 | `b0e2d69` | 首次使用、档案、目录弹窗、更新、额度、换装、诊断、调度中枢、台面 |
+| 其余功能 | `8086339` | 添加设备、设备中心、收件箱、任务包、传输、数据读取、选择上下文、设置、公共小函数 |
+| 拆 `bindEvents` | `c569bc5` | 918 行按原顺序切成 22 段 `bind…Events`，各进自己的视图；`bindEvents` 按原顺序调用，监听器登记的先后不变 |
+| 只剩启动 | `8598e7d` | 共用的仓库、元素表、工厂移到 `shared.js`；26 个模块全部改为 `import`，不再往 window 上挂函数 |
 
 **会话表按行更新。** 每行按会话键（ConversationIdentity 的逻辑行键）记住画出的元素和它显示内容的签名。签名包括：
 
@@ -637,7 +637,7 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 **收尾两件（2026-11-24，规划会话复核第 6 阶段之后）。**
 
-1. 页脚“台面上还没有猫”的显示错误（`185f599`）。
+1. 页脚“台面上还没有猫”的显示错误（`531c2b1`）。
    - 原因：启动时账号还没读进来就先画了一次空台面，页脚换成那句话以后，猫来了也没有换回。正常启动（不重新载入页面）就会出现，所以不是测试环境的现象。
    - 现在：这句话带一个只属于空台面的记号。卡片画出来时，页脚如果还是它，就回到启动时的样子（“就绪”，跟着语言）；更新的一句话不会被抹掉。
    - 测试：新增 2 项（改之前都失败），验收第一条路径多一条断言。
@@ -659,7 +659,7 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 ### 第 7 阶段：样式（2026-11-24 完成）
 
-从 `23aa5f1`（第 6 阶段收尾）开始。目标是第 5.8 节：只留一代样式，旧表整表删掉，跨表重复的选择器为 0，变量各定义一次，`!important` 只出现在列明原因的清单里，并由测试看住。七批，每批先在隐藏窗口里核对，0 处不同才提交。
+从 `55faaa4`（第 6 阶段收尾）开始。目标是第 5.8 节：只留一代样式，旧表整表删掉，跨表重复的选择器为 0，变量各定义一次，`!important` 只出现在列明原因的清单里，并由测试看住。七批，每批先在隐藏窗口里核对，0 处不同才提交。
 
 **看得见的和看不见的都不变，怎么核对。**
 
@@ -669,17 +669,17 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 | 批 | 提交 | 做了什么 |
 |---|---|---|
-| 1 | `3a72e65` | 计算样式标尺 `scripts/ui-styles.js`（`--write` / `--compare`） |
-| 2 | `fb0ef3e` | 删一定不生效的声明：同一组选择器、同一媒体条件、同样的 !important，另一条在更高层（普通）、更低层（!important）或同层更靠后。553 条声明、83 条规则 |
-| 3 | `254e2ac` | 同上，按单个选择器判断。179 条声明、22 条规则 |
-| 4 | `e1a87ea` | 旧表在 `[data-theme="dark"]` 上的 29 个颜色变量从不生效（data-theme 只在 `<html>` 上，皮肤的 `:root[data-theme="dark"]` 全都设过），删掉；28 个指向从没有代码设置过的类名或属性的选择器删掉，因此空了的 14 条规则删掉；旧表的 `::-webkit-scrollbar-thumb:hover` 背景总被 reset 层的 `::-webkit-scrollbar-thumb` 压过，删掉 |
-| 5 | `aed4c01` | 旧表仍生效的规则原样、按原顺序搬进 `workspace.css`，成为 `base` 层；`styles.css` 删除 |
-| 6 | `4315048` | 70 个被两张表设置的选择器各合成一条规则；合并后同一规则里总被覆盖的 53 条声明删掉 |
-| 7 | `63263ec` | 剩下 37 个选择器在 `workspace.css` 里的 47 条规则整条搬到 `pixel.css` 开头，仍在原来的层里；新增 `test/style-structure.test.js` |
+| 1 | `faf7f2d` | 计算样式标尺 `scripts/ui-styles.js`（`--write` / `--compare`） |
+| 2 | `a42a6fa` | 删一定不生效的声明：同一组选择器、同一媒体条件、同样的 !important，另一条在更高层（普通）、更低层（!important）或同层更靠后。553 条声明、83 条规则 |
+| 3 | `9242194` | 同上，按单个选择器判断。179 条声明、22 条规则 |
+| 4 | `5f177a0` | 旧表在 `[data-theme="dark"]` 上的 29 个颜色变量从不生效（data-theme 只在 `<html>` 上，皮肤的 `:root[data-theme="dark"]` 全都设过），删掉；28 个指向从没有代码设置过的类名或属性的选择器删掉，因此空了的 14 条规则删掉；旧表的 `::-webkit-scrollbar-thumb:hover` 背景总被 reset 层的 `::-webkit-scrollbar-thumb` 压过，删掉 |
+| 5 | `959f757` | 旧表仍生效的规则原样、按原顺序搬进 `workspace.css`，成为 `base` 层；`styles.css` 删除 |
+| 6 | `c53cea5` | 70 个被两张表设置的选择器各合成一条规则；合并后同一规则里总被覆盖的 53 条声明删掉 |
+| 7 | `fac19f8` | 剩下 37 个选择器在 `workspace.css` 里的 47 条规则整条搬到 `pixel.css` 开头，仍在原来的层里；新增 `test/style-structure.test.js` |
 
 **结果。**
 
-| | 开始（`23aa5f1`） | 现在 |
+| | 开始（`55faaa4`） | 现在 |
 |---|---|---|
 | 主窗口加载的样式表 | 4 张（`styles.css` 3220 行、`workspace.css` 2438、`pixel.css` 2436、`cats.css` 110） | 3 张（`workspace.css` 4463、`pixel.css` 2645、`cats.css` 119） |
 | 样式规则（`arch-metrics`，src 下全部样式表） | 1844 | 1650 |
@@ -731,17 +731,17 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 ### 第 8 阶段：测试与文档（2026-11-24 完成）
 
-从 `6ec6bf2`（第 7 阶段收尾）开始。目标是第 5.10 节与第 6 节表里第 8 行：比对源码文字的测试只剩安全不变式；重写 `docs/INTERNAL.md`；用词表；给贡献者的结构说明；文档与代码由检查看住。另有两项能做就做：机械可拆的长函数，能扩的类型检查。
+从 `e3c78fa`（第 7 阶段收尾）开始。目标是第 5.10 节与第 6 节表里第 8 行：比对源码文字的测试只剩安全不变式；重写 `docs/INTERNAL.md`；用词表；给贡献者的结构说明；文档与代码由检查看住。另有两项能做就做：机械可拆的长函数，能扩的类型检查。
 
 | 批 | 提交 | 做了什么 |
 |---|---|---|
-| 1–3 | `4fc4fff` `8f1b301` `ff8285b` | 用词表 `docs/WORDING_PLAN.md`：草稿、逐句修订、规划会话的决定；第 7 阶段已定的事记入上一段 |
-| 4 | `ec603d8` | 额度原因按界面语言显示：主进程写词表 key（`reasonKeys`），窗口按当前语言翻译 |
-| 5 | `94ff440` | 删掉从没被读到的弹窗边距变量和从没生效的字体设置 |
-| 6 | `551832f` | 所有者确认的五个词改到界面（三张词表、页面、硬编码文字），额度提示改为 12px；设备网计划 1.37 |
-| 7–11 | `604c12b` `7e6809a` `f10c89b` `c8c8e27` `ed30306` | 比对源码文字的测试改为验证行为或解析结构；`test/text-checks.test.js` 列出剩下的并写明理由 |
-| 12 | `87d3d0d` | `docs/INTERNAL.md` 按五层重写，新增 `docs/STRUCTURE.md`；`check:docs` 看住生成的分层表和引用的路径 |
-| 13–14 | `a7a9c67` | 拆两个长函数，类型检查多查一个文件；测试与检查脚本清理自己留下的东西（规划会话加的一批，两批在同一个工作区里验证，合成一个提交） |
+| 1–3 | `13c6669` `1f7c170` `2f60994` | 用词表 `docs/WORDING_PLAN.md`：草稿、逐句修订、规划会话的决定；第 7 阶段已定的事记入上一段 |
+| 4 | `0f37e1b` | 额度原因按界面语言显示：主进程写词表 key（`reasonKeys`），窗口按当前语言翻译 |
+| 5 | `b8bb6c2` | 删掉从没被读到的弹窗边距变量和从没生效的字体设置 |
+| 6 | `7a17b6f` | 所有者确认的五个词改到界面（三张词表、页面、硬编码文字），额度提示改为 12px；设备网计划 1.37 |
+| 7–11 | `5b9a851` `9aa81c7` `ffc2557` `e2e5290` `bd1884a` | 比对源码文字的测试改为验证行为或解析结构；`test/text-checks.test.js` 列出剩下的并写明理由 |
+| 12 | `717ad0a` | `docs/INTERNAL.md` 按五层重写，新增 `docs/STRUCTURE.md`；`check:docs` 看住生成的分层表和引用的路径 |
+| 13–14 | `4294b2a` | 拆两个长函数，类型检查多查一个文件；测试与检查脚本清理自己留下的东西（规划会话加的一批，两批在同一个工作区里验证，合成一个提交） |
 
 **用词这一批（第 6 批）怎么核对的。** 计算样式与基准比，只有字号带来的变化（1328 处尺寸、额度提示 132 处、24 处网格轨道），强制交互状态下也只有尺寸；隐藏窗口里扫三种语言、两套主题：退役的叫法 0 处（种子数据自己的名字和路径不算）；1040 × 840 骨架不变；66 张截图都变了（文字变了），已重新存为新基准并复核稳定。文字溢出扫描多出一处：中文的空闲额度提示“选择账号后会自动查询，额度不会混入高频活跃度轮询。”在 12px 下被截断，需要定：缩短这句，或者允许它换行。
 
@@ -780,7 +780,7 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 **结果。**
 
-| | 开始（`6ec6bf2`） | 现在 |
+| | 开始（`e3c78fa`） | 现在 |
 |---|---|---|
 | 只比对源码文字的测试文件 | 16（其中 3 个在 vm 里运行抽出的源码） | 11（其中 3 个同上），每个写明理由 |
 | 超过 150 行的函数 | 17 | 15 |
@@ -800,7 +800,7 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 **要定的一件事。** 中文的空闲额度提示在 12px 下被截断（见上面“用词这一批”）：缩短这句，或者允许它换行。
 
-**复核后已定（规划会话替所有者定，2026-11-24）。** 第 8 阶段复核通过（`247a211`）：
+**复核后已定（规划会话替所有者定，2026-11-24）。** 第 8 阶段复核通过（`757f405`）：
 
 - 5 个窗口接线的文字比对测试保留，理由照上面写的，不加 DOM 依赖；
 - 没拆的 15 个长函数、类型检查现在的覆盖范围，都接受，原因照上面写的；
@@ -811,8 +811,8 @@ Gemini 拖入导入的复核（规划会话转来的第 8 条）：按 gemini-cl
 
 | 批 | 提交 | 做了什么 |
 |---|---|---|
-| 15 | `de41411` | 列表跟着 8 秒探测刷新时界面线程上的工作减少，结果逐行相同 |
-| 16 | `6f20e20` | 额度空闲提示只留前半句（三种语言）；打包检查报告构建日志里的下载行 |
+| 15 | `fa66aba` | 列表跟着 8 秒探测刷新时界面线程上的工作减少，结果逐行相同 |
+| 16 | `1484cad` | 额度空闲提示只留前半句（三种语言）；打包检查报告构建日志里的下载行 |
 
 - 刷新（第 15 批）：先取 CPU 剖面，发现排序本身并不贵。主要开销是：
   - 每行签名都带着整段视图描述；
