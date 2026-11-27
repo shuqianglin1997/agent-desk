@@ -426,6 +426,15 @@ commit `bebb532…`), staged into the scratch folder and checked again, then
 stopped before the swap. `/Applications` was untouched; the scratch folder
 was removed and no Catshelf image stayed mounted. About 48 seconds.
 
+The dry run downloads with Node, not with Electron's `net`, so it missed
+one fault: the first real “Update and restart” the same day (from a local
+build of `a90d9a3`) stopped within seconds with `download-interrupted`.
+Electron 43 emits `close` on the request as soon as it is sent, before the
+redirect and the response, and the download treated that as an
+interruption. Fixed in `8127a32`. Builds of `a90d9a3` and `51d795b`
+(Latest `test-20261126-51d795b`) therefore cannot update themselves;
+anyone running one downloads the next build by hand once.
+
 Not verified on a real machine yet: the swap, the reopen, the keychain and
 permission prompts after it, and the Windows replacement of a test build.
 
