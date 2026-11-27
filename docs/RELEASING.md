@@ -435,6 +435,12 @@ interruption. Fixed in `8127a32`. Builds of `a90d9a3` and `51d795b`
 (Latest `test-20261126-51d795b`) therefore cannot update themselves;
 anyone running one downloads the next build by hand once.
 
+The second real attempt (from `8127a32`) downloaded at about 70-110 KB/s
+from GitHub, so the 209 MB package needed close to an hour and would have
+hit the 30-minute total limit. Since `f4cd2de` a download stops only after
+two minutes without data (six-hour cap). Builds before it can still update
+themselves when GitHub is fast enough to finish within 30 minutes.
+
 Not verified on a real machine yet: the swap, the reopen, the keychain and
 permission prompts after it, and the Windows replacement of a test build.
 
